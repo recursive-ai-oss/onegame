@@ -15,6 +15,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="OneGame.Generators.Tests" />
   </ItemGroup>
 

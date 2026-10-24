@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>OneGame.Core.Fuzz</RootNamespace>
+    <!-- The decoders and sample entities come from the Core test project, so the fuzzer and the regression test run the same code. -->
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../OneGame.Core.Tests/Samples/*.cs" LinkBase="Samples" />
+    <Compile Include="../OneGame.Core.Tests/Fuzz/FuzzTargets.cs" Link="FuzzTargets.cs" />
+    <ProjectReference Include="../../src/OneGame.Core/OneGame.Core.csproj" />
+    <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>
