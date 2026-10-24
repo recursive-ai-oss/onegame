@@ -2,6 +2,20 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/OneGame.Sync/OneGame.Sync.csproj" />
+    <!-- The sample entities (a shop, wandering bots, a hot table) run through the generator like a game's would. -->
+    <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <Compile Include="../OneGame.Core.Tests/Samples/*.cs" LinkBase="Samples" />
+    <Compile Include="../OneGame.Core.Tests/Fuzz/FuzzTargets.cs" Link="Fuzz/FuzzTargets.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Fuzzer seeds and every crash input it ever found; the regression test replays them all. -->
+    <None Include="../../testdata/fuzz-sync/**/*.bin" Link="testdata/fuzz-sync/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="OneGame.Core" />
+    <Using Include="OneGame.Sync" />
   </ItemGroup>
 
 </Project>
