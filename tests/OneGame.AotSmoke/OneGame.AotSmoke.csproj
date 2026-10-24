@@ -36,6 +36,7 @@
     <!-- A font and an icon for the text smoke. -->
     <EmbeddedResource Include="../../testdata/text/fonts/NotoSans-Subset-Regular.ttf" LogicalName="font.ttf" />
     <EmbeddedResource Include="../../testdata/text/svg/coin.svg" LogicalName="coin.svg" />
+    <EmbeddedResource Include="../OneGame.Render2D.Tests/Shaders/*.spv" LogicalName="spv/%(Filename)" />
   </ItemGroup>
 
 </Project>

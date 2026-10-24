@@ -195,6 +195,43 @@ if (pixels[0] != 255 || pixels[1] is < 127 or > 128 || pixels[2] != 0 || pixels[
 }
 
 Console.WriteLine($"gpu: {device.Adapter.Name} ({device.Adapter.Kind}) cleared and read back 8x8");
+
+// The 2D renderer: sprites, a rounded rectangle and a line of text through the atlases, offscreen, read back.
+using var renderer = Renderer2D.Create(device, GpuFormat.Rgba8UnormSrgb, new EmbeddedShaders());
+using var frameTarget = device.CreateTexture(new TextureDesc(96, 64, GpuFormat.Rgba8UnormSrgb, TextureUsage.RenderTarget | TextureUsage.CopySource));
+using var sprite = renderer.CreateTexture(2, 2, [255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255], TextureFilter.Nearest);
+var scene = new Scene2D();
+scene.Draw(Sprite.Create(sprite, new System.Numerics.Vector2(-24, 0)) with { Scale = new System.Numerics.Vector2(8, 8) });
+var labelTree = new UiTree(measurer);
+labelTree.SetViewport(96, 64);
+labelTree.AddStyleSheet(new StyleSheet().Rule(":root", s => s.FontSize(14).TextColor(Color.White)));
+labelTree.Root.With(Ui.Label("Silk 95g").Style(s => s.MarginLeft(30).MarginTop(40)));
+var labelList = labelTree.Frame();
+var quads = new TextQuadBuilder(measurer, glyphAtlas);
+renderer.BeginFrame(frameTarget, new FrameOptions { Clear = new Color(0, 0, 0, 255) });
+renderer.DrawScene(scene, Camera2D.Default);
+renderer.Ui.Fill(new Rect(60, 8, 24, 24), new Color(0, 255, 0, 255), new CornerRadii(8, 8, 8, 8));
+renderer.Ui.Draw(labelList, quads, glyphAtlas, art);
+var frameEncoder = device.BeginCommands();
+var frameStats = renderer.EndFrame(frameEncoder);
+device.Submit(frameEncoder);
+var frame = new byte[96 * 64 * 4];
+device.ReadTexture(frameTarget, 0, 0, frame);
+var red = (((32 * 96) + 24) * 4);
+var green = (((20 * 96) + 72) * 4);
+var anyText = false;
+for (var i = 40 * 96 * 4; i < frame.Length; i += 4)
+{
+    anyText |= frame[i] > 128 && frame[i + 1] > 128 && frame[i + 2] > 128;
+}
+
+if (frame[red] != 255 || frame[red + 1] != 0 || frame[green] != 0 || frame[green + 1] != 255 || !anyText)
+{
+    Console.Error.WriteLine($"render2d: unexpected pixels red={frame[red]},{frame[red + 1]} green={frame[green]},{frame[green + 1]} text={anyText}");
+    return 1;
+}
+
+Console.WriteLine($"render2d: sprite, rounded rect and text drawn in {frameStats.DrawCalls} draws, {frameStats.Passes} pass; read back 96x64");
 return 0;
 
 static byte[] ReadResource(string name)
@@ -203,4 +240,19 @@ static byte[] ReadResource(string name)
     using var copy = new MemoryStream();
     stream.CopyTo(copy);
     return copy.ToArray();
+}
+
+/// <summary>The renderer's shaders compiled by a test tool and embedded in this smoke test; a game gets them from the shader build.</summary>
+internal sealed class EmbeddedShaders : IShaderSource
+{
+    public ShaderCode Load(string program, string entryPoint) =>
+        new(entryPoint.StartsWith("VS", StringComparison.Ordinal) ? ShaderStage.Vertex : ShaderStage.Pixel, "main", ReadResource("spv/" + program + "." + entryPoint));
+
+    private static byte[] ReadResource(string name)
+    {
+        using var stream = typeof(EmbeddedShaders).Assembly.GetManifestResourceStream(name) ?? throw new InvalidOperationException("missing resource " + name);
+        using var copy = new MemoryStream();
+        stream.CopyTo(copy);
+        return copy.ToArray();
+    }
 }

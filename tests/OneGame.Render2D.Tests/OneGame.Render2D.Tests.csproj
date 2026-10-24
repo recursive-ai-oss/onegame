@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/OneGame.Render2D/OneGame.Render2D.csproj" />
+    <ProjectReference Include="../../src/OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan.csproj" />
   </ItemGroup>
 
 </Project>

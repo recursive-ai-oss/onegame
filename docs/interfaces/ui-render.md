@@ -50,6 +50,20 @@ void Layout(string text, in TextStyle style, float maxWidth, List<TextLine> line
 
 `maxWidth` is `+Infinity` for no wrapping (max-content) and `0` for the min-content width (break at every opportunity; an unbreakable run overflows). `Layout` and `Measure` must agree, and the result must be a pure function of the arguments: layout caches on it. `TextLine.Y` is relative to the first line. The fit with the font library: break opportunities from `TextSegmentation.GetLineBreakOpportunities`, advances from `TextShaping.ShapeRun` (per bidi run, in visual order), line height from face metrics when `LineHeight` is 0. `MonospaceTextMeasurer` (6 px per character at 10 px font size, 12 px lines) is the deterministic stand-in for headless runs and tests. Set `ui.Measurer` when the real one is ready; all layout is redone.
 
+## What the renderer does with it (`render2d.md`)
+
+Agreed points: transforms are absolute screen-to-screen matrices and a nested push composes as `new * current`; text lines index UTF-16 code
+units of the run string; group opacity is applied at `PushOpacity` (the group is drawn offscreen and blended at the pop, so children do not
+show through each other). Also settled:
+
+- A clip cuts at whole pixels when it is axis-aligned and square; a rounded or rotated clip is anti-aliased. Nested clips all apply.
+- A `Shadow` is drawn around the box and not under it; `Value` is the blur radius (twice the standard deviation of the blur).
+- `Image` nine-slice: `Slice` gives the destination insets in screen pixels; the source insets come from the art's own slice (scaled to
+  its raster) or, when it has none, the same numbers.
+- A resource the atlas does not know draws as a magenta box so the mistake is visible.
+- Gradients are not in the list yet: no style property produces one, and `DrawCommand` has no fields for them. The renderer can draw them
+  (`UiCanvas.Fill(rect, gradient)`); when the style grows a gradient, `Rect` gets two colours and a ramp and the replay passes them through.
+
 ## Not done by the UI
 
 Scroll bars, text selection and carets, focus rings (a style rule gives an `outline`), and animation. `transition` is stored as data only.
