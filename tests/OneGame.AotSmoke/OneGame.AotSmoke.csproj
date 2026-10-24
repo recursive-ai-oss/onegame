@@ -22,6 +22,7 @@
     <ProjectReference Include="../../src/OneGame.Platform/OneGame.Platform.csproj" />
     <ProjectReference Include="../../src/OneGame.Render2D/OneGame.Render2D.csproj" />
     <ProjectReference Include="../../src/OneGame.UI/OneGame.UI.csproj" />
+    <ProjectReference Include="../../src/OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
     <ProjectReference Include="../../src/OneGame.Atlas/OneGame.Atlas.csproj" />
     <ProjectReference Include="../../src/OneGame.Text/OneGame.Text.csproj" />
     <ProjectReference Include="../../src/OneGame.Audio/OneGame.Audio.csproj" />

@@ -52,6 +52,30 @@ using (var app = PlatformApp.Create(new PlatformOptions { Backend = PlatformBack
     }
 }
 
+// Audio: the capture path (no device, exact frame counts) and the no-device path through the real OS backend, which must stay silent and alive.
+using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true }))
+{
+    audio.Play(audio.LoadSound(new MemoryStream([0, 0, 0, 0])));
+    audio.Advance(480);
+    audio.Update();
+    if (audio.Capture is not { FramesCaptured: 480 })
+    {
+        Console.Error.WriteLine("audio capture smoke failed");
+        return 1;
+    }
+}
+
+using (var audio = AudioService.Create(new AudioServiceOptions { Device = new AudioDeviceOptions { DeviceName = "onegame_no_such_device" } }))
+{
+    audio.Play(audio.LoadSound(new MemoryStream([0, 0, 0, 0])));
+    audio.Update();
+    if (audio.Output.Status != AudioOutputStatus.NoDevice || AudioService.DefaultBackend().Name.Length == 0)
+    {
+        Console.Error.WriteLine("audio no-device smoke failed");
+        return 1;
+    }
+}
+
 // Runs generated entity code under NativeAOT: state, commands, snapshot, restore, delta and hash.
 var registry = new EntityRegistry();
 OneGame.Generated.OneGame_AotSmoke.EntityTypes.Register(registry);
@@ -172,6 +196,16 @@ if (textLines.Count < 2 || placed.Count == 0 || glyphStatus != AtlasStatus.Ok ||
 }
 
 Console.WriteLine($"ok: text {textLines.Count} lines, {placed.Count} glyphs, glyph {glyph.Width}x{glyph.Height}, svg {coin.Width}x{coin.Height}");
+
+// The component kit: a table, a filter field, a dialog and a theme swap, driven through input events.
+var kitProblem = KitSmoke.Run(measurer);
+if (kitProblem is not null)
+{
+    Console.Error.WriteLine("kit smoke failed: " + kitProblem);
+    return 1;
+}
+
+Console.WriteLine("ok: ui kit table, filter, sort, dialog and theme swap");
 
 // Graphics: create a device, clear an offscreen target and read it back. "--require-gpu" turns a missing Vulkan driver into a failure.
 var requireGpu = args.Contains("--require-gpu");

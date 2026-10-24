@@ -62,10 +62,12 @@ internal sealed class NewVerb : IVerb
             File.WriteAllText(path, text);
         }
 
+        ExportAssets.WriteDefaultFont(target);
+        var created = files.Keys.Concat(["fonts/NotoSans-Regular.ttf", "fonts/OFL.txt"]);
         string[] next = [$"cd {target}", "onegame build", "onegame run --headless --frames 60", "onegame test"];
         if (json)
         {
-            output.WriteLine(JsonSerializer.Serialize(new NewResult(true, name, target, [.. files.Keys.Order(StringComparer.Ordinal)], root, next), CliJson.Default.NewResult));
+            output.WriteLine(JsonSerializer.Serialize(new NewResult(true, name, target, [.. created.Order(StringComparer.Ordinal)], root, next), CliJson.Default.NewResult));
         }
         else
         {
@@ -206,6 +208,6 @@ internal static class Templates
         onegame mcp --project .                    # let an agent drive the game over MCP
         ```
 
-        Scenarios live in `scenarios/`. Debug builds include the development tools (live control, scenarios, capture, replay); Release builds leave them out.
+        Scenarios live in `scenarios/`. `fonts/` holds the game's fonts (Noto Sans Regular to start, SIL Open Font License; its licence sits beside it). `onegame export --target linux-x64 --json` packages a Release build to ship; see the engine's `docs/exporting.md`. Debug builds include the development tools (live control, scenarios, capture, replay); Release builds leave them out.
         """;
 }

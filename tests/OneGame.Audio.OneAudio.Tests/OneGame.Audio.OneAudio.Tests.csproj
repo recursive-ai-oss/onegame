@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Proves the audio service against oneaudio's real mixer. It builds the sibling checkout by project reference, so it is not part of
+       OneGame.slnx; run it on its own when that checkout sits next to this repository. Runtime code switches to the package once it is
+       published (see docs/interfaces/audio.md). -->
+  <PropertyGroup>
+    <!-- A worktree sits one folder deeper than a plain clone; ONEAUDIO_PROJECT overrides both guesses. -->
+    <OneAudioRel>oneaudio/csharp/oneaudio-csharp/src/OneAudio/OneAudio.csproj</OneAudioRel>
+    <OneAudioProject Condition="'$(ONEAUDIO_PROJECT)' != ''">$(ONEAUDIO_PROJECT)</OneAudioProject>
+    <OneAudioProject Condition="'$(OneAudioProject)' == '' and Exists('$(MSBuildThisFileDirectory)../../../../$(OneAudioRel)')">$(MSBuildThisFileDirectory)../../../../$(OneAudioRel)</OneAudioProject>
+    <OneAudioProject Condition="'$(OneAudioProject)' == ''">$(MSBuildThisFileDirectory)../../../../../$(OneAudioRel)</OneAudioProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneGame.Audio/OneGame.Audio.csproj" />
+    <ProjectReference Include="$(OneAudioProject)" />
+  </ItemGroup>
+
+</Project>

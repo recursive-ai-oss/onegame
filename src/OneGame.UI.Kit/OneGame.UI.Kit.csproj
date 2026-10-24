@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Base UI component kit: buttons, tables, lists, tabs, text input and more, themed with tokens.</Description>
+    <RootNamespace>OneGame.UI.Kit</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- OneFont supplies the Unicode grapheme and bidirectional-level rules that caret movement in the text input follows. -->
+    <PackageReference Include="RecursiveAI.OneFont" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.UI/OneGame.UI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <InternalsVisibleTo Include="OneGame.UI.Kit.Tests" />
+  </ItemGroup>
+
+</Project>
