@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/OneGame.Core/OneGame.Core.csproj" />
+    <!-- The sample entities in this project run through the generator and analyzers like a game's would. -->
+    <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>
