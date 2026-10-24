@@ -68,6 +68,65 @@ public static class GameLoop
 The renderer draws the list with `renderer.Ui.Draw(list, textQuadBuilder, glyphAtlas, artAtlas)` (see `docs/interfaces/render2d.md`).
 Nothing is drawn unless `list.Version` changed; you can skip re-recording when it did not.
 
+### Setting up inside a game (the normal way)
+
+A game made with `onegame new` does not write that loop. Its `GameDefinition` declares screens, and the host owns the `UiTree`, translates platform input
+(mouse, keys, text, and the gamepad: South = confirm, East = back, d-pad and shoulder buttons = navigate) into `UiEvent`s, and runs the frames. You plug the kit in
+in four places:
+
+```csharp type
+public sealed class MarketGame : GameDefinition
+{
+    private KitHost? _kit;
+    private bool _clockRunning;
+
+    public override string Name => "Market";
+
+    // A game with entities calls the generated EntityTypes.Register(registry) here.
+    public override void RegisterEntities(EntityRegistry registry)
+    {
+    }
+
+    public override void Setup(World world)
+    {
+    }
+
+    // 1. Art: the kit's SVGs (sort arrows, chevrons, frame, glyphs) go into the atlas the renderer draws from.
+    public override void DefineArt(ArtAtlas art)
+    {
+        foreach (var a in KitArt.Assets)
+        {
+            art.AddSvg(a.Id, a.Svg, new NineSlice(a.Slice, a.Slice, a.Slice, a.Slice));
+        }
+    }
+
+    // 2. Theme: the host calls this once, before the first screen is built.
+    public override void Style(UiTree ui) => _kit = new KitHost(ui);
+
+    public override void DefineScreens(ScreenSet screens) =>
+        screens.Add("main", game =>
+        {
+            // 3. Clock: the kit's tooltip delay counts game ticks, so it is deterministic and also runs in headless tests.
+            if (!_clockRunning)
+            {
+                _clockRunning = true;
+                game.TickCompleted += _ => _kit!.Advance(1f / GameInstance.TickRate);
+            }
+
+            var screen = Ui.Column(
+                UiKit.Button("Buy", () => { }, "buy"),
+                UiKit.Slider(() => 1, _ => { }, 1, 99, 1, "qty")).Padding(16).Gap(8);
+
+            // 4. The host replaces everything under the root when a screen opens, so the tooltip layer must live inside the screen.
+            return _kit!.AttachTo(screen);
+        });
+}
+```
+
+Fonts are the `fonts/` folder next to the game (see `docs/driving-a-game.md`). Inside a screen, `game.Ui` is the tree (`game.Ui.Find("buy")`), and game state is the
+`World`: bind labels to `game.World` entities and send commands from button lambdas; never write synced state from a view. Styles for the whole game: add more sheets in `Style`
+after the `KitHost` line, so yours win ties. After a screen opens, call `FocusHelpers.FocusDefault(game.Ui, screen)` if a controller player needs a starting focus.
+
 ## 3. The state your screens read
 
 The guide's examples read and write one small game object. Your game has its own; the point is that **components never own game state**.
@@ -512,7 +571,7 @@ The UI owns **one focused element**. Input arrives as `UiEvent`s; the platform l
 What happens by default: **Tab / Shift+Tab** move through focusable elements in document order (`TabIndex` > 0 first). **Arrow keys and the d-pad** move focus to the nearest
 focusable element in that direction, preferring one wholly beyond the current element and lined up with it. Enter and Space click the focused element. Escape is a Cancel.
 A component may use a key itself first (a slider takes Left/Right, a text field takes the arrows) and returns `true`; unused keys fall back to moving focus. So a
-gamepad player moves with the d-pad across the screen, adjusts sliders with Left/Right, and leaves a table with Up at the first row.
+gamepad player (the host sends South as confirm, East as back, the d-pad and the shoulder buttons as navigate) moves with the d-pad across the screen, adjusts sliders with Left/Right, and leaves a table with Up at the first row.
 
 - `ui.Focus(element)` focuses directly (false when the element cannot take focus); `ui.Focus(null)` clears it. `ui.RequestFocus(element)` does it at the end of the next update,
   which is what a binding must use. `ui.Focused` is the current element.
@@ -572,7 +631,7 @@ ui.AddStyleSheet(new StyleSheet()
 ```
 
 - `host.SetTheme(sheet)` swaps the kit's sheet in place, so the sheets you added after it still win.
-- Scope a different look to a screen by putting tokens on that screen's root element's class: `.rule(".night", s => s.Token("--kit-panel", ...))`.
+- Scope a different look to a screen by putting tokens on a class and giving that class to the screen's root: `new StyleSheet().Rule(".night", s => s.Token("--kit-panel", Color.Hex("#0b0c10")))`.
 - The structure of every component is stable: kind, role, classes and part ids are API. Style them through those, never through child positions.
 - SVG art (`KitArt`) has its colors baked in; replace it by registering your own SVG under the same ids.
 
@@ -649,6 +708,32 @@ Console.WriteLine(t.Tree.DumpJson(t.Tree.Find("buy")).Length);          //    or
   (`TradingScreenTests` shows the pattern). The display list is plain text, one command per line, with colors and boxes.
 - **Pictures:** the 2D renderer draws a display list offscreen on any device (`CaptureTests` does it on lavapipe and compares with PNG references at a stated tolerance).
   Look at the capture at two UI scales.
+
+### Test your screen with the harness
+
+The unit-style test above builds a tree by hand. A game also gets tests as text: a scenario file drives the real game (the host, the screens, the same input path as a player) and
+asserts on the UI, the state and a captured frame. `docs/driving-a-game.md` has the whole story; for a screen it looks like this, using the ids you gave your components:
+
+```yaml
+name: buy-with-the-pad
+window: 1280x720
+steps:
+  - nav: down              # the d-pad (up down left right next previous); focus starts on the default element
+  - nav: activate          # the confirm button; or: press: Enter, or: click: buy
+  - click: filter
+  - type: "sil"
+  - step: 2                # frames, so the table rebinds
+expect:
+  - ui: { id: buy, enabled: true }
+  - ui: { selector: .kit-row, count: 1 }      # the filter left one row; rows are recycled, so this counts the rows that exist
+  - ui: { id: confirm, visible: false }
+  - state: { entity: Shop, property: Gold, equals: 10 }
+  - capture: { reference: refs/market.png, size: 1280x720, tolerance: 2 }
+```
+
+Run it with `onegame test --json`. The expectation keys for the UI are `id` or `selector` plus `text`, `contains`, `count`, `visible`, `enabled`, `focused`; to check a role
+or a value, run `ui_tree` over the live connection or `DumpJson` in a unit test. A scenario is the right tool for flows (open the dialog, press Escape, check focus is back); the unit test is
+the right tool for boxes and display-list goldens.
 
 ## 13. Pitfalls
 

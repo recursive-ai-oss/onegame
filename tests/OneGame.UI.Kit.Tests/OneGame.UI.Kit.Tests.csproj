@@ -6,6 +6,8 @@
     <ProjectReference Include="../../src/OneGame.Atlas/OneGame.Atlas.csproj" />
     <ProjectReference Include="../../src/OneGame.Render2D/OneGame.Render2D.csproj" />
     <ProjectReference Include="../../src/OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan.csproj" />
+    <ProjectReference Include="../../src/OneGame.Host/OneGame.Host.csproj" />
+    <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>

@@ -29,6 +29,8 @@ if (list.Version != lastVersion) Record(list);
 | `PushTransform` | `Transform` (`Matrix3x2`, row vectors) | Applies to everything until the pop. The matrix already includes the pivot, so it maps absolute screen coordinates to absolute screen coordinates. Translate, scale and rotate compose about the box center. |
 | `PushOpacity` | `Value` (0..1) | Everything until the pop is drawn as a group, then blended with this opacity. |
 
+Swapping a style sheet or redefining a token (`ReplaceStyleSheet`, the kit's theme swap) changes the commands and bumps `Version` without rebuilding any element. The component kit draws its icons and frames from atlas ids listed in `KitArt.Assets`; a game registers them like any art (`docs/interfaces/ui-kit.md`).
+
 `Source` names the element that produced a command; renderers ignore it, capture tools use it to annotate frames.
 
 `DisplayList.ToText()` prints the list one command per line (nested by indent). Tests compare against it.

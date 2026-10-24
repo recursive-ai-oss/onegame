@@ -27,6 +27,9 @@ public sealed partial class UiTree
 
     // ---- dispatch ------------------------------------------------------------------------------------------------
 
+    /// <summary>Called with every event passed to <see cref="Dispatch"/> before it is handled, whoever sends it. The component kit uses it to learn which input device is in use.</summary>
+    public Action<UiEvent>? InputObserver { get; set; }
+
     /// <summary>
     /// Feeds one input event to the UI. Pointer events are hit-tested against the current layout, key and text events go to the focused element,
     /// and what no handler takes gets the default action: click on release, Tab and arrow focus moves, Enter or Space to click, wheel to scroll.
@@ -34,6 +37,7 @@ public sealed partial class UiTree
     /// </summary>
     public bool Dispatch(in UiEvent e)
     {
+        InputObserver?.Invoke(e);
         Update();
         switch (e.Kind)
         {

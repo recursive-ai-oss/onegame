@@ -13,7 +13,7 @@ public enum InputDevice
 
 /// <summary>
 /// Maps game actions to the button each device uses, and tracks which device the player used last, so a prompt such as "Press (A) to buy" can show the right picture.
-/// Bind actions once, feed every input event through <see cref="Observe"/> (<see cref="KitHost.Dispatch"/> does it), and put <see cref="UiKit.InputGlyph"/> elements in the UI.
+/// Bind actions once, feed every input event through <see cref="Observe"/> (the tree reports every dispatched event to the kit), and put <see cref="UiKit.InputGlyph"/> elements in the UI.
 /// </summary>
 public sealed class InputGlyphs
 {

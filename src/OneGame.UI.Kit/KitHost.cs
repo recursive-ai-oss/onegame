@@ -3,7 +3,7 @@ namespace OneGame.UI.Kit;
 /// <summary>
 /// Installs the kit into a <see cref="UiTree"/>: adds the theme, owns the tooltip layer and the input glyph bindings, and keeps the kit's notion of time.
 /// Create one per tree, call <see cref="Advance"/> once per frame with the frame time (tooltips wait for a delay, and the UI never reads a clock itself),
-/// and send input through <see cref="Dispatch"/> so glyphs learn which device the player is using.
+/// and send input through <see cref="Dispatch"/> or straight to the tree; either way glyphs learn which device the player is using.
 /// </summary>
 public sealed class KitHost
 {
@@ -24,6 +24,7 @@ public sealed class KitHost
         Tree = tree ?? throw new ArgumentNullException(nameof(tree));
         Theme = theme ?? KitTheme.Create();
         tree.AddStyleSheet(Theme);
+        tree.InputObserver = e => Glyphs.Observe(e);   // also sees input that a host sends straight to the tree
         _label = Ui.Label("").Class("kit-tooltip-label");
         _layer = UiKit.Make("Tooltip", "tooltip", "kit-tooltip", "kit/tooltip");
         _layer.Style(s => s.Position(PositionMode.Fixed).ZIndex(1000).PointerEvents(PointerEvents.None));
@@ -74,12 +75,24 @@ public sealed class KitHost
         }
     }
 
-    /// <summary>Notes the event's device for the glyphs, then passes the event to the tree. Returns what <see cref="UiTree.Dispatch"/> returns.</summary>
-    public bool Dispatch(in UiEvent e)
+    /// <summary>
+    /// Moves the tooltip layer into a screen. A host that replaces everything under the tree's root when it opens a screen removes the layer with the old screen;
+    /// call this on each screen's root element while building it.
+    /// </summary>
+    /// <typeparam name="T">The element type.</typeparam>
+    /// <param name="screen">The screen's root element.</param>
+    /// <returns><paramref name="screen"/>, so the call fits into a builder chain.</returns>
+    public T AttachTo<T>(T screen)
+        where T : Element
     {
-        Glyphs.Observe(e);
-        return Tree.Dispatch(e);
+        ArgumentNullException.ThrowIfNull(screen);
+        _layer.RemoveFromParent();
+        screen.Add(_layer);
+        return screen;
     }
+
+    /// <summary>Passes the event to the tree, which notes its device for the glyphs. Returns what <see cref="UiTree.Dispatch"/> returns.</summary>
+    public bool Dispatch(in UiEvent e) => Tree.Dispatch(e);
 
     /// <summary>
     /// Gives an element a tooltip: after <see cref="TooltipDelay"/> of pointer hover or keyboard focus, a small box with the text appears under it

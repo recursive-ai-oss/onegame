@@ -52,7 +52,7 @@ public partial class GuideSnippetTests
 
         var sb = new StringBuilder();
         sb.Append("// Generated from docs/ui-guide.md by GuideSnippetTests (ONEGAME_UPDATE_SNIPPETS=1 regenerates it). Do not edit.\n");
-        sb.Append("#nullable enable\nusing OneGame.Atlas;\nusing OneGame.Text;\n\nnamespace OneGame.UI.Kit.Tests.Guide;\n\n");
+        sb.Append("#nullable enable\nusing OneGame.Atlas;\nusing OneGame.Core;\nusing OneGame.Host;\nusing OneGame.Text;\n\nnamespace OneGame.UI.Kit.Tests.Guide;\n\n");
         sb.Append(types);
         sb.Append("internal static class Snippets\n{\n").Append(methods);
         sb.Append("    public static readonly (string Name, Action<UiTree, KitHost, GuideGame> Run)[] Runnable =\n    [\n");
