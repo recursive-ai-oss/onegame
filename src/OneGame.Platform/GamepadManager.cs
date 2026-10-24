@@ -50,7 +50,7 @@ public sealed class GamepadManager : IDisposable
             }
         }
 
-        return _xinput?.Rumble(gamepadId, low, high) ?? false;
+        return _xinput?.Rumble(gamepadId, low, high, durationMilliseconds) ?? false;
     }
 
     internal void RegisterSynthetic(int id, string name)

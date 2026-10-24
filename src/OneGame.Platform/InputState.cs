@@ -20,7 +20,7 @@ public sealed class GamepadState
     /// <summary>The device name.</summary>
     public string Name { get; }
 
-    /// <summary>True when a mapping from the community database (or the kernel's standard layout) was found for the device.</summary>
+    /// <summary>True when the device matched an entry in the mapping database; false when the standard layout was assumed.</summary>
     public bool IsMapped { get; }
 
     /// <summary>True when the device accepts rumble requests.</summary>

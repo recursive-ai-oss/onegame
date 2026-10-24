@@ -35,5 +35,19 @@ foreach (var name in names)
     }
 }
 
+// The platform layer, headless: a window, a synthetic key through the shared event path, and a controller mapping line.
+using (var app = PlatformApp.Create(new PlatformOptions { Backend = PlatformBackendKind.Headless, EnableGamepadDevices = false }))
+{
+    var window = app.CreateWindow(new WindowOptions { Width = 320, Height = 200 });
+    app.Injector.Key(window.Id, Key.A, true);
+    app.PumpEvents();
+    var mapped = GamepadMapping.TryParse("030000005e0400008e02000014010000,Xbox 360 Controller,a:b0,leftx:a0,dpup:h0.1,platform:Linux,", out _);
+    if (!app.TryGetEvent(out var e) || e.Key != Key.A || !app.Input.IsKeyDown(Key.A) || !mapped)
+    {
+        Console.Error.WriteLine("platform smoke failed");
+        return 1;
+    }
+}
+
 Console.WriteLine($"ok: {names.Length} assemblies");
 return 0;
