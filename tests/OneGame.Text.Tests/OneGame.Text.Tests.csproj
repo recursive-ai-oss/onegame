@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneGame.Text/OneGame.Text.csproj" />
+    <PackageReference Include="RecursiveAI.OneImage.Text" />
+  </ItemGroup>
+
+</Project>
