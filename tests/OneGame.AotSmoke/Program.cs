@@ -84,6 +84,13 @@ if (!deltaReader.Ok || purse.ComputeHash() != changed.ComputeHash())
     return 1;
 }
 
+var syncProblem = SyncSmoke.Run();
+if (syncProblem is not null)
+{
+    Console.Error.WriteLine("sync smoke failed: " + syncProblem);
+    return 1;
+}
+
 var angle = Fixed.Sin(Fixed.One);
 Console.WriteLine($"ok: {names.Length} assemblies; hash {world.ComputeHash():x16}; sin(1)={angle}; json {world.DumpJson().Length} chars");
 

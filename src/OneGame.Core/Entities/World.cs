@@ -57,6 +57,17 @@ public sealed class World
 
     internal SyncWriter Scratch { get; } = new(256);
 
+    internal EntityRegistry Registry => _registry;
+
+    /// <summary>Commands accepted and waiting for the next tick. Snapshots do not hold them, so a recording must not start while any wait.</summary>
+    internal int PendingCommandCount => _pending.Count;
+
+    /// <summary>Called for every command an authority accepts from outside its tick (connections, tests, local input), with the tick it will run in. The command log hooks in here; commands the sim queues itself are left out because the sim recreates them.</summary>
+    internal CommandObserver? InputObserver { get; set; }
+
+    /// <summary>Moves a replica's tick to the one its authority reports. Frames carry the tick, replicas never count it themselves.</summary>
+    internal void SetReplicaTick(long tick) => Tick = tick;
+
     /// <summary>Adds an entity under a fresh id and returns it.</summary>
     /// <exception cref="InvalidOperationException">The entity is already in a world.</exception>
     [MutatesState]
@@ -261,6 +272,11 @@ public sealed class World
         {
             Observer?.Invoke(Tick, entity, commandId, payload, CommandStatus.Forwarded);
             return CommandStatus.Forwarded;
+        }
+
+        if (!_ticking)
+        {
+            InputObserver?.Invoke(Tick, entity, commandId, payload, CommandStatus.Queued);
         }
 
         _pending.Enqueue(new PendingCommand(entity, commandId, payload.ToArray()));
