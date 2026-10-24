@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- The onegame checkout this game builds against: two folders up from here. -->
+    <OneGameRoot>$(MSBuildThisFileDirectory)../../</OneGameRoot>
+    <AssemblyName>Solitaire</AssemblyName>
+    <RootNamespace>Solitaire</RootNamespace>
+    <Description>Klondike solitaire: the first onegame sample.</Description>
+    <!-- The sample's own tests and scenario files are not part of the game. -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+
+  <ItemGroup>
+    <Compile Include="**/*.cs" Exclude="tests/**;obj/**;bin/**" />
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.Steam/OneGame.Steam.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Card art and the default fonts travel inside the program, so the game runs from any folder. -->
+    <EmbeddedResource Include="art/*.svg" LogicalName="art/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="fonts/*.ttf" LogicalName="fonts/%(Filename)%(Extension)" />
+    <!-- Compiled renderer shaders. These are the reference compiler's output for src/OneGame.Render2D/Shaders; they are replaced by the
+         shader build package when the game takes it. -->
+    <EmbeddedResource Include="$(OneGameRoot)tests/OneGame.Render2D.Tests/Shaders/*.spv" LogicalName="spv/%(Filename)" Exclude="$(OneGameRoot)tests/OneGame.Render2D.Tests/Shaders/Ripple.*" />
+    <InternalsVisibleTo Include="Solitaire.Tests" />
+  </ItemGroup>
+
+</Project>
