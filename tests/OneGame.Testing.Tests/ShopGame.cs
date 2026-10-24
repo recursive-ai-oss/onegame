@@ -47,7 +47,7 @@ public partial class Shop : Entity
 }
 
 /// <summary>The game under test: one shop, a main screen with a label and two buttons, a second screen, and a fixture.</summary>
-public sealed class ShopGame : GameDefinition
+public class ShopGame : GameDefinition
 {
     public override string Name => "ShopGame";
 

@@ -8,6 +8,9 @@
     <ProjectReference Include="../OneGame.Core/OneGame.Core.csproj" />
     <ProjectReference Include="../OneGame.UI/OneGame.UI.csproj" />
     <ProjectReference Include="../OneGame.Sync/OneGame.Sync.csproj" />
+    <ProjectReference Include="../OneGame.Render2D/OneGame.Render2D.csproj" />
+    <ProjectReference Include="../OneGame.Atlas/OneGame.Atlas.csproj" />
+    <ProjectReference Include="../OneGame.Text/OneGame.Text.csproj" />
     <ProjectReference Include="../OneGame.Platform/OneGame.Platform.csproj" />
     <ProjectReference Include="../OneGame.Gpu/OneGame.Gpu.csproj" />
     <ProjectReference Include="../OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan.csproj" />

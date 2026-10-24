@@ -15,7 +15,7 @@ public readonly record struct FrameInfo(int Width, int Height, float Scale, long
 
 /// <summary>
 /// Draws one frame. The host owns the window, the swapchain and the offscreen targets and hands the stage a texture; a renderer
-/// replaces <see cref="StubStage"/> by overriding <see cref="GameDefinition.CreateRenderStage"/>.
+/// replaces the default by overriding <see cref="GameDefinition.CreateRenderStage"/>.
 /// </summary>
 public interface IRenderStage
 {
@@ -34,6 +34,14 @@ public interface IRenderStage
     void PaintOver(Span<byte> rgba, in FrameInfo frame)
     {
     }
+
+    /// <summary>The host is about to destroy a target (a capture texture, or all swapchain images on resize). Stages that cache per-target state drop it. <paramref name="only"/> null means every target.</summary>
+    void ReleaseTargets(GpuTexture? only)
+    {
+    }
+
+    /// <summary>True when the stage draws into sRGB targets (the host then makes its swapchain and capture textures sRGB).</summary>
+    bool RequiresSrgb => false;
 }
 
 /// <summary>

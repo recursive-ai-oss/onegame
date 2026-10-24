@@ -24,6 +24,9 @@ public sealed record TestOptions
     /// <summary>Graphics device policy for captures. Auto uses a device when there is one; Off always renders on the CPU.</summary>
     public GpuMode Gpu { get; init; } = GpuMode.Auto;
 
+    /// <summary>Where the 2D renderer gets compiled shaders; the <c>ONEGAME_SHADER_DIR</c> folder when null.</summary>
+    public OneGame.Render2D.IShaderSource? Shaders { get; init; }
+
     /// <summary>Folder for files that operations write (captures, snapshots). A fresh temporary folder when null.</summary>
     public string? OutputDirectory { get; init; }
 }
@@ -167,7 +170,7 @@ public sealed class TestCluster : IDisposable
     }
 
     internal static TestClient NewNode(GameDefinition game, TestOptions options, string output) =>
-        new(GameInstance.Create(game, new GameOptions { Headless = true, Width = options.Width, Height = options.Height, Scale = options.Scale, Seed = options.Seed, Gpu = options.Gpu }), output);
+        new(GameInstance.Create(game, new GameOptions { Headless = true, Width = options.Width, Height = options.Height, Scale = options.Scale, Seed = options.Seed, Gpu = options.Gpu, Shaders = options.Shaders }), output);
 
     /// <summary>Runs a scenario against the first node.</summary>
     public ScenarioResult Run(Scenario scenario, ScenarioRunOptions? options = null) =>

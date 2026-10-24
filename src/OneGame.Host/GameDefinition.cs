@@ -1,4 +1,6 @@
+using OneGame.Atlas;
 using OneGame.Core;
+using OneGame.Text;
 using OneGame.UI;
 
 namespace OneGame.Host;
@@ -44,8 +46,46 @@ public abstract class GameDefinition
     {
     }
 
-    /// <summary>The stage that draws each frame. Override to plug in a renderer; the default draws a plain preview of the UI.</summary>
-    public virtual IRenderStage CreateRenderStage() => new StubStage();
+    /// <summary>
+    /// Loads the game's fonts. The default reads every <c>.ttf</c> and <c>.otf</c> file in a <c>fonts</c> folder next to the program, or
+    /// else in the working directory. With no fonts the UI measures text with a fixed-width estimate and the stub stage draws it as bars.
+    /// </summary>
+    public virtual void DefineFonts(FontLibrary fonts)
+    {
+        ArgumentNullException.ThrowIfNull(fonts);
+        foreach (var root in new[] { Path.Combine(AppContext.BaseDirectory, "fonts"), Path.Combine(Directory.GetCurrentDirectory(), "fonts") })
+        {
+            if (!Directory.Exists(root))
+            {
+                continue;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(root).Order(StringComparer.Ordinal))
+            {
+                if (file.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase) || file.EndsWith(".otf", StringComparison.OrdinalIgnoreCase))
+                {
+                    fonts.Add(File.ReadAllBytes(file));
+                }
+            }
+
+            return;
+        }
+    }
+
+    /// <summary>Registers SVG and image art the UI refers to by id.</summary>
+    public virtual void DefineArt(ArtAtlas art)
+    {
+    }
+
+    /// <summary>
+    /// The stage that draws each frame. The default is the 2D renderer when the game has fonts and compiled shaders are available, and
+    /// otherwise a plain preview of the UI. Override to plug in another renderer.
+    /// </summary>
+    public virtual IRenderStage CreateRenderStage(HostResources resources)
+    {
+        ArgumentNullException.ThrowIfNull(resources);
+        return resources.Fonts is not null && resources.Shaders is not null ? new Render2DStage(resources) : new StubStage();
+    }
 }
 
 /// <summary>The named screens of a game. Each is built fresh when opened, and may read the game's world through the instance it is given.</summary>

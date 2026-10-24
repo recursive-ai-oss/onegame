@@ -1,7 +1,10 @@
 using System.Diagnostics;
 using OneGame.Core;
 using OneGame.Gpu;
+using OneGame.Atlas;
 using OneGame.Gpu.Vulkan;
+using OneGame.Render2D;
+using OneGame.Text;
 using OneGame.Platform;
 using OneGame.Sync;
 using OneGame.UI;
@@ -41,6 +44,9 @@ public sealed record GameOptions
 
     /// <summary>Graphics device policy.</summary>
     public GpuMode Gpu { get; init; } = GpuMode.Auto;
+
+    /// <summary>Where the 2D renderer gets its compiled shaders. When null, the folder named by <c>ONEGAME_SHADER_DIR</c> is used if set.</summary>
+    public IShaderSource? Shaders { get; init; }
 }
 
 /// <summary>A captured frame: RGBA8 pixels, top row first.</summary>
@@ -80,14 +86,21 @@ public sealed class GameInstance : IDisposable
         definition.RegisterEntities(_registry);
         definition.DefineScreens(_screenSet);
         definition.DefineFixtures(_fixtureSet);
-        _stage = definition.CreateRenderStage();
+        var fonts = new FontLibrary();
+        definition.DefineFonts(fonts);
+        var haveFonts = fonts.FaceCount > 0;
+        var measurer = haveFonts ? new FontTextMeasurer(fonts) : null;
+        var art = new ArtAtlas();
+        definition.DefineArt(art);
+        var shaders = options.Shaders ?? (Environment.GetEnvironmentVariable("ONEGAME_SHADER_DIR") is { Length: > 0 } dir ? new DirectoryShaders(dir) : null);
+        _stage = definition.CreateRenderStage(new HostResources(haveFonts ? fonts : null, measurer, art, shaders));
         Platform = PlatformApp.Create(new PlatformOptions
         {
             Backend = options.Headless ? PlatformBackendKind.Headless : PlatformBackendKind.Auto,
             EnableGamepadDevices = !options.Headless,
         });
         Window = Platform.CreateWindow(new WindowOptions { Title = definition.Name, Width = options.Width, Height = options.Height });
-        Ui = new UiTree();
+        Ui = new UiTree(measurer);
         Seed = options.Seed ?? definition.Seed;
         Attach(NewWorld(null));
         definition.Style(Ui);
@@ -330,6 +343,7 @@ public sealed class GameInstance : IDisposable
         {
             case PlatformEventKind.WindowResized:
                 SyncViewport();
+                _stage.ReleaseTargets(null);
                 _swapchain?.Resize((uint)Math.Max(1, e.Width), (uint)Math.Max(1, e.Height));
                 return;
             case PlatformEventKind.WindowScaleChanged:
@@ -435,7 +449,7 @@ public sealed class GameInstance : IDisposable
                 NativeWindowKind.Wayland => SurfaceSource.Wayland(h.Display, h.Window),
                 _ => SurfaceSource.Win32(h.Display, h.Window),
             };
-            _swapchain = _device.CreateSwapchain(source, new SwapchainDesc((uint)Window.Width, (uint)Window.Height));
+            _swapchain = _device.CreateSwapchain(source, new SwapchainDesc((uint)Window.Width, (uint)Window.Height) { Srgb = _stage.RequiresSrgb });
         }
 
         if (_swapchain.TryAcquire(out var backbuffer) == AcquireStatus.Ready)
@@ -473,9 +487,10 @@ public sealed class GameInstance : IDisposable
             }
             else
             {
-                using var target = _device.CreateTexture(new TextureDesc((uint)width, (uint)height, GpuFormat.Rgba8Unorm, TextureUsage.RenderTarget | TextureUsage.CopySource) { Label = "capture" });
+                using var target = _device.CreateTexture(new TextureDesc((uint)width, (uint)height, _stage.RequiresSrgb ? GpuFormat.Rgba8UnormSrgb : GpuFormat.Rgba8Unorm, TextureUsage.RenderTarget | TextureUsage.CopySource) { Label = "capture" });
                 _stage.Render(_device, target, info);
                 _device.ReadTexture(target, 0, 0, pixels);
+                _stage.ReleaseTargets(target);
                 _stage.PaintOver(pixels, info);
                 renderer = _device.Adapter.Name;
             }
@@ -503,6 +518,7 @@ public sealed class GameInstance : IDisposable
         _disposed = true;
         _device?.WaitIdle();
         _swapchain?.Dispose();
+        (_stage as IDisposable)?.Dispose();
         _device?.Dispose();
         Platform.Dispose();
     }
