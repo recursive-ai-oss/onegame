@@ -149,7 +149,7 @@ public static class KitTheme
         sheet.Rule(".kit-slider-thumb", s => s.Position(PositionMode.Absolute).Top(Length.Percent(50)).Translate(Length.Percent(-50), Length.Percent(-50))
             .Size(Length.Ui(16), Length.Ui(16)).Radius(Length.Ui(8)).Var("background-color", "--kit-text").BorderWidth(Length.Px(2)).Var("border-color", "--kit-accent"));
         sheet.Rule(".kit-slider-value", s => s.MinWidth(Length.Ui(40)).TextAlign(TextAlignment.End));
-        sheet.Rule(".kit-stepper", s => s.AlignItems(Align.Center).Gap(Length.Ui(4)));
+        sheet.Rule(".kit-stepper", s => s.AlignItems(Align.Center).AlignSelf(Align.Start).Gap(Length.Ui(4)));
         sheet.Rule(".kit-stepper-button", s => Rounded(s).Size(Length.Ui(28), Length.Ui(28)).AlignItems(Align.Center).JustifyContent(Align.Center)
             .Var("background-color", "--kit-raised").BorderWidth(Length.Px(1)).Var("border-color", "--kit-border").Cursor(CursorShape.Hand));
         sheet.Rule(".kit-stepper-button:hover", s => s.Var("background-color", "--kit-hover"));

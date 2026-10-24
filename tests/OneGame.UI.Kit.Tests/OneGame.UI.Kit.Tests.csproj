@@ -4,6 +4,14 @@
     <ProjectReference Include="../../src/OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
     <ProjectReference Include="../../src/OneGame.Text/OneGame.Text.csproj" />
     <ProjectReference Include="../../src/OneGame.Atlas/OneGame.Atlas.csproj" />
+    <ProjectReference Include="../../src/OneGame.Render2D/OneGame.Render2D.csproj" />
+    <ProjectReference Include="../../src/OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The renderer's test rig (device with validation, shader fixtures, PNG reader and writer) is shared by linking, not copied. -->
+    <Compile Include="../OneGame.Render2D.Tests/Support.cs" Link="Linked/Support.cs" />
+    <Compile Include="../OneGame.Render2D.Tests/Png.cs" Link="Linked/Png.cs" />
   </ItemGroup>
 
 </Project>
