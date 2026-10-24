@@ -1,4 +1,5 @@
 using OneGame.AotSmoke;
+using OneGame.Atlas;
 using OneGame.Audio;
 using OneGame.Control;
 using OneGame.Core;
@@ -8,6 +9,7 @@ using OneGame.Platform;
 using OneGame.Render2D;
 using OneGame.Steam;
 using OneGame.Sync;
+using OneGame.Text;
 using OneGame.Testing;
 using OneGame.UI;
 
@@ -117,6 +119,28 @@ if (clicks != 1 || ui.Find("score")!.Text != "Score 7" || list.Commands.Length =
 
 Console.WriteLine($"ok: ui {list.Commands.Length} commands, go at {go.AbsoluteBounds}");
 
+// Text and vector art: shape a string with the real measurer, rasterize one glyph and one SVG into atlas pages.
+var fonts = new FontLibrary();
+fonts.Add(ReadResource("font.ttf"));
+var measurer = new FontTextMeasurer(fonts);
+var textStyle = new TextStyle("Noto Sans", 18, 400, false, 0, 0, WhiteSpace.Normal);
+var textLines = new List<TextLine>();
+measurer.Layout("Silk 95g and iron", textStyle, 120, textLines);
+var placed = new List<PositionedGlyph>();
+measurer.Place("Silk 95g and iron", textStyle, textLines[0].Start, textLines[0].Length, textLines[0].Height, placed);
+var glyphAtlas = new GlyphAtlas(fonts);
+var glyphStatus = glyphAtlas.TryGet(placed[0].FaceId, placed[0].GlyphId, 18, 0, out var glyph);
+var art = new ArtAtlas();
+art.AddSvg("coin", ReadResource("coin.svg"));
+var svgStatus = art.TryGetScaled("coin", 2, out var coin);
+if (textLines.Count < 2 || placed.Count == 0 || glyphStatus != AtlasStatus.Ok || glyph.Width == 0 || svgStatus != AtlasStatus.Ok || coin.Width != 48)
+{
+    Console.Error.WriteLine($"text smoke failed: lines={textLines.Count} glyphs={placed.Count} glyph={glyphStatus} svg={svgStatus}");
+    return 1;
+}
+
+Console.WriteLine($"ok: text {textLines.Count} lines, {placed.Count} glyphs, glyph {glyph.Width}x{glyph.Height}, svg {coin.Width}x{coin.Height}");
+
 // Graphics: create a device, clear an offscreen target and read it back. "--require-gpu" turns a missing Vulkan driver into a failure.
 var requireGpu = args.Contains("--require-gpu");
 if (!VulkanGpu.IsAvailable)
@@ -140,3 +164,11 @@ if (pixels[0] != 255 || pixels[1] is < 127 or > 128 || pixels[2] != 0 || pixels[
 
 Console.WriteLine($"gpu: {device.Adapter.Name} ({device.Adapter.Kind}) cleared and read back 8x8");
 return 0;
+
+static byte[] ReadResource(string name)
+{
+    using var stream = typeof(Program).Assembly.GetManifestResourceStream(name) ?? throw new InvalidOperationException("missing resource " + name);
+    using var copy = new MemoryStream();
+    stream.CopyTo(copy);
+    return copy.ToArray();
+}
