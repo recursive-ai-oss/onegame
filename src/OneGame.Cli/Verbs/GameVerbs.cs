@@ -62,7 +62,7 @@ internal sealed class ReplayVerb : IVerb
 {
     public string Name => "replay";
 
-    public string Summary => "Replay a recording (onegame replay run.ogrc) and compare the state hash of every tick.";
+    public string Summary => "Replay a recording (onegame replay run.ogrp) and compare the state hash of every tick.";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {

@@ -202,6 +202,31 @@ public sealed class RngStreams
         return ~lo;
     }
 
+    private bool MatchesExisting(SyncReader probe)
+    {
+        var count = probe.ReadCount(SyncLimits.MaxNamed);
+        if (!probe.Ok || count != _streams.Count)
+        {
+            return false;
+        }
+
+        Span<byte> name = stackalloc byte[256];
+        for (var i = 0; i < count; i++)
+        {
+            var bytes = probe.ReadBytes(SyncLimits.MaxStringBytes);
+            var a = probe.ReadFixed64();
+            var b = probe.ReadFixed64();
+            var c = probe.ReadFixed64();
+            var d = probe.ReadFixed64();
+            if (!probe.Ok || (a | b | c | d) == 0 || !System.Text.Encoding.UTF8.TryGetBytes(_streams[i].Name, name, out var written) || !name[..written].SequenceEqual(bytes))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     internal void Write(SyncWriter w)
     {
         w.WriteVarUInt((ulong)_streams.Count);
@@ -214,6 +239,20 @@ public sealed class RngStreams
 
     internal void Read(ref SyncReader r)
     {
+        // A replica applies the streams every tick and the set of streams hardly ever changes: when the input names exactly the
+        // streams already here, update their states in place without allocating. Anything else takes the general path below.
+        if (MatchesExisting(r))
+        {
+            var n = r.ReadCount(SyncLimits.MaxNamed);
+            for (var i = 0; i < n; i++)
+            {
+                _ = r.ReadBytes(SyncLimits.MaxStringBytes);
+                _streams[i].Read(ref r);
+            }
+
+            return;
+        }
+
         var count = r.ReadCount(SyncLimits.MaxNamed);
         var fresh = new List<Rng>();
         string? previous = null;

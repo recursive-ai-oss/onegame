@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Text for the UI: font library, shaping, measurement and the glyph atlas.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="RecursiveAI.OneFont" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.UI/OneGame.UI.csproj" />
+    <ProjectReference Include="../OneGame.Atlas/OneGame.Atlas.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <InternalsVisibleTo Include="OneGame.Text.Tests" />
+  </ItemGroup>
+
+</Project>

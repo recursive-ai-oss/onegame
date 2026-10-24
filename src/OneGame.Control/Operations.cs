@@ -35,10 +35,10 @@ public sealed record ControlOp(string Name, string Description, string InputSche
 /// <param name="Png">PNG bytes of a captured frame, when the operation made one.</param>
 public sealed record ControlResult(string Json, byte[]? Png = null);
 
-/// <summary>Result of <c>info</c>.</summary>
+/// <summary>Result of <c>info</c>. <c>Drift</c> counts drift reports filed by the local replica; it must stay 0.</summary>
 public sealed record InfoResult(
     string Game, long Tick, long Frame, string Hash, int Width, int Height, float Scale, bool Headless, string? Screen,
-    int Entities, string[] Screens, string[] Fixtures, string Stage, string? Adapter);
+    int Entities, string[] Screens, string[] Fixtures, string Stage, string? Adapter, int Drift);
 
 /// <summary>Result of <c>step</c>, <c>hash</c> and the operations that change the world.</summary>
 public sealed record StateResult(long Frame, long Tick, string Hash);

@@ -10,8 +10,16 @@
   <ItemGroup>
     <Compile Include="../OneGame.Core.Tests/Samples/*.cs" LinkBase="Samples" />
     <Compile Include="../OneGame.Core.Tests/Fuzz/FuzzTargets.cs" Link="FuzzTargets.cs" />
+    <Compile Include="../OneGame.Sync.Tests/Scenario.cs" Link="Sync/Scenario.cs" />
+    <Compile Include="../OneGame.Sync.Tests/Fuzz/SyncFuzzTargets.cs" Link="Sync/SyncFuzzTargets.cs" />
     <ProjectReference Include="../../src/OneGame.Core/OneGame.Core.csproj" />
+    <ProjectReference Include="../../src/OneGame.Sync/OneGame.Sync.csproj" />
     <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="OneGame.Core" />
+    <Using Include="OneGame.Sync" />
   </ItemGroup>
 
 </Project>

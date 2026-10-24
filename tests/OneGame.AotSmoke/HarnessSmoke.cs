@@ -1,3 +1,4 @@
+using OneGame.Sync;
 using OneGame.Control;
 using OneGame.Core;
 using OneGame.Host;
@@ -55,12 +56,12 @@ internal static class HarnessSmoke
 
         // Record, replay and compare.
         using var recorded = GameInstance.Create(new SmokeGame(), new GameOptions { Headless = true, Gpu = GpuMode.Off });
-        using var recorder = new RunRecorder(recorded);
+        var recorder = recorded.StartRecording();
         new ControlSurface(recorded).Call("command_send", """{"entity":"Purse","command":"Add","args":["1","2"]}""");
         recorded.Step(5);
-        var recording = Recording.FromBytes(recorder.Stop().ToBytes());
+        Recording.TryRead(recorder.Stop().ToBytes(), out var recording);
         using var fresh = GameInstance.Create(new SmokeGame(), new GameOptions { Headless = true, Gpu = GpuMode.Off });
-        var replay = recording.Replay(fresh);
+        var replay = fresh.Replay(recording!);
 
         // The MCP messages.
         var mcp = new McpProtocol(surface);
@@ -84,14 +85,14 @@ internal static class HarnessSmoke
             return 1;
         }
 
-        if (!result.Passed || back.Width != 160 || back.Height != 100 || !replay.Identical || tools is null || !tools.Contains("capture_frame", StringComparison.Ordinal)
+        if (!result.Passed || back.Width != 160 || back.Height != 100 || !replay.Ok || tools is null || !tools.Contains("capture_frame", StringComparison.Ordinal)
             || state.Length == 0 || tree.Length == 0)
         {
-            Console.Error.WriteLine($"harness smoke failed: scenario={result.Passed} image={back.Width}x{back.Height} replay={replay.Identical}");
+            Console.Error.WriteLine($"harness smoke failed: scenario={result.Passed} image={back.Width}x{back.Height} replay={replay.Ok}");
             return 1;
         }
 
-        Console.WriteLine($"ok: harness; scenario hash {result.Hash}; png {png.Length} bytes; replay of {recording.Ticks} ticks identical");
+        Console.WriteLine($"ok: harness; scenario hash {result.Hash}; png {png.Length} bytes; replay of {recording!.EndTick - recording.StartTick} ticks identical");
         return 0;
     }
 }

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Atlas pages and the SVG and image atlas for the 2D renderer.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="RecursiveAI.OneImage" />
+    <PackageReference Include="RecursiveAI.OneImage.Svg" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <InternalsVisibleTo Include="OneGame.Atlas.Tests" />
+    <InternalsVisibleTo Include="OneGame.Text" />
+  </ItemGroup>
+
+</Project>

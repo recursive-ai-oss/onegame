@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/OneGame.Atlas/OneGame.Atlas.csproj" />
     <Project Path="src/OneGame.Audio/OneGame.Audio.csproj" />
     <Project Path="src/OneGame.Cli/OneGame.Cli.csproj" />
     <Project Path="src/OneGame.Control/OneGame.Control.csproj" />
@@ -14,10 +15,12 @@
     <Project Path="src/OneGame.Steam/OneGame.Steam.csproj" />
     <Project Path="src/OneGame.Sync/OneGame.Sync.csproj" />
     <Project Path="src/OneGame.Testing/OneGame.Testing.csproj" />
+    <Project Path="src/OneGame.Text/OneGame.Text.csproj" />
     <Project Path="src/OneGame.UI/OneGame.UI.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/OneGame.AotSmoke/OneGame.AotSmoke.csproj" />
+    <Project Path="tests/OneGame.Atlas.Tests/OneGame.Atlas.Tests.csproj" />
     <Project Path="tests/OneGame.Audio.Tests/OneGame.Audio.Tests.csproj" />
     <Project Path="tests/OneGame.Build.Tests/OneGame.Build.Tests.csproj" />
     <Project Path="tests/OneGame.Cli.Tests/OneGame.Cli.Tests.csproj" />
@@ -32,6 +35,7 @@
     <Project Path="tests/OneGame.Steam.Tests/OneGame.Steam.Tests.csproj" />
     <Project Path="tests/OneGame.Sync.Tests/OneGame.Sync.Tests.csproj" />
     <Project Path="tests/OneGame.Testing.Tests/OneGame.Testing.Tests.csproj" />
+    <Project Path="tests/OneGame.Text.Tests/OneGame.Text.Tests.csproj" />
     <Project Path="tests/OneGame.UI.Tests/OneGame.UI.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">

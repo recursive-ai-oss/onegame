@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>Steamworks binding.</Description>
+    <Description>Steamworks binding and the store-neutral services (achievements, stats, cloud saves, presence, overlay, ownership) that sit in front of it.</Description>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- The one place native interop lives for Steam: blittable calls into the Steam redistributable's flat C API. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

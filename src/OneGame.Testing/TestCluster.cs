@@ -1,3 +1,4 @@
+using OneGame.Sync;
 using OneGame.Control;
 using OneGame.Core;
 using OneGame.Host;
@@ -263,7 +264,7 @@ public static class Determinism
         Recording recording;
         using (var cluster = TestCluster.Start(make(), options))
         {
-            using var recorder = new RunRecorder(cluster.Client.Game);
+            var recorder = cluster.Client.Game.StartRecording();
             for (var f = 0; f < frames; f++)
             {
                 drive(cluster.Client, f);
@@ -274,8 +275,9 @@ public static class Determinism
         }
 
         using var fresh = TestCluster.Start(make(), options);
-        var result = recording.Replay(fresh.Client.Game);
-        return new DeterminismReport("replay", result.Identical, recording.Ticks, result.Identical ? -1 : result.TicksChecked, result.Expected, result.Actual);
+        var result = fresh.Client.Game.Replay(recording);
+        var ticks = (int)(recording.EndTick - recording.StartTick);
+        return new DeterminismReport("replay", result.Ok, ticks, result.Ok ? -1 : (int)(result.Divergence!.Tick - recording.StartTick), result.Divergence?.ExpectedHash ?? 0, result.Divergence?.ActualHash ?? 0);
     }
 
     private static ulong[] Trace(Func<GameDefinition> make, Drive drive, int from, int to, byte[]? restore, TestOptions? options, out byte[] endSnapshot)

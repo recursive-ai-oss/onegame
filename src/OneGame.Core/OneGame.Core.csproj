@@ -8,6 +8,7 @@
     <Using Include="System" />
     <Using Include="System.Collections.Generic" />
     <InternalsVisibleTo Include="OneGame.Core.Tests" />
+    <InternalsVisibleTo Include="OneGame.Sync" />
   </ItemGroup>
 
 </Project>

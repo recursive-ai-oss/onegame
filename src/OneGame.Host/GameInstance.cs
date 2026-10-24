@@ -3,6 +3,7 @@ using OneGame.Core;
 using OneGame.Gpu;
 using OneGame.Gpu.Vulkan;
 using OneGame.Platform;
+using OneGame.Sync;
 using OneGame.UI;
 
 namespace OneGame.Host;
@@ -68,6 +69,9 @@ public sealed class GameInstance : IDisposable
     private bool _gpuTried;
     private GpuSwapchain? _swapchain;
     private bool _disposed;
+    private Cluster _cluster = null!;
+    private AuthorityScope _scope = null!;
+    private ReplicaScope _replica = null!;
 
     private GameInstance(GameDefinition definition, GameOptions options)
     {
@@ -85,7 +89,7 @@ public sealed class GameInstance : IDisposable
         Window = Platform.CreateWindow(new WindowOptions { Title = definition.Name, Width = options.Width, Height = options.Height });
         Ui = new UiTree();
         Seed = options.Seed ?? definition.Seed;
-        World = NewWorld(null);
+        Attach(NewWorld(null));
         definition.Style(Ui);
         SyncViewport();
         OpenScreen(_screenSet.Names.Any(n => n == "main") ? "main" : _screenSet.Names.Count > 0 ? _screenSet.Names[0] : throw new InvalidOperationException($"{definition.Name} declares no screens. Add one named \"main\" in DefineScreens."));
@@ -110,8 +114,20 @@ public sealed class GameInstance : IDisposable
     /// <summary>The options the instance was created with.</summary>
     public GameOptions Options { get; }
 
-    /// <summary>The current world. Read it through this property rather than keeping the reference: it changes when a snapshot or fixture is loaded.</summary>
-    public World World { get; private set; }
+    /// <summary>The authority world: the state the simulation runs on. Read it through this property rather than keeping the reference: it changes when a snapshot or fixture is loaded.</summary>
+    public World World { get; private set; } = null!;
+
+    /// <summary>The single-player cluster: one authority node holding <see cref="World"/> and one local replica of it. Rebuilt whenever the world is replaced.</summary>
+    public Cluster Cluster => _cluster;
+
+    /// <summary>The authority scope that owns <see cref="World"/>. Recordings start here.</summary>
+    public AuthorityScope Scope => _scope;
+
+    /// <summary>The local replica of the world, kept in step by the cluster. Its hash must equal the authority's at every tick; drift is reported by <see cref="DriftReports"/>.</summary>
+    public ReplicaScope Replica => _replica;
+
+    /// <summary>Drift reports filed so far by the local replica; empty while replica and authority agree.</summary>
+    public IReadOnlyList<DriftReport> DriftReports => _cluster.DriftReports;
 
     /// <summary>The seed of the current run.</summary>
     public ulong Seed { get; private set; }
@@ -168,10 +184,39 @@ public sealed class GameInstance : IDisposable
         return world;
     }
 
-    private void Replace(World world)
+    /// <summary>Builds a world the way the game does (registry, tables, systems) and fills it with the game's starting state. Replays run on such a world.</summary>
+    public World CreateWorld() => NewWorld(null);
+
+    /// <summary>Builds an empty world with the game's registry and systems, the starting point for a replay or a snapshot load.</summary>
+    public World CreateBlankWorld() => NewWorld(static _ => { });
+
+    private void Attach(World world)
     {
         World = world;
+        _cluster = new Cluster(new ClusterOptions());
+        var node = _cluster.AddNode("game");
+        _scope = _cluster.AddScope(node, new ScopeId(1), world);
+        var view = new World(Seed, _registry, WorldRole.Replica);
+        Definition.RegisterSystems(view);
+        _replica = _cluster.AddLocalReplica(_scope, view);
+        _cluster.Settle();
+    }
+
+    private void Replace(World world)
+    {
+        Attach(world);
         WorldReplaced?.Invoke(world);
+    }
+
+    /// <summary>Starts recording the run from the current state. Stop the recorder to get the <see cref="Recording"/>; replay it with <see cref="Replay"/>.</summary>
+    /// <exception cref="InvalidOperationException">Commands are queued; step once first.</exception>
+    public Recorder StartRecording(RecordingOptions? options = null) => _scope.StartRecording(options ?? new RecordingOptions { CheckpointInterval = 1 });
+
+    /// <summary>Replays a recording on a fresh world built like the game's and compares the hashes. The running game is left alone.</summary>
+    public ReplayResult Replay(Recording recording, Action<World>? onTick = null)
+    {
+        ArgumentNullException.ThrowIfNull(recording);
+        return Replayer.Replay(recording, CreateBlankWorld(), new ReplayOptions { OnTick = onTick });
     }
 
     /// <summary>Starts a new game: a fresh world filled by <see cref="GameDefinition.Setup"/>, optionally with a different seed.</summary>
@@ -197,27 +242,23 @@ public sealed class GameInstance : IDisposable
         Replace(NewWorld(populate));
     }
 
-    /// <summary>Replaces the world with the state in a snapshot.</summary>
-    /// <exception cref="InvalidDataException">The snapshot is malformed or from an unsupported version.</exception>
+    /// <summary>Replaces the world with the state in a save (see <see cref="SaveFile"/>).</summary>
+    /// <exception cref="InvalidDataException">The save is malformed, damaged or from an unsupported version.</exception>
     public void LoadSnapshot(ReadOnlySpan<byte> snapshot)
     {
         var world = NewWorld(static _ => { });
-        var error = world.ReadSnapshot(snapshot);
-        if (error != SyncError.None)
+        var result = SaveFile.Load(snapshot, world);
+        if (result.Status != SaveStatus.Ok)
         {
-            throw new InvalidDataException($"The snapshot could not be loaded: {error}.");
+            throw new InvalidDataException($"The save could not be loaded: {result.Status} ({result.Detail}).");
         }
 
+        Seed = world.Seed;
         Replace(world);
     }
 
-    /// <summary>Writes the current world as a snapshot.</summary>
-    public byte[] SaveSnapshot()
-    {
-        var w = new SyncWriter();
-        World.WriteSnapshot(w);
-        return w.Written.ToArray();
-    }
+    /// <summary>Writes the current world as a save file (header, hashes, snapshot).</summary>
+    public byte[] SaveSnapshot() => SaveFile.Write(World);
 
     /// <summary>Replaces the UI with a declared screen.</summary>
     /// <exception cref="KeyNotFoundException">No screen has that name.</exception>
@@ -268,7 +309,7 @@ public sealed class GameInstance : IDisposable
         DrainInput();
         for (var t = 0; t < ticks; t++)
         {
-            World.Step();
+            _cluster.Step(1);
             TickCompleted?.Invoke(World);
         }
 

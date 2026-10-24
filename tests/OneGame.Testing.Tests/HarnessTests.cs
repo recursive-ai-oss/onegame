@@ -3,7 +3,9 @@ using System.Text;
 using System.Text.Json;
 using System.Net.Sockets;
 using OneGame.Control;
+using OneGame.Core;
 using OneGame.Host;
+using OneGame.Sync;
 using OneGame.Live;
 
 namespace OneGame.Testing.Tests;
@@ -243,7 +245,7 @@ public class HarnessTests
     public void RecordingRoundTripsAndRejectsDamagedBytes()
     {
         using var cluster = TestCluster.Start(new ShopGame(), Options());
-        using var recorder = new RunRecorder(cluster.Client.Game);
+        var recorder = cluster.Client.Game.StartRecording();
         for (var f = 0; f < 20; f++)
         {
             Drive(cluster.Client, f);
@@ -252,31 +254,48 @@ public class HarnessTests
 
         var recording = recorder.Stop();
         var bytes = recording.ToBytes();
-        var back = Recording.FromBytes(bytes);
-        Assert.Equal(recording.Commands.Count, back.Commands.Count);
-        Assert.Equal(recording.Hashes, back.Hashes);
+        Assert.Equal(SyncError.None, Recording.TryRead(bytes, out var back));
+        Assert.Equal(recording.Commands.Count, back!.Commands.Count);
+        Assert.True(back.Commands.Count > 0);
 
         using var fresh = TestCluster.Start(new ShopGame(), Options());
-        Assert.True(back.Replay(fresh.Client.Game).Identical);
+        var ok = fresh.Client.Game.Replay(back);
+        Assert.True(ok.Ok, ok.Divergence?.ToString());
+        Assert.Equal(cluster.Client.Hash, ok.FinalHash);
 
-        // Tamper with a recorded command: the replay diverges at that tick.
-        var tampered = new Recording
-        {
-            Game = back.Game, Seed = back.Seed, StartTick = back.StartTick, Snapshot = back.Snapshot, Hashes = back.Hashes,
-            Commands = [.. back.Commands.Skip(1)],
-        };
+        // Drop a recorded command: the replay diverges.
+        Assert.Equal(SyncError.None, Recording.TryRead(bytes, out var tampered));
+        tampered!.Commands.RemoveAt(0);
         using var fresh2 = TestCluster.Start(new ShopGame(), Options());
-        var bad = tampered.Replay(fresh2.Client.Game);
-        Assert.False(bad.Identical);
+        var bad = fresh2.Client.Game.Replay(tampered);
+        Assert.False(bad.Ok);
+        Assert.NotNull(bad.Divergence);
 
+        // Damaged files are refused, never thrown on.
         for (var cut = 0; cut < bytes.Length; cut += Math.Max(1, bytes.Length / 40))
         {
-            Assert.Throws<InvalidDataException>(() => Recording.FromBytes(bytes.AsSpan(0, cut)));
+            Assert.NotEqual(SyncError.None, Recording.TryRead(bytes.AsSpan(0, cut), out _));
         }
 
         var flipped = (byte[])bytes.Clone();
         flipped[0] ^= 0xFF;
-        Assert.Throws<InvalidDataException>(() => Recording.FromBytes(flipped));
+        Assert.NotEqual(SyncError.None, Recording.TryRead(flipped, out _));
+    }
+
+    [Fact]
+    public void LocalReplicaStaysInSyncWithTheAuthority()
+    {
+        using var cluster = TestCluster.Start(new ShopGame(), Options());
+        for (var f = 0; f < 40; f++)
+        {
+            Drive(cluster.Client, f);
+            cluster.Client.Step();
+        }
+
+        var game = cluster.Client.Game;
+        Assert.Empty(game.DriftReports);
+        Assert.Empty(game.Cluster.CheckReplicas());
+        Assert.Equal(game.World.ComputeHash(), game.Replica.World.ComputeHash());
     }
 
     [Fact]

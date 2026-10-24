@@ -108,7 +108,7 @@ public sealed class ControlSurface
 
     private InfoResult Info() => new(
         Game.Definition.Name, Game.World.Tick, Game.Frame, HashText(), Game.Window.Width, Game.Window.Height, Game.UiScale,
-        Game.Options.Headless, Game.CurrentScreen, Game.World.Entities.Count, [.. Game.ScreenNames], [.. Game.FixtureNames], Game.Stage.Name, Game.AdapterName);
+        Game.Options.Headless, Game.CurrentScreen, Game.World.Entities.Count, [.. Game.ScreenNames], [.. Game.FixtureNames], Game.Stage.Name, Game.AdapterName, Game.DriftReports.Count);
 
     private StateResult Mutate(string op, Args a)
     {

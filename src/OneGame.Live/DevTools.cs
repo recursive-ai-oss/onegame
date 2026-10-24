@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Text.Json.Serialization;
 using OneGame.Control;
 using OneGame.Host;
+using OneGame.Sync;
 using OneGame.Testing;
 
 namespace OneGame.Live;
@@ -63,7 +64,7 @@ internal sealed class DevTools : IDevTools
                 return Scenarios(game, surface, args, output, json);
             }
 
-            var recorder = args.Has("record") ? new RunRecorder(game) : null;
+            var recorder = args.Has("record") ? game.StartRecording() : null;
             game.Step((int)Math.Min(args.GetInt("after", args.GetInt("frames", 0)), int.MaxValue));
             string? message = null;
             double? scale = double.TryParse(args.Get("scale"), NumberStyles.Float, CultureInfo.InvariantCulture, out var sc) ? sc : null;
@@ -84,8 +85,8 @@ internal sealed class DevTools : IDevTools
             {
                 var recording = recorder.Stop();
                 var recordPath = Path.GetFullPath(args.Get("record") ?? throw new FormatException("--record needs a file name."), surface.OutputDirectory);
-                recording.Save(recordPath);
-                message = JsonSerializer.Serialize(new RecordSummary(recordPath, recording.Ticks, recording.Commands.Count), LiveJson.Default.RecordSummary);
+                RecordingFile.Save(recording, recordPath);
+                message = JsonSerializer.Serialize(new RecordSummary(recordPath, (int)(recording.EndTick - recording.StartTick), recording.Commands.Count), LiveJson.Default.RecordSummary);
             }
 
             Print(output, json, message ?? surface.Call("hash"));
@@ -164,7 +165,7 @@ internal sealed class DevTools : IDevTools
         var width = game.Window.Width;
         var height = game.Window.Height;
         var results = new List<ScenarioResult>();
-        RunRecorder? recorder = null;
+        Recorder? recorder = null;
         foreach (var file in files)
         {
             // Every scenario starts from the same place: a fresh world, the first screen, the original window size.
@@ -174,7 +175,7 @@ internal sealed class DevTools : IDevTools
             var scenario = ScenarioParser.Load(file);
             if (args.Has("record") && files.Count == 1)
             {
-                recorder = new RunRecorder(game);
+                recorder = game.StartRecording();
             }
 
             results.Add(new ScenarioRunner(surface, options).Run(scenario));
@@ -182,7 +183,7 @@ internal sealed class DevTools : IDevTools
 
         if (recorder is not null)
         {
-            recorder.Stop().Save(Path.GetFullPath(args.Get("record") ?? throw new FormatException("--record needs a file name."), surface.OutputDirectory));
+            RecordingFile.Save(recorder.Stop(), Path.GetFullPath(args.Get("record") ?? throw new FormatException("--record needs a file name."), surface.OutputDirectory));
         }
 
         var failed = results.Count(r => !r.Passed);
@@ -234,23 +235,20 @@ internal sealed class DevTools : IDevTools
     private static int Replay(GameInstance game, GameArgs args, TextWriter output, bool json)
     {
         var path = args.Get("replay") ?? throw new FormatException("--replay needs a recording file.");
-        var recording = Recording.Load(path);
-        if (recording.Game != game.Definition.Name)
-        {
-            throw new InvalidDataException($"The recording is of '{recording.Game}', but this game is '{game.Definition.Name}'.");
-        }
-
-        var result = recording.Replay(game);
-        var actual = result.Actual.ToString("x16", CultureInfo.InvariantCulture);
+        var recording = RecordingFile.Load(path);
+        var result = game.Replay(recording);
+        var ticks = (int)(recording.EndTick - recording.StartTick);
+        var final = result.FinalHash.ToString("x16", CultureInfo.InvariantCulture);
+        var d = result.Divergence;
         var summary = new ReplaySummary(
-            result.Identical, result.Identical, recording.Ticks, recording.Commands.Count, result.Identical ? null : result.Tick,
-            result.Identical ? null : result.Expected.ToString("x16", CultureInfo.InvariantCulture), result.Identical ? null : actual, actual);
+            result.Ok, result.Ok, ticks, recording.Commands.Count, d?.Tick,
+            d?.ExpectedHash.ToString("x16", CultureInfo.InvariantCulture), d?.ActualHash.ToString("x16", CultureInfo.InvariantCulture), final);
         output.WriteLine(json
             ? JsonSerializer.Serialize(summary, LiveJson.Default.ReplaySummary)
-            : result.Identical
-                ? $"replay identical: {recording.Ticks} ticks, {recording.Commands.Count} commands, final hash {actual}"
-                : $"replay DIFFERS at tick {result.Tick}: recorded {summary.Expected}, replayed {actual}");
-        return result.Identical ? ExitCodes.Ok : ExitCodes.Failed;
+            : result.Ok
+                ? $"replay identical: {ticks} ticks, {recording.Commands.Count} commands, final hash {final}"
+                : $"replay DIFFERS: {d}");
+        return result.Ok ? ExitCodes.Ok : ExitCodes.Failed;
     }
 }
 

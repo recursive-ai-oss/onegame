@@ -283,23 +283,30 @@ internal static class ValueEmitters
         }
 
         s.Close();
+        // Read keeps the table's arrays: a dry run over a copy of the reader checks every row first (so an error leaves the table
+        // untouched), then the rows are decoded in place. Replicas apply a table every tick, so this must not allocate.
         s.Line("/// <inheritdoc />");
         s.Open("public void Read(ref global::OneGame.Core.SyncReader r)");
         s.Line("var n = r.ReadCount(global::OneGame.Core.SyncLimits.MaxTableRows);");
         s.Line("if (!r.Ok) { return; }");
+        s.Line("var check = Validate(r, n);");
+        s.Line("if (check != global::OneGame.Core.SyncError.None) { r.Fail(check); return; }");
+        s.Line("if (n > Capacity) { Reserve(n); }");
         foreach (var m in members)
         {
-            s.Line($"var c{m.Name} = new {m.Codec.TypeName}[n < 1 ? 1 : n];");
-            s.Line($"for (var i = 0; i < n && r.Ok; i++) {{ c{m.Name}[i] = {m.Codec.Read()}; }}");
-        }
-
-        s.Line("if (!r.Ok) { return; }");
-        foreach (var m in members)
-        {
-            s.Line($"_{m.Name} = c{m.Name};");
+            s.Line($"for (var i = 0; i < n; i++) {{ _{m.Name}[i] = {m.Codec.Read()}; }}");
+            s.Line($"if (_count > n) {{ global::System.Array.Clear(_{m.Name}, n, _count - n); }}");
         }
 
         s.Line("_count = n;");
+        s.Close();
+        s.Open("private static global::OneGame.Core.SyncError Validate(global::OneGame.Core.SyncReader r, int n)");
+        foreach (var m in members)
+        {
+            s.Line($"for (var i = 0; i < n && r.Ok; i++) {{ _ = {m.Codec.Read()}; }}");
+        }
+
+        s.Line("return r.Error;");
         s.Close();
         s.Line("/// <inheritdoc />");
         s.Open("public void WriteJson(global::OneGame.Core.JsonOut j)");
