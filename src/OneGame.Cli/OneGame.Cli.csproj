@@ -14,6 +14,12 @@
 
   <ItemGroup>
     <ProjectReference Include="../OneGame.Control/OneGame.Control.csproj" />
+    <ProjectReference Include="../OneGame.Host/OneGame.Host.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Where this build of the tool came from, so 'onegame new' can find the engine sources when it is not run from inside them. -->
+    <AssemblyMetadata Include="OneGameRoot" Value="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))" />
   </ItemGroup>
 
   <ItemGroup>

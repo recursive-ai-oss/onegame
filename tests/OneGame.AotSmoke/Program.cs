@@ -127,6 +127,14 @@ if (clicks != 1 || ui.Find("score")!.Text != "Score 7" || list.Commands.Length =
 
 Console.WriteLine($"ok: ui {list.Commands.Length} commands, go at {go.AbsoluteBounds}");
 
+// The harness: host, control layer, scenarios, capture, recording and MCP messages.
+var harness = HarnessSmoke.Run();
+if (harness != 0)
+{
+    return harness;
+}
+
+
 // Store: connect to Steam. Without the library or a running client this must fall back to no-op services, never throw.
 using (var store = SteamPlatform.Start())
 {

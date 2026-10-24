@@ -1,0 +1,51 @@
+<Project>
+
+  <!-- Imported by a game's project file (see 'onegame new'). Sets up everything a game needs: the target framework, the rules that make
+       an invalid game a compile error, the engine references, and, in Debug builds only, the development tools. Set OneGameRoot to the
+       engine checkout before importing. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Deterministic>true</Deterministic>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- Games ship through NativeAOT: no reflection-based serialization. -->
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <!-- A NativeAOT publish: dotnet publish -c Release -r <rid> -p:OneGameAot=true. (PublishAot itself is set here rather than on the command
+         line so it does not reach the generator project, which is not an AOT target.) -->
+    <PublishAot Condition="'$(OneGameAot)' == 'true'">true</PublishAot>
+  </PropertyGroup>
+
+  <!-- Development tools (live control over MCP, scenarios, capture, replay) are part of Debug builds. A Release build leaves them out of
+       the program entirely: the project is not referenced and the start-up hook is not compiled. Override with -p:OneGameDev=true|false. -->
+  <PropertyGroup>
+    <OneGameDev Condition="'$(OneGameDev)' == '' and '$(Configuration)' == 'Debug'">true</OneGameDev>
+    <OneGameDev Condition="'$(OneGameDev)' == ''">false</OneGameDev>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OneGameDev)' == 'true'">
+    <DefineConstants>$(DefineConstants);ONEGAME_DEV</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(OneGameRoot)/src/OneGame.Host/OneGame.Host.csproj" />
+    <ProjectReference Include="$(OneGameRoot)/src/OneGame.Core/OneGame.Core.csproj" />
+    <ProjectReference Include="$(OneGameRoot)/src/OneGame.UI/OneGame.UI.csproj" />
+    <!-- The generator and analyzers: entity code, and the rules for simulation and view code. -->
+    <ProjectReference Include="$(OneGameRoot)/src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(OneGameDev)' == 'true'">
+    <ProjectReference Include="$(OneGameRoot)/src/OneGame.Live/OneGame.Live.csproj" />
+    <Compile Include="$(MSBuildThisFileDirectory)DevBoot.cs" Visible="false" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Development-build tools of a running game: live control over MCP, scenario runs, captures and replays. Release builds do not reference this project.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Control/OneGame.Control.csproj" />
+    <ProjectReference Include="../OneGame.Testing/OneGame.Testing.csproj" />
+    <ProjectReference Include="../OneGame.Host/OneGame.Host.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneGame.Testing.Tests" />
+  </ItemGroup>
+
+</Project>

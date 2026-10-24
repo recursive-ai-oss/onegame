@@ -69,3 +69,7 @@ All decoders report problems as `SyncError` on the reader/return value; none thr
 ## Numbers
 
 `Fixed` is a signed fixed-point number with 32 fractional bits in a `long` (arithmetic wraps; `Sqrt/Sin/Cos/Atan2/Atan` are integer-only; `FromRatio`, `FromInt`, `Round/Floor/Ceiling/Frac`, `Lerp`, `ToString`/`TryParse` exist; `ToDouble/ToSingle` are for views). `Rng` is xoshiro256** seeded from `world seed ^ hash(name)`. `Timed<T>.ValueAt(tick)` interpolates linearly between `StartTick` and `EndTick`.
+
+## Harness hooks
+
+Every entity type gets `CommandSignatures` (for example `Buy(int count)`) and `SendFromText(name, string[] args)`, which parses text arguments (int, bool, string, enum, `Fixed`, `EntityId`) and sends the command; commands with other parameter types are left out. The harness uses them for `command_send` and scenarios.

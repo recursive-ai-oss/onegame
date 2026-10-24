@@ -23,6 +23,28 @@ public class EntityTests
     }
 
     [Fact]
+    public void CommandsCanBeSentByNameWithTextArguments()
+    {
+        var world = NewWorld();
+        var shop = MakeShop(world);
+
+        // A struct parameter has no text form, so Restock is not offered; the others are.
+        Assert.Equal(["Buy(int itemId, int count)", "Rename(string name)"], shop.CommandSignatures);
+        Assert.Equal(CommandStatus.UnknownCommand, shop.SendFromText("Restock", ["1"]));
+        Assert.Equal(CommandStatus.UnknownCommand, shop.SendFromText("Nope", []));
+
+        Assert.Equal(CommandStatus.Queued, shop.SendFromText("Buy", ["1", "2"]));
+        Assert.Equal(CommandStatus.Queued, shop.SendFromText("Rename", ["Big Store"]));
+        Assert.Equal(CommandStatus.Malformed, shop.SendFromText("Buy", ["1"]));
+        Assert.Equal(CommandStatus.Malformed, shop.SendFromText("Buy", ["one", "2"]));
+        Assert.Equal(CommandStatus.Malformed, shop.SendFromText("Buy", ["1", "99999999999"]));
+
+        world.Step();
+        Assert.Equal("Big Store", shop.Name);
+        Assert.Equal(10, shop.Stock);
+    }
+
+    [Fact]
     public void CodecRoundTripsAndHashesMatch()
     {
         var world = NewWorld();

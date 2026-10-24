@@ -63,6 +63,12 @@ public abstract class Entity
     /// <summary>Sets a scalar synced property from text, for the state-patch harness. Returns false if the name is unknown, the type is not a scalar, or the text does not parse.</summary>
     public abstract bool TrySetFromText(string propertyName, string text);
 
+    /// <summary>Signatures of the commands that <see cref="SendFromText"/> accepts, such as <c>Buy(int itemId, int count)</c>, for the harness.</summary>
+    public virtual string[] CommandSignatures => [];
+
+    /// <summary>Encodes and sends a command given its name and text arguments (the state-patch harness uses this). Returns <see cref="CommandStatus.UnknownCommand"/> for an unknown name and <see cref="CommandStatus.Malformed"/> when the argument count or a value is wrong.</summary>
+    public virtual CommandStatus SendFromText(string commandName, string[] arguments) => CommandStatus.UnknownCommand;
+
     /// <summary>Runs the handler for a command. Returns <see cref="CommandStatus.Executed"/>, <see cref="CommandStatus.Rejected"/>, <see cref="CommandStatus.UnknownCommand"/> or <see cref="CommandStatus.Malformed"/>.</summary>
     protected abstract CommandStatus ExecuteCommand(uint commandId, ref SyncReader arguments);
 

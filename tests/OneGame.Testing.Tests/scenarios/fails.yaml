@@ -1,0 +1,8 @@
+name: fails
+window: 320x200
+steps:
+  - click: buy
+  - step: 1
+expect:
+  - state: { entity: Shop, property: Gold, equals: 99 }
+  - ui: { id: gold, text: "Gold: 99" }
