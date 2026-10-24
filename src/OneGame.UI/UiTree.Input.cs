@@ -542,6 +542,7 @@ public sealed partial class UiTree
             var r = c.AbsoluteBounds;
             var cc = r.Center;
             float primary;
+            float raw;
             float orthGap;
             float orthCenter;
             bool ahead;
@@ -549,25 +550,29 @@ public sealed partial class UiTree
             {
                 case NavDirection.Right:
                     ahead = cc.X > c0.X;
-                    primary = MathF.Max(0, r.X - r0.Right);
+                    raw = r.X - r0.Right;
+                    primary = MathF.Max(0, raw);
                     orthGap = Gap(r0.Y, r0.Bottom, r.Y, r.Bottom);
                     orthCenter = MathF.Abs(cc.Y - c0.Y);
                     break;
                 case NavDirection.Left:
                     ahead = cc.X < c0.X;
-                    primary = MathF.Max(0, r0.X - r.Right);
+                    raw = r0.X - r.Right;
+                    primary = MathF.Max(0, raw);
                     orthGap = Gap(r0.Y, r0.Bottom, r.Y, r.Bottom);
                     orthCenter = MathF.Abs(cc.Y - c0.Y);
                     break;
                 case NavDirection.Down:
                     ahead = cc.Y > c0.Y;
-                    primary = MathF.Max(0, r.Y - r0.Bottom);
+                    raw = r.Y - r0.Bottom;
+                    primary = MathF.Max(0, raw);
                     orthGap = Gap(r0.X, r0.Right, r.X, r.Right);
                     orthCenter = MathF.Abs(cc.X - c0.X);
                     break;
                 default:
                     ahead = cc.Y < c0.Y;
-                    primary = MathF.Max(0, r0.Y - r.Bottom);
+                    raw = r0.Y - r.Bottom;
+                    primary = MathF.Max(0, raw);
                     orthGap = Gap(r0.X, r0.Right, r.X, r.Right);
                     orthCenter = MathF.Abs(cc.X - c0.X);
                     break;
@@ -578,7 +583,8 @@ public sealed partial class UiTree
                 continue;
             }
 
-            var score = primary + (3 * orthGap) + (0.1f * orthCenter) + (0.001f * Vector2.Distance(c0, cc));
+            // A candidate that overlaps the source along the move (a wide list and the headers over it) only wins when nothing lies wholly beyond the source.
+            var score = (raw < -0.01f ? 1e6f : 0f) + primary + (3 * orthGap) + (0.1f * orthCenter) + (0.001f * Vector2.Distance(c0, cc));
             if (score < bestScore)
             {
                 bestScore = score;

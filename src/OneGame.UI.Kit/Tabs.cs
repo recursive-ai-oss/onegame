@@ -89,6 +89,13 @@ public static partial class UiKit
             }
 
             select(to);
+            if (root.Tree?.Focused is { } f && Array.IndexOf(tabs, f) >= 0)
+            {
+                // Focus follows the selection when it was on a tab.
+                tabs[to].IsFocusable = true;
+                root.Tree.Focus(tabs[to]);
+            }
+
             return true;
         });
         return root;

@@ -70,7 +70,7 @@ public sealed class TableColumn<T>
 /// The header cells are kind <c>HeaderCell</c>, role <c>columnheader</c>, ids <c>id/header/0</c>...; a sortable one is focusable, and a click or Enter asks the game to sort
 /// (first ascending, then flipping) through the callback: the game sorts its list, and the table rebinds the rows and keeps the same item selected.
 /// The sorted header has the classes <c>sorted</c> and <c>asc</c> or <c>desc</c>. The body is a <see cref="ListView{T}"/> (<see cref="Body"/>): it takes focus,
-/// Up/Down/PageUp/PageDown/Home/End move the selection, and Enter or the confirm button activates the selected row. Rows are role <c>row</c>, ids <c>id/row/n</c>.
+/// Up/Down/PageUp/PageDown/Home/End move the selection, and Enter or the confirm button activates the selected row. Rows are role <c>row</c>, ids <c>id/row/n</c>; the body is <c>id/body</c>.
 /// </summary>
 /// <typeparam name="T">The row item type.</typeparam>
 public sealed class TableView<T> : Element
@@ -137,8 +137,9 @@ public sealed class TableView<T> : Element
             version,
             onSelect,
             onActivate,
-            id,
-            "TableBody");
+            id is null ? null : id + "/body",
+            "TableBody",
+            rowIdPrefix: id);
         Body.Class("kit-table-body");
         this.With(header, Body);
     }

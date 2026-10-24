@@ -193,7 +193,10 @@ public static class KitTheme
         sheet.Rule(".kit-row.selected", s => s.Var("background-color", "--kit-select").Var("color", "--kit-select-text"));
         sheet.Rule(".kit-cell", s => s.Padding(Length.Px(0), Length.Ui(8)).Overflow(OverflowMode.Hidden).WhiteSpace(WhiteSpace.NoWrap));
         sheet.Rule(".kit-cell.end", s => s.TextAlign(TextAlignment.End));
-        sheet.Rule(".kit-table", s => s.Direction(FlexDirection.Column).Grow(1).MinHeight(0f));
+        sheet.Rule(".kit-table", s => Rounded(s).Direction(FlexDirection.Column).Grow(1).MinHeight(0f).Overflow(OverflowMode.Hidden).Var("background-color", "--kit-field")
+            .BorderWidth(Length.Px(1)).Var("border-color", "--kit-border"));
+        // The table draws the one border around header and body, so their columns line up.
+        sheet.Rule(".kit-table-body", s => s.BorderWidth(Length.Px(0)).Radius(Length.Px(0)));
         sheet.Rule(".kit-table-header", s => s.Var("background-color", "--kit-raised").BorderWidth(Length.Px(0), Length.Px(0), Length.Px(1), Length.Px(0)).Var("border-color", "--kit-border"));
         sheet.Rule(".kit-header-cell", s => s.AlignItems(Align.Center).Gap(Length.Ui(4)).Padding(Length.Ui(6), Length.Ui(8)).MinHeight(Length.Ui(30)).Overflow(OverflowMode.Hidden));
         sheet.Rule(".kit-header-cell:hover", s => s.Var("background-color", "--kit-hover"));

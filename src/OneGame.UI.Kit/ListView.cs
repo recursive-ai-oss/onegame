@@ -29,6 +29,7 @@ public class ListView<T> : Element
     private bool _invalid = true;
     private int _selected = -1;
     private T? _selectedItem;
+    private readonly string? _rowIdPrefix;
 
     internal ListView(
         Func<IReadOnlyList<T>> items,
@@ -39,7 +40,8 @@ public class ListView<T> : Element
         Action<T, int>? onSelect,
         Action<T, int>? onActivate,
         string? id,
-        string kind = "List")
+        string kind = "List",
+        string? rowIdPrefix = null)
         : base(kind)
     {
         _items = items ?? throw new ArgumentNullException(nameof(items));
@@ -55,6 +57,7 @@ public class ListView<T> : Element
         }
 
         Id = id;
+        _rowIdPrefix = rowIdPrefix ?? id;
         Role = "listbox";
         Class("kit-list " + UiKit.FocusableClass);
         IsFocusable = true;
@@ -276,7 +279,7 @@ public class ListView<T> : Element
             _pool.Add(row);
         }
 
-        var prefix = Id;
+        var prefix = _rowIdPrefix;
         for (var k = 0; k < _pool.Count; k++)
         {
             var row = _pool[k];

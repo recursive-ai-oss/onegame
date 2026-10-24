@@ -154,14 +154,20 @@ public static partial class UiKit
                 return;
             }
 
-            e.Value = DeviceName(device) + ":" + name;
-            var art = KitArt.GlyphId(device, name);
-            var cap = device == InputDevice.Keyboard && !KitArt.IsPictureKey(name);
-            label.IsVisible = cap;
-            label.Text = cap ? KeyLabel(name) : "";
-            e.Style(s => s.BackgroundImage(art).BackgroundSlice(Length.Ui(device == InputDevice.Keyboard ? KitArt.KeySlice : 0)));
+            Show(e, label, device, name);
         });
         return root;
+    }
+
+    // A separate method so the closure for the style lambda is only allocated when a glyph changes, not on every frame (see KitHost.MoveLayer).
+    private static void Show(Element e, Element label, InputDevice device, string name)
+    {
+        e.Value = DeviceName(device) + ":" + name;
+        var art = KitArt.GlyphId(device, name);
+        var cap = device == InputDevice.Keyboard && !KitArt.IsPictureKey(name);
+        label.IsVisible = cap;
+        label.Text = cap ? KeyLabel(name) : "";
+        e.Style(s => s.BackgroundImage(art).BackgroundSlice(Length.Ui(device == InputDevice.Keyboard ? KitArt.KeySlice : 0)));
     }
 
     private static string DeviceName(InputDevice d) => d switch

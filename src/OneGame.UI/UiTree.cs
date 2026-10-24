@@ -115,6 +115,23 @@ public sealed partial class UiTree
         return removed;
     }
 
+    /// <summary>Puts <paramref name="replacement"/> where <paramref name="existing"/> is in the cascade, so a theme can be swapped without changing which sheets win ties. Styles are resolved again on the next frame.</summary>
+    /// <returns>False when <paramref name="existing"/> was not added; nothing changes then.</returns>
+    public bool ReplaceStyleSheet(StyleSheet existing, StyleSheet replacement)
+    {
+        ArgumentNullException.ThrowIfNull(existing);
+        ArgumentNullException.ThrowIfNull(replacement);
+        var i = _sheets.IndexOf(existing);
+        if (i < 0)
+        {
+            return false;
+        }
+
+        _sheets[i] = replacement;
+        SheetsChanged();
+        return true;
+    }
+
     private void SheetsChanged()
     {
         AncestorSelectors = false;

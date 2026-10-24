@@ -22,7 +22,8 @@ public sealed class KitHost
     public KitHost(UiTree tree, StyleSheet? theme = null)
     {
         Tree = tree ?? throw new ArgumentNullException(nameof(tree));
-        tree.AddStyleSheet(theme ?? KitTheme.Create());
+        Theme = theme ?? KitTheme.Create();
+        tree.AddStyleSheet(Theme);
         _label = Ui.Label("").Class("kit-tooltip-label");
         _layer = UiKit.Make("Tooltip", "tooltip", "kit-tooltip", "kit/tooltip");
         _layer.Style(s => s.Position(PositionMode.Fixed).ZIndex(1000).PointerEvents(PointerEvents.None));
@@ -34,6 +35,20 @@ public sealed class KitHost
 
     /// <summary>The tree this host serves.</summary>
     public UiTree Tree { get; }
+
+    /// <summary>The kit's style sheet as installed (or last set with <see cref="SetTheme"/>).</summary>
+    public StyleSheet Theme { get; private set; }
+
+    /// <summary>
+    /// Swaps the kit's style sheet for another, for example <c>KitTheme.Create(KitTokens.Light)</c>. The tree keeps every element; styles are resolved again on the next frame.
+    /// The new sheet takes the old one's place in the cascade, so game sheets added after the kit's still win ties.
+    /// </summary>
+    public void SetTheme(StyleSheet theme)
+    {
+        ArgumentNullException.ThrowIfNull(theme);
+        Tree.ReplaceStyleSheet(Theme, theme);
+        Theme = theme;
+    }
 
     /// <summary>Which device the player used last, and what each action looks like on it.</summary>
     public InputGlyphs Glyphs { get; } = new();
@@ -163,7 +178,11 @@ public sealed class KitHost
         {
             _x = x;
             _y = y;
-            _layer.Style(s => s.Left(Length.Px(x)).Top(Length.Px(y)));
+            MoveLayer(x, y);
         }
     }
+
+    // Kept out of Place so that the closure it needs is only allocated when the tooltip actually moves: a lambda that captures locals
+    // makes the compiler allocate its closure at the start of the enclosing scope, which would cost every frame.
+    private void MoveLayer(float x, float y) => _layer.Style(s => s.Left(Length.Px(x)).Top(Length.Px(y)));
 }

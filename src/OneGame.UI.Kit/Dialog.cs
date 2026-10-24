@@ -32,6 +32,16 @@ public sealed class DialogView : Element
         heading.Text = title;
         Panel.With(heading, body, Buttons);
         Add(Panel);
+        // A press on the scrim or the panel's bare parts would drop focus out of the dialog; put it back so Escape and the d-pad keep working.
+        On(UiEventKind.PointerDown, (t, _) =>
+        {
+            if (t.Tree is { } tree && (tree.Focused is null || !t.Contains(tree.Focused)))
+            {
+                tree.Focus(FocusHelpers.FindDefault(t));
+            }
+
+            return true;
+        });
         On(UiEventKind.Cancel, (_, _) =>
         {
             Close();
