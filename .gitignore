@@ -22,3 +22,4 @@ bin/
 obj/
 TestResults/
 *.binlog
+!/tools

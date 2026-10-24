@@ -1,7 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../src/OneGame.Platform/OneGame.Platform.csproj" />
+    <Content Include="testdata/**" CopyToOutputDirectory="PreserveNewest" LinkBase="testdata" />
   </ItemGroup>
 
 </Project>

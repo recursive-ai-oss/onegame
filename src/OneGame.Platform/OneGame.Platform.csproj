@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <Description>Windows, input, controllers and the app lifecycle per operating system.</Description>
+    <!-- The per-OS backends call native libraries through source-generated, blittable P/Invokes; unsafe code stays inside this assembly. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
