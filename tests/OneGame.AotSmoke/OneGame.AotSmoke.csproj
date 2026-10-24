@@ -9,6 +9,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The smoke entities go through the generator like a game's would. -->
+    <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Every runtime assembly, so the publish trims and compiles all of them. -->
     <ProjectReference Include="../../src/OneGame.Core/OneGame.Core.csproj" />
     <ProjectReference Include="../../src/OneGame.Sync/OneGame.Sync.csproj" />

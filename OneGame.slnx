@@ -20,6 +20,7 @@
     <Project Path="tests/OneGame.Build.Tests/OneGame.Build.Tests.csproj" />
     <Project Path="tests/OneGame.Cli.Tests/OneGame.Cli.Tests.csproj" />
     <Project Path="tests/OneGame.Control.Tests/OneGame.Control.Tests.csproj" />
+    <Project Path="tests/OneGame.Core.Fuzz/OneGame.Core.Fuzz.csproj" />
     <Project Path="tests/OneGame.Core.Tests/OneGame.Core.Tests.csproj" />
     <Project Path="tests/OneGame.Generators.Tests/OneGame.Generators.Tests.csproj" />
     <Project Path="tests/OneGame.Gpu.Tests/OneGame.Gpu.Tests.csproj" />

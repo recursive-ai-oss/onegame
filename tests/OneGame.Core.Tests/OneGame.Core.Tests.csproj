@@ -6,4 +6,9 @@
     <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Fuzzer seeds and every crash input it ever found; the regression test replays them all. -->
+    <None Include="../../testdata/fuzz/**/*.bin" Link="testdata/fuzz/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
