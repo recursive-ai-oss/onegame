@@ -27,7 +27,7 @@ public partial class Shop : Entity
 
         Stock -= count;
         Gold += Fixed.FromInt(5 * count);
-        Status = "sold " + count;
+        Status = "sold " + count.ToString(System.Globalization.CultureInfo.InvariantCulture);
         return true;
     }
 
