@@ -23,6 +23,9 @@
     <!-- A NativeAOT publish: dotnet publish -c Release -r <rid> -p:OneGameAot=true. (PublishAot itself is set here rather than on the command
          line so it does not reach the generator project, which is not an AOT target.) -->
     <PublishAot Condition="'$(OneGameAot)' == 'true'">true</PublishAot>
+    <!-- The same for the self-contained CoreCLR export (onegame export when NativeAOT is not possible on this OS). -->
+    <PublishTrimmed Condition="'$(OneGameTrim)' == 'true'">true</PublishTrimmed>
+    <PublishReadyToRun Condition="'$(OneGameTrim)' == 'true'">true</PublishReadyToRun>
   </PropertyGroup>
 
   <!-- Development tools (live control over MCP, scenarios, capture, replay) are part of Debug builds. A Release build leaves them out of

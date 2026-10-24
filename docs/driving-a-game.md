@@ -77,6 +77,15 @@ Debug builds listen on a local socket: `onegame run -- --live` (add `--realtime`
 
 `--project` starts the game and bridges to it; `--socket <path>` attaches to a given one; with neither, the bridge attaches to the only live game. Tools: `info`, `hash`, `state_query`, `state_patch`, `commands_list`, `command_send`, `input_pointer`, `input_key`, `input_text`, `input_nav`, `step`, `ui_tree`, `ui_query`, `ui_invoke`, `ui_click`, `ui_hit`, `screen_open`, `fixture_load`, `reset`, `snapshot_save`, `snapshot_load`, `capture_frame`, `capture_sequence`, `quit`. A typical session: `info` → `state_query` → `ui_click` → `step 10` → `ui_tree` → `capture_frame`. Errors come back as `{"error":{"code","message"}}` with a stable code. Release builds contain none of this.
 
+## 6. Ship it
+
+```
+onegame export --target linux-x64 --steam --json     # a folder and a .tar.gz under ./export, nothing else in them
+onegame export --target win-x64 --json              # a folder and a .zip
+```
+
+The JSON lists every file with its size and hash, and the warnings worth acting on. Release builds only; see `docs/exporting.md`.
+
 ## Exit codes
 
 0 ok, 1 a check failed (scenario, replay, tests), 2 bad command line, 3 build failed, 4 could not run, 5 the option needs a Debug build.

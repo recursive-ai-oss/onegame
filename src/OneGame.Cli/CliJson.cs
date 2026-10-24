@@ -30,8 +30,25 @@ internal sealed record UnitTestSummary(bool Ran, bool Ok, int Total, int Passed,
 /// <summary>Result of <c>onegame test</c>.</summary>
 internal sealed record TestResult(bool Ok, JsonElement? Scenarios, UnitTestSummary? UnitTests, BuildResult? Build);
 
-/// <summary>Result of <c>onegame export</c> until export exists.</summary>
-internal sealed record ExportResult(bool Ok);
+/// <summary>One file of an export.</summary>
+/// <param name="Path">Path relative to the export folder, with forward slashes.</param>
+/// <param name="Size">Size in bytes.</param>
+/// <param name="Sha256">Lower-case hex SHA-256 of the contents.</param>
+internal sealed record ExportFile(string Path, long Size, string Sha256);
+
+/// <summary>A project file the export left out, and why.</summary>
+internal sealed record ExportSkipped(string Path, string Reason);
+
+/// <summary>Something about an export worth a look that did not stop it.</summary>
+internal sealed record ExportWarning(string Code, string Message);
+
+/// <summary>The archive made from an export folder.</summary>
+internal sealed record ExportArchive(string Path, string Format, long Size, string Sha256);
+
+/// <summary>Result of <c>onegame export</c>.</summary>
+internal sealed record ExportResult(
+    bool Ok, string Game, string GameVersion, string EngineVersion, string Target, string Configuration, string Runtime, bool Steam, bool DevTools,
+    string Renderer, string Directory, string Executable, ExportArchive? Archive, ExportFile[] Files, ExportSkipped[] Skipped, ExportWarning[] Warnings, double Seconds);
 
 /// <summary>Source-generated JSON metadata; the command line never uses reflection-based serialization.</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
@@ -41,6 +58,7 @@ internal sealed record ExportResult(bool Ok);
 [JsonSerializable(typeof(NewResult))]
 [JsonSerializable(typeof(BuildResult))]
 [JsonSerializable(typeof(TestResult))]
+[JsonSerializable(typeof(ExportResult))]
 [JsonSerializable(typeof(JsonElement))]
 internal sealed partial class CliJson : JsonSerializerContext
 {
