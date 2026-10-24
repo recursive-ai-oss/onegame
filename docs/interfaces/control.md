@@ -9,7 +9,7 @@ Source: `src/OneGame.Control` (operations), `src/OneGame.Host` (the game being d
 - `World` is the authority world; state queries, patches, hashes and snapshots act on it. Replacing the world (`Reset`, `LoadFixture`, `LoadSnapshot`) rebuilds the cluster.
 - `SaveSnapshot()`/`LoadSnapshot()` are `SaveFile` bytes (header, hashes, versioned snapshot).
 - `StartRecording()` returns u6's `Recorder` (checkpoint every tick by default); `Replay(recording)` runs it on a fresh world built like the game's and returns `ReplayResult`. `RecordingFile.Save/Load` handle files (`OGRP`).
-- A `GameDefinition` declares entities, `Setup`, `RegisterSystems`, `DefineScreens`, `DefineFixtures`, `Style`, `OnInput`, and optionally `CreateRenderStage()` (the default stage clears and draws the UI display list; the 2D renderer replaces it).
+- A `GameDefinition` declares entities, `Setup`, `RegisterSystems`, `DefineScreens`, `DefineFixtures`, `Style`, `OnInput`, `DefineFonts` (default: `fonts/*.ttf|otf`), `DefineArt`, and optionally `CreateRenderStage(HostResources)`. The default stage is `Render2DStage` (the 2D renderer, sRGB targets) when the game has fonts and shaders are available (`GameOptions.Shaders`, or `ONEGAME_SHADER_DIR` holding `Program.Entry.spv` files until the shader build package is wired in); otherwise `StubStage`, a GPU clear plus a CPU raster of the display list. A GPU-less capture always uses the CPU raster.
 - `GameApp.Run(definition, args)` is the whole `Main` of a game: `--headless --frames N --size WxH --scale S --seed N --gpu auto|off|required --json`. Any other flag needs the development tools (`Dev.Enable()`, called by a module initializer that exists only in Debug builds); without them the game exits 5 `no_dev_tools`.
 
 ## Operations
