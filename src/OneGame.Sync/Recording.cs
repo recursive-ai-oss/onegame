@@ -292,6 +292,9 @@ public enum DivergenceReason
 
     /// <summary>The replay world is not an authority world, or the recording is inconsistent.</summary>
     Unusable,
+
+    /// <summary>The recording asks for more ticks than <see cref="ReplayOptions.MaxTicks"/> allows. Nothing was run.</summary>
+    TooLong,
 }
 
 /// <summary>The first place a replay stopped matching the recording.</summary>
@@ -392,6 +395,16 @@ public sealed class ReplayOptions
 {
     /// <summary>Called after every replayed tick, for captures and assertions.</summary>
     public Action<World>? OnTick { get; init; }
+
+    /// <summary>
+    /// The most ticks a replay may run, counted from the recording's start tick to its end tick. A recording that asks for more is
+    /// refused before anything runs, so a hostile file cannot demand an endless simulation. The default is 2 000 000 ticks (about
+    /// 9 hours at 60 ticks per second); raise it for longer soaks.
+    /// </summary>
+    public long MaxTicks { get; init; } = DefaultMaxTicks;
+
+    /// <summary>The default for <see cref="MaxTicks"/>.</summary>
+    public const long DefaultMaxTicks = 2_000_000;
 }
 
 /// <summary>Re-runs a <see cref="Recording"/> and checks the hashes.</summary>
@@ -403,12 +416,24 @@ public static class Replayer
     /// </summary>
     /// <param name="recording">The recording.</param>
     /// <param name="world">A fresh authority world built like the recorded one: same registry, tables and systems, added in the same order.</param>
-    /// <param name="options">Optional hooks.</param>
+    /// <param name="options">Optional hooks and the tick limit.</param>
     public static ReplayResult Replay(Recording recording, World world, ReplayOptions? options = null)
     {
         if (world.Role != WorldRole.Authority)
         {
             return Fail(DivergenceReason.Unusable, recording.StartTick, recording.StartTick, 0, 0, [], "The replay world must be an authority world.", 0, 0, 0);
+        }
+
+        if (recording.StartTick < 0 || recording.EndTick < recording.StartTick)
+        {
+            return Fail(DivergenceReason.Unusable, recording.StartTick, recording.StartTick, 0, 0, [], "The recording's tick range is inconsistent.", 0, 0, 0);
+        }
+
+        var limit = options?.MaxTicks ?? ReplayOptions.DefaultMaxTicks;
+        if (recording.EndTick - recording.StartTick > limit)
+        {
+            return Fail(DivergenceReason.TooLong, recording.StartTick, recording.StartTick, 0, 0, [],
+                $"The recording spans {recording.EndTick - recording.StartTick} ticks, more than the limit of {limit}. Raise ReplayOptions.MaxTicks if this is expected.", 0, 0, 0);
         }
 
         var error = world.ReadSnapshot(recording.StartSnapshot);

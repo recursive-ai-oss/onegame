@@ -1,3 +1,6 @@
+// Everything in this assembly gives the same result on every machine, so sim code may call all of it.
+[assembly: OneGame.Core.SimSafe]
+
 namespace OneGame.Core;
 
 /// <summary>Identifies the Core assembly; a placeholder until its first feature lands.</summary>

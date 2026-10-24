@@ -12,8 +12,9 @@ namespace OneGame.Generators;
 /// <summary>
 /// Enforces the sim and view rules. Sim code is every member of a type marked [Entity], [Sim] or implementing ISimSystem, except
 /// members marked [View], plus any member marked [Sim]. View code is every member marked [View] and every member of a type marked [View].
-/// Calls into other methods are checked only for the view rule (a view may not call anything that changes state); the sim rules
-/// look at the code written in the sim member itself.
+/// Sim code is checked through calls: a call into a method of the same compilation is followed to the offending line, and a call
+/// into another assembly must be on the framework allow list, marked [SimSafe] or trusted (OG0015). A view may not call anything
+/// that changes state (OG0008).
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class SimRulesAnalyzer : DiagnosticAnalyzer
@@ -36,7 +37,7 @@ public sealed class SimRulesAnalyzer : DiagnosticAnalyzer
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
         Rules.FloatInState, Rules.FloatInSim, Rules.UnorderedIteration, Rules.Clock, Rules.Threads, Rules.InputOutput,
-        Rules.UnnamedRandom, Rules.ViewWrites, Rules.NoCodec);
+        Rules.UnnamedRandom, Rules.ViewWrites, Rules.NoCodec, Rules.ExternalApi, Rules.Culture);
 
     /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
@@ -45,15 +46,14 @@ public sealed class SimRulesAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.RegisterCompilationStartAction(start =>
         {
-            var state = new State(start.Compilation);
+            var state = new State(start.Compilation, start.Options);
             start.RegisterSymbolAction(State.AnalyzeType, SymbolKind.NamedType);
             start.RegisterSymbolAction(State.AnalyzeMemberDeclaration, SymbolKind.Field, SymbolKind.Property, SymbolKind.Method);
             start.RegisterOperationAction(State.AnalyzeFloat, FloatKinds);
-            start.RegisterOperationAction(State.AnalyzeMember, OperationKind.PropertyReference, OperationKind.FieldReference,
-                OperationKind.MethodReference, OperationKind.Invocation, OperationKind.ObjectCreation);
-            start.RegisterOperationAction(State.AnalyzeForEach, OperationKind.Loop);
-            start.RegisterOperationAction(State.AnalyzeLockAndAwait, OperationKind.Lock, OperationKind.Await);
-            start.RegisterOperationAction(State.AnalyzeLinq, OperationKind.Invocation);
+            start.RegisterOperationAction(state.AnalyzeSimOperation, OperationKind.PropertyReference, OperationKind.FieldReference,
+                OperationKind.MethodReference, OperationKind.Invocation, OperationKind.ObjectCreation, OperationKind.Loop,
+                OperationKind.Lock, OperationKind.Await, OperationKind.Binary, OperationKind.Unary, OperationKind.Conversion,
+                OperationKind.InterpolatedString);
             start.RegisterOperationAction(state.AnalyzeViewWrite, OperationKind.SimpleAssignment, OperationKind.CompoundAssignment,
                 OperationKind.Increment, OperationKind.Decrement);
             start.RegisterOperationAction(state.AnalyzeViewCall, OperationKind.Invocation);
@@ -65,7 +65,21 @@ public sealed class SimRulesAnalyzer : DiagnosticAnalyzer
         private readonly Compilation _compilation;
         private readonly ConcurrentDictionary<ISymbol, bool> _writes = new(SymbolEqualityComparer.Default);
 
-        public State(Compilation compilation) => _compilation = compilation;
+        private readonly AnalyzerOptions _options;
+        private readonly ConcurrentDictionary<ISymbol, Found?> _chains = new(SymbolEqualityComparer.Default);
+        private readonly ConcurrentDictionary<SyntaxTree, string[]> _trusted = new();
+        private readonly string[] _assemblyTrusted;
+
+        public State(Compilation compilation, AnalyzerOptions options)
+        {
+            _compilation = compilation;
+            _options = options;
+            _assemblyTrusted = compilation.Assembly.GetAttributes()
+                .Where(a => Codecs.IsCoreAttribute(a, "SimTrustAttribute") && a.ConstructorArguments.Length == 1)
+                .Select(a => a.ConstructorArguments[0].Value as string ?? string.Empty)
+                .Where(n => n.Length > 0)
+                .ToArray();
+        }
 
         // ---- scope -------------------------------------------------------------------------------------------------
 
@@ -262,76 +276,394 @@ public sealed class SimRulesAnalyzer : DiagnosticAnalyzer
             return text.Length > 40 ? text.Substring(0, 40) + "..." : text;
         }
 
-        // ---- banned members (OG0004-OG0007) ------------------------------------------------------------------------
+        // ---- rules checked in sim code, through calls (OG0003-OG0007, OG0015, OG0016) ------------------------------
 
-        public static void AnalyzeMember(OperationAnalysisContext context)
+        private sealed class Hit
         {
-            ISymbol? symbol = context.Operation switch
+            public Hit(DiagnosticDescriptor rule, string text, SyntaxNode? at = null)
             {
-                IPropertyReferenceOperation p => p.Property,
-                IFieldReferenceOperation f => f.Field,
-                IMethodReferenceOperation m => m.Method,
-                IInvocationOperation i => i.TargetMethod,
-                IObjectCreationOperation c => c.Constructor,
-                _ => null,
-            };
-            if (symbol is null || ScopeOf(context.ContainingSymbol) != Scope.Sim)
-            {
-                return;
+                Rule = rule;
+                Text = text;
+                At = at;
             }
 
-            if (Banned.Match(symbol) is { } rule)
-            {
-                var type = (symbol.ContainingType ?? (symbol as INamedTypeSymbol))?.Name;
-                var shown = symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } ? "new " + type : type + "." + symbol.Name;
-                context.ReportDiagnostic(Diagnostic.Create(rule, context.Operation.Syntax.GetLocation(), shown));
-            }
+            public DiagnosticDescriptor Rule { get; }
+
+            public string Text { get; }
+
+            public SyntaxNode? At { get; }
         }
 
-        public static void AnalyzeLockAndAwait(OperationAnalysisContext context)
+        /// <summary>A violation found below a call: the rule, and the names from the called method down to the offending code.</summary>
+        private sealed class Found
         {
-            if (ScopeOf(context.ContainingSymbol) == Scope.Sim)
+            public Found(DiagnosticDescriptor rule, string[] path)
             {
-                context.ReportDiagnostic(Diagnostic.Create(Rules.Threads, context.Operation.Syntax.GetLocation(),
-                    context.Operation.Kind == OperationKind.Lock ? "lock" : "await"));
+                Rule = rule;
+                Path = path;
             }
+
+            public DiagnosticDescriptor Rule { get; }
+
+            public string[] Path { get; }
         }
 
-        // ---- unordered iteration (OG0003) --------------------------------------------------------------------------
-
-        public static void AnalyzeForEach(OperationAnalysisContext context)
+        private sealed class Walk
         {
-            if (context.Operation is IForEachLoopOperation loop && ScopeOf(context.ContainingSymbol) == Scope.Sim
-                && Banned.IsUnordered(Unwrap(loop.Collection).Type))
-            {
-                context.ReportDiagnostic(Diagnostic.Create(Rules.UnorderedIteration, loop.Collection.Syntax.GetLocation(),
-                    loop.Collection.Type!.ToDisplayString()));
-            }
+            public readonly HashSet<ISymbol> InProgress = new(SymbolEqualityComparer.Default);
+            public int Cuts;
         }
 
-        public static void AnalyzeLinq(OperationAnalysisContext context)
+        public void AnalyzeSimOperation(OperationAnalysisContext context)
         {
-            var invocation = (IInvocationOperation)context.Operation;
-            var method = invocation.TargetMethod;
             if (ScopeOf(context.ContainingSymbol) != Scope.Sim)
             {
                 return;
             }
 
-            ITypeSymbol? receiver = null;
-            if (method.IsExtensionMethod && method.ContainingType is { Name: "Enumerable" or "ImmutableArray" or "CollectionExtensions" } && invocation.Arguments.Length > 0)
+            var op = context.Operation;
+            if (HardHit(op) is { } hit)
             {
-                receiver = Unwrap(invocation.Arguments[0].Value).Type;
-            }
-            else if (method.Name == "GetEnumerator" && invocation.Instance is not null)
-            {
-                receiver = invocation.Instance.Type;
+                context.ReportDiagnostic(Diagnostic.Create(hit.Rule, (hit.At ?? op.Syntax).GetLocation(), hit.Text));
+                return;
             }
 
-            if (Banned.IsUnordered(receiver))
+            var tree = op.Syntax.SyntaxTree;
+            var callee = CalledSymbol(op);
+            if (callee is null)
             {
-                context.ReportDiagnostic(Diagnostic.Create(Rules.UnorderedIteration, invocation.Syntax.GetLocation(), receiver!.ToDisplayString()));
+                return;
             }
+
+            if (IsInSource(callee))
+            {
+                foreach (var body in Bodies(callee))
+                {
+                    if (SimAllow.IsMarkedSafe(body) || SimAllow.IsTrusted(body, Trusted(tree)))
+                    {
+                        continue;
+                    }
+
+                    if (Summarize(body, new Walk()) is { } found)
+                    {
+                        var chain = string.Join(" \u2192 ", new[] { Display(MemberOf(context.ContainingSymbol)) }.Concat(found.Path));
+                        context.ReportDiagnostic(Diagnostic.Create(found.Rule, op.Syntax.GetLocation(), chain));
+                        return;
+                    }
+                }
+
+                return;
+            }
+
+            if (ExternalHit(op, callee, tree) is { } name)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(Rules.ExternalApi, op.Syntax.GetLocation(), name));
+            }
+        }
+
+        /// <summary>Follows a method of this compilation, and everything it calls in this compilation, looking for a sim-rule violation.</summary>
+        private Found? Summarize(IMethodSymbol method, Walk walk)
+        {
+            method = method.OriginalDefinition;
+            if (_chains.TryGetValue(method, out var cached))
+            {
+                return cached;
+            }
+
+            // Sim members are checked where they are written; reporting them again at every call site would only repeat.
+            if (method.DeclaringSyntaxReferences.IsDefaultOrEmpty || ScopeOf(method) == Scope.Sim)
+            {
+                return null;
+            }
+
+            // A method already being analyzed counts as clean so recursion ends. Such a result is not cached unless it found something.
+            if (!walk.InProgress.Add(method))
+            {
+                walk.Cuts++;
+                return null;
+            }
+
+            var cuts = walk.Cuts;
+            Found? hard = method.IsAsync ? new Found(Rules.Threads, [$"async method '{method.Name}'"]) : null;
+            Found? soft = null;
+            foreach (var reference in method.DeclaringSyntaxReferences)
+            {
+                if (hard is not null)
+                {
+                    break;
+                }
+
+                var tree = reference.SyntaxTree;
+                var root = _compilation.GetSemanticModel(tree).GetOperation(reference.GetSyntax());
+                if (root is null)
+                {
+                    continue;
+                }
+
+                foreach (var op in root.DescendantsAndSelf())
+                {
+                    var found = Inspect(op, walk, tree);
+                    if (found is null)
+                    {
+                        continue;
+                    }
+
+                    if (found.Rule != Rules.ExternalApi)
+                    {
+                        hard = found;
+                        break;
+                    }
+
+                    soft ??= found;
+                }
+            }
+
+            walk.InProgress.Remove(method);
+            var result = hard ?? soft;
+            if (result is not null)
+            {
+                result = new Found(result.Rule, [Display(method), .. result.Path]);
+            }
+
+            if (result is not null || walk.Cuts == cuts)
+            {
+                _chains[method] = result;
+            }
+
+            return result;
+        }
+
+        private Found? Inspect(IOperation op, Walk walk, SyntaxTree tree)
+        {
+            if (IsFloatOp(op))
+            {
+                return new Found(Rules.FloatInSim, [$"float expression '{Snippet(op)}'"]);
+            }
+
+            if (HardHit(op) is { } hit)
+            {
+                return new Found(hit.Rule, [hit.Text]);
+            }
+
+            var callee = CalledSymbol(op);
+            if (callee is null)
+            {
+                return null;
+            }
+
+            if (IsInSource(callee))
+            {
+                foreach (var body in Bodies(callee))
+                {
+                    if (SimAllow.IsMarkedSafe(body) || SimAllow.IsTrusted(body, Trusted(tree)))
+                    {
+                        continue;
+                    }
+
+                    if (Summarize(body, walk) is { } sub)
+                    {
+                        return sub;
+                    }
+                }
+
+                return null;
+            }
+
+            return ExternalHit(op, callee, tree) is { } name ? new Found(Rules.ExternalApi, [name]) : null;
+        }
+
+        private static bool IsFloatOp(IOperation op)
+            => op.Type is not null && Codecs.IsFloatScalar(op.Type) && (!op.IsImplicit || op.Kind == OperationKind.Conversion)
+            && Array.IndexOf(FloatKinds, op.Kind) >= 0;
+
+        private bool IsInSource(ISymbol symbol) => SymbolEqualityComparer.Default.Equals(symbol.ContainingAssembly, _compilation.Assembly);
+
+        private static IEnumerable<IMethodSymbol> Bodies(ISymbol symbol)
+        {
+            switch (symbol)
+            {
+                case IMethodSymbol m:
+                    yield return m;
+                    break;
+                case IPropertySymbol p:
+                    if (p.GetMethod is { } g)
+                    {
+                        yield return g;
+                    }
+
+                    if (p.SetMethod is { } s)
+                    {
+                        yield return s;
+                    }
+
+                    break;
+            }
+        }
+
+        private static ISymbol? CalledSymbol(IOperation op) => op switch
+        {
+            IInvocationOperation i => i.TargetMethod,
+            IObjectCreationOperation c => c.Constructor,
+            IPropertyReferenceOperation p => p.Property,
+            IMethodReferenceOperation m => m.Method,
+            IBinaryOperation { OperatorMethod: { } m } => m,
+            IUnaryOperation { OperatorMethod: { } m } => m,
+            IConversionOperation { OperatorMethod: { } m } => m,
+            IFieldReferenceOperation f => f.Field,
+            _ => null,
+        };
+
+        private static ISymbol MemberOf(ISymbol? symbol)
+        {
+            while (symbol is IMethodSymbol { MethodKind: MethodKind.AnonymousFunction or MethodKind.LocalFunction } m)
+            {
+                symbol = m.ContainingSymbol;
+            }
+
+            return symbol!;
+        }
+
+        private static string Display(ISymbol symbol)
+        {
+            if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } ctor)
+            {
+                return "new " + ctor.ContainingType.Name;
+            }
+
+            var name = symbol is IMethodSymbol { AssociatedSymbol: { } associated } ? associated.Name : symbol.Name;
+            return symbol.ContainingType is { } type ? type.Name + "." + name : name;
+        }
+
+        private string[] Trusted(SyntaxTree tree) => _trusted.GetOrAdd(tree, t =>
+        {
+            var list = new List<string>(_assemblyTrusted);
+            var provider = _options.AnalyzerConfigOptionsProvider;
+            foreach (var options in new[] { provider.GlobalOptions, provider.GetOptions(t) })
+            {
+                if (options.TryGetValue("onegame_sim_trusted", out var value))
+                {
+                    list.AddRange(value.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries).Select(v => v.Trim()).Where(v => v.Length > 0));
+                }
+            }
+
+            return list.ToArray();
+        });
+
+        /// <summary>The name of an API outside the compilation that nothing vouches for, or null.</summary>
+        private string? ExternalHit(IOperation op, ISymbol callee, SyntaxTree tree)
+        {
+            if (callee is IFieldSymbol || Banned.Match(callee) is not null || SimAllow.IsFrameworkSafe(callee) || SimAllow.IsMarkedSafe(callee)
+                || SimAllow.IsTrusted(callee, Trusted(tree)))
+            {
+                return null;
+            }
+
+            return Display(callee);
+        }
+
+        /// <summary>A violation that is certain wherever it appears in sim code: a banned member, an unordered loop, a lock, culture-sensitive text.</summary>
+        private static Hit? HardHit(IOperation op)
+        {
+            switch (op)
+            {
+                case IForEachLoopOperation loop:
+                    return Banned.IsUnordered(Unwrap(loop.Collection).Type)
+                        ? new Hit(Rules.UnorderedIteration, loop.Collection.Type!.ToDisplayString(), loop.Collection.Syntax)
+                        : null;
+                case ILockOperation:
+                    return new Hit(Rules.Threads, "lock");
+                case IAwaitOperation:
+                    return new Hit(Rules.Threads, "await");
+                case IInterpolatedStringOperation text:
+                    return InterpolationText(text) is { } holes ? new Hit(Rules.Culture, holes) : null;
+                case IBinaryOperation { OperatorKind: BinaryOperatorKind.Add, Type.SpecialType: SpecialType.System_String } concat:
+                    foreach (var operand in new[] { concat.LeftOperand, concat.RightOperand })
+                    {
+                        if (CultureRules.IsCultureNumber(Unwrap(operand).Type))
+                        {
+                            return new Hit(Rules.Culture, "string concatenation of " + Unwrap(operand).Type!.Name);
+                        }
+                    }
+
+                    break;
+            }
+
+            var symbol = CalledSymbol(op);
+            if (symbol is null)
+            {
+                return null;
+            }
+
+            if (Banned.Match(symbol) is { } rule)
+            {
+                var type = (symbol.ContainingType ?? (symbol as INamedTypeSymbol))?.Name;
+                return new Hit(rule, symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } ? "new " + type : type + "." + symbol.Name);
+            }
+
+            if (op is IInvocationOperation invocation)
+            {
+                var method = invocation.TargetMethod;
+                ITypeSymbol? receiver = null;
+                if (method.IsExtensionMethod && method.ContainingType is { Name: "Enumerable" or "ImmutableArray" or "CollectionExtensions" } && invocation.Arguments.Length > 0)
+                {
+                    receiver = Unwrap(invocation.Arguments[0].Value).Type;
+                }
+                else if (method.Name == "GetEnumerator" && invocation.Instance is not null)
+                {
+                    receiver = invocation.Instance.Type;
+                }
+
+                if (Banned.IsUnordered(receiver))
+                {
+                    return new Hit(Rules.UnorderedIteration, receiver!.ToDisplayString());
+                }
+            }
+
+            if (symbol.ContainingAssembly is not null && CultureRules.Match(symbol, op as IInvocationOperation) is { } culture)
+            {
+                return new Hit(Rules.Culture, "'" + culture + "'");
+            }
+
+            return null;
+        }
+
+        // An interpolation hole formats a number or date with the current culture unless a provider or an invariant wrapper is given.
+        private static string? InterpolationText(IInterpolatedStringOperation text)
+        {
+            for (var p = text.Parent; p is not null; p = p.Parent)
+            {
+                if (p is IConversionOperation conversion)
+                {
+                    if (conversion.Type?.Name is "FormattableString" or "IFormattable")
+                    {
+                        return null;
+                    }
+                }
+                else if (p is IInvocationOperation invocation)
+                {
+                    if (invocation.TargetMethod.Parameters.Any(q => q.Type.Name is "IFormatProvider" or "CultureInfo"))
+                    {
+                        return null;
+                    }
+
+                    break;
+                }
+                else if (p is not (IArgumentOperation or IInterpolatedStringHandlerCreationOperation))
+                {
+                    break;
+                }
+            }
+
+            foreach (var part in text.Parts)
+            {
+                if (part is IInterpolationOperation hole && CultureRules.IsCultureNumber(Unwrap(hole.Expression).Type)
+                    && !(hole.FormatString?.ConstantValue is { HasValue: true, Value: string { Length: > 0 } f } && f[0] is 'x' or 'X'))
+                {
+                    return "string interpolation of " + Unwrap(hole.Expression).Type!.Name;
+                }
+            }
+
+            return null;
         }
 
         private static IOperation Unwrap(IOperation op)
