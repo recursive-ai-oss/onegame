@@ -25,6 +25,8 @@ public sealed class PlatformApp : IDisposable
     /// <summary>The options this application was created with.</summary>
     public PlatformOptions Options { get; }
 
+    internal PlatformBackend NativeBackend => _backend;
+
     /// <summary>Which backend was chosen.</summary>
     public PlatformBackendKind Backend => _backend.Kind;
 
