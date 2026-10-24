@@ -19,3 +19,5 @@ OG0011 | OneGame | Error | Too many synced properties
 OG0012 | OneGame | Error | Synced member is declared wrongly
 OG0013 | OneGame | Error | Command is declared wrongly
 OG0014 | OneGame | Error | Migration is declared wrongly
+OG0015 | OneGame | Warning | API not known to be deterministic
+OG0016 | OneGame | Error | Culture-sensitive text in sim code

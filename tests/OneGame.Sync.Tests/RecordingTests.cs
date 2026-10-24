@@ -38,6 +38,25 @@ public class RecordingTests
     }
 
     [Fact]
+    public void ReplayRefusesARecordingLongerThanTheTickLimit()
+    {
+        var recording = Record(50, 10);
+        var ticks = 0;
+        var tooShort = Replayer.Replay(recording, Scenario.NewWorld(WorldRole.Authority), new ReplayOptions { MaxTicks = 49, OnTick = _ => ticks++ });
+        Assert.False(tooShort.Ok);
+        Assert.Equal(DivergenceReason.TooLong, tooShort.Divergence!.Reason);
+        Assert.Equal(0, ticks);
+        Assert.Equal(0, tooShort.TicksRun);
+
+        Assert.True(Replayer.Replay(recording, Scenario.NewWorld(WorldRole.Authority), new ReplayOptions { MaxTicks = 50 }).Ok);
+
+        // A hostile file that claims an enormous range is refused at once, with the default limit.
+        recording.EndTick = long.MaxValue;
+        var hostile = Replayer.Replay(recording, Scenario.NewWorld(WorldRole.Authority));
+        Assert.Equal(DivergenceReason.TooLong, hostile.Divergence!.Reason);
+    }
+
+    [Fact]
     public void ReplayCallsBackAfterEveryTick()
     {
         var recording = Record(50, 10);

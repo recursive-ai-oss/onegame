@@ -44,7 +44,7 @@ internal static class SyncSmoke
             return "replica drifted from its authority";
         }
 
-        var replay = Replayer.Replay(Recording.TryRead(recording.ToBytes(), out var decoded) == SyncError.None ? decoded! : recording, NewWorld(WorldRole.Authority));
+        var replay = Replayer.Replay(Recording.TryRead(recording.ToBytes(), out var decoded) == SyncError.None ? decoded! : recording, NewWorld(WorldRole.Authority), new ReplayOptions { MaxTicks = 10_000 });
         if (!replay.Ok || replay.FinalHash != scope.Hash)
         {
             return "replay diverged: " + replay.Divergence;
