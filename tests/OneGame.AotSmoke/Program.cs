@@ -19,7 +19,6 @@ string[] names =
     VulkanModule.Name,
     PlatformModule.Name,
     Render2DModule.Name,
-    UIModule.Name,
     AudioModule.Name,
     SteamModule.Name,
     ControlModule.Name,
@@ -36,4 +35,34 @@ foreach (var name in names)
 }
 
 Console.WriteLine($"ok: {names.Length} assemblies");
+
+// The UI: build a tree, style and lay it out, produce a display list, query, click and dump.
+var ui = new UiTree();
+ui.SetViewport(320, 200);
+ui.AddStyleSheet(new StyleSheet()
+    .Rule(":root", s => s.FontSize(10).Token("--accent", Color.Hex("#d9a441")))
+    .Rule(".go", s => s.Var("background-color", "--accent").Padding(4, 10))
+    .Rule(".go:hover", s => s.Opacity(0.5f)));
+int[] rowIds = [1, 2, 3];
+var clicks = 0;
+var score = 0;
+ui.Root.With(Ui.Column(
+    Ui.Label("Score").BindText(() => score, v => "Score " + v.ToString(System.Globalization.CultureInfo.InvariantCulture)).Named("score"),
+    Ui.Button("Go", () => clicks++).Named("go").Class("go"),
+    Ui.Each(() => rowIds, i => Ui.Label("row").Named("r" + i))).Gap(4).Padding(8));
+var list = ui.Frame();
+var go = ui.Find("go")!;
+var c = go.AbsoluteBounds;
+ui.Dispatch(UiEvent.PointerDown(c.X + 2, c.Y + 2));
+ui.Dispatch(UiEvent.PointerUp(c.X + 2, c.Y + 2));
+score = 7;
+ui.Frame();
+if (clicks != 1 || ui.Find("score")!.Text != "Score 7" || list.Commands.Length == 0 || !ui.DumpJson().Contains("\"go\"", StringComparison.Ordinal)
+    || ui.Query(".go:hover").Count != 1 || ui.Focused != go)
+{
+    Console.Error.WriteLine($"ui smoke failed: clicks={clicks} score={ui.Find("score")!.Text} commands={list.Commands.Length} hover={ui.Query(".go:hover").Count}");
+    return 1;
+}
+
+Console.WriteLine($"ok: ui {list.Commands.Length} commands, go at {go.AbsoluteBounds}");
 return 0;

@@ -1,0 +1,23 @@
+Rect (0,0 800x480) #14161a
+Rect (0,0 800x30) #23262d
+Text 'Port of Aldeen' #e8e8e8 size=10 [8,9 Port of Aldeen]
+Text 'Gold: 1200' #e8e8e8 size=10 [732,9 Gold: 1200]
+Rect (8,34 56x20) #d9a441 radii=3,3,3,3
+Text 'Market' #101010 size=10 [18,38 Market]
+Text 'Cargo' #e8e8e8 size=10 [78,38 Cargo]
+Text 'Ships' #e8e8e8 size=10 [132,38 Ships]
+Text 'Item' #e8e8e8 size=10 [8,66 Item]
+Text 'Price' #e8e8e8 size=10 [269.3333,66 Price]
+Text 'Stock' #e8e8e8 size=10 [530.6667,66 Stock]
+Rect (8,88 784x18) #1b1d22
+Text 'Grain' #e8e8e8 size=10 [8,88 Grain]
+Text '12' #e8e8e8 size=10 [269.3333,88 12]
+Text '40' #e8e8e8 size=10 [530.6667,88 40]
+Text 'Iron' #e8e8e8 size=10 [8,110 Iron]
+Text '30' #e8e8e8 size=10 [269.3333,110 30]
+Text '8' #e8e8e8 size=10 [530.6667,110 8]
+Rect (8,132 784x18) #1b1d22
+Text 'Silk' #e8e8e8 size=10 [8,132 Silk]
+Text '95' #e8e8e8 size=10 [269.3333,132 95]
+Text '3' #e8e8e8 size=10 [530.6667,132 3]
+Text 'Buy' #e8e8e8 size=10 [764,458 Buy]
