@@ -44,13 +44,13 @@ internal sealed class NewVerb : IVerb
             throw new CliException(ExitCodes.RuntimeError, "exists", $"{target} already exists and is not empty.");
         }
 
-        var id = name.Replace('-', '_');
+        // PascalCase, so the assembly and namespace carry no underscores (CA1707).
         var cls = string.Concat(name.Split('-', '_').Where(p => p.Length > 0).Select(p => char.ToUpperInvariant(p[0]) + p[1..]));
         var files = new Dictionary<string, string>
         {
-            [name + ".csproj"] = Templates.Csproj(root, id),
-            ["Program.cs"] = Templates.Program(id, cls),
-            ["Game.cs"] = Templates.Game(id, cls, name),
+            [name + ".csproj"] = Templates.Csproj(root, cls),
+            ["Program.cs"] = Templates.Program(cls, cls),
+            ["Game.cs"] = Templates.Game(cls, cls, name),
             ["scenarios/click-button.yaml"] = Templates.Scenario,
             [".gitignore"] = "bin/\nobj/\nartifacts/\ncaptures/\n",
             ["README.md"] = Templates.Readme(name),
