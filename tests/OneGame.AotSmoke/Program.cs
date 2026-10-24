@@ -6,6 +6,7 @@ using OneGame.Gpu.Vulkan;
 using OneGame.Platform;
 using OneGame.Render2D;
 using OneGame.Steam;
+using OneGame.Stores;
 using OneGame.Sync;
 using OneGame.Testing;
 using OneGame.UI;
@@ -36,6 +37,21 @@ foreach (var name in names)
 }
 
 Console.WriteLine($"ok: {names.Length} assemblies");
+
+// Store: connect to Steam. Without the library or a running client this must fall back to no-op services, never throw.
+using (var store = SteamPlatform.Start())
+{
+    store.Pump();
+    var unlock = store.Achievements.Unlock("SMOKE");
+    var wrote = store.Cloud.Write("smoke.bin", [1, 2, 3]);
+    if (!store.IsAvailable && (unlock != StoreResult.Unavailable || wrote != StoreResult.Unavailable))
+    {
+        Console.Error.WriteLine("store: unavailable store returned a result other than Unavailable");
+        return 1;
+    }
+
+    Console.WriteLine(store.IsAvailable ? $"store: {store.Name} connected as {store.Identity.DisplayName}" : $"store: none ({store.UnavailableReason})");
+}
 
 // Graphics: create a device, clear an offscreen target and read it back. "--require-gpu" turns a missing Vulkan driver into a failure.
 var requireGpu = args.Contains("--require-gpu");
