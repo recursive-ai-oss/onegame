@@ -31,4 +31,7 @@
     <Project Path="tests/OneGame.Testing.Tests/OneGame.Testing.Tests.csproj" />
     <Project Path="tests/OneGame.UI.Tests/OneGame.UI.Tests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/OneGame.VkBindGen/OneGame.VkBindGen.csproj" />
+  </Folder>
 </Solution>
