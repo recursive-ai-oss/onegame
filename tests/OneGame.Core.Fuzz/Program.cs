@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using OneGame.Core.Tests.Fuzzing;
+using OneGame.Sync.Tests.Fuzzing;
 
 // A seeded, time-boxed mutation fuzzer for the decoders that read untrusted bytes. It has no coverage feedback: it mutates
 // real encoded inputs (snapshots, entity state, deltas, commands, tables) and checks that every decoder returns, stays within an
@@ -8,6 +9,7 @@ using OneGame.Core.Tests.Fuzzing;
 //
 //   dotnet run -c Release --project tests/OneGame.Core.Fuzz -- --seconds 300 --seed 1 --out <dir> [--target name] [--seeds <dir>]
 
+var allTargets = FuzzTargets.All.Concat(SyncFuzzTargets.All).ToList();
 var seconds = 60;
 ulong seed = 1;
 string? outDir = null;
@@ -27,7 +29,7 @@ for (var i = 0; i < args.Length - 1; i++)
 
 if (writeSeeds is not null)
 {
-    foreach (var t in FuzzTargets.All)
+    foreach (var t in allTargets.Where(t => only is null || t.Name == only))
     {
         var n = 0;
         foreach (var s in t.Seeds())
@@ -41,7 +43,7 @@ if (writeSeeds is not null)
     return 0;
 }
 
-var targets = FuzzTargets.All.Where(t => only is null || t.Name == only).ToList();
+var targets = allTargets.Where(t => only is null || t.Name == only).ToList();
 var seeds = targets.ToDictionary(t => t.Name, t => t.Seeds().ToList());
 var rng = new Random(unchecked((int)seed));
 var stats = targets.ToDictionary(t => t.Name, _ => new long[3]); // executions, accepted, findings

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>Snapshots, command log, replay and drift hashes.</Description>
+    <Description>Nodes, scopes, loopback transport, saves, command log, replay and drift hashes.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -9,6 +9,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="System.Linq" />
+    <Using Include="OneGame.Core" />
     <InternalsVisibleTo Include="OneGame.Sync.Tests" />
   </ItemGroup>
 
