@@ -115,6 +115,23 @@ public sealed partial class UiTree
         return removed;
     }
 
+    /// <summary>Puts <paramref name="replacement"/> where <paramref name="existing"/> is in the cascade, so a theme can be swapped without changing which sheets win ties. Styles are resolved again on the next frame.</summary>
+    /// <returns>False when <paramref name="existing"/> was not added; nothing changes then.</returns>
+    public bool ReplaceStyleSheet(StyleSheet existing, StyleSheet replacement)
+    {
+        ArgumentNullException.ThrowIfNull(existing);
+        ArgumentNullException.ThrowIfNull(replacement);
+        var i = _sheets.IndexOf(existing);
+        if (i < 0)
+        {
+            return false;
+        }
+
+        _sheets[i] = replacement;
+        SheetsChanged();
+        return true;
+    }
+
     private void SheetsChanged()
     {
         AncestorSelectors = false;
@@ -183,6 +200,18 @@ public sealed partial class UiTree
         _engine.LayoutFixed(Root);
         _dirty = false;
         _needsPaint = true;
+        if (_pendingFocus is { } want)
+        {
+            _pendingFocus = null;
+            Focus(want);
+        }
+    }
+
+    /// <summary>The font properties text in <paramref name="element"/> is measured with, in pixels, as of the last update. Components use it to place carets.</summary>
+    public TextStyle TextStyleOf(Element element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return _engine.TextStyleOf(element);
     }
 
     /// <summary>Runs <see cref="Update"/> and returns the display list, rebuilt only if something changed since the last call.</summary>

@@ -1,0 +1,318 @@
+Rect (0,0 1280x720) #14161a
+Text 'Trade' #e8eaf0 size=14 [20,20 Trade]
+Text 'Gold 2500' #e8eaf0 size=14 [1184.4,20 Gold 2500]
+Border (12,52.8 1256x35.8) #3a4050 widths=0,0,0,1
+Border (12,52.8 82.4x34.8) #d9a441 widths=0,0,0,2
+Text 'Market' #e8eaf0 size=14 [28,60.8 Market]
+Text 'Cargo' #8a93a6 size=14 [112.4,60.8 Cargo]
+Text 'Ships' #8a93a6 size=14 [188.4,60.8 Ships]
+Rect (12,96.6 944x32) #171a20 radii=4,4,4,4
+Border (12,96.6 944x32) #3a4050 widths=1,1,1,1 radii=4,4,4,4
+PushClip (21,104.2 926x16.8)
+  Text 'Filter goods' #8a93a6 size=14 [21,104.2 Filter goods]
+PopClip
+Rect (12,136.6 944x563.4062) #171a20 radii=4,4,4,4
+Border (12,136.6 944x563.4062) #3a4050 widths=1,1,1,1 radii=4,4,4,4
+PushClip (13,137.6 942x561.4062)
+  Rect (13,137.6 942x31) #2b303a
+  Border (13,137.6 942x31) #3a4050 widths=0,0,0,1
+  PushClip (13,137.6 509.3333x30)
+    Text 'Name' #e8eaf0 size=14 [21,144.2 Name]
+  PopClip
+  PushClip (522.3334,137.6 262.6667x30)
+    Text 'Category' #e8eaf0 size=14 [530.3334,144.2 Category]
+  PopClip
+  PushClip (785,137.6 90x30)
+    Text 'Price' #e8eaf0 size=14 [811,144.2 Price]
+  PopClip
+  PushClip (875,137.6 80x30)
+    Text 'Stock' #e8eaf0 size=14 [891,144.2 Stock]
+  PopClip
+  Rect (13,168.6 942x530.4062) #171a20
+  PushClip (13,168.6 942x530.4062)
+    PushClip (13,174.2 509.3333x16.8)
+      Text 'Fine Grain 1' #e8eaf0 size=14 [21,174.2 Fine Grain 1]
+    PopClip
+    PushClip (522.3334,174.2 262.6667x16.8)
+      Text 'Food' #e8eaf0 size=14 [530.3334,174.2 Food]
+    PopClip
+    PushClip (785,174.2 90x16.8)
+      Text '5' #e8eaf0 size=14 [858.6,174.2 5]
+    PopClip
+    PushClip (875,174.2 80x16.8)
+      Text '0' #e8eaf0 size=14 [938.6,174.2 0]
+    PopClip
+    PushClip (13,202.2 509.3333x16.8)
+      Text 'Rough Grain 2' #e8eaf0 size=14 [21,202.2 Rough Grain 2]
+    PopClip
+    PushClip (522.3334,202.2 262.6667x16.8)
+      Text 'Metal' #e8eaf0 size=14 [530.3334,202.2 Metal]
+    PopClip
+    PushClip (785,202.2 90x16.8)
+      Text '42' #e8eaf0 size=14 [850.2,202.2 42]
+    PopClip
+    PushClip (875,202.2 80x16.8)
+      Text '13' #e8eaf0 size=14 [930.2,202.2 13]
+    PopClip
+    Rect (13,224.6 942x28) #3d4a63
+    PushClip (13,230.2 509.3333x16.8)
+      Text 'Dried Grain 3' #ffffff size=14 [21,230.2 Dried Grain 3]
+    PopClip
+    PushClip (522.3334,230.2 262.6667x16.8)
+      Text 'Cloth' #ffffff size=14 [530.3334,230.2 Cloth]
+    PopClip
+    PushClip (785,230.2 90x16.8)
+      Text '79' #ffffff size=14 [850.2,230.2 79]
+    PopClip
+    PushClip (875,230.2 80x16.8)
+      Text '26' #ffffff size=14 [930.2,230.2 26]
+    PopClip
+    PushClip (13,258.2 509.3333x16.8)
+      Text 'Salted Grain 4' #e8eaf0 size=14 [21,258.2 Salted Grain 4]
+    PopClip
+    PushClip (522.3334,258.2 262.6667x16.8)
+      Text 'Luxury' #e8eaf0 size=14 [530.3334,258.2 Luxury]
+    PopClip
+    PushClip (785,258.2 90x16.8)
+      Text '116' #e8eaf0 size=14 [841.8,258.2 116]
+    PopClip
+    PushClip (875,258.2 80x16.8)
+      Text '39' #e8eaf0 size=14 [930.2,258.2 39]
+    PopClip
+    PushClip (13,286.2 509.3333x16.8)
+      Text 'Spiced Grain 5' #e8eaf0 size=14 [21,286.2 Spiced Grain 5]
+    PopClip
+    PushClip (522.3334,286.2 262.6667x16.8)
+      Text 'Craft' #e8eaf0 size=14 [530.3334,286.2 Craft]
+    PopClip
+    PushClip (785,286.2 90x16.8)
+      Text '153' #e8eaf0 size=14 [841.8,286.2 153]
+    PopClip
+    PushClip (875,286.2 80x16.8)
+      Text '52' #e8eaf0 size=14 [930.2,286.2 52]
+    PopClip
+    PushClip (13,314.2 509.3333x16.8)
+      Text 'Pressed Grain 6' #e8eaf0 size=14 [21,314.2 Pressed Grain 6]
+    PopClip
+    PushClip (522.3334,314.2 262.6667x16.8)
+      Text 'Raw' #e8eaf0 size=14 [530.3334,314.2 Raw]
+    PopClip
+    PushClip (785,314.2 90x16.8)
+      Text '190' #e8eaf0 size=14 [841.8,314.2 190]
+    PopClip
+    PushClip (875,314.2 80x16.8)
+      Text '65' #e8eaf0 size=14 [930.2,314.2 65]
+    PopClip
+    PushClip (13,342.2 509.3333x16.8)
+      Text 'Raw Grain 7' #e8eaf0 size=14 [21,342.2 Raw Grain 7]
+    PopClip
+    PushClip (522.3334,342.2 262.6667x16.8)
+      Text 'Food' #e8eaf0 size=14 [530.3334,342.2 Food]
+    PopClip
+    PushClip (785,342.2 90x16.8)
+      Text '227' #e8eaf0 size=14 [841.8,342.2 227]
+    PopClip
+    PushClip (875,342.2 80x16.8)
+      Text '78' #e8eaf0 size=14 [930.2,342.2 78]
+    PopClip
+    PushClip (13,370.2 509.3333x16.8)
+      Text 'Cured Grain 8' #e8eaf0 size=14 [21,370.2 Cured Grain 8]
+    PopClip
+    PushClip (522.3334,370.2 262.6667x16.8)
+      Text 'Metal' #e8eaf0 size=14 [530.3334,370.2 Metal]
+    PopClip
+    PushClip (785,370.2 90x16.8)
+      Text '264' #e8eaf0 size=14 [841.8,370.2 264]
+    PopClip
+    PushClip (875,370.2 80x16.8)
+      Text '91' #e8eaf0 size=14 [930.2,370.2 91]
+    PopClip
+    PushClip (13,398.2 509.3333x16.8)
+      Text 'Fine Iron 9' #e8eaf0 size=14 [21,398.2 Fine Iron 9]
+    PopClip
+    PushClip (522.3334,398.2 262.6667x16.8)
+      Text 'Cloth' #e8eaf0 size=14 [530.3334,398.2 Cloth]
+    PopClip
+    PushClip (785,398.2 90x16.8)
+      Text '301' #e8eaf0 size=14 [841.8,398.2 301]
+    PopClip
+    PushClip (875,398.2 80x16.8)
+      Text '104' #e8eaf0 size=14 [921.8,398.2 104]
+    PopClip
+    PushClip (13,426.2 509.3333x16.8)
+      Text 'Rough Iron 10' #e8eaf0 size=14 [21,426.2 Rough Iron 10]
+    PopClip
+    PushClip (522.3334,426.2 262.6667x16.8)
+      Text 'Luxury' #e8eaf0 size=14 [530.3334,426.2 Luxury]
+    PopClip
+    PushClip (785,426.2 90x16.8)
+      Text '338' #e8eaf0 size=14 [841.8,426.2 338]
+    PopClip
+    PushClip (875,426.2 80x16.8)
+      Text '117' #e8eaf0 size=14 [921.8,426.2 117]
+    PopClip
+    PushClip (13,454.2 509.3333x16.8)
+      Text 'Dried Iron 11' #e8eaf0 size=14 [21,454.2 Dried Iron 11]
+    PopClip
+    PushClip (522.3334,454.2 262.6667x16.8)
+      Text 'Craft' #e8eaf0 size=14 [530.3334,454.2 Craft]
+    PopClip
+    PushClip (785,454.2 90x16.8)
+      Text '375' #e8eaf0 size=14 [841.8,454.2 375]
+    PopClip
+    PushClip (875,454.2 80x16.8)
+      Text '130' #e8eaf0 size=14 [921.8,454.2 130]
+    PopClip
+    PushClip (13,482.2 509.3333x16.8)
+      Text 'Salted Iron 12' #e8eaf0 size=14 [21,482.2 Salted Iron 12]
+    PopClip
+    PushClip (522.3334,482.2 262.6667x16.8)
+      Text 'Raw' #e8eaf0 size=14 [530.3334,482.2 Raw]
+    PopClip
+    PushClip (785,482.2 90x16.8)
+      Text '412' #e8eaf0 size=14 [841.8,482.2 412]
+    PopClip
+    PushClip (875,482.2 80x16.8)
+      Text '143' #e8eaf0 size=14 [921.8,482.2 143]
+    PopClip
+    PushClip (13,510.2 509.3333x16.8)
+      Text 'Spiced Iron 13' #e8eaf0 size=14 [21,510.2 Spiced Iron 13]
+    PopClip
+    PushClip (522.3334,510.2 262.6667x16.8)
+      Text 'Food' #e8eaf0 size=14 [530.3334,510.2 Food]
+    PopClip
+    PushClip (785,510.2 90x16.8)
+      Text '449' #e8eaf0 size=14 [841.8,510.2 449]
+    PopClip
+    PushClip (875,510.2 80x16.8)
+      Text '156' #e8eaf0 size=14 [921.8,510.2 156]
+    PopClip
+    PushClip (13,538.2 509.3333x16.8)
+      Text 'Pressed Iron 14' #e8eaf0 size=14 [21,538.2 Pressed Iron 14]
+    PopClip
+    PushClip (522.3334,538.2 262.6667x16.8)
+      Text 'Metal' #e8eaf0 size=14 [530.3334,538.2 Metal]
+    PopClip
+    PushClip (785,538.2 90x16.8)
+      Text '486' #e8eaf0 size=14 [841.8,538.2 486]
+    PopClip
+    PushClip (875,538.2 80x16.8)
+      Text '169' #e8eaf0 size=14 [921.8,538.2 169]
+    PopClip
+    PushClip (13,566.2 509.3333x16.8)
+      Text 'Raw Iron 15' #e8eaf0 size=14 [21,566.2 Raw Iron 15]
+    PopClip
+    PushClip (522.3334,566.2 262.6667x16.8)
+      Text 'Cloth' #e8eaf0 size=14 [530.3334,566.2 Cloth]
+    PopClip
+    PushClip (785,566.2 90x16.8)
+      Text '523' #e8eaf0 size=14 [841.8,566.2 523]
+    PopClip
+    PushClip (875,566.2 80x16.8)
+      Text '182' #e8eaf0 size=14 [921.8,566.2 182]
+    PopClip
+    PushClip (13,594.2 509.3333x16.8)
+      Text 'Cured Iron 16' #e8eaf0 size=14 [21,594.2 Cured Iron 16]
+    PopClip
+    PushClip (522.3334,594.2 262.6667x16.8)
+      Text 'Luxury' #e8eaf0 size=14 [530.3334,594.2 Luxury]
+    PopClip
+    PushClip (785,594.2 90x16.8)
+      Text '560' #e8eaf0 size=14 [841.8,594.2 560]
+    PopClip
+    PushClip (875,594.2 80x16.8)
+      Text '195' #e8eaf0 size=14 [921.8,594.2 195]
+    PopClip
+    PushClip (13,622.2 509.3333x16.8)
+      Text 'Fine Silk 17' #e8eaf0 size=14 [21,622.2 Fine Silk 17]
+    PopClip
+    PushClip (522.3334,622.2 262.6667x16.8)
+      Text 'Craft' #e8eaf0 size=14 [530.3334,622.2 Craft]
+    PopClip
+    PushClip (785,622.2 90x16.8)
+      Text '597' #e8eaf0 size=14 [841.8,622.2 597]
+    PopClip
+    PushClip (875,622.2 80x16.8)
+      Text '8' #e8eaf0 size=14 [938.6,622.2 8]
+    PopClip
+    PushClip (13,650.2 509.3333x16.8)
+      Text 'Rough Silk 18' #e8eaf0 size=14 [21,650.2 Rough Silk 18]
+    PopClip
+    PushClip (522.3334,650.2 262.6667x16.8)
+      Text 'Raw' #e8eaf0 size=14 [530.3334,650.2 Raw]
+    PopClip
+    PushClip (785,650.2 90x16.8)
+      Text '634' #e8eaf0 size=14 [841.8,650.2 634]
+    PopClip
+    PushClip (875,650.2 80x16.8)
+      Text '21' #e8eaf0 size=14 [930.2,650.2 21]
+    PopClip
+    PushClip (13,678.2 509.3333x16.8)
+      Text 'Dried Silk 19' #e8eaf0 size=14 [21,678.2 Dried Silk 19]
+    PopClip
+    PushClip (522.3334,678.2 262.6667x16.8)
+      Text 'Food' #e8eaf0 size=14 [530.3334,678.2 Food]
+    PopClip
+    PushClip (785,678.2 90x16.8)
+      Text '671' #e8eaf0 size=14 [841.8,678.2 671]
+    PopClip
+    PushClip (875,678.2 80x16.8)
+      Text '34' #e8eaf0 size=14 [930.2,678.2 34]
+    PopClip
+    PushClip (13,706.2 509.3333x16.8)
+      Text 'Salted Silk 20' #e8eaf0 size=14 [21,706.2 Salted Silk 20]
+    PopClip
+    PushClip (522.3334,706.2 262.6667x16.8)
+      Text 'Metal' #e8eaf0 size=14 [530.3334,706.2 Metal]
+    PopClip
+    PushClip (785,706.2 90x16.8)
+      Text '708' #e8eaf0 size=14 [841.8,706.2 708]
+    PopClip
+    PushClip (875,706.2 80x16.8)
+      Text '47' #e8eaf0 size=14 [930.2,706.2 47]
+    PopClip
+    PushClip (13,734.2 509.3333x16.8)
+      Text 'Spiced Silk 21' #e8eaf0 size=14 [21,734.2 Spiced Silk 21]
+    PopClip
+    PushClip (522.3334,734.2 262.6667x16.8)
+      Text 'Cloth' #e8eaf0 size=14 [530.3334,734.2 Cloth]
+    PopClip
+    PushClip (785,734.2 90x16.8)
+      Text '745' #e8eaf0 size=14 [841.8,734.2 745]
+    PopClip
+    PushClip (875,734.2 80x16.8)
+      Text '60' #e8eaf0 size=14 [930.2,734.2 60]
+    PopClip
+  PopClip
+  Rect (947,168.6 6x24) #59627a radii=3,3,3,3
+  Border (10,165.6 948x536.4062) #6cb6ff widths=2,2,2,2
+PopClip
+Image (968,96.6 300x603.4062) 'kit/frame' slice=12
+Rect (980,108.6 276x264.8) #1e2128 radii=4,4,4,4
+Border (980,108.6 276x264.8) #3a4050 widths=1,1,1,1 radii=4,4,4,4
+Text 'Selected' #e8eaf0 size=14 [993,121.6 Selected]
+Text 'Dried Grain 3' #e8eaf0 size=14 [993,146.4 Dried Grain 3]
+Text 'Price 79' #e8eaf0 size=14 [993,169.2 Price 79]
+Text 'In stock 26' #e8eaf0 size=14 [993,192 In stock 26]
+Text 'Quantity' #e8eaf0 size=14 [993,214.8 Quantity]
+Rect (1003,248.6 178x6) #171a20 radii=3,3,3,3
+Border (1003,248.6 178x6) #3a4050 widths=1,1,1,1 radii=3,3,3,3
+Rect (1004,249.6 0x4) #d9a441
+PushTransform [1 0 0 1 -8 -8]
+  Rect (1004,251.6 16x16) #e8eaf0 radii=8,8,8,8
+  Border (1004,251.6 16x16) #d9a441 widths=2,2,2,2 radii=8,8,8,8
+PopTransform
+Text '1' #e8eaf0 size=14 [1224.6,243.2 1]
+PushOpacity 0.4
+  Rect (993,271.6 28x28) #2b303a radii=4,4,4,4
+  Border (993,271.6 28x28) #3a4050 widths=1,1,1,1 radii=4,4,4,4
+  Text '-' #e8eaf0 size=14 [1002.8,277.2 -]
+PopOpacity
+Text '1' #e8eaf0 size=14 [1044.8,277.2 1]
+Rect (1077,271.6 28x28) #2b303a radii=4,4,4,4
+Border (1077,271.6 28x28) #3a4050 widths=1,1,1,1 radii=4,4,4,4
+Text '+' #e8eaf0 size=14 [1086.8,277.2 +]
+Text 'Total 79' #e8eaf0 size=14 [993,305.6 Total 79]
+Rect (993,328.4 250x32) #d9a441 radii=4,4,4,4
+Border (993,328.4 250x32) #d9a441 widths=1,1,1,1 radii=4,4,4,4
+Text 'Buy' #14161a size=14 [1105.4,336 Buy]

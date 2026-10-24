@@ -27,6 +27,9 @@ public sealed partial class UiTree
 
     // ---- dispatch ------------------------------------------------------------------------------------------------
 
+    /// <summary>Called with every event passed to <see cref="Dispatch"/> before it is handled, whoever sends it. The component kit uses it to learn which input device is in use.</summary>
+    public Action<UiEvent>? InputObserver { get; set; }
+
     /// <summary>
     /// Feeds one input event to the UI. Pointer events are hit-tested against the current layout, key and text events go to the focused element,
     /// and what no handler takes gets the default action: click on release, Tab and arrow focus moves, Enter or Space to click, wheel to scroll.
@@ -34,6 +37,7 @@ public sealed partial class UiTree
     /// </summary>
     public bool Dispatch(in UiEvent e)
     {
+        InputObserver?.Invoke(e);
         Update();
         switch (e.Kind)
         {
@@ -42,7 +46,8 @@ public sealed partial class UiTree
                 _pointerY = e.Y;
                 var moved = HitTest(e.X, e.Y);
                 SetHover(moved);
-                return moved is not null && Bubble(moved, e);
+                var moveTarget = _capture ?? moved;
+                return moveTarget is not null && Bubble(moveTarget, e);
             case UiEventKind.PointerLeave:
                 SetHover(null);
                 return false;
@@ -69,12 +74,12 @@ public sealed partial class UiTree
         }
     }
 
-    /// <summary>Clicks an element as a pointer or the confirm button would, without hit testing. Returns false when it is disabled or nothing handled the click.</summary>
+    /// <summary>Clicks an element as a pointer or the confirm button would, without hit testing. The click carries <see cref="UiEvent.Button"/> -1, which tells a handler it came from activation (Enter, Space, the confirm button) and not from the pointer. Returns false when it is disabled or nothing handled the click.</summary>
     public bool Invoke(Element element)
     {
         ArgumentNullException.ThrowIfNull(element);
         Update();
-        return Bubble(element, new UiEvent { Kind = UiEventKind.Click, X = _pointerX, Y = _pointerY });
+        return Bubble(element, new UiEvent { Kind = UiEventKind.Click, X = _pointerX, Y = _pointerY, Button = -1 });
     }
 
     private static bool Bubble(Element from, in UiEvent e)
@@ -126,9 +131,11 @@ public sealed partial class UiTree
         _pointerX = e.X;
         _pointerY = e.Y;
         var target = HitTest(e.X, e.Y);
-        var handled = target is not null && Bubble(target, e);
+        var upTarget = _capture ?? target;
+        var handled = upTarget is not null && Bubble(upTarget, e);
         if (e.Button == 0)
         {
+            _capture = null;
             var down = _pressed;
             _pressed = null;
             SetActive(null);
@@ -196,6 +203,37 @@ public sealed partial class UiTree
         }
 
         return false;
+    }
+
+    // ---- pointer capture and deferred focus -----------------------------------------------------------------------
+
+    private Element? _capture;
+    private Element? _pendingFocus;
+
+    /// <summary>The element that receives pointer moves and the release while a drag is in progress, or null.</summary>
+    public Element? PointerCaptor => _capture;
+
+    /// <summary>
+    /// Sends pointer moves and the next primary-button release to <paramref name="element"/> even when the pointer leaves it, so a slider thumb or a scroll bar can be dragged.
+    /// Call it from a <see cref="UiEventKind.PointerDown"/> handler. The capture ends on the release, or when the element leaves the tree.
+    /// </summary>
+    public void CapturePointer(Element element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        _capture = element;
+    }
+
+    /// <summary>Ends a pointer capture early.</summary>
+    public void ReleasePointer() => _capture = null;
+
+    /// <summary>
+    /// Asks for <paramref name="element"/> to take focus at the end of the next <see cref="Update"/>, once layout is current.
+    /// Components use it from bindings, where calling <see cref="Focus"/> directly would re-enter the update. A request that cannot be honored (hidden or disabled element) is dropped.
+    /// </summary>
+    public void RequestFocus(Element? element)
+    {
+        _pendingFocus = element;
+        _dirty = true;
     }
 
     // ---- hover, press, focus state -------------------------------------------------------------------------------
@@ -281,6 +319,11 @@ public sealed partial class UiTree
         if (_pressed is not null && !Root.Contains(_pressed))
         {
             _pressed = null;
+        }
+
+        if (_capture is not null && !Root.Contains(_capture))
+        {
+            _capture = null;
         }
     }
 
@@ -503,6 +546,7 @@ public sealed partial class UiTree
             var r = c.AbsoluteBounds;
             var cc = r.Center;
             float primary;
+            float raw;
             float orthGap;
             float orthCenter;
             bool ahead;
@@ -510,25 +554,29 @@ public sealed partial class UiTree
             {
                 case NavDirection.Right:
                     ahead = cc.X > c0.X;
-                    primary = MathF.Max(0, r.X - r0.Right);
+                    raw = r.X - r0.Right;
+                    primary = MathF.Max(0, raw);
                     orthGap = Gap(r0.Y, r0.Bottom, r.Y, r.Bottom);
                     orthCenter = MathF.Abs(cc.Y - c0.Y);
                     break;
                 case NavDirection.Left:
                     ahead = cc.X < c0.X;
-                    primary = MathF.Max(0, r0.X - r.Right);
+                    raw = r0.X - r.Right;
+                    primary = MathF.Max(0, raw);
                     orthGap = Gap(r0.Y, r0.Bottom, r.Y, r.Bottom);
                     orthCenter = MathF.Abs(cc.Y - c0.Y);
                     break;
                 case NavDirection.Down:
                     ahead = cc.Y > c0.Y;
-                    primary = MathF.Max(0, r.Y - r0.Bottom);
+                    raw = r.Y - r0.Bottom;
+                    primary = MathF.Max(0, raw);
                     orthGap = Gap(r0.X, r0.Right, r.X, r.Right);
                     orthCenter = MathF.Abs(cc.X - c0.X);
                     break;
                 default:
                     ahead = cc.Y < c0.Y;
-                    primary = MathF.Max(0, r0.Y - r.Bottom);
+                    raw = r0.Y - r.Bottom;
+                    primary = MathF.Max(0, raw);
                     orthGap = Gap(r0.X, r0.Right, r.X, r.Right);
                     orthCenter = MathF.Abs(cc.X - c0.X);
                     break;
@@ -539,7 +587,8 @@ public sealed partial class UiTree
                 continue;
             }
 
-            var score = primary + (3 * orthGap) + (0.1f * orthCenter) + (0.001f * Vector2.Distance(c0, cc));
+            // A candidate that overlaps the source along the move (a wide list and the headers over it) only wins when nothing lies wholly beyond the source.
+            var score = (raw < -0.01f ? 1e6f : 0f) + primary + (3 * orthGap) + (0.1f * orthCenter) + (0.001f * Vector2.Distance(c0, cc));
             if (score < bestScore)
             {
                 bestScore = score;
