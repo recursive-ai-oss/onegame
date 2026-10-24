@@ -183,6 +183,18 @@ public sealed partial class UiTree
         _engine.LayoutFixed(Root);
         _dirty = false;
         _needsPaint = true;
+        if (_pendingFocus is { } want)
+        {
+            _pendingFocus = null;
+            Focus(want);
+        }
+    }
+
+    /// <summary>The font properties text in <paramref name="element"/> is measured with, in pixels, as of the last update. Components use it to place carets.</summary>
+    public TextStyle TextStyleOf(Element element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return _engine.TextStyleOf(element);
     }
 
     /// <summary>Runs <see cref="Update"/> and returns the display list, rebuilt only if something changed since the last call.</summary>

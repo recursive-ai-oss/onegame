@@ -56,6 +56,12 @@ public partial class Element
     /// <summary>Free-form data for the game's own use; the UI never reads it.</summary>
     public object? Tag { get; set; }
 
+    /// <summary>What the element is for, such as <c>button</c>, <c>slider</c> or <c>row</c>. Components set it; the JSON dump prints it, so scenarios can find controls by role. It has no effect on layout or painting.</summary>
+    public string? Role { get; set; }
+
+    /// <summary>The current value a control shows or holds, as text (a slider's number, a tab's title, a toggle's <c>true</c>). Components keep it current; the JSON dump prints it.</summary>
+    public string? Value { get; set; }
+
     /// <summary>The parent, or null for the root and for elements not yet added.</summary>
     public Element? Parent => _parent;
 

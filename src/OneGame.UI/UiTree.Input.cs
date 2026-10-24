@@ -42,7 +42,8 @@ public sealed partial class UiTree
                 _pointerY = e.Y;
                 var moved = HitTest(e.X, e.Y);
                 SetHover(moved);
-                return moved is not null && Bubble(moved, e);
+                var moveTarget = _capture ?? moved;
+                return moveTarget is not null && Bubble(moveTarget, e);
             case UiEventKind.PointerLeave:
                 SetHover(null);
                 return false;
@@ -69,12 +70,12 @@ public sealed partial class UiTree
         }
     }
 
-    /// <summary>Clicks an element as a pointer or the confirm button would, without hit testing. Returns false when it is disabled or nothing handled the click.</summary>
+    /// <summary>Clicks an element as a pointer or the confirm button would, without hit testing. The click carries <see cref="UiEvent.Button"/> -1, which tells a handler it came from activation (Enter, Space, the confirm button) and not from the pointer. Returns false when it is disabled or nothing handled the click.</summary>
     public bool Invoke(Element element)
     {
         ArgumentNullException.ThrowIfNull(element);
         Update();
-        return Bubble(element, new UiEvent { Kind = UiEventKind.Click, X = _pointerX, Y = _pointerY });
+        return Bubble(element, new UiEvent { Kind = UiEventKind.Click, X = _pointerX, Y = _pointerY, Button = -1 });
     }
 
     private static bool Bubble(Element from, in UiEvent e)
@@ -126,9 +127,11 @@ public sealed partial class UiTree
         _pointerX = e.X;
         _pointerY = e.Y;
         var target = HitTest(e.X, e.Y);
-        var handled = target is not null && Bubble(target, e);
+        var upTarget = _capture ?? target;
+        var handled = upTarget is not null && Bubble(upTarget, e);
         if (e.Button == 0)
         {
+            _capture = null;
             var down = _pressed;
             _pressed = null;
             SetActive(null);
@@ -196,6 +199,37 @@ public sealed partial class UiTree
         }
 
         return false;
+    }
+
+    // ---- pointer capture and deferred focus -----------------------------------------------------------------------
+
+    private Element? _capture;
+    private Element? _pendingFocus;
+
+    /// <summary>The element that receives pointer moves and the release while a drag is in progress, or null.</summary>
+    public Element? PointerCaptor => _capture;
+
+    /// <summary>
+    /// Sends pointer moves and the next primary-button release to <paramref name="element"/> even when the pointer leaves it, so a slider thumb or a scroll bar can be dragged.
+    /// Call it from a <see cref="UiEventKind.PointerDown"/> handler. The capture ends on the release, or when the element leaves the tree.
+    /// </summary>
+    public void CapturePointer(Element element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        _capture = element;
+    }
+
+    /// <summary>Ends a pointer capture early.</summary>
+    public void ReleasePointer() => _capture = null;
+
+    /// <summary>
+    /// Asks for <paramref name="element"/> to take focus at the end of the next <see cref="Update"/>, once layout is current.
+    /// Components use it from bindings, where calling <see cref="Focus"/> directly would re-enter the update. A request that cannot be honored (hidden or disabled element) is dropped.
+    /// </summary>
+    public void RequestFocus(Element? element)
+    {
+        _pendingFocus = element;
+        _dirty = true;
     }
 
     // ---- hover, press, focus state -------------------------------------------------------------------------------
@@ -281,6 +315,11 @@ public sealed partial class UiTree
         if (_pressed is not null && !Root.Contains(_pressed))
         {
             _pressed = null;
+        }
+
+        if (_capture is not null && !Root.Contains(_capture))
+        {
+            _capture = null;
         }
     }
 

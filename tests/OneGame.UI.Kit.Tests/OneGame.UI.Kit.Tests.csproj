@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
+    <ProjectReference Include="../../src/OneGame.Text/OneGame.Text.csproj" />
+    <ProjectReference Include="../../src/OneGame.Atlas/OneGame.Atlas.csproj" />
+  </ItemGroup>
+
+</Project>
