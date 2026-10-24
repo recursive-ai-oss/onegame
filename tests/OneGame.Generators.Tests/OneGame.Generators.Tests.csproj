@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OneGameAnalyzers>false</OneGameAnalyzers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Tests may use any package; the generator project's own reference does not flow here. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" />
+  </ItemGroup>
+
+</Project>

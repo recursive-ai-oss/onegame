@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Snapshots, command log, replay and drift hashes.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Core/OneGame.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneGame.Sync.Tests" />
+  </ItemGroup>
+
+</Project>

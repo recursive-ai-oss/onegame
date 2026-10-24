@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>The control layer shared by the command line, the test API and live control.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Core/OneGame.Core.csproj" />
+    <ProjectReference Include="../OneGame.Sync/OneGame.Sync.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneGame.Control.Tests" />
+  </ItemGroup>
+
+</Project>

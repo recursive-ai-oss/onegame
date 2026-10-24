@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Audio playback and mixing on top of the audio device layer.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneGame.Audio.Tests" />
+  </ItemGroup>
+
+</Project>

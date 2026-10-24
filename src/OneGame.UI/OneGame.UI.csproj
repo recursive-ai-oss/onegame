@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Retained UI tree with CSS-model styling and flex layout.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Core/OneGame.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneGame.UI.Tests" />
+  </ItemGroup>
+
+</Project>

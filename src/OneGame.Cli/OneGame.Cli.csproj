@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>onegame</AssemblyName>
+    <RootNamespace>OneGame.Cli</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <PublishAot>true</PublishAot>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <Description>The onegame command: create, build, run, test, capture and replay games.</Description>
+    <!-- No reflection-based JSON: all serialization goes through the source-generated context. -->
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Control/OneGame.Control.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneGame.Cli.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,34 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OneGame.Audio/OneGame.Audio.csproj" />
+    <Project Path="src/OneGame.Cli/OneGame.Cli.csproj" />
+    <Project Path="src/OneGame.Control/OneGame.Control.csproj" />
+    <Project Path="src/OneGame.Core/OneGame.Core.csproj" />
+    <Project Path="src/OneGame.Generators/OneGame.Generators.csproj" />
+    <Project Path="src/OneGame.Gpu/OneGame.Gpu.csproj" />
+    <Project Path="src/OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan.csproj" />
+    <Project Path="src/OneGame.Platform/OneGame.Platform.csproj" />
+    <Project Path="src/OneGame.Render2D/OneGame.Render2D.csproj" />
+    <Project Path="src/OneGame.Steam/OneGame.Steam.csproj" />
+    <Project Path="src/OneGame.Sync/OneGame.Sync.csproj" />
+    <Project Path="src/OneGame.Testing/OneGame.Testing.csproj" />
+    <Project Path="src/OneGame.UI/OneGame.UI.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OneGame.AotSmoke/OneGame.AotSmoke.csproj" />
+    <Project Path="tests/OneGame.Audio.Tests/OneGame.Audio.Tests.csproj" />
+    <Project Path="tests/OneGame.Build.Tests/OneGame.Build.Tests.csproj" />
+    <Project Path="tests/OneGame.Cli.Tests/OneGame.Cli.Tests.csproj" />
+    <Project Path="tests/OneGame.Control.Tests/OneGame.Control.Tests.csproj" />
+    <Project Path="tests/OneGame.Core.Tests/OneGame.Core.Tests.csproj" />
+    <Project Path="tests/OneGame.Generators.Tests/OneGame.Generators.Tests.csproj" />
+    <Project Path="tests/OneGame.Gpu.Tests/OneGame.Gpu.Tests.csproj" />
+    <Project Path="tests/OneGame.Gpu.Vulkan.Tests/OneGame.Gpu.Vulkan.Tests.csproj" />
+    <Project Path="tests/OneGame.Platform.Tests/OneGame.Platform.Tests.csproj" />
+    <Project Path="tests/OneGame.Render2D.Tests/OneGame.Render2D.Tests.csproj" />
+    <Project Path="tests/OneGame.Steam.Tests/OneGame.Steam.Tests.csproj" />
+    <Project Path="tests/OneGame.Sync.Tests/OneGame.Sync.Tests.csproj" />
+    <Project Path="tests/OneGame.Testing.Tests/OneGame.Testing.Tests.csproj" />
+    <Project Path="tests/OneGame.UI.Tests/OneGame.UI.Tests.csproj" />
+  </Folder>
+</Solution>

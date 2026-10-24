@@ -1,0 +1,21 @@
+<Project>
+
+  <!-- Only our code ships. A project that ships (OneGameShips=true: everything under src/ and samples/) may reference the one*
+       family and nothing else. The one exception is a Roslyn component (IsRoslynComponent=true), which may use
+       Microsoft.CodeAnalysis.* as a build-time dependency marked PrivateAssets="all", so it never reaches a consumer.
+       The check runs at restore and at build, before any package is downloaded. -->
+  <Target Name="OneGameCheckPackages" BeforeTargets="CollectPackageReferences" Condition="'$(OneGameShips)' == 'true'">
+    <ItemGroup>
+      <!-- Packages the SDK adds itself (NETStandard.Library, the ILLink tasks) are build tooling, not something the project chose. -->
+      <_OgPackage Include="@(PackageReference)" Condition="'%(PackageReference.IsImplicitlyDefined)' != 'true'" />
+      <_OgAllowed Include="@(_OgPackage)"
+                  Condition="$([System.String]::Copy('%(_OgPackage.Identity)').StartsWith('RecursiveAI.One')) or '%(_OgPackage.Identity)' == 'OneYaml'" />
+      <_OgAllowed Include="@(_OgPackage)"
+                  Condition="'$(IsRoslynComponent)' == 'true' and $([System.String]::Copy('%(_OgPackage.Identity)').StartsWith('Microsoft.CodeAnalysis.')) and '%(_OgPackage.PrivateAssets)' == 'all'" />
+      <_OgForbidden Include="@(_OgPackage)" Exclude="@(_OgAllowed)" />
+    </ItemGroup>
+    <Error Condition="'@(_OgForbidden)' != ''" Code="OGBUILD001"
+           Text="$(MSBuildProjectName) references '@(_OgForbidden, ', ')'. Shipping projects may reference only the one* family (RecursiveAI.One*, OneYaml). Roslyn components may also use Microsoft.CodeAnalysis.* with PrivateAssets=&quot;all&quot;. Test and tool projects are not restricted." />
+  </Target>
+
+</Project>

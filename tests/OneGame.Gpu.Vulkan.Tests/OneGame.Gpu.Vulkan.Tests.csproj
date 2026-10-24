@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan.csproj" />
+  </ItemGroup>
+
+</Project>

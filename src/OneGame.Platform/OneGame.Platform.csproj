@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Windows, input, controllers and the app lifecycle per operating system.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneGame.Platform.Tests" />
+  </ItemGroup>
+
+</Project>

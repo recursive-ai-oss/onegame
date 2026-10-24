@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Sprite, tilemap and text renderer.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Core/OneGame.Core.csproj" />
+    <ProjectReference Include="../OneGame.Gpu/OneGame.Gpu.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneGame.Render2D.Tests" />
+  </ItemGroup>
+
+</Project>

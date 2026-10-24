@@ -1,0 +1,12 @@
+<Project>
+
+  <Import Project="build/PackageGuard.targets" />
+
+  <!-- The source generators and analyzers reach every project as an analyzer, so the rules apply to games and engine code alike.
+       Set OneGameAnalyzers=false to opt out (the generator project and its tests do). -->
+  <ItemGroup Condition="'$(OneGameAnalyzers)' != 'false' and '$(MSBuildProjectName)' != 'OneGame.Generators' and '$(OneGameShips)' == 'true'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/OneGame.Generators/OneGame.Generators.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

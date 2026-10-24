@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Entity runtime: fixed-point numbers, random streams and the attributes that declare entities.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneGame.Core.Tests" />
+  </ItemGroup>
+
+</Project>

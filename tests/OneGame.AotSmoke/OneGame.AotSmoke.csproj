@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>OneGame.AotSmoke</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Every runtime assembly, so the publish trims and compiles all of them. -->
+    <ProjectReference Include="../../src/OneGame.Core/OneGame.Core.csproj" />
+    <ProjectReference Include="../../src/OneGame.Sync/OneGame.Sync.csproj" />
+    <ProjectReference Include="../../src/OneGame.Gpu/OneGame.Gpu.csproj" />
+    <ProjectReference Include="../../src/OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan.csproj" />
+    <ProjectReference Include="../../src/OneGame.Platform/OneGame.Platform.csproj" />
+    <ProjectReference Include="../../src/OneGame.Render2D/OneGame.Render2D.csproj" />
+    <ProjectReference Include="../../src/OneGame.UI/OneGame.UI.csproj" />
+    <ProjectReference Include="../../src/OneGame.Audio/OneGame.Audio.csproj" />
+    <ProjectReference Include="../../src/OneGame.Steam/OneGame.Steam.csproj" />
+    <ProjectReference Include="../../src/OneGame.Control/OneGame.Control.csproj" />
+    <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
+  </ItemGroup>
+
+</Project>

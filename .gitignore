@@ -1,0 +1,22 @@
+# Allowlist: every tracked top-level path is named here.
+/*
+!/.gitignore
+!/.editorconfig
+!/.github
+!/Directory.Build.props
+!/Directory.Build.targets
+!/Directory.Packages.props
+!/LICENSE-APACHE
+!/LICENSE-MIT
+!/OneGame.slnx
+!/README.md
+!/build
+!/docs
+!/global.json
+!/src
+!/tests
+
+bin/
+obj/
+TestResults/
+*.binlog
