@@ -54,4 +54,11 @@ Callback structs are packed by the C++ headers at 4 bytes on Linux/macOS and 8 o
 
 ## Not covered yet
 
-Networking, matchmaking, lobbies, Workshop/UGC, leaderboards, and Steam Input (action sets, glyphs). The Steam Input accessor `SteamAPI_SteamInput_v006` is exported by the library but not bound. The reference pages do not state callback ids or the packing rule, so those are unconfirmed until a run against a real Steam client (callbacks arriving and decoding, `UserStatsReceived` carrying a plausible SteamID).
+Networking, matchmaking, lobbies, Workshop/UGC, leaderboards, and Steam Input (action sets, glyphs). The Steam Input accessor `SteamAPI_SteamInput_v006` is exported by the library but not bound. The reference pages do not state callback ids or the packing rule. A run against a signed-in Linux client with Valve's test app 480 confirmed them on Linux:
+- `UserStatsReceived` decoded with game id 480, result OK and the signed-in user's SteamID;
+- `UserStatsStored`, `UserAchievementStored` and the `NumberOfCurrentPlayers` call result arrived and decoded;
+- cloud write/read/list/delete and rich presence worked.
+
+Still unconfirmed:
+- the 8-byte Windows packing (no Windows client run yet);
+- `GameOverlayActivated` (the overlay is off for a game not launched through Steam).
