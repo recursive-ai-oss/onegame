@@ -52,6 +52,30 @@ using (var app = PlatformApp.Create(new PlatformOptions { Backend = PlatformBack
     }
 }
 
+// Audio: the capture path (no device, exact frame counts) and the no-device path through the real OS backend, which must stay silent and alive.
+using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true }))
+{
+    audio.Play(audio.LoadSound(new MemoryStream([0, 0, 0, 0])));
+    audio.Advance(480);
+    audio.Update();
+    if (audio.Capture is not { FramesCaptured: 480 })
+    {
+        Console.Error.WriteLine("audio capture smoke failed");
+        return 1;
+    }
+}
+
+using (var audio = AudioService.Create(new AudioServiceOptions { Device = new AudioDeviceOptions { DeviceName = "onegame_no_such_device" } }))
+{
+    audio.Play(audio.LoadSound(new MemoryStream([0, 0, 0, 0])));
+    audio.Update();
+    if (audio.Output.Status != AudioOutputStatus.NoDevice || AudioService.DefaultBackend().Name.Length == 0)
+    {
+        Console.Error.WriteLine("audio no-device smoke failed");
+        return 1;
+    }
+}
+
 // Runs generated entity code under NativeAOT: state, commands, snapshot, restore, delta and hash.
 var registry = new EntityRegistry();
 OneGame.Generated.OneGame_AotSmoke.EntityTypes.Register(registry);
