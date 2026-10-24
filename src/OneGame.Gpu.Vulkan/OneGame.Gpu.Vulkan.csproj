@@ -2,6 +2,9 @@
 
   <PropertyGroup>
     <Description>Vulkan backend of the graphics layer.</Description>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- The one place native interop lives for graphics: blittable structs and function pointers into the Vulkan loader. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
