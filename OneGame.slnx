@@ -7,6 +7,8 @@
     <Project Path="src/OneGame.Generators/OneGame.Generators.csproj" />
     <Project Path="src/OneGame.Gpu/OneGame.Gpu.csproj" />
     <Project Path="src/OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan.csproj" />
+    <Project Path="src/OneGame.Host/OneGame.Host.csproj" />
+    <Project Path="src/OneGame.Live/OneGame.Live.csproj" />
     <Project Path="src/OneGame.Platform/OneGame.Platform.csproj" />
     <Project Path="src/OneGame.Render2D/OneGame.Render2D.csproj" />
     <Project Path="src/OneGame.Steam/OneGame.Steam.csproj" />

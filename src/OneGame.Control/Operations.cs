@@ -1,0 +1,155 @@
+using System.Text.Json.Serialization;
+
+namespace OneGame.Control;
+
+/// <summary>A control operation failed in a way the caller can act on. <see cref="Code"/> is stable; the message says what to change.</summary>
+public sealed class ControlException : Exception
+{
+    /// <summary>Creates the exception.</summary>
+    public ControlException(string code, string message)
+        : base(message)
+    {
+        Code = code;
+    }
+
+    /// <summary>Creates the exception.</summary>
+    public ControlException(string code, string message, Exception inner)
+        : base(message, inner)
+    {
+        Code = code;
+    }
+
+    /// <summary>A short stable identifier such as <c>unknown_op</c>, <c>bad_args</c>, <c>not_found</c> or <c>rejected</c>.</summary>
+    public string Code { get; }
+}
+
+/// <summary>One operation of the control layer: the name every face uses, what it does, and its arguments as a JSON schema.</summary>
+/// <param name="Name">The operation name, also the MCP tool name.</param>
+/// <param name="Description">What it does, for an agent that reads the tool list.</param>
+/// <param name="InputSchema">JSON schema of the arguments object.</param>
+/// <param name="ChangesState">True when the operation can change the simulation (as opposed to only reading it).</param>
+public sealed record ControlOp(string Name, string Description, string InputSchema, bool ChangesState);
+
+/// <summary>What an operation returns: a JSON text and, for captures, the PNG bytes.</summary>
+/// <param name="Json">The result object as JSON text.</param>
+/// <param name="Png">PNG bytes of a captured frame, when the operation made one.</param>
+public sealed record ControlResult(string Json, byte[]? Png = null);
+
+/// <summary>Result of <c>info</c>.</summary>
+public sealed record InfoResult(
+    string Game, long Tick, long Frame, string Hash, int Width, int Height, float Scale, bool Headless, string? Screen,
+    int Entities, string[] Screens, string[] Fixtures, string Stage, string? Adapter);
+
+/// <summary>Result of <c>step</c>, <c>hash</c> and the operations that change the world.</summary>
+public sealed record StateResult(long Frame, long Tick, string Hash);
+
+/// <summary>Result of <c>state_patch</c>.</summary>
+public sealed record PatchResult(string Entity, string Property, string Value, string Hash);
+
+/// <summary>Result of <c>command_send</c>: <c>Queued</c> means it runs on the next tick.</summary>
+public sealed record SendResult(string Entity, string Command, string Status);
+
+/// <summary>One entity type's commands.</summary>
+public sealed record CommandsResult(string Entity, string Type, string[] Commands);
+
+/// <summary>Result of the input operations.</summary>
+public sealed record InputResult(string? Focused, string? Hovered, long Tick);
+
+/// <summary>Result of <c>ui_invoke</c>.</summary>
+public sealed record InvokeResult(string Target, bool Invoked, long Tick);
+
+/// <summary>Result of <c>ui_hit</c>.</summary>
+public sealed record HitResult(string? Element, string? Id);
+
+/// <summary>Result of <c>capture_frame</c>.</summary>
+public sealed record CaptureResult(string? Path, int Width, int Height, float Scale, string Sha256, string Renderer, long Tick, string Hash);
+
+/// <summary>One frame of a captured sequence.</summary>
+public sealed record SequenceFrame(string File, long Tick, string Hash, string Sha256);
+
+/// <summary>The manifest of a captured sequence (also written to <c>manifest.json</c> beside the frames).</summary>
+public sealed record SequenceManifest(
+    string Game, int Width, int Height, float Scale, int Fps, int TicksPerFrame, string Renderer, SequenceFrame[] Frames);
+
+/// <summary>Result of <c>capture_sequence</c>.</summary>
+public sealed record SequenceResult(string Directory, string Manifest, int Frames, int Width, int Height, int Fps);
+
+/// <summary>Result of <c>snapshot_save</c>.</summary>
+public sealed record SnapshotResult(string? Path, int Bytes, string? Base64, string Hash, long Tick);
+
+/// <summary>Source-generated JSON metadata for control results; nothing here uses reflection.</summary>
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+[JsonSerializable(typeof(InfoResult))]
+[JsonSerializable(typeof(StateResult))]
+[JsonSerializable(typeof(PatchResult))]
+[JsonSerializable(typeof(SendResult))]
+[JsonSerializable(typeof(CommandsResult))]
+[JsonSerializable(typeof(CommandsResult[]))]
+[JsonSerializable(typeof(InputResult))]
+[JsonSerializable(typeof(InvokeResult))]
+[JsonSerializable(typeof(HitResult))]
+[JsonSerializable(typeof(CaptureResult))]
+[JsonSerializable(typeof(SequenceManifest))]
+[JsonSerializable(typeof(SequenceResult))]
+[JsonSerializable(typeof(SnapshotResult))]
+public sealed partial class ControlJson : JsonSerializerContext
+{
+}
+
+/// <summary>The operation table. Every face (CLI, test API, MCP) is a view of this list.</summary>
+public static class ControlOps
+{
+    private const string NoArgs = """{"type":"object","properties":{}}""";
+
+    /// <summary>All operations.</summary>
+    public static IReadOnlyList<ControlOp> All { get; } =
+    [
+        new("info", "Describe the running game: tick, frame, state hash, window size, the open screen, and the screens and fixtures it declares.", NoArgs, false),
+        new("hash", "The current tick and the 64-bit state hash (hex).", NoArgs, false),
+        new("state_query",
+            "Read synced state as JSON. With no arguments: the whole world (entities and tables). With entity: that entity. With property too: just that value. 'entity' is a numeric id, a type name (first of that type) or 'Type#n' (nth of that type, from 1).",
+            """{"type":"object","properties":{"entity":{"type":"string"},"property":{"type":"string"}}}""", false),
+        new("state_patch",
+            "Set one scalar synced property from text (numbers, bool, string, Fixed like '12.5'; enums by number). The change bypasses commands, so it is not in a recorded command log.",
+            """{"type":"object","properties":{"entity":{"type":"string"},"property":{"type":"string"},"value":{"type":"string"}},"required":["entity","property","value"]}""", true),
+        new("commands_list", "List the commands an entity accepts, with parameter types. Without 'entity', every entity type present.",
+            """{"type":"object","properties":{"entity":{"type":"string"}}}""", false),
+        new("command_send",
+            "Send a command to an entity as a player would. It is queued and runs on the next tick (use step). 'args' are the parameters as strings, in order.",
+            """{"type":"object","properties":{"entity":{"type":"string"},"command":{"type":"string"},"args":{"type":"array","items":{"type":"string"}}},"required":["entity","command"]}""", true),
+        new("input_pointer",
+            "Inject pointer input through the platform event queue. action: move, down, up, click, wheel. Positions are window pixels.",
+            """{"type":"object","properties":{"action":{"type":"string","enum":["move","down","up","click","wheel"]},"x":{"type":"number"},"y":{"type":"number"},"button":{"type":"string","enum":["left","right","middle"]},"dx":{"type":"number"},"dy":{"type":"number"}},"required":["action"]}""", true),
+        new("input_key", "Inject a key. key is a DOM name (Enter, Escape, Tab, ArrowLeft, a, F5, ' ') or a key name (Digit1). action: press (default), down, up. modifiers: Shift, Control, Alt, Meta held during the press.",
+            """{"type":"object","properties":{"key":{"type":"string"},"action":{"type":"string","enum":["press","down","up"]},"modifiers":{"type":"array","items":{"type":"string"}}},"required":["key"]}""", true),
+        new("input_text", "Inject typed text (a TextInput event).", """{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}""", true),
+        new("input_nav", "Inject a controller action: up, down, left, right, next, previous, activate, cancel (a virtual gamepad's d-pad, shoulders, South and East buttons).",
+            """{"type":"object","properties":{"action":{"type":"string","enum":["up","down","left","right","next","previous","activate","cancel"]}},"required":["action"]}""", true),
+        new("step", "Run frames. Each frame handles input, runs one 60 Hz tick and updates the UI. Returns the new tick and state hash.",
+            """{"type":"object","properties":{"frames":{"type":"integer","minimum":1,"maximum":1000000}}}""", true),
+        new("ui_tree", "Dump the UI tree as JSON (kind, id, classes, states, text, boxes, computed style). 'id' limits it to a subtree.",
+            """{"type":"object","properties":{"id":{"type":"string"},"allStyles":{"type":"boolean"},"children":{"type":"boolean"}}}""", false),
+        new("ui_query", "Find UI elements by selector (Kind, #id, .class, :hover, :focus, descendant and > combinators). Returns each match without children.",
+            """{"type":"object","properties":{"selector":{"type":"string"}},"required":["selector"]}""", false),
+        new("ui_invoke", "Click a UI element without a pointer, by id or selector (first match).",
+            """{"type":"object","properties":{"id":{"type":"string"},"selector":{"type":"string"}}}""", true),
+        new("ui_click", "Click the center of a UI element with real pointer events (move, down, up), by id or selector (first match).",
+            """{"type":"object","properties":{"id":{"type":"string"},"selector":{"type":"string"}}}""", true),
+        new("ui_hit", "The element a pointer event at this position would reach.",
+            """{"type":"object","properties":{"x":{"type":"number"},"y":{"type":"number"}},"required":["x","y"]}""", false),
+        new("screen_open", "Replace the UI with a declared screen.", """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}""", true),
+        new("fixture_load", "Replace the world with a declared fixture.", """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}""", true),
+        new("reset", "Start a new game: a fresh world from the game's setup, optionally with another seed.", """{"type":"object","properties":{"seed":{"type":"integer","minimum":0}}}""", true),
+        new("snapshot_save", "Write the world as a snapshot to 'path' (under the output folder), or return it as base64 when no path is given.",
+            """{"type":"object","properties":{"path":{"type":"string"}}}""", false),
+        new("snapshot_load", "Replace the world with a snapshot, from 'path' or 'base64'.",
+            """{"type":"object","properties":{"path":{"type":"string"},"base64":{"type":"string"}}}""", true),
+        new("capture_frame",
+            "Render the current state offscreen to a PNG. size is WxH or a name (360p 720p 1080p 1440p 4k deck phone tablet); scale is the UI scale. With 'path' the file is written under the output folder.",
+            """{"type":"object","properties":{"size":{"type":"string"},"scale":{"type":"number"},"path":{"type":"string"}}}""", false),
+        new("capture_sequence",
+            "Run frames and capture each one: 'count' captures, 'ticksPerFrame' ticks between them. Writes frame-NNNN.png and manifest.json (the video form: frames plus fps) into 'dir' under the output folder.",
+            """{"type":"object","properties":{"dir":{"type":"string"},"count":{"type":"integer","minimum":1,"maximum":3600},"ticksPerFrame":{"type":"integer","minimum":1},"size":{"type":"string"},"scale":{"type":"number"},"fps":{"type":"integer","minimum":1}},"required":["dir","count"]}""", true),
+        new("quit", "Ask the game to exit.", NoArgs, false),
+    ];
+}

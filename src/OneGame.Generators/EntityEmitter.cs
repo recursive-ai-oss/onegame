@@ -457,6 +457,10 @@ internal static class EntityEmitter
         return new GenResult(EmitUtil.HintName(type, "Entity"), s.ToString(), new EquatableArray<DiagData>(diags.ToArray()), registration);
     }
 
+    // Whether a command parameter can be written as text: numbers, bool, string, enums (by number), Fixed and EntityId.
+    private static bool TextForm(Codec c) =>
+        c.Kind != CodecKind.Value || c.TypeName == "global::OneGame.Core.Fixed" || c.TypeName == "global::OneGame.Core.EntityId";
+
     private static string ReadLocal(Prop p, string r = "r")
     {
         var name = "v" + p.Index.ToString(CultureInfo.InvariantCulture);
@@ -746,6 +750,71 @@ internal static class EntityEmitter
         }
 
         s.Line("default: return false;");
+        s.Close();
+        s.Close();
+
+        // Commands by name with text arguments, for the harness. Commands with a parameter that has no text form are left out.
+        var textual = commands.Where(c => c.Codecs.All(TextForm)).ToList();
+        s.Line("/// <inheritdoc />");
+        s.Open("public override string[] CommandSignatures");
+        s.Open("get");
+        s.Line("return new string[] { " + string.Join(", ", textual.Select(c => EmitUtil.Literal(c.Method.Name + "(" + string.Join(", ", c.Method.Parameters.Select(p => Codecs.TypeText(p.Type) + " " + p.Name)) + ")"))) + " };");
+        s.Close();
+        s.Close();
+        s.Line("/// <inheritdoc />");
+        s.Open("public override global::OneGame.Core.CommandStatus SendFromText(string commandName, string[] arguments)");
+        s.Open("switch (commandName)");
+        foreach (var c in textual)
+        {
+            s.Open($"case {EmitUtil.Literal(c.Method.Name)}:");
+            s.Line($"if (arguments.Length != {c.Codecs.Count.ToString(CultureInfo.InvariantCulture)}) {{ return global::OneGame.Core.CommandStatus.Malformed; }}");
+            for (var i = 0; i < c.Codecs.Count; i++)
+            {
+                var codec = c.Codecs[i];
+                var idx = i.ToString(CultureInfo.InvariantCulture);
+                var text = "arguments[" + idx + "]";
+                var bad = "{ return global::OneGame.Core.CommandStatus.Malformed; }";
+                if (codec.Kind == CodecKind.String)
+                {
+                    s.Line($"var a{idx} = {text} ?? string.Empty;");
+                }
+                else if (codec.Kind == CodecKind.Value && codec.TypeName == "global::OneGame.Core.Fixed")
+                {
+                    s.Line($"if (!global::OneGame.Core.Fixed.TryParse({text}, out var a{idx})) {bad}");
+                }
+                else if (codec.Kind == CodecKind.Value)
+                {
+                    s.Line($"if (!global::OneGame.Core.TextParse.TryUnsigned({text}, ulong.MaxValue, out var u{idx})) {bad} var a{idx} = new global::OneGame.Core.EntityId(u{idx});");
+                }
+                else if (codec.IsBool)
+                {
+                    s.Line($"if (!global::OneGame.Core.TextParse.TryBool({text}, out var a{idx})) {bad}");
+                }
+                else
+                {
+                    var typeName = codec.Kind == CodecKind.Enum ? codec.UnderlyingCs : codec.TypeName;
+                    if (codec.Unsigned)
+                    {
+                        s.Line($"if (!global::OneGame.Core.TextParse.TryUnsigned({text}, {typeName}.MaxValue, out var n{idx})) {bad} var a{idx} = ({codec.TypeName})({typeName})n{idx};");
+                    }
+                    else
+                    {
+                        s.Line($"if (!global::OneGame.Core.TextParse.TryInteger({text}, {typeName}.MinValue, {typeName}.MaxValue, out var n{idx})) {bad} var a{idx} = ({codec.TypeName})({typeName})n{idx};");
+                    }
+                }
+            }
+
+            s.Line("var w = BeginCommand();");
+            for (var i = 0; i < c.Codecs.Count; i++)
+            {
+                s.Line(c.Codecs[i].Write("a" + i.ToString(CultureInfo.InvariantCulture)));
+            }
+
+            s.Line($"return SendCommand({EmitUtil.Hex(c.Id)}, w);");
+            s.Close();
+        }
+
+        s.Line("default: return global::OneGame.Core.CommandStatus.UnknownCommand;");
         s.Close();
         s.Close();
 

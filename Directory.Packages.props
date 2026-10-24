@@ -7,6 +7,11 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The one* family: PNG encoding for captures, YAML for scenario files. -->
+    <PackageVersion Include="RecursiveAI.OneImage" Version="1.10.0" />
+    <PackageVersion Include="OneYaml" Version="1.2.1" />
+  </ItemGroup>
+  <ItemGroup>
     <!-- Test projects only. Shipping projects may depend on the one* family and nothing else. -->
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>

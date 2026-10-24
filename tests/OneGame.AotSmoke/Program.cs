@@ -117,6 +117,13 @@ if (clicks != 1 || ui.Find("score")!.Text != "Score 7" || list.Commands.Length =
 
 Console.WriteLine($"ok: ui {list.Commands.Length} commands, go at {go.AbsoluteBounds}");
 
+// The harness: host, control layer, scenarios, capture, recording and MCP messages.
+var harness = HarnessSmoke.Run();
+if (harness != 0)
+{
+    return harness;
+}
+
 // Graphics: create a device, clear an offscreen target and read it back. "--require-gpu" turns a missing Vulkan driver into a failure.
 var requireGpu = args.Contains("--require-gpu");
 if (!VulkanGpu.IsAvailable)

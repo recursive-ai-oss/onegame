@@ -1,5 +1,6 @@
 using System.Reflection;
 using OneGame.Cli.Verbs;
+using OneGame.Host;
 
 namespace OneGame.Cli;
 
@@ -7,7 +8,10 @@ namespace OneGame.Cli;
 internal static class Program
 {
     /// <summary>Every verb the command knows. New verbs are listed here.</summary>
-    internal static IVerb[] AllVerbs { get; } = [new HelpVerb()];
+    internal static IVerb[] AllVerbs { get; } =
+    [
+        new HelpVerb(), new NewVerb(), new BuildVerb(), new RunVerb(), new TestVerb(), new CaptureVerb(), new ReplayVerb(), new McpVerb(), new ExportVerb(),
+    ];
 
     private static int Main(string[] args) => Run(args, Console.Out, Console.Error);
 
@@ -17,19 +21,28 @@ internal static class Program
         var json = false;
         var version = false;
         var rest = new List<string>();
+        var passthrough = false;
         foreach (var arg in args)
         {
-            switch (arg)
+            // After "--" everything belongs to the game being run.
+            if (arg == "--")
             {
-                case "--json":
-                    json = true;
-                    break;
-                case "--version":
-                    version = true;
-                    break;
-                default:
-                    rest.Add(arg);
-                    break;
+                passthrough = true;
+                rest.Add(arg);
+                continue;
+            }
+
+            if (!passthrough && arg == "--json")
+            {
+                json = true;
+            }
+            else if (!passthrough && arg == "--version")
+            {
+                version = true;
+            }
+            else
+            {
+                rest.Add(arg);
             }
         }
 
@@ -53,21 +66,33 @@ internal static class Program
         {
             if (verb.Name == name)
             {
-                return verb.Run(rest.Count == 0 ? [] : [.. rest.Skip(1)], json, output);
+                try
+                {
+                    return verb.Run(rest.Count == 0 ? [] : [.. rest.Skip(1)], json, output, error);
+                }
+                catch (CliException ex)
+                {
+                    return Fail(json, output, error, ex.ExitCode, ex.Code, ex.Message);
+                }
             }
         }
 
-        var message = $"unknown verb '{name}'; run 'onegame help'";
+        return Fail(json, output, error, ExitCodes.Usage, "unknown_verb", $"unknown verb '{name}'; run 'onegame help'");
+    }
+
+    /// <summary>Prints a failure as one JSON object or as a line on standard error, and returns the exit code.</summary>
+    internal static int Fail(bool json, TextWriter output, TextWriter error, int exitCode, string code, string message)
+    {
         if (json)
         {
-            output.WriteLine(JsonSerializer.Serialize(new ErrorResult(message), CliJson.Default.ErrorResult));
+            output.WriteLine(JsonSerializer.Serialize(new ErrorResult(false, new ErrorInfo(code, message)), CliJson.Default.ErrorResult));
         }
         else
         {
-            error.WriteLine(message);
+            error.WriteLine($"error: {message}");
         }
 
-        return 2;
+        return exitCode;
     }
 
     private static string GetVersion()
