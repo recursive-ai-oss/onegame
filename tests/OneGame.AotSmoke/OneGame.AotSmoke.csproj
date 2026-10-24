@@ -29,6 +29,8 @@
     <ProjectReference Include="../../src/OneGame.Steam/OneGame.Steam.csproj" />
     <ProjectReference Include="../../src/OneGame.Control/OneGame.Control.csproj" />
     <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
+    <ProjectReference Include="../../src/OneGame.Host/OneGame.Host.csproj" />
+    <ProjectReference Include="../../src/OneGame.Live/OneGame.Live.csproj" />
   </ItemGroup>
 
   <ItemGroup>

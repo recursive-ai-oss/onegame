@@ -20,7 +20,7 @@ internal static class Rules
         "Floating-point value in sim code ({0}). Sim code must use OneGame.Core.Fixed; floats belong in [View] code.");
 
     public static readonly DiagnosticDescriptor UnorderedIteration = Error("OG0003", "Iteration order is not defined",
-        "Iterating {0} in sim code has no defined order. Use a List<T>, an array, a SortedDictionary or SortedSet, or sort the keys first.");
+        "Sim code iterates in no defined order: {0}. Use a List<T>, an array, a SortedDictionary or SortedSet, or sort the keys first.");
 
     public static readonly DiagnosticDescriptor Clock = Error("OG0004", "Clock in sim code",
         "{0} reads the clock, but the sim advances only by ticks. Use World.Tick, or a Timed<T> value.");
@@ -51,6 +51,13 @@ internal static class Rules
 
     public static readonly DiagnosticDescriptor CommandShape = Error("OG0013", "Command is declared wrongly",
         "{0}");
+
+    public static readonly DiagnosticDescriptor ExternalApi = new("OG0015", "API not known to be deterministic",
+        "Sim code calls '{0}', which is outside this project and not known to be deterministic. Use a sim-safe API, or vouch for the library with [assembly: SimTrust(\"Namespace\")] or onegame_sim_trusted in .editorconfig.",
+        Category, DiagnosticSeverity.Warning, isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor Culture = Error("OG0016", "Culture-sensitive text in sim code",
+        "{0} follows the machine's culture, so it gives different results on different machines. Pass CultureInfo.InvariantCulture, or compare with StringComparison.Ordinal.");
 
     public static readonly DiagnosticDescriptor MigrationShape = Error("OG0014", "Migration is declared wrongly",
         "{0}");

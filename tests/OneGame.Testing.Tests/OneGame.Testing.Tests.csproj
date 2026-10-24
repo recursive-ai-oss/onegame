@@ -2,6 +2,13 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
+    <ProjectReference Include="../../src/OneGame.Live/OneGame.Live.csproj" />
+    <!-- The sample entities in this project run through the generator and analyzers like a game's would. -->
+    <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="scenarios/**" CopyToOutputDirectory="PreserveNewest" LinkBase="scenarios" />
   </ItemGroup>
 
 </Project>

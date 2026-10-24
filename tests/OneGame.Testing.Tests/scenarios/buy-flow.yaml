@@ -1,0 +1,19 @@
+name: buy-flow
+description: Click Buy twice around a restock and check the shop's gold, the label and the frame.
+window: 320x200
+steps:
+  - expect:
+      ui: { id: gold, text: "Gold: 0" }
+  - click: buy
+  - step: 1
+  - command: { entity: Shop, name: Restock, args: [5] }
+  - step: 1
+  - click: buy
+  - step: 1
+expect:
+  - state: { entity: Shop, property: Gold, equals: 10 }
+  - state: { entity: Shop, property: Stock, equals: 6 }
+  - ui: { id: gold, text: "Gold: 10" }
+  - ui: { selector: Button, count: 2 }
+  - tick: 3
+  - capture: { reference: refs/buy-flow.png, size: 320x200 }

@@ -51,6 +51,7 @@ ReplayResult r = Replayer.Replay(recording, freshAuthorityWorld);   // r.Ok, r.T
 - `Divergence { Reason, Tick, LastGoodTick, ExpectedHash, ActualHash, Differences }`. `StateDifference { Kind (Entity|Table|Rng), EntityId, Name, TypeName, Change (Changed|OnlyInExpected|OnlyInActual), hashes }`. All reports have `ToJson()`.
 - `Recording.Commands` is an editable list (`LoggedCommand`: tick, entity, command id, payload) so tests can corrupt a log on purpose.
 - `ReplayOptions.OnTick(World)` runs after every replayed tick (capture frames, assertions).
+- `ReplayOptions.MaxTicks` (default 2 000 000) caps `EndTick - StartTick`. A longer recording fails at once with `DivergenceReason.TooLong` and runs nothing, so an untrusted file cannot demand an endless run.
 
 ## Drift detection
 

@@ -36,6 +36,8 @@ public class CliTests
         var (code, text) = Run("nope", "--json");
         Assert.Equal(2, code);
         using var doc = JsonDocument.Parse(text);
-        Assert.Contains("nope", doc.RootElement.GetProperty("error").GetString(), StringComparison.Ordinal);
+        Assert.False(doc.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Equal("unknown_verb", doc.RootElement.GetProperty("error").GetProperty("code").GetString());
+        Assert.Contains("nope", doc.RootElement.GetProperty("error").GetProperty("message").GetString(), StringComparison.Ordinal);
     }
 }

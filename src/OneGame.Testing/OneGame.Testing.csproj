@@ -1,11 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>The C# test API: in-process clusters, scenarios and captures.</Description>
+    <Description>The C# test API: in-process clusters, scenarios, recordings and captures.</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../OneGame.Control/OneGame.Control.csproj" />
+    <ProjectReference Include="../OneGame.Host/OneGame.Host.csproj" />
+    <ProjectReference Include="../OneGame.Core/OneGame.Core.csproj" />
+    <ProjectReference Include="../OneGame.UI/OneGame.UI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Scenario files are YAML. -->
+    <PackageReference Include="OneYaml" />
   </ItemGroup>
 
   <ItemGroup>

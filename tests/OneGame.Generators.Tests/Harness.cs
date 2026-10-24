@@ -49,6 +49,37 @@ internal static class Harness
         return generatorDiagnostics.Concat(analyzed).Where(d => d.Severity == DiagnosticSeverity.Error).Distinct().ToList();
     }
 
+    /// <summary>Like <see cref="Diagnose"/> but returns warnings too, and can set <c>onegame_sim_trusted</c> as an editorconfig option.</summary>
+    public static async Task<List<Diagnostic>> DiagnoseAll(string source, string? trusted = null)
+    {
+        var compilation = Compile(source);
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(new EntityGenerator());
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var generatorDiagnostics);
+        var options = new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty, new Options(trusted));
+        var analyzed = await output.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new SimRulesAnalyzer()), options)
+            .GetAllDiagnosticsAsync(CancellationToken.None);
+        return generatorDiagnostics.Concat(analyzed).Where(d => d.Id.StartsWith("OG", StringComparison.Ordinal) || d.Severity == DiagnosticSeverity.Error)
+            .Distinct().ToList();
+    }
+
+    private sealed class Options(string? trusted) : AnalyzerConfigOptionsProvider
+    {
+        public override AnalyzerConfigOptions GlobalOptions => new Values(trusted);
+
+        public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => new Values(null);
+
+        public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => new Values(null);
+    }
+
+    private sealed class Values(string? trusted) : AnalyzerConfigOptions
+    {
+        public override bool TryGetValue(string key, out string value)
+        {
+            value = trusted ?? string.Empty;
+            return trusted is not null && key == "onegame_sim_trusted";
+        }
+    }
+
     public static string Describe(IEnumerable<Diagnostic> diagnostics)
         => string.Join("\n", diagnostics.Select(d => $"{d.Id} {d.GetMessage()} @ {d.Location.GetLineSpan().StartLinePosition}"));
 }

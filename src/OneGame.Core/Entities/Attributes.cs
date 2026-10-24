@@ -83,3 +83,31 @@ public sealed class MigrateAttribute : Attribute
     /// <summary>The older schema version this method reads.</summary>
     public uint FromVersion { get; }
 }
+
+/// <summary>
+/// Vouches that an API gives the same result on every machine and run, so sim code may call it. Put it on a method, a type or a
+/// whole assembly. Sim code that calls an API outside its own project without this attribute (or a <see cref="SimTrustAttribute"/>
+/// entry, or a built-in framework allowance) gets warning OG0015. Helpers in the same project need no attribute: the analyzers
+/// read their bodies instead, and the attribute on a helper tells them to stop looking.
+/// </summary>
+[AttributeUsage(AttributeTargets.Assembly | AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Interface
+    | AttributeTargets.Enum | AttributeTargets.Delegate | AttributeTargets.Method | AttributeTargets.Property | AttributeTargets.Constructor,
+    AllowMultiple = false, Inherited = false)]
+public sealed class SimSafeAttribute : Attribute
+{
+}
+
+/// <summary>
+/// Lets sim code call a library you trust to be deterministic. <see cref="Name"/> is a namespace, a type's full name or an assembly
+/// name. The same list can be given as <c>onegame_sim_trusted = A.B; C.D</c> in <c>.editorconfig</c>.
+/// </summary>
+[AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true, Inherited = false)]
+public sealed class SimTrustAttribute : Attribute
+{
+    /// <summary>Trusts the namespace, type or assembly called <paramref name="name"/>.</summary>
+    /// <param name="name">A namespace, a type's full name or an assembly name.</param>
+    public SimTrustAttribute(string name) => Name = name;
+
+    /// <summary>The trusted namespace, type or assembly name.</summary>
+    public string Name { get; }
+}
