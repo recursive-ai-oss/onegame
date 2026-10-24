@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>Audio playback and mixing on top of the audio device layer.</Description>
+    <Description>Audio device output and the audio service that drives a mixer.</Description>
+    <!-- The device backends call the operating system's audio libraries through source-generated, blittable P/Invokes; unsafe code stays inside this assembly. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
