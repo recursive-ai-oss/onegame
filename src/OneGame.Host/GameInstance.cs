@@ -596,7 +596,7 @@ public sealed class GameInstance : IDisposable
         Ui.SetViewport(width, height, scale);
         try
         {
-            var list = Ui.Frame();
+            var list = SettleUi();
             var info = new FrameInfo(width, height, scale, World.Tick, list, World);
             EnsureDevice();
             string renderer;
@@ -620,8 +620,26 @@ public sealed class GameInstance : IDisposable
         finally
         {
             SyncViewport();
-            Ui.Update();
+            SettleUi();
         }
+    }
+
+    // Bindings run before layout, so one that reads another element's bounds sees the previous layout. After a viewport
+    // change, frame again until the display list stops changing (bounded, in case a binding never settles).
+    private DisplayList SettleUi()
+    {
+        var list = Ui.Frame();
+        for (var i = 0; i < 8; i++)
+        {
+            var version = list.Version;
+            list = Ui.Frame();
+            if (list.Version == version)
+            {
+                break;
+            }
+        }
+
+        return list;
     }
 
     /// <summary>Validation messages the graphics layer collected since the last call; empty when validation is off or nothing was reported.</summary>

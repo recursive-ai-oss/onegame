@@ -75,4 +75,7 @@ Expectations: `state {entity, property, equals|min|max}`, `ui {id|selector, text
 
 ## Capture
 
+Before drawing at a new size or scale the UI is framed until its display list stops changing (at most 9 frames), so bindings that read element bounds see the layout of the capture size; a capture at size S equals a fresh run at S. The previous size is restored the same way afterwards.
+
+
 PNG at a named size (`360p 720p 1080p 1440p 4k deck phone tablet` or `WxH`) and UI scale. With a graphics device the render stage draws on it and the frame is read back; otherwise the stage's CPU path draws. `CaptureResult.Renderer` says which (`cpu` or the adapter name). A sequence is `frame-NNNN.png` plus `manifest.json` (fps, ticks per frame, per frame tick, state hash and sha256); video is that sequence, with no codec. `ONEGAME_GPU_VALIDATION=1` turns on the Vulkan validation layer; `GameInstance.TakeGpuValidationMessages()` returns what it said.

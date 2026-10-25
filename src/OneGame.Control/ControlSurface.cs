@@ -488,7 +488,7 @@ public sealed class ControlSurface : IControlEndpoint
         {
             return Game.Ui.Query(selector);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex) when (ex is ArgumentException or UiStyleException)
         {
             throw new ControlException("bad_args", $"Bad selector '{selector}': {ex.Message}", ex);
         }
