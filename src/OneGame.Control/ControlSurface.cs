@@ -11,7 +11,7 @@ namespace OneGame.Control;
 /// The control layer: every operation of <see cref="ControlOps"/> run against one <see cref="GameInstance"/>. The command line, the test
 /// API and live control (MCP) all call <see cref="Invoke"/>; none of them reaches into the game any other way.
 /// </summary>
-public sealed class ControlSurface : IControlEndpoint
+public sealed partial class ControlSurface : IControlEndpoint
 {
     private const int MaxSnapshotBytes = 64 * 1024 * 1024;
     private int _gamepad = -1;
@@ -115,6 +115,7 @@ public sealed class ControlSurface : IControlEndpoint
         "audio_capture" => Json(AudioCapture(a), ControlJson.Default.AudioCaptureResult),
         "capture_frame" => CaptureFrame(a),
         "capture_sequence" => Json(CaptureSequence(a), ControlJson.Default.SequenceResult),
+        "camera" or "pick" or "project" => Dispatch3D(op, a),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", ControlOps.All.Select(o => o.Name))}."),
     };
 
@@ -919,6 +920,31 @@ internal readonly struct Args
     }
 
     public bool Has(string name) => TryGet(name, out _);
+
+    /// <summary>A JSON array of exactly <paramref name="count"/> numbers, or null when the argument is absent.</summary>
+    public double[]? Numbers(string name, int count)
+    {
+        if (!TryGet(name, out var v))
+        {
+            return null;
+        }
+
+        if (v.ValueKind != JsonValueKind.Array || v.GetArrayLength() != count)
+        {
+            throw new ControlException("bad_args", $"{name} must be an array of {count} numbers.");
+        }
+
+        var result = new double[count];
+        var i = 0;
+        foreach (var item in v.EnumerateArray())
+        {
+            result[i++] = item.ValueKind == JsonValueKind.Number && item.TryGetDouble(out var d) && double.IsFinite(d)
+                ? d
+                : throw new ControlException("bad_args", $"{name} must be an array of {count} numbers.");
+        }
+
+        return result;
+    }
 
     public bool IsNull(string name) => _o.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Null;
 

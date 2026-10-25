@@ -79,7 +79,7 @@ public class Render2DStage : IRenderStage, IDisposable
     }
 
     /// <inheritdoc />
-    public string Name => "render2d";
+    public virtual string Name => "render2d";
 
     /// <inheritdoc />
     public bool RequiresSrgb => true;

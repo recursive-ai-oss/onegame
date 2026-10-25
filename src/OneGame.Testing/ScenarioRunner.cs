@@ -264,6 +264,9 @@ public sealed class ScenarioRunner
                 Directory.CreateDirectory(Path.GetDirectoryName(full)!);
                 File.WriteAllBytes(full, result.Png!);
                 break;
+            case StepKind.Camera:
+                _surface.Call("camera", s.ControlArgs);
+                break;
             case StepKind.Expect:
                 var r = Check(s.Expect!, index, scenario.Name, ctx, scenario);
                 inline.Add(r);
@@ -294,6 +297,7 @@ public sealed class ScenarioRunner
                 ExpectKind.Tick => Compare(e, index, "tick", "tick", _surface.Game.World.Tick.ToString(CultureInfo.InvariantCulture), e.EqualTo!),
                 ExpectKind.Hash => Compare(e, index, "hash", "hash", _surface.Game.World.ComputeHash().ToString("x16", CultureInfo.InvariantCulture), e.EqualTo!.ToLowerInvariant()),
                 ExpectKind.Capture => CheckCapture(e, index, scenarioName, ctx, scenario),
+                ExpectKind.Pick => CheckPick(e, index),
                 _ => throw new ControlException("bad_args", "Unknown expectation."),
             };
         }
@@ -314,6 +318,31 @@ public sealed class ScenarioRunner
         || (double.TryParse(actual, NumberStyles.Float, CultureInfo.InvariantCulture, out var a)
             && double.TryParse(expected, NumberStyles.Float, CultureInfo.InvariantCulture, out var b)
             && Math.Abs(a - b) < 1e-9);
+
+    private ExpectationResult CheckPick(ScenarioExpectation e, int index)
+    {
+        var json = _surface.Call("pick", Obj(("x", e.PickX), ("y", e.PickY), ("size", e.Size)));
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        var hit = root.GetProperty("hit").GetBoolean();
+        var target = $"pick({e.PickX.ToString(CultureInfo.InvariantCulture)}, {e.PickY.ToString(CultureInfo.InvariantCulture)})";
+        var actual = hit ? root.GetProperty("address").GetString()! : "none";
+        string expected;
+        bool ok;
+        if (e.Entity == "none")
+        {
+            expected = "none";
+            ok = !hit;
+        }
+        else
+        {
+            var want = _surface.ResolveEntityId(e.Entity!);
+            expected = e.Entity!;
+            ok = hit && root.GetProperty("id").GetUInt64() == want.Value;
+        }
+
+        return new ExpectationResult(index, "pick", e.Line, ok, target, expected, actual, ok ? null : $"{target} is {actual}, expected {expected}");
+    }
 
     private ExpectationResult CheckState(ScenarioExpectation e, int index)
     {
