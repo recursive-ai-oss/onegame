@@ -105,7 +105,7 @@ public interface IDevTools
 /// <summary>The entry point of a game: parse the command line, create the instance, run it.</summary>
 public static class GameApp
 {
-    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "also-scopes", "name", "net"];
+    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "also-scopes", "name", "net", "realtime", "until-tick"];
 
     /// <summary>
     /// Set by development builds before <see cref="Run(GameDefinition, string[])"/> so the extra options work. A release build leaves it
@@ -118,7 +118,9 @@ public static class GameApp
     /// (headless UI scale), <c>--seed N</c>, <c>--gpu auto|off|required</c>, <c>--backend wayland|x11</c> and <c>--display NAME</c> (which window system and display
     /// a windowed run opens on; the environment decides without them), <c>--present vsync|lowlatency|immediate</c>, <c>--json</c> (print one result object),
     /// <c>--connect udp://host:port|ws://host:port</c> (play on a server: the world is a replica of its scope), with <c>--scope N</c>, <c>--name N</c> and
-    /// <c>--net latency=100,loss=0.02</c> (network conditions on this client's traffic).
+    /// <c>--net latency=100,loss=0.02</c> (network conditions on this client's traffic). <c>--realtime</c> makes a headless run follow the clock instead of
+    /// running its frames as fast as it can, and <c>--until-tick N</c> (a connected client; implies <c>--realtime</c>) stops once the replica reaches tick N or the
+    /// connection closes; a release build has no live control, so this is how a connected client is run and checked.
     /// </summary>
     public static int Run(GameDefinition game, string[] args) => Run(game, args, Console.Out, Console.Error);
 
@@ -156,7 +158,21 @@ public static class GameApp
             }
 
             var frames = parsed.GetInt("frames", 0);
-            if (options.Headless)
+            var untilTick = parsed.GetInt("until-tick", 0);
+            if (untilTick > 0 && options.Connect is null)
+            {
+                return Fail(json, output, error, ExitCodes.Usage, "bad_args", "--until-tick only applies with --connect <address>.");
+            }
+
+            if (options.Headless && (parsed.Has("realtime") || untilTick > 0))
+            {
+                var run = 0L;
+                while (!instance.QuitRequested && (frames == 0 || run++ < frames) && instance.Remote is not { IsClosed: true } && (untilTick == 0 || instance.World.Tick < untilTick))
+                {
+                    instance.RunRealtime(1);
+                }
+            }
+            else if (options.Headless)
             {
                 instance.Step((int)Math.Min(frames, int.MaxValue));
             }
@@ -272,6 +288,29 @@ public static class GameApp
             w.WriteNumber("frames", g.Frame);
             w.WriteNumber("tick", g.World.Tick);
             w.WriteString("hash", hash);
+            if (g.Remote is { } remote)
+            {
+                // What a connected client shows at exit: the same fields as the live net_status, so a cluster can compare it with its server.
+                var net = remote.Status();
+                w.WriteString("connection", net.Connection);
+                w.WriteNumber("scope", net.Scope);
+                w.WriteString("replica", net.Replica);
+                w.WriteString("viewHash", net.Hash);
+                w.WriteNumber("resyncs", net.Resyncs);
+                w.WriteNumber("drift", net.Drift);
+                w.WriteStartArray("followed");
+                foreach (var f in net.Followed)
+                {
+                    w.WriteStartObject();
+                    w.WriteNumber("scope", f.Scope);
+                    w.WriteString("replica", f.Replica);
+                    w.WriteNumber("tick", f.Tick);
+                    w.WriteEndObject();
+                }
+
+                w.WriteEndArray();
+            }
+
             w.WriteNumber("width", g.Window.Width);
             w.WriteNumber("height", g.Window.Height);
             w.WriteEndObject();

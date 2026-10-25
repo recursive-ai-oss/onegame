@@ -12,7 +12,8 @@ It is also the example for multiplayer: `docs/interfaces/sync.md` (views, predic
 | `Server/` | `LanternsServer`: one program; the scope it is given decides if it is an island (1, 2) or the master (3). `Realm` is all of its logic. |
 | `Views/`, `Game.cs` | The client: `Session` (what is mine, what is here), `IslandView`, `Autopilot`. |
 | `scenarios/` | Single-player scenarios and 720p captures, run by `onegame test`. |
-| `cluster.yaml`, `cluster/play.yaml` | The five-process cluster and the scenario that plays 2000 ticks on it. |
+| `cluster.yaml`, `cluster/play.yaml`, `cluster/crash.yaml` | The five-process cluster, the scenario that plays 2000 ticks on it, and the one that kills the master (while a swap is open) and then island B and starts them again. |
+| `cluster-release.yaml`, `cluster/play-release.yaml` | The same cluster made of exported builds, whose clients have no live control. |
 | `tests/` | In-process network tests, privacy at the byte level, determinism, and the process cluster. |
 
 ## How the pieces work together
@@ -46,11 +47,19 @@ onegame cluster test cluster/play.yaml --spec cluster.yaml --json    # up, 2000 
 
 `bot1` reaches its island over UDP with 100 ms latency and 2% loss, `bot2` over a WebSocket. A client whose name starts with `bot` plays itself (`Autopilot`).
 
-Exports: `onegame export --project Lanterns.csproj` and `onegame export --server --project Server`.
+`cluster/crash.yaml` uses the `kill:`, `start:` and `restart:` steps (SIGKILL, then the same arguments, data folder and ports). After island B is back, `restart: bot2` joins a new player to it, because a client does not reconnect. `ClusterTests` then checks that lanterns held by players equal lanterns collected and that every client agrees with its server.
+
+Exports: `onegame export --project Lanterns.csproj --out export` and `onegame export --server --project Server --out export`. The exported clients are release builds with no live control, so the release cluster runs them with `release: true` and `--until-tick`: each plays headless in real time until its replica reaches that tick, prints one JSON line (tick, `viewHash`, followed scopes, drift count), and `cluster/play-release.yaml` waits for them to stop and compares what they printed with their servers:
+
+```
+onegame cluster test cluster/play-release.yaml --spec cluster-release.yaml --json     # export/ holds both exported folders
+```
+
+A windowed client on a machine with `WAYLAND_DISPLAY` set opens on that compositor even when `DISPLAY` names an Xvfb; pass `--backend x11 --display :N` there.
 
 ## Limits
 
 - Player ids come from a counter on the island that was joined; nothing authenticates a player, so a returning client is a new player.
 - A player whose client leaves stays on the island.
-- A client that follows the master through its island's relay can keep a stale view of the accounts after the master was killed and started again from its save (the servers and the ledger are correct; the client needs to reconnect).
+- A client does not reconnect when its own island is killed; it has to start again (as a new player).
 - No Windows run, no real-network run.

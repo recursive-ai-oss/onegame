@@ -1,0 +1,13 @@
+name: release-bots-play
+description: Exported release builds. Two bots play until tick 2400 and print their result; a release client has no live control, so the scenario waits for them to stop and then compares what each printed with its server.
+steps:
+  - wait: { node: bot1, tick: 2400, timeout: 180000 }
+  - wait: { node: bot2, tick: 2400, timeout: 60000 }
+expect:
+  - state: { entity: Island, property: Arrivals, min: 1 }
+    node: islandA
+  - state: { entity: Market, property: Settled, min: 1, scope: 3 }
+    node: master
+  - agree: { server: islandA, clients: [bot1] }
+  - agree: { server: islandB, clients: [bot2] }
+  - drift: { nodes: [islandA, islandB, master, bot1, bot2], equals: 0 }

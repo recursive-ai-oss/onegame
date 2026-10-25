@@ -33,6 +33,13 @@ public sealed record ConnectOptions
 /// <param name="Differences">The first entities, tables or streams that differ, one line each.</param>
 public sealed record DriftInfo(string Node, uint Scope, long Tick, string Expected, string Actual, string[] Differences);
 
+/// <summary>One scope a client follows besides its main one (served by its server's relay), for <c>net_status</c>.</summary>
+/// <param name="Scope">The scope id.</param>
+/// <param name="Replica">Replica state: subscribing, live, resyncing, refused, failed.</param>
+/// <param name="Tick">The replica's tick.</param>
+/// <param name="Hash">The hash of what the replica holds, 16 hex digits.</param>
+public sealed record FollowedScope(uint Scope, string Replica, long Tick, string Hash);
+
 /// <summary>A snapshot of a client's connection, for <c>net_status</c>.</summary>
 /// <param name="Address">The server address as given.</param>
 /// <param name="Transport"><c>udp</c> or <c>ws</c>.</param>
@@ -52,9 +59,10 @@ public sealed record DriftInfo(string Node, uint Scope, long Tick, string Expect
 /// <param name="MessagesSent">Messages sent to the server.</param>
 /// <param name="MessagesReceived">Messages received from the server.</param>
 /// <param name="Reports">The latest drift reports (at most 8), oldest first.</param>
+/// <param name="Followed">The other scopes the client follows through its server, in subscription order.</param>
 public sealed record NetStatus(
     string Address, string Transport, string Connection, string? CloseReason, uint Scope, string Replica, long Tick, string Hash,
-    long FramesApplied, int Resyncs, int Drift, double RttMs, long Retransmits, double InboundLoss, double OutboundLoss, long MessagesSent, long MessagesReceived, DriftInfo[] Reports);
+    long FramesApplied, int Resyncs, int Drift, double RttMs, long Retransmits, double InboundLoss, double OutboundLoss, long MessagesSent, long MessagesReceived, DriftInfo[] Reports, FollowedScope[] Followed);
 
 /// <summary>
 /// A game's connection to a server: a node holding one replica scope, reached through a transport connection
@@ -130,7 +138,8 @@ public sealed class RemoteSession
             Options.Address, Transport, Connection.State.ToString().ToLowerInvariant(), close.Reason == DisconnectReason.None ? null : close.Reason.ToString(), Options.Scope,
             Replica.State.ToString().ToLowerInvariant(), Replica.World.Tick, Replica.ViewHash.ToString("x16", CultureInfo.InvariantCulture),
             Replica.FramesApplied, Replica.Resyncs, Node.DriftCount, Math.Round(s.RttMs, 1), s.Retransmits, Math.Round(s.InboundLoss, 4), Math.Round(s.OutboundLoss, 4),
-            s.MessagesSent, s.MessagesReceived, DriftInfos());
+            s.MessagesSent, s.MessagesReceived, DriftInfos(),
+            [.. Replicas.Skip(1).Select(r => new FollowedScope(r.Id.Value, r.State.ToString().ToLowerInvariant(), r.World.Tick, r.ViewHash.ToString("x16", CultureInfo.InvariantCulture)))]);
     }
 
     private DriftInfo[] DriftInfos()

@@ -33,7 +33,8 @@ public sealed record EndpointState(string Transport, string Address, int Port);
 /// <param name="Listen">Servers: where it accepts clients.</param>
 /// <param name="Connect">Clients: the server node they are connected to.</param>
 /// <param name="Transport">Clients: the transport they use.</param>
-public sealed record NodeState(string Name, string Role, int Pid, string Socket, string Log, EndpointState[] Listen, string? Connect, string? Transport);
+/// <param name="Release">Clients: an exported release build with no live control; its result is read from its output when it exits.</param>
+public sealed record NodeState(string Name, string Role, int Pid, string Socket, string Log, EndpointState[] Listen, string? Connect, string? Transport, bool Release = false);
 
 /// <summary>A running cluster as <c>cluster.json</c> records it, enough for another process to find every node.</summary>
 /// <param name="Name">The cluster's name.</param>
@@ -120,15 +121,24 @@ public sealed partial class ClusterJson : JsonSerializerContext
 /// </remarks>
 public sealed class ProcessCluster : IDisposable
 {
-    private readonly ClusterState _state;
+    private ClusterState _state;
+    private readonly ClusterSpec? _spec;
+    private readonly Dictionary<string, int>? _ports;
+    private readonly int _parent;
     private readonly string _stateFile;
     private readonly Dictionary<string, LiveClient> _clients = new(StringComparer.Ordinal);
     private readonly bool _owner;
     private readonly bool _ownsDir;
+    // How far a followed replica may be from its authority tick when the cluster is compared (latency, loss and the time between reads).
+    private const long FollowedLagTicks = 240;
+
     private bool _down;
 
-    private ProcessCluster(ClusterState state, string stateFile, bool owner, bool ownsDir)
+    private ProcessCluster(ClusterState state, string stateFile, bool owner, bool ownsDir, ClusterSpec? spec = null, Dictionary<string, int>? ports = null, int parent = 0)
     {
+        _spec = spec;
+        _ports = ports;
+        _parent = parent;
         _state = state;
         _stateFile = stateFile;
         _owner = owner;
@@ -172,13 +182,13 @@ public sealed class ProcessCluster : IDisposable
         {
             foreach (var node in spec.Nodes.Where(n => n.Role == NodeRole.Server).Concat(spec.Nodes.Where(n => n.Role == NodeRole.Client)))
             {
-                var (state, process) = Start(spec, node, dir, parent, started, ports);
+                var (state, process) = StartProcess(spec, node, dir, parent, started, ports);
                 started.Add(state);
                 processes.Add(process);
                 WriteState(new ClusterState(spec.Name, dir, Environment.ProcessId, [.. started]), stateFile);
             }
 
-            cluster = new ProcessCluster(new ClusterState(spec.Name, dir, Environment.ProcessId, [.. started]), stateFile, true, spec.Dir is null);
+            cluster = new ProcessCluster(new ClusterState(spec.Name, dir, Environment.ProcessId, [.. started]), stateFile, true, spec.Dir is null, spec, ports, parent);
             return cluster;
         }
         catch
@@ -222,6 +232,74 @@ public sealed class ProcessCluster : IDisposable
         return new ProcessCluster(state ?? throw new ClusterException("bad_state", $"{path} is empty."), path, false, false);
     }
 
+    /// <summary>
+    /// Kills a node's process outright (SIGKILL: nothing is saved or announced on the way out), like a crash or a power cut. The node stays in
+    /// the cluster, not running, until <see cref="Start"/>.
+    /// </summary>
+    /// <param name="node">The node's name.</param>
+    /// <exception cref="ClusterException">No such node, or this object did not start the cluster.</exception>
+    public void Kill(string node)
+    {
+        var n = Node(node);
+        RequireOwner();
+        if (_clients.Remove(n.Name, out var live))
+        {
+            live.Dispose();
+        }
+
+        Kill(n.Pid);
+        if (!WaitExit(n.Pid, 5000))
+        {
+            throw new ClusterException("orphans", $"Node '{node}' (pid {n.Pid}) is still running after being killed.");
+        }
+
+        try
+        {
+            File.Delete(n.Socket);
+        }
+        catch (IOException)
+        {
+            // A leftover socket file is replaced when the node starts again.
+        }
+    }
+
+    /// <summary>
+    /// Starts a node that was killed (or never ran) again with the same arguments, data folder and ports, and waits until it is up: a server
+    /// listening, a client connected and subscribed. Servers load what they saved; a client is a new connection and, to the game, a new player.
+    /// </summary>
+    /// <param name="node">The node's name.</param>
+    /// <exception cref="ClusterException">The node is still running, did not start, or this object did not start the cluster.</exception>
+    public void Start(string node)
+    {
+        var n = Node(node);
+        RequireOwner();
+        if (IsAlive(n.Pid))
+        {
+            throw new ClusterException("running", $"Node '{node}' is running (pid {n.Pid}); kill it first, or use Restart.");
+        }
+
+        var spec = _spec!;
+        var (state, _) = StartProcess(spec, spec.Nodes.First(x => x.Name == node), _state.Dir, _parent, [.. _state.Nodes], _ports!);
+        _state = _state with { Nodes = [.. _state.Nodes.Select(x => x.Name == node ? state : x)] };
+        WriteState(_state, _stateFile);
+    }
+
+    /// <summary>Kills a node's process and starts it again (see <see cref="Kill(string)"/> and <see cref="Start(string)"/>).</summary>
+    /// <param name="node">The node's name.</param>
+    public void Restart(string node)
+    {
+        Kill(node);
+        Start(node);
+    }
+
+    private void RequireOwner()
+    {
+        if (_spec is null || !_owner)
+        {
+            throw new ClusterException("not_owner", "Only the process that started the cluster can kill and start its nodes.");
+        }
+    }
+
     /// <summary>Runs a control operation on a node and returns its JSON.</summary>
     /// <param name="node">The node's name.</param>
     /// <param name="op">The operation (see the control layer's table, or the server's).</param>
@@ -249,6 +327,12 @@ public sealed class ProcessCluster : IDisposable
     public long TickOf(string node)
     {
         var n = Node(node);
+        if (n.Release)
+        {
+            using var result = ReleaseResult(n) ?? throw new ClusterException("running", $"Node '{node}' is a release build that has not finished: it reports its tick only when it exits.");
+            return result.RootElement.GetProperty("tick").GetInt64();
+        }
+
         using var doc = JsonDocument.Parse(Call(node, n.Role == "server" ? "hash" : "net_status"));
         return doc.RootElement.GetProperty("tick").GetInt64();
     }
@@ -259,6 +343,12 @@ public sealed class ProcessCluster : IDisposable
     {
         var n = Node(node);
         var clock = Stopwatch.StartNew();
+        if (n.Release)
+        {
+            // It has no live control to ask: it is done when its process has exited, at the tick it was told to stop at.
+            return WaitExit(n.Pid, timeoutMs) && TickOf(node) >= tick;
+        }
+
         if (n.Role == "client")
         {
             using var doc = JsonDocument.Parse(Call(node, "net_wait", $"{{\"tick\":{tick.ToString(CultureInfo.InvariantCulture)},\"timeoutMs\":{Math.Min(timeoutMs, 120_000).ToString(CultureInfo.InvariantCulture)}}}"));
@@ -288,8 +378,15 @@ public sealed class ProcessCluster : IDisposable
 
         // Clients first: their tick is behind their server's, so the server still has it in its history.
         var clientStates = new Dictionary<string, (long Tick, string Hash, uint Scope)>(StringComparer.Ordinal);
+        var followed = new List<(string Client, uint Scope, string Replica, long Tick)>();
         foreach (var n in _state.Nodes.Where(n => n.Role == "client"))
         {
+            if (n.Release)
+            {
+                ReadReleaseClient(n, nodes, clientStates, followed, drift, problems);
+                continue;
+            }
+
             try
             {
                 using var doc = JsonDocument.Parse(Call(n.Name, "net_status"));
@@ -304,6 +401,14 @@ public sealed class ProcessCluster : IDisposable
                 if (replica != "live" || connection != "connected")
                 {
                     problems.Add($"{n.Name}: connection {connection}, replica {replica} at tick {tick}");
+                }
+
+                if (r.TryGetProperty("followed", out var others))
+                {
+                    foreach (var f in others.EnumerateArray())
+                    {
+                        followed.Add((n.Name, f.GetProperty("scope").GetUInt32(), f.GetProperty("replica").GetString() ?? "", f.GetProperty("tick").GetInt64()));
+                    }
                 }
 
                 foreach (var d in r.GetProperty("reports").EnumerateArray())
@@ -333,6 +438,25 @@ public sealed class ProcessCluster : IDisposable
             catch (ControlException ex)
             {
                 problems.Add($"{n.Name}: {ex.Code}: {ex.Message}");
+            }
+        }
+
+        // A scope a client follows through its server relay has no recorded hash on that server, so it is checked for being alive and
+        // current: a relay that stopped passing frames on leaves the replica live but far behind its authority.
+        foreach (var (client, scope, replica, tick) in followed)
+        {
+            var authority = nodes.FirstOrDefault(x => x.Role == "server" && x.Scope == scope);
+            if (authority is null)
+            {
+                problems.Add($"{client}: follows scope {scope}, which no server of the cluster runs");
+            }
+            else if (replica != "live")
+            {
+                problems.Add($"{client}: scope {scope} (followed) is {replica} at tick {tick}");
+            }
+            else if (Math.Abs(authority.Tick - tick) > FollowedLagTicks)
+            {
+                problems.Add($"{client}: scope {scope} (followed) is at tick {tick} but '{authority.Node}' is at {authority.Tick}: the relay stopped passing frames on");
             }
         }
 
@@ -387,6 +511,75 @@ public sealed class ProcessCluster : IDisposable
         return new ClusterHashReport(problems.Count == 0, [.. nodes], [.. checks], [.. drift], [.. problems]);
     }
 
+    // The last JSON line a release client printed, or null while it runs or when it printed none.
+    private static JsonDocument? ReleaseResult(NodeState n)
+    {
+        if (IsAlive(n.Pid) || !File.Exists(n.Log))
+        {
+            return null;
+        }
+
+        var lines = File.ReadAllLines(n.Log);
+        for (var i = lines.Length - 1; i >= 0; i--)
+        {
+            if (lines[i].StartsWith('{'))
+            {
+                try
+                {
+                    return JsonDocument.Parse(lines[i]);
+                }
+                catch (JsonException)
+                {
+                    return null;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // A release client has no live control, so what it printed when it stopped stands for net_status.
+    private static void ReadReleaseClient(NodeState n, List<NodeHash> nodes, Dictionary<string, (long Tick, string Hash, uint Scope)> clientStates, List<(string Client, uint Scope, string Replica, long Tick)> followed, List<DriftEntry> drift, List<string> problems)
+    {
+        if (IsAlive(n.Pid))
+        {
+            problems.Add($"{n.Name}: still running; a release client reports only when it stops (wait for it with a wait step)");
+            return;
+        }
+
+        using var doc = ReleaseResult(n);
+        if (doc is null || !doc.RootElement.TryGetProperty("viewHash", out _))
+        {
+            problems.Add($"{n.Name}: stopped without a result; its output:\n{Tail(n.Log)}");
+            return;
+        }
+
+        var r = doc.RootElement;
+        var tick = r.GetProperty("tick").GetInt64();
+        var hash = r.GetProperty("viewHash").GetString() ?? "";
+        var scope = r.GetProperty("scope").GetUInt32();
+        var replica = r.GetProperty("replica").GetString();
+        var connection = r.GetProperty("connection").GetString();
+        nodes.Add(new NodeHash(n.Name, "client", scope, tick, hash));
+        clientStates[n.Name] = (tick, hash, scope);
+        if (replica != "live" || connection != "connected")
+        {
+            problems.Add($"{n.Name}: connection {connection}, replica {replica} at tick {tick}");
+        }
+
+        foreach (var f in r.GetProperty("followed").EnumerateArray())
+        {
+            followed.Add((n.Name, f.GetProperty("scope").GetUInt32(), f.GetProperty("replica").GetString() ?? "", f.GetProperty("tick").GetInt64()));
+        }
+
+        var count = r.GetProperty("drift").GetInt32();
+        if (count > 0)
+        {
+            drift.Add(new DriftEntry(n.Name, scope, tick, "", "", [$"{count} drift report(s); the node's output has the details"]));
+            problems.Add($"{n.Name}: {count} drift report(s) on scope {scope}");
+        }
+    }
+
     /// <summary>Each node's pid, whether it is alive, and its own status.</summary>
     public ClusterStatus Status()
     {
@@ -397,7 +590,17 @@ public sealed class ProcessCluster : IDisposable
             long tick = -1;
             string? hash = null;
             string detail;
-            if (!alive)
+            if (n.Release)
+            {
+                // No live control: while it runs there is nothing to ask, and when it has stopped its printed result says where it ended.
+                using var result = ReleaseResult(n);
+                detail = result is null ? (alive ? "release client running (no live control)" : "not running") : result.RootElement.GetRawText();
+                if (result is not null && result.RootElement.TryGetProperty("tick", out var rt))
+                {
+                    tick = rt.GetInt64();
+                }
+            }
+            else if (!alive)
             {
                 detail = "not running";
             }
@@ -458,8 +661,11 @@ public sealed class ProcessCluster : IDisposable
 
             try
             {
-                using var ask = new LiveClient(n.Socket, 3000);
-                _ = ask.Call(n.Role == "server" ? "shutdown" : "quit");
+                if (!n.Release)
+                {
+                    using var ask = new LiveClient(n.Socket, 3000);
+                    _ = ask.Call(n.Role == "server" ? "shutdown" : "quit");
+                }
             }
             catch (ControlException)
             {
@@ -540,6 +746,11 @@ public sealed class ProcessCluster : IDisposable
     private LiveClient Client(string node)
     {
         var n = Node(node);
+        if (n.Release)
+        {
+            throw new ClusterException("no_live", $"Node '{node}' is a release build: it has no live control. Wait for it to finish and read its result with cluster hashes.");
+        }
+
         if (!_clients.TryGetValue(n.Name, out var c))
         {
             _clients[n.Name] = c = new LiveClient(n.Socket);
@@ -550,7 +761,7 @@ public sealed class ProcessCluster : IDisposable
 
     // ---- processes ----
 
-    private static (NodeState State, Process Process) Start(ClusterSpec spec, NodeSpec node, string dir, int parent, List<NodeState> started, Dictionary<string, int> ports)
+    private static (NodeState State, Process Process) StartProcess(ClusterSpec spec, NodeSpec node, string dir, int parent, List<NodeState> started, Dictionary<string, int> ports)
     {
         var socket = Path.Combine(dir, node.Name + ".sock");
         var log = Path.Combine(dir, node.Name + ".log");
@@ -595,10 +806,11 @@ public sealed class ProcessCluster : IDisposable
                 args.AddRange(["--net", node.Net]);
             }
 
-            args.AddRange(["--live", socket, "--realtime"]);
+            // A release build takes no development options (no --live, no --parent): it stops at its tick or when its server is gone.
+            args.AddRange(node.Release ? ["--realtime", "--json"] : ["--live", socket, "--realtime"]);
         }
 
-        if (parent > 0)
+        if (parent > 0 && !node.Release)
         {
             args.AddRange(["--parent", parent.ToString(CultureInfo.InvariantCulture)]);
         }
@@ -627,6 +839,15 @@ public sealed class ProcessCluster : IDisposable
         process.StandardInput.Close();
         try
         {
+            if (node.Release)
+            {
+                // No control socket to ask: it is up when it is still running after a moment (a bad option ends it at once).
+                Thread.Sleep(500);
+                return process.HasExited
+                    ? throw new ClusterException("start_failed", $"Node '{node.Name}' exited with code {process.ExitCode} while starting. Its output:\n{Tail(log)}")
+                    : (new NodeState(node.Name, "client", process.Id, socket, log, [], node.Connect, node.Transport, true), process);
+            }
+
             return (WaitUp(spec, node, process, socket, log, connect), process);
         }
         catch
