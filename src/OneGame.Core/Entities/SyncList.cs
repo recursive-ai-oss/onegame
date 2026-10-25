@@ -84,6 +84,14 @@ public sealed class SyncList<T> : IReadOnlyList<T>
         IsDirty = true;
     }
 
+    /// <summary>Makes this list hold the elements of <paramref name="other"/>, reusing its storage. Prediction uses it to copy confirmed state.</summary>
+    [MutatesState]
+    public void CopyFrom(SyncList<T> other)
+    {
+        _items.Clear();
+        _items.AddRange(other._items);
+    }
+
     /// <summary>True if the list contains <paramref name="item"/>.</summary>
     public bool Contains(T item) => _items.Contains(item);
 

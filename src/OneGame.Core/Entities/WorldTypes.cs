@@ -33,6 +33,12 @@ public enum WorldRole
 
     /// <summary>The world only applies state received from an authority. Setters and ticking throw <see cref="ReplicaWriteException"/>.</summary>
     Replica,
+
+    /// <summary>
+    /// A writable copy a replica simulates ahead of its authority (client prediction). It runs ticks and predicted commands like an authority,
+    /// but commands sent to its entities from outside the sim are forwarded through <see cref="World.Observer"/> as on a replica.
+    /// </summary>
+    Predicted,
 }
 
 /// <summary>Thrown when code changes state on a replica. Only the authority changes state; replicas send commands.</summary>
@@ -95,6 +101,15 @@ public interface IHotTable
 
     /// <summary>Writes the rows as a JSON array of objects.</summary>
     void WriteJson(JsonOut json);
+
+    /// <summary>Makes this table hold exactly the rows of <paramref name="source"/>, a table of the same type. Generated tables copy the columns in place without allocating once they have room; the default goes through the encoded form.</summary>
+    void CopyFrom(IHotTable source)
+    {
+        var w = new SyncWriter();
+        source.Write(w);
+        var r = new SyncReader(w.Written);
+        Read(ref r);
+    }
 }
 
 /// <summary>Receives every command a world executes, in order, for logging and replay.</summary>

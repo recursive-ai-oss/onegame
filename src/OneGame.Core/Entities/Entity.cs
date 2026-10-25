@@ -79,6 +79,27 @@ public abstract class Entity
     /// <summary>True when the command is marked <c>OwnerOnly</c>.</summary>
     public virtual bool IsOwnerOnlyCommand(uint commandId) => false;
 
+    /// <summary>True when the command is marked <c>Predicted</c>.</summary>
+    public virtual bool IsPredictedCommand(uint commandId) => false;
+
+    /// <summary>True when the command is marked <c>Predicted</c> with <c>UsesRandom</c>.</summary>
+    public virtual bool PredictedCommandUsesRandom(uint commandId) => false;
+
+    /// <summary>Makes this entity's synced state equal to <paramref name="source"/>'s (same type). The generator overrides it to assign fields directly; the default goes through the encoded form.</summary>
+    protected virtual void CopyStateCore(Entity source)
+    {
+        var w = new SyncWriter();
+        source.WriteState(w);
+        var r = new SyncReader(w.Written);
+        ReadState(ref r);
+    }
+
+    internal void CopyStateFrom(Entity source)
+    {
+        CopyStateCore(source);
+        ViewMask = source.ViewMask;
+    }
+
     /// <summary>The mask with a bit for every synced property.</summary>
     public ulong FullMask => PropertyCount >= 64 ? ulong.MaxValue : (1UL << PropertyCount) - 1;
 

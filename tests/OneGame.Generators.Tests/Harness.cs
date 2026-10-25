@@ -44,7 +44,7 @@ internal static class Harness
         var compilation = Compile(source, more);
         GeneratorDriver driver = CSharpGeneratorDriver.Create(new EntityGenerator());
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var generatorDiagnostics);
-        var analyzed = await output.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new SimRulesAnalyzer()))
+        var analyzed = await output.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new SimRulesAnalyzer(), new PredictionAnalyzer()))
             .GetAllDiagnosticsAsync(CancellationToken.None);
         return generatorDiagnostics.Concat(analyzed).Where(d => d.Severity == DiagnosticSeverity.Error).Distinct().ToList();
     }
@@ -56,7 +56,7 @@ internal static class Harness
         GeneratorDriver driver = CSharpGeneratorDriver.Create(new EntityGenerator());
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var generatorDiagnostics);
         var options = new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty, new Options(trusted));
-        var analyzed = await output.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new SimRulesAnalyzer()), options)
+        var analyzed = await output.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new SimRulesAnalyzer(), new PredictionAnalyzer()), options)
             .GetAllDiagnosticsAsync(CancellationToken.None);
         return generatorDiagnostics.Concat(analyzed).Where(d => d.Id.StartsWith("OG", StringComparison.Ordinal) || d.Severity == DiagnosticSeverity.Error)
             .Distinct().ToList();

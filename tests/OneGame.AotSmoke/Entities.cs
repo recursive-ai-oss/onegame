@@ -21,7 +21,7 @@ public partial class Purse : Entity
 
     [Synced] public SyncList<Coin> Coins { get; } = new();
 
-    [Command]
+    [Command(Predicted = true)]
     public bool Add(int kind, Fixed weight)
     {
         Coins.Add(new Coin { Kind = kind, Weight = weight });

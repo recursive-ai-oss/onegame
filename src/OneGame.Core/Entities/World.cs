@@ -22,6 +22,7 @@ public sealed class World
     private readonly SyncWriter _snapshotScratch = new(1024);
     private ulong _nextId = 1;
     private bool _ticking;
+    private int _executing;
     private bool _randomIncluded = true;
 
     /// <summary>Creates an empty world.</summary>
@@ -288,13 +289,14 @@ public sealed class World
             return CommandStatus.Malformed;
         }
 
-        if (Role == WorldRole.Replica)
+        // A predicted world forwards what outside code sends, but queues what its own sim sends, exactly as an authority would.
+        if (Role == WorldRole.Replica || (Role == WorldRole.Predicted && !_ticking && _executing == 0))
         {
             Observer?.Invoke(Tick, entity, commandId, payload, CommandStatus.Forwarded);
             return CommandStatus.Forwarded;
         }
 
-        if (!_ticking)
+        if (!_ticking && Role == WorldRole.Authority)
         {
             InputObserver?.Invoke(Tick, entity, commandId, payload, CommandStatus.Queued);
         }
@@ -325,20 +327,99 @@ public sealed class World
         writer.WriteRaw(payload);
     }
 
-    private void Execute(EntityId id, uint commandId, byte[] payload, long ticket)
+    /// <summary>Runs a command on this world right now, as the first thing of the next tick would. A predicted world uses it to show a command's effect the moment it is sent.</summary>
+    internal CommandStatus ExecuteNow(EntityId id, uint commandId, ReadOnlySpan<byte> payload) => Execute(id, commandId, payload, 0);
+
+    private CommandStatus Execute(EntityId id, uint commandId, ReadOnlySpan<byte> payload, long ticket)
     {
         LastRejectReason = null;
         CurrentTicket = ticket;
         var status = CommandStatus.UnknownEntity;
-        if (Find(id) is { } entity)
+        _executing++;
+        try
         {
-            var r = new SyncReader(payload);
-            status = entity.RunCommand(commandId, ref r);
+            if (Find(id) is { } entity)
+            {
+                var r = new SyncReader(payload);
+                status = entity.RunCommand(commandId, ref r);
+            }
+        }
+        finally
+        {
+            _executing--;
         }
 
         Observer?.Invoke(Tick, id, commandId, payload, status);
         CurrentTicket = 0;
         LastRejectReason = null;
+        return status;
+    }
+
+    /// <summary>
+    /// Makes this world's state equal to <paramref name="source"/>'s without allocating once the entity set and storage match: entities with
+    /// the same id and type keep their objects and have their fields assigned, entities that are gone are dropped and new ones are created.
+    /// Both worlds must have been built the same way (registry, tables in the same order).
+    /// </summary>
+    internal void CopyFrom(World source)
+    {
+        if (_tables.Count != source._tables.Count)
+        {
+            throw new InvalidOperationException("The two worlds do not have the same tables. Build both the same way.");
+        }
+
+        Tick = source.Tick;
+        _nextId = source._nextId;
+        _randomIncluded = source._randomIncluded;
+        Rng.CopyFrom(source.Rng);
+        for (var i = 0; i < _tables.Count; i++)
+        {
+            if (_tables[i].Name != source._tables[i].Name)
+            {
+                throw new InvalidOperationException($"Table {i} is '{_tables[i].Name}' here and '{source._tables[i].Name}' in the source. Add tables in the same order.");
+            }
+
+            _tables[i].CopyFrom(source._tables[i]);
+        }
+
+        _pending.Clear();
+        var j = 0;
+        for (var k = 0; k < source._entities.Count; k++)
+        {
+            var from = source._entities[k];
+            if (from.IsRemoved)
+            {
+                continue;
+            }
+
+            while (j < _entities.Count && _entities[j].Id.Value < from.Id.Value)
+            {
+                Detach(j);
+            }
+
+            if (j < _entities.Count && _entities[j].Id == from.Id && _entities[j].TypeId == from.TypeId)
+            {
+                _entities[j].CopyStateFrom(from);
+                j++;
+                continue;
+            }
+
+            if (j < _entities.Count && _entities[j].Id == from.Id)
+            {
+                Detach(j);
+            }
+
+            var created = _registry.Create(from.TypeId) ?? throw new InvalidOperationException($"Entity type {from.TypeName} is not registered in this world's registry.");
+            created.World = this;
+            created.Id = from.Id;
+            created.CopyStateFrom(from);
+            _entities.Insert(j, created);
+            j++;
+        }
+
+        while (j < _entities.Count)
+        {
+            Detach(j);
+        }
     }
 
     /// <summary>

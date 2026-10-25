@@ -24,3 +24,6 @@ OG0016 | OneGame | Error | Culture-sensitive text in sim code
 OG0017 | OneGame | Error | Owner or team key is declared wrongly
 OG0018 | OneGame | Error | Visibility has nothing to match against
 OG0019 | OneGame | Error | View reads a member that replicas never receive
+OG0020 | OneGame | Error | Predicted command reads a member the replica does not hold
+OG0021 | OneGame | Error | Predicted command draws a random number without saying so
+OG0022 | OneGame | Error | Predicted command writes a hidden member

@@ -227,6 +227,38 @@ public sealed class RngStreams
         return true;
     }
 
+    /// <summary>Makes these streams equal to <paramref name="other"/>: the same names in the same states. Existing stream objects are kept, so nothing allocates once the names match.</summary>
+    internal void CopyFrom(RngStreams other)
+    {
+        var same = _streams.Count == other._streams.Count;
+        for (var i = 0; same && i < _streams.Count; i++)
+        {
+            same = string.Equals(_streams[i].Name, other._streams[i].Name, StringComparison.Ordinal);
+        }
+
+        if (same)
+        {
+            for (var i = 0; i < _streams.Count; i++)
+            {
+                _streams[i].CopyStateFrom(other._streams[i]);
+            }
+
+            return;
+        }
+
+        var fresh = new List<Rng>(other._streams.Count);
+        foreach (var o in other._streams)
+        {
+            var index = IndexOf(o.Name);
+            var stream = index >= 0 ? _streams[index] : new Rng(o.Name, 0);
+            stream.CopyStateFrom(o);
+            fresh.Add(stream);
+        }
+
+        _streams.Clear();
+        _streams.AddRange(fresh);
+    }
+
     internal void Write(SyncWriter w)
     {
         w.WriteVarUInt((ulong)_streams.Count);

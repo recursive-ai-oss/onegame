@@ -63,7 +63,52 @@ internal static class SyncSmoke
             return "fixed-step driver miscounted";
         }
 
-        return RunFiltered();
+        return RunFiltered() ?? RunPredicted();
+    }
+
+    /// <summary>A replica predicts a command, rolls back and resimulates as frames arrive, and ends on the authority's state.</summary>
+    private static string? RunPredicted()
+    {
+        var authority = NewWorld(WorldRole.Authority);
+        authority.Add(new Purse { Owner = "predicted" });
+        var cluster = new Cluster(new ClusterOptions { DriftCheckInterval = 1, FatalDrift = true });
+        var host = cluster.AddNode("host");
+        var scope = cluster.AddScope(host, new ScopeId(1), authority);
+        var view = cluster.AddLocalReplica(scope, NewWorld(WorldRole.Replica), Trust.Player(scope.Id));
+        var prediction = view.EnablePrediction(NewWorld(WorldRole.Predicted), new PredictionOptions { LeadTicks = 2, AutoLead = false });
+        cluster.Settle();
+        var purse = (Purse)prediction.World.Entities[0];
+        purse.Send.Add(3, Fixed.FromInt(2));
+        if (purse.Coins.Count != 1 || ((Purse)view.World.Entities[0]).Coins.Count != 0)
+        {
+            return "a predicted command did not show at once on the predicted world only";
+        }
+
+        for (var i = 0; i < 30; i++)
+        {
+            cluster.Step();
+            prediction.Advance();
+            if (i == 10)
+            {
+                ((Purse)prediction.World.Entities[0]).Send.Add(4, Fixed.FromInt(1));
+            }
+        }
+
+        cluster.Step(10);
+        var confirmed = (Purse)view.World.Entities[0];
+        var predicted = (Purse)prediction.World.Entities[0];
+        if (confirmed.Coins.Count != 2 || predicted.Coins.Count != 2 || prediction.Unconfirmed != 0 || cluster.DriftReports.Count != 0)
+        {
+            return "the prediction did not settle on the authority";
+        }
+
+        if (predicted.Total != confirmed.Total + (Fixed.FromRatio(1, 4) * Fixed.FromInt(prediction.Tick - view.World.Tick)) || prediction.Reconciliations == 0)
+        {
+            return "the predicted world is not the confirmed state moved on by its lead";
+        }
+
+        var glide = new Timed<Fixed>(Fixed.FromInt(0), Fixed.FromInt(10), 0, 10);
+        return glide.ValueAt(5, Fixed.FromRatio(1, 2)) == Fixed.FromRatio(11, 2) ? null : "a timed value did not interpolate between ticks";
     }
 
     /// <summary>Two players follow one scope: each gets its own view, private data stays private, answers come back, trust changes apply.</summary>

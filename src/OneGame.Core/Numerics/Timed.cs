@@ -2,7 +2,7 @@ namespace OneGame.Core;
 
 /// <summary>
 /// A value that moves from one value to another over a span of ticks. The authority writes it once; every node evaluates
-/// <see cref="ValueAt"/> for the tick it is showing, so nothing is sent per tick. Evaluation is integer-only and identical everywhere.
+/// <see cref="ValueAt(long)"/> for the tick it is showing, so nothing is sent per tick. Evaluation is integer-only and identical everywhere.
 /// </summary>
 /// <typeparam name="T">The value type: <see cref="Fixed"/>, <see cref="FVec2"/> or another interpolatable synced value.</typeparam>
 public readonly struct Timed<T> : ISyncValue<Timed<T>>
@@ -47,6 +47,30 @@ public readonly struct Timed<T> : ISyncValue<Timed<T>>
         }
 
         return T.Lerp(From, To, Fixed.FromRatio(tick - StartTick, EndTick - StartTick));
+    }
+
+    /// <summary>
+    /// The value <paramref name="fraction"/> of the way from <paramref name="tick"/> to the next tick, for a view that draws between ticks
+    /// (pass the frame driver's alpha as a <see cref="Fixed"/>). Remote replicas use it to move smoothly while nothing is sent per tick.
+    /// </summary>
+    /// <param name="tick">The last tick that ran.</param>
+    /// <param name="fraction">From 0 to just under 1.</param>
+    public T ValueAt(long tick, Fixed fraction)
+    {
+        if (tick >= EndTick || EndTick <= StartTick)
+        {
+            return tick >= EndTick ? To : From;
+        }
+
+        if (tick < StartTick)
+        {
+            return From;
+        }
+
+        // (tick - start + fraction) / (end - start), with the numerator in Fixed so the blend is integer-only.
+        var span = Fixed.FromInt(EndTick - StartTick);
+        var t = (Fixed.FromInt(tick - StartTick) + fraction) / span;
+        return T.Lerp(From, To, t > Fixed.One ? Fixed.One : t);
     }
 
     /// <inheritdoc />

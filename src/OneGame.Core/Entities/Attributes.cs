@@ -66,6 +66,20 @@ public sealed class CommandAttribute : Attribute
     /// Commands sent from the authority's own code are not checked.
     /// </summary>
     public bool OwnerOnly { get; set; }
+
+    /// <summary>
+    /// When true, a replica that has prediction enabled runs this command on its own predicted copy of the scope the moment it is sent, and
+    /// again (rolled back and resimulated) whenever the authority's state arrives, until the authority has answered. The handler must only read
+    /// and write what that replica holds: analyzers report reads of members the audience cannot see (OG0020), random draws without
+    /// <see cref="UsesRandom"/> (OG0021) and writes to hidden members (OG0022).
+    /// </summary>
+    public bool Predicted { get; set; }
+
+    /// <summary>
+    /// Says that a <see cref="Predicted"/> handler draws from a named random stream. Replicas hold the streams only when the scope sends them
+    /// (not <c>RandomStreams = Hidden</c>); when they do not, the command is sent without being predicted.
+    /// </summary>
+    public bool UsesRandom { get; set; }
 }
 
 /// <summary>Marks a member or a whole class as view code. Views read state and send commands; the analyzers make writing synced state from a view a compile error. View code may use floats and other things sim code may not.</summary>

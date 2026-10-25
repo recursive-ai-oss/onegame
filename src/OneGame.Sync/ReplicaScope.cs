@@ -47,6 +47,7 @@ public sealed class ReplicaScope
     private uint _nextSequence = 1;
     private readonly List<PendingSend> _pending = [];
     private readonly List<CommandResult> _results = [];
+    private Prediction? _prediction;
 
     internal ReplicaScope(Node node, Link link, ScopeId id, World world)
     {
@@ -102,6 +103,35 @@ public sealed class ReplicaScope
     /// <summary>Raised for every answer to a forwarded command: executed, rejected with the handler's reason, refused, or dropped.</summary>
     public event Action<CommandResult>? CommandCompleted;
 
+    /// <summary>The client-side prediction running on this replica, or null (see <see cref="EnablePrediction"/>).</summary>
+    public Prediction? Prediction => _prediction;
+
+    /// <summary>
+    /// Turns on client-side prediction: commands marked <c>[Command(Predicted = true)]</c> also run at once on <paramref name="predicted"/>, which is
+    /// kept equal to this replica's confirmed state plus the commands the authority has not applied yet. <see cref="World"/> stays the exact
+    /// authority state; views that want the responsive picture read <see cref="Prediction.World"/>.
+    /// </summary>
+    /// <param name="predicted">A world built like <see cref="World"/> (same registry, tables and systems, in the same order) with role <see cref="WorldRole.Predicted"/>.</param>
+    /// <param name="options">Lead, limits and rollback detection.</param>
+    /// <exception cref="ArgumentException">The world's role is not <see cref="WorldRole.Predicted"/>, or it is this replica's own world.</exception>
+    /// <exception cref="InvalidOperationException">Prediction is already enabled on this replica.</exception>
+    public Prediction EnablePrediction(World predicted, PredictionOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(predicted);
+        if (predicted.Role != WorldRole.Predicted)
+        {
+            throw new ArgumentException("The predicted world must be created with WorldRole.Predicted.", nameof(predicted));
+        }
+
+        if (_prediction is not null)
+        {
+            throw new InvalidOperationException("Prediction is already enabled on this replica.");
+        }
+
+        _prediction = new Prediction(this, predicted, options ?? new PredictionOptions());
+        return _prediction;
+    }
+
     internal void RequestSnapshot()
     {
         var w = Node.Out;
@@ -130,7 +160,7 @@ public sealed class ReplicaScope
         RequestSnapshot();
     }
 
-    private void Forward(long tick, EntityId entity, uint commandId, ReadOnlySpan<byte> payload, CommandStatus status)
+    internal void Forward(long tick, EntityId entity, uint commandId, ReadOnlySpan<byte> payload, CommandStatus status)
     {
         if (status != CommandStatus.Forwarded)
         {
@@ -153,6 +183,7 @@ public sealed class ReplicaScope
         w.WriteVarUInt(commandId);
         w.WriteRaw(payload);
         Link.Channel.Send(w.Written);
+        _prediction?.OnSent(sequence, entity, commandId, payload);
     }
 
     internal void Handle(byte type, ref SyncReader r, ReadOnlySpan<byte> message)
@@ -225,6 +256,7 @@ public sealed class ReplicaScope
                     State = ReplicaState.Revoked;
                     World.ClearReplica();
                     DropPending();
+                    _prediction?.Clear();
                     Node.FileRefusal(new CommandRefusal(Id, (Link.IsRemote ? 0 : Link.Connection.Id), EntityId.None, 0, (RefusalReason)reason));
                 }
 
@@ -270,6 +302,7 @@ public sealed class ReplicaScope
         LastTick = tick;
         State = ReplicaState.Live;
         _awaitingDigest = false;
+        _prediction?.OnConfirmed(tick, snapshot: true);
     }
 
     private void ApplyFrame(ref SyncReader r)
@@ -446,6 +479,7 @@ public sealed class ReplicaScope
         LastTick = tick;
         FramesApplied++;
         _failures = 0;
+        _prediction?.OnConfirmed(tick);
         if (_awaitingDigest && tick - _digestRequestedTick >= Node.Options.DigestTimeoutTicks)
         {
             // The authority never answered. Report the drift without detail rather than waiting forever.
@@ -574,6 +608,7 @@ public sealed class ReplicaScope
         }
 
         _results.Add(result);
+        _prediction?.OnResult(result);
         CommandCompleted?.Invoke(result);
     }
 

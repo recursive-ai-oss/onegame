@@ -68,6 +68,15 @@ internal static class Rules
     public static readonly DiagnosticDescriptor ViewReadsUnreceived = Error("OG0019", "View reads a member that replicas never receive",
         "View code reads '{0}', which is Hidden: the authority never sends it, so a replica always holds the default. Make the member visible to the audience that needs it, or compute what the view shows on the authority and sync that.");
 
+    public static readonly DiagnosticDescriptor PredictedReadsUnreceived = Error("OG0020", "Predicted command reads a member the replica does not hold",
+        "Predicted command '{0}': {1}. A replica holds only what its authority may send it, so the prediction would run on defaults and differ from the authority every time. Read only members visible to whoever sends the command, or drop Predicted = true.");
+
+    public static readonly DiagnosticDescriptor PredictedDrawsRandom = Error("OG0021", "Predicted command draws a random number without saying so",
+        "Predicted command '{0}': {1}. A replica holds the random streams only when its scope sends them (AuthorityScope.RandomStreams is not Hidden). Add UsesRandom = true to the [Command] to accept that (the command is then sent without prediction when the streams are hidden), or compute the value on the authority.");
+
+    public static readonly DiagnosticDescriptor PredictedWritesHidden = Error("OG0022", "Predicted command writes a hidden member",
+        "Predicted command '{0}': {1}. A replica never holds hidden members, so the prediction's write is lost at the next correction and later predicted reads see a default. Move the hidden update out of the predicted command (a second command, or the tick) or drop Predicted = true.");
+
     public static readonly DiagnosticDescriptor MigrationShape = Error("OG0014", "Migration is declared wrongly",
         "{0}");
 }

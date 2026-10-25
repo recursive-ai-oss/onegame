@@ -233,6 +233,17 @@ internal static class ValueEmitters
             s.Line($"public global::System.Span<{m.Codec.TypeName}> {m.Name} => new(_{m.Name}, 0, _count);");
         }
 
+        s.Line("/// <inheritdoc />");
+        s.Open($"void global::OneGame.Core.IHotTable.CopyFrom(global::OneGame.Core.IHotTable source)");
+        s.Line($"if (source is not {cls} other) {{ throw new global::System.ArgumentException(\"The source is not a {cls}.\", nameof(source)); }}");
+        s.Line("Reserve(other._count);");
+        foreach (var m in members)
+        {
+            s.Line($"global::System.Array.Copy(other._{m.Name}, _{m.Name}, other._count);");
+        }
+
+        s.Line("_count = other._count;");
+        s.Close();
         s.Line("/// <summary>Makes room for at least <paramref name=\"capacity\"/> rows, so later adds do not allocate.</summary>");
         s.Open("public void Reserve(int capacity)");
         s.Open("if (capacity > Capacity)");

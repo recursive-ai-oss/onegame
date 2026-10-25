@@ -256,6 +256,10 @@ internal static class EntityEmitter
         public bool ReturnsReply => Method.ReturnType is INamedTypeSymbol { Name: "CommandReply" } n && global::OneGame.Generators.Codecs.IsInCore(n);
 
         public bool OwnerOnly { get; set; }
+
+        public bool Predicted { get; set; }
+
+        public bool UsesRandom { get; set; }
     }
 
     public static GenResult Build(GeneratorAttributeSyntaxContext context, CancellationToken ct)
@@ -429,9 +433,13 @@ internal static class EntityEmitter
                     $"Command '{m.Name}' is OwnerOnly, but '{type.Name}' has no [OwnerKey] property to say who the owner is. Mark a synced uint or int property with [OwnerKey]."));
             }
 
+            var predicted = Codecs.FindAttribute(m, "CommandAttribute") is { } predictedAttribute
+                && predictedAttribute.NamedArguments.Any(a => a.Key == "Predicted" && a.Value.Value is true);
+            var usesRandom = Codecs.FindAttribute(m, "CommandAttribute") is { } randomAttribute
+                && randomAttribute.NamedArguments.Any(a => a.Key == "UsesRandom" && a.Value.Value is true);
             if (ok)
             {
-                commands.Add(new Command(m, codecs) { OwnerOnly = ownerOnly });
+                commands.Add(new Command(m, codecs) { OwnerOnly = ownerOnly, Predicted = predicted, UsesRandom = predicted && usesRandom });
             }
         }
 
@@ -677,6 +685,30 @@ internal static class EntityEmitter
         }
 
         s.Close();
+
+        // Copying confirmed state into a predicted world: fields are assigned directly, so nothing is encoded or allocated.
+        s.Line("/// <inheritdoc />");
+        s.Open("protected override void CopyStateCore(global::OneGame.Core.Entity source)");
+        s.Line($"var o = ({type.Name})source;");
+        foreach (var p in serialized)
+        {
+            s.Line(p.IsList ? $"{p.Name}.CopyFrom(o.{p.Name});" : $"{p.Field} = o.{p.Field};");
+        }
+
+        s.Close();
+
+        var predictedCommands = commands.Where(c => c.Predicted).ToList();
+        if (predictedCommands.Count > 0)
+        {
+            s.Line("/// <inheritdoc />");
+            s.Line("public override bool IsPredictedCommand(uint commandId) => " + string.Join(" || ", predictedCommands.Select(c => $"commandId == {EmitUtil.Hex(c.Id)}")) + ";");
+            var random = predictedCommands.Where(c => c.UsesRandom).ToList();
+            if (random.Count > 0)
+            {
+                s.Line("/// <inheritdoc />");
+                s.Line("public override bool PredictedCommandUsesRandom(uint commandId) => " + string.Join(" || ", random.Select(c => $"commandId == {EmitUtil.Hex(c.Id)}")) + ";");
+            }
+        }
 
         var valid = serialized.Count == 0 ? "0UL" : serialized.Count == 64 ? "ulong.MaxValue" : $"((1UL << {serialized.Count.ToString(CultureInfo.InvariantCulture)}) - 1)";
 
