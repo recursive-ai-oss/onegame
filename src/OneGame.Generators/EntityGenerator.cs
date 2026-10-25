@@ -14,7 +14,7 @@ public sealed class EntityGenerator : IIncrementalGenerator
     [
         Rules.FloatInState, Rules.FloatInSim, Rules.UnorderedIteration, Rules.Clock, Rules.Threads, Rules.InputOutput,
         Rules.UnnamedRandom, Rules.ViewWrites, Rules.NoCodec, Rules.EntityShape, Rules.TooManyProperties, Rules.PropertyShape,
-        Rules.CommandShape, Rules.MigrationShape,
+        Rules.CommandShape, Rules.MigrationShape, Rules.KeyShape, Rules.VisibilityShape,
     ];
 
     /// <inheritdoc />

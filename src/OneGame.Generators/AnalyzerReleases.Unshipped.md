@@ -21,3 +21,6 @@ OG0013 | OneGame | Error | Command is declared wrongly
 OG0014 | OneGame | Error | Migration is declared wrongly
 OG0015 | OneGame | Warning | API not known to be deterministic
 OG0016 | OneGame | Error | Culture-sensitive text in sim code
+OG0017 | OneGame | Error | Owner or team key is declared wrongly
+OG0018 | OneGame | Error | Visibility has nothing to match against
+OG0019 | OneGame | Error | View reads a member that replicas never receive

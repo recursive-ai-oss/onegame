@@ -40,3 +40,33 @@ public struct Spark
 
     public int Life { get; set; }
 }
+
+/// <summary>An entity with owner-only and hidden members and an owner-only command, to exercise filtered replicas under NativeAOT.</summary>
+[Entity]
+public partial class Locker : Entity
+{
+    [Synced, OwnerKey] public partial uint Player { get; set; }
+
+    [Synced] public partial int Opened { get; set; }
+
+    [Synced(Visibility = Visibility.Owner)] public partial string Combination { get; set; }
+
+    [Synced(Visibility = Visibility.Hidden)] public partial int Alarm { get; set; }
+
+    [Command]
+    public CommandReply Open(int code)
+    {
+        if (code != 1234)
+        {
+            return CommandReply.Reject("wrong code");
+        }
+
+        Opened++;
+        return CommandReply.Ok;
+    }
+
+    [Command(OwnerOnly = true)]
+    public void Reset(string combination) => Combination = combination;
+
+    protected override void OnTick() => Alarm++;
+}

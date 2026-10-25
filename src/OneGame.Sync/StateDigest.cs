@@ -132,6 +132,64 @@ public sealed class StateDigest
         }
     }
 
+    /// <summary>
+    /// Captures what a subscriber holds of <paramref name="world"/>, hashed the way <see cref="World.ComputeViewHash()"/> and
+    /// <see cref="World.ComputeAudienceHash"/> do: hidden tables and invisible entities are left out, filtered entities hash by their
+    /// visible properties, and the random streams are listed only when <paramref name="includeRandom"/>.
+    /// </summary>
+    /// <param name="world">The world: a replica (leave <paramref name="audience"/> null) or the authority world as one audience sees it.</param>
+    /// <param name="into">The digest to fill.</param>
+    /// <param name="scratch">A writer to use for serializing parts.</param>
+    /// <param name="entityLimit">Entities beyond this count are not listed.</param>
+    /// <param name="audience">The audience whose view of an authority world to capture; null captures the world as it is held.</param>
+    /// <param name="includeRandom">Whether the random streams are part of the view.</param>
+    public static void CaptureView(World world, StateDigest into, SyncWriter scratch, int entityLimit, Audience? audience, bool includeRandom)
+    {
+        into._entries.Clear();
+        into.Tick = world.Tick;
+        into.WorldHash = audience is { } who ? world.ComputeAudienceHash(who, includeRandom) : world.ComputeViewHash();
+        into.Truncated = world.Entities.Count > entityLimit;
+        if (into.Truncated)
+        {
+            return;
+        }
+
+        if (includeRandom)
+        {
+            scratch.Reset();
+            world.Rng.Write(scratch);
+            into._entries.Add(new DigestEntry(DigestKind.Rng, 0, null, StateHash.Of(scratch.Written)));
+        }
+
+        var tables = world.Tables;
+        for (var t = 0; t < tables.Count; t++)
+        {
+            var table = tables[t];
+            if (table.Visibility == Visibility.Hidden)
+            {
+                continue;
+            }
+
+            scratch.Reset();
+            table.Write(scratch);
+            into._entries.Add(new DigestEntry(DigestKind.Table, 0, table.Name, StateHash.Combine(StateHash.Of(table.Name), StateHash.Of(scratch.Written))));
+        }
+
+        var entities = world.Entities;
+        for (var n = 0; n < entities.Count; n++)
+        {
+            var e = entities[n];
+            if (audience is null)
+            {
+                into._entries.Add(new DigestEntry(DigestKind.Entity, e.Id.Value, null, e.ComputeViewHash()));
+            }
+            else if (e.TryGetVisibleMask(audience.Value, out var mask))
+            {
+                into._entries.Add(new DigestEntry(DigestKind.Entity, e.Id.Value, null, e.ComputeViewHash(mask)));
+            }
+        }
+    }
+
     /// <summary>Lists what differs between two digests. Entity type names are looked up in <paramref name="expectedWorld"/> then <paramref name="actualWorld"/>.</summary>
     public static void Diff(StateDigest expected, StateDigest actual, World? expectedWorld, World? actualWorld, List<StateDifference> output)
     {
@@ -274,8 +332,9 @@ public sealed class StateDigest
 /// <summary>A replica whose state differs from its authority's at the same tick.</summary>
 public sealed class DriftReport
 {
-    internal DriftReport(ScopeId scope, string replicaNode, long tick, ulong authorityHash, ulong replicaHash, IReadOnlyList<StateDifference> differences, bool detailAvailable)
+    internal DriftReport(ScopeId scope, string replicaNode, long tick, ulong authorityHash, ulong replicaHash, IReadOnlyList<StateDifference> differences, bool detailAvailable, bool timedOut = false)
     {
+        TimedOut = timedOut;
         Scope = scope;
         ReplicaNode = replicaNode;
         Tick = tick;
@@ -306,11 +365,14 @@ public sealed class DriftReport
     /// <summary>False when the authority could no longer supply the per-entity digest for that tick.</summary>
     public bool DetailAvailable { get; }
 
+    /// <summary>True when the hashes differed and the authority never answered the request for the per-entity digest in time (<see cref="ClusterOptions.DigestTimeoutTicks"/>).</summary>
+    public bool TimedOut { get; }
+
     /// <summary>One-line summary.</summary>
     public override string ToString()
     {
         var names = string.Join(", ", Differences.Take(8).Select(d => d.Kind == DigestKind.Entity ? $"{d.TypeName ?? "entity"} {d.EntityId}" : d.Kind == DigestKind.Table ? $"table {d.Name}" : "rng"));
-        return $"drift in {Scope} on {ReplicaNode} at tick {Tick}: authority {AuthorityHash:x16}, replica {ReplicaHash:x16}; differs: {(names.Length == 0 ? "(no detail)" : names)}";
+        return $"drift in {Scope} on {ReplicaNode} at tick {Tick}: authority {AuthorityHash:x16}, replica {ReplicaHash:x16}; differs: {(names.Length == 0 ? (TimedOut ? "(the authority did not answer the digest request)" : "(no detail)") : names)}";
     }
 
     /// <summary>The report as JSON.</summary>
@@ -330,6 +392,8 @@ public sealed class DriftReport
         j.Value(ReplicaHash.ToString("x16", CultureInfo.InvariantCulture));
         j.Name("detailAvailable");
         j.Value(DetailAvailable);
+        j.Name("timedOut");
+        j.Value(TimedOut);
         j.Name("differences");
         StateDifference.WriteJsonArray(j, Differences);
         j.EndObject();

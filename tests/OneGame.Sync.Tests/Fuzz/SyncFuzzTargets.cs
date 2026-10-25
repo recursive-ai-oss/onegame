@@ -18,6 +18,9 @@ public static class SyncFuzzTargets
         new FuzzTargets.Target("digest", RunDigest, () => [ValidDigest()]),
         new FuzzTargets.Target("transport-client", RunToReplica, () => Traffic().ToClient),
         new FuzzTargets.Target("transport-server", RunToAuthority, () => Traffic().ToServer),
+        new FuzzTargets.Target("view-snapshot", RunViewSnapshot, ViewSnapshots),
+        new FuzzTargets.Target("view-client", RunToFilteredReplica, () => ViewTraffic().ToClient),
+        new FuzzTargets.Target("view-server", RunToFilteredAuthority, () => ViewTraffic().ToServer),
     ];
 
     private static World Small()
@@ -113,8 +116,9 @@ public static class SyncFuzzTargets
 
         var w = new SyncWriter();
         w.WriteByte(3); // command
-        w.WriteVarUInt(1);
-        w.WriteVarUInt(1);
+        w.WriteVarUInt(1); // scope
+        w.WriteVarUInt(1); // sequence
+        w.WriteVarUInt(1); // entity
         w.WriteVarUInt(CommandIds.Buy);
         w.WriteInt32(1);
         w.WriteInt32(2);
@@ -148,6 +152,109 @@ public static class SyncFuzzTargets
         cluster.Step(2);
         _ = scope.Hash;
         return scope.Node.ProtocolErrors.Count == 0 && scope.Node.Refusals.Count == 0;
+    }
+
+    // ---- filtered replicas: view snapshots, frames with masked entities, command answers, trust and subscription messages ----------------
+
+    private static List<byte[]> ViewSnapshots()
+    {
+        var world = Arena.Match();
+        for (var i = 0; i < 6; i++)
+        {
+            world.Step();
+        }
+
+        var list = new List<byte[]>();
+        foreach (var (who, random) in new[] { (new Audience(1, 10), true), (new Audience(2, 20), false), (Audience.Anonymous, true), (new Audience(9, 10), false) })
+        {
+            var w = new SyncWriter();
+            world.WriteViewSnapshot(w, who, random);
+            list.Add(w.ToArray());
+        }
+
+        var plain = new SyncWriter();
+        world.WriteSnapshot(plain);
+        list.Add(plain.ToArray());
+        return list;
+    }
+
+    private static bool RunViewSnapshot(byte[] input)
+    {
+        var world = Arena.Empty(WorldRole.Replica);
+        var error = world.ReadSnapshot(input);
+        if (error == SyncError.None)
+        {
+            _ = world.ComputeViewHash();
+            _ = world.DumpJson();
+        }
+
+        return error == SyncError.None;
+    }
+
+    private static (List<byte[]> ToClient, List<byte[]> ToServer) ViewTraffic()
+    {
+        // Real traffic of a filtered subscriber: the snapshot and the first frame (they apply to a fresh replica), plus every kind of answer.
+        var rig = new Rig(Options);
+        var ada = rig.Join("ada", Trust.Player(rig.Scope.Id).As(1, 10));
+        rig.Cluster.Settle();
+        var hero = Rig.HeroOf(ada.Replica, 1);
+        hero.Send.Spend(5);
+        hero.Send.Spend(100_000);
+        hero.Send.Rename("x"); // refused: this trust does not own the scope
+        Rig.HeroOf(rig.Scope, 1).Gold += 1; // an owner-only change in the first frame
+        rig.Cluster.Step(1);
+        var toClient = ada.Tap.Received.Select(m => m.ToArray()).ToList();
+
+        var w = new SyncWriter();
+        w.WriteByte(21); // command result
+        w.WriteVarUInt(1);
+        w.WriteVarUInt(1);
+        w.WriteVarUInt(2);
+        w.WriteVarUInt(CommandIdsArena.Spend);
+        w.WriteByte((byte)CommandVerdict.Rejected);
+        w.WriteByte(0);
+        w.WriteString("not enough gold");
+        toClient.Add(w.ToArray());
+        toClient.Add([22, 1, (byte)RefusalReason.ReadRevoked]);
+
+        var toServer = new List<byte[]> { new byte[] { 1, 1 }, new byte[] { 2, 1 }, new byte[] { 4, 1, 2 } };
+        var cmd = new SyncWriter();
+        cmd.WriteByte(3);
+        cmd.WriteVarUInt(1);
+        cmd.WriteVarUInt(7); // sequence
+        cmd.WriteVarUInt(Rig.HeroOf(rig.Scope, 1).Id.Value);
+        cmd.WriteVarUInt(CommandIdsArena.Walk);
+        cmd.WriteInt32(1);
+        cmd.WriteInt32(-1);
+        toServer.Add(cmd.ToArray());
+        return (toClient, toServer);
+    }
+
+    private static (Rig Rig, Player Ada) ViewSetup()
+    {
+        var rig = new Rig(Options);
+        var ada = rig.Join("ada", Trust.Player(rig.Scope.Id).As(1, 10));
+        rig.Cluster.Settle();
+        return (rig, ada);
+    }
+
+    private static bool RunToFilteredReplica(byte[] input)
+    {
+        var (rig, ada) = ViewSetup();
+        ada.Connection.Channel.Send(input);
+        rig.Cluster.Settle();
+        _ = ada.Replica.ViewHash;
+        return ada.Node.ProtocolErrors.Count == 0;
+    }
+
+    private static bool RunToFilteredAuthority(byte[] input)
+    {
+        var (rig, ada) = ViewSetup();
+        ada.Link.Channel.Send(input);
+        rig.Cluster.Settle();
+        rig.Cluster.Step(2);
+        _ = rig.Scope.ViewHashFor(ada.Connection);
+        return rig.Host.ProtocolErrors.Count == 0 && rig.Host.Refusals.Count == 0;
     }
 
     private static (Cluster, AuthorityScope, ReplicaScope) ReplicaSetup()
@@ -209,4 +316,12 @@ public static class Scenario1SaveFixture
         save.WriteBytes(snapshot.Written);
         return save.ToArray();
     }
+}
+
+/// <summary>Command ids of the visibility sample game.</summary>
+public static class CommandIdsArena
+{
+    public static uint Spend => StateHash.Fnv32("Spend");
+
+    public static uint Walk => StateHash.Fnv32("Walk");
 }

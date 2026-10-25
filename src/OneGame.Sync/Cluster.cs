@@ -141,8 +141,9 @@ public sealed class Cluster
                     continue;
                 }
 
-                var expected = authority.World.ComputeHash();
-                var actual = replica.World.ComputeHash();
+                // Compare what this replica is allowed to hold: the authority's view for its audience against the replica's own.
+                var expected = authority.ViewHashFor(replica.Link.Connection);
+                var actual = replica.ViewHash;
                 if (expected == actual)
                 {
                     continue;
@@ -150,8 +151,9 @@ public sealed class Cluster
 
                 var a = new StateDigest();
                 var b = new StateDigest();
-                StateDigest.Capture(authority.World, a, scratch);
-                StateDigest.Capture(replica.World, b, scratch);
+                var includeRandom = authority.RandomStreams == Visibility.Everyone;
+                StateDigest.CaptureView(authority.World, a, scratch, int.MaxValue, replica.Link.Connection.Trust.Who, includeRandom);
+                StateDigest.CaptureView(replica.World, b, scratch, int.MaxValue, null, replica.World.RandomIncluded);
                 var differences = new List<StateDifference>();
                 StateDigest.Diff(a, b, authority.World, replica.World, differences);
                 reports.Add(new DriftReport(replica.Id, node.Name, replica.World.Tick, expected, actual, differences, true));
