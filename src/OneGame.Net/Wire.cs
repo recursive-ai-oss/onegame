@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
+using OneGame.Core;
 
 namespace OneGame.Net;
 
@@ -48,7 +48,7 @@ internal static class Wire
         BinaryPrimitives.WriteUInt64LittleEndian(input[n..], nonce);
         BinaryPrimitives.WriteInt64LittleEndian(input[(n + 8)..], epoch);
         Span<byte> mac = stackalloc byte[32];
-        _ = HMACSHA256.HashData(secret, input[..(n + 16)], mac);
+        HmacSha256.Hash(secret, input[..(n + 16)], mac);
         mac[..CookieSize].CopyTo(cookie);
     }
 
