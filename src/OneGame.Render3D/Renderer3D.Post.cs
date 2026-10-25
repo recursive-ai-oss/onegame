@@ -126,11 +126,11 @@ public sealed partial class Renderer3D
         return pipeline;
     }
 
-    private void AddPostPasses(RenderGraph graph, PostSettings post, GraphTexture hdr, GraphTexture target, int width, int height, GpuFormat targetFormat)
+    private void AddPostPasses(RenderGraph graph, PostSettings post, bool bloomAllowed, GraphTexture hdr, GraphTexture target, int width, int height, GpuFormat targetFormat)
     {
         var levels = 0;
         GraphTexture bloom = default;
-        if (post.Bloom && post.BloomStrength > 0f)
+        if (post.Bloom && bloomAllowed && post.BloomStrength > 0f)
         {
             var w = Math.Max(width / 2, 1);
             var h = Math.Max(height / 2, 1);

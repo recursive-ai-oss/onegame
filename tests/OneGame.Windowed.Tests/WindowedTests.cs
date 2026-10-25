@@ -12,7 +12,7 @@ namespace OneGame.Windowed.Tests;
 /// <summary>A windowed game on a real display server, driven through the control layer like an agent would.</summary>
 internal sealed class Session : IDisposable
 {
-    public Session(PlatformBackendKind backend, string display)
+    public Session(PlatformBackendKind backend, string display, OneGame.Gpu.PresentMode presentMode = OneGame.Gpu.PresentMode.Vsync)
     {
         // The software rasterizer is deterministic and needs no display hardware; the validation layer reports anything the game does wrong.
         Environment.SetEnvironmentVariable("ONEGAME_GPU_ADAPTER", "software");
@@ -21,7 +21,7 @@ internal sealed class Session : IDisposable
         Directory.CreateDirectory(OutputDirectory);
         Game = GameInstance.Create(
             new WindowedGame(),
-            new GameOptions { Width = 640, Height = 360, Gpu = GpuMode.Required, Backend = backend, DisplayName = display });
+            new GameOptions { Width = 640, Height = 360, Gpu = GpuMode.Required, Backend = backend, DisplayName = display, PresentMode = presentMode });
         Control = new ControlSurface(Game, OutputDirectory);
         StepUntil(() => Game.PresentedFrames >= 3 && Game.Window.IsFocused || Game.PresentedFrames >= 30);
     }
@@ -410,5 +410,42 @@ public sealed class WestonWindowedTests : WindowedTests, IClassFixture<WestonFix
     {
         Assert.SkipUnless(_weston.Available, "weston is not installed");
         return new Session(PlatformBackendKind.Wayland, _weston.SocketPath!);
+    }
+
+    /// <summary>
+    /// A compositor that stops releasing buffers leaves every swapchain image in its hands. Acquiring used to wait for one forever, which
+    /// froze the whole frame loop (and the control layer with it). Now the frames are skipped and the game keeps answering.
+    /// </summary>
+    [Fact]
+    public void ACompositorThatStopsAnsweringDoesNotHangTheFrameLoop()
+    {
+        Assert.SkipUnless(_weston.Available, "weston is not installed");
+
+        // Low-latency presentation does not wait for frame callbacks, so a stalled compositor shows up where the swapchain waits for a free image.
+        using var s = new Session(PlatformBackendKind.Wayland, _weston.SocketPath!, OneGame.Gpu.PresentMode.LowLatency);
+        s.StepUntil(() => s.Game.PresentedFrames >= 5);
+        var thawed = false;
+        _weston.Freeze(true);
+        using var watchdog = new Timer(_ =>
+        {
+            thawed = true;
+            _weston.Freeze(false);
+        }, null, TimeSpan.FromSeconds(45), Timeout.InfiniteTimeSpan);
+        try
+        {
+
+            // Each skipped frame waits out the acquire timeout, so a few steps are enough to see the loop keep turning.
+            for (var i = 0; i < 6; i++)
+            {
+                s.Game.Step();
+            }
+        }
+        finally
+        {
+            _weston.Freeze(false);
+        }
+
+        Assert.False(thawed, "the frame loop was blocked until the watchdog thawed the compositor");
+        Assert.Equal("wayland", s.Call("info").GetProperty("backend").GetString());
     }
 }

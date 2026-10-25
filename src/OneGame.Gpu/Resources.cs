@@ -119,6 +119,12 @@ public abstract class GpuSwapchain : GpuObject
     /// <summary>Number of backbuffers.</summary>
     public abstract int ImageCount { get; }
 
+    /// <summary>
+    /// How long <see cref="TryAcquire"/> waits for a free backbuffer before it gives up and returns <see cref="AcquireStatus.Skipped"/>.
+    /// A window the system never shows (or never releases images for) would otherwise block the frame loop forever. Default 2 seconds: far longer than a healthy frame, short enough that a stalled window system shows up as skipped frames.
+    /// </summary>
+    public TimeSpan AcquireTimeout { get; set; } = TimeSpan.FromSeconds(2);
+
     /// <summary>Tells the swapchain the window's new size in pixels. It is rebuilt at the next acquire.</summary>
     public abstract void Resize(uint width, uint height);
 

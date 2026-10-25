@@ -33,6 +33,12 @@ public sealed class Light3D
     /// <summary>Linear RGB colour.</summary>
     public Vector3 Color { get; set; } = Vector3.One;
 
+    /// <summary>
+    /// Whether the light casts shadows. A directional light uses cascaded shadow maps, a spot light one map, a point light six. At most
+    /// <see cref="Renderer3D.MaxShadowLights"/> lights and <see cref="Renderer3D.MaxShadowTiles"/> maps are used per frame, in light order.
+    /// </summary>
+    public bool CastShadows { get; set; }
+
     /// <summary>Lux (directional) or candela (point, spot).</summary>
     public float Intensity { get; set; } = 1f;
 

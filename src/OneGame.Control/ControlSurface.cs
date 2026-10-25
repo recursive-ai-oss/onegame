@@ -11,7 +11,7 @@ namespace OneGame.Control;
 /// The control layer: every operation of <see cref="ControlOps"/> run against one <see cref="GameInstance"/>. The command line, the test
 /// API and live control (MCP) all call <see cref="Invoke"/>; none of them reaches into the game any other way.
 /// </summary>
-public sealed class ControlSurface : IControlEndpoint
+public sealed partial class ControlSurface : IControlEndpoint
 {
     private const int MaxSnapshotBytes = 64 * 1024 * 1024;
     private int _gamepad = -1;
@@ -115,6 +115,7 @@ public sealed class ControlSurface : IControlEndpoint
         "audio_capture" => Json(AudioCapture(a), ControlJson.Default.AudioCaptureResult),
         "capture_frame" => CaptureFrame(a),
         "capture_sequence" => Json(CaptureSequence(a), ControlJson.Default.SequenceResult),
+        "quality" => Json(Quality(a), ControlJson.Default.QualityResult),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", ControlOps.All.Select(o => o.Name))}."),
     };
 

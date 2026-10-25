@@ -31,6 +31,8 @@ internal struct FrameConstants
     public Vector4 ViewportInfo;
     public UInt4 Counts;
     public Vector4 Sky;
+    public Vector4 ShadowInfo;
+    public Vector4 AoInfo;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -66,10 +68,63 @@ internal struct MaterialConstants
     public Vector4 P1;
     public UInt4 Flags;
     public TransformRows Xf;
+    public Vector4 StyleA;
+    public Vector4 StyleB;
+    public Vector4 OutlineColor;
 }
 
 [StructLayout(LayoutKind.Sequential, Size = (int)GpuDevice.DynamicOffsetAlignment)]
 internal struct PostConstants
 {
     public Vector4 P;
+}
+
+[InlineArray(24)]
+internal struct ShadowColumns
+{
+    private Vector4 _first;
+}
+
+[InlineArray(6)]
+internal struct ShadowRects
+{
+    private Vector4 _first;
+}
+
+/// <summary>One shadow-casting light as the pixel shader reads it (Pbr.hlsl, <c>ShadowData</c>).</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct ShadowRecord
+{
+    public ShadowColumns Col;
+    public ShadowRects Rect;
+    public Vector4 Splits;
+    public Vector4 Texels;
+    public Vector4 P0;
+    public Vector4 P1;
+}
+
+/// <summary>Frame constants padded to the uniform offset alignment, so the shadow tiles' constants sit side by side in one buffer.</summary>
+[StructLayout(LayoutKind.Sequential, Size = Renderer3D.FrameStride)]
+internal struct FrameSlot
+{
+    public FrameConstants Frame;
+}
+
+/// <summary>Per-instance vertex data: the instance matrix as three rows of a 3x4 (x' = dot((p, 1), Rx)) and a colour.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct InstanceGpu
+{
+    public Vector4 Rx;
+    public Vector4 Ry;
+    public Vector4 Rz;
+    public Vector4 Color;
+}
+
+/// <summary>Ambient occlusion pass constants (Ssao.hlsl).</summary>
+[StructLayout(LayoutKind.Sequential, Size = (int)GpuDevice.DynamicOffsetAlignment)]
+internal struct SsaoConstants
+{
+    public Vector4 A;
+    public Vector4 B;
+    public Vector4 C;
 }

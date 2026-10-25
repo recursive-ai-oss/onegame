@@ -12,7 +12,26 @@ namespace OneGame.Render3D;
 /// <param name="Triangles">Triangles submitted.</param>
 /// <param name="Lights">Punctual lights used.</param>
 /// <param name="Clusters">Light clusters in the grid.</param>
-public readonly record struct FrameStats3D(int Objects, int DrawCalls, long Triangles, int Lights, int Clusters);
+public readonly record struct FrameStats3D(int Objects, int DrawCalls, long Triangles, int Lights, int Clusters)
+{
+    /// <summary>Shadow map tiles rendered (cascades, spot maps, point faces).</summary>
+    public int ShadowTiles { get; init; }
+
+    /// <summary>Lights that cast shadows.</summary>
+    public int ShadowLights { get; init; }
+
+    /// <summary>Copies in all instance batches.</summary>
+    public int Instances { get; init; }
+
+    /// <summary>Copies of batches that survived culling against the camera.</summary>
+    public int InstancesDrawn { get; init; }
+
+    /// <summary>The quality level the frame was drawn at.</summary>
+    public QualityLevel Quality { get; init; }
+
+    /// <summary>Whether ambient occlusion ran.</summary>
+    public bool Ssao { get; init; }
+}
 
 /// <summary>
 /// The physically based 3D renderer. It uploads glTF models (<see cref="Upload"/>) and adds a frame to a render graph
@@ -45,6 +64,13 @@ public sealed partial class Renderer3D : IDisposable
     private readonly GpuPipelineLayout _layout;
     private readonly GpuShader _pbrVs;
     private readonly GpuShader _pbrPs;
+    private readonly GpuShader _pbrVsInst;
+    private readonly GpuShader _outlineVs;
+    private readonly GpuShader _outlineVsInst;
+    private readonly GpuShader _shadowMaskPs;
+    private readonly GpuShader _prepassPs;
+    private readonly GpuShader _outlinePs;
+    private readonly VertexBufferLayout _instanceLayout;
     private readonly GpuShader _skyVs;
     private readonly GpuShader _skyPs;
     private readonly GpuSampler _envSampler;
@@ -73,8 +99,12 @@ public sealed partial class Renderer3D : IDisposable
             new(0, 5, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
             new(0, 6, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
             new(0, 7, 1, ResourceKind.Sampler, ShaderStage.Pixel),
+            new(0, 8, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
+            new(0, 9, 1, ResourceKind.ReadOnlyStorageBuffer, ShaderStage.Pixel),
+            new(0, 10, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
+            new(0, 11, 1, ResourceKind.Sampler, ShaderStage.Pixel),
             new(1, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Vertex) { Dynamic = true },
-            new(2, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Pixel),
+            new(2, 0, 1, ResourceKind.ConstantBuffer, vp),
             new(2, 1, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
             new(2, 2, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
             new(2, 3, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
@@ -89,6 +119,12 @@ public sealed partial class Renderer3D : IDisposable
         _layout = Own(device.CreatePipelineLayout(bindings));
         _pbrVs = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSMain.SpirV, Pbr.VSMain.EntryPoint));
         _pbrPs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSMain.SpirV, Pbr.PSMain.EntryPoint));
+        _pbrVsInst = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSInst.SpirV, Pbr.VSInst.EntryPoint));
+        _outlineVs = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSOutline.SpirV, Pbr.VSOutline.EntryPoint));
+        _outlineVsInst = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSOutlineInst.SpirV, Pbr.VSOutlineInst.EntryPoint));
+        _shadowMaskPs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSShadowMask.SpirV, Pbr.PSShadowMask.EntryPoint));
+        _prepassPs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSPrepass.SpirV, Pbr.PSPrepass.EntryPoint));
+        _outlinePs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSOutline.SpirV, Pbr.PSOutline.EntryPoint));
         _skyVs = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSSky.SpirV, Pbr.VSSky.EntryPoint));
         _skyPs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSSky.SpirV, Pbr.PSSky.EntryPoint));
 
@@ -109,6 +145,19 @@ public sealed partial class Renderer3D : IDisposable
             },
         };
 
+        _instanceLayout = new VertexBufferLayout
+        {
+            Stride = 64,
+            StepMode = VertexStepMode.Instance,
+            Attributes = new VertexElement[]
+            {
+                new(8, VertexFormat.Float4, 0),
+                new(9, VertexFormat.Float4, 16),
+                new(10, VertexFormat.Float4, 32),
+                new(11, VertexFormat.Float4, 48),
+            },
+        };
+
         _envSampler = Own(device.CreateSampler(SamplerDesc.Linear with { MaxLod = 32f }));
         _defaultSampler = Own(device.CreateSampler(new SamplerDesc
         {
@@ -124,6 +173,7 @@ public sealed partial class Renderer3D : IDisposable
 
         InitFrame();
         InitPost();
+        InitSsao();
         InitIbl();
     }
 
@@ -250,7 +300,7 @@ public sealed partial class Renderer3D : IDisposable
                 BindGroupEntry.ForSampler(9, SamplerFor(m.OcclusionTexture)),
                 BindGroupEntry.ForSampler(10, SamplerFor(m.EmissiveTexture)),
             ]));
-            materials[i] = new Material3D { Constants = buffer, Group = group, Blend = m.AlphaMode == GltfAlphaMode.Blend, DoubleSided = m.DoubleSided };
+            materials[i] = new Material3D(device, m.Name ?? "", constants, buffer, group, m.AlphaMode == GltfAlphaMode.Blend, m.DoubleSided, m.AlphaMode == GltfAlphaMode.Mask);
         }
 
         var meshes = new Primitive3D[]?[model.Meshes.Length];
@@ -281,6 +331,7 @@ public sealed partial class Renderer3D : IDisposable
         }
 
         result.Meshes = meshes;
+        result.Materials = materials;
         result.DrawNodes = SceneMeshNodes(model, result.Scene);
         device.Submit(encoder);
     }
@@ -361,6 +412,8 @@ public sealed partial class Renderer3D : IDisposable
             P0 = new Vector4(m.MetallicFactor, m.RoughnessFactor, m.NormalScale, m.OcclusionStrength),
             P1 = new Vector4(m.AlphaCutoff, (float)(int)m.AlphaMode, m.Unlit ? 1f : 0f, f0 * f0),
             Flags = new UInt4 { X = m.NormalTexture is null ? 0u : 1u },
+            StyleA = new Vector4(0f, 3f, 0.04f, 0.5f),
+            OutlineColor = new Vector4(0.02f, 0.02f, 0.03f, 1f),
         };
         SetTransform(ref c, 0, m.BaseColorTexture);
         SetTransform(ref c, 1, m.MetallicRoughnessTexture);
@@ -386,6 +439,7 @@ public sealed partial class Renderer3D : IDisposable
         DisposeDeferred();
         DisposeFrame();
         DisposePost();
+        DisposeSsao();
         DisposeIbl();
         foreach (var p in _pipelines.Values)
         {
@@ -411,28 +465,84 @@ public sealed partial class Renderer3D : IDisposable
         _deferred.Clear();
     }
 
-    private GpuGraphicsPipeline ScenePipeline(bool blend, bool doubleSided, bool flipped, int samples)
+    private enum PipeKind
     {
-        var key = (blend ? 1 : 0) | (doubleSided ? 2 : 0) | (flipped ? 4 : 0) | (samples << 3);
-        if (!_pipelines.TryGetValue(key, out var pipeline))
+        Main,
+        Shadow,
+        Prepass,
+        Outline,
+    }
+
+    // One pipeline per combination of what is drawn (a pass kind, material flags, winding, instancing, sample count), made on first use.
+    private GpuGraphicsPipeline ScenePipeline(PipeKind kind, bool blend, bool doubleSided, bool flipped, bool instanced, bool mask, int samples)
+    {
+        var key = (int)kind | (blend ? 4 : 0) | (doubleSided ? 8 : 0) | (flipped ? 16 : 0) | (instanced ? 32 : 0) | (mask ? 64 : 0) | (samples << 7);
+        if (_pipelines.TryGetValue(key, out var pipeline))
         {
-            pipeline = Device.CreateGraphicsPipeline(new GraphicsPipelineDesc
+            return pipeline;
+        }
+
+        var vertexBuffers = instanced ? new[] { _vertexLayout, _instanceLayout } : new[] { _vertexLayout };
+        var front = flipped ? FrontFace.Clockwise : FrontFace.CounterClockwise;
+        var cull = doubleSided ? CullMode.None : CullMode.Back;
+        var desc = kind switch
+        {
+            PipeKind.Shadow => new GraphicsPipelineDesc
             {
                 Layout = _layout,
-                Vertex = _pbrVs,
-                Pixel = _pbrPs,
-                VertexBuffers = [_vertexLayout],
+                Vertex = instanced ? _pbrVsInst : _pbrVs,
+                Pixel = mask ? _shadowMaskPs : null,
+                VertexBuffers = vertexBuffers,
                 Topology = PrimitiveTopology.TriangleList,
-                Cull = doubleSided ? CullMode.None : CullMode.Back,
-                Front = flipped ? FrontFace.Clockwise : FrontFace.CounterClockwise,
+                Cull = cull,
+                Front = front,
+                DepthStencil = new DepthStencilState(DepthFormat) { DepthWrite = true, DepthCompare = CompareFunction.Less, DepthBias = 2, DepthBiasSlopeScale = 2f },
+                Label = "shadow",
+            },
+            PipeKind.Prepass => new GraphicsPipelineDesc
+            {
+                Layout = _layout,
+                Vertex = instanced ? _pbrVsInst : _pbrVs,
+                Pixel = _prepassPs,
+                VertexBuffers = vertexBuffers,
+                Topology = PrimitiveTopology.TriangleList,
+                Cull = cull,
+                Front = front,
+                ColorTargets = [new ColorTargetState(GBufferFormat)],
+                DepthStencil = new DepthStencilState(DepthFormat) { DepthWrite = true, DepthCompare = CompareFunction.Less },
+                Label = "prepass",
+            },
+            PipeKind.Outline => new GraphicsPipelineDesc
+            {
+                Layout = _layout,
+                Vertex = instanced ? _outlineVsInst : _outlineVs,
+                Pixel = _outlinePs,
+                VertexBuffers = vertexBuffers,
+                Topology = PrimitiveTopology.TriangleList,
+                Cull = CullMode.Front,
+                Front = front,
+                ColorTargets = [new ColorTargetState(HdrFormat)],
+                DepthStencil = new DepthStencilState(DepthFormat) { DepthWrite = true, DepthCompare = CompareFunction.Less },
+                SampleCount = (uint)samples,
+                Label = "outline",
+            },
+            _ => new GraphicsPipelineDesc
+            {
+                Layout = _layout,
+                Vertex = instanced ? _pbrVsInst : _pbrVs,
+                Pixel = _pbrPs,
+                VertexBuffers = vertexBuffers,
+                Topology = PrimitiveTopology.TriangleList,
+                Cull = cull,
+                Front = front,
                 ColorTargets = [new ColorTargetState(HdrFormat) { Blend = blend ? BlendState.AlphaBlend : null }],
                 DepthStencil = new DepthStencilState(DepthFormat) { DepthWrite = !blend, DepthCompare = CompareFunction.Less },
                 SampleCount = (uint)samples,
                 Label = "pbr",
-            });
-            _pipelines[key] = pipeline;
-        }
-
+            },
+        };
+        pipeline = Device.CreateGraphicsPipeline(desc);
+        _pipelines[key] = pipeline;
         return pipeline;
     }
 

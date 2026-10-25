@@ -248,8 +248,20 @@ public sealed class Scene3D
     /// <summary>Bloom, exposure and tone mapping.</summary>
     public PostSettings Post { get; } = new();
 
-    /// <summary>Multisampling: 1 (off), 2, 4 or 8, limited by the device.</summary>
-    public int Samples { get; set; } = 4;
+    /// <summary>Copies of models drawn in bulk (see <see cref="AddInstanced"/>).</summary>
+    public List<InstanceBatch3D> Batches { get; } = [];
+
+    /// <summary>Multisampling: 1 (off), 4 or 8 (a request for 2 uses 4), limited by the device and by <see cref="Quality"/>. 0 (the default) takes the level's own count.</summary>
+    public int Samples { get; set; }
+
+    /// <summary>The quality level: bounds shadow map size, cascades, ambient occlusion, multisampling, bloom and environment size. Change it any time.</summary>
+    public QualityLevel Quality { get; set; } = QualityLevel.High;
+
+    /// <summary>Shadow controls; a light casts shadows when its <see cref="Light3D.CastShadows"/> is set.</summary>
+    public ShadowSettings Shadows { get; } = new();
+
+    /// <summary>Screen-space ambient occlusion.</summary>
+    public SsaoSettings Ssao { get; } = new();
 
     /// <summary>Adds a copy of a model and returns it.</summary>
     public ModelInstance3D Add(Model3D model, Matrix4x4? transform = null)
@@ -258,6 +270,17 @@ public sealed class Scene3D
         var instance = new ModelInstance3D(model) { Transform = transform ?? Matrix4x4.Identity };
         Models.Add(instance);
         return instance;
+    }
+
+    /// <summary>Adds a batch that draws many copies of a static model with per-copy transforms and colours.</summary>
+    /// <param name="model">The model.</param>
+    /// <param name="capacity">Copies to reserve room for; the batch grows as needed.</param>
+    public InstanceBatch3D AddInstanced(Model3D model, int capacity = 64)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        var batch = new InstanceBatch3D(model, capacity);
+        Batches.Add(batch);
+        return batch;
     }
 
     /// <summary>Adds the lights the model's glTF file defines (KHR_lights_punctual) at their current positions, through the instance transform.</summary>
