@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- The onegame checkout this game builds against: two folders up from here. -->
+    <OneGameRoot>$(MSBuildThisFileDirectory)../../</OneGameRoot>
+    <AssemblyName>Lanterns</AssemblyName>
+    <RootNamespace>Lanterns</RootNamespace>
+    <Description>Lanterns: two islands, two servers and a master, as the second onegame sample.</Description>
+    <!-- The sample's own tests, the server and the rules library are separate projects. -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+
+  <ItemGroup>
+    <Compile Include="*.cs;Views/**/*.cs" />
+    <ProjectReference Include="Sim/Lanterns.Sim.csproj" />
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.Sync/OneGame.Sync.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="fonts/*.ttf" LogicalName="fonts/%(Filename)%(Extension)" />
+    <InternalsVisibleTo Include="Lanterns.Tests" />
+  </ItemGroup>
+
+</Project>

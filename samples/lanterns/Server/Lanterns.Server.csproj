@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OneGameRoot>$(MSBuildThisFileDirectory)../../../</OneGameRoot>
+    <AssemblyName>LanternsServer</AssemblyName>
+    <RootNamespace>Lanterns.Server</RootNamespace>
+    <Description>The Lanterns server: one program that runs an island or the master, depending on the scope it is given.</Description>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <Import Project="$(OneGameRoot)build/Server.targets" />
+
+  <ItemGroup>
+    <ProjectReference Include="../Sim/Lanterns.Sim.csproj" />
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.Sync/OneGame.Sync.csproj" />
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.Net/OneGame.Net.csproj" />
+  </ItemGroup>
+
+</Project>

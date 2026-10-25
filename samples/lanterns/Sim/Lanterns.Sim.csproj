@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OneGameRoot>$(MSBuildThisFileDirectory)../../../</OneGameRoot>
+    <RootNamespace>Lanterns</RootNamespace>
+    <Description>The rules of Lanterns: islands, players, lanterns and the swap ledger. The client and both kinds of server compile against this one library.</Description>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.Core/OneGame.Core.csproj" />
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.Sync/OneGame.Sync.csproj" />
+    <!-- The generator and the rules for simulation and view code. -->
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>
