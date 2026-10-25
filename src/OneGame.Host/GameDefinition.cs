@@ -53,12 +53,13 @@ public abstract class GameDefinition
 
     /// <summary>
     /// Loads the game's fonts. The default reads every <c>.ttf</c> and <c>.otf</c> file in a <c>fonts</c> folder next to the program, or
-    /// else in the working directory. With no fonts the UI measures text with a fixed-width estimate and the stub stage draws it as bars.
+    /// or in <c>Contents/Resources/fonts</c> of a macOS bundle, or else in the working directory. With no fonts the UI measures text with a fixed-width estimate and the stub stage draws it as bars.
     /// </summary>
     public virtual void DefineFonts(FontLibrary fonts)
     {
         ArgumentNullException.ThrowIfNull(fonts);
-        foreach (var root in new[] { Path.Combine(AppContext.BaseDirectory, "fonts"), Path.Combine(Directory.GetCurrentDirectory(), "fonts") })
+        // Inside a macOS application bundle the program sits in Contents/MacOS and its content in Contents/Resources.
+        foreach (var root in new[] { Path.Combine(AppContext.BaseDirectory, "fonts"), Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "Resources", "fonts")), Path.Combine(Directory.GetCurrentDirectory(), "fonts") })
         {
             if (!Directory.Exists(root))
             {

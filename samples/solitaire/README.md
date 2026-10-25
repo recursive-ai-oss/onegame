@@ -8,6 +8,7 @@ onegame run                                # a window
 onegame run --headless --frames 60 --json  # no window; prints the state hash
 onegame test --json                        # 14 scenarios plus the C# tests
 onegame capture --out table.png --size 1080p --scale 1.5 --after 30
+onegame export --target osx               # on an Apple-silicon Mac: Solitaire.app, ad-hoc signed; `open` runs it
 ```
 
 Driving a game the way a person or an agent would is covered in [driving a game](../../docs/driving-a-game.md); the UI vocabulary is in the [UI guide](../../docs/ui-guide.md) and the [component kit](../../docs/interfaces/ui-kit.md).

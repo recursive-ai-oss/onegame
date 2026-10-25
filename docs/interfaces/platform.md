@@ -5,7 +5,7 @@ Owner: `src/OneGame.Platform` (namespace `OneGame.Platform`). One assembly; the 
 ## Shape
 
 ```csharp
-using var app = PlatformApp.Create(new PlatformOptions());       // Auto: Wayland, X11, Win32, else Headless
+using var app = PlatformApp.Create(new PlatformOptions());       // Auto: Cocoa on macOS, Wayland, X11, Win32, else Headless
 var window = app.CreateWindow(new WindowOptions { Title = "game", Width = 1280, Height = 720 });
 
 while (!app.QuitRequested)
@@ -59,6 +59,7 @@ Single-threaded: use an app from the thread that created it. All real and synthe
 | `Wayland` | `wl_display*` | `wl_surface*` |
 | `X11` | `Display*` | X `Window` id |
 | `Win32` | `HINSTANCE` | `HWND` |
+| `Cocoa` | `NSWindow*` | `CAMetalLayer*` of the content view (give it to the Metal backend as `SurfaceSource.MetalLayer`) |
 | `Android` | 0 | `ANativeWindow*` |
 | `None` | 0 | 0 (headless) |
 
@@ -73,6 +74,7 @@ A GPU swapchain that presents to a Wayland window must not be combined with `Sof
 | X11 | ICCCM selections on a hidden helper window: `CLIPBOARD` and `PRIMARY` (`ClipboardSelection.Primary`); targets `UTF8_STRING`, `text/plain;charset=utf-8`, `TEXT`, `STRING` | Reading asks the owner and waits up to 1 s while still handling other events; the INCR protocol is read, not written, so `SetText` is limited to what one request holds (megabytes). While the app owns the selection it answers other programs from `PumpEvents`, so keep pumping. |
 | Wayland | `wl_data_device` on the seat; offers `text/plain;charset=utf-8`, `UTF8_STRING`, `text/plain`, `TEXT`, `STRING` | Needs a seat: `IsAvailable` is false on a compositor without one (headless Weston). Writes to the reader happen on a pool thread, so a slow reader cannot stall the game. `Primary` is not supported (`Supports` false). |
 | Win32 | `CF_UNICODETEXT`, CR LF converted both ways | Compiles; not run on Windows yet. |
+| Cocoa | `NSPasteboard` general pasteboard, `public.utf8-plain-text` | Size is checked (`lengthOfBytesUsingEncoding:`) before the text is copied out. No `Primary` selection. |
 | Headless | a private in-process store | So scenarios and tests can copy and paste. |
 
 A reader that gets no answer in time returns null instead of hanging. Text from other programs is decoded with replacement characters, cut at the first NUL, and read under the size limit before anything is allocated.
@@ -124,6 +126,19 @@ Wayland: libwayland-client, libxkbcommon; core, xdg-shell, plus fractional-scale
 X11 re-reads the desktop scale (`Xft.dpi` in the root window's `RESOURCE_MANAGER`) when it changes and reports `WindowScaleChanged`. Wayland input methods use `text-input-v3` when the compositor offers it (the preedit string, cursor and commit become `TextComposition` and `TextInput`; surrounding text and delete-surrounding are not used). Weston, the compositor the tests run, offers no text-input-v3 and no seat when headless; those paths are tested against a scripted compositor on the real protocol. Fractional scale (`wp_fractional_scale` plus `wp_viewport`) is driven here for `SoftwareSurface` windows; a Vulkan swapchain on a compositor that offers it is not verified (neither test compositor does), including whether the driver's own surface objects clash with ours.
 
 Android (NDK, `libandroid`, `liblog`, JNI for the few Java calls): see "Mobile" and `android.md`. Not yet: XIM/IBus on X11 and IME on Windows (`WM_IME_*`), multi-monitor selection, custom cursors (Wayland draws the cursor only through cursor-shape, so a compositor without it keeps whatever cursor it had), HID gamepads on Windows, gyro/touchpad.
+
+## macOS (Cocoa)
+
+`PlatformBackendKind.Cocoa` (`--backend cocoa`), Apple silicon only: the Objective-C runtime is reached through typed `objc_msgSend` function pointers, and the content view and the delegate are classes made at run time whose methods point into this assembly. `NSApplication` and `NSWindow` are built without a nib.
+
+- **Main thread.** AppKit only works on the process's main thread, so `PlatformApp.Create` throws `PlatformException` anywhere else. The game's frame loop is the main thread; `PumpEvents` drains `NSApplication`'s queue by hand and the delegate callbacks fill the event queue. Exceptions inside a callback are parked and rethrown from the next `PumpEvents`.
+- **Window.** Sizes are pixels, as everywhere: `WindowOptions.Width/Height` are converted to points with the main screen's backing scale, and `Window.Scale` is `backingScaleFactor` (2.0 on a Retina screen). Resize, backing-scale changes (moving between screens), minimize, native fullscreen (`SetFullscreen` is animated: `IsFullscreen` follows when AppKit says it is done) and close work; the close button is a `WindowCloseRequested` event and the window stays until `Close()`. The menu bar has Hide, Enter Full Screen and Quit; Quit and the Dock's Quit become `QuitRequested`, never a terminate. Copy and Paste are not menu items, so Command+C and Command+V reach the game as keys. During a live resize drag AppKit runs its own loop, so the game does not step until the mouse is released.
+- **Surface.** The content view is layer-backed and its layer is a `CAMetalLayer`; AppKit keeps its size and scale, the swapchain sets `drawableSize`.
+- **Keys and text.** `Key` comes from the virtual key code (an ANSI-position table), modifiers from the event flags; left and right modifier keys are told apart by the device bits. While Command is held AppKit sends no key-up, so a Command chord is delivered as down followed by up. Text: with `SetTextInput(true, ...)` key events go through `interpretKeyEvents:` into the view's `NSTextInputClient` methods (`insertText:` becomes `TextInput`, `setMarkedText:` becomes `TextComposition` with the selection as `CursorStart/End`, `unmarkText` ends it; the caret rectangle for the candidate window comes from `TextInputArea`). A key pressed while an input method is composing is not sent as `KeyDown`. With text input off, typed text is the event's `characters`, so an input method never swallows game keys. Option is part of typing (Option+E gives dead-key text); Control and Command never produce text.
+- **Pointer.** Positions are pixels from the top left. A wheel reports lines; a trackpad reports points, converted at 20 points per notch. `SetCursorLocked` detaches the pointer with `CGAssociateMouseAndMouseCursorPosition` and reports `PointerRelativeMotion` in pixels.
+- **Gamepads.** The GameController framework, polled once per `PumpEvents`: controllers with an extended gamepad profile are mapped onto the standard layout (A/B/X/Y to South/East/West/North, Menu to Start, Options to Back, Home to Guide, thumbstick buttons, d-pad, triggers 0..1, sticks with down positive), through the same dead zones as every other pad. No rumble, paddles or touchpad yet. A pad that does not report extended gamepad input (Siri remotes, micro gamepads) is ignored.
+- **Focus.** `WindowFocusChanged` follows key-window status. A process the system did not activate (started from an SSH session, or with a locked screen) never becomes frontmost: windows are created and take injected input, but there is no key focus and fullscreen does not start. `tools/mac-gui-run.sh` starts a program through `open` so a logged-in, unlocked session activates it.
+- **Tests.** `CocoaTests` (Platform.Tests) hand real `NSEvent`s to the window and call the `NSTextInputClient` methods on the real view; `CocoaWindowedTests` runs the windowed suite on a Cocoa window with Metal API validation. Both test apps replace xUnit's generated entry point (`MainThread.Host`) so the main thread serves test bodies while the runner works on another thread.
 
 ## What a Windows run must prove
 

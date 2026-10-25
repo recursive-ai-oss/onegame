@@ -749,6 +749,7 @@ public sealed class GameInstance : IDisposable
             {
                 NativeWindowKind.X11 => SurfaceSource.X11(h.Display, h.Window),
                 NativeWindowKind.Wayland => SurfaceSource.Wayland(h.Display, h.Window),
+                NativeWindowKind.Cocoa => SurfaceSource.MetalLayer(h.Window),
                 NativeWindowKind.Android => SurfaceSource.Android(h.Window),
                 _ => SurfaceSource.Win32(h.Display, h.Window),
             };
