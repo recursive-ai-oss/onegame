@@ -28,16 +28,21 @@ steps:
   - step: 1                # frames
   - command: { entity: Counter, name: Increment, args: [5] }
   - set: { entity: Counter, property: Count, value: 40 }
+  - set: { table: lanes, row: 2, property: Heat, value: 7 }   # one cell of a [HotData] table
   - press: Tab             # keys, also: type: "text", nav: next, wheel, screen, fixture, snapshot, reset: 77, ui-scale: 1.5, invoke
   - nav: start             # a controller button: up down left right next previous activate cancel, or any button by name (start, back, west, north, x, y, left_stick...)
 expect:
   - state: { entity: Counter, property: Count, equals: 3 }
+  - state: { entity: Ship, property: Fitted.count, equals: 2 }   # a SyncList: count, [index], or the whole list as JSON
+  - state: { table: lanes, row: 2, property: Heat, equals: 7 }
   - ui: { id: count, text: "Count: 3" }       # or selector + count/contains/visible/enabled/focused/pressed
   - tick: 3
   - capture: { reference: refs/main.png, size: 320x200, tolerance: 2, max-diff: 0.001 }
 ```
 
-`onegame test --json` runs them all (and the project's C# tests; `--no-unit` skips those). A failing expectation reports `expected` and `actual` with the line. Unknown keys are errors with a line number. Run one with `onegame test --scenario scenarios/x.yaml`. `onegame test --update-references` writes new or changed capture references; look at them before committing.
+`onegame test --json` runs them all (and the project's C# tests; `--no-unit` skips those). A failing expectation reports `expected` and `actual` with the line. Unknown keys are errors with a line number. Run one with `onegame test --scenario scenarios/x.yaml`. `onegame test --update-references` creates missing capture references and rewrites changed ones; look at them before committing. With `--json`, the result has `references: {created: [...], updated: [...]}` (absolute paths) and each such expectation carries `referenceAction`.
+
+**Addressing state.** `entity:` is a numeric id, a type name (the first of that type) or `Type#n` (the nth, from 1). `property:` is a path into that entity's JSON: a name (`Gold`), an index into a list (`Fitted[0]`), more names after it (`Fitted[0].Kind`), and on a list `count` for its length. A bare list name reads the whole list as JSON text. A hot table is addressed by its name (`[HotData(Name = "lanes")]`, default the struct's name) with `table:` instead of `entity:`; `row:` (from 0) picks a row and `property:` is then a column (without `row:`, a path into the whole table such as `[2].Heat` or `count`). `set:` writes one scalar (number, bool, string, `Fixed` like `12.5`, enum by number) of an entity property or of a table cell; lists and nested values cannot be set. `set:` changes state outside commands, so a running recording ends its segment and continues from the edited state, and replay reproduces the hashes.
 
 From C#:
 

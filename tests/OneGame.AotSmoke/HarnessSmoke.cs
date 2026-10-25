@@ -15,7 +15,13 @@ internal sealed class SmokeGame : GameDefinition
 
     public override void RegisterEntities(EntityRegistry registry) => OneGame.Generated.OneGame_AotSmoke.EntityTypes.Register(registry);
 
-    public override void Setup(World world) => world.Add(new Purse { Owner = "smoke" });
+    public override void RegisterSystems(World world) => world.AddTable(new SparkTable());
+
+    public override void Setup(World world)
+    {
+        world.Add(new Purse { Owner = "smoke" });
+        ((SparkTable)world.Tables[0]).Add(new Spark { X = Fixed.FromInt(1), Life = 3 });
+    }
 
     public override void DefineScreens(ScreenSet screens) =>
         screens.Add("main", game => Ui.Column(
@@ -37,6 +43,13 @@ internal static class HarnessSmoke
         surface.Call("step", """{"frames":2}""");
         var state = surface.Call("state_query", """{"entity":"Purse","property":"Coins"}""");
         var tree = surface.Call("ui_tree");
+
+        // A hot-table cell written and read back by address, and a path into a list.
+        surface.Call("state_patch", """{"table":"Spark","row":0,"property":"Life","value":"9"}""");
+        if (surface.Call("state_query", """{"table":"Spark","property":"[0].Life"}""") != "9")
+        {
+            throw new InvalidOperationException("The hot table cell was not written.");
+        }
 
         // Shader hot reload: compile a file, register it, edit it, and let the control layer recompile and swap it.
         var hlsl = Path.Combine(Path.GetTempPath(), "aot-smoke-" + Environment.ProcessId + ".hlsl");

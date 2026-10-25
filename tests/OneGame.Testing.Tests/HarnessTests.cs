@@ -175,7 +175,9 @@ public class HarnessTests
         Assert.False(missing.Passed);
         Assert.Contains("ONEGAME_UPDATE_REFERENCES", missing.Expectations[0].Message, StringComparison.Ordinal);
 
-        Assert.True(cluster.Run(scenario, new ScenarioRunOptions { ArtifactsDirectory = artifacts, UpdateReferences = true }).Passed);
+        var created = cluster.Run(scenario, new ScenarioRunOptions { ArtifactsDirectory = artifacts, UpdateReferences = true });
+        Assert.True(created.Passed);
+        Assert.Equal("created", created.Expectations[0].ReferenceAction);
         Assert.True(File.Exists(Path.Combine(refDir, "x.png")));
         Assert.True(cluster.Run(scenario, new ScenarioRunOptions { ArtifactsDirectory = artifacts }).Passed);
 

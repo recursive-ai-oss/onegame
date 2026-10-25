@@ -223,6 +223,30 @@ internal sealed class DevTools : IDevTools
                 w.WriteBoolean("ok", failed == 0);
                 w.WriteNumber("passed", results.Count - failed);
                 w.WriteNumber("failed", failed);
+                if (options.UpdateReferences || Environment.GetEnvironmentVariable("ONEGAME_UPDATE_REFERENCES") == "1")
+                {
+                    // Every reference image the run wrote, so an agent knows which files to look at before committing.
+                    w.WritePropertyName("references");
+                    w.WriteStartObject();
+                    foreach (var action in new[] { "created", "updated" })
+                    {
+                        w.WritePropertyName(action);
+                        w.WriteStartArray();
+                        foreach (var r in results)
+                        {
+                            var dir = r.Source is null ? Directory.GetCurrentDirectory() : Path.GetDirectoryName(Path.GetFullPath(r.Source))!;
+                            foreach (var x in r.Expectations.Where(x => x.ReferenceAction == action && x.Target is not null))
+                            {
+                                w.WriteStringValue(Path.GetFullPath(x.Target!, dir));
+                            }
+                        }
+
+                        w.WriteEndArray();
+                    }
+
+                    w.WriteEndObject();
+                }
+
                 w.WritePropertyName("scenarios");
                 w.WriteRawValue(JsonSerializer.Serialize([.. results], ScenarioJson.Default.ScenarioResultArray));
                 w.WriteEndObject();
@@ -248,6 +272,15 @@ internal sealed class DevTools : IDevTools
                         output.WriteLine($"    expected: {e.Expected}");
                         output.WriteLine($"    actual:   {e.Actual}");
                     }
+                }
+            }
+
+            foreach (var r in results)
+            {
+                var dir = r.Source is null ? Directory.GetCurrentDirectory() : Path.GetDirectoryName(Path.GetFullPath(r.Source))!;
+                foreach (var x in r.Expectations.Where(x => x.ReferenceAction is not null && x.Target is not null))
+                {
+                    output.WriteLine($"{x.ReferenceAction} reference {Path.GetFullPath(x.Target!, dir)}");
                 }
             }
 
