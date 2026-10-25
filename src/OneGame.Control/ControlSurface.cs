@@ -120,6 +120,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         "theme_lint" => Json(ThemeLintCheck(), ControlJson.Default.ThemeLintReport),
         "audio" => Json(AudioReport(a), ControlJson.Default.AudioStatus),
         "audio_capture" => Json(AudioCapture(a), ControlJson.Default.AudioCaptureResult),
+        "store" => Json(StoreAction(a), ControlJson.Default.PurchaseStatus),
         "capture_frame" => CaptureFrameAsync(a).AsTask().GetAwaiter().GetResult(),
         "capture_sequence" => Json(CaptureSequenceAsync(a).AsTask().GetAwaiter().GetResult(), ControlJson.Default.SequenceResult),
         "quality" => Json(Quality(a), ControlJson.Default.QualityResult),

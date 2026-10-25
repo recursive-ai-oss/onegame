@@ -12,6 +12,7 @@
     <ProjectReference Include="../OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
     <ProjectReference Include="../OneGame.Platform/OneGame.Platform.csproj" />
     <ProjectReference Include="../OneGame.Audio/OneGame.Audio.csproj" />
+    <ProjectReference Include="../OneGame.Purchases/OneGame.Purchases.csproj" />
   </ItemGroup>
 
   <ItemGroup>

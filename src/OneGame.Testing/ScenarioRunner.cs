@@ -307,6 +307,9 @@ public sealed class ScenarioRunner
             case StepKind.Camera:
                 _surface.Call("camera", s.ControlArgs);
                 break;
+            case StepKind.Store:
+                _surface.Call("store", s.ControlArgs);
+                break;
             case StepKind.Expect:
                 var r = await CheckAsync(s.Expect!, index, scenario.Name, ctx, scenario);
                 inline.Add(r);
@@ -338,6 +341,7 @@ public sealed class ScenarioRunner
                 ExpectKind.Hash => Compare(e, index, "hash", "hash", _surface.Game.World.ComputeHash().ToString("x16", CultureInfo.InvariantCulture), e.EqualTo!.ToLowerInvariant()),
                 ExpectKind.Capture => await CheckCaptureAsync(e, index, scenarioName, ctx, scenario),
                 ExpectKind.Pick => CheckPick(e, index),
+                ExpectKind.Store => CheckStore(e, index),
                 _ => throw new ControlException("bad_args", "Unknown expectation."),
             };
         }
@@ -358,6 +362,37 @@ public sealed class ScenarioRunner
         || (double.TryParse(actual, NumberStyles.Float, CultureInfo.InvariantCulture, out var a)
             && double.TryParse(expected, NumberStyles.Float, CultureInfo.InvariantCulture, out var b)
             && Math.Abs(a - b) < 1e-9);
+
+    private ExpectationResult CheckStore(ScenarioExpectation e, int index)
+    {
+        using var doc = JsonDocument.Parse(_surface.Call("store", Obj(("action", "describe"))));
+        var root = doc.RootElement;
+        static string[] List(JsonElement el) => [.. el.EnumerateArray().Select(x => x.GetString() ?? string.Empty)];
+        var owned = List(root.GetProperty("owned"));
+        var pending = List(root.GetProperty("pending"));
+        var recent = List(root.GetProperty("recent"));
+        foreach (var (key, want) in e.StoreChecks)
+        {
+            (bool Ok, string Actual) = key switch
+            {
+                "owned" => (owned.Contains(want), string.Join(',', owned)),
+                "not-owned" => (!owned.Contains(want), string.Join(',', owned)),
+                "pending" => (want == "none" ? pending.Length == 0 : pending.Contains(want), string.Join(',', pending)),
+                "connection" => (root.GetProperty("connection").GetString() == want, root.GetProperty("connection").GetString() ?? string.Empty),
+                "unfinished" => (root.GetProperty("unfinished").GetArrayLength().ToString(CultureInfo.InvariantCulture) == want, root.GetProperty("unfinished").GetArrayLength().ToString(CultureInfo.InvariantCulture)),
+                "products" => (root.GetProperty("products").GetArrayLength().ToString(CultureInfo.InvariantCulture) == want, root.GetProperty("products").GetArrayLength().ToString(CultureInfo.InvariantCulture)),
+                "recent" => (recent.Length > 0 && recent[^1] == want, recent.Length > 0 ? recent[^1] : "nothing"),
+                _ => throw new ControlException("bad_args", $"Unknown store check '{key}'."),
+            };
+            if (!Ok)
+            {
+                var target = "store." + key;
+                return new ExpectationResult(index, "store", e.Line, false, target, want, Actual, $"{target} is {Actual}, expected {want}");
+            }
+        }
+
+        return new ExpectationResult(index, "store", e.Line, true, "store", null, null, null);
+    }
 
     private ExpectationResult CheckPick(ScenarioExpectation e, int index)
     {

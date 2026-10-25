@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>In-app purchases: one store-neutral API over StoreKit, Google Play Billing and a scriptable fake store.</Description>
+    <!-- The StoreKit and Play Billing backends call the Objective-C runtime and the Java VM through blittable function pointers;
+         unsafe code stays inside this assembly. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The Objective-C runtime and JNI helpers live with the platform layer. -->
+    <ProjectReference Include="../OneGame.Platform/OneGame.Platform.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneGame.Purchases.Tests" />
+    <InternalsVisibleTo Include="OneGame.Core.Fuzz" />
+  </ItemGroup>
+
+</Project>
