@@ -15,6 +15,8 @@ try {
   const runtime = await dotnet.withApplicationArguments(...args).create();
   runtime.setModuleImports('onegame-gpu', gpu);
   runtime.setModuleImports('onegame-platform', platform);
+  const exports = await runtime.getAssemblyExports('OneGame.Platform');
+  window.__control = (message) => exports.OneGame.Platform.BrowserPage.Control(message);  // development builds: one MCP message in, the answer out
   await runtime.runMain();
   window.__onegame.mainReturnedMs = performance.now();
   status.remove();

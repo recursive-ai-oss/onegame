@@ -1,0 +1,9 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>platform script test</title></head>
+<body><canvas id="c" width="400" height="300" style="width:400px;height:300px"></canvas>
+<script type="module">
+  import * as p from './onegame-platform.js';
+  window.__p = p;
+  p.init('c');
+  window.__ready = true;
+</script></body></html>

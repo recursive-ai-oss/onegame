@@ -10,6 +10,7 @@ namespace OneGame.Live;
 /// <summary>
 /// Live control for a game running in a web page. A page cannot listen for connections, so it dials out: the tool that served the page
 /// (<c>onegame web test</c>, a test runner) runs a WebSocket endpoint and the page connects to it with <c>?control=ws://…</c>.
+/// With <c>?control=page</c> there is no socket: the page's script calls <c>__control(message)</c> (MCP JSON-RPC) directly, which is how tests drive the page with injected input.
 /// Messages are UTF-8 JSON in binary frames (the page's socket helper is binary-only). Each request carries an <c>id</c> and an <c>op</c>; the reply repeats the id.
 /// <list type="bullet">
 /// <item><c>put</c> (<c>path</c>, <c>data</c> base64), <c>get</c> (<c>path</c>) and <c>list</c> (<c>path</c>, a folder): files in the page's in-memory file system, for scenarios and references.</item>
@@ -23,7 +24,15 @@ internal static class WebControl
 {
     private const int MaxFileBytes = 64 * 1024 * 1024;
 
-    public static void Start(GameInstance game, ControlSurface surface, string url) => _ = Guarded(game, surface, url);
+    public static void Start(GameInstance game, ControlSurface surface, string url)
+    {
+        var mcp = new McpProtocol(surface);
+        BrowserPage.SetControlHandler(async message => await mcp.HandleAsync(message).ConfigureAwait(true));
+        if (url != "page")
+        {
+            _ = Guarded(game, surface, url);
+        }
+    }
 
     private static async Task Guarded(GameInstance game, ControlSurface surface, string url)
     {

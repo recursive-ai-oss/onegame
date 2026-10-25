@@ -56,7 +56,13 @@ await send('Runtime.enable');
 await send('Log.enable');
 const start = Date.now();
 let result;
-while (Date.now() - start < timeout) {
+if (args.script) {
+  // A test script drives the page: it gets the CDP send function, a helper to evaluate JavaScript in the page and a sleep.
+  const evalJs = async (expression) => { const r = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description || 'eval failed'); return r.result?.result?.value; };
+  const mod = await import(path.resolve(args.script));
+  try { result = JSON.stringify(await mod.default({ send, evalJs, sleep: (ms) => new Promise(r => setTimeout(r, ms)), logs })); } catch (e) { result = JSON.stringify({ ok: false, error: String(e && e.stack || e) }); }
+}
+while (!result && Date.now() - start < timeout) {
   await new Promise(r => setTimeout(r, 500));
   const r = await send('Runtime.evaluate', { expression: args.eval || 'window.__result', returnByValue: true });
   if (r.result?.result?.value) { result = r.result.result.value; break; }
