@@ -101,6 +101,10 @@ public class TradeTests
             t.Realms.Kill(victim);
             t.Realms.Run(40);
             t.Realms.Start(victim);
+            // It came back from its file, not from a fresh start: the world already holds what the save held.
+            Assert.True(t.Realms.Host(victim).Scopes[0].World.Tick > 5, "the restored scope should carry its tick");
+            Assert.True(victim != Rules.Master || t.Realms.M.Scopes[0].World.Entities.OfType<Account>().Count() == 2, "the accounts should be back");
+
             // The ledger on the master is the truth about the swap; a client behind a relay may need a moment after the master comes back.
             var accounts = () => t.Realms.M.Scopes[0].World.Entities.OfType<Account>().ToList();
             t.Realms.RunUntil(

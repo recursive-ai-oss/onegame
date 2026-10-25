@@ -52,5 +52,5 @@ Exports: `onegame export --project Lanterns.csproj` and `onegame export --server
 
 - Player ids come from a counter on the island that was joined; nothing authenticates a player, so a returning client is a new player.
 - A player whose client leaves stays on the island.
-- The master's view of a restarted master can stay stale for a client until it reconnects (see the report on relays).
+- A client that follows the master through its island's relay can keep a stale view of the accounts after the master was killed and started again from its save (the servers and the ledger are correct; the client needs to reconnect).
 - No Windows run, no real-network run.
