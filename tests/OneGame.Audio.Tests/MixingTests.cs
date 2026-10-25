@@ -369,6 +369,46 @@ public class MixingTests
     }
 
     [Fact]
+    public void AMeterRequestSaysWhyItFailed()
+    {
+        using var s = Service(new AudioServiceOptions { MaxBusMeters = 4 });
+        Assert.Equal(BusMeterResult.Metered, s.TryEnableBusMeter(AudioBus.Music));
+        Assert.True(s.IsBusMetered(AudioBus.Music));
+        Assert.False(s.IsBusMetered(new AudioBus(3)));
+        Assert.Equal(BusMeterResult.Metered, s.TryEnableBusMeter(new AudioBus(3)));
+        Assert.True(s.IsBusMetered(new AudioBus(3)));
+        Assert.Equal(0, s.FreeBusMeters);
+
+        // Out of slots: every one is used by another bus.
+        Assert.Equal(BusMeterResult.NoFreeSlot, s.TryEnableBusMeter(new AudioBus(4)));
+        Assert.False(s.IsBusMetered(new AudioBus(4)));
+        Assert.True(s.DisableBusMeter(new AudioBus(3)));
+        Assert.False(s.IsBusMetered(new AudioBus(3)));
+        Assert.Equal(BusMeterResult.Metered, s.TryEnableBusMeter(new AudioBus(4)));
+
+        // No meters at all on this service.
+        using var none = Service(new AudioServiceOptions { MaxBusMeters = 0 });
+        Assert.Equal(BusMeterResult.Unavailable, none.TryEnableBusMeter(AudioBus.Music));
+        using var off = Service(new AudioServiceOptions { Metering = false });
+        Assert.Equal(BusMeterResult.Unavailable, off.TryEnableBusMeter(AudioBus.Music));
+    }
+
+    [Fact]
+    public void AFullCommandQueueIsNotReportedAsNoSlot()
+    {
+        // The test core never starts a meter: with a slot reported free the refusal can only have been a full queue.
+        using var s = AudioService.Create(new AudioServiceOptions { Capture = true, CoreFactory = TestCore.Factory, MaxBusMeters = 3, Device = new AudioDeviceOptions { SampleRate = 48_000, Channels = 2 } });
+        var core = (TestCore)s.Core;
+        core.MeterSlotsFree = 1;
+        Assert.Equal(BusMeterResult.QueueFull, s.TryEnableBusMeter(AudioBus.Music));
+        Assert.False(s.EnableBusMeter(AudioBus.Music));
+        core.MeterSlotsFree = 0;
+        Assert.Equal(BusMeterResult.NoFreeSlot, s.TryEnableBusMeter(AudioBus.Music));
+        Assert.False(s.IsBusMetered(AudioBus.Music));
+        Assert.Null(s.GetBusLoudness(AudioBus.Music));
+    }
+
+    [Fact]
     public void MoreMetersAndReverbsThanSlotsReturnFalseAndNeverThrow()
     {
         using var s = Service(new AudioServiceOptions { MaxBusMeters = 4, MaxReverbs = 1 });
