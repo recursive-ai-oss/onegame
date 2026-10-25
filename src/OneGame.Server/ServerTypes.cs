@@ -122,16 +122,21 @@ internal sealed class HashRing
 {
     private readonly long[] _ticks;
     private readonly ulong[] _hashes;
+    private readonly ulong[][] _views;
+    private readonly int[] _viewCounts;
     private int _next;
 
     public HashRing(int capacity)
     {
         _ticks = new long[capacity];
         _hashes = new ulong[capacity];
+        _views = new ulong[capacity][];
+        _viewCounts = new int[capacity];
+        Array.Fill(_views, Array.Empty<ulong>());
         Array.Fill(_ticks, -1);
     }
 
-    public void Add(long tick, World world)
+    public void Add(long tick, AuthorityScope scope)
     {
         if (_ticks.Length == 0)
         {
@@ -139,22 +144,39 @@ internal sealed class HashRing
         }
 
         _ticks[_next] = tick;
-        _hashes[_next] = world.ComputeHash();
+        _hashes[_next] = scope.World.ComputeHash();
+
+        // What each subscriber's replica must hold at this tick (its audience's view). The arrays are reused, so a steady state allocates nothing.
+        var subscribers = scope.Subscribers;
+        var views = _views[_next];
+        if (views.Length < subscribers.Count)
+        {
+            views = _views[_next] = new ulong[Math.Max(subscribers.Count, 4)];
+        }
+
+        _viewCounts[_next] = subscribers.Count;
+        for (var i = 0; i < subscribers.Count; i++)
+        {
+            views[i] = scope.ViewHashFor(subscribers[i]);
+        }
+
         _next = (_next + 1) % _ticks.Length;
     }
 
-    public bool TryGet(long tick, out ulong hash)
+    public bool TryGet(long tick, out ulong hash, out ulong[] views)
     {
         for (var i = 0; i < _ticks.Length; i++)
         {
             if (_ticks[i] == tick)
             {
                 hash = _hashes[i];
+                views = _views[i].AsSpan(0, _viewCounts[i]).ToArray();
                 return true;
             }
         }
 
         hash = 0;
+        views = [];
         return false;
     }
 }

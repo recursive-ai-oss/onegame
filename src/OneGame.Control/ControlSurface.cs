@@ -156,7 +156,8 @@ public sealed class ControlSurface : IControlEndpoint
         return new NetDivergeResult(Label(e), Game.World.Tick, HashText());
     }
 
-    private string HashText() => Game.World.ComputeHash().ToString("x16", CultureInfo.InvariantCulture);
+    // A replica holds only what its server shows it, so its hash is the hash of that view.
+    private string HashText() => (Game.Remote is { } remote ? remote.Replica.ViewHash : Game.World.ComputeHash()).ToString("x16", CultureInfo.InvariantCulture);
 
     private StateResult State() => new(Game.Frame, Game.World.Tick, HashText());
 

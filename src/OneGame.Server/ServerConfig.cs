@@ -90,7 +90,7 @@ public sealed class ServerConfig
     public ClientTrustConfig ClientTrust { get; init; } = new(null, null);
 
     /// <summary>How many recent ticks of per-scope state hashes to keep so another node's hash can be compared at the same tick; 0 turns it off.</summary>
-    public int HashHistory { get; init; } = 256;
+    public int HashHistory { get; init; }
 
     /// <summary>A socket path for live control, or null for none (the runner may supply its own).</summary>
     public string? Live { get; init; }

@@ -47,6 +47,9 @@ public sealed class LiveClient : IDisposable
         return [.. names];
     }
 
+    /// <summary>The process's MCP tool list as JSON: each tool's name, description and input schema.</summary>
+    public string ToolsJson() => Request("tools/list", "{}", "tools/list");
+
     private string Request(string method, string paramsJson, string what)
     {
         try

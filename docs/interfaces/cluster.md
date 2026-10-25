@@ -17,18 +17,18 @@ listen:                       # port 0 picks a free port; the bound ports are pr
 trust:                        # what every client may do; default: read and command every scope
   read: [1]
   command: [1]
-hashHistory: 256              # ticks of per-scope hashes kept for cross-node comparison (0 = off)
+hashHistory: 256              # ticks of hashes kept (the scope, and what each client holds) for cross-node comparison; default 0 = off, the cluster harness turns it on
 ```
 
-`ServerHost` accepts connections inside `StepOnce` and `PumpNetwork()` (the runner calls it between ticks). Each accepted connection gets the `Trust` returned by `ServerHost.Authenticate` (`Func<ClientRequest, Trust?>`; null refuses and closes it; the default applies the config's `trust`). The transport is unauthenticated today (see `transport.md`), so the hook sees only the remote address. A closed connection is unsubscribed from every scope. `ServerHost.Clients()` lists them (name, transport, address, state, RTT, loss, retransmits).
+`ServerHost` accepts connections (`Node.Accept`) inside `StepOnce` and `PumpNetwork()` (the runner calls it between ticks). Each accepted connection gets the `Trust` returned by `ServerHost.Authenticate` (`Func<ClientRequest, Trust?>`; null refuses and closes it; the default applies the config's `trust`). The transport is unauthenticated today (see `transport.md`), so the hook sees only the remote address. A closed connection is unsubscribed from every scope. `ServerHost.Clients()` lists them (name, transport, address, state, RTT, loss, retransmits).
 
 `ServerApp.Run(setup, args)`: `--config f.yaml` and/or `--name N --scope ID[:SEED] --listen udp:PORT|ws:PORT --tick-rate N --hash-history N`, `--live [path]`, `--manual` (tick only on `step`), `--ticks N`, `--parent PID` (exit when that process is gone). One JSON line goes to stdout when listening: `{"ready":true,"pid":123,"live":"/path.sock","listen":[{"transport":"udp","port":41000}]}`; `{"stopped":true,...}` follows at the end.
 
-Control ops added to the server surface: `clients`, `hash_at {tick}` (hash of each scope at a recorded tick, or null), `state_query` accepts `entity` as `Type`, `Type#n` or an id and `property`.
+Control ops added to the server surface: `clients`, `hash_at {tick}` (the scope hash at a recorded tick, or null, and the view hash of each connected client at that tick: what its replica must hold), `state_query` accepts `entity` as `Type`, `Type#n` or an id and `property`.
 
 ## Client
 
-`GameApp` options: `--connect udp://host:port|ws://host:port`, `--scope N` (default 1), `--name N`, `--net latency=100,jitter=10,loss=0.02,duplicate=0.01,reorder=0.05,seed=7` (the network conditioner on this client's socket; UDP is conditioned per datagram, WebSocket per message), `--parent PID`. `GameOptions.Connect` is the API form. The game's world is then the **replica** (`GameInstance.World.Role == Replica`): `Step` pumps the connection instead of running a tick, commands (from views, `command_send`, scenarios) are forwarded to the server, and state writes (`state_patch`, `reset`, fixtures, snapshots) fail with `replica`. Each frame the network is pumped; so is every `DrainInput`, which keeps a paused live client connected.
+`GameApp` options: `--connect udp://host:port|ws://host:port`, `--scope N` (default 1), `--name N`, `--net latency=100,jitter=10,loss=0.02,duplicate=0.01,reorder=0.05,seed=7` (the network conditioner on this client's outgoing traffic, so the server sees the latency and loss; UDP is conditioned per datagram, WebSocket per message), `--parent PID`. `GameOptions.Connect` is the API form. The game's world is then the **replica** (`GameInstance.World.Role == Replica`): `Step` pumps the connection instead of running a tick, commands (from views, `command_send`, scenarios) are forwarded to the server, and state writes (`state_patch`, `reset`, fixtures, snapshots) fail with `replica`. Each frame the network is pumped; so is every `DrainInput`, which keeps a paused live client connected.
 
 Client control ops: `net_status` (state, address, transport, replica state, tick, hash, resyncs, drift reports with node/scope/tick/differences, transport stats), `net_wait {tick|serverTick, timeoutMs}` (pump until the replica reaches a tick), `net_diverge {entity?}` (corrupts replica state locally, to prove drift detection; development builds only like all live ops).
 
@@ -43,7 +43,7 @@ nodes:
   - { name: p1, role: client, exe: bin/Game, connect: master, transport: udp, net: { latencyMs: 100, lossRate: 0.02 } }
 ```
 
-`ProcessCluster.Up(spec)` starts each node as its own OS process (servers first; clients when their `connect` target is ready), output to `<dir>/<node>.log`, and records `<dir>/cluster.json` (name, pid, live socket, endpoints, log per node). Nodes watch the starting process (`--parent`), so a crashed test leaves nothing behind within about a second; `Down()` stops them by PID (a live `shutdown` first, then SIGTERM, then SIGKILL) and verifies none is alive. `Call(node, op, args)` runs any control op on a node. `Hashes()` returns every node's (scope, role, tick, hash) and checks each client replica against its server's recorded hash **at the replica's tick**, plus each node's drift reports. `ClusterHashReport.Ok` is false on any mismatch or drift; mismatches name node, scope and tick. `TestCluster.Launch(spec)` is the test entry.
+`ProcessCluster.Up(spec)` starts each node as its own OS process (servers first; clients when their `connect` target is ready), output to `<dir>/<node>.log`, and records `<dir>/cluster.json` (name, pid, live socket, endpoints, log per node). Nodes watch the starting process (`--parent`), so a crashed test leaves nothing behind within about a second; `Down()` stops them by PID (a live `shutdown`/`quit` first, then a kill) and verifies none is alive. `Call(node, op, args)` runs any control op on a node. `Hashes()` returns every node's (scope, role, tick, hash) and checks each client replica's view hash against its server's recorded view hashes **at the replica's tick**, plus each node's drift reports. `ClusterHashReport.Ok` is false on any mismatch or drift; mismatches name node, scope and tick. `TestCluster.Launch(spec)` is the test entry.
 
 ## Cluster scenarios
 

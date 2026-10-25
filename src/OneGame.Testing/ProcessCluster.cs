@@ -347,6 +347,16 @@ public sealed class ProcessCluster : IDisposable
                     if (s.GetProperty("scope").GetUInt32() == c.Scope)
                     {
                         serverHash = s.TryGetProperty("hash", out var h) && h.ValueKind == JsonValueKind.String ? h.GetString() : null;
+
+                        // The replica holds its audience's view of the scope: it matches when it equals the view of one of the server's clients
+                        // (or the whole scope, when everything is visible).
+                        foreach (var v in s.GetProperty("views").EnumerateArray())
+                        {
+                            if (v.GetString() == c.Hash)
+                            {
+                                serverHash = c.Hash;
+                            }
+                        }
                     }
                 }
 
@@ -484,28 +494,31 @@ public sealed class ProcessCluster : IDisposable
             throw new ClusterException("orphans", "These nodes are still running after being killed: " + string.Join(", ", alive));
         }
 
+        try
         {
-            try
+            File.Delete(_stateFile);
+            if (_owner && _ownsDir)
             {
-                File.Delete(_stateFile);
-                if (_owner && _ownsDir)
-                {
-                    Directory.Delete(_state.Dir, true);
-                }
+                Directory.Delete(_state.Dir, true);
             }
-            catch (IOException)
-            {
-                // The state file is only a pointer, and a leftover temporary folder is harmless.
-            }
+        }
+        catch (IOException)
+        {
+            // The state file is only a pointer, and a leftover temporary folder is harmless.
         }
 
         return report;
     }
 
-    /// <summary>Stops the cluster (see <see cref="Down"/>).</summary>
+    /// <summary>Stops the cluster when this object started it (see <see cref="Down"/>); one found with <see cref="Attach"/> is left running.</summary>
     public void Dispose()
     {
-        if (!_down)
+        foreach (var client in _clients.Values)
+        {
+            client.Dispose();
+        }
+
+        if (_owner && !_down)
         {
             try
             {

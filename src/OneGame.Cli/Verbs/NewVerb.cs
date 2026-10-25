@@ -9,11 +9,12 @@ internal sealed class NewVerb : IVerb
 {
     public string Name => "new";
 
-    public string Summary => "Create a game: onegame new <name> [--dir <folder>] [--engine <checkout>].";
+    public string Summary => "Create a game: onegame new <name> [--server] [--dir <folder>] [--engine <checkout>]; --server adds a dedicated-server project.";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
         string? name = null, dir = null, engine = null;
+        var withServer = false;
         for (var i = 0; i < args.Length; i++)
         {
             switch (args[i])
@@ -24,8 +25,11 @@ internal sealed class NewVerb : IVerb
                 case "--engine" when i + 1 < args.Length:
                     engine = args[++i];
                     break;
+                case "--server":
+                    withServer = true;
+                    break;
                 case var a when a.StartsWith("--", StringComparison.Ordinal):
-                    throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {a}. Usage: onegame new <name> [--dir <folder>] [--engine <checkout>].");
+                    throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {a}. Usage: onegame new <name> [--server] [--dir <folder>] [--engine <checkout>].");
                 default:
                     name ??= args[i];
                     break;
@@ -48,13 +52,22 @@ internal sealed class NewVerb : IVerb
         var cls = string.Concat(name.Split('-', '_').Where(p => p.Length > 0).Select(p => char.ToUpperInvariant(p[0]) + p[1..]));
         var files = new Dictionary<string, string>
         {
-            [name + ".csproj"] = Templates.Csproj(root, cls),
+            [name + ".csproj"] = Templates.Csproj(root, cls, withServer),
             ["Program.cs"] = Templates.Program(cls, cls),
-            ["Game.cs"] = Templates.Game(cls, cls, name),
+            ["Game.cs"] = Templates.Game(cls, cls, name, withServer),
             ["scenarios/click-button.yaml"] = Templates.Scenario,
             [".gitignore"] = "bin/\nobj/\nartifacts/\ncaptures/\n",
             ["README.md"] = Templates.Readme(name),
         };
+        if (withServer)
+        {
+            // The simulation lives in its own file so the server project can compile it without the game's screens.
+            files["Sim.cs"] = Templates.Sim(cls);
+            files[$"server/{name}-server.csproj"] = Templates.ServerCsproj(root, cls);
+            files["server/Program.cs"] = Templates.ServerProgram(cls);
+            files["server/server.yaml"] = Templates.ServerConfig(name);
+        }
+
         foreach (var (relative, text) in files)
         {
             var path = Path.Combine(target, relative);
@@ -116,7 +129,7 @@ internal sealed class NewVerb : IVerb
 /// <summary>The files of a new game.</summary>
 internal static class Templates
 {
-    public static string Csproj(string engine, string id) => $"""
+    public static string Csproj(string engine, string id, bool withServer = false) => $"""
         <Project Sdk="Microsoft.NET.Sdk">
 
           <PropertyGroup>
@@ -128,8 +141,80 @@ internal static class Templates
 
           <!-- Target framework, analyzers, references, and (in Debug builds only) the development tools: live control, scenarios, capture. -->
           <Import Project="$(OneGameRoot)/build/Game.targets" />
+        {ServerExclusion(withServer)}
+        </Project>
+
+        """;
+
+    private static string ServerExclusion(bool withServer) => withServer
+        ? "\n<!-- The server project in server/ has its own Program. -->\n<ItemGroup>\n  <Compile Remove=\"server/**\" />\n</ItemGroup>\n"
+        : "";
+
+    public static string ServerCsproj(string engine, string id) => $"""
+        <Project Sdk="Microsoft.NET.Sdk">
+
+          <PropertyGroup>
+            <!-- The onegame checkout this server builds against. -->
+            <OneGameRoot>{engine}</OneGameRoot>
+            <AssemblyName>{id}Server</AssemblyName>
+            <RootNamespace>{id}</RootNamespace>
+            <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+          </PropertyGroup>
+
+          <!-- A dedicated server: no window, GPU or audio. Publish it with: onegame export (server option) -->
+          <Import Project="$(OneGameRoot)/build/Server.targets" />
+
+          <ItemGroup>
+            <Compile Include="Program.cs" />
+            <!-- The simulation the game and the server share. Keep view code out of these files. -->
+            <Compile Include="../Sim.cs" Link="Sim.cs" />
+          </ItemGroup>
 
         </Project>
+
+        """;
+
+    public static string ServerProgram(string id) => $$"""
+        using {{id}};
+        using OneGame.Server;
+        using OneGame.Server.Live;
+
+        // The whole server: listen, tick, serve live control. See server.yaml for the options (or pass them on the command line).
+        return ServerApp.Run(
+            new ServerSetup
+            {
+                RegisterEntities = OneGame.Generated.{{id}}Server.EntityTypes.Register,
+                SeedWorld = (world, _) => world.Add(new Counter()),
+            },
+            args);
+
+        """;
+
+    public static string ServerConfig(string name) => $$"""
+        name: {{name}}
+        tickRate: 60
+        scopes:
+          - { id: 1, seed: 1 }
+        listen:
+          - { transport: udp, port: 7777 }
+          - { transport: ws, port: 7778 }
+
+        """;
+
+    public static string Sim(string id) => $$"""
+        using OneGame.Core;
+
+        namespace {{id}};
+
+        /// <summary>The state of the game: one synced number and a command that changes it.</summary>
+        [Entity]
+        public partial class Counter : Entity
+        {
+            [Synced] public partial int Count { get; private set; }
+
+            [Command]
+            public void Increment(int by) => Count += by;
+        }
 
         """;
 
@@ -141,7 +226,9 @@ internal static class Templates
 
         """;
 
-    public static string Game(string id, string cls, string name) => $$"""
+    public static string Game(string id, string cls, string name, bool withServer = false) => withServer ? GameOnly(id, cls, name) : GameWithSim(id, cls, name);
+
+    private static string GameWithSim(string id, string cls, string name) => $$"""
         using OneGame.Core;
         using OneGame.Host;
         using OneGame.UI;
@@ -170,6 +257,35 @@ internal static class Templates
             public override void DefineScreens(ScreenSet screens) =>
                 screens.Add("main", game => Ui.Column(
                     Ui.Label(() => "Count: " + CounterOf(game).Count).Named("count"),
+                    Ui.Button("Add one", () => CounterOf(game).Send.Increment(1)).Named("add").Padding(Length.Px(8)).Background(Color.Rgb(0x3060A0)))
+                    .Padding(Length.Px(24)).Gap(Length.Px(12)).Background(Color.Rgb(0x203040)).TextColor(Color.White));
+
+            // Read the world through the instance: it is replaced when a snapshot or fixture is loaded.
+            private static Counter CounterOf(GameInstance game) => (Counter)game.World.Entities[0];
+        }
+
+        """;
+
+    // With a server project the entity lives in Sim.cs; this is the game without it.
+    private static string GameOnly(string id, string cls, string name) => $$"""
+        using OneGame.Core;
+        using OneGame.Host;
+        using OneGame.UI;
+
+        namespace {{id}};
+
+        /// <summary>The game: its entity types, its starting world and its screens. Run it against a server with --connect udp://host:7777.</summary>
+        public sealed class {{cls}}Game : GameDefinition
+        {
+            public override string Name => "{{name}}";
+
+            public override void RegisterEntities(EntityRegistry registry) => OneGame.Generated.{{id}}.EntityTypes.Register(registry);
+
+            public override void Setup(World world) => world.Add(new Counter());
+
+            public override void DefineScreens(ScreenSet screens) =>
+                screens.Add("main", game => Ui.Column(
+                    Ui.Label(() => game.World.Entities.Count > 0 ? "Count: " + CounterOf(game).Count : "connecting").Named("count"),
                     Ui.Button("Add one", () => CounterOf(game).Send.Increment(1)).Named("add").Padding(Length.Px(8)).Background(Color.Rgb(0x3060A0)))
                     .Padding(Length.Px(24)).Gap(Length.Px(12)).Background(Color.Rgb(0x203040)).TextColor(Color.White));
 

@@ -71,7 +71,8 @@ public sealed class ServerHost
         var list = new ScopeHashAt[_scopes.Count];
         for (var i = 0; i < list.Length; i++)
         {
-            list[i] = new ScopeHashAt(_scopes[i].Id.Value, tick, _scopes[i].History.TryGet(tick, out var h) ? h.ToString("x16", CultureInfo.InvariantCulture) : null);
+            var found = _scopes[i].History.TryGet(tick, out var h, out var views);
+            list[i] = new ScopeHashAt(_scopes[i].Id.Value, tick, found ? h.ToString("x16", CultureInfo.InvariantCulture) : null, [.. views.Select(v => v.ToString("x16", CultureInfo.InvariantCulture))]);
         }
 
         return list;
@@ -189,7 +190,7 @@ public sealed class ServerHost
                 Quarantine(Blame(ex)!, "tick", ex);
             }
 
-            scope.History.Add(scope.World.Tick, scope.World);
+            scope.History.Add(scope.World.Tick, scope.Authority);
         }
 
         Tick++;

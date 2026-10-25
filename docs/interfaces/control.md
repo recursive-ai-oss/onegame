@@ -65,6 +65,10 @@ Release builds do not reference `OneGame.Live`, `OneGame.Control`, `OneGame.Test
 
 `runtime` is `nativeaot` or `coreclr-self-contained`; `renderer` is `2d`; `archive` is absent with `--no-archive`; `files` is every file in `directory` (paths relative, `/`-separated, sorted). Warning codes: `not_native_aot`, `glibc_too_new`, `font_licence_missing`, `large_file`. Failure codes: `bad_target` (exit 2), `steam_redist_missing` and `dev_tools_present` (exit 4), `publish_failed`, `bad_project` and `no_executable` (exit 3), plus `no_project` and `ambiguous_project` as for the other verbs.
 
+## Playing on a server
+
+`--connect udp://host:port|ws://host:port` (with `--scope`, `--name`, `--net latency=100,loss=0.02`) makes the game a client: its world is a replica, `step` pumps the connection, commands go to the server, and `net_status`, `net_wait` and `net_diverge` are added to the table. `onegame cluster`, `onegame mcp --cluster` and cluster scenarios drive many such processes at once: `cluster.md`.
+
 ## Scenarios
 
 YAML read through OneYaml's document model; unknown keys are errors with the line. Top level: `name`, `description`, `fixture`, `snapshot`, `window` (`WxH`), `seed`, `steps`, `expect`.

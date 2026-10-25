@@ -38,7 +38,7 @@ public sealed record DriftInfo(string Node, uint Scope, long Tick, string Expect
 /// <param name="Scope">The subscribed scope.</param>
 /// <param name="Replica">Replica state: subscribing, live, resyncing, refused, failed.</param>
 /// <param name="Tick">The replica's tick.</param>
-/// <param name="Hash">The replica's state hash as 16 hex digits.</param>
+/// <param name="Hash">The hash of what the replica holds (its view of the scope) as 16 hex digits; the server's hash for this client's audience is equal at the same tick.</param>
 /// <param name="FramesApplied">Frames applied so far.</param>
 /// <param name="Resyncs">How often the replica re-subscribed after a gap or drift.</param>
 /// <param name="Drift">Drift reports filed so far.</param>
@@ -54,16 +54,11 @@ public sealed record NetStatus(
     long FramesApplied, int Resyncs, int Drift, double RttMs, long Retransmits, double InboundLoss, double OutboundLoss, long MessagesSent, long MessagesReceived, DriftInfo[] Reports);
 
 /// <summary>
-/// A game's connection to a server: a node holding one replica scope, joined to a transport connection. The sync layer's nodes talk
-/// through message channels; this makes a stub for the server end of the node's link and moves each message between it and the
-/// connection. <see cref="Pump"/> does all the work, on the caller's thread.
+/// A game's connection to a server: a node holding one replica scope, reached through a transport connection
+/// (<see cref="Node.ConnectVia"/>). <see cref="Pump"/> does all the work, on the caller's thread.
 /// </summary>
-// Replace with Node.ConnectVia(channel) once the sync layer offers it: the stub node and the copy loops go away.
 public sealed class RemoteSession
 {
-    private readonly Node _stub;
-    private readonly Link _link;
-
     /// <summary>Connects an empty replica world to a server and subscribes to the scope. Pump it to make progress.</summary>
     /// <param name="options">Where to connect.</param>
     /// <param name="replicaWorld">An empty replica world with the server's entity types, tables and systems.</param>
@@ -75,9 +70,8 @@ public sealed class RemoteSession
         (Transport, var endpoint) = Parse(options.Address);
         Connection = Open(Transport, endpoint, options.Conditions);
         Node = new Node(options.Name);
-        _stub = new Node("server");
-        _link = Node.ConnectTo(_stub, Trust.Full, options.Name);
-        Replica = Node.Subscribe(_link, new ScopeId(options.Scope), replicaWorld);
+        var link = Node.ConnectVia(Connection);
+        Replica = Node.Subscribe(link, new ScopeId(options.Scope), replicaWorld);
     }
 
     /// <summary>The options it was created with.</summary>
@@ -105,24 +99,7 @@ public sealed class RemoteSession
     public void Pump()
     {
         Connection.Pump();
-        while (Connection.TryReceive(out var message))
-        {
-            _link.Connection.Channel.Send(message);
-        }
-
         Node.Pump();
-        try
-        {
-            while (_link.Connection.Channel.TryReceive(out var message))
-            {
-                Connection.Send(message);
-            }
-        }
-        catch (MessageTooLargeException)
-        {
-            Connection.Disconnect(DisconnectReason.MessageTooLarge);
-        }
-
         Connection.Pump();
     }
 
@@ -133,7 +110,7 @@ public sealed class RemoteSession
         var close = Connection.CloseInfo;
         return new NetStatus(
             Options.Address, Transport, Connection.State.ToString().ToLowerInvariant(), close.Reason == DisconnectReason.None ? null : close.Reason.ToString(), Options.Scope,
-            Replica.State.ToString().ToLowerInvariant(), Replica.World.Tick, Replica.World.ComputeHash().ToString("x16", CultureInfo.InvariantCulture),
+            Replica.State.ToString().ToLowerInvariant(), Replica.World.Tick, Replica.ViewHash.ToString("x16", CultureInfo.InvariantCulture),
             Replica.FramesApplied, Replica.Resyncs, Node.DriftCount, Math.Round(s.RttMs, 1), s.Retransmits, Math.Round(s.InboundLoss, 4), Math.Round(s.OutboundLoss, 4),
             s.MessagesSent, s.MessagesReceived, DriftInfos());
     }

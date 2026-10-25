@@ -90,7 +90,37 @@ onegame mcp --socket /tmp/shop.sock     # then: info, ui_click, input_text, clip
 
 `capture_frame` renders offscreen at any size; with `"presented": true` it returns the frame the window actually shows. `input_*` operations go through the same queue as the keyboard and mouse, so a text field cannot tell them apart; `input_composition` plays an input method's pre-edit text and `clipboard_get`/`clipboard_set` read and write the system clipboard (paste with `input_key` `v` + `Control`). With no display (a CI machine) run headless, or start `Xvfb :88 -noreset` for a window.
 
-## 6. Ship it
+## 7. Servers and clusters
+
+A game with a dedicated server (`onegame new shop --server` adds `server/`, a small project that compiles the game's `Sim.cs`) runs as separate processes on a real network:
+
+```
+onegame export --server --project server --out ./srv     # NativeAOT linux-x64 server, same JSON report as a game export
+onegame run -- --connect udp://127.0.0.1:7777 --headless --live /tmp/p1.sock --realtime   # a client on the server's world
+```
+
+A cluster file names the processes; `onegame cluster` starts, inspects and stops them, and every node has its own live socket:
+
+```yaml
+name: shop
+nodes:
+  - { name: arena, role: server, exe: srv/shop-server-1.0.0-linux-x64/shopServer, listen: udp+ws, scopes: [{ id: 1, seed: 7 }] }
+  - { name: p1, role: client, exe: bin/shop, connect: arena, transport: udp, net: { latencyMs: 100, lossRate: 0.02 } }
+  - { name: p2, role: client, exe: bin/shop, connect: arena, transport: ws }
+```
+
+```
+onegame cluster up --spec cluster.yaml --json      # pids, sockets, bound ports
+onegame cluster call p1 command_send '{"entity":"Counter","command":"Increment","args":["1"]}'
+onegame cluster hashes --json                      # every replica against its server at the same tick; exit 1 on a mismatch or drift
+onegame cluster test scenarios/two-players.yaml --spec cluster.yaml   # up, run, down
+onegame cluster down
+onegame mcp --cluster .onegame-cluster             # one MCP server for all nodes; every tool takes a node argument
+```
+
+In C#: `TestCluster.Launch(spec)` returns a `ProcessCluster` (`Call`, `WaitForTick`, `Hashes`, `Run(scenario)`, `Down`). A cluster scenario aims steps and expectations at nodes with `node:`; `wait`, `agree` and `drift` are its own verbs. `docs/interfaces/cluster.md` has the details.
+
+## 8. Ship it
 
 ```
 onegame export --target linux-x64 --steam --json     # a folder and a .tar.gz under ./export, nothing else in them

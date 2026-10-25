@@ -32,15 +32,14 @@ public sealed record ClientInfo(int Id, string Name, string Transport, string Ad
 /// <summary>The recorded hash of one scope at one tick.</summary>
 /// <param name="Scope">The scope id.</param>
 /// <param name="Tick">The tick asked for.</param>
-/// <param name="Hash">The hash as 16 hex digits, or null when that tick is not (or no longer) recorded.</param>
-public sealed record ScopeHashAt(uint Scope, long Tick, string? Hash);
+/// <param name="Hash">The hash of the whole scope as 16 hex digits, or null when that tick is not (or no longer) recorded.</param>
+/// <param name="Views">The hash of what each connected client's replica must hold at that tick (its audience's view of the scope); equal to <c>Hash</c> when everything is visible to everyone.</param>
+public sealed record ScopeHashAt(uint Scope, long Tick, string? Hash, string[] Views);
 
 /// <summary>
-/// The server's side of its network clients. The sync layer's nodes talk through message channels; for every accepted connection this
-/// makes a stub peer node joined to the server node by a loopback pair, and moves each message between that pair and the connection.
-/// The server node then handles it like any other client.
+/// The server's side of its network clients: listeners, the authentication decision, and <see cref="Node.Accept"/> for every accepted
+/// connection, so the server node handles it like any other client. Closed connections are unsubscribed from every scope.
 /// </summary>
-// Replace with Node.Accept(channel, trust) once the sync layer offers it: the stub node and the copy loops go away.
 internal sealed class ServerNetwork
 {
     private readonly Node _server;
@@ -90,36 +89,11 @@ internal sealed class ServerNetwork
             }
         }
 
-        for (var i = 0; i < _remotes.Count; i++)
-        {
-            var r = _remotes[i];
-            while (r.Connection.TryReceive(out var message))
-            {
-                r.Link.Channel.Send(message);
-            }
-        }
     }
 
     /// <summary>Moves what the server node wrote to the connections and drops the ones that closed. Call after publishing.</summary>
     public void PumpOutbound()
     {
-        for (var i = _remotes.Count - 1; i >= 0; i--)
-        {
-            var r = _remotes[i];
-            try
-            {
-                while (r.Link.Channel.TryReceive(out var message))
-                {
-                    r.Connection.Send(message);
-                }
-            }
-            catch (MessageTooLargeException ex)
-            {
-                _log($"client {r.Name} dropped: {ex.Message}");
-                r.Connection.Disconnect(DisconnectReason.MessageTooLarge);
-            }
-        }
-
         for (var i = 0; i < _listeners.Count; i++)
         {
             _listeners[i].Pump();
@@ -141,7 +115,7 @@ internal sealed class ServerNetwork
         {
             var r = _remotes[i];
             var s = r.Connection.Stats;
-            list[i] = new ClientInfo(r.Link.Connection.Id, r.Name, r.Transport, r.Connection.RemoteName, r.Connection.State.ToString().ToLowerInvariant(), Math.Round(s.RttMs, 1), Math.Round(s.InboundLoss, 4), Math.Round(s.OutboundLoss, 4), s.Retransmits, s.MessagesSent, s.MessagesReceived);
+            list[i] = new ClientInfo(r.Accepted.Id, r.Name, r.Transport, r.Connection.RemoteName, r.Connection.State.ToString().ToLowerInvariant(), Math.Round(s.RttMs, 1), Math.Round(s.InboundLoss, 4), Math.Round(s.OutboundLoss, 4), s.Retransmits, s.MessagesSent, s.MessagesReceived);
         }
 
         return list;
@@ -186,9 +160,9 @@ internal sealed class ServerNetwork
             return;
         }
 
-        var stub = new Node("remote:" + request.Name);
-        var link = stub.ConnectTo(_server, trust.Value, request.Name);
-        _remotes.Add(new Remote(request.Name, transport, connection, link));
+        var channel = new InjectableChannel(connection);
+        var accepted = _server.Accept(channel, trust.Value, request.Name);
+        _remotes.Add(new Remote(request.Name, transport, connection, channel, accepted));
         _log($"client {request.Name} connected");
     }
 
@@ -199,7 +173,7 @@ internal sealed class ServerNetwork
         var info = r.Connection.CloseInfo;
         _log($"client {r.Name} left ({info.Reason}{(info.ByRemote ? ", by the client" : "")})");
 
-        // Unsubscribe by the wire message (type 2, scope id) so the authority stops publishing to a dead connection.
+        // Unsubscribe by the wire message (type 2, scope id), as a client that left politely would, so the authority stops publishing to a dead connection.
         foreach (var scope in _server.AuthorityScopes)
         {
             var message = new byte[6];
@@ -213,11 +187,40 @@ internal sealed class ServerNetwork
             }
 
             message[n++] = (byte)v;
-            r.Link.Channel.Send(message.AsSpan(0, n));
+            r.Channel.Inject(message.AsSpan(0, n));
         }
     }
 
-    private sealed class Remote(string name, string transport, INetConnection connection, Link link)
+    // The connection, plus messages the server makes up on the client's behalf (the unsubscribe of a client that vanished).
+    private sealed class InjectableChannel(INetConnection inner) : IMessageChannel
+    {
+        private readonly Queue<byte[]> _injected = new();
+        private byte[] _current = [];
+
+        public void Send(ReadOnlySpan<byte> message) => inner.Send(message);
+
+        public bool TryReceive(out ReadOnlySpan<byte> message)
+        {
+            if (inner.TryReceive(out message))
+            {
+                return true;
+            }
+
+            if (_injected.TryDequeue(out var next))
+            {
+                _current = next;
+                message = _current;
+                return true;
+            }
+
+            message = default;
+            return false;
+        }
+
+        public void Inject(ReadOnlySpan<byte> message) => _injected.Enqueue(message.ToArray());
+    }
+
+    private sealed class Remote(string name, string transport, INetConnection connection, InjectableChannel channel, Connection accepted)
     {
         public string Name { get; } = name;
 
@@ -225,6 +228,8 @@ internal sealed class ServerNetwork
 
         public INetConnection Connection { get; } = connection;
 
-        public Link Link { get; } = link;
+        public InjectableChannel Channel { get; } = channel;
+
+        public Connection Accepted { get; } = accepted;
     }
 }
