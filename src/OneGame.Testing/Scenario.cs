@@ -86,6 +86,9 @@ public enum StepKind
     /// <summary>Move or reset the 3D camera (a view-only override).</summary>
     Camera,
 
+    /// <summary>Drive the harness's stand-in Steam Input controller (connect, press, release, analog), then run two frames so the game sees it.</summary>
+    SteamInput,
+
     /// <summary>Wait until a node of a process cluster reaches a tick (cluster scenarios only).</summary>
     Wait,
 
@@ -198,6 +201,12 @@ public enum ExpectKind
 
     /// <summary>Nodes have filed no drift reports (cluster scenarios only).</summary>
     Drift,
+
+    /// <summary>The state of Steam Input: the active action set, the number of controllers, actions held down, the on-screen keyboard.</summary>
+    SteamInput,
+
+    /// <summary>Sounds the game asked the audio service to play: how many, by name, optionally within the last few frames.</summary>
+    Sound,
 }
 
 /// <summary>A check on the game's state. Unset fields are not checked.</summary>
@@ -286,6 +295,21 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
 
     /// <summary>The nodes <see cref="ExpectKind.Agree"/> and <see cref="ExpectKind.Drift"/> look at; empty means all that apply.</summary>
     public string[] Nodes { get; init; } = [];
+
+    /// <summary>The action set that must be active (steam-input).</summary>
+    public string? ActiveSet { get; init; }
+
+    /// <summary>The sound's name (sound): the name the clip was loaded under, with or without its file extension.</summary>
+    public string? SoundName { get; init; }
+
+    /// <summary>Only sounds requested in the last this-many frames count (sound); 0 counts every sound since the scenario began.</summary>
+    public int SoundFrames { get; init; }
+
+    /// <summary>A digital action that must be down on some controller (steam-input).</summary>
+    public string? DownAction { get; init; }
+
+    /// <summary>A digital action that must not be down on any controller (steam-input).</summary>
+    public string? UpAction { get; init; }
 }
 
 /// <summary>A scenario: where to start, what to do, and what must hold afterwards.</summary>
@@ -689,6 +713,34 @@ public static class ScenarioParser
                     }
 
                     return json.Count > 0 ? new ScenarioStep(StepKind.Camera, line) { ControlArgs = "{" + string.Join(",", json) + "}" } : throw Error(v, "camera needs at least one of position, target, fov, near, far, ortho-height");
+                case "steam-input":
+                    var si = Map(v, ["connect", "disconnect", "press", "release", "analog", "x", "y", "controller"], "steam-input");
+                    var sj = new List<string>();
+                    foreach (var key in new[] { "connect", "disconnect", "controller" })
+                    {
+                        if (si.TryGetValue(key, out var wn2))
+                        {
+                            sj.Add($"\"{key}\":{Whole(wn2, key)}");
+                        }
+                    }
+
+                    foreach (var key in new[] { "press", "release", "analog" })
+                    {
+                        if (si.TryGetValue(key, out var tn))
+                        {
+                            sj.Add($"\"{key}\":\"{Text(tn, key).Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal)}\"");
+                        }
+                    }
+
+                    foreach (var key in new[] { "x", "y" })
+                    {
+                        if (si.TryGetValue(key, out var an))
+                        {
+                            sj.Add($"\"{key}\":{Number(an, key).ToString("R", CultureInfo.InvariantCulture)}");
+                        }
+                    }
+
+                    return sj.Count > 0 ? new ScenarioStep(StepKind.SteamInput, line) { ControlArgs = "{" + string.Join(",", sj) + "}" } : throw Error(v, "steam-input needs at least one of connect, disconnect, press, release, analog");
                 case "expect":
                     return new ScenarioStep(StepKind.Expect, line) { Expect = Expectation(v) };
                 case "wait":
@@ -706,13 +758,13 @@ public static class ScenarioParser
                 case "restart":
                     return new ScenarioStep(StepKind.Restart, line) { Node = Text(v, "restart") };
                 default:
-                    throw Error(entry.Key, $"unknown step '{verb}'; use click, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, camera, wait, kill, start, restart or expect");
+                    throw Error(entry.Key, $"unknown step '{verb}'; use click, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, camera, steam-input, wait, kill, start, restart or expect");
             }
         }
 
         public ScenarioExpectation Expectation(YamlNode node)
         {
-            var (verb, target) = SplitVerb(node, "an expectation is a mapping with one key: state, ui, tick, hash, capture, agree or drift (plus node: for a cluster)");
+            var (verb, target) = SplitVerb(node, "an expectation is a mapping with one key: state, ui, tick, hash, capture, pick, steam-input, sound, agree or drift (plus node: for a cluster)");
             var e = ExpectationCore(verb);
             return target is null ? e : e with { Node = target };
         }
@@ -784,6 +836,27 @@ public static class ScenarioParser
                         PickY = pk.TryGetValue("y", out var py) ? Number(py, "y") : throw Error(v, "pick needs x and y"),
                         Size = OptText(v, "size"),
                         Entity = pk.TryGetValue("entity", out var pe) ? Text(pe, "entity") : throw Error(v, "pick needs the entity expected there, or none"),
+                    };
+                case "sound":
+                    var sd = Map(v, ["name", "count", "min", "max", "frames"], "sound");
+                    var noBound = !sd.ContainsKey("count") && !sd.ContainsKey("min") && !sd.ContainsKey("max");
+                    return new ScenarioExpectation(ExpectKind.Sound, line)
+                    {
+                        SoundName = sd.TryGetValue("name", out var sdn) ? Text(sdn, "name") : throw Error(v, "sound needs the name the clip was loaded under"),
+                        Count = sd.TryGetValue("count", out var sdc) ? Whole(sdc, "count") : null,
+                        Min = sd.TryGetValue("min", out var sdmin) ? Number(sdmin, "min") : (noBound ? 1 : null),
+                        Max = sd.TryGetValue("max", out var sdmax) ? Number(sdmax, "max") : null,
+                        SoundFrames = sd.TryGetValue("frames", out var sdf) ? Whole(sdf, "frames") : 0,
+                    };
+                case "steam-input":
+                    var sx = Map(v, ["set", "controllers", "down", "up", "keyboard"], "steam-input");
+                    return sx.Count == 0 ? throw Error(v, "steam-input needs at least one of set, controllers, down, up, keyboard") : new ScenarioExpectation(ExpectKind.SteamInput, line)
+                    {
+                        ActiveSet = OptText(v, "set"),
+                        Count = sx.TryGetValue("controllers", out var sxc) ? Whole(sxc, "controllers") : null,
+                        DownAction = OptText(v, "down"),
+                        UpAction = OptText(v, "up"),
+                        Visible = sx.TryGetValue("keyboard", out var sxk) ? Bool(sxk, "keyboard") : null,
                     };
                 case "agree":
                     var ag = Map(v, ["server", "clients"], "agree");

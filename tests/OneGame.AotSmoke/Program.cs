@@ -261,6 +261,14 @@ using (var store = SteamPlatform.Start())
     }
 
     Console.WriteLine(store.IsAvailable ? $"store: {store.Name} connected as {store.Identity.DisplayName}" : $"store: none ({store.UnavailableReason})");
+    var steamInputProblem = SteamInputSmoke.Run(store);
+    if (steamInputProblem is not null)
+    {
+        Console.Error.WriteLine("steam input: " + steamInputProblem);
+        return 1;
+    }
+
+    Console.WriteLine("steam input: action sets, actions file, stand-in controller, glyph names and the disabled path");
 }
 
 

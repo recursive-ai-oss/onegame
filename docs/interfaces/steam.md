@@ -52,9 +52,38 @@ Steam learns the app id from how the game was launched. When run directly (debug
 
 Callback structs are packed by the C++ headers at 4 bytes on Linux/macOS and 8 on Windows. That moves a 64-bit field following an odd count of 32-bit ones (`UserStatsReceived` is 20 bytes on Linux, 24 on Windows). Each struct declares its fields once; `SteamLayout.Compute` derives offsets and size for either packing, `SteamLayout.Current` picks the one for the running OS, and decoders reject data shorter than the struct.
 
+## Steam Input (`OneGame.Steam.Input`)
+
+Bound from Valve's public ISteamInput and ISteamUtils pages (flat API: `SteamAPI_ISteamInput_*`, accessor `SteamAPI_SteamInput_v006`). A game declares its action sets once; the same declaration drives the code and writes the file Steam needs.
+
+```csharp
+var actions = new SteamInputActions { MajorRevision = 1 }
+    .Set("Map", "Map screen", s => s
+        .Stick("map_move", "Move", SteamStickMode.JoystickMove, SteamStick.Left)   // also drives the virtual pad's left stick
+        .Button("map_select", "Select", GamepadButton.South)                       // also presses South
+        .OnScreens("map"))                                                          // active while screen "map" is open
+    .Set("Menu", "Menus", s => s.Button("menu_accept", "Accept", GamepadButton.South).OnScreens("menu"));
+
+actions.WriteVdf("game_actions_480.vdf");            // or assert actions.Matches(File.ReadAllText(path), out var diff) in a test
+
+using var input = SteamInputService.Start(store, actions);   // never null, never throws; disabled when Steam is absent
+using var bridge = new SteamInputBridge(input, game.Platform, game.Ui, () => game.UiScale, glyphs);
+// GameDefinition.OnEachFrame(game): bridge.Update(game.CurrentScreen);
+```
+
+- **The file.** `ToVdf()` writes Valve's in-game actions format (`"In Game Actions"` with `actions` per set: `StickPadGyro`, `AnalogTrigger`, `Button`; titles as `#Set_*`/`#Action_*` tokens; an English `localization` block from the titles; extra languages in `Localization`; `major_revision`/`minor_revision` when set). Output is deterministic. Name it `game_actions_<appid>.vdf` and put it where Steam reads it (`controller_config` in the Steam folder while developing; upload it with the app's Steam Input settings). Action names are unique across sets (Steam finds actions by name alone; the declaration rejects duplicates) and are letters, digits and underscores.
+- **Action sets per screen.** `ActivateForScreen(screen)` (the bridge does it when the open screen changes) activates the set that lists the screen in `OnScreens`, else the first set. `ActivateSet(name)` returns `StoreResult` (`NotFound`, `Unavailable`, `Ok`). The set is re-asserted on controllers that connect later or that Steam resets. Actions outside the active set read as inactive and are reported released.
+- **One input path.** The bridge makes each Steam controller a virtual gamepad on the platform layer. An action with a button target presses that button, a `Stick` action with a stick target moves it (Steam's Y is up-positive; the pad's Y is down-positive, so it is negated), a `Trigger` action moves its trigger. Menu navigation, `OnInput` and `InputState` see ordinary gamepad events, whether Steam is on or off. For actions with no target, poll `IsDown(action)`, `WasPressed(action)` and `GetAnalog(action, out x, out y)`, or subscribe to `ActionChanged`. `ControllerConnected`/`ControllerDisconnected` and `Controllers` (stable 1-based index, Steam input type name) report pads. `Update()` runs `ISteamInput::RunFrame` (Steam Input is started with explicit RunFrame) and must be called once per frame, after `store.Pump()`; the bridge's `Update` does it.
+- **Glyphs.** `GetOrigins(action)` returns Steam's origin numbers, `GetGlyphPath(action, size)` Steam's own PNG for the player's controller style (like `GetGlyphForActionOrigin`), `GetGlyphName(action)` the kit's gamepad glyph name: the origin is translated to the Xbox One layout (`TranslateActionOrigin`) and mapped by `SteamOrigins.KitGlyphName` (origins 114 to 147). `BindGlyphs(inputGlyphs)` (the bridge does it when given the table) keeps each action's gamepad glyph on the player's real button via `InputGlyphs.SetGamepad`, leaving keyboard and mouse names alone; it re-checks twice a second, so rebinding in Steam updates the hints.
+- **On-screen keyboard.** While a kit text input has focus, a controller is connected and the player is on a handheld (Deck) or last used the pad (`InputGlyphs.Device`), the bridge calls `ShowFloatingGamepadTextInput` with the field's box in window pixels and dismisses it on blur. Steam sends typed keys to the game as ordinary keyboard input, so text arrives through the normal text-input path; nothing is read back. `ShowKeyboard` returns `Failed` when Steam refuses. The dismissed callback is not bound (its id is not on the reference page); the bridge dismisses by focus.
+- **Harness.** Control op `steam_input` reports `{enabled, reason, fake, activeSet, sets, controllers, values, keyboard, missing}` (`missing` lists declared actions Steam does not know, i.e. the uploaded file differs from the code). Scenario step `steam-input: {connect: 3 | disconnect: 1 | press: a | release: a | analog: move, x: 0, y: 1, controller: 1}` and expectation `steam-input: {set, controllers, down, up, keyboard}` (`docs/driving-a-game.md`). Driving is only possible on the stand-in controller, used when Steam is not running and the process has `ONEGAME_STEAM_INPUT=fake` (or `SteamInputService.StartFake` in tests); with real Steam the driving arguments fail with `not_fake`.
+- **Off.** Without Steam, or with a library lacking the interface, the service is disabled (`IsEnabled` false, `UnavailableReason`), every call is a no-op and the platform gamepad path is untouched.
+
+Unverified against a live client: the by-value struct returns of `GetDigitalActionData` and `GetAnalogActionData` (only the export names are checked against the library), the sign of Steam's Y axis, action-origin numbers beyond the Xbox One family, and the on-screen keyboard.
+
 ## Not covered yet
 
-Networking, matchmaking, lobbies, Workshop/UGC, leaderboards, and Steam Input (action sets, glyphs). The Steam Input accessor `SteamAPI_SteamInput_v006` is exported by the library but not bound. The reference pages do not state callback ids or the packing rule. A run against a signed-in Linux client with Valve's test app 480 confirmed them on Linux:
+Networking, matchmaking, lobbies, Workshop/UGC, leaderboards, haptics and motion in Steam Input, action set layers. The reference pages do not state callback ids or the packing rule. A run against a signed-in Linux client with Valve's test app 480 confirmed them on Linux:
 - `UserStatsReceived` decoded with game id 480, result OK and the signed-in user's SteamID;
 - `UserStatsStored`, `UserAchievementStored` and the `NumberOfCurrentPlayers` call result arrived and decoded;
 - cloud write/read/list/delete and rich presence worked.

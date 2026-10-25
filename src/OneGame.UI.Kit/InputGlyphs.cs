@@ -42,6 +42,22 @@ public sealed class InputGlyphs
         return this;
     }
 
+    /// <summary>Changes only an action's gamepad control, keeping its keyboard and mouse names; for a source that learns the real button at run time (the player's own controller layout). An unbound action gets a gamepad-only binding.</summary>
+    /// <param name="action">The action's name.</param>
+    /// <param name="gamepad">The gamepad control name (see <see cref="Bind"/>), or null for none.</param>
+    public void SetGamepad(string action, string? gamepad)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(action);
+        _bindings.TryGetValue(action, out var b);
+        if (b.Gamepad == gamepad && _bindings.ContainsKey(action))
+        {
+            return;
+        }
+
+        _bindings[action] = (b.Keyboard, b.Mouse, gamepad);
+        Version++;
+    }
+
     /// <summary>Sets the device directly, for a game that learns about the device from somewhere other than UI events.</summary>
     public void SetDevice(InputDevice device)
     {
