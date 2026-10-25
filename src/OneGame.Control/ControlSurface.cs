@@ -807,7 +807,8 @@ public sealed partial class ControlSurface : IControlEndpoint
             sha = Sha256(ms.ToArray());
         }
 
-        return new AudioCaptureResult(target, sink.FramesCaptured, sink.FramesCaptured / (double)audio.Format.SampleRate, sink.Peak, sha, audio.Describe().Loudness);
+        var status = audio.Describe();
+        return new AudioCaptureResult(target, sink.FramesCaptured, sink.FramesCaptured / (double)audio.Format.SampleRate, sink.Peak, sha, status.Loudness, status.Buses.Where(b => b.Loudness is not null).Select(b => new BusLoudnessStatus(b.Index, b.Name, b.Loudness!)).ToArray());
     }
 
     private OneGame.Gpu.Graph.RenderGraphReport RenderGraphReport() =>

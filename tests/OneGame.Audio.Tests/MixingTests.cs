@@ -328,6 +328,76 @@ public class MixingTests
     }
 
     [Fact]
+    public void TheMusicBusReadsTheToneAndTheSfxBusReadsSilence()
+    {
+        using var s = Service();
+        s.Play(Load(s, SineWav(1000, 0.1)), new PlayOptions { Loop = true, Bus = AudioBus.Music });
+        s.Advance(Rate * 6);
+        var music = s.GetBusLoudness(AudioBus.Music)!.Value;
+        Assert.Equal(-23.0, music.IntegratedLufs, 0.2);
+        Assert.Equal(-23.0, music.MomentaryLufs, 0.2);
+        Assert.Equal(-23.0, music.TruePeakDbtp, 0.3);
+        Assert.Equal(6 * Rate, music.Frames);
+        Assert.Equal(double.NegativeInfinity, s.GetBusLoudness(AudioBus.Sfx)!.Value.IntegratedLufs);
+        var d = s.Describe();
+        Assert.Equal(-23.0, d.Buses[0].Loudness!.IntegratedLufs!.Value, 0.2);
+        Assert.Null(d.Buses[1].Loudness!.IntegratedLufs);
+        Assert.Null(d.Buses[3].Loudness); // not one of the three metered at startup
+        Assert.Null(s.GetBusLoudness(new AudioBus(3)));
+
+        s.ResetLoudness();
+        s.Advance(Rate);
+        Assert.Equal(Rate, s.GetBusLoudness(AudioBus.Music)!.Value.Frames);
+    }
+
+    [Fact]
+    public void DuckingLowersTheOutputButNotTheMusicBusReading()
+    {
+        using var s = Service();
+        s.Play(Load(s, SineWav(1000, 0.1)), new PlayOptions { Loop = true, Bus = AudioBus.Music });
+        s.Advance(Rate * 2);
+        var before = s.GetBusLoudness(AudioBus.Music)!.Value.MomentaryLufs;
+        var outBefore = s.Loudness.MomentaryLufs;
+        s.SetDucking(AudioBus.Music, AudioBus.Sfx, new DuckingOptions { ThresholdDb = -40f, ReductionDb = 12f, AttackMs = 5f, ReleaseMs = 250f });
+        s.Play(Load(s, SineWav(440, 0.5)), new PlayOptions { Loop = true, Bus = AudioBus.Sfx });
+        s.Advance(Rate * 2);
+        // The mix at the output has the music turned down; the bus meter sits before ducking, so it does not move.
+        Assert.Equal(before, s.GetBusLoudness(AudioBus.Music)!.Value.MomentaryLufs, 0.05);
+        Assert.Equal(-23.0, s.GetBusLoudness(AudioBus.Music)!.Value.MomentaryLufs, 0.2);
+        Assert.True(s.GetBusLoudness(AudioBus.Sfx)!.Value.MomentaryLufs > -30);
+        Assert.NotEqual(outBefore, s.Loudness.MomentaryLufs);
+    }
+
+    [Fact]
+    public void MoreMetersAndReverbsThanSlotsReturnFalseAndNeverThrow()
+    {
+        using var s = Service(new AudioServiceOptions { MaxBusMeters = 4, MaxReverbs = 1 });
+        Assert.Equal(1, s.FreeBusMeters);
+        Assert.True(s.EnableBusMeter(new AudioBus(3)));
+        Assert.True(s.EnableBusMeter(new AudioBus(3))); // already metered
+        Assert.Equal(0, s.FreeBusMeters);
+        Assert.False(s.EnableBusMeter(new AudioBus(4)));
+        Assert.Null(s.GetBusLoudness(new AudioBus(4)));
+        Assert.True(s.DisableBusMeter(AudioBus.Ui));
+        Assert.True(s.EnableBusMeter(new AudioBus(4)));
+        s.Advance(480);
+        Assert.Null(s.GetBusLoudness(AudioBus.Ui));
+        Assert.NotNull(s.GetBusLoudness(new AudioBus(4)));
+
+        Assert.Equal(1, s.FreeReverbSlots);
+        Assert.True(s.SetBusReverb(AudioBus.Sfx, new ReverbOptions()));
+        Assert.Equal(0, s.FreeReverbSlots);
+        Assert.False(s.SetBusReverb(AudioBus.Ui, new ReverbOptions()));
+        s.ClearBusReverb(AudioBus.Sfx);
+        Assert.True(s.SetBusReverb(AudioBus.Ui, new ReverbOptions()));
+
+        using var none = Service(new AudioServiceOptions { MaxBusMeters = 0, MaxReverbs = 0 });
+        Assert.False(none.EnableBusMeter(AudioBus.Music));
+        Assert.False(none.SetBusReverb(AudioBus.Music, new ReverbOptions()));
+        Assert.Null(none.GetBusLoudness(AudioBus.Music));
+    }
+
+    [Fact]
     public void MeteringCanBeSwitchedOff()
     {
         using var s = Service(new AudioServiceOptions { Metering = false });

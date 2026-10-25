@@ -1,3 +1,5 @@
+using OneAudio.Loudness;
+
 namespace OneGame.Audio;
 
 /// <summary>A mixing bus. The service creates three named ones; further indices up to <see cref="AudioServiceOptions.BusCount"/> are free for games.</summary>
@@ -126,6 +128,12 @@ public sealed record AudioServiceOptions
     /// <summary>The master limiter's lookahead in milliseconds, 1 to 100; only used when <see cref="MasterLimiter"/> is set. Default 5.</summary>
     public int LimiterLookaheadMilliseconds { get; init; } = 5;
 
+    /// <summary>
+    /// Buses whose loudness can be measured at once, 0 to 64 (see <see cref="AudioService.EnableBusMeter"/>). Each costs about 0.1 MB, built at startup.
+    /// When <see cref="Metering"/> is on, the music, sfx and ui buses (as many as fit) are metered from the start. Default 3.
+    /// </summary>
+    public int MaxBusMeters { get; init; } = 3;
+
     /// <summary>Whether the output measures loudness (EBU R 128), readable as <see cref="AudioService.Loudness"/>. The cost is small. Default true.</summary>
     public bool Metering { get; init; } = true;
 
@@ -160,7 +168,8 @@ public sealed record DuckingStatus(int WatchedBus, float ThresholdDb, float Redu
 /// <param name="HighPass">Its high-pass, or null.</param>
 /// <param name="Reverb">Its reverb, or null.</param>
 /// <param name="Ducking">What ducks it, or null.</param>
-public sealed record BusStatus(int Index, string? Name, float Volume, bool Muted, FilterStatus? LowPass, FilterStatus? HighPass, ReverbOptions? Reverb, DuckingStatus? Ducking);
+/// <param name="Loudness">Its loudness (see <see cref="AudioService.GetBusLoudness"/>), or null when the bus is not metered.</param>
+public sealed record BusStatus(int Index, string? Name, float Volume, bool Muted, FilterStatus? LowPass, FilterStatus? HighPass, ReverbOptions? Reverb, DuckingStatus? Ducking, LoudnessStatus? Loudness = null);
 
 /// <summary>The master limiter.</summary>
 /// <param name="Enabled">Whether it is switched on.</param>
@@ -273,6 +282,8 @@ public sealed class AudioService : IDisposable
         CaptureAudioBackend? capture = options.Capture ? new CaptureAudioBackend() : null;
         var backend = capture ?? options.Backend ?? DefaultBackend();
         ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxReverbs, 0);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxBusMeters, 0);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(options.MaxBusMeters, 64);
         if (options.MasterLimiter is not null)
         {
             ArgumentOutOfRangeException.ThrowIfLessThan(options.LimiterLookaheadMilliseconds, 1);
@@ -283,6 +294,8 @@ public sealed class AudioService : IDisposable
         var settings = new AudioCoreSettings(output.Format.SampleRate, output.Format.Channels, options.MaxVoices, options.BusCount)
         {
             MaxReverbs = options.MaxReverbs,
+            // The mixer's meters need a sample rate the loudness filters support; below it there are none.
+            MaxBusMeters = options.Metering && output.Format.SampleRate >= LoudnessMeter.MinSampleRate ? options.MaxBusMeters : 0,
             LimiterLookaheadMilliseconds = options.MasterLimiter is null ? 0 : options.LimiterLookaheadMilliseconds,
         };
         var core = (options.CoreFactory ?? new OneAudioCore.Factory(options.MaxClipSeconds)).Create(settings);
@@ -292,6 +305,11 @@ public sealed class AudioService : IDisposable
             if (options.MasterLimiter is { } limiter)
             {
                 core.SetLimiter(limiter);
+            }
+
+            for (var i = 0; i < Math.Min(settings.MaxBusMeters, 3); i++)
+            {
+                service.EnableBusMeter(new AudioBus(i));
             }
 
             Volatile.Write(ref s_active, service);
@@ -550,7 +568,7 @@ public sealed class AudioService : IDisposable
     /// <param name="bus">The bus.</param>
     /// <param name="options">Room size, decay, damping, pre-delay and the wet/dry mix.</param>
     /// <param name="glideSeconds">Time changes take. Default 0.05.</param>
-    /// <returns><see langword="false"/> when every reverb is already in use by other buses (see <see cref="AudioServiceOptions.MaxReverbs"/>) or the command queue was full; nothing changed then.</returns>
+    /// <returns><see langword="false"/> when every reverb is already in use by other buses (check <see cref="FreeReverbSlots"/>; see <see cref="AudioServiceOptions.MaxReverbs"/>) or the command queue was full; nothing changed then. It never throws for a lack of slots.</returns>
     /// <exception cref="ArgumentOutOfRangeException">The bus is out of range.</exception>
     /// <exception cref="ArgumentException">A reverb setting is out of range.</exception>
     public bool SetBusReverb(AudioBus bus, ReverbOptions options, double glideSeconds = 0.05)
@@ -569,6 +587,9 @@ public sealed class AudioService : IDisposable
         _busState[bus.Index].Reverb = options;
         return true;
     }
+
+    /// <summary>Reverbs that can still be put on buses that have none.</summary>
+    public int FreeReverbSlots => Core.FreeReverbSlots;
 
     /// <summary>Removes a bus's reverb. The tail stops at once; to fade it, lower <see cref="ReverbOptions.Wet"/> first.</summary>
     /// <param name="bus">The bus.</param>
@@ -596,8 +617,80 @@ public sealed class AudioService : IDisposable
     /// <summary>The loudness at the output after the limiter, as the speakers get it: momentary, short-term, gated integrated (EBU R 128) and true peak. All -infinity until sound has rendered, and always so when <see cref="AudioServiceOptions.Metering"/> is off.</summary>
     public LoudnessReading Loudness => Output.Loudness;
 
-    /// <summary>Starts the integrated loudness and true peak over, for measuring a scene from its beginning.</summary>
-    public void ResetLoudness() => Output.ResetLoudness();
+    /// <summary>Starts the integrated loudness and true peak over, for measuring a scene from its beginning. Metered buses start over too.</summary>
+    public void ResetLoudness()
+    {
+        Output.ResetLoudness();
+        for (var i = 0; i < _busState.Length; i++)
+        {
+            if (_busState[i].Metered)
+            {
+                Core.ResetBusMeter(i);
+            }
+        }
+    }
+
+    /// <summary>Meter slots not yet used by a bus (see <see cref="AudioServiceOptions.MaxBusMeters"/>).</summary>
+    public int FreeBusMeters => Core.FreeBusMeters;
+
+    /// <summary>
+    /// Starts measuring a bus's loudness (EBU R 128) so <see cref="GetBusLoudness"/> can read it. The music, sfx and ui buses are metered at startup; use this for others or after <see cref="DisableBusMeter"/>.
+    /// A bus is measured as it leaves the bus: after its sounds, filters, reverb, volume and mute, but before ducking and before the master volume and limiter,
+    /// so the reading is what the bus itself puts out.
+    /// </summary>
+    /// <param name="bus">The bus.</param>
+    /// <returns>True when the bus is metered or is about to be. False when no meter slot is free (see <see cref="FreeBusMeters"/>), metering is off or the sample rate is too low, or the command queue was full; nothing changed then. It never throws for a lack of slots.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The bus is out of range.</exception>
+    public bool EnableBusMeter(AudioBus bus)
+    {
+        CheckBus(bus);
+        if (_busState[bus.Index].Metered)
+        {
+            return true;
+        }
+
+        if (!Core.EnableBusMeter(bus.Index))
+        {
+            return false;
+        }
+
+        _busState[bus.Index].Metered = true;
+        return true;
+    }
+
+    /// <summary>Stops measuring a bus and frees its meter slot.</summary>
+    /// <param name="bus">The bus.</param>
+    /// <returns>False when the command queue was full (the meter keeps running).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The bus is out of range.</exception>
+    public bool DisableBusMeter(AudioBus bus)
+    {
+        CheckBus(bus);
+        if (!_busState[bus.Index].Metered)
+        {
+            return true;
+        }
+
+        if (!Core.DisableBusMeter(bus.Index))
+        {
+            return false;
+        }
+
+        _busState[bus.Index].Metered = false;
+        return true;
+    }
+
+    /// <summary>
+    /// Reads a bus's loudness: momentary, short-term, gated integrated and true peak, with silence as -infinity (as <see cref="Loudness"/>).
+    /// Ducking, the master volume and the limiter do not change it; use <see cref="Loudness"/> for what the speakers get.
+    /// </summary>
+    /// <param name="bus">The bus.</param>
+    /// <returns>The reading, or <see langword="null"/> when the bus is not metered (yet: a meter starts at the next block).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The bus is out of range.</exception>
+    public LoudnessReading? GetBusLoudness(AudioBus bus)
+    {
+        CheckBus(bus);
+        return Core.TryGetBusLoudness(bus.Index, out var r) ? r : null;
+    }
 
     /// <summary>Where a streamed track is. Positions are source time, ahead of the speakers by the mixer's and device's buffering.</summary>
     /// <param name="voice">A voice from <see cref="PlayMusic"/>.</param>
@@ -613,7 +706,7 @@ public sealed class AudioService : IDisposable
         for (var i = 0; i < buses.Length; i++)
         {
             var b = _busState[i];
-            buses[i] = new BusStatus(i, i switch { 0 => "music", 1 => "sfx", 2 => "ui", _ => null }, _busVolume[i], b.Muted, b.LowPass, b.HighPass, b.Reverb, b.Ducking);
+            buses[i] = new BusStatus(i, i switch { 0 => "music", 1 => "sfx", 2 => "ui", _ => null }, _busVolume[i], b.Muted, b.LowPass, b.HighPass, b.Reverb, b.Ducking, GetBusLoudness(new AudioBus(i)) is { } bl ? Status(bl) : null);
         }
 
         var l = Loudness;
@@ -621,8 +714,10 @@ public sealed class AudioService : IDisposable
         var music = GetStreamPosition(_music);
         return new AudioStatus(
             Format.SampleRate, Format.Channels, Output.Status.ToString(), Capture is not null, _master, _muted, Core.ActiveVoices, buses, limiter,
-            new LoudnessStatus(Finite(l.MomentaryLufs), Finite(l.ShortTermLufs), Finite(l.IntegratedLufs), Finite(l.TruePeakDbtp), l.Frames / (double)Format.SampleRate),
+            Status(l),
             music is { } m ? new MusicStatus(m.PositionSeconds, m.LengthSeconds < 0 ? null : m.LengthSeconds) : null);
+
+        LoudnessStatus Status(LoudnessReading r) => new(Finite(r.MomentaryLufs), Finite(r.ShortTermLufs), Finite(r.IntegratedLufs), Finite(r.TruePeakDbtp), r.Frames / (double)Format.SampleRate);
 
         // JSON has no infinity: silence is reported as null.
         static double? Finite(double v) => double.IsFinite(v) ? v : null;
@@ -785,6 +880,7 @@ public sealed class AudioService : IDisposable
         public FilterStatus? LowPass;
         public FilterStatus? HighPass;
         public ReverbOptions? Reverb;
+        public bool Metered;
         public DuckingStatus? Ducking;
     }
 

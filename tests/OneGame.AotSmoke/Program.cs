@@ -82,6 +82,12 @@ using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true,
     audio.Play(audio.LoadSound(ReadAsset("tone44k.mp3")), new PlayOptions { Bus = AudioBus.Ui });
     audio.Advance(24_000);
     var status = audio.Describe();
+    if (audio.GetBusLoudness(AudioBus.Ui) is not { } busLoud || !(busLoud.IntegratedLufs > -60) || status.Buses[2].Loudness?.IntegratedLufs is null || audio.EnableBusMeter(new AudioBus(5)))
+    {
+        Console.Error.WriteLine("audio bus loudness smoke failed");
+        return 1;
+    }
+
     if (!(audio.Capture!.Peak > 0.1f) || status.Loudness.IntegratedLufs is not { } lufs || lufs > 0 || lufs < -40 || status.Limiter is null)
     {
         Console.Error.WriteLine($"audio effects smoke failed: peak {audio.Capture.Peak}, loudness {status.Loudness.IntegratedLufs}");
@@ -366,6 +372,15 @@ if (frame[red] != 255 || frame[red + 1] != 0 || frame[green] != 0 || frame[green
 }
 
 Console.WriteLine($"render2d: sprite, rounded rect and text drawn in {frameStats.DrawCalls} draws, {frameStats.Passes} pass; read back 96x64");
+
+var render3dProblem = Render3DSmoke.Run(device, ReadResource("fox.glb"));
+if (render3dProblem is not null)
+{
+    Console.Error.WriteLine("render3d: " + render3dProblem);
+    return 1;
+}
+
+Console.WriteLine("render3d: skinned textured glTF model, sun and sky drawn through the PBR passes; read back 96x72");
 return 0;
 
 static byte[] ReadResource(string name)

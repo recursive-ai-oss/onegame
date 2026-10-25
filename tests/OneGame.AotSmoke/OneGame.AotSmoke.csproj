@@ -32,6 +32,7 @@
     <EmbeddedResource Include="../../testdata/audio/tone44k.flac" LogicalName="tone44k.flac" />
     <EmbeddedResource Include="../../testdata/audio/tone44k.mp3" LogicalName="tone44k.mp3" />
     <ProjectReference Include="../../src/OneGame.Gltf/OneGame.Gltf.csproj" />
+    <ProjectReference Include="../../src/OneGame.Render3D/OneGame.Render3D.csproj" />
     <EmbeddedResource Include="../../testdata/gltf/Fox/glTF-Binary/Fox.glb" LogicalName="fox.glb" />
     <EmbeddedResource Include="../../testdata/gltf/Box/glTF-Embedded/Box.gltf" LogicalName="box.gltf" />
     <ProjectReference Include="../../src/OneGame.Steam/OneGame.Steam.csproj" />

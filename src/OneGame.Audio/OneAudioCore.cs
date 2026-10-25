@@ -55,6 +55,7 @@ public sealed class OneAudioCore : IAudioCore
                 MaxVoices = settings.MaxVoices,
                 MaxBuses = settings.Buses,
                 MaxReverbs = settings.MaxReverbs,
+                MaxBusMeters = settings.MaxBusMeters,
                 LimiterLookaheadMilliseconds = settings.LimiterLookaheadMilliseconds,
             });
         }
@@ -211,15 +212,65 @@ public sealed class OneAudioCore : IAudioCore
     public bool ClearVoiceFilter(VoiceId voice, AudioFilterKind kind, int glideFrames) => _mixer.ClearVoiceFilter(new VoiceHandle(voice.Id), ToFilter(kind), glideFrames);
 
     /// <inheritdoc/>
-    public bool SetBusReverb(int bus, ReverbOptions options, int glideFrames) => _mixer.SetBusReverb(bus, new ReverbSettings
+    public bool SetBusReverb(int bus, ReverbOptions options, int glideFrames)
     {
-        RoomSize = options.RoomSize,
-        DecaySeconds = options.DecaySeconds,
-        Damping = options.Damping,
-        PreDelayMilliseconds = options.PreDelayMilliseconds,
-        Wet = options.Wet,
-        Dry = options.Dry,
-    }, glideFrames);
+        try
+        {
+            return _mixer.SetBusReverb(bus, new ReverbSettings
+            {
+                RoomSize = options.RoomSize,
+                DecaySeconds = options.DecaySeconds,
+                Damping = options.Damping,
+                PreDelayMilliseconds = options.PreDelayMilliseconds,
+                Wet = options.Wet,
+                Dry = options.Dry,
+            }, glideFrames);
+        }
+        catch (InvalidOperationException)
+        {
+            // The mixer throws when a bus without a reverb finds every slot taken. The game thread gets false instead.
+            return false;
+        }
+    }
+
+    /// <inheritdoc/>
+    public int FreeReverbSlots => _mixer.FreeReverbSlots;
+
+    /// <inheritdoc/>
+    public int FreeBusMeters => _mixer.FreeBusMeters;
+
+    /// <inheritdoc/>
+    public bool EnableBusMeter(int bus)
+    {
+        try
+        {
+            return _mixer.EnableBusMeter(bus);
+        }
+        catch (InvalidOperationException)
+        {
+            // No free meter slot: reported as false, like a full reverb table.
+            return false;
+        }
+    }
+
+    /// <inheritdoc/>
+    public bool DisableBusMeter(int bus) => _mixer.DisableBusMeter(bus);
+
+    /// <inheritdoc/>
+    public bool ResetBusMeter(int bus) => _mixer.ResetBusMeter(bus);
+
+    /// <inheritdoc/>
+    public bool TryGetBusLoudness(int bus, out LoudnessReading reading)
+    {
+        if (_mixer.TryGetBusLoudness(bus, out var l))
+        {
+            reading = new LoudnessReading(l.MomentaryLufs, l.ShortTermLufs, l.IntegratedLufs, l.TruePeakDbtp, l.FramesMeasured);
+            return true;
+        }
+
+        reading = default;
+        return false;
+    }
 
     /// <inheritdoc/>
     public bool ClearBusReverb(int bus) => _mixer.ClearBusReverb(bus);

@@ -208,13 +208,44 @@ public interface IAudioCore : IAudioRenderSource, IDisposable
     /// <param name="bus">The bus index.</param>
     /// <param name="options">The reverb.</param>
     /// <param name="glideFrames">Frames over which changes glide.</param>
-    /// <returns>Whether the command was queued. Cores without reverb return false.</returns>
+    /// <returns>Whether the command was queued. Cores without reverb return false, and so does a core with no free reverb slot for a bus that has none.</returns>
     bool SetBusReverb(int bus, ReverbOptions options, int glideFrames) => false;
 
     /// <summary>Removes a bus's reverb; its tail stops at once.</summary>
     /// <param name="bus">The bus index.</param>
     /// <returns>Whether the command was queued. Cores without reverb return false.</returns>
     bool ClearBusReverb(int bus) => false;
+
+    /// <summary>Reverb slots not yet used by a bus. Cores without reverb report 0.</summary>
+    int FreeReverbSlots => 0;
+
+    /// <summary>Loudness meter slots not yet used. Cores without bus meters report 0.</summary>
+    int FreeBusMeters => 0;
+
+    /// <summary>Starts measuring a bus's loudness, after its effects and gain and before ducking.</summary>
+    /// <param name="bus">The bus index.</param>
+    /// <returns>True when the bus is metered or the start was queued. False when no meter slot is free, the command queue was full, or the core has no bus meters; nothing changed then.</returns>
+    bool EnableBusMeter(int bus) => false;
+
+    /// <summary>Stops measuring a bus and frees its slot.</summary>
+    /// <param name="bus">The bus index.</param>
+    /// <returns>Whether the command was queued.</returns>
+    bool DisableBusMeter(int bus) => false;
+
+    /// <summary>Starts a metered bus's measurement over.</summary>
+    /// <param name="bus">The bus index.</param>
+    /// <returns>Whether the command was queued.</returns>
+    bool ResetBusMeter(int bus) => false;
+
+    /// <summary>Reads a metered bus.</summary>
+    /// <param name="bus">The bus index.</param>
+    /// <param name="reading">The reading; silence and no data are -infinity.</param>
+    /// <returns>False when the bus is not metered.</returns>
+    bool TryGetBusLoudness(int bus, out LoudnessReading reading)
+    {
+        reading = default;
+        return false;
+    }
 
     /// <summary>Switches the master limiter on, retunes it, or (with <see langword="null"/>) off.</summary>
     /// <param name="options">Ceiling and release, or null for off.</param>
@@ -272,6 +303,9 @@ public sealed record AudioCoreSettings(int SampleRate, int Channels, int MaxVoic
 {
     /// <summary>Reverbs that can be active at once, 0 to 16. Each costs about 0.3 MB up front. Default 2.</summary>
     public int MaxReverbs { get; init; } = 2;
+
+    /// <summary>Per-bus loudness meters that can run at once, 0 to 64. Each costs about 0.1 MB up front. Default 0.</summary>
+    public int MaxBusMeters { get; init; }
 
     /// <summary>Lookahead of the master limiter in milliseconds, 0 to 100. 0 builds no limiter. The whole output is delayed by this much. Default 0.</summary>
     public int LimiterLookaheadMilliseconds { get; init; }
