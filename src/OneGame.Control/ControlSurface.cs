@@ -106,6 +106,7 @@ public sealed class ControlSurface : IControlEndpoint
         "ui_click" => Json(UiClick(a), ControlJson.Default.InputResult),
         "ui_hit" => Json(UiHit(a), ControlJson.Default.HitResult),
         "snapshot_save" => Json(SnapshotSave(a), ControlJson.Default.SnapshotResult),
+        "shaders" => Json(ShaderCheck(), ControlJson.Default.ShadersResult),
         "capture_frame" => CaptureFrame(a),
         "capture_sequence" => Json(CaptureSequence(a), ControlJson.Default.SequenceResult),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", ControlOps.All.Select(o => o.Name))}."),
@@ -669,8 +670,23 @@ public sealed class ControlSurface : IControlEndpoint
 
     private static string Sha256(byte[] data) => Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
 
+    /// <summary>Checks the registered shader files for edits, as the <c>shaders</c> operation does. Cheap; call it from a game loop.</summary>
+    public void PollShaders() => Reloader.Poll();
+
+    private ShaderReloader? _reloader;
+
+    private ShaderReloader Reloader => _reloader ??= new ShaderReloader(Game.HotShaders);
+
+    private ShadersResult ShaderCheck()
+    {
+        var changed = Reloader.Check();
+        return new ShadersResult(Reloader.Status(), [.. changed]);
+    }
+
     private ControlResult CaptureFrame(Args a)
     {
+        // An edit made just before the capture shows in it.
+        Reloader.Check();
         CapturedFrame frame;
         int w, h;
         float scale;

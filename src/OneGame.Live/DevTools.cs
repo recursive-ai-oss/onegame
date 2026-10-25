@@ -121,7 +121,11 @@ internal sealed class DevTools : IDevTools
         output.Flush();
         if (args.Has("realtime"))
         {
-            game.RunRealtime(args.GetInt("frames", 0), () => server.Pump());
+            game.RunRealtime(args.GetInt("frames", 0), () =>
+            {
+                surface.PollShaders();
+                server.Pump();
+            });
         }
         else
         {
@@ -129,6 +133,7 @@ internal sealed class DevTools : IDevTools
             var lastDraw = Environment.TickCount64;
             while (!game.QuitRequested)
             {
+                surface.PollShaders();
                 server.Pump();
                 game.DrainInput();
                 if (!game.Options.Headless && Environment.TickCount64 - lastDraw >= 16)

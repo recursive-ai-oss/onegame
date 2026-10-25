@@ -11,13 +11,17 @@ namespace OneGame.Host;
 /// <param name="Measurer">Measures and shapes text with <paramref name="Fonts"/>; null when there are no fonts.</param>
 /// <param name="Art">The atlas of SVG and image art the UI draws.</param>
 /// <param name="Shaders">Where compiled renderer shaders come from; null when none are available.</param>
-public sealed record HostResources(FontLibrary? Fonts, FontTextMeasurer? Measurer, ArtAtlas Art, IShaderSource? Shaders);
+public sealed record HostResources(FontLibrary? Fonts, FontTextMeasurer? Measurer, ArtAtlas Art, IShaderSource? Shaders)
+{
+    /// <summary>Where a stage registers materials whose shader files may be edited while the game runs.</summary>
+    public HotShaders HotShaders { get; init; } = new();
+}
 
 /// <summary>
 /// The default render stage: the 2D renderer draws the UI display list into the host's target. The renderer is made on first use for
 /// the target's format (which must be an sRGB format). With no usable GPU the host falls back to <see cref="DisplayListRaster"/>.
 /// </summary>
-public sealed class Render2DStage : IRenderStage, IDisposable
+public class Render2DStage : IRenderStage, IDisposable
 {
     private static readonly OneGame.UI.Color ClearColor = new(StubStage.Clear.R, StubStage.Clear.G, StubStage.Clear.B, StubStage.Clear.A);
 
@@ -41,6 +45,25 @@ public sealed class Render2DStage : IRenderStage, IDisposable
         _text = new TextQuadBuilder(resources.Measurer, _glyphs);
     }
 
+    /// <summary>Where this stage registers materials whose shader files may be edited while the game runs.</summary>
+    protected HotShaders HotShaders => _resources.HotShaders;
+
+    /// <summary>
+    /// Called once for each renderer the stage creates (one per target format). A game that draws its own sprites creates its materials
+    /// here and registers them with <see cref="HotShaders"/>.
+    /// </summary>
+    /// <param name="renderer">The new renderer.</param>
+    protected virtual void RendererCreated(Renderer2D renderer)
+    {
+    }
+
+    /// <summary>Called every frame after the UI is drawn, to add the game's own sprites and tiles.</summary>
+    /// <param name="renderer">The renderer drawing this frame.</param>
+    /// <param name="frame">The frame being drawn.</param>
+    protected virtual void DrawOverUi(Renderer2D renderer, in FrameInfo frame)
+    {
+    }
+
     /// <inheritdoc />
     public string Name => "render2d";
 
@@ -56,11 +79,13 @@ public sealed class Render2DStage : IRenderStage, IDisposable
         {
             renderer = Renderer2D.Create(device, target.Format, _resources.Shaders!);
             _renderers[target.Format] = renderer;
+            RendererCreated(renderer);
         }
 
         _seen.Add(target);
         renderer.BeginFrame(target, new FrameOptions { Clear = ClearColor });
         renderer.Ui.Draw(frame.List, _text, _glyphs, _resources.Art);
+        DrawOverUi(renderer, frame);
         var enc = device.BeginCommands();
         renderer.EndFrame(enc);
         device.Submit(enc);
@@ -109,5 +134,6 @@ public sealed class Render2DStage : IRenderStage, IDisposable
         }
 
         _renderers.Clear();
+        GC.SuppressFinalize(this);
     }
 }

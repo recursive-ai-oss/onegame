@@ -13,6 +13,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The run-time compiler, for shader hot reload. This project is part of development builds only. -->
+    <PackageReference Include="RecursiveAI.OneShader" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="OneGame.Control.Tests" />
   </ItemGroup>
 
