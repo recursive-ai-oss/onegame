@@ -187,7 +187,7 @@ internal sealed partial class ExportVerb
         };
         if (!dev)
         {
-            warnings.Add(new("no_dev_tools", "Release build: no live control and no scenario options. Pass --dev for a build that agents can drive (adb forward, onegame android run)."));
+            warnings.Add(new("no_dev_tools", "Release build: no live control and no scenario options. Pass --dev for a build you can drive from outside (adb forward, onegame android run)."));
         }
 
         var sha = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(apk)));
