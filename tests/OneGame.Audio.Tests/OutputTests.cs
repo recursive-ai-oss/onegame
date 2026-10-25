@@ -275,9 +275,9 @@ public class BackendLogicTests
     [Fact]
     public void DefaultServiceNeverThrowsWhateverTheHostHas()
     {
-        // Uses the real backend for this OS with the silent core: no device, a sound server, or a bare card are all fine.
+        // Uses the real backend for this OS with the default mixer: no device, a sound server, or a bare card are all fine.
         using var s = AudioService.Create(new AudioServiceOptions { Device = new AudioDeviceOptions { DeviceName = "onegame_no_such_device" } });
-        s.Play(s.LoadSound(new MemoryStream([0, 0, 0, 0])));
+        s.Play(s.LoadSound(new MemoryStream(RealMixerTests.Wav(0, 10))));
         s.Update();
         Assert.Equal(AudioOutputStatus.NoDevice, s.Output.Status);
     }

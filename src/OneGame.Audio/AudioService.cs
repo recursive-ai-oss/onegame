@@ -59,6 +59,12 @@ public readonly record struct PlayOptions
     /// <summary>Seconds to fade in from silence. Default 0.</summary>
     public double FadeInSeconds { get; init; }
 
+    /// <summary>Speed and pitch multiplier, 0.0625 to 16 (a clip's rate times this must stay within the mixer's conversion range). Default 1.</summary>
+    public float Pitch { get; init; } = 1f;
+
+    /// <summary>Set to change the pitch later with <see cref="AudioService.SetPitch"/>; a sound that starts at pitch 1 ignores later changes otherwise. Default false.</summary>
+    public bool VariablePitch { get; init; }
+
     /// <summary>The audio-timeline frame to start at, for sounds that must land on a given frame; 0 plays as soon as possible. Default 0.</summary>
     public long StartAtFrame { get; init; }
 }
@@ -93,8 +99,11 @@ public sealed record AudioServiceOptions
     /// <summary>Records instead of playing: no device, no thread, and time moves only with <see cref="AudioService.Advance"/>. See <see cref="AudioService.Capture"/>. Overrides <see cref="Backend"/>.</summary>
     public bool Capture { get; init; }
 
-    /// <summary>The mixer. <see langword="null"/> uses <see cref="NullAudioCore"/>, which is silent.</summary>
+    /// <summary>The mixer. <see langword="null"/> uses <see cref="OneAudioCore"/>: oneaudio's mixer with WAV, Ogg Vorbis and Opus decoding.</summary>
     public IAudioCoreFactory? CoreFactory { get; init; }
+
+    /// <summary>The longest file <see cref="AudioService.LoadSound"/> decodes into memory, in seconds; longer files must be streamed as music. Default 120.</summary>
+    public double MaxClipSeconds { get; init; } = 120;
 
     /// <summary>Most simultaneous voices. Default 64.</summary>
     public int MaxVoices { get; init; } = 64;
@@ -177,7 +186,7 @@ public sealed class AudioService : IDisposable
         CaptureAudioBackend? capture = options.Capture ? new CaptureAudioBackend() : null;
         var backend = capture ?? options.Backend ?? DefaultBackend();
         var output = AudioOutput.Create(backend, options.Device, options.Limiter);
-        var core = (options.CoreFactory ?? NullAudioCore.Factory).Create(output.Format.SampleRate, output.Format.Channels, options.MaxVoices, options.BusCount);
+        var core = (options.CoreFactory ?? new OneAudioCore.Factory(options.MaxClipSeconds)).Create(output.Format.SampleRate, output.Format.Channels, options.MaxVoices, options.BusCount);
         try
         {
             return new AudioService(options, output, core, capture);
@@ -283,7 +292,7 @@ public sealed class AudioService : IDisposable
             options = new PlayOptions();
         }
 
-        return Core.Play(Request(sound.Native, options.Volume, options.Pan, options.Loop, options.Bus.Index, options.Priority, options.FadeInSeconds, options.StartAtFrame));
+        return Core.Play(Request(sound.Native, options.Volume, options.Pan, options.Loop, options.Bus.Index, options.Priority, options.FadeInSeconds, options.StartAtFrame, options.Pitch, options.VariablePitch));
     }
 
     /// <summary>Stops a voice.</summary>
@@ -316,6 +325,47 @@ public sealed class AudioService : IDisposable
     /// <param name="voice">The voice.</param>
     /// <param name="pan">-1 to 1.</param>
     public void SetPan(VoiceId voice, float pan) => Core.SetPan(voice, Math.Clamp(pan, -1f, 1f));
+
+    /// <summary>Changes a playing voice's speed and pitch. Only voices started with a pitch other than 1 or with <see cref="PlayOptions.VariablePitch"/> respond.</summary>
+    /// <param name="voice">The voice.</param>
+    /// <param name="pitch">Speed multiplier; 1 is the sound's own.</param>
+    /// <param name="rampSeconds">Time to glide there; 0 jumps.</param>
+    public void SetPitch(VoiceId voice, float pitch, double rampSeconds = 0) => Core.SetPitch(voice, pitch, Frames(rampSeconds));
+
+    /// <summary>Mutes or unmutes a bus without changing its volume.</summary>
+    /// <param name="bus">The bus.</param>
+    /// <param name="muted">Whether to silence it.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The bus index is not below <see cref="AudioServiceOptions.BusCount"/>.</exception>
+    public void SetBusMuted(AudioBus bus, bool muted)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(bus.Index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(bus.Index, _busVolume.Length);
+        Core.SetBusMute(bus.Index, muted);
+    }
+
+    /// <summary>Turns <paramref name="target"/> down while <paramref name="watched"/> is loud, for example music under speech.</summary>
+    /// <param name="target">The bus that is turned down.</param>
+    /// <param name="watched">The bus whose level triggers it.</param>
+    /// <param name="settings">Threshold, depth and timing; defaults duck 12 dB.</param>
+    /// <exception cref="ArgumentOutOfRangeException">A bus index is out of range.</exception>
+    /// <exception cref="ArgumentException">Both are the same bus, or the link would be circular.</exception>
+    public void SetDucking(AudioBus target, AudioBus watched, DuckingOptions settings = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(target.Index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(target.Index, _busVolume.Length);
+        ArgumentOutOfRangeException.ThrowIfNegative(watched.Index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(watched.Index, _busVolume.Length);
+        if (settings.Equals(default(DuckingOptions)))
+        {
+            settings = new DuckingOptions();
+        }
+
+        Core.SetDucking(target.Index, watched.Index, settings);
+    }
+
+    /// <summary>Removes the ducking of a bus.</summary>
+    /// <param name="target">The bus.</param>
+    public void ClearDucking(AudioBus target) => Core.ClearDucking(target.Index);
 
     /// <summary>Starts a streamed music track on the music bus. If music is already playing it is replaced, with a crossfade when asked for.</summary>
     /// <param name="data">The encoded file; the stream is owned by the track and closed when it ends.</param>
@@ -387,9 +437,13 @@ public sealed class AudioService : IDisposable
             throw new InvalidOperationException("Advance is only available when the service was created with Capture = true.");
         }
 
-        // Streams are filled before every block so the capture never depends on a pump thread's timing.
-        Core.Pump();
-        Output.Advance(frames);
+        // Streams are filled before every slice so the capture never depends on a pump thread's timing, however long the advance is.
+        const int Slice = 2048;
+        for (var left = frames; left > 0; left -= Slice)
+        {
+            Core.Pump();
+            Output.Advance(Math.Min(left, Slice));
+        }
     }
 
     /// <summary>Stops audio, the pump thread and the device.</summary>
@@ -401,7 +455,7 @@ public sealed class AudioService : IDisposable
         Core.Dispose();
     }
 
-    private VoiceRequest Request(object source, float volume, float pan, bool loop, int bus, int priority, double fadeInSeconds, long startAt) => new()
+    private VoiceRequest Request(object source, float volume, float pan, bool loop, int bus, int priority, double fadeInSeconds, long startAt, float pitch = 1f, bool variablePitch = false) => new()
     {
         Source = source,
         Gain = volume,
@@ -411,6 +465,8 @@ public sealed class AudioService : IDisposable
         Priority = priority,
         FadeInFrames = Frames(fadeInSeconds),
         StartAtFrame = startAt,
+        Pitch = pitch,
+        VariablePitch = variablePitch,
     };
 
     private int Frames(double seconds) => (int)Math.Clamp(Math.Round(seconds * Format.SampleRate), 0, int.MaxValue / 2);
