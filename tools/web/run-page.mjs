@@ -9,12 +9,17 @@ import { spawn } from 'node:child_process';
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, v, i, all) => (v.startsWith('--') ? [...a, [v.slice(2), all[i + 1]]] : a), []));
 const root = path.resolve(args.root);
 const timeout = Number(args.timeout || 300) * 1000;
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.json': 'application/json', '.png': 'image/png', '.dat': 'application/octet-stream', '.css': 'text/css', '.yaml': 'text/plain', '.svg': 'image/svg+xml' };
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.json': 'application/json', '.png': 'image/png', '.dat': 'application/octet-stream', '.css': 'text/css', '.yaml': 'text/plain', '.svg': 'image/svg+xml', '.gltf': 'application/json', '.hdr': 'application/octet-stream' };
 
+// --mounts "/models=/some/dir,/env=/other/dir" serves more folders under URL prefixes; GET /__list?path=/models/X lists a mounted folder's files (recursively).
+const mounts = (args.mounts || '').split(',').filter(Boolean).map(m => { const [prefix, dir] = m.split('='); return [prefix, path.resolve(dir)]; });
+const mapped = (p) => { for (const [prefix, dir] of mounts) if (p === prefix || p.startsWith(prefix + '/')) return path.join(dir, p.slice(prefix.length)); return path.join(root, p); };
+const walk = (dir, base = '') => fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(dir, e.name), base + e.name + '/') : [base + e.name]);
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
-  let file = path.join(root, decodeURIComponent(url.pathname));
-  if (!file.startsWith(root)) { res.writeHead(403).end(); return; }
+  if (url.pathname === '/__list') { const d = mapped(url.searchParams.get('path')); res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(fs.existsSync(d) ? walk(d) : [])); return; }
+  let file = mapped(decodeURIComponent(url.pathname));
+  if (!mounts.some(([prefix]) => url.pathname.startsWith(prefix + '/')) && !file.startsWith(root)) { res.writeHead(403).end(); return; }
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
   if (!fs.existsSync(file)) { res.writeHead(404).end('not found'); return; }
   res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-store' });
@@ -32,7 +37,7 @@ const chrome = spawn(process.env.ONEGAME_CHROME || 'google-chrome', [
   `http://127.0.0.1:${httpPort}${args.path || '/index.html'}`,
 ], { stdio: process.env.CHROME_LOG ? ['ignore', 'ignore', fs.openSync(process.env.CHROME_LOG, 'w')] : 'ignore' });
 
-const done = (code) => { try { chrome.kill('SIGKILL'); } catch { } server.close(); fs.rmSync(profile, { recursive: true, force: true }); process.exit(code); };
+const done = (code) => { try { chrome.kill('SIGKILL'); } catch { } server.close(); try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5 }); } catch { } process.exit(code); };
 process.on('SIGINT', () => done(130));
 
 let wsUrl;

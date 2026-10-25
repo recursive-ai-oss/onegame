@@ -113,8 +113,15 @@ function textureEntry(d, fmtHint) {
   return null;
 }
 
-function realizeLayout(L, shaders) {
-  if (L.pl) return;
+// A pipeline layout in WebGPU is explicit about each texture's dimension, but the engine's layouts are shared by shaders that bind
+// different views at the same slot (a 2D panorama and a cube map) and by entry points that each use only some slots. So the WebGPU layout
+// is made per set of shaders (a variant), and a bind group is made against the variant of the pipeline it is used with.
+function variantFor(L, shaders) {
+  const key = shaders.map(x => x.sid).join(',');
+  let V = L.variants.get(key);
+  if (V) return V;
+  V = { L, pl: null, bgls: null, sets: [], pushGroup: -1, pushBinding: -1, pushBG: null, pushBuf: null };
+  L.variants.set(key, V);
   const decls = new Map();
   for (const sh of shaders) for (const [k, v] of sh.decls) if (!decls.has(k)) decls.set(k, v);
   let maxSet = -1;
@@ -131,13 +138,15 @@ function realizeLayout(L, shaders) {
       case 2: e.buffer = { type: 'read-only-storage', hasDynamicOffset: !!b.dynamic }; break;
       case 3: case 5: {
         const te = d && textureEntry(d, b.unfilterable ? 'unfilterable' : '');
-        if (!te) { note('layout: set ' + b.set + ' binding ' + b.binding + ' is a texture but no shader declares it'); continue; }
+        if (!te) continue;   // a slot this pipeline's shaders do not declare is left out of its layout
         Object.assign(e, te);
         break;
       }
       case 4: e.sampler = { type: d && /sampler_comparison/.test(d.type) ? 'comparison' : 'filtering' }; break;
     }
     entries[b.set].push(e);
+    while (V.sets.length <= b.set) V.sets.push(new Set());
+    V.sets[b.set].add(b.binding);
   }
   if (L.pushSize > 0) {
     const sh = shaders.find(x => x.pushGroup >= 0);
@@ -145,10 +154,12 @@ function realizeLayout(L, shaders) {
     while (entries.length <= sh.pushGroup) entries.push([]);
     const vis = (L.pushStages & 1 ? 1 : 0) | (L.pushStages & 2 ? 2 : 0) | (L.pushStages & 4 ? 4 : 0);
     entries[sh.pushGroup].push({ binding: sh.pushBinding, visibility: vis, buffer: { type: 'uniform', hasDynamicOffset: true, minBindingSize: (L.pushSize + 15) & ~15 } });
-    L.pushGroup = sh.pushGroup; L.pushBinding = sh.pushBinding;
+    V.pushGroup = sh.pushGroup; V.pushBinding = sh.pushBinding;
+    while (V.sets.length <= sh.pushGroup) V.sets.push(new Set());
   }
-  L.bgls = entries.map(es => device.createBindGroupLayout({ entries: es }));
-  L.pl = device.createPipelineLayout({ bindGroupLayouts: L.bgls, ...lbl(L.label) });
+  V.bgls = entries.map(es => device.createBindGroupLayout({ entries: es }));
+  V.pl = device.createPipelineLayout({ bindGroupLayouts: V.bgls, ...lbl(L.label) });
+  return V;
 }
 
 // ---- push constants: a ring of uniform slots; each change writes a slot and binds it with a dynamic offset ----
@@ -166,13 +177,14 @@ function pushSlot(data) {
   pushOff += need;
   return off;
 }
-function pushBlock(L, data) {
+function pushBlock(V, data) {
+  const L = V.L;
   const off = pushSlot(data);
-  if (L.pushBuf !== pushRing) {
-    L.pushBuf = pushRing;
-    L.pushBG = device.createBindGroup({ layout: L.bgls[L.pushGroup], entries: [{ binding: L.pushBinding, resource: { buffer: pushRing, offset: 0, size: (L.pushSize + 15) & ~15 } }] });
+  if (V.pushBuf !== pushRing) {
+    V.pushBuf = pushRing;
+    V.pushBG = device.createBindGroup({ layout: V.bgls[V.pushGroup], entries: [{ binding: V.pushBinding, resource: { buffer: pushRing, offset: 0, size: (L.pushSize + 15) & ~15 } }] });
   }
-  (rp || cp).setBindGroup(L.pushGroup, L.pushBG, [off]);
+  (rp || cp).setBindGroup(V.pushGroup, V.pushBG, [off]);
 }
 
 function defaultViewDim(m) {
@@ -218,18 +230,25 @@ function dropViews(id) {
   for (const k of [...viewCache.keys()]) if (k.startsWith(pre)) viewCache.delete(k);
 }
 
-function realizeBindGroup(g) {
-  if (g.bg) return g.bg;
-  const L = g.L;
+function realizeBindGroup(g, V) {
+  if (!V) { note('bind group used before a pipeline was set'); return null; }
+  const bgl = V.bgls[g.set];
+  let bg = g.bgs.get(bgl);
+  if (bg) return bg;
+  const present = V.sets[g.set];
   const entries = [];
   for (const e of g.entries) {
+    if (present && !present.has(e.binding)) continue;   // a slot this pipeline's shaders do not declare
     if (e.kind === 0) entries.push({ binding: e.binding, resource: { buffer: O[e.id], offset: e.offset, ...(e.size ? { size: e.size } : {}) } });
-    else if (e.kind === 1) entries.push({ binding: e.binding, resource: getView(e.id, e.view) });
+    else if (e.kind === 1) {
+      if (!O[e.id]) note('bind group "' + (g.label || '') + '" set ' + g.set + ' binding ' + e.binding + ' uses a texture that was destroyed or never created (handle ' + e.id + ')');
+      entries.push({ binding: e.binding, resource: getView(e.id, e.view) });
+    }
     else entries.push({ binding: e.binding, resource: O[e.id] });
   }
-  if (!L.bgls) { note('bind group used before any pipeline realized its layout'); return null; }
-  g.bg = device.createBindGroup({ layout: L.bgls[g.set], entries, ...lbl(g.label) });
-  return g.bg;
+  bg = device.createBindGroup({ layout: bgl, entries, ...lbl(g.label) });
+  g.bgs.set(bgl, bg);
+  return bg;
 }
 
 function blitPipeline(format, vol) {
@@ -286,8 +305,13 @@ function generateMips(enc, id) {
 }
 
 // ---- the interpreter ----
-let enc = null, rp = null, cp = null, curPipeline = null, curL = null;
+let enc = null, rp = null, cp = null, curPipeline = null, curV = null;
 const pipeLayout = new WeakMap();
+const pending = new Map();   // set index -> the bind group last set in this pass
+function applyBind(set, gid, dyn) {
+  const bg = realizeBindGroup(O[gid], curV);
+  if (bg) (rp || cp).setBindGroup(set, bg, dyn);
+}
 const garbage = [];   // temporary buffers of the current encoder, destroyed once it is submitted
 
 export function exec(view) {
@@ -336,7 +360,7 @@ function run(op) {
       const id = u32(), stage = u32(), entry = str(), code = str(), label = str();
       const pg = u32(), pb = u32();
       const module = device.createShaderModule({ code, ...lbl(label) });
-      O[id] = { module, entry, stage, decls: scanDecls(code), pushGroup: pg - 1, pushBinding: pb - 1 };
+      O[id] = { sid: id, module, entry, stage, decls: scanDecls(code), pushGroup: pg - 1, pushBinding: pb - 1 };
       break;
     }
     case 5: { // pipeline layout
@@ -344,7 +368,7 @@ function run(op) {
       const pushSize = u32(), pushStages = u32();
       const bindings = [];
       for (let i = 0; i < n; i++) bindings.push({ set: u32(), binding: u32(), kind: u32(), stages: u32(), dynamic: u32(), unfilterable: u32() });
-      O[id] = { bindings, label, pl: null, bgls: null, pushSize, pushStages, pushGroup: -1, pushBinding: -1, pushBG: null, pushBuf: null };
+      O[id] = { bindings, label, variants: new Map(), pushSize, pushStages };
       break;
     }
     case 6: { // bind group (created lazily, when a pipeline's layout is known)
@@ -356,16 +380,16 @@ function run(op) {
         if (kind === 1) { const k = u32(), bm = u32(), mc = u32(), bl = u32(), lc = u32(); view = VIEWDIM[k] + ',' + bm + ',' + mc + ',' + bl + ',' + lc; }
         entries.push({ binding, kind, id: rid, offset, size, view });
       }
-      O[id] = { L: O[layout], set, entries, bg: null, label };
+      O[id] = { L: O[layout], set, entries, bgs: new Map(), label };
       break;
     }
     case 7: graphicsPipeline(); break;
     case 8: {
       const id = u32(), layout = u32(), cs = u32(), label = str();
       const L = O[layout], S = O[cs];
-      realizeLayout(L, [S]);
-      O[id] = device.createComputePipeline({ layout: L.pl, compute: { module: S.module, entryPoint: S.entry }, ...lbl(label) });
-      pipeLayout.set(O[id], L);
+      const V = variantFor(L, [S]);
+      O[id] = device.createComputePipeline({ layout: V.pl, compute: { module: S.module, entryPoint: S.entry }, ...lbl(label) });
+      pipeLayout.set(O[id], V);
       break;
     }
     case 9: { // destroy
@@ -376,7 +400,12 @@ function run(op) {
       O[id] = undefined; M[id] = undefined;
       break;
     }
-    case 10: { const id = u32(), off = u64(), data = bytes(); queue.writeBuffer(O[id], off, data); break; }
+    case 10: {
+      const id = u32(), off = u64(), data = bytes();
+      // WebGPU writes whole 4-byte words; buffers are allocated rounded up, so a short tail is padded with zeros.
+      if (data.length % 4) { const padded = new Uint8Array((data.length + 3) & ~3); padded.set(data); queue.writeBuffer(O[id], off, padded); } else queue.writeBuffer(O[id], off, data);
+      break;
+    }
     case 11: { // write texture
       const id = u32(), mip = u32(), layer = u32(), x = u32(), y = u32(), z = u32(), w = u32(), h = u32(), d = u32(), data = bytes();
       const m = M[id];
@@ -387,6 +416,7 @@ function run(op) {
     case 20: enc = device.createCommandEncoder(); pushOff = 0; break;
     case 21: { queue.submit([enc.finish()]); enc = null; for (const g of garbage.splice(0)) g.destroy(); break; }
     case 22: {
+      curV = null; pending.clear();
       const n = u32();
       const colors = [];
       for (let i = 0; i < n; i++) {
@@ -408,15 +438,23 @@ function run(op) {
       break;
     }
     case 23: rp.end(); rp = null; break;
-    case 24: cp = enc.beginComputePass(); break;
+    case 24: cp = enc.beginComputePass(); curV = null; pending.clear(); break;
     case 25: cp.end(); cp = null; break;
-    case 26: { const id = u32(); curL = pipeLayout.get(O[id]) || null; (rp || cp).setPipeline(O[id]); break; }
-    case 46: { const data = bytes(); pushBlock(curL, data); break; }
+    case 26: {
+      const id = u32();
+      curV = pipeLayout.get(O[id]) || null;
+      (rp || cp).setPipeline(O[id]);
+      // Bind groups may be set before the pipeline; each is made against the layout of the pipeline it ends up used with.
+      // A group made for another layout is not carried over: the application binds again after changing to an incompatible pipeline.
+      for (const [set, b] of pending) if (curV && O[b.gid].L === curV.L) applyBind(set, b.gid, b.dyn);
+      break;
+    }
+    case 46: { const data = bytes(); pushBlock(curV, data); break; }
     case 27: {
       const set = u32(), gid = u32(), n = u32();
       const dyn = []; for (let i = 0; i < n; i++) dyn.push(u32());
-      const bg = realizeBindGroup(O[gid]);
-      if (bg) (rp || cp).setBindGroup(set, bg, dyn);
+      pending.set(set, { gid, dyn });
+      if (curV) applyBind(set, gid, dyn);
       break;
     }
     case 28: { const slot = u32(), id = u32(), off = u64(); rp.setVertexBuffer(slot, O[id], off); break; }
@@ -511,9 +549,9 @@ function graphicsPipeline() {
   }
   const samples = u32(), depthClamp = u32(), label = str();
   const L = O[layoutId], VS = O[vsId], PS = psId ? O[psId] : null;
-  realizeLayout(L, PS ? [VS, PS] : [VS]);
+  const V = variantFor(L, PS ? [VS, PS] : [VS]);
   const desc = {
-    layout: L.pl,
+    layout: V.pl,
     vertex: { module: VS.module, entryPoint: VS.entry, buffers },
     primitive: { topology, cullMode: cull, frontFace: front, ...(depthClamp ? { unclippedDepth: true } : {}) },
     multisample: { count: samples },
@@ -522,7 +560,7 @@ function graphicsPipeline() {
   if (PS) desc.fragment = { module: PS.module, entryPoint: PS.entry, targets };
   if (depthStencil) desc.depthStencil = depthStencil;
   O[id] = device.createRenderPipeline(desc);
-  pipeLayout.set(O[id], L);
+  pipeLayout.set(O[id], V);
 }
 
 // ---- reads ----

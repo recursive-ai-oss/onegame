@@ -77,7 +77,7 @@ public sealed partial class Renderer3D
     private bool _lutBuilt;
     private EnvironmentMap? _defaultEnvironment;
 
-    /// <summary>The split-sum environment BRDF table (<c>Rg16Float</c>, n.v across, roughness down); filled on first use.</summary>
+    /// <summary>The split-sum environment BRDF table (<c>Rgba16Float</c>, the first two channels; n.v across, roughness down); filled on first use.</summary>
     public GpuTexture BrdfLut { get; private set; } = null!;
 
     private void InitIbl()
@@ -123,7 +123,7 @@ public sealed partial class Renderer3D
             Label = "brdf lut",
         }));
         _equirectSampler = Own(device.CreateSampler(SamplerDesc.Linear with { AddressU = AddressMode.Repeat }));
-        BrdfLut = Own(device.CreateTexture(new TextureDesc(LutSize, LutSize, GpuFormat.Rg16Float, TextureUsage.Sampled | TextureUsage.Storage | TextureUsage.CopySource) { Label = "brdf lut" }));
+        BrdfLut = Own(device.CreateTexture(new TextureDesc(LutSize, LutSize, GpuFormat.Rgba16Float, TextureUsage.Sampled | TextureUsage.Storage | TextureUsage.CopySource) { Label = "brdf lut" }));
         _lutParams = Own(device.CreateBuffer(new BufferDesc(256, BufferUsage.Uniform | BufferUsage.CopyDestination) { Label = "brdf lut params" }));
         device.WriteBuffer(_lutParams, 0, MemoryMarshal.AsBytes(new ReadOnlySpan<Vector4>([new Vector4(LutSize, LutSamples, 0, 0)])));
         _lutGroup = Own(device.CreateBindGroup(_lutLayout, 0,

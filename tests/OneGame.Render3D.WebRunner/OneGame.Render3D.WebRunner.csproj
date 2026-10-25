@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <!--
+    Draws the Khronos sample models in a browser on WebGPU and compares them with the committed viewer references, with the same measure and
+    limits as OneGame.Render3D.Tests. Test code only: nothing here ships. The page (wwwroot/main.mjs) fetches models into the file system.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>OneGame.Render3D.Tests</RootNamespace>
+    <AssemblyName>OneGame.Render3D.WebRunner</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishTrimmed>false</PublishTrimmed>
+    <WasmEnableWebcil>false</WasmEnableWebcil>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Shared>$(MSBuildThisFileDirectory)../OneGame.Render3D.Tests/</Shared>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <Compile Include="$(Shared)ReferenceCases.cs;$(Shared)Png.cs" />
+    <Content Include="../../src/OneGame.Gpu.WebGpu/js/onegame-gpu.js" Link="wwwroot/onegame-gpu.js" />
+    <ProjectReference Include="../../src/OneGame.Render3D/OneGame.Render3D.csproj" />
+    <ProjectReference Include="../../src/OneGame.Gpu.WebGpu/OneGame.Gpu.WebGpu.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System.Numerics" />
+  </ItemGroup>
+
+</Project>
