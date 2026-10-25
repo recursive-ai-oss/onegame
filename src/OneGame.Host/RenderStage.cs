@@ -12,7 +12,8 @@ namespace OneGame.Host;
 /// <param name="Tick">The simulation tick the frame shows.</param>
 /// <param name="List">What the UI wants drawn.</param>
 /// <param name="World">The simulation state, for stages that draw the world.</param>
-public readonly record struct FrameInfo(int Width, int Height, float Scale, long Tick, DisplayList List, World World);
+/// <param name="Alpha">How far past <paramref name="Tick"/> the frame is, from 0 to just under 1, for stages that draw between ticks.</param>
+public readonly record struct FrameInfo(int Width, int Height, float Scale, long Tick, DisplayList List, World World, Fixed Alpha = default);
 
 /// <summary>
 /// Draws one frame. The host owns the window, the swapchain and the offscreen targets and hands the stage a texture; a renderer

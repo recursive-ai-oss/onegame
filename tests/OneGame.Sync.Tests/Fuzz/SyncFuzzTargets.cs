@@ -17,6 +17,7 @@ public static class SyncFuzzTargets
         new FuzzTargets.Target("recording", RunRecording, () => [ValidRecording()]),
         new FuzzTargets.Target("digest", RunDigest, () => [ValidDigest()]),
         new FuzzTargets.Target("transport-client", RunToReplica, () => Traffic().ToClient),
+        new FuzzTargets.Target("pieces", RunPieces, PieceTraffic),
         new FuzzTargets.Target("transport-server", RunToAuthority, () => Traffic().ToServer),
         new FuzzTargets.Target("view-snapshot", RunViewSnapshot, ViewSnapshots),
         new FuzzTargets.Target("view-client", RunToFilteredReplica, () => ViewTraffic().ToClient),
@@ -149,6 +150,59 @@ public static class SyncFuzzTargets
         view.Link.Connection.Channel.Send(input);
         cluster.Settle();
         return view.Node.ProtocolErrors.Count == 0;
+    }
+
+    // ---- long messages sent in pieces: the input is a run of length-prefixed messages, delivered in order to one replica ----------------------
+
+    private static readonly ClusterOptions PieceOptions = new() { DriftCheckInterval = 1, MaxAssembledBytes = 1 << 20, PieceBytes = 64 };
+
+    private static List<byte[]> PieceTraffic()
+    {
+        // A real snapshot and a real frame, cut small enough to make many pieces.
+        var cluster = new Cluster(PieceOptions);
+        var host = cluster.AddNode("host");
+        var scope = cluster.AddScope(host, new ScopeId(1), Small());
+        var client = cluster.AddNode("client");
+        var (a, b) = Loopback.CreatePair();
+        var tap = new TapChannel(a);
+        host.Accept(b, Trust.Full, "c");
+        var link = client.ConnectVia(tap);
+        client.Subscribe(link, scope.Id, Scenario.NewWorld(WorldRole.Replica));
+        cluster.Settle();
+        scope.World.Add(new Bot { Hp = 3 });
+        cluster.Step(1);
+        var w = new SyncWriter();
+        foreach (var m in tap.Received)
+        {
+            w.WriteBytes(m);
+        }
+
+        return [w.ToArray()];
+    }
+
+    private static bool RunPieces(byte[] input)
+    {
+        var cluster = new Cluster(PieceOptions);
+        var host = cluster.AddNode("host");
+        var scope = cluster.AddScope(host, new ScopeId(1), Small());
+        var client = cluster.AddNode("client");
+        var (a, b) = Loopback.CreatePair();
+        host.Accept(b, Trust.Full, "c");
+        var link = client.ConnectVia(a);
+        client.Subscribe(link, scope.Id, Scenario.NewWorld(WorldRole.Replica));
+        host.Pump();
+        var r = new SyncReader(input);
+        while (r.Ok && !r.AtEnd)
+        {
+            var message = r.ReadBytes(int.MaxValue);
+            if (r.Ok)
+            {
+                b.Send(message);
+            }
+        }
+
+        client.Pump();
+        return client.ProtocolErrors.Count == 0;
     }
 
     private static bool RunToAuthority(byte[] input)

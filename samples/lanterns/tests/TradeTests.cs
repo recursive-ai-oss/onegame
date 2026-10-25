@@ -115,7 +115,8 @@ public class TradeTests
             t.Realms.Run(120);
             Assert.Equal(t.Total, t.Realms.Held());
             Assert.Equal(0, t.Realms.InFlight());
-            Assert.Equal(0, t.P1.Pending + t.P2.Pending);
+            // A player whose island was killed is gone after the restart (their connection died with it); their lanterns are counted as departed.
+            Assert.Equal(0, t.P1.Pending + (victim == Rules.IslandB ? 0 : t.P2.Pending));
 
             // Players follow the master through their island's relay: once it is back they must see the settled swap too, with no drift.
             // A player whose own island was killed lost the connection itself, so only the other player is checked then.

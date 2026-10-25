@@ -25,6 +25,7 @@ internal static class Msg
     public const byte SubscribeRefused = 20;
     public const byte CommandResult = 21;
     public const byte Revoked = 22;
+    public const byte Part = 23; // one piece of a message too long to send whole: total length, offset, bytes
 
     // Authority transfer, between nodes: answers from the node receiving the entities, and the hint to subscribers.
     public const byte XferStaged = 48;
@@ -61,7 +62,12 @@ public sealed class Link
     public bool IsRemote => Server is null;
 
     /// <summary>The channel. Tests may send raw bytes through it to play a misbehaving peer.</summary>
-    public IMessageChannel Channel { get; }
+    public IMessageChannel Channel { get; internal set; }
+
+    /// <summary>Pieces of a long message received so far.</summary>
+    internal byte[]? Assembly { get; set; }
+
+    internal int Assembled { get; set; }
 }
 
 /// <summary>The authority's end of a connection: what the peer is trusted to do, and the entry point for commands as that peer.</summary>
@@ -188,6 +194,11 @@ public sealed partial class Node
     /// <summary>Total drift reports ever filed (the list keeps only the latest 256).</summary>
     public int DriftCount { get; private set; }
 
+    /// <summary>Milliseconds for the timeouts; set by <see cref="Cluster"/>, otherwise the options' clock or the system's monotonic one.</summary>
+    internal Func<long>? Clock { get; set; }
+
+    internal long Now => Clock?.Invoke() ?? Options.Clock?.Invoke() ?? Environment.TickCount64;
+
     internal SyncWriter Out { get; } = new(1 << 12);
 
     internal SyncWriter Scratch { get; } = new(1 << 12);
@@ -303,6 +314,80 @@ public sealed partial class Node
     }
 
     /// <summary>
+    /// Forgets a connection that has gone away (its transport closed): every scope stops publishing to it and <see cref="Connections"/> no longer lists it.
+    /// Commands it already queued still run. Safe to call twice.
+    /// </summary>
+    /// <param name="connection">A connection from <see cref="Accept"/> or <c>ConnectTo</c> on this node.</param>
+    /// <returns>False if it was not (or no longer) attached.</returns>
+    public bool Detach(Connection connection)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        if (!_connections.Remove(connection))
+        {
+            return false;
+        }
+
+        foreach (var scope in _authority)
+        {
+            scope.Unsubscribe(connection);
+        }
+
+        return true;
+    }
+
+    /// <summary>Forgets a link whose transport is gone and everything this node followed over it: its replicas become <see cref="ReplicaState.Unsubscribed"/> (they keep their last state) and their pending commands complete as dropped.</summary>
+    /// <param name="link">A link made by <c>ConnectTo</c> or <see cref="ConnectVia"/> on this node.</param>
+    /// <returns>False if it was not attached.</returns>
+    public bool Detach(Link link)
+    {
+        ArgumentNullException.ThrowIfNull(link);
+        if (!_links.Remove(link))
+        {
+            return false;
+        }
+
+        for (var i = _replicas.Count - 1; i >= 0; i--)
+        {
+            if (_replicas[i].Link == link)
+            {
+                var replica = _replicas[i];
+                _replicas.RemoveAt(i);
+                replica.MarkUnsubscribed();
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Carries on over a new channel to the same authority after the old one died: the link keeps its replicas, each of which asks for a fresh
+    /// snapshot (their worlds are replaced, hashes agree again once it arrives). Commands still waiting for an answer complete as dropped and
+    /// predictions are rebuilt. Replicas that were refused, revoked or unsubscribed stay as they are.
+    /// </summary>
+    /// <param name="link">A link from <see cref="ConnectVia"/> on this node.</param>
+    /// <param name="channel">A connected channel to the (restarted) authority.</param>
+    /// <exception cref="ArgumentException">The link belongs to another node or was detached.</exception>
+    public void Reconnect(Link link, IMessageChannel channel)
+    {
+        ArgumentNullException.ThrowIfNull(link);
+        ArgumentNullException.ThrowIfNull(channel);
+        if (link.Owner != this || !_links.Contains(link))
+        {
+            throw new ArgumentException("The link does not belong to this node or was detached.", nameof(link));
+        }
+
+        link.Channel = channel;
+        link.Assembly = null;
+        foreach (var replica in _replicas.ToArray())
+        {
+            if (replica.Link == link && replica.State is not (ReplicaState.Refused or ReplicaState.Revoked or ReplicaState.Unsubscribed))
+            {
+                replica.Reconnected();
+            }
+        }
+    }
+
+    /// <summary>
     /// Stops following a scope: tells the authority to stop sending, and drops the replica from <see cref="ReplicaScopes"/>. The replica's
     /// world keeps the last state it had and is no longer updated; late messages for it are ignored.
     /// </summary>
@@ -383,6 +468,15 @@ public sealed partial class Node
             {
                 any = true;
                 HandleClientMessage(l, message);
+            }
+        }
+
+        if (_replicas.Count > 0)
+        {
+            var now = Now;
+            for (var i = 0; i < _replicas.Count; i++)
+            {
+                _replicas[i].CheckTimeouts(now);
             }
         }
 
@@ -560,6 +654,12 @@ public sealed partial class Node
 
     private void HandleClientMessage(Link link, ReadOnlySpan<byte> message)
     {
+        if (message.Length > 0 && message[0] == Msg.Part)
+        {
+            HandlePart(link, message);
+            return;
+        }
+
         var r = new SyncReader(message);
         var type = r.ReadByte();
         var scope = new ScopeId(r.ReadUInt32());

@@ -6,14 +6,17 @@ namespace Lanterns;
 [Entity]
 public partial class Island : Entity
 {
-    /// <summary>Owned by server code, so only the server can join players.</summary>
+    /// <summary>Owned by server code (the identity servers use towards each other), so only a server can join or remove players.</summary>
     [Synced, OwnerKey] public partial uint Keeper { get; set; }
 
     /// <summary>The scope this island is.</summary>
     [Synced] public partial uint ScopeNo { get; set; }
 
-    /// <summary>Lanterns ever picked up here. Held lanterns plus lanterns in a swap always equal the sum of these over the islands.</summary>
+    /// <summary>Lanterns ever picked up here. Held lanterns, lanterns in a swap and lanterns that left with their players (<see cref="Departed"/>) always equal the sum of these over the islands.</summary>
     [Synced] public partial long Collected { get; set; }
+
+    /// <summary>Lanterns that left the game in the pockets of players who disconnected from this island.</summary>
+    [Synced] public partial long Departed { get; set; }
 
     /// <summary>Players who arrived over the bridge from the other island.</summary>
     [Synced] public partial long Arrivals { get; set; }
@@ -48,6 +51,32 @@ public partial class Island : Entity
             Y = 32 + (int)(serial % 6 * 24),
             Mine = true,
         });
+        return CommandReply.Ok;
+    }
+
+    /// <summary>
+    /// Takes a player out of the game because their connection is gone. Safe to repeat: a player who is not here is fine. A player who is on the
+    /// bridge or has a swap open is turned away for now, so the hand-over or swap that holds their lanterns can finish first; the caller asks again.
+    /// </summary>
+    [Command(OwnerOnly = true)]
+    public CommandReply Leave(int player)
+    {
+        var w = World!;
+        foreach (var e in w.Entities)
+        {
+            if (e is Player p && p.Owner == (uint)player)
+            {
+                if (p.Dest != 0 || p.Pending != 0)
+                {
+                    return CommandReply.Reject("busy");
+                }
+
+                Departed += p.Total;
+                w.Remove(p.Id);
+                break;
+            }
+        }
+
         return CommandReply.Ok;
     }
 
