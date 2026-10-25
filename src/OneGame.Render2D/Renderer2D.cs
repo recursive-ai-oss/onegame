@@ -204,7 +204,7 @@ public sealed partial class Renderer2D : IDisposable
     private GpuShader Shader(string program, string entry)
     {
         var code = _shaders.Load(program, entry);
-        return _device.CreateShader(code.Stage, code.SpirV.Span, code.EntryPoint, code.Wgsl.Span, code.WgslEntryPoint ?? code.EntryPoint);
+        return _device.CreateShader(code.ToSource());
     }
 
     private GpuGraphicsPipeline Pipeline(GpuPipelineLayout layout, GpuShader vs, GpuShader ps, VertexBufferLayout vertex, string label) =>
@@ -308,7 +308,7 @@ public sealed partial class Renderer2D : IDisposable
             throw new ArgumentException("a material needs a pixel shader", nameof(pixelShader));
         }
 
-        using var ps = _device.CreateShader(pixelShader.Stage, pixelShader.SpirV.Span, pixelShader.EntryPoint, pixelShader.Wgsl.Span, pixelShader.WgslEntryPoint ?? pixelShader.EntryPoint);
+        using var ps = _device.CreateShader(pixelShader.ToSource());
         var pipeline = Pipeline(_layoutParams, _quadVertex, ps, Layouts.QuadVertex(), label ?? "material");
         return NewMaterial(pipeline, ownsPipeline: true);
     }
@@ -334,7 +334,7 @@ public sealed partial class Renderer2D : IDisposable
             throw new ArgumentException("the renderer's own materials cannot be replaced", nameof(material));
         }
 
-        using var ps = _device.CreateShader(pixelShader.Stage, pixelShader.SpirV.Span, pixelShader.EntryPoint, pixelShader.Wgsl.Span, pixelShader.WgslEntryPoint ?? pixelShader.EntryPoint);
+        using var ps = _device.CreateShader(pixelShader.ToSource());
         var pipeline = Pipeline(_layoutParams, _quadVertex, ps, Layouts.QuadVertex(), "material");
         var old = material.SwapPipeline(pipeline);
 

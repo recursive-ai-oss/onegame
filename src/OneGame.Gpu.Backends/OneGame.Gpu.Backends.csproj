@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Picks the graphics backend for the machine: Metal on Apple platforms, WebGPU in a browser, Vulkan elsewhere.</Description>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Gpu/OneGame.Gpu.csproj" />
+    <ProjectReference Include="../OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan.csproj" />
+    <ProjectReference Include="../OneGame.Gpu.Metal/OneGame.Gpu.Metal.csproj" />
+    <ProjectReference Include="../OneGame.Gpu.WebGpu/OneGame.Gpu.WebGpu.csproj" />
+  </ItemGroup>
+
+</Project>

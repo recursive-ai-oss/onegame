@@ -308,15 +308,15 @@ if (scene3d is not null)
 
 Console.WriteLine("ok: entities in 3D: transform sync, camera, projection, picking, pinned label, camera/pick/project operations");
 
-// Graphics: create a device, clear an offscreen target and read it back. "--require-gpu" turns a missing Vulkan driver into a failure.
+// Graphics: create a device, clear an offscreen target and read it back. "--require-gpu" turns a missing graphics driver into a failure.
 var requireGpu = args.Contains("--require-gpu");
-if (!VulkanGpu.IsAvailable)
+if (!GpuBackends.IsAvailable)
 {
-    Console.WriteLine("gpu: no Vulkan loader on this machine");
+    Console.WriteLine("gpu: " + GpuBackends.UnavailableReason);
     return requireGpu ? 1 : 0;
 }
 
-using var device = VulkanGpu.CreateDevice();
+using var device = GpuBackends.CreateDevice();
 using var target = device.CreateTexture(new TextureDesc(8, 8, GpuFormat.Rgba8Unorm, TextureUsage.RenderTarget | TextureUsage.CopySource));
 var encoder = device.BeginCommands();
 encoder.BeginRenderPass(ColorAttachment.Clear(target, 1f, 0.5f, 0f, 1f)).EndPass();

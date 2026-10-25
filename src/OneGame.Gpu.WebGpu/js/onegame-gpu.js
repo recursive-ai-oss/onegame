@@ -139,8 +139,40 @@ function realizeLayout(L, shaders) {
     }
     entries[b.set].push(e);
   }
+  if (L.pushSize > 0) {
+    const sh = shaders.find(x => x.pushGroup >= 0);
+    if (!sh) throw new Error('push constants were declared but no shader of the pipeline has a push-constant block (WgslPushGroup/WgslPushBinding)');
+    while (entries.length <= sh.pushGroup) entries.push([]);
+    const vis = (L.pushStages & 1 ? 1 : 0) | (L.pushStages & 2 ? 2 : 0) | (L.pushStages & 4 ? 4 : 0);
+    entries[sh.pushGroup].push({ binding: sh.pushBinding, visibility: vis, buffer: { type: 'uniform', hasDynamicOffset: true, minBindingSize: (L.pushSize + 15) & ~15 } });
+    L.pushGroup = sh.pushGroup; L.pushBinding = sh.pushBinding;
+  }
   L.bgls = entries.map(es => device.createBindGroupLayout({ entries: es }));
   L.pl = device.createPipelineLayout({ bindGroupLayouts: L.bgls, ...lbl(L.label) });
+}
+
+// ---- push constants: a ring of uniform slots; each change writes a slot and binds it with a dynamic offset ----
+const PUSH_SLOT = 256;   // minUniformBufferOffsetAlignment is at most 256
+let pushRing = null, pushOff = 0;
+function pushSlot(data) {
+  const need = (data.length + PUSH_SLOT - 1) & ~(PUSH_SLOT - 1);
+  if (!pushRing || pushOff + need > pushRing.size) {
+    // A full ring is replaced, not reused: slots written for the encoder being recorded must stay intact until it is submitted.
+    pushRing = device.createBuffer({ size: 1 << 20, usage: 0x40 | 8, label: 'push constants' });
+    pushOff = 0;
+  }
+  const off = pushOff;
+  queue.writeBuffer(pushRing, off, data);
+  pushOff += need;
+  return off;
+}
+function pushBlock(L, data) {
+  const off = pushSlot(data);
+  if (L.pushBuf !== pushRing) {
+    L.pushBuf = pushRing;
+    L.pushBG = device.createBindGroup({ layout: L.bgls[L.pushGroup], entries: [{ binding: L.pushBinding, resource: { buffer: pushRing, offset: 0, size: (L.pushSize + 15) & ~15 } }] });
+  }
+  (rp || cp).setBindGroup(L.pushGroup, L.pushBG, [off]);
 }
 
 function defaultViewDim(m) {
@@ -254,7 +286,8 @@ function generateMips(enc, id) {
 }
 
 // ---- the interpreter ----
-let enc = null, rp = null, cp = null, curPipeline = null;
+let enc = null, rp = null, cp = null, curPipeline = null, curL = null;
+const pipeLayout = new WeakMap();
 const garbage = [];   // temporary buffers of the current encoder, destroyed once it is submitted
 
 export function exec(view) {
@@ -301,15 +334,17 @@ function run(op) {
     }
     case 4: { // shader
       const id = u32(), stage = u32(), entry = str(), code = str(), label = str();
+      const pg = u32(), pb = u32();
       const module = device.createShaderModule({ code, ...lbl(label) });
-      O[id] = { module, entry, stage, decls: scanDecls(code) };
+      O[id] = { module, entry, stage, decls: scanDecls(code), pushGroup: pg - 1, pushBinding: pb - 1 };
       break;
     }
     case 5: { // pipeline layout
       const id = u32(), n = u32(), label = str();
+      const pushSize = u32(), pushStages = u32();
       const bindings = [];
       for (let i = 0; i < n; i++) bindings.push({ set: u32(), binding: u32(), kind: u32(), stages: u32(), dynamic: u32(), unfilterable: u32() });
-      O[id] = { bindings, label, pl: null, bgls: null };
+      O[id] = { bindings, label, pl: null, bgls: null, pushSize, pushStages, pushGroup: -1, pushBinding: -1, pushBG: null, pushBuf: null };
       break;
     }
     case 6: { // bind group (created lazily, when a pipeline's layout is known)
@@ -330,6 +365,7 @@ function run(op) {
       const L = O[layout], S = O[cs];
       realizeLayout(L, [S]);
       O[id] = device.createComputePipeline({ layout: L.pl, compute: { module: S.module, entryPoint: S.entry }, ...lbl(label) });
+      pipeLayout.set(O[id], L);
       break;
     }
     case 9: { // destroy
@@ -348,7 +384,7 @@ function run(op) {
       queue.writeTexture({ texture: O[id], mipLevel: mip, origin }, data, { bytesPerRow: w * m.bpt, rowsPerImage: h }, [w, h, d]);
       break;
     }
-    case 20: enc = device.createCommandEncoder(); break;
+    case 20: enc = device.createCommandEncoder(); pushOff = 0; break;
     case 21: { queue.submit([enc.finish()]); enc = null; for (const g of garbage.splice(0)) g.destroy(); break; }
     case 22: {
       const n = u32();
@@ -374,7 +410,8 @@ function run(op) {
     case 23: rp.end(); rp = null; break;
     case 24: cp = enc.beginComputePass(); break;
     case 25: cp.end(); cp = null; break;
-    case 26: { const id = u32(); (rp || cp).setPipeline(O[id]); break; }
+    case 26: { const id = u32(); curL = pipeLayout.get(O[id]) || null; (rp || cp).setPipeline(O[id]); break; }
+    case 46: { const data = bytes(); pushBlock(curL, data); break; }
     case 27: {
       const set = u32(), gid = u32(), n = u32();
       const dyn = []; for (let i = 0; i < n; i++) dyn.push(u32());
@@ -485,6 +522,7 @@ function graphicsPipeline() {
   if (PS) desc.fragment = { module: PS.module, entryPoint: PS.entry, targets };
   if (depthStencil) desc.depthStencil = depthStencil;
   O[id] = device.createRenderPipeline(desc);
+  pipeLayout.set(O[id], L);
 }
 
 // ---- reads ----

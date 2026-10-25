@@ -4,18 +4,18 @@
     <!-- The tests open their own X11 window through Xlib, which needs source-generated P/Invoke. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- One test shader indexes an array of textures, which WebGPU cannot express; the browser runner builds the rest for WGSL. -->
-    <OneShaderTargets>SpirV;Wgsl</OneShaderTargets>
+    <OneShaderTargets>SpirV;Msl;Wgsl</OneShaderTargets>
     <EnableDefaultOneShaderItems>false</EnableDefaultOneShaderItems>
   </PropertyGroup>
 
   <ItemGroup>
     <OneShader Include="Shaders/*.hlsl" />
-    <OneShader Update="Shaders/TextureArray.hlsl" Targets="SpirV" />
+    <OneShader Update="Shaders/TextureArray.hlsl" Targets="SpirV;Msl" />
     <PackageReference Include="RecursiveAI.OneShader.Build" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan.csproj" />
+    <ProjectReference Include="../../src/OneGame.Gpu.Backends/OneGame.Gpu.Backends.csproj" />
   </ItemGroup>
 
 </Project>

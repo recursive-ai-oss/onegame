@@ -7,13 +7,11 @@ public sealed class RenderTests
 {
     const int Size = 64;
 
-    static GpuShader VertexShader(GpuDevice d, ReadOnlySpan<byte> spirv, string entry, ReadOnlySpan<byte> wgsl = default, string? wgslEntry = null) => d.CreateShader(ShaderStage.Vertex, spirv.ToArray(), entry, wgsl, wgslEntry ?? entry);
-    static GpuShader PixelShader(GpuDevice d, ReadOnlySpan<byte> spirv, string entry, ReadOnlySpan<byte> wgsl = default, string? wgslEntry = null) => d.CreateShader(ShaderStage.Pixel, spirv.ToArray(), entry, wgsl, wgslEntry ?? entry);
 
     static GraphicsPipelineDesc TrianglePipeline(GpuDevice d, GpuFormat format, out GpuShader vs, out GpuShader fs, out GpuPipelineLayout layout)
     {
-        vs = VertexShader(d, Triangle.VSMain.SpirV, Triangle.VSMain.EntryPoint, Triangle.VSMain.Wgsl, Triangle.VSMain.WgslEntryPoint);
-        fs = PixelShader(d, Triangle.PSMain.SpirV, Triangle.PSMain.EntryPoint, Triangle.PSMain.Wgsl, Triangle.PSMain.WgslEntryPoint);
+        vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Triangle.VSMain.EntryPoint) { SpirV = Triangle.VSMain.SpirV, Wgsl = Triangle.VSMain.Wgsl, WgslEntryPoint = Triangle.VSMain.WgslEntryPoint, Msl = Triangle.VSMain.Msl, MslFunctionName = Triangle.VSMain.MslFunctionName, Bindings = Triangle.Bindings.All });
+        fs = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Triangle.PSMain.EntryPoint) { SpirV = Triangle.PSMain.SpirV, Wgsl = Triangle.PSMain.Wgsl, WgslEntryPoint = Triangle.PSMain.WgslEntryPoint, Msl = Triangle.PSMain.Msl, MslFunctionName = Triangle.PSMain.MslFunctionName, Bindings = Triangle.Bindings.All });
         layout = d.CreatePipelineLayout([]);
         return new GraphicsPipelineDesc
         {
@@ -147,8 +145,8 @@ public sealed class RenderTests
         d.WriteBuffer(ub2, 0, MemoryMarshal.AsBytes<Params>([new Params { R = 1, G = 1, B = 1, A = 0.5f, OffsetX = 0.25f, OffsetY = 0.25f }]));
 
         using var sampler = d.CreateSampler(SamplerDesc.Nearest);
-        using var vs = VertexShader(d, TexturedQuad.VSMain.SpirV, TexturedQuad.VSMain.EntryPoint, TexturedQuad.VSMain.Wgsl, TexturedQuad.VSMain.WgslEntryPoint);
-        using var fs = PixelShader(d, TexturedQuad.PSMain.SpirV, TexturedQuad.PSMain.EntryPoint, TexturedQuad.PSMain.Wgsl, TexturedQuad.PSMain.WgslEntryPoint);
+        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, TexturedQuad.VSMain.EntryPoint) { SpirV = TexturedQuad.VSMain.SpirV, Wgsl = TexturedQuad.VSMain.Wgsl, WgslEntryPoint = TexturedQuad.VSMain.WgslEntryPoint, Msl = TexturedQuad.VSMain.Msl, MslFunctionName = TexturedQuad.VSMain.MslFunctionName, Bindings = TexturedQuad.Bindings.All });
+        using var fs = d.CreateShader(new ShaderSource(ShaderStage.Pixel, TexturedQuad.PSMain.EntryPoint) { SpirV = TexturedQuad.PSMain.SpirV, Wgsl = TexturedQuad.PSMain.Wgsl, WgslEntryPoint = TexturedQuad.PSMain.WgslEntryPoint, Msl = TexturedQuad.PSMain.Msl, MslFunctionName = TexturedQuad.PSMain.MslFunctionName, Bindings = TexturedQuad.Bindings.All });
         using var layout = d.CreatePipelineLayout(
         [
             new ResourceBinding(0, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Vertex | ShaderStage.Pixel),
@@ -208,7 +206,7 @@ public sealed class RenderTests
         using var outBuf = d.CreateBuffer(new BufferDesc(N * 4, BufferUsage.Storage | BufferUsage.CopySource));
         d.WriteBuffer(inBuf, 0, MemoryMarshal.AsBytes<uint>(input));
 
-        using var cs = d.CreateShader(ShaderStage.Compute, Fill.CSMain.SpirV.ToArray(), Fill.CSMain.EntryPoint, Fill.CSMain.Wgsl, Fill.CSMain.WgslEntryPoint);
+        using var cs = d.CreateShader(new ShaderSource(ShaderStage.Compute, Fill.CSMain.EntryPoint) { SpirV = Fill.CSMain.SpirV, Wgsl = Fill.CSMain.Wgsl, WgslEntryPoint = Fill.CSMain.WgslEntryPoint, Msl = Fill.CSMain.Msl, MslFunctionName = Fill.CSMain.MslFunctionName, Bindings = Fill.Bindings.All, ComputeGroupX = Fill.CSMain.ThreadGroupSizeX, ComputeGroupY = Fill.CSMain.ThreadGroupSizeY, ComputeGroupZ = Fill.CSMain.ThreadGroupSizeZ });
         using var layout = d.CreatePipelineLayout(
         [
             new ResourceBinding(0, 0, 1, ResourceKind.StorageBuffer, ShaderStage.Compute),
@@ -244,7 +242,7 @@ public sealed class RenderTests
         using var b = d.CreateBuffer(new BufferDesc(N * 4, BufferUsage.Storage | BufferUsage.CopyDestination | BufferUsage.CopySource));
         d.WriteBuffer(a, 0, MemoryMarshal.AsBytes<uint>(new uint[N]));
         d.WriteBuffer(b, 0, MemoryMarshal.AsBytes<uint>(new uint[N]));
-        using var cs = d.CreateShader(ShaderStage.Compute, Fill.CSMain.SpirV.ToArray(), Fill.CSMain.EntryPoint, Fill.CSMain.Wgsl, Fill.CSMain.WgslEntryPoint);
+        using var cs = d.CreateShader(new ShaderSource(ShaderStage.Compute, Fill.CSMain.EntryPoint) { SpirV = Fill.CSMain.SpirV, Wgsl = Fill.CSMain.Wgsl, WgslEntryPoint = Fill.CSMain.WgslEntryPoint, Msl = Fill.CSMain.Msl, MslFunctionName = Fill.CSMain.MslFunctionName, Bindings = Fill.Bindings.All, ComputeGroupX = Fill.CSMain.ThreadGroupSizeX, ComputeGroupY = Fill.CSMain.ThreadGroupSizeY, ComputeGroupZ = Fill.CSMain.ThreadGroupSizeZ });
         using var layout = d.CreatePipelineLayout(
         [
             new ResourceBinding(0, 0, 1, ResourceKind.StorageBuffer, ShaderStage.Compute),
@@ -419,9 +417,11 @@ public sealed class RenderTests
         var d = gpu.Device;
         using var buf = d.CreateBuffer(new BufferDesc(16, BufferUsage.Vertex));
         Assert.Throws<ArgumentException>(() => d.WriteBuffer(buf, 0, new byte[4]));
-#if !WEB_BACKEND
-        Assert.Throws<ArgumentException>(() => d.CreateShader(ShaderStage.Vertex, new byte[] { 1, 2, 3 }, "main"));
-#endif
+        if (d.Backend == GpuBackend.Vulkan)
+        {
+            Assert.Throws<ArgumentException>(() => d.CreateShader(ShaderStage.Vertex, new byte[] { 1, 2, 3 }, "main"));
+        }
+
         Assert.Throws<ArgumentOutOfRangeException>(() => d.CreateBuffer(new BufferDesc(0, BufferUsage.Vertex)));
         using var tex = d.CreateTexture(new TextureDesc(4, 4, GpuFormat.Rgba8Unorm, TextureUsage.CopyDestination));
         Assert.Throws<ArgumentException>(() => d.WriteTexture(tex, 0, 0, new byte[10]));
@@ -434,11 +434,11 @@ public sealed class RenderTests
     [Fact]
     public void AdapterSelectionByKindAndName()
     {
-        var adapters = VulkanGpu.EnumerateAdapters();
+        var adapters = GpuBackends.EnumerateAdapters();
         Assert.NotEmpty(adapters);
-        using var sw = VulkanGpu.CreateDevice(new GpuDeviceOptions { Adapter = adapters[0].Name });
+        using var sw = GpuBackends.CreateDevice(new GpuDeviceOptions { Adapter = adapters[0].Name });
         Assert.Equal(adapters[0].Name, sw.Adapter.Name);
-        Assert.Throws<GpuUnsupportedException>(() => VulkanGpu.CreateDevice(new GpuDeviceOptions { Adapter = "no such adapter" }));
+        Assert.Throws<GpuUnsupportedException>(() => GpuBackends.CreateDevice(new GpuDeviceOptions { Adapter = "no such adapter" }));
     }
 #endif
 }

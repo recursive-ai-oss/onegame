@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Metal backend of the graphics layer.</Description>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Native interop for Metal: blittable structs and function-pointer calls into the Objective-C runtime. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Gpu/OneGame.Gpu.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneGame.Gpu.Vulkan.Tests" />
+  </ItemGroup>
+
+</Project>

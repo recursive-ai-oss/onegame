@@ -27,7 +27,7 @@
   <ItemGroup>
     <Compile Include="*.cs" />
     <Compile Include="$(Shared)FeatureTests.cs;$(Shared)RenderTests.cs;$(Shared)GraphTests.cs;$(Shared)Png.cs;$(Shared)ReadHelpers.cs" />
-    <OneShader Include="$(Shared)Shaders/*.hlsl" Exclude="$(Shared)Shaders/TextureArray.hlsl" Targets="SpirV;Wgsl" />
+    <OneShader Include="$(Shared)Shaders/*.hlsl" Exclude="$(Shared)Shaders/TextureArray.hlsl" Targets="SpirV;Msl;Wgsl" />
     <EmbeddedResource Include="../../testdata/gpu/*.png" LogicalName="golden/%(Filename)%(Extension)" />
     <Content Include="../../src/OneGame.Gpu.WebGpu/js/onegame-gpu.js" Link="wwwroot/onegame-gpu.js" />
   </ItemGroup>

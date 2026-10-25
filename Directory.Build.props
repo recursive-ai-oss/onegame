@@ -14,6 +14,11 @@
     <ArtifactsPath Condition="'$(ONEGAME_ARTIFACTS)' == ''">$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
   </PropertyGroup>
 
+  <!-- Every shader is compiled for each graphics backend: SPIR-V for Vulkan, Metal Shading Language for Metal, WGSL for WebGPU. -->
+  <PropertyGroup Label="Shader targets">
+    <OneShaderTargets>SpirV;Msl;Wgsl</OneShaderTargets>
+  </PropertyGroup>
+
   <PropertyGroup Label="Language and analysis">
     <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>

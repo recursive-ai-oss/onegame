@@ -134,8 +134,9 @@ internal sealed class WebPipelineLayout : GpuPipelineLayout, IWebGpuObject
     private readonly WebGpuDevice _device;
     private bool _disposed;
 
-    public WebPipelineLayout(WebGpuDevice device, int id, int setCount, ResourceBinding[] bindings)
+    public WebPipelineLayout(WebGpuDevice device, int id, int setCount, ResourceBinding[] bindings, uint pushSize)
     {
+        PushSize = pushSize;
         _device = device;
         Id = id;
         SetCount = setCount;
@@ -143,6 +144,9 @@ internal sealed class WebPipelineLayout : GpuPipelineLayout, IWebGpuObject
     }
 
     public ResourceBinding[] Bindings { get; }
+
+    /// <summary>Bytes of push constants the layout declared.</summary>
+    public uint PushSize { get; }
 
     public int Id { get; }
 
@@ -190,11 +194,14 @@ internal sealed class WebGraphicsPipeline : GpuGraphicsPipeline, IWebGpuObject
     private readonly WebGpuDevice _device;
     private bool _disposed;
 
-    public WebGraphicsPipeline(WebGpuDevice device, int id)
+    public WebGraphicsPipeline(WebGpuDevice device, int id, WebPipelineLayout layout)
     {
+        Layout = layout;
         _device = device;
         Id = id;
     }
+
+    public WebPipelineLayout Layout { get; }
 
     public int Id { get; }
 
@@ -213,11 +220,14 @@ internal sealed class WebComputePipeline : GpuComputePipeline, IWebGpuObject
     private readonly WebGpuDevice _device;
     private bool _disposed;
 
-    public WebComputePipeline(WebGpuDevice device, int id)
+    public WebComputePipeline(WebGpuDevice device, int id, WebPipelineLayout layout)
     {
+        Layout = layout;
         _device = device;
         Id = id;
     }
+
+    public WebPipelineLayout Layout { get; }
 
     public int Id { get; }
 

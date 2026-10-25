@@ -94,5 +94,5 @@ internal static class Op
         BeginEncoder = 20, Submit = 21, BeginRenderPass = 22, EndRenderPass = 23, BeginComputePass = 24, EndComputePass = 25,
         SetPipeline = 26, SetBindGroup = 27, SetVertexBuffer = 28, SetIndexBuffer = 29, SetViewport = 30, SetScissor = 31,
         Draw = 32, DrawIndexed = 33, DrawIndirect = 34, DrawIndexedIndirect = 35, Dispatch = 36, DispatchIndirect = 37,
-        CopyBuffer = 40, CopyTextureToBuffer = 41, CopyBufferToTexture = 42, CopyTexture = 43, GenerateMips = 44, SetBackbuffer = 45;
+        CopyBuffer = 40, CopyTextureToBuffer = 41, CopyBufferToTexture = 42, CopyTexture = 43, GenerateMips = 44, SetBackbuffer = 45, PushBlock = 46;
 }

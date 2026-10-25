@@ -28,6 +28,9 @@ internal sealed class WebGpuDevice : GpuDevice
 
     public override GpuCapabilities Capabilities => _caps;
 
+    /// <inheritdoc />
+    public override GpuBackend Backend => GpuBackend.WebGpu;
+
     internal int NextId() => _nextId++;
 
     internal OpStream Stream => _stream;
@@ -99,18 +102,22 @@ internal sealed class WebGpuDevice : GpuDevice
 
     /// <inheritdoc />
     public override GpuShader CreateShader(ShaderStage stage, ReadOnlySpan<byte> spirv, string entryPoint) =>
-        throw new GpuUnsupportedException("WebGPU runs WGSL, not SPIR-V. Pass the shader's Wgsl and WgslEntryPoint to the overload that takes them.");
+        throw new GpuUnsupportedException("WebGPU runs WGSL, not SPIR-V. Create the shader from a ShaderSource that carries Wgsl.");
 
     /// <inheritdoc />
-    public override GpuShader CreateShader(ShaderStage stage, ReadOnlySpan<byte> spirv, string entryPoint, ReadOnlySpan<byte> wgsl, string wgslEntryPoint)
+    public override GpuShader CreateShader(in ShaderSource source)
     {
+        var (stage, entryPoint) = (source.Stage, source.EntryPoint);
+        var wgsl = source.Wgsl;
+        var wgslEntryPoint = source.WgslEntryPoint ?? entryPoint;
         if (wgsl.IsEmpty)
         {
             throw new GpuUnsupportedException($"The shader '{entryPoint}' has no WGSL. Build it with OneShaderTargets including Wgsl.");
         }
 
         var id = NextId();
-        _stream.U(Op.CreateShader).U(id).U((uint)stage).Str(wgslEntryPoint).Bytes(wgsl).Str(entryPoint);
+        _stream.U(Op.CreateShader).U(id).U((uint)stage).Str(wgslEntryPoint).Bytes(wgsl).Str(entryPoint)
+            .U(source.WgslPushGroup < 0 ? 0u : (uint)source.WgslPushGroup + 1).U(source.WgslPushBinding < 0 ? 0u : (uint)source.WgslPushBinding + 1);
         return new WebShader(this, id, stage, entryPoint);
     }
 
@@ -120,14 +127,14 @@ internal sealed class WebGpuDevice : GpuDevice
     /// <inheritdoc />
     public override GpuPipelineLayout CreatePipelineLayout(ReadOnlySpan<ResourceBinding> bindings, in PushConstantRange pushConstants)
     {
-        if (pushConstants.Size != 0)
+        if (pushConstants.Size > MaxPushConstantBytes || pushConstants.Size % 4 != 0)
         {
-            throw new GpuUnsupportedException("Push constants are not available on the WebGPU backend yet; use a uniform buffer.");
+            throw new ArgumentOutOfRangeException(nameof(pushConstants), $"push constants are a multiple of 4 bytes, at most {MaxPushConstantBytes}");
         }
 
         var id = NextId();
         var sets = 0;
-        _stream.U(Op.CreateLayout).U(id).U((uint)bindings.Length).Str(null);
+        _stream.U(Op.CreateLayout).U(id).U((uint)bindings.Length).Str(null).U(pushConstants.Size).U((uint)pushConstants.Stages);
         foreach (var b in bindings)
         {
             if (b.Count != 1)
@@ -139,7 +146,7 @@ internal sealed class WebGpuDevice : GpuDevice
             _stream.U(b.Set).U(b.Binding).U((uint)b.Kind).U((uint)b.Stages).U(b.Dynamic ? 1u : 0u).U(0u);
         }
 
-        return new WebPipelineLayout(this, id, sets, bindings.ToArray());
+        return new WebPipelineLayout(this, id, sets, bindings.ToArray(), pushConstants.Size);
     }
 
     /// <inheritdoc />
@@ -237,7 +244,7 @@ internal sealed class WebGpuDevice : GpuDevice
         }
 
         _stream.U(desc.SampleCount).U(desc.DepthClamp ? 1u : 0u).Str(desc.Label);
-        return new WebGraphicsPipeline(this, id);
+        return new WebGraphicsPipeline(this, id, (WebPipelineLayout)desc.Layout);
     }
 
     /// <inheritdoc />
@@ -246,7 +253,7 @@ internal sealed class WebGpuDevice : GpuDevice
         ArgumentNullException.ThrowIfNull(desc);
         var id = NextId();
         _stream.U(Op.CreateComputePipeline).U(id).U(((WebPipelineLayout)desc.Layout).Id).U(((WebShader)desc.Compute).Id).Str(desc.Label);
-        return new WebComputePipeline(this, id);
+        return new WebComputePipeline(this, id, (WebPipelineLayout)desc.Layout);
     }
 
     /// <inheritdoc />

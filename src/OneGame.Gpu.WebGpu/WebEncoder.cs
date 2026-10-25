@@ -38,6 +38,38 @@ internal sealed class WebEncoder : GpuCommandEncoder
         _device.ReturnStream(_s);
     }
 
+    /// <summary>
+    /// Push constants on WebGPU: the pass keeps the whole block, and each change sends it as a fresh slot of a uniform ring that the
+    /// pipeline's push group binds with a dynamic offset. Same range rules as the Vulkan backend.
+    /// </summary>
+    internal static void Push(OpStream s, WebPipelineLayout? layout, ref byte[]? shadow, uint offset, ReadOnlySpan<byte> data)
+    {
+        if (layout is null)
+        {
+            throw new InvalidOperationException("set a pipeline before pushing constants");
+        }
+
+        if (offset % 4 != 0 || data.Length % 4 != 0 || (ulong)offset + (ulong)data.Length > layout.PushSize)
+        {
+            throw new ArgumentOutOfRangeException(nameof(data), $"push constants must be 4-byte aligned and inside the {layout.PushSize} bytes the pipeline layout declared");
+        }
+
+        if (data.IsEmpty)
+        {
+            return;
+        }
+
+        // Uniform bindings are at least 16 bytes long.
+        var padded = (layout.PushSize + 15) & ~15u;
+        if (shadow is null || shadow.Length != padded)
+        {
+            shadow = new byte[padded];
+        }
+
+        data.CopyTo(shadow.AsSpan((int)offset));
+        s.U(Op.PushBlock).Bytes(shadow);
+    }
+
     internal static void CheckBindGroup(uint setIndex, WebBindGroup group, ReadOnlySpan<uint> dynamicOffsets)
     {
         if (group.Set != setIndex)
@@ -203,6 +235,8 @@ internal sealed class WebRenderPass : GpuRenderPass
     private readonly WebEncoder _e;
     private readonly OpStream _s;
     private bool _ended;
+    private WebPipelineLayout? _layout;
+    private byte[]? _push;
 
     public WebRenderPass(WebEncoder e, OpStream s)
     {
@@ -221,6 +255,7 @@ internal sealed class WebRenderPass : GpuRenderPass
     public override void SetPipeline(GpuGraphicsPipeline pipeline)
     {
         Live();
+        _layout = ((WebGraphicsPipeline)pipeline).Layout;
         _s.U(Op.SetPipeline).U(((WebGraphicsPipeline)pipeline).Id);
     }
 
@@ -235,8 +270,11 @@ internal sealed class WebRenderPass : GpuRenderPass
         }
     }
 
-    public override void SetPushConstants(uint offset, ReadOnlySpan<byte> data) =>
-        throw new GpuUnsupportedException("Push constants are not available on the WebGPU backend yet; use a uniform buffer.");
+    public override void SetPushConstants(uint offset, ReadOnlySpan<byte> data)
+    {
+        Live();
+        WebEncoder.Push(_s, _layout, ref _push, offset, data);
+    }
 
     public override void SetVertexBuffer(uint slot, GpuBuffer buffer, ulong offset = 0)
     {
@@ -312,6 +350,8 @@ internal sealed class WebComputePass : GpuComputePass
     private readonly WebEncoder _e;
     private readonly OpStream _s;
     private bool _ended;
+    private WebPipelineLayout? _layout;
+    private byte[]? _push;
 
     public WebComputePass(WebEncoder e, OpStream s)
     {
@@ -330,6 +370,7 @@ internal sealed class WebComputePass : GpuComputePass
     public override void SetPipeline(GpuComputePipeline pipeline)
     {
         Live();
+        _layout = ((WebComputePipeline)pipeline).Layout;
         _s.U(Op.SetPipeline).U(((WebComputePipeline)pipeline).Id);
     }
 
@@ -344,8 +385,11 @@ internal sealed class WebComputePass : GpuComputePass
         }
     }
 
-    public override void SetPushConstants(uint offset, ReadOnlySpan<byte> data) =>
-        throw new GpuUnsupportedException("Push constants are not available on the WebGPU backend yet; use a uniform buffer.");
+    public override void SetPushConstants(uint offset, ReadOnlySpan<byte> data)
+    {
+        Live();
+        WebEncoder.Push(_s, _layout, ref _push, offset, data);
+    }
 
     public override void Dispatch(uint x, uint y = 1, uint z = 1)
     {
