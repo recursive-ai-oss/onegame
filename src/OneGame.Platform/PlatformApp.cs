@@ -200,6 +200,11 @@ internal static class PlatformBackendFactory
             return PlatformBackendKind.Win32;
         }
 
+        if (OperatingSystem.IsMacOS())
+        {
+            return PlatformBackendKind.Cocoa;
+        }
+
         if (OperatingSystem.IsLinux())
         {
             if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"))
@@ -223,6 +228,7 @@ internal static class PlatformBackendFactory
         PlatformBackendKind.X11 when OperatingSystem.IsLinux() => new X11Backend(app),
         PlatformBackendKind.Wayland when OperatingSystem.IsLinux() => new WaylandBackend(app),
         PlatformBackendKind.Win32 when OperatingSystem.IsWindows() => new Win32Backend(app),
+        PlatformBackendKind.Cocoa when OperatingSystem.IsMacOS() => new Cocoa.CocoaBackend(app),
         _ => throw new PlatformException($"The {kind} backend is not available on this operating system."),
     };
 }

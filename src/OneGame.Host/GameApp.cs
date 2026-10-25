@@ -217,7 +217,8 @@ public static class GameApp
                 {
                     "wayland" => PlatformBackendKind.Wayland,
                     "x11" => PlatformBackendKind.X11,
-                    var other => throw new FormatException($"--backend is wayland or x11, got '{other}'."),
+                    "cocoa" => PlatformBackendKind.Cocoa,
+                    var other => throw new FormatException($"--backend is wayland, x11 or cocoa, got '{other}'."),
                 },
             };
         }

@@ -15,7 +15,11 @@ internal sealed class Session : IDisposable
     public Session(PlatformBackendKind backend, string display, OneGame.Gpu.PresentMode presentMode = OneGame.Gpu.PresentMode.Vsync)
     {
         // The software rasterizer is deterministic and needs no display hardware; the validation layer reports anything the game does wrong.
-        Environment.SetEnvironmentVariable("ONEGAME_GPU_ADAPTER", "software");
+        if (backend != PlatformBackendKind.Cocoa)
+        {
+            Environment.SetEnvironmentVariable("ONEGAME_GPU_ADAPTER", "software");
+        }
+
         Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
         OutputDirectory = Path.Combine(Path.GetTempPath(), "onegame-windowed-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(OutputDirectory);
@@ -123,15 +127,20 @@ public abstract class WindowedTests
 
     private protected abstract bool IsX11 { get; }
 
+    // The name the backend reports in `info`, and whether the window system gives the window exactly the size asked for.
+    private protected virtual string BackendName => IsX11 ? "x11" : "wayland";
+
+    private protected virtual bool HonorsRequestedSize => IsX11;
+
     [Fact]
-    public void FramesArePresentedAndTheCapturedFrameShowsTheUi()
+    public void FramesArePresentedAndTheCapturedFrameShowsTheUi() => MainThread.Run(() =>
     {
         using var s = Start();
         s.StepUntil(() => s.Game.PresentedFrames >= 10);
         Assert.True(s.Game.PresentedFrames >= 10, $"only {s.Game.PresentedFrames} frames were presented");
 
         var info = s.Call("info");
-        Assert.Equal(IsX11 ? "x11" : "wayland", info.GetProperty("backend").GetString());
+        Assert.Equal(BackendName, info.GetProperty("backend").GetString());
         Assert.False(info.GetProperty("headless").GetBoolean());
         Assert.Equal("render2d", info.GetProperty("stage").GetString());
         Assert.True(info.GetProperty("presented").GetInt64() >= 10);
@@ -147,12 +156,12 @@ public abstract class WindowedTests
 
         // Panels, borders and anti-aliased text give many colours; a cleared or black frame gives one.
         Assert.True(colours.Count > 12, $"only {colours.Count} distinct colours");
-        Session.Save((IsX11 ? "x11" : "wayland") + "-presented", frame);
+        Session.Save(BackendName + "-presented", frame);
         Assert.Empty(s.Validation());
-    }
+    });
 
     [Fact]
-    public void ResizingTheWindowRebuildsTheSwapchainWithoutValidationErrors()
+    public void ResizingTheWindowRebuildsTheSwapchainWithoutValidationErrors() => MainThread.Run(() =>
     {
         using var s = Start();
         var before = s.Game.CapturePresented()!;
@@ -164,7 +173,7 @@ public abstract class WindowedTests
         // Under a compositor that fixes window sizes (the headless Weston's kiosk shell) the size may not change; the frame must still
         // match the window it is shown in.
         Assert.Equal((s.Game.Window.Width, s.Game.Window.Height), (after.Width, after.Height));
-        if (IsX11)
+        if (HonorsRequestedSize)
         {
             Assert.Equal((480, 300), (after.Width, after.Height));
             Assert.NotEqual((before.Width, before.Height), (after.Width, after.Height));
@@ -172,16 +181,16 @@ public abstract class WindowedTests
 
         // The UI was laid out for the new size.
         Assert.Equal(s.Game.Window.Width, (int)s.Game.Ui.Root.AbsoluteBounds.Width);
-        Session.Save((IsX11 ? "x11" : "wayland") + "-resized", after);
+        Session.Save(BackendName + "-resized", after);
 
         s.Game.Window.RequestSize(700, 420);
         s.StepUntil(() => s.Game.PresentedFrames >= started + 12);
         Assert.Equal((s.Game.Window.Width, s.Game.Window.Height), (s.Game.CapturePresented()!.Width, s.Game.CapturePresented()!.Height));
         Assert.Empty(s.Validation());
-    }
+    });
 
     [Fact]
-    public void InjectedPointerAndTextReachTheUiTheSameWayRealInputDoes()
+    public void InjectedPointerAndTextReachTheUiTheSameWayRealInputDoes() => MainThread.Run(() =>
     {
         using var s = Start();
 
@@ -206,10 +215,10 @@ public abstract class WindowedTests
         Assert.False(s.Game.Window.TextInputActive, "leaving the field must switch it off");
         Assert.Empty(s.Validation());
         Assert.Equal(0, s.Call("info").GetProperty("drift").GetInt32());
-    }
+    });
 
     [Fact]
-    public void CompositionShowsInTheFieldAndTheCommitReplacesIt()
+    public void CompositionShowsInTheFieldAndTheCommitReplacesIt() => MainThread.Run(() =>
     {
         using var s = Start();
         s.Click("name");
@@ -218,15 +227,15 @@ public abstract class WindowedTests
         s.Call("step", """{"frames":2}""");
         Assert.Equal("ka", s.Game.Ui.Find("name/text")!.Text);
         Assert.True(s.Game.Window.TextInputActive);
-        Session.Save((IsX11 ? "x11" : "wayland") + "-preedit", s.Game.CapturePresented()!);
+        Session.Save(BackendName + "-preedit", s.Game.CapturePresented()!);
         s.Call("input_composition", """{"text":""}""");
         s.Call("input_text", """{"text":"か"}""");
         Assert.Equal("", s.Field.Preedit);
         Assert.Equal("か", s.Field.FieldText);
-    }
+    });
 
     [Fact]
-    public void CopyAndPasteGoThroughTheSystemClipboard()
+    public void CopyAndPasteGoThroughTheSystemClipboard() => MainThread.Run(() =>
     {
         using var s = Start();
         Assert.SkipUnless(s.Game.Clipboard.IsAvailable, "this compositor has no seat, so it has no clipboard");
@@ -239,10 +248,10 @@ public abstract class WindowedTests
         s.Call("input_key", """{"key":"a","modifiers":["Control"]}""");
         s.Call("input_key", """{"key":"c","modifiers":["Control"]}""");
         Assert.Equal("from outside!", s.Call("clipboard_get").GetProperty("text").GetString());
-    }
+    });
 
     [Fact]
-    public void LiveControlOverTheSocketWorksWhileTheWindowPresents()
+    public void LiveControlOverTheSocketWorksWhileTheWindowPresents() => MainThread.Run(() =>
     {
         using var s = Start();
         using var server = new LiveServer(s.Control);
@@ -281,7 +290,7 @@ public abstract class WindowedTests
         Assert.Contains("\"renderer\"", content[0].GetProperty("text").GetString(), StringComparison.Ordinal);
         Assert.True(s.Game.PresentedFrames > before, "the window kept presenting while requests were served");
         Assert.Empty(s.Validation());
-    }
+    });
 
     private static (double X, double Y) Center(Session s, string id) => s.Center(id);
 }
