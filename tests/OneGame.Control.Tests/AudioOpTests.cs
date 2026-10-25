@@ -61,7 +61,7 @@ public class AudioOpTests
 
             using var audio = AudioService.Create(new AudioServiceOptions { Capture = true, Device = new AudioDeviceOptions { SampleRate = 48_000, Channels = 2 } });
             audio.SetBusFilter(AudioBus.Music, AudioFilterKind.LowPass, 5000f);
-            audio.Play(audio.LoadSound(new MemoryStream(Tone())), new PlayOptions { Loop = true });
+            audio.Play(audio.LoadSound(new MemoryStream(Tone())), new PlayOptions { Loop = true, Bus = AudioBus.Music });
 
             // The newest service is found without wiring anything.
             using (var doc = JsonDocument.Parse(surface.Call("audio_capture", """{"seconds":5,"path":"mix/out.wav","reset":true}""")))
@@ -70,6 +70,9 @@ public class AudioOpTests
                 Assert.Equal(240_000, r.GetProperty("frames").GetInt32());
                 Assert.Equal(64, r.GetProperty("sha256").GetString()!.Length);
                 Assert.Equal(-23.0, r.GetProperty("loudness").GetProperty("integratedLufs").GetDouble(), 0.2);
+                var music = r.GetProperty("busLoudness")[0];
+                Assert.Equal("music", music.GetProperty("name").GetString());
+                Assert.InRange(music.GetProperty("loudness").GetProperty("integratedLufs").GetDouble(), -25.5, -22.0);
                 Assert.True(File.Exists(Path.Combine(dir, "mix", "out.wav")));
             }
 

@@ -116,7 +116,14 @@ public sealed record SnapshotResult(string? Path, int Bytes, string? Base64, str
 /// <param name="Peak">The highest sample magnitude recorded.</param>
 /// <param name="Sha256">Hash of the WAV file, when written.</param>
 /// <param name="Loudness">The output loudness now.</param>
-public sealed record AudioCaptureResult(string? Path, int Frames, double Seconds, float Peak, string? Sha256, OneGame.Audio.LoudnessStatus Loudness);
+/// <param name="BusLoudness">The loudness of each metered bus, measured before ducking.</param>
+public sealed record AudioCaptureResult(string? Path, int Frames, double Seconds, float Peak, string? Sha256, OneGame.Audio.LoudnessStatus Loudness, BusLoudnessStatus[] BusLoudness);
+
+/// <summary>One metered bus in <see cref="AudioCaptureResult"/>.</summary>
+/// <param name="Index">The bus index.</param>
+/// <param name="Name"><c>music</c>, <c>sfx</c>, <c>ui</c> or null.</param>
+/// <param name="Loudness">Its loudness since the last reset, measured before ducking and the master stage.</param>
+public sealed record BusLoudnessStatus(int Index, string? Name, OneGame.Audio.LoudnessStatus Loudness);
 
 /// <summary>Source-generated JSON metadata for control results; nothing here uses reflection.</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
@@ -143,6 +150,7 @@ public sealed record AudioCaptureResult(string? Path, int Frames, double Seconds
 [JsonSerializable(typeof(OneGame.UI.Kit.ThemeLintReport))]
 [JsonSerializable(typeof(OneGame.Audio.AudioStatus))]
 [JsonSerializable(typeof(AudioCaptureResult))]
+[JsonSerializable(typeof(BusLoudnessStatus))]
 public sealed partial class ControlJson : JsonSerializerContext
 {
 }
