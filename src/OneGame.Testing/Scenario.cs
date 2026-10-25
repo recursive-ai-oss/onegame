@@ -872,14 +872,14 @@ public static class ScenarioParser
                         SoundFrames = sd.TryGetValue("frames", out var sdf) ? Whole(sdf, "frames") : 0,
                     };
                 case "steam-input":
-                    var sx = Map(v, ["set", "controllers", "down", "up", "keyboard"], "steam-input");
-                    return sx.Count == 0 ? throw Error(v, "steam-input needs at least one of set, controllers, down, up, keyboard") : new ScenarioExpectation(ExpectKind.SteamInput, line)
+                    var six = Map(v, ["set", "controllers", "down", "up", "keyboard"], "steam-input");
+                    return six.Count == 0 ? throw Error(v, "steam-input needs at least one of set, controllers, down, up, keyboard") : new ScenarioExpectation(ExpectKind.SteamInput, line)
                     {
                         ActiveSet = OptText(v, "set"),
-                        Count = sx.TryGetValue("controllers", out var sxc) ? Whole(sxc, "controllers") : null,
+                        Count = six.TryGetValue("controllers", out var sxc) ? Whole(sxc, "controllers") : null,
                         DownAction = OptText(v, "down"),
                         UpAction = OptText(v, "up"),
-                        Visible = sx.TryGetValue("keyboard", out var sxk) ? Bool(sxk, "keyboard") : null,
+                        Visible = six.TryGetValue("keyboard", out var sxk) ? Bool(sxk, "keyboard") : null,
                     };
                 case "agree":
                     var ag = Map(v, ["server", "clients"], "agree");
