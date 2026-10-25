@@ -99,6 +99,7 @@ internal static class WebExport
         xml.AppendLine("    <Content Include=\"$(OneGameRoot)tools/web/page/boot.mjs\" Link=\"wwwroot/boot.mjs\" />");
         xml.AppendLine("    <Content Include=\"$(OneGameRoot)src/OneGame.Gpu.WebGpu/js/onegame-gpu.js\" Link=\"wwwroot/onegame-gpu.js\" />");
         xml.AppendLine("    <Content Include=\"$(OneGameRoot)src/OneGame.Platform/js/onegame-platform.js\" Link=\"wwwroot/onegame-platform.js\" />");
+        xml.AppendLine("    <Content Include=\"$(OneGameRoot)src/OneGame.Audio/js/onegame-audio.js\" Link=\"wwwroot/onegame-audio.js\" />");
         xml.AppendLine("  </ItemGroup>");
         xml.AppendLine("</Project>");
 

@@ -578,13 +578,13 @@ internal static class MacEvents
     public static void SetMarkedText(nint view, string text, int selectionStart, int selectionLength)
     {
         using var pool = new Pool();
-        Msg.Void(view, ObjC.Sel("setMarkedText:selectedRange:replacementRange:"), ObjC.NSString(text), (nuint)selectionStart, (nuint)selectionLength, NSRange.NotFound, (nuint)0);
+        Msg.Void(view, ObjC.Sel("setMarkedText:selectedRange:replacementRange:"), ObjC.NSString(text), (nuint)selectionStart, (nuint)selectionLength, OneGame.Platform.Cocoa.NSRange.NotFound, (nuint)0);
     }
 
     public static void InsertText(nint view, string text)
     {
         using var pool = new Pool();
-        Msg.Void(view, ObjC.Sel("insertText:replacementRange:"), ObjC.NSString(text), NSRange.NotFound, (nuint)0);
+        Msg.Void(view, ObjC.Sel("insertText:replacementRange:"), ObjC.NSString(text), OneGame.Platform.Cocoa.NSRange.NotFound, (nuint)0);
     }
 }
 

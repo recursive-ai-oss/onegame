@@ -53,6 +53,10 @@ public sealed class AudioOutput : IDisposable
     private int _status;
     private int _stop;
     private int _paused;
+    private int _suspended;
+    private int _systemSuspended;
+    private bool _deviceActive = true;
+    private long _suspensions;
     private int _reopenRequested;
     private int _chunkFrames;
     private int _bufferFrames;
@@ -163,6 +167,34 @@ public sealed class AudioOutput : IDisposable
         set => Volatile.Write(ref _paused, value ? 1 : 0);
     }
 
+    /// <summary>Stops the device, as an app does when it leaves the foreground: the mixer is not rendered (its clock holds still), the device is stopped if its sink supports that, and nothing is written until this is cleared again.</summary>
+    public bool Suspended
+    {
+        get => Volatile.Read(ref _suspended) != 0;
+        set
+        {
+            if (Interlocked.Exchange(ref _suspended, value ? 1 : 0) == 0 && value)
+            {
+                Interlocked.Increment(ref _suspensions);
+            }
+        }
+    }
+
+    /// <summary>Whether the device is stopped, by <see cref="Suspended"/> or because the system took it (a phone call, another app's audio).</summary>
+    public bool IsDeviceStopped => Volatile.Read(ref _suspended) != 0 || Volatile.Read(ref _systemSuspended) != 0;
+
+    /// <summary>Times <see cref="Suspended"/> was set.</summary>
+    public long Suspensions => Interlocked.Read(ref _suspensions);
+
+    /// <summary>Whether the page drives this output with <see cref="Pump"/> (no audio thread).</summary>
+    public bool IsPumped => _backend.IsManual && _backend is not CaptureAudioBackend;
+
+    /// <summary>Work to do at the start of each <see cref="Pump"/>, such as feeding streaming voices. Set by the service.</summary>
+    internal Action? BeforePump { get; set; }
+
+    /// <summary>The backend's short name, such as <c>alsa</c> or <c>aaudio</c>.</summary>
+    public string BackendName => _backend.Name;
+
     /// <summary>The device's buffer in frames, or 0 with no device.</summary>
     public int BufferFrames => Volatile.Read(ref _bufferFrames);
 
@@ -220,6 +252,11 @@ public sealed class AudioOutput : IDisposable
             }
 
             Volatile.Write(ref _status, (int)(_sink is not null ? AudioOutputStatus.Running : AudioOutputStatus.NoDevice));
+            if (_backend is IPumpedBackend pumped)
+            {
+                pumped.SetPump(Pump);
+            }
+
             if (!_backend.IsManual)
             {
                 _thread = new Thread(Run) { IsBackground = true, Name = "onegame-audio", Priority = ThreadPriority.Highest };
@@ -263,6 +300,46 @@ public sealed class AudioOutput : IDisposable
             Tick(n);
             frames -= n;
         }
+    }
+
+    /// <summary>For pumped backends (a web page, which has no audio thread): renders as many blocks as the device wants right now. The page calls this from a timer; it does nothing for other backends.</summary>
+    public void Pump()
+    {
+        if (!_backend.IsManual || _source is null || Status == AudioOutputStatus.Stopped)
+        {
+            return;
+        }
+
+        BeforePump?.Invoke();
+        ApplyReopenRequest();
+        if (_sink is null)
+        {
+            RetryOpen();
+        }
+
+        if (_sink is not IPumpedSink pumped || HoldWhileStopped())
+        {
+            return;
+        }
+
+        var wanted = pumped.WantedFrames;
+        while (wanted > 0)
+        {
+            var n = Math.Min(wanted, MaxChunkFrames);
+            Tick(n);
+            wanted -= n;
+        }
+    }
+
+    /// <summary>Describes the device side for the harness: backend, the device's own state, counters, and what the device has taken from us.</summary>
+    /// <returns>A snapshot.</returns>
+    public AudioDeviceStatus DeviceStatus()
+    {
+        var report = (_sink as IAudioSinkDiagnostics)?.Report();
+        return new AudioDeviceStatus(
+            BackendName, Status.ToString(), report?.State, DeviceName, LastError, Suspended, Paused, BufferFrames, PeriodFrames, Math.Round(LatencyMilliseconds, 2),
+            Underruns, report?.DeviceUnderruns ?? 0, DeviceLosses, Reopens, Suspensions, FramesRendered, report?.FramesWritten ?? 0, report?.FramesPlayed ?? 0, report?.PeakPlayed ?? 0f,
+            AudioThreadAllocatedBytes, report?.Detail);
     }
 
     /// <summary>Stops the thread and closes the device.</summary>
@@ -324,6 +401,12 @@ public sealed class AudioOutput : IDisposable
         }
 
         _sink = sink;
+        _deviceActive = true;
+        if (sink is IAudioSinkControl control)
+        {
+            control.SystemSuspendChanged = suspended => Volatile.Write(ref _systemSuspended, suspended ? 1 : 0);
+        }
+
         _chunkFrames = Math.Clamp(sink.PeriodFrames, MinChunkFrames, MaxChunkFrames);
         Volatile.Write(ref _periodFrames, sink.PeriodFrames);
         Volatile.Write(ref _bufferFrames, sink.BufferFrames);
@@ -398,6 +481,11 @@ public sealed class AudioOutput : IDisposable
                     RetryOpen();
                 }
 
+                if (HoldWhileStopped())
+                {
+                    continue;
+                }
+
                 Tick(_chunkFrames);
 
                 var allocated = GC.GetAllocatedBytesForCurrentThread();
@@ -419,6 +507,26 @@ public sealed class AudioOutput : IDisposable
             Volatile.Write(ref _lastError, "audio thread stopped: " + e.Message);
             Volatile.Write(ref _status, (int)AudioOutputStatus.NoDevice);
         }
+    }
+
+    // While the app is in the background (or the system has the device) nothing renders. Returns true when this pass was spent waiting.
+    // The lifecycle starts and stops the device; after a system interruption the sink restarts itself and says so.
+    private bool HoldWhileStopped()
+    {
+        var wantActive = Volatile.Read(ref _suspended) == 0;
+        if (wantActive != _deviceActive && _sink is IAudioSinkControl control)
+        {
+            control.SetActive(wantActive);
+            _deviceActive = wantActive;
+        }
+
+        if (!IsDeviceStopped)
+        {
+            return false;
+        }
+
+        Thread.Sleep(20);
+        return true;
     }
 
     // One block: render (or silence), limit, write. With no device it paces itself against the clock instead of the device.
