@@ -2,7 +2,7 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
+using OneGame.Core;
 
 namespace OneGame.Net;
 
@@ -591,7 +591,7 @@ public sealed class WebSocketConnection : INetConnection
         Span<byte> key = stackalloc byte[4];
         if (_client)
         {
-            RandomNumberGenerator.Fill(key);
+            Entropy.Fill(key);
         }
         else
         {

@@ -9,6 +9,8 @@
   <ItemGroup>
     <InternalsVisibleTo Include="OneGame.Platform.Tests" />
     <InternalsVisibleTo Include="OneGame.Windowed.Tests" />
+    <!-- The purchase backends reuse the Java and Objective-C call helpers. -->
+    <InternalsVisibleTo Include="OneGame.Purchases" />
   </ItemGroup>
 
 </Project>

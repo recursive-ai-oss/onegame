@@ -1,0 +1,27 @@
+{
+  "identifier" : "3F1B0C52",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "6450000001",
+      "localizations" : [ { "description" : "A pile of one hundred coins", "displayName" : "100 coins", "locale" : "en_US" } ],
+      "productID" : "coins.100",
+      "referenceName" : "100 coins",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "6450000002",
+      "localizations" : [ { "description" : "Removes the ads for good", "displayName" : "Remove ads", "locale" : "en_US" } ],
+      "productID" : "remove_ads",
+      "referenceName" : "Remove ads",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {},
+  "subscriptionGroups" : [],
+  "version" : { "major" : 3, "minor" : 0 }
+}

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OneGameRoot>$(MSBuildThisFileDirectory)../../</OneGameRoot>
+    <AssemblyName>StoreGame</AssemblyName>
+    <RootNamespace>StoreGame</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+    <!-- The game sells things, so its Android package carries Google Play Billing. -->
+    <AndroidPlayBilling>true</AndroidPlayBilling>
+    <AndroidOrientation>portrait</AndroidOrientation>
+    <IosOrientation>portrait</IosOrientation>
+  </PropertyGroup>
+
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <Compile Include="Sim/*.cs" />
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.Purchases/OneGame.Purchases.csproj" />
+    <EmbeddedResource Include="$(OneGameRoot)assets/fonts/NotoSans-Regular.ttf" LogicalName="fonts/NotoSans-Regular.ttf" />
+  </ItemGroup>
+
+</Project>

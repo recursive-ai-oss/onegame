@@ -19,6 +19,9 @@
     <Compile Include="../OneGame.Sync.Tests/Fuzz/SyncFuzzTargets.cs" Link="Sync/SyncFuzzTargets.cs" />
     <Compile Include="../OneGame.Net.Tests/Fuzz/NetFuzzTargets.cs" Link="Net/NetFuzzTargets.cs" />
     <Compile Include="../OneGame.Gltf.Tests/Fuzz/GltfFuzzTargets.cs" Link="Gltf/GltfFuzzTargets.cs" />
+    <Compile Include="../OneGame.Purchases.Tests/Fuzz/PurchasesFuzzTargets.cs" Link="Purchases/PurchasesFuzzTargets.cs" />
+    <Compile Include="../OneGame.Purchases.Tests/Fuzz/PlayMessages.cs" Link="Purchases/PlayMessages.cs" />
+    <ProjectReference Include="../../src/OneGame.Purchases/OneGame.Purchases.csproj" />
     <ProjectReference Include="../../src/OneGame.Gltf/OneGame.Gltf.csproj" />
     <ProjectReference Include="../../src/OneGame.Net/OneGame.Net.csproj" />
     <ProjectReference Include="../../src/OneGame.Core/OneGame.Core.csproj" />

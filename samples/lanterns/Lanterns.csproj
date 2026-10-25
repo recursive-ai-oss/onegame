@@ -9,6 +9,8 @@
     <!-- The sample's own tests, the server and the rules library are separate projects. -->
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <IsPackable>false</IsPackable>
+    <!-- On Android the client connects to the island servers over the network. -->
+    <AndroidInternet>true</AndroidInternet>
   </PropertyGroup>
 
   <Import Project="$(OneGameRoot)build/Game.targets" />

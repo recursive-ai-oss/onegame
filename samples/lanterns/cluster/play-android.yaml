@@ -1,0 +1,15 @@
+name: android-bot-plays
+description: A bot on an Android device and a desktop bot play until tick 3600 against the island servers. The Android client has no live control, so the scenario waits for it to stop and compares what it printed with its island's hash at that tick.
+steps:
+  - wait: { node: bot1, tick: 3600, timeout: 240000 }
+  - wait: { node: bot2, tick: 3600, timeout: 60000 }
+expect:
+  - state: { entity: Island, property: Arrivals, min: 1 }
+    node: islandA
+  - state: { entity: Island, property: Collected, min: 3 }
+    node: islandA
+  - state: { entity: Market, property: Settled, min: 1, scope: 3 }
+    node: master
+  - agree: { server: islandA, clients: [bot1] }
+  - agree: { server: islandB, clients: [bot2] }
+  - drift: { nodes: [islandA, islandB, master, bot1, bot2], equals: 0 }

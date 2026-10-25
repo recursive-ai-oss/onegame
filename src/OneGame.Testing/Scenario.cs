@@ -86,6 +86,9 @@ public enum StepKind
     /// <summary>Move or reset the 3D camera (a view-only override).</summary>
     Camera,
 
+    /// <summary>Drive the game's in-app purchases (and script the fake store).</summary>
+    Store,
+
     /// <summary>Drive the harness's stand-in Steam Input controller (connect, press, release, analog), then run two frames so the game sees it.</summary>
     SteamInput,
 
@@ -202,6 +205,9 @@ public enum ExpectKind
     /// <summary>Nodes have filed no drift reports (cluster scenarios only).</summary>
     Drift,
 
+    /// <summary>The purchase service's state: what is owned, pending or unfinished.</summary>
+    Store,
+
     /// <summary>The state of Steam Input: the active action set, the number of controllers, actions held down, the on-screen keyboard.</summary>
     SteamInput,
 
@@ -212,6 +218,9 @@ public enum ExpectKind
 /// <summary>A check on the game's state. Unset fields are not checked.</summary>
 public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
 {
+    /// <summary>The checks of a <see cref="ExpectKind.Store"/> expectation: a key (owned, not-owned, pending, connection, unfinished, products, recent) and its value.</summary>
+    public (string Key, string Value)[] StoreChecks { get; init; } = [];
+
     /// <summary>Entity spec (state).</summary>
     public string? Entity { get; init; }
 
@@ -543,7 +552,7 @@ public static class ScenarioParser
 
         public ScenarioStep Step(YamlNode node)
         {
-            var (verb, target) = SplitVerb(node, "a step is a mapping with one key, the verb: click, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, wait, kill, start, restart or expect (plus node: for a cluster)");
+            var (verb, target) = SplitVerb(node, "a step is a mapping with one key, the verb: click, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, store, wait, kill, start, restart or expect (plus node: for a cluster)");
             var step = StepCore(verb);
             return target is null ? step : step with { Node = target };
         }
@@ -713,6 +722,15 @@ public static class ScenarioParser
                     }
 
                     return json.Count > 0 ? new ScenarioStep(StepKind.Camera, line) { ControlArgs = "{" + string.Join(",", json) + "}" } : throw Error(v, "camera needs at least one of position, target, fov, near, far, ortho-height");
+                case "store":
+                    var storeKeys = new[] { "action", "product", "outcome", "error", "approve" };
+                    var stm = v.Kind == YamlNodeKind.Scalar ? new Dictionary<string, YamlNode>() : Map(v, storeKeys, "store");
+                    var storeAction = v.Kind == YamlNodeKind.Scalar ? Text(v, "store") : stm.TryGetValue("action", out var storeActionNode) ? Text(storeActionNode, "action") : throw Error(v, "store needs an action: describe, connect, load, buy, finish, restore, script, resolve, revoke, disconnect or fail-connect");
+                    return new ScenarioStep(StepKind.Store, line)
+                    {
+                        ControlArgs = ScenarioRunner.Obj(("action", storeAction), ("product", stm.TryGetValue("product", out var s_product) ? Text(s_product, "product") : null), ("outcome", stm.TryGetValue("outcome", out var s_outcome) ? Text(s_outcome, "outcome") : null), ("error", stm.TryGetValue("error", out var s_error) ? Text(s_error, "error") : null),
+                            ("approve", stm.TryGetValue("approve", out var storeApprove) ? Bool(storeApprove, "approve") : null)),
+                    };
                 case "steam-input":
                     var si = Map(v, ["connect", "disconnect", "press", "release", "analog", "x", "y", "controller"], "steam-input");
                     var sj = new List<string>();
@@ -814,6 +832,11 @@ public static class ScenarioParser
                         Focused = u.TryGetValue("focused", out var fo) ? Bool(fo, "focused") : null,
                         Pressed = u.TryGetValue("pressed", out var pr) ? Bool(pr, "pressed") : null,
                     };
+                case "store":
+                    var sx = Map(v, ["owned", "not-owned", "pending", "connection", "unfinished", "products", "recent"], "store");
+                    return sx.Count > 0
+                        ? new ScenarioExpectation(ExpectKind.Store, line) { StoreChecks = [.. sx.Select(kv => (kv.Key, Text(kv.Value, kv.Key)))] }
+                        : throw Error(v, "store needs at least one of owned, not-owned, pending, connection, unfinished, products, recent");
                 case "tick":
                     return new ScenarioExpectation(ExpectKind.Tick, line) { EqualTo = Text(v, "tick") };
                 case "hash":
@@ -849,14 +872,14 @@ public static class ScenarioParser
                         SoundFrames = sd.TryGetValue("frames", out var sdf) ? Whole(sdf, "frames") : 0,
                     };
                 case "steam-input":
-                    var sx = Map(v, ["set", "controllers", "down", "up", "keyboard"], "steam-input");
-                    return sx.Count == 0 ? throw Error(v, "steam-input needs at least one of set, controllers, down, up, keyboard") : new ScenarioExpectation(ExpectKind.SteamInput, line)
+                    var six = Map(v, ["set", "controllers", "down", "up", "keyboard"], "steam-input");
+                    return six.Count == 0 ? throw Error(v, "steam-input needs at least one of set, controllers, down, up, keyboard") : new ScenarioExpectation(ExpectKind.SteamInput, line)
                     {
                         ActiveSet = OptText(v, "set"),
-                        Count = sx.TryGetValue("controllers", out var sxc) ? Whole(sxc, "controllers") : null,
+                        Count = six.TryGetValue("controllers", out var sxc) ? Whole(sxc, "controllers") : null,
                         DownAction = OptText(v, "down"),
                         UpAction = OptText(v, "up"),
-                        Visible = sx.TryGetValue("keyboard", out var sxk) ? Bool(sxk, "keyboard") : null,
+                        Visible = six.TryGetValue("keyboard", out var sxk) ? Bool(sxk, "keyboard") : null,
                     };
                 case "agree":
                     var ag = Map(v, ["server", "clients"], "agree");

@@ -10,6 +10,7 @@ internal sealed unsafe class AndroidJni
     private const int GetVersionIndex = 4;
     private const int FindClassIndex = 6;
     private const int ExceptionClearIndex = 17;
+    private const int NewGlobalRefIndex = 21;
     private const int DeleteLocalRefIndex = 23;
     private const int GetObjectClassIndex = 31;
     private const int GetMethodIdIndex = 33;
@@ -19,7 +20,9 @@ internal sealed unsafe class AndroidJni
     private const int CallVoidMethodAIndex = 63;
     private const int GetStaticMethodIdIndex = 113;
     private const int CallStaticObjectMethodAIndex = 116;
+    private const int CallStaticVoidMethodAIndex = 143;
     private const int NewStringUtfIndex = 167;
+    private const int GetStringUtfLengthIndex = 168;
     private const int GetStringUtfCharsIndex = 169;
     private const int ReleaseStringUtfCharsIndex = 170;
     private const int ExceptionCheckIndex = 228;
@@ -126,6 +129,66 @@ internal sealed unsafe class AndroidJni
         }
     }
 
+    /// <summary>Calls a static method returning nothing.</summary>
+    public void CallStaticVoid(nint cls, nint method, params ReadOnlySpan<long> args)
+    {
+        fixed (long* a = args)
+        {
+            ((delegate* unmanaged<nint, nint, nint, long*, void>)Table[CallStaticVoidMethodAIndex])(_env, cls, method, a);
+            Clear();
+        }
+    }
+
+    /// <summary>
+    /// Finds a class of the app itself (not the platform) through the activity's class loader. <c>FindClass</c> on a thread the game attached
+    /// uses the system loader and cannot see the app's classes. Returns 0 when the class is not in the app.
+    /// </summary>
+    public nint LoadAppClass(nint activity, string dottedName)
+    {
+        nint activityClass = 0, loader = 0, loaderClass = 0, name = 0;
+        try
+        {
+            activityClass = GetObjectClass(activity);
+            var getLoader = GetMethodId(activityClass, "getClassLoader", "()Ljava/lang/ClassLoader;");
+            loader = getLoader == 0 ? 0 : CallObject(activity, getLoader);
+            if (loader == 0)
+            {
+                return 0;
+            }
+
+            loaderClass = GetObjectClass(loader);
+            var load = GetMethodId(loaderClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
+            name = NewString(dottedName);
+            return load == 0 ? 0 : CallObject(loader, load, name);
+        }
+        finally
+        {
+            DeleteLocal(name);
+            DeleteLocal(loaderClass);
+            DeleteLocal(loader);
+            DeleteLocal(activityClass);
+        }
+    }
+
+    /// <summary>Reads a Java string only when its UTF-8 form is at most <paramref name="maxBytes"/> long, so a hostile string is never copied whole. Null stays null.</summary>
+    public string? GetStringBounded(nint jstring, int maxBytes, out bool tooLong)
+    {
+        tooLong = false;
+        if (jstring == 0)
+        {
+            return null;
+        }
+
+        var length = ((delegate* unmanaged<nint, nint, int>)Table[GetStringUtfLengthIndex])(_env, jstring);
+        if (length < 0 || length > maxBytes)
+        {
+            tooLong = true;
+            return null;
+        }
+
+        return GetString(jstring);
+    }
+
     /// <summary>Makes a Java string; pass the handle to a call as a long.</summary>
     public nint NewString(string text)
     {
@@ -160,6 +223,19 @@ internal sealed unsafe class AndroidJni
         var text = System.Text.Encoding.UTF8.GetString(chars, length);
         ((delegate* unmanaged<nint, nint, byte*, void>)Table[ReleaseStringUtfCharsIndex])(_env, jstring, chars);
         return text;
+    }
+
+    /// <summary>Turns a local reference into one that stays valid on every thread until the process ends; the local one is released.</summary>
+    public nint ToGlobal(nint local)
+    {
+        if (local == 0)
+        {
+            return 0;
+        }
+
+        var global = ((delegate* unmanaged<nint, nint, nint>)Table[NewGlobalRefIndex])(_env, local);
+        DeleteLocal(local);
+        return global;
     }
 
     public void DeleteLocal(nint reference)

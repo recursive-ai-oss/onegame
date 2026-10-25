@@ -46,6 +46,12 @@ public sealed unsafe class AndroidActivityHost
 
     internal nint Activity => (nint)_activity;
 
+    /// <summary>The Java <c>NativeActivity</c> object (a global reference owned by the system).</summary>
+    internal nint JavaActivity => _activity->Clazz;
+
+    /// <summary>The Java VM, for attaching other threads.</summary>
+    internal nint JavaVm => _activity->Vm;
+
     internal string FilesDirectory { get; private set; } = "";
 
     /// <summary>
