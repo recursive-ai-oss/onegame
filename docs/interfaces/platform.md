@@ -29,6 +29,7 @@ Single-threaded: use an app from the thread that created it. All real and synthe
 | `WindowFocusChanged` | `WindowId`, `Focused`. Losing focus releases every held key and button in `app.Input` |
 | `KeyDown` / `KeyUp` | `WindowId`, `Key` (physical, US-position names), `Modifiers`, `IsRepeat` |
 | `TextInput` | `WindowId`, `Text` (whole Unicode characters in the active layout), `Modifiers`. Not sent for Ctrl/Alt/Meta chords or control characters |
+| `TextComposition` | `WindowId`, `Text` (the whole pre-edit string; empty when the composition ended), `CursorStart`/`CursorEnd` (UTF-16 indexes into `Text`, -1 for no cursor). The finished text follows as `TextInput` |
 | `PointerMoved` | `WindowId`, `X`, `Y` |
 | `PointerButtonDown/Up` | `WindowId`, `Button`, `X`, `Y`, `Modifiers` |
 | `PointerWheel` | `WindowId`, `DeltaX`, `DeltaY` in notches, positive Y away from the user |
@@ -40,11 +41,11 @@ Single-threaded: use an app from the thread that created it. All real and synthe
 
 **Units.** Everything spatial is physical pixels: `Window.Width/Height` is the framebuffer size to give a swapchain, pointer positions are in the same space. `Window.Scale` (1.0 at 96 dpi, fractional where the OS says so) converts to logical units: `logical = pixels / Scale`. UI should lay out in logical units and multiply by `Scale` for the atlas/font size.
 
-**Text vs keys.** Use `Key` for bindings (it names the key by position, so WASD works on AZERTY) and `TextInput` for typed characters. Dead keys and compositions (IME) are not handled yet; only what the layout produces directly arrives.
+**Text vs keys.** Use `Key` for bindings (it names the key by position, so WASD works on AZERTY) and `TextInput` for typed characters. A text field turns input-method support on with `window.SetTextInput(true, x, y, w, h)` (the caret rectangle in window pixels; call again when it moves, `SetTextInput(false)` when focus leaves) and then gets `TextComposition` events while the user composes and `TextInput` for the result. Where the system has no input-method protocol (X11 without XIM, Win32 for now) `SetTextInput` only records the state and plain `TextInput` keeps working; dead keys come out of the layout as ordinary text.
 
 ## Windows (`Window`)
 
-`Width Height Scale IsFocused IsFullscreen IsMinimized IsClosed CursorHidden CursorLocked Title NativeHandle`; `SetTitle`, `RequestSize(w,h)` (takes effect through a `WindowResized` event; on Wayland the client decides, so it applies immediately), `SetFullscreen`, `Minimize`, `SetCursorHidden`, `SetCursorLocked` (hides the cursor and reports `PointerRelativeMotion`; refused, `CursorLocked` stays false, when the OS has no way to do it), `FillSolid(argb)` for windows made with `WindowOptions.SoftwareSurface` (tests and tools with no GPU surface: Wayland shows nothing until a buffer is attached), `Close`.
+`Width Height Scale IsFocused IsFullscreen IsMinimized IsClosed CursorHidden CursorLocked Title NativeHandle`; `SetTitle`, `RequestSize(w,h)` (takes effect through a `WindowResized` event; on Wayland the client decides, so it applies immediately), `SetFullscreen`, `Minimize`, `SetCursorHidden`, `SetCursorLocked` (hides the cursor and reports `PointerRelativeMotion`; refused, `CursorLocked` stays false, when the OS has no way to do it), `TextInputActive`/`TextInputArea`/`SetTextInput` (above), `FillSolid(argb)` for windows made with `WindowOptions.SoftwareSurface` (tests and tools with no GPU surface: Wayland shows nothing until a buffer is attached), `Close`.
 
 `NativeHandle` (`NativeWindowHandle(Kind, Display, Window)`) is what the GPU layer needs to build a surface; neither project references the other:
 
@@ -56,6 +57,19 @@ Single-threaded: use an app from the thread that created it. All real and synthe
 | `None` | 0 | 0 (headless) |
 
 A GPU swapchain that presents to a Wayland window must not be combined with `SoftwareSurface`.
+
+## Clipboard
+
+`app.Clipboard` (`PlatformClipboard`): `GetText(selection)`, `SetText(text, selection)`, `IsAvailable`, `Supports(selection)`. UTF-8 text only, up to `MaxTextBytes` (4 MB); longer content reads as absent and `SetText` returns false. Calls are synchronous on the app's thread.
+
+| Backend | How | Notes |
+|---|---|---|
+| X11 | ICCCM selections on a hidden helper window: `CLIPBOARD` and `PRIMARY` (`ClipboardSelection.Primary`); targets `UTF8_STRING`, `text/plain;charset=utf-8`, `TEXT`, `STRING` | Reading asks the owner and waits up to 1 s while still handling other events; the INCR protocol is read, not written, so `SetText` is limited to what one request holds (megabytes). While the app owns the selection it answers other programs from `PumpEvents`, so keep pumping. |
+| Wayland | `wl_data_device` on the seat; offers `text/plain;charset=utf-8`, `UTF8_STRING`, `text/plain`, `TEXT`, `STRING` | Needs a seat: `IsAvailable` is false on a compositor without one (headless Weston). Writes to the reader happen on a pool thread, so a slow reader cannot stall the game. `Primary` is not supported (`Supports` false). |
+| Win32 | `CF_UNICODETEXT`, CR LF converted both ways | Compiles; not run on Windows yet. |
+| Headless | a private in-process store | So scenarios and tests can copy and paste. |
+
+A reader that gets no answer in time returns null instead of hanging. Text from other programs is decoded with replacement characters, cut at the first NUL, and read under the size limit before anything is allocated.
 
 ## Input state
 
@@ -77,4 +91,10 @@ Always the standard layout: `GamepadButton` South/East/West/North (positional, s
 
 Wayland: libwayland-client, libxkbcommon; core, xdg-shell, plus fractional-scale/viewporter, xdg-decoration, relative-pointer, pointer-constraints and cursor-shape where the compositor has them. The protocol tables are generated by `tools/WaylandGen` from the XML in `tools/WaylandGen/protocols`. Key repeat is synthesized from `repeat_info`. X11: libX11, libxkbcommon(+x11). Win32: user32, xinput1_4. `PlatformOptions.DisplayName` picks the display (`:1`, a Wayland socket name or absolute socket path) instead of the environment.
 
-Not yet: IME composition and dead keys, clipboard, touch, multi-monitor selection, custom cursors (Wayland draws the cursor only through cursor-shape, so a compositor without it keeps whatever cursor it had), HID gamepads on Windows, gyro/touchpad.
+X11 re-reads the desktop scale (`Xft.dpi` in the root window's `RESOURCE_MANAGER`) when it changes and reports `WindowScaleChanged`. Wayland input methods use `text-input-v3` when the compositor offers it (the preedit string, cursor and commit become `TextComposition` and `TextInput`; surrounding text and delete-surrounding are not used). Weston, the compositor the tests run, offers no text-input-v3 and no seat when headless; those paths are tested against a scripted compositor on the real protocol. Fractional scale (`wp_fractional_scale` plus `wp_viewport`) is driven here for `SoftwareSurface` windows; a Vulkan swapchain on a compositor that offers it is not verified (neither test compositor does), including whether the driver's own surface objects clash with ours.
+
+Not yet: XIM/IBus on X11 and IME on Windows (`WM_IME_*`), touch, multi-monitor selection, custom cursors (Wayland draws the cursor only through cursor-shape, so a compositor without it keeps whatever cursor it had), HID gamepads on Windows, gyro/touchpad.
+
+## What a Windows run must prove
+
+Win32 builds and its pure logic (key tables, text conversion, CR LF) is tested here; nothing has run on Windows. A run there checks: window creation, DPI awareness and `WindowScaleChanged` when dragged between monitors, resize and minimize with a swapchain on the `HWND`, key and `WM_CHAR` text, pointer and raw mouse, Alt+F4 as `WindowCloseRequested`, XInput pads, and the clipboard (`CF_UNICODETEXT` round trip with another program, CR LF both ways, a locked clipboard retried). IME (`WM_IME_COMPOSITION`) is not implemented, so `TextComposition` never fires there.

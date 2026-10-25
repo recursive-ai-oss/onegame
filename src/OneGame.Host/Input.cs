@@ -155,6 +155,9 @@ internal static class InputRouter
             case PlatformEventKind.TextInput when !string.IsNullOrEmpty(e.Text):
                 ui = UiEvent.TextInput(e.Text);
                 return true;
+            case PlatformEventKind.TextComposition:
+                ui = UiEvent.Composition(e.Text ?? "", e.CursorStart, e.CursorEnd);
+                return true;
             case PlatformEventKind.GamepadButtonDown:
                 return Gamepad(e.GamepadButton, out ui);
             default:
@@ -185,5 +188,90 @@ internal static class InputRouter
             case GamepadButton.RightShoulder: ui = UiEvent.Navigate(NavDirection.Next); return true;
             default: ui = default; return false;
         }
+    }
+}
+
+/// <summary>
+/// Turns the left stick into focus navigation: a push past the threshold moves focus once, and holding it repeats after a delay, as a
+/// d-pad does. Counting frames instead of reading a clock keeps scripted runs reproducible.
+/// </summary>
+internal sealed class StickNavigator
+{
+    private const float On = 0.6f, Off = 0.35f;
+    private const int RepeatDelayFrames = 24, RepeatIntervalFrames = 6;
+
+    private float _x, _y;
+    private NavDirection? _held;
+    private int _frames;
+
+    /// <summary>Feeds a stick event. Returns the navigation to perform now, if the stick just crossed into a direction.</summary>
+    public bool OnAxis(in PlatformEvent e, out UiEvent ui)
+    {
+        ui = default;
+        switch (e.GamepadAxis)
+        {
+            case GamepadAxis.LeftX:
+                _x = e.Value;
+                break;
+            case GamepadAxis.LeftY:
+                _y = e.Value;
+                break;
+            default:
+                return false;
+        }
+
+        var now = Direction();
+        if (now == _held)
+        {
+            return false;
+        }
+
+        _held = now;
+        _frames = 0;
+        if (now is { } d)
+        {
+            ui = UiEvent.Navigate(d);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Call once per frame; returns the repeated navigation while the stick is held.</summary>
+    public bool Tick(out UiEvent ui)
+    {
+        ui = default;
+        if (_held is not { } d)
+        {
+            return false;
+        }
+
+        _frames++;
+        if (_frames >= RepeatDelayFrames && (_frames - RepeatDelayFrames) % RepeatIntervalFrames == 0)
+        {
+            ui = UiEvent.Navigate(d);
+            return true;
+        }
+
+        return false;
+    }
+
+    // Stick values have down and right positive. The stick must come back below the lower threshold before another direction counts.
+    private NavDirection? Direction()
+    {
+        var ax = MathF.Abs(_x);
+        var ay = MathF.Abs(_y);
+        var threshold = _held is null ? On : Off;
+        if (MathF.Max(ax, ay) < threshold)
+        {
+            return null;
+        }
+
+        if (ax >= ay)
+        {
+            return _x > 0 ? NavDirection.Right : NavDirection.Left;
+        }
+
+        return _y > 0 ? NavDirection.Down : NavDirection.Up;
     }
 }

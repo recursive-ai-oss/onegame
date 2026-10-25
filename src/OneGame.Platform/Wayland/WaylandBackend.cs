@@ -7,7 +7,7 @@ namespace OneGame.Platform;
 /// Wayland through libwayland-client with our own protocol tables (generated from the protocol XML): core, xdg-shell, and where the
 /// compositor offers them fractional scale, viewporter, server-side decorations, relative pointer and pointer constraints.
 /// </summary>
-internal sealed unsafe class WaylandBackend : PlatformBackend
+internal sealed unsafe partial class WaylandBackend : PlatformBackend
 {
     private const long RepeatPollMilliseconds = 5;
 
@@ -20,6 +20,7 @@ internal sealed unsafe class WaylandBackend : PlatformBackend
     private XkbKeyboard? _xkb;
     private WaylandWindow? _pointerWindow, _keyboardWindow;
     private uint _pointerSerial;
+    private uint _inputSerial; // The latest input event serial: the compositor wants one when a client sets the clipboard.
 
     // Key repeat is the client's job on Wayland: the compositor only says how fast.
     private int _repeatRate = 25, _repeatDelay = 400;
@@ -48,6 +49,8 @@ internal sealed unsafe class WaylandBackend : PlatformBackend
         _registry.Handler = OnRegistry;
         Roundtrip();
         Roundtrip(); // The second round trip collects what the bound globals announce: seat capabilities, outputs.
+        CreateSeatExtras();
+        Roundtrip(); // The clipboard's current content is announced right after the data device exists.
         if (_compositor is null || _wmBase is null)
         {
             throw new PlatformException("The compositor does not offer wl_compositor and xdg_wm_base.");
@@ -143,6 +146,7 @@ internal sealed unsafe class WaylandBackend : PlatformBackend
 
     internal void Forget(WaylandWindow w)
     {
+        ForgetTextInputWindow(w);
         _bySurface.Remove(w.Surface.Proxy);
         if (_pointerWindow == w)
         {
@@ -301,6 +305,12 @@ internal sealed unsafe class WaylandBackend : PlatformBackend
             case ZwpPointerConstraintsV1.Name:
                 _pointerConstraints = Bind(name, ZwpPointerConstraintsV1.Info, version, 1);
                 break;
+            case WlDataDeviceManager.Name:
+                _dataDeviceManager = Bind(name, WlDataDeviceManager.Info, version, 3);
+                break;
+            case ZwpTextInputManagerV3.Name:
+                _textInputManager = Bind(name, ZwpTextInputManagerV3.Info, version, 1);
+                break;
             case WpCursorShapeManagerV1.Name:
                 _cursorShapeManager = Bind(name, WpCursorShapeManagerV1.Info, version, 1);
                 break;
@@ -351,6 +361,7 @@ internal sealed unsafe class WaylandBackend : PlatformBackend
         {
             case WlPointer.Event.Enter:
                 _pointerSerial = a.Uint(0);
+                _inputSerial = _pointerSerial;
                 _pointerWindow = _bySurface.GetValueOrDefault(a.Object(1));
                 if (_pointerWindow is { } w)
                 {
@@ -372,6 +383,7 @@ internal sealed unsafe class WaylandBackend : PlatformBackend
                 _pointerWindow?.OnPointerMove(a.Fixed(1), a.Fixed(2));
                 break;
             case WlPointer.Event.Button:
+                _inputSerial = a.Uint(0);
                 if (_pointerWindow is { } bw)
                 {
                     // Button codes are the kernel's BTN_* values.
@@ -435,6 +447,7 @@ internal sealed unsafe class WaylandBackend : PlatformBackend
                 LoadKeymap(a.Fd(1), a.Uint(2));
                 break;
             case WlKeyboard.Event.Enter:
+                _inputSerial = a.Uint(0);
                 _keyboardWindow = _bySurface.GetValueOrDefault(a.Object(1));
                 _keyboardWindow?.OnFocus(true);
                 break;
@@ -444,6 +457,7 @@ internal sealed unsafe class WaylandBackend : PlatformBackend
                 _repeatCode = 0;
                 break;
             case WlKeyboard.Event.Key:
+                _inputSerial = a.Uint(0);
                 OnKey(a.Uint(2) + 8, a.Uint(3) == WlKeyboard.KeyStateEnum.Pressed);
                 break;
             case WlKeyboard.Event.Modifiers:

@@ -18,11 +18,14 @@ All positions are screen pixels. `Dispatch` first brings the UI up to date (bind
 | `Wheel(x, y, dx, dy)` | position, pixel deltas (positive `dy` reveals content below) | Handlers first, then the nearest scrollable ancestor that can scroll that way. Platform adapters convert line or notch scrolling to pixels. |
 | `KeyDown(key, modifiers, repeat)` / `KeyUp(key, modifiers)` | `Key` is the DOM `KeyboardEvent.key` string: `"Enter"`, `"Escape"`, `"Tab"`, `" "`, `"ArrowLeft"`, `"a"`... | Sent to the focused element, bubbling. Unhandled defaults: Tab / Shift+Tab move focus, Enter and Space click the focused element, arrows move focus (`ArrowKeysNavigate`), Escape is a Cancel. |
 | `TextInput(text)` | committed text (IME results included) | Sent to the focused element, bubbling. A text field handles it; nothing else does. |
+| `Composition(text, cursorStart, cursorEnd)` | the input method's pre-edit string (empty ends it), the highlighted part | Sent to the focused element, bubbling. A text field shows the pre-edit text, usually underlined, until the finished text arrives as `TextInput`. |
 | `Navigate(direction)` | `Up Down Left Right Next Previous` | Gamepad d-pad / stick (as discrete steps; repeat is the adapter's job) and bumpers for Next/Previous. The focused element sees it first (a slider can take Left/Right), otherwise focus moves. |
 | `Activate()` | none | The confirm button: clicks the focused element. |
 | `Cancel()` | none | The back button: bubbles from the focused element (or the root) as a `Cancel` event. |
 
 Return value: true when a handler or a default action consumed the event, so an adapter can pass unconsumed input to the game (for example, a click on empty UI that should fire a weapon).
+
+**Text fields.** An element that takes typed text sets `AcceptsText = true` and may keep `CaretArea` (screen pixels) current. `ui.TextInputTarget` is the focused element when it accepts text, `ui.TextInputArea` its caret or bounds; the host uses them to switch the platform's input method on and place its candidate window.
 
 **Element events.** Elements register handlers with `On(kind, handler)` or the sugar (`OnClick`, `OnPointerEnter`, `OnFocus`, `OnCancel`...). A handler returns true to stop bubbling and suppress the default action. Disabled elements (and their descendants) receive no input; `:disabled` matches them.
 

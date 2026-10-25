@@ -44,6 +44,120 @@ internal sealed unsafe class Win32Backend : PlatformBackend
 
     public override Window CreateWindow(WindowOptions options, int id) => new Win32Window(this, App, id, options);
 
+    // CF_UNICODETEXT (Microsoft Learn, "Standard Clipboard Formats"): UTF-16 with CR LF line ends and a terminating NUL, in a movable global block.
+    public override bool ClipboardAvailable => App.Windows.Count > 0;
+
+    private nint ClipboardOwner => App.Windows.Count > 0 ? App.Windows[0].NativeHandle.Window : 0;
+
+    // Another program may hold the clipboard open for a moment, so opening is retried briefly.
+    private bool OpenClipboardWithRetry()
+    {
+        for (var i = 0; i < 10; i++)
+        {
+            if (Win32Native.OpenClipboard(ClipboardOwner) != 0)
+            {
+                return true;
+            }
+
+            System.Threading.Thread.Sleep(5);
+        }
+
+        return false;
+    }
+
+    public override string? ClipboardGet(ClipboardSelection selection)
+    {
+        if (!OpenClipboardWithRetry())
+        {
+            return null;
+        }
+
+        try
+        {
+            if (Win32Native.IsClipboardFormatAvailable(Win32Native.CfUnicodeText) == 0)
+            {
+                return null;
+            }
+
+            var handle = Win32Native.GetClipboardData(Win32Native.CfUnicodeText);
+            if (handle == 0)
+            {
+                return null;
+            }
+
+            var size = Win32Native.GlobalSize(handle);
+            if (size > (nuint)PlatformClipboard.MaxTextBytes * 2)
+            {
+                return null;
+            }
+
+            var p = (char*)Win32Native.GlobalLock(handle);
+            if (p == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                var span = new ReadOnlySpan<char>(p, (int)(size / 2));
+                var nul = span.IndexOf('\0');
+                return ClipboardText.FromCrLf(new string(nul >= 0 ? span[..nul] : span));
+            }
+            finally
+            {
+                _ = Win32Native.GlobalUnlock(handle);
+            }
+        }
+        finally
+        {
+            _ = Win32Native.CloseClipboard();
+        }
+    }
+
+    public override bool ClipboardSet(ClipboardSelection selection, string text)
+    {
+        var wide = ClipboardText.ToCrLf(text);
+        var bytes = (nuint)((wide.Length + 1) * 2);
+        var memory = Win32Native.GlobalAlloc(Win32Native.GmemMoveable, bytes);
+        if (memory == 0)
+        {
+            return false;
+        }
+
+        var p = (char*)Win32Native.GlobalLock(memory);
+        if (p == null)
+        {
+            _ = Win32Native.GlobalFree(memory);
+            return false;
+        }
+
+        wide.AsSpan().CopyTo(new Span<char>(p, wide.Length));
+        p[wide.Length] = '\0';
+        _ = Win32Native.GlobalUnlock(memory);
+        if (!OpenClipboardWithRetry())
+        {
+            _ = Win32Native.GlobalFree(memory);
+            return false;
+        }
+
+        try
+        {
+            _ = Win32Native.EmptyClipboard();
+            // On success the system owns the block; on failure it is still ours to free.
+            if (Win32Native.SetClipboardData(Win32Native.CfUnicodeText, memory) == 0)
+            {
+                _ = Win32Native.GlobalFree(memory);
+                return false;
+            }
+
+            return true;
+        }
+        finally
+        {
+            _ = Win32Native.CloseClipboard();
+        }
+    }
+
     public override void Pump(int timeoutMilliseconds)
     {
         Win32Native.Msg msg;

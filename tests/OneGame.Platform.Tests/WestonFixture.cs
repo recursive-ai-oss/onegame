@@ -43,12 +43,12 @@ public sealed class WestonFixture : IDisposable
             return;
         }
 
-        _runtimeDir = Path.Combine(Path.GetTempPath(), "onegame-weston-" + Environment.ProcessId);
+        _runtimeDir = Path.Combine(Path.GetTempPath(), "onegame-weston-" + Environment.ProcessId + "-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(_runtimeDir);
         File.SetUnixFileMode(_runtimeDir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         start.Environment["XDG_RUNTIME_DIR"] = _runtimeDir;
         start.FileName = exe;
-        var socket = "og-test-" + Environment.ProcessId;
+        var socket = "og-test-" + Environment.ProcessId + "-" + Path.GetFileName(_runtimeDir)[^8..];
         foreach (var a in new[] { "--backend=headless", "--renderer=pixman", "--socket=" + socket, "--width=1024", "--height=768", "--no-config", "--shell=" + (Environment.GetEnvironmentVariable("ONEGAME_TEST_WESTON_SHELL") ?? "kiosk") })
         {
             start.ArgumentList.Add(a);

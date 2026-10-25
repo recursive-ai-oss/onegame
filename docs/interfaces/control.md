@@ -4,13 +4,24 @@ Source: `src/OneGame.Control` (operations), `src/OneGame.Host` (the game being d
 
 ## The game host
 
-`GameInstance.Create(GameDefinition, GameOptions)` runs one game: a single-player `Cluster` (an authority node holding `World`, plus a local replica `Replica`), the `UiTree`, a platform window (virtual when headless) and an `IRenderStage`. `Step(n)` runs n frames; each frame drains input, runs one cluster tick (`Cluster.Step(1)`, which steps the authority and publishes to the replica) and updates the UI. `RunRealtime` does this at 60 Hz for a window. `TickCompleted` fires after every tick; `DriftReports` lists any disagreement between replica and authority (it must stay empty and shows as `drift` in `info`).
+`GameInstance.Create(GameDefinition, GameOptions)` runs one game: a single-player `Cluster` (an authority node holding `World`, plus a local replica `Replica`), the `UiTree`, a platform window (virtual when headless) and an `IRenderStage`. `Step(n)` runs n frames; each frame drains input, runs one cluster tick (`Cluster.Step(1)`, which steps the authority and publishes to the replica) and updates the UI. `RunRealtime` does this at 60 Hz for a window (see "Windowed runs"). `TickCompleted` fires after every tick; `DriftReports` lists any disagreement between replica and authority (it must stay empty and shows as `drift` in `info`).
 
 - `World` is the authority world; state queries, patches, hashes and snapshots act on it. Replacing the world (`Reset`, `LoadFixture`, `LoadSnapshot`) rebuilds the cluster.
 - `SaveSnapshot()`/`LoadSnapshot()` are `SaveFile` bytes (header, hashes, versioned snapshot).
 - `StartRecording()` returns u6's `Recorder` (checkpoint every tick by default); `Replay(recording)` runs it on a fresh world built like the game's and returns `ReplayResult`. `RecordingFile.Save/Load` handle files (`OGRP`).
 - A `GameDefinition` declares entities, `Setup`, `RegisterSystems`, `DefineScreens`, `DefineFixtures`, `Style`, `OnInput`, `DefineFonts` (default: `fonts/*.ttf|otf`), `DefineArt`, and optionally `CreateRenderStage(HostResources)`. The default stage is `Render2DStage` (the 2D renderer, sRGB targets) when the game has fonts and shaders are available (`GameOptions.Shaders`, or `ONEGAME_SHADER_DIR` holding `Program.Entry.spv` files until the shader build package is wired in); otherwise `StubStage`, a GPU clear plus a CPU raster of the display list. A GPU-less capture always uses the CPU raster.
-- `GameApp.Run(definition, args)` is the whole `Main` of a game: `--headless --frames N --size WxH --scale S --seed N --gpu auto|off|required --json`. Any other flag needs the development tools (`Dev.Enable()`, called by a module initializer that exists only in Debug builds); without them the game exits 5 `no_dev_tools`.
+- `GameApp.Run(definition, args)` is the whole `Main` of a game: `--headless --frames N --size WxH --scale S --seed N --gpu auto|off|required --backend wayland|x11 --display NAME --present vsync|lowlatency|immediate --json`. Any other flag needs the development tools (`Dev.Enable()`, called by a module initializer that exists only in Debug builds); without them the game exits 5 `no_dev_tools`.
+
+## Windowed runs
+
+Without `--headless` the game opens a window (Wayland when `WAYLAND_DISPLAY` is set, else X11; `--backend` and `--display` choose, `GameOptions.Backend`/`DisplayName` in code) and each frame: drains platform input into the UI, runs the ticks that are due (fixed 60 Hz, up to 5 caught up), updates the UI and draws into a swapchain with the render stage. Details worth knowing:
+
+- **Swapchain.** Made on the first draw from `Window.NativeHandle`, sRGB when the stage asks for it (the 2D renderer does), `--present` picks the mode (vsync is the default and always exists). A `WindowResized` event releases the stage's per-target caches and resizes the swapchain; a minimized window (or zero area) skips drawing but not ticks; `PresentedFrames` counts frames handed to the display.
+- **Pacing.** A frame that presented is paced by the display; one that could not draw waits for the next tick; a presenter that returns at once (a software rasterizer) is held to at least 4 ms per frame unless the mode is `immediate`.
+- **Input.** Real and injected events share one queue and one adapter: pointer, wheel, keys (physical `Key` to DOM key names), text, pre-edit text, gamepad buttons (d-pad and shoulders navigate, South activates, East cancels) and the left stick (a push past 0.6 moves focus once, holding repeats after 24 frames every 6). The scale the OS reports (`Window.Scale`) is the UI scale and follows changes.
+- **Text fields.** When the focused element has `AcceptsText`, the host calls `Window.SetTextInput(true, caret rectangle)`, so an input method can follow the caret; `GameInstance.Clipboard` is the system clipboard for copy and paste.
+- **Capture.** `capture_frame` renders offscreen with the same stage and display list at the size asked for. `capture_frame` with `presented: true` instead reads back the swapchain image itself, drawn one more time at the window's size and scale (png, `renderer` names the adapter); it is an error for a headless game or one with no device.
+- **Live control.** `--live` works unchanged: requests run on the game thread between frames, injected input goes through the same queue as real input, and the window keeps presenting while requests are served (paused games redraw every 16 ms).
 
 ## Operations
 
@@ -18,9 +29,10 @@ Source: `src/OneGame.Control` (operations), `src/OneGame.Host` (the game being d
 
 | Group | Operations |
 |---|---|
-| Read | `info` (game, tick, frame, hash, size, screen, screens, fixtures, stage, adapter, drift), `hash`, `state_query`, `commands_list` |
+| Read | `info` (game, tick, frame, hash, size, screen, screens, fixtures, stage, adapter, drift, backend, presented), `hash`, `state_query`, `commands_list` |
 | Change state | `state_patch`, `command_send`, `reset`, `fixture_load`, `snapshot_load`, `step` (frames) |
-| Input | `input_pointer`, `input_key`, `input_text`, `input_nav`, `ui_click`, `ui_invoke` |
+| Input | `input_pointer`, `input_key`, `input_text`, `input_composition`, `input_nav`, `ui_click`, `ui_invoke` |
+| Clipboard | `clipboard_get`, `clipboard_set` (`selection`: `clipboard` or `primary`) |
 | UI | `ui_tree`, `ui_query`, `ui_hit`, `screen_open` |
 | Output | `snapshot_save`, `capture_frame`, `capture_sequence` |
 | Lifecycle | `quit` |

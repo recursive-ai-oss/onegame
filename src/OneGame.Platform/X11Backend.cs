@@ -5,7 +5,7 @@ using System.Text;
 namespace OneGame.Platform;
 
 /// <summary>X11 through Xlib. Pointer and window events come from the X server; text comes from the server's keyboard layout via xkbcommon.</summary>
-internal sealed unsafe class X11Backend : PlatformBackend
+internal sealed unsafe partial class X11Backend : PlatformBackend
 {
     private static bool s_errorHandlerInstalled;
 
@@ -15,7 +15,8 @@ internal sealed unsafe class X11Backend : PlatformBackend
     private readonly XkbKeyboard _keyboard;
     private readonly Dictionary<nuint, X11Window> _windows = [];
     private readonly nuint _wmProtocols, _wmDeleteWindow, _netWmName, _utf8String, _netWmState, _netWmStateFullscreen;
-    private readonly float _scale;
+    private float _scale;
+    private readonly nuint _resourceManager;
 
     public X11Backend(PlatformApp app)
         : base(app)
@@ -25,7 +26,7 @@ internal sealed unsafe class X11Backend : PlatformBackend
             _display = OpenDisplay(app.Options.DisplayName);
             if (_display == 0)
             {
-                throw new PlatformException("Could not open the X11 display named by DISPLAY.");
+                throw new PlatformException($"Could not open the X11 display '{app.Options.DisplayName ?? Environment.GetEnvironmentVariable("DISPLAY")}'.");
             }
 
             if (!s_errorHandlerInstalled)
@@ -46,7 +47,12 @@ internal sealed unsafe class X11Backend : PlatformBackend
             _utf8String = Atom("UTF8_STRING");
             _netWmState = Atom("_NET_WM_STATE");
             _netWmStateFullscreen = Atom("_NET_WM_STATE_FULLSCREEN");
+            _resourceManager = Atom("RESOURCE_MANAGER");
             _scale = ReadScale();
+
+            // The desktop's scale setting lives in the root window's RESOURCE_MANAGER property; watch it so a change reaches the windows.
+            Xlib.SelectInput(_display, _root, (nint)Xlib.PropertyChangeMask);
+            InitClipboard();
         }
         catch (DllNotFoundException e)
         {
@@ -126,27 +132,45 @@ internal sealed unsafe class X11Backend : PlatformBackend
         }
     }
 
-    // Xft.dpi in the X resource database is the desktop's scale setting (96 is 1.0); it may be fractional.
+    // Xft.dpi in the X resource database is the desktop's scale setting (96 is 1.0); it may be fractional. The database is the root window's
+    // RESOURCE_MANAGER property, read fresh each time (XResourceManagerString would return the copy taken when the display was opened).
     private float ReadScale()
     {
-        var raw = Xlib.ResourceManagerString(_display);
-        if (raw == null)
+        nuint type, after, count;
+        int format;
+        byte* raw;
+        if (Xlib.GetWindowProperty(_display, _root, _resourceManager, 0, 16384, 0, 0, &type, &format, &count, &after, &raw) != 0)
         {
             return 1f;
         }
 
-        var text = Marshal.PtrToStringUTF8((nint)raw) ?? "";
-        foreach (var line in text.Split('\n'))
+        try
         {
-            if (line.StartsWith("Xft.dpi:", StringComparison.Ordinal)
-                && float.TryParse(line.AsSpan(8).Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var dpi)
-                && dpi >= 48f)
+            if (raw == null || format != 8)
             {
-                return dpi / 96f;
+                return 1f;
+            }
+
+            var text = Encoding.UTF8.GetString(raw, (int)count);
+            foreach (var line in text.Split('\n'))
+            {
+                if (line.StartsWith("Xft.dpi:", StringComparison.Ordinal)
+                    && float.TryParse(line.AsSpan(8).Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var dpi)
+                    && dpi >= 48f)
+                {
+                    return dpi / 96f;
+                }
+            }
+
+            return 1f;
+        }
+        finally
+        {
+            if (raw != null)
+            {
+                Xlib.Free(raw);
             }
         }
-
-        return 1f;
     }
 
     private static KeyModifiers ModifiersFromState(uint state)
@@ -188,6 +212,26 @@ internal sealed unsafe class X11Backend : PlatformBackend
     // Field offsets follow the Xlib event structs on 64-bit Linux: the common header is 40 bytes (type, serial, send_event, display, window).
     private void Handle(Xlib.XEvent* e)
     {
+        if (HandleSelectionEvent(e))
+        {
+            return;
+        }
+
+        if (e->Type == Xlib.PropertyNotify && Xlib.At<nuint>(e, 32) == _root && Xlib.At<nuint>(e, 40) == _resourceManager)
+        {
+            var scale = ReadScale();
+            if (scale != _scale)
+            {
+                _scale = scale;
+                foreach (var each in _windows.Values)
+                {
+                    each.OnScale(scale);
+                }
+            }
+
+            return;
+        }
+
         var window = Xlib.At<nuint>(e, 32);
         if (!_windows.TryGetValue(window, out var w))
         {
@@ -478,6 +522,8 @@ internal sealed unsafe class X11Backend : PlatformBackend
         }
 
         public void OnFocus(bool focused) => ApplyFocus(focused);
+
+        public void OnScale(float scale) => ApplyScale(scale);
 
         public void OnConfigure(int width, int height)
         {

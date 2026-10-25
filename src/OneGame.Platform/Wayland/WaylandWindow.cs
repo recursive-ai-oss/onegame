@@ -93,6 +93,8 @@ internal sealed unsafe class WaylandWindow : Window
             Y = ToPixels(surfaceY),
         });
 
+    private protected override void ApplyTextInput() => _b.SetTextInput(this);
+
     public override void SetTitle(string title)
     {
         Title = title;

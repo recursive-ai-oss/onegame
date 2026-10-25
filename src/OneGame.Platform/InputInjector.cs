@@ -40,6 +40,18 @@ public sealed class InputInjector
         _app.Post(new PlatformEvent { Kind = PlatformEventKind.TextInput, WindowId = windowId, Text = text, Modifiers = _app.Input.Modifiers });
     }
 
+    /// <summary>Reports an input method's pre-edit string, as a real IME would while the user composes. An empty string ends the composition.</summary>
+    /// <param name="windowId">The window.</param>
+    /// <param name="preedit">The whole pre-edit text.</param>
+    /// <param name="cursorStart">UTF-16 index where the highlighted part starts, or -1 for no cursor. Defaults to the end of the text.</param>
+    /// <param name="cursorEnd">UTF-16 index where it ends. Defaults to <paramref name="cursorStart"/>.</param>
+    public void Composition(int windowId, string preedit, int? cursorStart = null, int? cursorEnd = null)
+    {
+        ArgumentNullException.ThrowIfNull(preedit);
+        var start = cursorStart ?? preedit.Length;
+        _app.Post(new PlatformEvent { Kind = PlatformEventKind.TextComposition, WindowId = windowId, Text = preedit, CursorStart = start, CursorEnd = cursorEnd ?? start });
+    }
+
     /// <summary>Moves the pointer to a position in window pixels.</summary>
     public void PointerMove(int windowId, float x, float y) =>
         _app.Post(new PlatformEvent { Kind = PlatformEventKind.PointerMoved, WindowId = windowId, X = x, Y = y, Modifiers = _app.Input.Modifiers });

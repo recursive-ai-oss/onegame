@@ -40,6 +40,14 @@ internal static unsafe partial class Xlib
         public int MinAspectX, MinAspectY, MaxAspectX, MaxAspectY, BaseWidth, BaseHeight, WinGravity;
     }
 
+    // Xlib shares global state between connections (extension tables, locks) that is only protected once XInitThreads has run, and
+    // it must run before any other call. The engine uses one connection per thread (a second app, a clipboard owner, the tests), so it is
+    // called from the type initializer, which the runtime runs before the first Xlib call of any kind.
+    static Xlib() => _ = InitThreads();
+
+    [LibraryImport(Lib, EntryPoint = "XInitThreads")]
+    private static partial int InitThreads();
+
     public static T At<T>(XEvent* e, int offset)
         where T : unmanaged => *(T*)((byte*)e + offset);
 
@@ -63,6 +71,9 @@ internal static unsafe partial class Xlib
 
     [LibraryImport(Lib, EntryPoint = "XMapWindow")]
     public static partial void MapWindow(nint display, nuint window);
+
+    [LibraryImport(Lib, EntryPoint = "XUnmapWindow")]
+    public static partial void UnmapWindow(nint display, nuint window);
 
     [LibraryImport(Lib, EntryPoint = "XDestroyWindow")]
     public static partial void DestroyWindow(nint display, nuint window);
@@ -123,6 +134,33 @@ internal static unsafe partial class Xlib
 
     [LibraryImport(Lib, EntryPoint = "XFreeCursor")]
     public static partial void FreeCursor(nint display, nuint cursor);
+
+    public const int SelectionClear = 29, SelectionRequest = 30, SelectionNotify = 31;
+    public const int PropertyNewValue = 0;
+
+    [LibraryImport(Lib, EntryPoint = "XSetSelectionOwner")]
+    public static partial void SetSelectionOwner(nint display, nuint selection, nuint owner, nuint time);
+
+    [LibraryImport(Lib, EntryPoint = "XGetSelectionOwner")]
+    public static partial nuint GetSelectionOwner(nint display, nuint selection);
+
+    [LibraryImport(Lib, EntryPoint = "XConvertSelection")]
+    public static partial void ConvertSelection(nint display, nuint selection, nuint target, nuint property, nuint requestor, nuint time);
+
+    [LibraryImport(Lib, EntryPoint = "XGetWindowProperty")]
+    public static partial int GetWindowProperty(nint display, nuint window, nuint property, nint offset, nint length, int delete, nuint requestType, nuint* actualType, int* actualFormat, nuint* itemCount, nuint* bytesAfter, byte** data);
+
+    [LibraryImport(Lib, EntryPoint = "XDeleteProperty")]
+    public static partial void DeleteProperty(nint display, nuint window, nuint property);
+
+    [LibraryImport(Lib, EntryPoint = "XFree")]
+    public static partial void Free(void* data);
+
+    [LibraryImport(Lib, EntryPoint = "XExtendedMaxRequestSize")]
+    public static partial nint ExtendedMaxRequestSize(nint display);
+
+    [LibraryImport(Lib, EntryPoint = "XMaxRequestSize")]
+    public static partial nint MaxRequestSize(nint display);
 
     [LibraryImport(Lib, EntryPoint = "XResourceManagerString")]
     public static partial byte* ResourceManagerString(nint display);

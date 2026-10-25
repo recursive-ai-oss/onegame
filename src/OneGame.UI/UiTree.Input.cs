@@ -57,6 +57,7 @@ public sealed partial class UiTree
                 return KeyDown(e);
             case UiEventKind.KeyUp:
             case UiEventKind.TextInput:
+            case UiEventKind.Composition:
                 return Bubble(_focused ?? Root, e);
             case UiEventKind.Navigate:
                 return Navigate(e);

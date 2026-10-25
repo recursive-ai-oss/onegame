@@ -5,6 +5,7 @@
 //   pointer-constraints-unstable-v1.xml
 //   relative-pointer-unstable-v1.xml
 //   tablet-v2.xml
+//   text-input-unstable-v3.xml
 //   viewporter.xml
 //   wayland.xml
 //   xdg-decoration-unstable-v1.xml
@@ -37,6 +38,8 @@ internal static class WaylandProtocols
         ZwpTabletPadGroupV2.Info,
         ZwpTabletPadV2.Info,
         ZwpTabletPadDialV2.Info,
+        ZwpTextInputV3.Info,
+        ZwpTextInputManagerV3.Info,
         WpViewporter.Info,
         WpViewport.Info,
         WlDisplay.Info,
@@ -891,6 +894,136 @@ internal static class ZwpTabletPadDialV2
         [
             new("delta", "i", [null]),
             new("frame", "u", [null]),
+        ]);
+}
+
+/// <summary>Opcodes, enum values and the message table of <c>zwp_text_input_v3</c> (version 1).</summary>
+internal static class ZwpTextInputV3
+{
+    /// <summary>The interface name.</summary>
+    public const string Name = "zwp_text_input_v3";
+    /// <summary>The highest version this table knows.</summary>
+    public const int Version = 1;
+
+    /// <summary>Request opcodes.</summary>
+    public static class Request
+    {
+        public const int Destroy = 0;
+        public const int Enable = 1;
+        public const int Disable = 2;
+        public const int SetSurroundingText = 3;
+        public const int SetTextChangeCause = 4;
+        public const int SetContentType = 5;
+        public const int SetCursorRectangle = 6;
+        public const int Commit = 7;
+    }
+
+    /// <summary>Event opcodes.</summary>
+    public static class Event
+    {
+        public const int Enter = 0;
+        public const int Leave = 1;
+        public const int PreeditString = 2;
+        public const int CommitString = 3;
+        public const int DeleteSurroundingText = 4;
+        public const int Done = 5;
+    }
+
+    /// <summary>Values of the <c>change_cause</c> enum.</summary>
+    public static class ChangeCauseEnum
+    {
+        public const uint InputMethod = 0;
+        public const uint Other = 1;
+    }
+
+    /// <summary>Values of the <c>content_hint</c> enum.</summary>
+    public static class ContentHintEnum
+    {
+        public const uint None = 0;
+        public const uint Completion = 1;
+        public const uint Spellcheck = 2;
+        public const uint AutoCapitalization = 4;
+        public const uint Lowercase = 8;
+        public const uint Uppercase = 16;
+        public const uint Titlecase = 32;
+        public const uint HiddenText = 64;
+        public const uint SensitiveData = 128;
+        public const uint Latin = 256;
+        public const uint Multiline = 512;
+    }
+
+    /// <summary>Values of the <c>content_purpose</c> enum.</summary>
+    public static class ContentPurposeEnum
+    {
+        public const uint Normal = 0;
+        public const uint Alpha = 1;
+        public const uint Digits = 2;
+        public const uint Number = 3;
+        public const uint Phone = 4;
+        public const uint Url = 5;
+        public const uint Email = 6;
+        public const uint Name = 7;
+        public const uint Password = 8;
+        public const uint Pin = 9;
+        public const uint Date = 10;
+        public const uint Time = 11;
+        public const uint Datetime = 12;
+        public const uint Terminal = 13;
+    }
+
+    /// <summary>The message table.</summary>
+    public static readonly WlInterfaceInfo Info = new(
+        "zwp_text_input_v3",
+        1,
+        [
+            new("destroy", "", []),
+            new("enable", "", []),
+            new("disable", "", []),
+            new("set_surrounding_text", "sii", [null, null, null]),
+            new("set_text_change_cause", "u", [null]),
+            new("set_content_type", "uu", [null, null]),
+            new("set_cursor_rectangle", "iiii", [null, null, null, null]),
+            new("commit", "", []),
+        ],
+        [
+            new("enter", "o", ["wl_surface"]),
+            new("leave", "o", ["wl_surface"]),
+            new("preedit_string", "?sii", [null, null, null]),
+            new("commit_string", "?s", [null]),
+            new("delete_surrounding_text", "uu", [null, null]),
+            new("done", "u", [null]),
+        ]);
+}
+
+/// <summary>Opcodes, enum values and the message table of <c>zwp_text_input_manager_v3</c> (version 1).</summary>
+internal static class ZwpTextInputManagerV3
+{
+    /// <summary>The interface name.</summary>
+    public const string Name = "zwp_text_input_manager_v3";
+    /// <summary>The highest version this table knows.</summary>
+    public const int Version = 1;
+
+    /// <summary>Request opcodes.</summary>
+    public static class Request
+    {
+        public const int Destroy = 0;
+        public const int GetTextInput = 1;
+    }
+
+    /// <summary>Event opcodes.</summary>
+    public static class Event
+    {
+    }
+
+    /// <summary>The message table.</summary>
+    public static readonly WlInterfaceInfo Info = new(
+        "zwp_text_input_manager_v3",
+        1,
+        [
+            new("destroy", "", []),
+            new("get_text_input", "no", ["zwp_text_input_v3", "wl_seat"]),
+        ],
+        [
         ]);
 }
 

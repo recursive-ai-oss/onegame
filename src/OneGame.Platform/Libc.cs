@@ -15,6 +15,7 @@ internal static unsafe partial class Libc
     public const int MAP_SHARED = 1;
     public const int MAP_PRIVATE = 2;
     public const int POLLIN = 1;
+    public const int POLLOUT = 4;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct PollFd
@@ -39,6 +40,9 @@ internal static unsafe partial class Libc
     // ioctl is variadic in C, but the calling convention for one pointer-sized extra argument matches a fixed signature on Linux x64 and arm64.
     [LibraryImport("libc", EntryPoint = "ioctl", SetLastError = true)]
     public static partial int Ioctl(int fd, nuint request, void* argument);
+
+    [LibraryImport("libc", EntryPoint = "pipe2", SetLastError = true)]
+    public static partial int Pipe2(int* fds, int flags);
 
     [LibraryImport("libc", EntryPoint = "poll", SetLastError = true)]
     public static partial int Poll(PollFd* fds, nuint count, int timeoutMilliseconds);

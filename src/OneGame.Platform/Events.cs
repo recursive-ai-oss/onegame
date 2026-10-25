@@ -164,6 +164,13 @@ public enum PlatformEventKind : byte
     /// <summary>Text was typed. <see cref="PlatformEvent.Text"/> holds it.</summary>
     TextInput,
 
+    /// <summary>
+    /// An input method is composing text that is not final yet. <see cref="PlatformEvent.Text"/> is the whole pre-edit string (empty when
+    /// the composition ended or was cancelled) and <see cref="PlatformEvent.CursorStart"/>/<see cref="PlatformEvent.CursorEnd"/> mark the
+    /// highlighted part. The finished text arrives as <see cref="TextInput"/>.
+    /// </summary>
+    TextComposition,
+
     /// <summary>The pointer moved to <see cref="PlatformEvent.X"/>, <see cref="PlatformEvent.Y"/>.</summary>
     PointerMoved,
 
@@ -221,6 +228,12 @@ public readonly record struct PlatformEvent
 
     /// <summary>The typed text for <see cref="PlatformEventKind.TextInput"/>: one or more complete Unicode characters.</summary>
     public string? Text { get; init; }
+
+    /// <summary>For <see cref="PlatformEventKind.TextComposition"/>: UTF-16 index in <see cref="Text"/> where the input method's cursor or highlight starts, or -1 when it asks for no cursor.</summary>
+    public int CursorStart { get; init; }
+
+    /// <summary>For <see cref="PlatformEventKind.TextComposition"/>: UTF-16 index where the cursor or highlight ends (equal to <see cref="CursorStart"/> for a plain caret), or -1.</summary>
+    public int CursorEnd { get; init; }
 
     /// <summary>Pointer x in window pixels.</summary>
     public float X { get; init; }

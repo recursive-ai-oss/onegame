@@ -1,5 +1,7 @@
 using System.Buffers;
 using OneGame.Core;
+using OneGame.Gpu;
+using OneGame.Platform;
 
 namespace OneGame.Host;
 
@@ -103,7 +105,7 @@ public interface IDevTools
 /// <summary>The entry point of a game: parse the command line, create the instance, run it.</summary>
 public static class GameApp
 {
-    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu"];
+    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present"];
 
     /// <summary>
     /// Set by development builds before <see cref="Run(GameDefinition, string[])"/> so the extra options work. A release build leaves it
@@ -113,7 +115,8 @@ public static class GameApp
 
     /// <summary>
     /// Runs a game. Options: <c>--headless</c>, <c>--frames N</c> (stop after N frames), <c>--size 1280x720</c>, <c>--scale 1.5</c>
-    /// (headless UI scale), <c>--seed N</c>, <c>--gpu auto|off|required</c>, <c>--json</c> (print one result object).
+    /// (headless UI scale), <c>--seed N</c>, <c>--gpu auto|off|required</c>, <c>--backend wayland|x11</c> and <c>--display NAME</c> (which window system and display
+    /// a windowed run opens on; the environment decides without them), <c>--present vsync|lowlatency|immediate</c>, <c>--json</c> (print one result object).
     /// </summary>
     public static int Run(GameDefinition game, string[] args) => Run(game, args, Console.Out, Console.Error);
 
@@ -186,6 +189,38 @@ public static class GameApp
         if (a.Has("seed"))
         {
             o = o with { Seed = (ulong)a.GetInt("seed", 0) };
+        }
+
+        if (a.Get("backend") is { } backend)
+        {
+            o = o with
+            {
+                Backend = backend switch
+                {
+                    "wayland" => PlatformBackendKind.Wayland,
+                    "x11" => PlatformBackendKind.X11,
+                    var other => throw new FormatException($"--backend is wayland or x11, got '{other}'."),
+                },
+            };
+        }
+
+        if (a.Get("display") is { } display)
+        {
+            o = o with { DisplayName = display };
+        }
+
+        if (a.Get("present") is { } present)
+        {
+            o = o with
+            {
+                PresentMode = present switch
+                {
+                    "vsync" => PresentMode.Vsync,
+                    "lowlatency" => PresentMode.LowLatency,
+                    "immediate" => PresentMode.Immediate,
+                    var other => throw new FormatException($"--present is vsync, lowlatency or immediate, got '{other}'."),
+                },
+            };
         }
 
         return a.Get("gpu") switch

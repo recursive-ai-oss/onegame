@@ -16,6 +16,21 @@ internal sealed class HeadlessBackend : PlatformBackend
     {
     }
 
+    // A private clipboard, so copy and paste work in headless runs and tests.
+    private readonly string?[] _clipboard = new string?[2];
+
+    public override bool ClipboardAvailable => true;
+
+    public override bool ClipboardSupports(ClipboardSelection selection) => true;
+
+    public override string? ClipboardGet(ClipboardSelection selection) => _clipboard[(int)selection];
+
+    public override bool ClipboardSet(ClipboardSelection selection, string text)
+    {
+        _clipboard[(int)selection] = text;
+        return true;
+    }
+
     private sealed class HeadlessWindow : Window
     {
         public HeadlessWindow(PlatformApp app, int id, WindowOptions options)

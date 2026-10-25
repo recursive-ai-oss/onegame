@@ -76,6 +76,29 @@ public abstract class Window : IDisposable
     {
     }
 
+    /// <summary>Whether a text field has focus and the game asked for input-method (IME) support; see <see cref="SetTextInput"/>.</summary>
+    public bool TextInputActive { get; private set; }
+
+    /// <summary>Where the caret is, in window pixels, as last given to <see cref="SetTextInput"/>.</summary>
+    public (int X, int Y, int Width, int Height) TextInputArea { get; private set; }
+
+    /// <summary>
+    /// Tells the system that a text field has (or no longer has) focus, and where its caret is, so an input method can show its candidate
+    /// window beside it and send <see cref="PlatformEventKind.TextComposition"/> events. Call it again when the caret moves. Where the system
+    /// has no input-method protocol this only records the state, and plain <see cref="PlatformEventKind.TextInput"/> keeps working.
+    /// </summary>
+    public void SetTextInput(bool active, int x = 0, int y = 0, int width = 0, int height = 0)
+    {
+        if (IsClosed)
+        {
+            return;
+        }
+
+        TextInputActive = active;
+        TextInputArea = active ? (x, y, width, height) : default;
+        ApplyTextInput();
+    }
+
     /// <summary>Closes the window. Further calls do nothing.</summary>
     public void Close()
     {
@@ -97,6 +120,11 @@ public abstract class Window : IDisposable
     }
 
     private protected abstract void DestroyNative();
+
+    /// <summary>Passes <see cref="TextInputActive"/> and <see cref="TextInputArea"/> to the input method, where the system has one.</summary>
+    private protected virtual void ApplyTextInput()
+    {
+    }
 
     // Backends call these when the system reports a change; they post the matching event.
     private protected void ApplySize(int width, int height)

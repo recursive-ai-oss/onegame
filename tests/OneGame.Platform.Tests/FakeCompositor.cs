@@ -73,6 +73,17 @@ internal sealed unsafe class FakeCompositor : IDisposable
     private uint _serial = 100;
 
     private nint _surface, _pointer, _keyboard, _toplevel;
+
+    // Clipboard: every data device, the sources clients created (with the types they offer) and the one that is the current selection.
+    private readonly List<nint> _dataDevices = [];
+    private readonly Dictionary<nint, List<string>> _sourceMimes = [];
+    private readonly Dictionary<nint, nint> _offerSource = [];
+    private nint _selectionSource;
+
+    // Text input: the text-input object of the first client that asked, and what it has sent us.
+    private nint _textInput;
+    private uint _textInputSerial;
+    private readonly ConcurrentQueue<string> _textInputLog = new();
     private bool _toplevelReady;
 
     public FakeCompositor(string socketPath)
@@ -89,6 +100,8 @@ internal sealed unsafe class FakeCompositor : IDisposable
         Global(WlCompositor.Name, 4);
         Global(XdgWmBase.Name, 3);
         Global(WlSeat.Name, 7);
+        Global(WlDataDeviceManager.Name, 3);
+        Global(ZwpTextInputManagerV3.Name, 1);
         _thread = new Thread(Loop) { IsBackground = true, Name = "fake-compositor" };
         _thread.Start();
     }
@@ -153,6 +166,31 @@ internal sealed unsafe class FakeCompositor : IDisposable
     public void Key(uint evdevCode, bool down) => Post(_keyboard, WlKeyboard.Event.Key, [Serial(), Tick(), evdevCode, down ? 1UL : 0UL]);
 
     public void Modifiers(uint depressed) => Post(_keyboard, WlKeyboard.Event.Modifiers, [Serial(), depressed, 0, 0, 0]);
+
+    /// <summary>The requests the client made on its text-input object, oldest first: enable, disable, commit, content-type and cursor-rectangle lines.</summary>
+    public string[] TextInputLog() => [.. _textInputLog];
+
+    public void TextInputEnter() => Post(_textInput, ZwpTextInputV3.Event.Enter, [(ulong)_surface]);
+
+    public void TextInputLeave() => Post(_textInput, ZwpTextInputV3.Event.Leave, [(ulong)_surface]);
+
+    /// <summary>Sends one batch the way an input method does: optional pre-edit, optional commit, then done.</summary>
+    public void TextInputBatch(string? preedit, int begin, int end, string? commit)
+    {
+        if (preedit is not null)
+        {
+            Post(_textInput, ZwpTextInputV3.Event.PreeditString, [(ulong)Utf8(preedit), (ulong)(uint)begin, (ulong)(uint)end]);
+        }
+
+        if (commit is not null)
+        {
+            Post(_textInput, ZwpTextInputV3.Event.CommitString, [(ulong)Utf8(commit)]);
+        }
+
+        Post(_textInput, ZwpTextInputV3.Event.Done, [++_textInputSerial]);
+    }
+
+    private static nint Utf8(string text) => Marshal.StringToCoTaskMemUTF8(text);
 
     public void CloseToplevel() => Post(_toplevel, XdgToplevel.Event.Close, []);
 
@@ -279,12 +317,94 @@ internal sealed unsafe class FakeCompositor : IDisposable
                 _keyboard = NewResource(client, WlKeyboard.Name, version, (uint)args[0]).Resource;
                 SendKeymap(_keyboard);
                 break;
+            case WlDataDeviceManager.Name when opcode == WlDataDeviceManager.Request.CreateDataSource:
+                _sourceMimes[NewResource(client, WlDataSource.Name, version, (uint)args[0]).Resource] = [];
+                break;
+            case WlDataDeviceManager.Name when opcode == WlDataDeviceManager.Request.GetDataDevice:
+                var device = NewResource(client, WlDataDevice.Name, version, (uint)args[0]).Resource;
+                _dataDevices.Add(device);
+                SendSelection(device);
+                break;
+            case WlDataSource.Name when opcode == WlDataSource.Request.Offer:
+                _sourceMimes[o.Resource].Add(Marshal.PtrToStringUTF8((nint)args[0])!);
+                break;
+            case WlDataSource.Name when opcode == WlDataSource.Request.Destroy:
+                _sourceMimes.Remove(o.Resource);
+                if (_selectionSource == o.Resource)
+                {
+                    _selectionSource = 0;
+                    _dataDevices.ForEach(SendSelection);
+                }
+
+                WlServer.ResourceDestroy(o.Resource);
+                break;
+            case WlDataDevice.Name when opcode == WlDataDevice.Request.SetSelection:
+                var source = (nint)args[0];
+                if (_selectionSource != 0 && _selectionSource != source)
+                {
+                    Post(_selectionSource, WlDataSource.Event.Cancelled, []);
+                }
+
+                _selectionSource = source;
+                _dataDevices.ForEach(SendSelection);
+                break;
+            case WlDataOffer.Name when opcode == WlDataOffer.Request.Receive:
+                if (_offerSource.TryGetValue(o.Resource, out var from))
+                {
+                    Post(from, WlDataSource.Event.Send, [args[0], args[1]]);
+                }
+
+                // The descriptor that came with the request belongs to the compositor; the owner got its own copy.
+                _ = Libc.Close((int)args[1]);
+
+                break;
+            case WlDataOffer.Name when opcode == WlDataOffer.Request.Destroy:
+                _offerSource.Remove(o.Resource);
+                WlServer.ResourceDestroy(o.Resource);
+                break;
+            case ZwpTextInputManagerV3.Name when opcode == ZwpTextInputManagerV3.Request.GetTextInput:
+                _textInput = NewResource(client, ZwpTextInputV3.Name, version, (uint)args[0]).Resource;
+                break;
+            case ZwpTextInputV3.Name:
+                _textInputLog.Enqueue(opcode switch
+                {
+                    ZwpTextInputV3.Request.Enable => "enable",
+                    ZwpTextInputV3.Request.Disable => "disable",
+                    ZwpTextInputV3.Request.Commit => "commit",
+                    ZwpTextInputV3.Request.SetContentType => "content-type",
+                    ZwpTextInputV3.Request.SetCursorRectangle => $"rect {(int)args[0]} {(int)args[1]} {(int)args[2]} {(int)args[3]}",
+                    _ => "other",
+                });
+                break;
             case WlSurface.Name when opcode == WlSurface.Request.Destroy:
             case XdgSurface.Name when opcode == XdgSurface.Request.Destroy:
             case XdgToplevel.Name when opcode == XdgToplevel.Request.Destroy:
                 WlServer.ResourceDestroy(o.Resource);
                 break;
         }
+    }
+
+    // Tells a data device what the selection is: a new offer carrying the source's types, or none.
+    private void SendSelection(nint device)
+    {
+        if (_selectionSource == 0)
+        {
+            Post(device, WlDataDevice.Event.Selection, [0]);
+            return;
+        }
+
+        var client = WlServer.ResourceGetClient(device);
+        var offer = WlServer.ResourceCreate(client, WlInterfaces.Get(WlDataOffer.Name), WlServer.ResourceGetVersion(device), 0);
+        var handle = GCHandle.Alloc(new Obj(this, WlDataOffer.Name, offer));
+        WlServer.ResourceSetDispatcher(offer, &OnRequest, (void*)GCHandle.ToIntPtr(handle), null, null);
+        _offerSource[offer] = _selectionSource;
+        Post(device, WlDataDevice.Event.DataOffer, [(ulong)offer]);
+        foreach (var mime in _sourceMimes[_selectionSource])
+        {
+            Post(offer, WlDataOffer.Event.Offer, [(ulong)Utf8(mime)]);
+        }
+
+        Post(device, WlDataDevice.Event.Selection, [(ulong)offer]);
     }
 
     private static void SendKeymap(nint keyboard)

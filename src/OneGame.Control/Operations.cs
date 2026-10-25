@@ -38,7 +38,10 @@ public sealed record ControlResult(string Json, byte[]? Png = null);
 /// <summary>Result of <c>info</c>. <c>Drift</c> counts drift reports filed by the local replica; it must stay 0.</summary>
 public sealed record InfoResult(
     string Game, long Tick, long Frame, string Hash, int Width, int Height, float Scale, bool Headless, string? Screen,
-    int Entities, string[] Screens, string[] Fixtures, string Stage, string? Adapter, int Drift);
+    int Entities, string[] Screens, string[] Fixtures, string Stage, string? Adapter, int Drift, string Backend, long Presented);
+
+/// <summary>Result of <c>clipboard_get</c> and <c>clipboard_set</c>. <c>Text</c> is null when the clipboard holds no text.</summary>
+public sealed record ClipboardResult(string? Text, bool Ok);
 
 /// <summary>Result of <c>step</c>, <c>hash</c> and the operations that change the world.</summary>
 public sealed record StateResult(long Frame, long Tick, string Hash);
@@ -88,6 +91,7 @@ public sealed record SnapshotResult(string? Path, int Bytes, string? Base64, str
 [JsonSerializable(typeof(InputResult))]
 [JsonSerializable(typeof(InvokeResult))]
 [JsonSerializable(typeof(HitResult))]
+[JsonSerializable(typeof(ClipboardResult))]
 [JsonSerializable(typeof(CaptureResult))]
 [JsonSerializable(typeof(SequenceManifest))]
 [JsonSerializable(typeof(SequenceResult))]
@@ -123,6 +127,12 @@ public static class ControlOps
         new("input_key", "Inject a key. key is a DOM name (Enter, Escape, Tab, ArrowLeft, a, F5, ' ') or a key name (Digit1). action: press (default), down, up. modifiers: Shift, Control, Alt, Meta held during the press.",
             """{"type":"object","properties":{"key":{"type":"string"},"action":{"type":"string","enum":["press","down","up"]},"modifiers":{"type":"array","items":{"type":"string"}}},"required":["key"]}""", true),
         new("input_text", "Inject typed text (a TextInput event).", """{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}""", true),
+        new("input_composition", "Inject an input method's pre-edit text (a TextComposition event), as an IME does while composing. An empty text ends the composition; send the finished text with input_text.",
+            """{"type":"object","properties":{"text":{"type":"string"},"cursorStart":{"type":"integer"},"cursorEnd":{"type":"integer"}},"required":["text"]}""", true),
+        new("clipboard_get", "Read the system clipboard's text (null when empty). selection: clipboard (default) or primary (X11 only).",
+            """{"type":"object","properties":{"selection":{"type":"string","enum":["clipboard","primary"]}}}""", false),
+        new("clipboard_set", "Put text on the system clipboard, so a paste (Control+V) can be tested. selection: clipboard (default) or primary (X11 only).",
+            """{"type":"object","properties":{"text":{"type":"string"},"selection":{"type":"string","enum":["clipboard","primary"]}},"required":["text"]}""", false),
         new("input_nav", "Inject a controller action: up, down, left, right, next, previous, activate, cancel (a virtual gamepad's d-pad, shoulders, South and East buttons).",
             """{"type":"object","properties":{"action":{"type":"string","enum":["up","down","left","right","next","previous","activate","cancel"]}},"required":["action"]}""", true),
         new("step", "Run frames. Each frame handles input, runs one 60 Hz tick and updates the UI. Returns the new tick and state hash.",
@@ -145,8 +155,8 @@ public static class ControlOps
         new("snapshot_load", "Replace the world with a snapshot, from 'path' or 'base64'.",
             """{"type":"object","properties":{"path":{"type":"string"},"base64":{"type":"string"}}}""", true),
         new("capture_frame",
-            "Render the current state offscreen to a PNG. size is WxH or a name (360p 720p 1080p 1440p 4k deck phone tablet); scale is the UI scale. With 'path' the file is written under the output folder.",
-            """{"type":"object","properties":{"size":{"type":"string"},"scale":{"type":"number"},"path":{"type":"string"}}}""", false),
+            "Render the current state offscreen to a PNG. size is WxH or a name (360p 720p 1080p 1440p 4k deck phone tablet); scale is the UI scale. With 'path' the file is written under the output folder. With presented=true, a windowed game instead returns the frame it presents to its window (the swapchain image, at the window's size; size and scale are ignored).",
+            """{"type":"object","properties":{"size":{"type":"string"},"scale":{"type":"number"},"path":{"type":"string"},"presented":{"type":"boolean"}}}""", false),
         new("capture_sequence",
             "Run frames and capture each one: 'count' captures, 'ticksPerFrame' ticks between them. Writes frame-NNNN.png and manifest.json (the video form: frames plus fps) into 'dir' under the output folder.",
             """{"type":"object","properties":{"dir":{"type":"string"},"count":{"type":"integer","minimum":1,"maximum":3600},"ticksPerFrame":{"type":"integer","minimum":1},"size":{"type":"string"},"scale":{"type":"number"},"fps":{"type":"integer","minimum":1}},"required":["dir","count"]}""", true),

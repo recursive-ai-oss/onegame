@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneGame.Live/OneGame.Live.csproj" />
+    <!-- The sample game's entity runs through the generator and analyzers like a game's would. -->
+    <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The same private X server and headless compositor the platform tests use. -->
+    <Compile Include="../OneGame.Platform.Tests/XvfbFixture.cs" Link="Shared/XvfbFixture.cs" />
+    <Compile Include="../OneGame.Platform.Tests/WestonFixture.cs" Link="Shared/WestonFixture.cs" />
+    <Compile Include="../OneGame.Platform.Tests/AppThread.cs" Link="Shared/AppThread.cs" />
+  </ItemGroup>
+
+</Project>

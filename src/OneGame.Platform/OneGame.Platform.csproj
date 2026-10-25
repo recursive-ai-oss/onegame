@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="OneGame.Platform.Tests" />
+    <InternalsVisibleTo Include="OneGame.Windowed.Tests" />
   </ItemGroup>
 
 </Project>

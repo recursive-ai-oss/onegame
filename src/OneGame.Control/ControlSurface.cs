@@ -88,6 +88,9 @@ public sealed class ControlSurface
         "input_key" => Json(InputKey(a), ControlJson.Default.InputResult),
         "input_text" => Json(InputText(a), ControlJson.Default.InputResult),
         "input_nav" => Json(InputNav(a), ControlJson.Default.InputResult),
+        "input_composition" => Json(InputComposition(a), ControlJson.Default.InputResult),
+        "clipboard_get" => Json(ClipboardGet(a), ControlJson.Default.ClipboardResult),
+        "clipboard_set" => Json(ClipboardSet(a), ControlJson.Default.ClipboardResult),
         "ui_tree" => new ControlResult(UiTree(a)),
         "ui_query" => new ControlResult(UiQuery(a)),
         "ui_invoke" => Json(UiInvoke(a), ControlJson.Default.InvokeResult),
@@ -108,7 +111,8 @@ public sealed class ControlSurface
 
     private InfoResult Info() => new(
         Game.Definition.Name, Game.World.Tick, Game.Frame, HashText(), Game.Window.Width, Game.Window.Height, Game.UiScale,
-        Game.Options.Headless, Game.CurrentScreen, Game.World.Entities.Count, [.. Game.ScreenNames], [.. Game.FixtureNames], Game.Stage.Name, Game.AdapterName, Game.DriftReports.Count);
+        Game.Options.Headless, Game.CurrentScreen, Game.World.Entities.Count, [.. Game.ScreenNames], [.. Game.FixtureNames], Game.Stage.Name, Game.AdapterName, Game.DriftReports.Count,
+        Game.Platform.Backend.ToString().ToLowerInvariant(), Game.PresentedFrames);
 
     private StateResult Mutate(string op, Args a)
     {
@@ -399,6 +403,35 @@ public sealed class ControlSurface
         return Done();
     }
 
+    private InputResult InputComposition(Args a)
+    {
+        var text = a.Required("text");
+        Game.Platform.Injector.Composition(
+            Game.Window.Id, text, a.Str("cursorStart") is null ? null : a.Int("cursorStart", 0), a.Str("cursorEnd") is null ? null : a.Int("cursorEnd", 0));
+        return Done();
+    }
+
+    private static ClipboardSelection Selection(Args a) => a.Str("selection") switch
+    {
+        null or "clipboard" => ClipboardSelection.Clipboard,
+        "primary" => ClipboardSelection.Primary,
+        var other => throw new ControlException("bad_args", $"selection is clipboard or primary, got '{other}'."),
+    };
+
+    private ClipboardResult ClipboardGet(Args a)
+    {
+        var selection = Selection(a);
+        var text = Game.Platform.Clipboard.GetText(selection);
+        return new ClipboardResult(text, Game.Platform.Clipboard.Supports(selection));
+    }
+
+    private ClipboardResult ClipboardSet(Args a)
+    {
+        var text = a.Required("text");
+        var ok = Game.Platform.Clipboard.SetText(text, Selection(a));
+        return new ClipboardResult(ok ? text : null, ok);
+    }
+
     private InputResult InputNav(Args a)
     {
         var inj = Game.Platform.Injector;
@@ -586,8 +619,20 @@ public sealed class ControlSurface
 
     private ControlResult CaptureFrame(Args a)
     {
-        var (w, h, scale) = CaptureSize(a);
-        var frame = Game.Capture(w, h, scale);
+        CapturedFrame frame;
+        int w, h;
+        float scale;
+        if (a.Bool("presented", false))
+        {
+            frame = Game.CapturePresented() ?? throw new ControlException("rejected", "There is no presented frame: the game is headless or has no graphics device. Capture without 'presented' to render offscreen.");
+            (w, h, scale) = (frame.Width, frame.Height, Game.UiScale);
+        }
+        else
+        {
+            (w, h, scale) = CaptureSize(a);
+            frame = Game.Capture(w, h, scale);
+        }
+
         var png = Png.Encode(frame);
         string? written = null;
         if (a.Str("path") is { } path)

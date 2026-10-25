@@ -165,4 +165,39 @@ internal static unsafe partial class Win32Native
 
     [LibraryImport("user32.dll", EntryPoint = "SetFocus")]
     public static partial void SetFocus(nint hwnd);
+
+    public const uint CfUnicodeText = 13, GmemMoveable = 0x0002;
+
+    [LibraryImport("user32.dll", EntryPoint = "OpenClipboard")]
+    public static partial int OpenClipboard(nint owner);
+
+    [LibraryImport("user32.dll", EntryPoint = "CloseClipboard")]
+    public static partial int CloseClipboard();
+
+    [LibraryImport("user32.dll", EntryPoint = "EmptyClipboard")]
+    public static partial int EmptyClipboard();
+
+    [LibraryImport("user32.dll", EntryPoint = "IsClipboardFormatAvailable")]
+    public static partial int IsClipboardFormatAvailable(uint format);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetClipboardData")]
+    public static partial nint GetClipboardData(uint format);
+
+    [LibraryImport("user32.dll", EntryPoint = "SetClipboardData")]
+    public static partial nint SetClipboardData(uint format, nint memory);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "GlobalAlloc")]
+    public static partial nint GlobalAlloc(uint flags, nuint bytes);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "GlobalFree")]
+    public static partial nint GlobalFree(nint memory);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "GlobalLock")]
+    public static partial void* GlobalLock(nint memory);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "GlobalUnlock")]
+    public static partial int GlobalUnlock(nint memory);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "GlobalSize")]
+    public static partial nuint GlobalSize(nint memory);
 }

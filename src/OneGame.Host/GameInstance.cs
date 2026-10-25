@@ -45,6 +45,15 @@ public sealed record GameOptions
     /// <summary>Graphics device policy.</summary>
     public GpuMode Gpu { get; init; } = GpuMode.Auto;
 
+    /// <summary>Which windowing system a windowed instance uses. Auto picks Wayland, then X11. Ignored when <see cref="Headless"/>.</summary>
+    public PlatformBackendKind Backend { get; init; } = PlatformBackendKind.Auto;
+
+    /// <summary>The display to open the window on: an X display name (<c>:1</c>) or a Wayland socket name. The environment decides when null.</summary>
+    public string? DisplayName { get; init; }
+
+    /// <summary>How the swapchain paces presentation. <see cref="PresentMode.Vsync"/> (the default) is always available; the other two fall back to it where the system lacks them.</summary>
+    public PresentMode PresentMode { get; init; } = PresentMode.Vsync;
+
     /// <summary>Where the 2D renderer gets its compiled shaders. When null, the folder named by <c>ONEGAME_SHADER_DIR</c> is used if set.</summary>
     public IShaderSource? Shaders { get; init; }
 }
@@ -66,6 +75,8 @@ public sealed class GameInstance : IDisposable
     /// <summary>Simulation ticks per second of a realtime run.</summary>
     public const int TickRate = 60;
 
+    private const int MinFrameMilliseconds = 4;
+
     private readonly ScreenSet _screenSet = new();
     private readonly FixtureSet _fixtureSet = new();
     private readonly EntityRegistry _registry = new();
@@ -74,6 +85,9 @@ public sealed class GameInstance : IDisposable
     private string? _gpuError;
     private bool _gpuTried;
     private GpuSwapchain? _swapchain;
+    private readonly StickNavigator _stick = new();
+    private bool _grabNext;
+    private CapturedFrame? _grab;
     private bool _disposed;
     private Cluster _cluster = null!;
     private AuthorityScope _scope = null!;
@@ -96,7 +110,8 @@ public sealed class GameInstance : IDisposable
         _stage = definition.CreateRenderStage(new HostResources(haveFonts ? fonts : null, measurer, art, shaders));
         Platform = PlatformApp.Create(new PlatformOptions
         {
-            Backend = options.Headless ? PlatformBackendKind.Headless : PlatformBackendKind.Auto,
+            Backend = options.Headless ? PlatformBackendKind.Headless : options.Backend,
+            DisplayName = options.Headless ? null : options.DisplayName,
             EnableGamepadDevices = !options.Headless,
         });
         Window = Platform.CreateWindow(new WindowOptions { Title = definition.Name, Width = options.Width, Height = options.Height });
@@ -177,6 +192,12 @@ public sealed class GameInstance : IDisposable
 
     /// <summary>The name of the graphics adapter in use, or null while none has been created.</summary>
     public string? AdapterName => _device?.Adapter.Name;
+
+    /// <summary>Frames drawn to the window and handed to the display so far. Stays 0 in a headless instance, with no graphics device, and while the window is minimized.</summary>
+    public long PresentedFrames { get; private set; }
+
+    /// <summary>The system clipboard (a private in-process one when headless). Text fields use it for copy and paste.</summary>
+    public PlatformClipboard Clipboard => Platform.Clipboard;
 
     /// <summary>The current UI scale.</summary>
     public float UiScale => Options.Headless ? Options.Scale : Window.Scale;
@@ -315,11 +336,34 @@ public sealed class GameInstance : IDisposable
         }
 
         Ui.Update();
+        SyncTextInput();
+    }
+
+    // Tells the platform when a text field gains or loses focus and where its caret is, so an input method can follow it.
+    private void SyncTextInput()
+    {
+        if (Ui.TextInputArea is { } r)
+        {
+            var area = ((int)MathF.Round(r.X), (int)MathF.Round(r.Y), (int)MathF.Round(r.Width), (int)MathF.Round(r.Height));
+            if (!Window.TextInputActive || Window.TextInputArea != area)
+            {
+                Window.SetTextInput(true, area.Item1, area.Item2, area.Item3, area.Item4);
+            }
+        }
+        else if (Window.TextInputActive)
+        {
+            Window.SetTextInput(false);
+        }
     }
 
     private void RunFrame(int ticks)
     {
         DrainInput();
+        if (_stick.Tick(out var repeat))
+        {
+            Ui.Dispatch(repeat);
+        }
+
         for (var t = 0; t < ticks; t++)
         {
             _cluster.Step(1);
@@ -354,6 +398,12 @@ public sealed class GameInstance : IDisposable
                 return;
         }
 
+        if (e.Kind == PlatformEventKind.GamepadAxisMoved && _stick.OnAxis(e, out var stickNav))
+        {
+            Ui.Dispatch(stickNav);
+            return;
+        }
+
         if (InputRouter.TryTranslate(e, out var ui) && Ui.Dispatch(ui))
         {
             return;
@@ -383,10 +433,31 @@ public sealed class GameInstance : IDisposable
                 ticks++;
             }
 
+            var presented = PresentedFrames;
+            var frameStart = now;
             RunFrame(ticks);
             if (Options.Headless)
             {
                 Thread.Sleep(1);
+            }
+            else if (PresentedFrames == presented)
+            {
+                // Nothing was drawn (no device, or minimized), so nothing paced the frame: wait for the next tick, waking for input.
+                var waitMs = (int)((step - owed) * 1000 / Stopwatch.Frequency);
+                if (waitMs > 0)
+                {
+                    Platform.PumpEvents(Math.Min(waitMs, 16));
+                }
+            }
+            else if (Options.PresentMode != PresentMode.Immediate)
+            {
+                // Vsync paces a real display, but a software presenter returns at once; a frame never takes less than a few
+                // milliseconds so an unthrottled one cannot spin a core at hundreds of frames per second.
+                var spentMs = (int)((clock.ElapsedTicks - frameStart) * 1000 / Stopwatch.Frequency);
+                if (spentMs < MinFrameMilliseconds)
+                {
+                    Platform.PumpEvents(MinFrameMilliseconds - spentMs);
+                }
             }
         }
     }
@@ -435,7 +506,7 @@ public sealed class GameInstance : IDisposable
     {
         EnsureDevice();
         var list = Ui.Frame();
-        if (_device is null || Window.NativeHandle.Kind == NativeWindowKind.None)
+        if (_device is null || Window.NativeHandle.Kind == NativeWindowKind.None || Window.IsMinimized)
         {
             return;
         }
@@ -449,14 +520,57 @@ public sealed class GameInstance : IDisposable
                 NativeWindowKind.Wayland => SurfaceSource.Wayland(h.Display, h.Window),
                 _ => SurfaceSource.Win32(h.Display, h.Window),
             };
-            _swapchain = _device.CreateSwapchain(source, new SwapchainDesc((uint)Window.Width, (uint)Window.Height) { Srgb = _stage.RequiresSrgb });
+            _swapchain = _device.CreateSwapchain(source, new SwapchainDesc((uint)Window.Width, (uint)Window.Height) { Srgb = _stage.RequiresSrgb, PresentMode = Options.PresentMode });
         }
 
         if (_swapchain.TryAcquire(out var backbuffer) == AcquireStatus.Ready)
         {
             _stage.Render(_device, backbuffer, new FrameInfo(Window.Width, Window.Height, UiScale, World.Tick, list, World));
+            if (_grabNext)
+            {
+                _grabNext = false;
+                _grab = ReadBackbuffer(backbuffer);
+            }
+
             _swapchain.Present();
+            PresentedFrames++;
         }
+    }
+
+    private CapturedFrame ReadBackbuffer(GpuTexture backbuffer)
+    {
+        var w = (int)backbuffer.Width;
+        var h = (int)backbuffer.Height;
+        var pixels = new byte[checked(w * h * 4)];
+        _device!.ReadTexture(backbuffer, 0, 0, pixels);
+        if (backbuffer.Format is GpuFormat.Bgra8Unorm or GpuFormat.Bgra8UnormSrgb)
+        {
+            for (var i = 0; i + 3 < pixels.Length; i += 4)
+            {
+                (pixels[i], pixels[i + 2]) = (pixels[i + 2], pixels[i]);
+            }
+        }
+
+        return new CapturedFrame(w, h, pixels, _device.Adapter.Name);
+    }
+
+    /// <summary>
+    /// Draws the current state to the window once more and returns what was presented: the swapchain image itself, at the window's size and
+    /// scale. Returns null for a headless instance, without a graphics device, or while the window is minimized.
+    /// </summary>
+    public CapturedFrame? CapturePresented()
+    {
+        if (Options.Headless)
+        {
+            return null;
+        }
+
+        DrainInput();
+        _grab = null;
+        _grabNext = true;
+        Present();
+        _grabNext = false;
+        return _grab;
     }
 
     /// <summary>

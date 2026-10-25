@@ -21,6 +21,11 @@ public enum UiEventKind
     KeyUp,
     /// <summary>Committed text from the keyboard or an input method. Input and element event (sent to the focused element).</summary>
     TextInput,
+    /// <summary>
+    /// Text an input method is still composing (a pre-edit string). Input and element event (sent to the focused element). <see cref="UiEvent.Text"/> is the whole pre-edit
+    /// text, empty when the composition ended, and <see cref="UiEvent.CursorStart"/>/<see cref="UiEvent.CursorEnd"/> mark the highlighted part. The finished text arrives as <see cref="TextInput"/>.
+    /// </summary>
+    Composition,
     /// <summary>A directional or tab-like focus move from a gamepad, d-pad or keyboard. Input; the focused element sees it first and may handle it.</summary>
     Navigate,
     /// <summary>The confirm button (gamepad A, Enter): clicks the focused element. Input.</summary>
@@ -101,6 +106,12 @@ public readonly record struct UiEvent
     /// <summary>The committed text of a <see cref="UiEventKind.TextInput"/>.</summary>
     public string? Text { get; init; }
 
+    /// <summary>For <see cref="UiEventKind.Composition"/>: index in <see cref="Text"/> where the highlighted part starts, or -1 for none.</summary>
+    public int CursorStart { get; init; }
+
+    /// <summary>For <see cref="UiEventKind.Composition"/>: index where the highlighted part ends (the caret when equal to <see cref="CursorStart"/>), or -1.</summary>
+    public int CursorEnd { get; init; }
+
     /// <summary>The direction of a <see cref="UiEventKind.Navigate"/>.</summary>
     public NavDirection Direction { get; init; }
 
@@ -129,6 +140,10 @@ public readonly record struct UiEvent
 
     /// <summary>Committed text.</summary>
     public static UiEvent TextInput(string text) => new() { Kind = UiEventKind.TextInput, Text = text };
+
+    /// <summary>An input method's pre-edit text. An empty string ends the composition.</summary>
+    public static UiEvent Composition(string text, int cursorStart = -1, int cursorEnd = -1) =>
+        new() { Kind = UiEventKind.Composition, Text = text, CursorStart = cursorStart, CursorEnd = cursorEnd };
 
     /// <summary>A focus move.</summary>
     public static UiEvent Navigate(NavDirection direction) => new() { Kind = UiEventKind.Navigate, Direction = direction };

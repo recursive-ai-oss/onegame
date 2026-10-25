@@ -75,7 +75,18 @@ Debug builds listen on a local socket: `onegame run -- --live` (add `--realtime`
 { "mcpServers": { "shop": { "command": "onegame", "args": ["mcp", "--project", "."] } } }
 ```
 
-`--project` starts the game and bridges to it; `--socket <path>` attaches to a given one; with neither, the bridge attaches to the only live game. Tools: `info`, `hash`, `state_query`, `state_patch`, `commands_list`, `command_send`, `input_pointer`, `input_key`, `input_text`, `input_nav`, `step`, `ui_tree`, `ui_query`, `ui_invoke`, `ui_click`, `ui_hit`, `screen_open`, `fixture_load`, `reset`, `snapshot_save`, `snapshot_load`, `capture_frame`, `capture_sequence`, `quit`. A typical session: `info` → `state_query` → `ui_click` → `step 10` → `ui_tree` → `capture_frame`. Errors come back as `{"error":{"code","message"}}` with a stable code. Release builds contain none of this.
+`--project` starts the game and bridges to it; `--socket <path>` attaches to a given one; with neither, the bridge attaches to the only live game. Tools: `info`, `hash`, `state_query`, `state_patch`, `commands_list`, `command_send`, `input_pointer`, `input_key`, `input_text`, `input_composition`, `clipboard_get`, `clipboard_set`, `input_nav`, `step`, `ui_tree`, `ui_query`, `ui_invoke`, `ui_click`, `ui_hit`, `screen_open`, `fixture_load`, `reset`, `snapshot_save`, `snapshot_load`, `capture_frame`, `capture_sequence`, `quit`. A typical session: `info` → `state_query` → `ui_click` → `step 10` → `ui_tree` → `capture_frame`. Errors come back as `{"error":{"code","message"}}` with a stable code. Release builds contain none of this.
+
+## 6. Run it in a window
+
+`onegame run` without `--headless` opens a real window on Wayland or X11 (`--backend wayland|x11`, `--display NAME`, `--present vsync|lowlatency|immediate`). Add `--live` and an agent can drive it exactly like a headless one while it presents:
+
+```
+onegame run -- --live /tmp/shop.sock --realtime --backend x11 --display :88
+onegame mcp --socket /tmp/shop.sock     # then: info, ui_click, input_text, clipboard_set, capture_frame {"presented":true}
+```
+
+`capture_frame` renders offscreen at any size; with `"presented": true` it returns the frame the window actually shows. `input_*` operations go through the same queue as the keyboard and mouse, so a text field cannot tell them apart; `input_composition` plays an input method's pre-edit text and `clipboard_get`/`clipboard_set` read and write the system clipboard (paste with `input_key` `v` + `Control`). With no display (a CI machine) run headless, or start `Xvfb :88 -noreset` for a window.
 
 ## Exit codes
 

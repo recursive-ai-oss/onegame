@@ -19,6 +19,7 @@ public sealed class PlatformApp : IDisposable
         Input = new InputState();
         Injector = new InputInjector(this);
         _backend = backendFactory(this);
+        Clipboard = new PlatformClipboard(_backend);
         Gamepads = new GamepadManager(this, options.EnableGamepadDevices);
     }
 
@@ -35,6 +36,9 @@ public sealed class PlatformApp : IDisposable
 
     /// <summary>Synthetic input. Events it makes are queued exactly like real ones.</summary>
     public InputInjector Injector { get; }
+
+    /// <summary>Text on the system clipboard.</summary>
+    public PlatformClipboard Clipboard { get; }
 
     /// <summary>Gamepad devices and rumble.</summary>
     public GamepadManager Gamepads { get; }
@@ -172,6 +176,15 @@ internal abstract class PlatformBackend : IDisposable
     public abstract Window CreateWindow(WindowOptions options, int id);
 
     public abstract void Pump(int timeoutMilliseconds);
+
+    /// <summary>Whether a clipboard can be reached.</summary>
+    public virtual bool ClipboardAvailable => false;
+
+    public virtual bool ClipboardSupports(ClipboardSelection selection) => ClipboardAvailable && selection == ClipboardSelection.Clipboard;
+
+    public virtual string? ClipboardGet(ClipboardSelection selection) => null;
+
+    public virtual bool ClipboardSet(ClipboardSelection selection, string text) => false;
 
     public virtual void Dispose()
     {

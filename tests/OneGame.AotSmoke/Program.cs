@@ -159,6 +159,13 @@ if (harness != 0)
 }
 
 
+// Windows, clipboard and input-method text.
+var windowed = WindowedSmoke.Run();
+if (windowed != 0)
+{
+    return windowed;
+}
+
 // Store: connect to Steam. Without the library or a running client this must fall back to no-op services, never throw.
 using (var store = SteamPlatform.Start())
 {
