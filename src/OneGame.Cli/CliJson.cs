@@ -55,6 +55,12 @@ internal sealed record ExportResult(
 /// <summary>What the <c>cluster</c> verbs print with <c>--json</c>: whether it went well, and the result object.</summary>
 internal sealed record ClusterResult<T>(bool Ok, T Result);
 
+/// <summary>One node <c>onegame cluster kill</c> ended.</summary>
+internal sealed record KilledNode(string Name, int Pid, bool Alive);
+
+/// <summary>Result of <c>onegame cluster kill</c>.</summary>
+internal sealed record KillReport(KilledNode[] Nodes);
+
 /// <summary>Result of <c>onegame cluster test</c>.</summary>
 internal sealed record ClusterTestResult(int Passed, int Failed, ScenarioResult[] Scenarios, DownReport Down);
 
@@ -74,6 +80,7 @@ internal sealed record ClusterTestResult(int Passed, int Failed, ScenarioResult[
 [JsonSerializable(typeof(ClusterResult<ClusterStatus>))]
 [JsonSerializable(typeof(ClusterResult<ClusterHashReport>))]
 [JsonSerializable(typeof(ClusterResult<DownReport>))]
+[JsonSerializable(typeof(ClusterResult<KillReport>))]
 [JsonSerializable(typeof(ClusterResult<ClusterTestResult>))]
 [JsonSerializable(typeof(string))]
 internal sealed partial class CliJson : JsonSerializerContext

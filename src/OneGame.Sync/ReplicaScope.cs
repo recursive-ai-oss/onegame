@@ -48,10 +48,12 @@ public sealed class ReplicaScope
     private readonly List<PendingSend> _pending = [];
     private readonly List<CommandResult> _results = [];
     private Prediction? _prediction;
+    private long _heardMs;
 
     internal ReplicaScope(Node node, Link link, ScopeId id, World world)
     {
         Node = node;
+        _heardMs = node.Now;
         Link = link;
         Id = id;
         World = world;
@@ -99,6 +101,18 @@ public sealed class ReplicaScope
 
     /// <summary>How many forwarded commands have not been answered yet.</summary>
     public int PendingCommands => _pending.Count;
+
+    /// <summary>
+    /// True when nothing has arrived from the authority for <see cref="ClusterOptions.SilenceTimeoutMs"/> while this replica expected frames. Cleared by
+    /// the next message from it. The world keeps its last state; commands still waiting have completed as <see cref="CommandVerdict.TimedOut"/>.
+    /// </summary>
+    public bool IsSilent { get; private set; }
+
+    /// <summary>Raised once when the replica becomes <see cref="IsSilent"/>.</summary>
+    public event Action<ReplicaScope>? AuthoritySilent;
+
+    /// <summary>Raised when a silent authority is heard from again.</summary>
+    public event Action<ReplicaScope>? AuthorityResumed;
 
     /// <summary>Raised for every answer to a forwarded command: executed, rejected with the handler's reason, refused, or dropped.</summary>
     public event Action<CommandResult>? CommandCompleted;
@@ -152,8 +166,60 @@ public sealed class ReplicaScope
         DropPending();
     }
 
+    // The channel was replaced (the authority restarted): nothing in flight survives, the world is rebuilt from a fresh snapshot.
+    internal void Reconnected()
+    {
+        DropPending();
+        _prediction?.Clear();
+        Restart();
+    }
+
+    internal void LinkFault(string reason) => Desync(reason);
+
+    // Runs from Node.Pump: gives up on commands nobody answered, and notices an authority that stopped talking.
+    internal void CheckTimeouts(long now)
+    {
+        if (State is not (ReplicaState.Subscribing or ReplicaState.Live or ReplicaState.Resyncing))
+        {
+            return;
+        }
+
+        var silence = Node.Options.SilenceTimeoutMs;
+        if (silence > 0 && !IsSilent && now - _heardMs >= silence)
+        {
+            IsSilent = true;
+            while (_pending.Count > 0)
+            {
+                TimeOut(_pending[0]);
+            }
+
+            AuthoritySilent?.Invoke(this);
+        }
+
+        var limit = Node.Options.CommandTimeoutMs;
+        while (limit > 0 && _pending.Count > 0 && now - _pending[0].SentMs >= limit)
+        {
+            TimeOut(_pending[0]);
+        }
+    }
+
+    private void TimeOut(PendingSend p) =>
+        Complete(new CommandResult(Id, p.Sequence, p.Entity, p.CommandId, CommandVerdict.TimedOut, default, null));
+
+    private void Heard()
+    {
+        _heardMs = Node.Now;
+        if (IsSilent)
+        {
+            IsSilent = false;
+            AuthorityResumed?.Invoke(this);
+        }
+    }
+
     internal void Restart()
     {
+        _heardMs = Node.Now;
+        IsSilent = false;
         _failures = 0;
         _awaitingDigest = false;
         State = ReplicaState.Subscribing;
@@ -173,7 +239,7 @@ public sealed class ReplicaScope
             Complete(new CommandResult(Id, _pending[0].Sequence, _pending[0].Entity, _pending[0].CommandId, CommandVerdict.Dropped, default, null));
         }
 
-        _pending.Add(new PendingSend(sequence, entity, commandId));
+        _pending.Add(new PendingSend(sequence, entity, commandId, Node.Now));
         var w = Node.Out;
         w.Reset();
         w.WriteByte(Msg.Command);
@@ -193,6 +259,7 @@ public sealed class ReplicaScope
             return;
         }
 
+        Heard();
         switch (type)
         {
             case Msg.Snapshot:
@@ -621,7 +688,7 @@ public sealed class ReplicaScope
         }
     }
 
-    private readonly record struct PendingSend(uint Sequence, EntityId Entity, uint CommandId);
+    private readonly record struct PendingSend(uint Sequence, EntityId Entity, uint CommandId, long SentMs);
 
     private void Desync(string reason)
     {

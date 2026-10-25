@@ -592,7 +592,7 @@ public sealed partial class AuthorityScope
 
             foreach (var c in view.Members)
             {
-                c.Channel.Send(_frame.Written);
+                Node.SendMessage(c.Channel, _frame.Written);
             }
         }
 
@@ -725,7 +725,7 @@ public sealed partial class AuthorityScope
         w.WriteVarUInt(Id.Value);
         w.WriteVarInt(World.Tick);
         World.WriteViewSnapshot(w, view.Who, RandomVisible);
-        to.Channel.Send(w.Written);
+        Node.SendMessage(to.Channel, w.Written);
     }
 
     internal void SendDigest(Connection to, long tick)

@@ -61,4 +61,4 @@ The opening handshake accepts only a well-formed `GET … HTTP/1.1` upgrade (Hos
 
 ## Using it with `Node`
 
-`Node.ConnectTo` still builds loopback pairs only, and `Link`/`Connection` have internal constructors, so a node cannot yet be given a network channel. The tests bridge two in-process nodes without touching Sync (`NodeBridge` in `tests/OneGame.Net.Tests`: every message a node writes goes through the transport and comes back out on the other side). Multi-node sync needs a public way to attach an `IMessageChannel`; see the request in the unit report.
+`Node.ConnectVia(channel)` (client) and `Node.Accept(channel, trust)` (server) take any `IMessageChannel`, so a connection from either transport plugs in directly. When a connection closes the server calls `Node.Detach(connection)`; a client that wants the server back opens a new connection and calls `Node.Reconnect(link, connection)` (`RemoteSession` does both). Messages over `MaxMessageBytes` never reach the transport from the sync layer: snapshots and frames are split below `ClusterOptions.PieceBytes` (`sync.md`).

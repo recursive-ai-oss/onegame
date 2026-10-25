@@ -8,11 +8,11 @@ namespace OneGame.Cli.Verbs;
 /// <summary>Clusters of real processes: start servers and clients from a spec, look at them, compare their hashes, stop them.</summary>
 internal sealed class ClusterVerb : IVerb
 {
-    private const string Usage = "Usage: onegame cluster up --spec <file> [--dir <folder>] | status | hashes | down | call <node> <operation> [json] | test <scenario.yaml>... --spec <file>   (--cluster <file|folder> picks a running cluster)";
+    private const string Usage = "Usage: onegame cluster up --spec <file> [--dir <folder>] | status | hashes | down | kill <node>... | call <node> <operation> [json] | test <scenario.yaml>... --spec <file>   (--cluster <file|folder> picks a running cluster)";
 
     public string Name => "cluster";
 
-    public string Summary => "Processes on a real network: cluster up --spec f.yaml | status | hashes | down | call <node> <op> [json] | test <scenario> --spec f.yaml.";
+    public string Summary => "Processes on a real network: cluster up --spec f.yaml | status | hashes | down | kill <node>... | call <node> <op> [json] | test <scenario> --spec f.yaml.";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
@@ -53,6 +53,7 @@ internal sealed class ClusterVerb : IVerb
                 "status" => Status(Find(cluster, dir), json, output),
                 "hashes" => Hashes(Find(cluster, dir), json, output),
                 "down" => Down(Find(cluster, dir), json, output),
+                "kill" => Kill(Find(cluster, dir), positional, json, output),
                 "call" => Call(Find(cluster, dir), positional, output),
                 "test" => TestScenarios(spec, dir, positional, json, output),
                 _ => throw new CliException(ExitCodes.Usage, "bad_args", Usage),
@@ -158,6 +159,34 @@ internal sealed class ClusterVerb : IVerb
         Print(output, json, report.Alive.Length == 0, report, CliJson.Default.ClusterResultDownReport, o =>
             o.WriteLine($"stopped {report.Stopped.Length}, killed {report.Killed.Length}, still running {report.Alive.Length}"));
         return report.Alive.Length == 0 ? ExitCodes.Ok : ExitCodes.Failed;
+    }
+
+    private static int Kill(string where, List<string> positional, bool json, TextWriter output)
+    {
+        if (positional.Count == 0)
+        {
+            throw new CliException(ExitCodes.Usage, "bad_args", "Usage: onegame cluster kill <node>... (SIGKILL: nothing is saved or announced; the other nodes carry on).");
+        }
+
+        var cluster = ProcessCluster.Attach(where);
+        var killed = new List<KilledNode>();
+        foreach (var name in positional)
+        {
+            var node = cluster.State.Nodes.FirstOrDefault(n => n.Name == name) ?? throw new ClusterException("no_node", $"The cluster has no node '{name}'.");
+            cluster.Kill(name);
+            killed.Add(new KilledNode(name, node.Pid, ProcessCluster.IsAlive(node.Pid)));
+        }
+
+        var report = new KillReport([.. killed]);
+        var ok = killed.All(k => !k.Alive);
+        Print(output, json, ok, report, CliJson.Default.ClusterResultKillReport, o =>
+        {
+            foreach (var k in killed)
+            {
+                o.WriteLine($"{k.Name} (pid {k.Pid}) {(k.Alive ? "is still running" : "killed")}");
+            }
+        });
+        return ok ? ExitCodes.Ok : ExitCodes.Failed;
     }
 
     private static int Call(string where, List<string> positional, TextWriter output)
