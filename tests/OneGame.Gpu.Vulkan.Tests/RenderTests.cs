@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using OneGame.Gpu.Vulkan.Tests.Shaders;
 
 namespace OneGame.Gpu.Vulkan.Tests;
 
@@ -6,12 +7,13 @@ public sealed class RenderTests
 {
     const int Size = 64;
 
-    static GpuShader Shader(GpuDevice d, ShaderStage stage, string file) => d.CreateShader(stage, TestFiles.Spirv(file), "main");
+    static GpuShader VertexShader(GpuDevice d, ReadOnlySpan<byte> spirv, string entry) => d.CreateShader(ShaderStage.Vertex, spirv.ToArray(), entry);
+    static GpuShader PixelShader(GpuDevice d, ReadOnlySpan<byte> spirv, string entry) => d.CreateShader(ShaderStage.Pixel, spirv.ToArray(), entry);
 
     static GraphicsPipelineDesc TrianglePipeline(GpuDevice d, GpuFormat format, out GpuShader vs, out GpuShader fs, out GpuPipelineLayout layout)
     {
-        vs = Shader(d, ShaderStage.Vertex, "triangle.vert");
-        fs = Shader(d, ShaderStage.Pixel, "triangle.frag");
+        vs = VertexShader(d, Triangle.VSMain.SpirV, Triangle.VSMain.EntryPoint);
+        fs = PixelShader(d, Triangle.PSMain.SpirV, Triangle.PSMain.EntryPoint);
         layout = d.CreatePipelineLayout([]);
         return new GraphicsPipelineDesc
         {
@@ -145,8 +147,8 @@ public sealed class RenderTests
         d.WriteBuffer(ub2, 0, MemoryMarshal.AsBytes<Params>([new Params { R = 1, G = 1, B = 1, A = 0.5f, OffsetX = 0.25f, OffsetY = 0.25f }]));
 
         using var sampler = d.CreateSampler(SamplerDesc.Nearest);
-        using var vs = Shader(d, ShaderStage.Vertex, "quad.vert");
-        using var fs = Shader(d, ShaderStage.Pixel, "quad.frag");
+        using var vs = VertexShader(d, TexturedQuad.VSMain.SpirV, TexturedQuad.VSMain.EntryPoint);
+        using var fs = PixelShader(d, TexturedQuad.PSMain.SpirV, TexturedQuad.PSMain.EntryPoint);
         using var layout = d.CreatePipelineLayout(
         [
             new ResourceBinding(0, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Vertex | ShaderStage.Pixel),
@@ -206,7 +208,7 @@ public sealed class RenderTests
         using var outBuf = d.CreateBuffer(new BufferDesc(N * 4, BufferUsage.Storage | BufferUsage.CopySource));
         d.WriteBuffer(inBuf, 0, MemoryMarshal.AsBytes<uint>(input));
 
-        using var cs = Shader(d, ShaderStage.Compute, "fill.comp");
+        using var cs = d.CreateShader(ShaderStage.Compute, Fill.CSMain.SpirV.ToArray(), Fill.CSMain.EntryPoint);
         using var layout = d.CreatePipelineLayout(
         [
             new ResourceBinding(0, 0, 1, ResourceKind.StorageBuffer, ShaderStage.Compute),
@@ -242,7 +244,7 @@ public sealed class RenderTests
         using var b = d.CreateBuffer(new BufferDesc(N * 4, BufferUsage.Storage | BufferUsage.CopyDestination | BufferUsage.CopySource));
         d.WriteBuffer(a, 0, MemoryMarshal.AsBytes<uint>(new uint[N]));
         d.WriteBuffer(b, 0, MemoryMarshal.AsBytes<uint>(new uint[N]));
-        using var cs = Shader(d, ShaderStage.Compute, "fill.comp");
+        using var cs = d.CreateShader(ShaderStage.Compute, Fill.CSMain.SpirV.ToArray(), Fill.CSMain.EntryPoint);
         using var layout = d.CreatePipelineLayout(
         [
             new ResourceBinding(0, 0, 1, ResourceKind.StorageBuffer, ShaderStage.Compute),

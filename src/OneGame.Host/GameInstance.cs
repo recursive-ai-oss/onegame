@@ -45,7 +45,7 @@ public sealed record GameOptions
     /// <summary>Graphics device policy.</summary>
     public GpuMode Gpu { get; init; } = GpuMode.Auto;
 
-    /// <summary>Where the 2D renderer gets its compiled shaders. When null, the folder named by <c>ONEGAME_SHADER_DIR</c> is used if set.</summary>
+    /// <summary>Where the 2D renderer gets its compiled shaders. When null, the renderer's own shaders, compiled during the build, are used.</summary>
     public IShaderSource? Shaders { get; init; }
 }
 
@@ -92,7 +92,7 @@ public sealed class GameInstance : IDisposable
         var measurer = haveFonts ? new FontTextMeasurer(fonts) : null;
         var art = new ArtAtlas();
         definition.DefineArt(art);
-        var shaders = options.Shaders ?? (Environment.GetEnvironmentVariable("ONEGAME_SHADER_DIR") is { Length: > 0 } dir ? new DirectoryShaders(dir) : null);
+        var shaders = options.Shaders ?? GeneratedShaders.Instance;
         _stage = definition.CreateRenderStage(new HostResources(haveFonts ? fonts : null, measurer, art, shaders));
         Platform = PlatformApp.Create(new PlatformOptions
         {

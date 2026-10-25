@@ -68,7 +68,7 @@ tools/steamrt.sh run <unpacked-export-folder> /game/run.sh --headless --frames 6
 
 ## Shaders
 
-The 2D renderer's shaders come from a test-only compiler until the shader build package lands, and the engine never ships SPIR-V made by a third-party tool. So today an export contains no renderer shaders: the game draws the plain UI preview (text as bars), the result says `"renderer":"ui-preview"` and carries a `shaders_not_included` warning, and a `shaders/` folder in the project is listed in `skipped`. Gameplay, state and hashes are unaffected. When the package lands, its shaders are compiled into the engine: set `ExportAssets.GeneratedShaders` to `true` in `src/OneGame.Cli/Verbs/ExportVerb.cs` and the warning and `ui-preview` go away. Nothing else in the layout changes.
+The 2D renderer's shaders are HLSL compiled into the engine during its build, so they travel inside the program: an export draws with the real renderer (`"renderer":"2d"`) and needs no shader files. Shaders of your own game are not part of the export layout today; a `shaders/` folder in the project is listed in `skipped` like any other folder that is not content.
 
 ## Licences
 

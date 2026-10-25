@@ -18,14 +18,12 @@ internal static class GpuPaths
     private static string SourceDir([CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
 
     public static string RepoRoot => Path.GetFullPath(Path.Combine(SourceDir(), "..", ".."));
-
-    public static string Shaders => Path.Combine(RepoRoot, "tests", "OneGame.Render2D.Tests", "Shaders");
 }
 
 /// <summary>Captures drawn on the graphics device by the 2D renderer, with the validation layer on when it is installed.</summary>
 public class GpuCaptureTests
 {
-    private static TestOptions Options() => new() { Width = 320, Height = 200, Gpu = GpuMode.Required, Shaders = new DirectoryShaders(GpuPaths.Shaders) };
+    private static TestOptions Options() => new() { Width = 320, Height = 200, Gpu = GpuMode.Required };
 
     [Fact]
     public void TheUiIsDrawnByTheRenderer()
