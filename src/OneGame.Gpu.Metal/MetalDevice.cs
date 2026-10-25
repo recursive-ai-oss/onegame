@@ -82,10 +82,7 @@ internal sealed unsafe partial class MetalDevice : GpuDevice
             MaxTextureSize: 16384,
             MaxTextureSize3D: 2048,
             MaxArrayLayers: 2048,
-            MaxResourceArrayCount: 64)
-        {
-            PushConstants = false,
-        };
+            MaxResourceArrayCount: 64);
     }
 
     // ---- submission ----

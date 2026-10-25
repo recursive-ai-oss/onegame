@@ -541,13 +541,12 @@ public sealed class FeatureTests
     [Fact]
     public void PushConstantsReachTheShader()
     {
-        // The shader compiler has no push-constant support yet, so the test turns the fill shader's constant buffer into a push block.
         using var gpu = new GpuFixture();
         var d = gpu.Device;
-        Assert.SkipUnless(d.Capabilities.PushConstants, "this backend has no push constants");
-        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, FaceFill.VSMain.EntryPoint) { SpirV = FaceFill.VSMain.SpirV, Msl = FaceFill.VSMain.Msl, MslFunctionName = FaceFill.VSMain.MslFunctionName, Bindings = FaceFill.Bindings.All });
-        using var ps = d.CreateShader(ShaderStage.Pixel, SpirvPatch.UniformToPushConstant(FaceFill.PSMain.SpirV), FaceFill.PSMain.EntryPoint);
-        using var layout = d.CreatePipelineLayout([], new PushConstantRange(16, ShaderStage.Pixel));
+        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, PushFill.VSMain.EntryPoint) { SpirV = PushFill.VSMain.SpirV, Msl = PushFill.VSMain.Msl, MslFunctionName = PushFill.VSMain.MslFunctionName, Bindings = PushFill.Bindings.All });
+        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, PushFill.PSMain.EntryPoint) { SpirV = PushFill.PSMain.SpirV, Msl = PushFill.PSMain.Msl, MslFunctionName = PushFill.PSMain.MslFunctionName, Bindings = PushFill.Bindings.All, MslPushConstantIndex = (int)PushFill.Bindings.PushConstants.MslIndex });
+        Assert.Equal(PushFill.Bindings.PushConstants.Size, (uint)Marshal.SizeOf<PushFill.PushConstants>());
+        using var layout = d.CreatePipelineLayout([], new PushConstantRange(PushFill.Bindings.PushConstants.Size, ShaderStage.Pixel));
         using var pipeline = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
         using var target = Target(d, 2, 1);
 
@@ -793,52 +792,5 @@ public sealed class FeatureTests
         Assert.Throws<ArgumentException>(() => d.CreateTexture(new TextureDesc(8, 8, GpuFormat.Rgba8Unorm, TextureUsage.Sampled) { MipLevels = 5 }));
         var enc = d.BeginCommands();
         d.Submit(enc);
-    }
-}
-
-/// <summary>Rewrites a compiled shader so its uniform block becomes the push-constant block (test support: the shader compiler does not emit push constants yet).</summary>
-internal static class SpirvPatch
-{
-    public static byte[] UniformToPushConstant(ReadOnlySpan<byte> spirv)
-    {
-        const uint Uniform = 2, PushConstant = 9;
-        var words = new uint[spirv.Length / 4];
-        for (var i = 0; i < words.Length; i++)
-        {
-            words[i] = BinaryPrimitives.ReadUInt32LittleEndian(spirv[(i * 4)..]);
-        }
-
-        var output = new List<uint>(words[..5]);
-        for (var i = 5; i < words.Length;)
-        {
-            var op = words[i] & 0xFFFF;
-            var count = (int)(words[i] >> 16);
-            // OpDecorate Binding / DescriptorSet: push constants have neither, so those instructions are dropped.
-            var drop = op == 71 && words[i + 2] is 33 or 34;
-            if (op == 32 && words[i + 2] == Uniform)
-            {
-                words[i + 2] = PushConstant; // OpTypePointer
-            }
-            else if (op == 59 && words[i + 3] == Uniform)
-            {
-                words[i + 3] = PushConstant; // OpVariable
-            }
-
-            if (!drop)
-            {
-                output.AddRange(words.AsSpan(i, count).ToArray());
-            }
-
-            i += count;
-        }
-
-        words = output.ToArray();
-        var bytes = new byte[words.Length * 4];
-        for (var i = 0; i < words.Length; i++)
-        {
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(i * 4), words[i]);
-        }
-
-        return bytes;
     }
 }

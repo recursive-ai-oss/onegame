@@ -13,6 +13,9 @@ internal sealed unsafe class MetalSwapchain : GpuSwapchain
     readonly TextureUsage _usage;
     bool _disposed;
 
+    // Drawable textures repeat (the layer cycles through a few), so their wrappers are kept and a steady-state frame allocates nothing.
+    readonly List<MetalTexture> _wrappers = [];
+
     public MetalSwapchain(MetalDevice dev, nint layer, in SwapchainDesc desc)
     {
         if (layer == 0)
@@ -72,7 +75,23 @@ internal sealed unsafe class MetalSwapchain : GpuSwapchain
 
         _drawable = Objc.objc_retain(drawable);
         var texture = Msg.Obj(_drawable, Sel.texture);
-        backbuffer = new MetalTexture(texture, false, new TextureDesc(_width, _height, _format, _usage));
+        foreach (var w in _wrappers)
+        {
+            if (w.Handle == texture && w.Width == _width && w.Height == _height)
+            {
+                backbuffer = w;
+                return AcquireStatus.Ready;
+            }
+        }
+
+        if (_wrappers.Count >= 8)
+        {
+            _wrappers.RemoveAt(0);
+        }
+
+        var wrapper = new MetalTexture(texture, false, new TextureDesc(_width, _height, _format, _usage));
+        _wrappers.Add(wrapper);
+        backbuffer = wrapper;
         return AcquireStatus.Ready;
     }
 

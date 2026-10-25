@@ -382,6 +382,26 @@ internal static class BindingRules
     }
 }
 
+/// <summary>The push-constant bytes of a pass. Metal has no push constants of its own: the block goes to the shader as an inline buffer argument at the index the shader build reports.</summary>
+internal struct PushBlock
+{
+    public byte[] Bytes;
+    public bool Dirty;
+
+    public void Set(MetalPipelineLayout? layout, uint offset, ReadOnlySpan<byte> data)
+    {
+        var size = layout?.Push.Size ?? 0u;
+        if (offset % 4 != 0 || data.Length % 4 != 0 || (ulong)offset + (ulong)data.Length > size)
+        {
+            throw new ArgumentOutOfRangeException(nameof(data), "pushed data must be 4-byte aligned and fit the range the pipeline layout declares");
+        }
+
+        Bytes ??= new byte[GpuDevice.MaxPushConstantBytes];
+        data.CopyTo(Bytes.AsSpan((int)offset));
+        Dirty = true;
+    }
+}
+
 internal sealed unsafe class MetalRenderPass : GpuRenderPass
 {
     readonly MetalEncoder _owner;
@@ -404,6 +424,7 @@ internal sealed unsafe class MetalRenderPass : GpuRenderPass
         Array.Clear(_groups);
         _dirty = 0;
         _indexBuffer = 0;
+        _push.Dirty = false;
         _ended = false;
     }
 
@@ -429,6 +450,7 @@ internal sealed unsafe class MetalRenderPass : GpuRenderPass
 
         // Another pipeline may number the same resources differently, so everything bound is written again.
         _dirty = 0xFF;
+        _push.Dirty = _push.Bytes is not null;
     }
 
     public override void SetBindGroup(uint setIndex, GpuBindGroup group, ReadOnlySpan<uint> dynamicOffsets)
@@ -440,8 +462,13 @@ internal sealed unsafe class MetalRenderPass : GpuRenderPass
         _dirty |= 1u << (int)setIndex;
     }
 
-    public override void SetPushConstants(uint offset, ReadOnlySpan<byte> data) =>
-        throw new GpuUnsupportedException("push constants are not supported by the Metal backend yet (GpuCapabilities.PushConstants is false)");
+    PushBlock _push;
+
+    public override void SetPushConstants(uint offset, ReadOnlySpan<byte> data)
+    {
+        Check();
+        _push.Set(_pipeline?.Layout, offset, data);
+    }
 
     public override void SetVertexBuffer(uint slot, GpuBuffer buffer, ulong offset = 0)
     {
@@ -493,6 +520,24 @@ internal sealed unsafe class MetalRenderPass : GpuRenderPass
     void Apply()
     {
         var p = _pipeline ?? throw new InvalidOperationException("set a pipeline before drawing");
+        if (_push.Dirty && p.Layout.Push.Size > 0)
+        {
+            fixed (byte* bytes = _push.Bytes)
+            {
+                if ((p.Layout.Push.Stages & ShaderStage.Vertex) != 0 && p.VertexPushIndex >= 0)
+                {
+                    Msg.Void(_enc, Sel.setVertexBytes_length_atIndex_, (nint)bytes, (nuint)p.Layout.Push.Size, (nuint)p.VertexPushIndex);
+                }
+
+                if ((p.Layout.Push.Stages & ShaderStage.Pixel) != 0 && p.PixelPushIndex >= 0)
+                {
+                    Msg.Void(_enc, Sel.setFragmentBytes_length_atIndex_, (nint)bytes, (nuint)p.Layout.Push.Size, (nuint)p.PixelPushIndex);
+                }
+            }
+
+            _push.Dirty = false;
+        }
+
         if (_dirty == 0)
         {
             return;
@@ -655,6 +700,7 @@ internal sealed unsafe class MetalComputePass : GpuComputePass
         _pipeline = null;
         Array.Clear(_groups);
         _dirty = 0;
+        _push.Dirty = false;
         _ended = false;
     }
 
@@ -673,6 +719,7 @@ internal sealed unsafe class MetalComputePass : GpuComputePass
         _pipeline = p;
         Msg.Void(_enc, Sel.setComputePipelineState_, p.State);
         _dirty = 0xFF;
+        _push.Dirty = _push.Bytes is not null;
     }
 
     public override void SetBindGroup(uint setIndex, GpuBindGroup group, ReadOnlySpan<uint> dynamicOffsets)
@@ -684,12 +731,27 @@ internal sealed unsafe class MetalComputePass : GpuComputePass
         _dirty |= 1u << (int)setIndex;
     }
 
-    public override void SetPushConstants(uint offset, ReadOnlySpan<byte> data) =>
-        throw new GpuUnsupportedException("push constants are not supported by the Metal backend yet (GpuCapabilities.PushConstants is false)");
+    PushBlock _push;
+
+    public override void SetPushConstants(uint offset, ReadOnlySpan<byte> data)
+    {
+        Check();
+        _push.Set(_pipeline?.Layout, offset, data);
+    }
 
     void Apply()
     {
         var p = _pipeline ?? throw new InvalidOperationException("set a pipeline before dispatching");
+        if (_push.Dirty && p.Layout.Push.Size > 0 && (p.Layout.Push.Stages & ShaderStage.Compute) != 0 && p.PushIndex >= 0)
+        {
+            fixed (byte* bytes = _push.Bytes)
+            {
+                Msg.Void(_enc, Sel.setBytes_length_atIndex_, (nint)bytes, (nuint)p.Layout.Push.Size, (nuint)p.PushIndex);
+            }
+
+            _push.Dirty = false;
+        }
+
         if (_dirty == 0)
         {
             return;

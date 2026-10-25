@@ -205,9 +205,11 @@ internal sealed class MetalShader : GpuShader
     public readonly SlotTable Slots;
     public readonly (uint X, uint Y, uint Z) GroupSize;
     public readonly uint VertexBufferBase;
+    public readonly int PushIndex;
 
-    public MetalShader(nint library, nint function, ShaderStage stage, string entry, SlotTable slots, (uint, uint, uint) group, uint vertexBufferBase)
+    public MetalShader(nint library, nint function, ShaderStage stage, string entry, SlotTable slots, (uint, uint, uint) group, uint vertexBufferBase, int pushIndex)
     {
+        PushIndex = pushIndex;
         Library = library;
         Function = function;
         Stage = stage;
@@ -295,6 +297,7 @@ internal sealed class MetalGraphicsPipeline : GpuGraphicsPipeline
     public nuint Primitive, Cull, Winding, DepthClip;
     public float DepthBias, SlopeScale, BiasClamp;
     public uint VertexBufferBase;
+    public int VertexPushIndex = -1, PixelPushIndex = -1;
 
     public override void Dispose()
     {
@@ -309,6 +312,7 @@ internal sealed class MetalComputePipeline : GpuComputePipeline
     public MetalPipelineLayout Layout = null!;
     public SlotTable Slots = null!;
     public (uint X, uint Y, uint Z) Group;
+    public int PushIndex = -1;
 
     public override void Dispose() => Objc.Release(ref State);
 }

@@ -18,7 +18,7 @@ public class CaptureTests
     private static string Dir([CallerFilePath] string here = "") => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(here)!, "..", "..", "testdata"));
 
     private static void RequireGpu() =>
-        Assert.SkipUnless(OneGame.Gpu.GpuBackends.IsAvailable && Environment.GetEnvironmentVariable("VK_ADD_LAYER_PATH") is { Length: > 0 }, "needs a Vulkan driver and the validation layer");
+        Assert.SkipUnless(OneGame.Gpu.GpuBackends.IsAvailable && (OneGame.Gpu.GpuBackends.Selected == OneGame.Gpu.GpuBackend.Metal || Environment.GetEnvironmentVariable("VK_ADD_LAYER_PATH") is { Length: > 0 }), "needs a graphics driver and, on Vulkan, the validation layer");
 
     private sealed class Rendered : IDisposable
     {

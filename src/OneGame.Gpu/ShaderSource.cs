@@ -51,4 +51,10 @@ public readonly ref struct ShaderSource
 
     /// <summary>See <see cref="ComputeGroupX"/>.</summary>
     public uint ComputeGroupZ { get; init; }
+
+    /// <summary>
+    /// The Metal buffer index of the shader's push-constant block (the generated <c>Bindings.PushConstants.MslIndex</c>), or -1 when the
+    /// shader has none. Other backends ignore it.
+    /// </summary>
+    public int MslPushConstantIndex { get; init; } = -1;
 }

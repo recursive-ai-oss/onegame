@@ -222,7 +222,7 @@ internal sealed unsafe partial class MetalDevice
 
         var vb = source.MslVertexBufferIndex == 0 ? VertexBufferBase : (uint)source.MslVertexBufferIndex;
         return new MetalShader(library, function, source.Stage, source.EntryPoint, new SlotTable(source.Bindings),
-            (source.ComputeGroupX, source.ComputeGroupY, source.ComputeGroupZ), vb);
+            (source.ComputeGroupX, source.ComputeGroupY, source.ComputeGroupZ), vb, source.MslPushConstantIndex);
     }
 
     /// <inheritdoc />
@@ -519,6 +519,8 @@ internal sealed unsafe partial class MetalDevice
                 Winding = desc.Front == FrontFace.CounterClockwise ? MT.WindingCounterClockwise : MT.WindingClockwise,
                 DepthClip = desc.DepthClamp ? MT.DepthClipClamp : MT.DepthClipClip,
                 VertexBufferBase = vs.VertexBufferBase,
+                VertexPushIndex = vs.PushIndex,
+                PixelPushIndex = ps?.PushIndex ?? -1,
             };
             if (desc.DepthStencil is { } dss)
             {
@@ -584,7 +586,7 @@ internal sealed unsafe partial class MetalDevice
             throw new GpuException($"Metal could not create the compute pipeline: {Objc.ErrorText(error)}");
         }
 
-        return new MetalComputePipeline { State = state, Layout = layout, Slots = cs.Slots, Group = cs.GroupSize };
+        return new MetalComputePipeline { State = state, Layout = layout, Slots = cs.Slots, Group = cs.GroupSize, PushIndex = cs.PushIndex };
     }
 
     /// <inheritdoc />

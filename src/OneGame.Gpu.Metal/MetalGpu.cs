@@ -93,6 +93,12 @@ public static unsafe class MetalGpu
         return new MetalDevice(chosen, Describe(chosen), debug);
     }
 
+    /// <summary>A <c>CAMetalLayer</c> that belongs to no view, with one reference for the caller to release. Lets tests and tools present without a window.</summary>
+    internal static nint CreateDetachedLayer() => Objc.objc_retain(Msg.Obj(Cls.CAMetalLayer, Sel.layer));
+
+    /// <summary>Whether Metal's API validation wraps this device.</summary>
+    internal static bool IsValidationActive(GpuDevice device) => device is MetalDevice { DebugLayer: true };
+
     // Every device, each with one reference the caller releases.
     static nint[] Devices()
     {

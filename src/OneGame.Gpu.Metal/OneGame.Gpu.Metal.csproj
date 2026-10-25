@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="OneGame.Gpu.Metal.Tests" />
+    <InternalsVisibleTo Include="OneGame.Gpu.Vulkan.Tests" />
   </ItemGroup>
 
 </Project>

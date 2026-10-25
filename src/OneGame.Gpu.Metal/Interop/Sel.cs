@@ -33,6 +33,7 @@ internal static class Sel
     public static readonly nint generateMipmapsForTexture_ = Objc.sel_registerName("generateMipmapsForTexture:");
     public static readonly nint hasUnifiedMemory = Objc.sel_registerName("hasUnifiedMemory");
     public static readonly nint initWithBytes_length_encoding_ = Objc.sel_registerName("initWithBytes:length:encoding:");
+    public static readonly nint layer = Objc.sel_registerName("layer");
     public static readonly nint layouts = Objc.sel_registerName("layouts");
     public static readonly nint localizedDescription = Objc.sel_registerName("localizedDescription");
     public static readonly nint name = Objc.sel_registerName("name");
@@ -59,6 +60,7 @@ internal static class Sel
     public static readonly nint setBlendingEnabled_ = Objc.sel_registerName("setBlendingEnabled:");
     public static readonly nint setBufferIndex_ = Objc.sel_registerName("setBufferIndex:");
     public static readonly nint setBuffer_offset_atIndex_ = Objc.sel_registerName("setBuffer:offset:atIndex:");
+    public static readonly nint setBytes_length_atIndex_ = Objc.sel_registerName("setBytes:length:atIndex:");
     public static readonly nint setClearColor_ = Objc.sel_registerName("setClearColor:");
     public static readonly nint setClearDepth_ = Objc.sel_registerName("setClearDepth:");
     public static readonly nint setCompareFunction_ = Objc.sel_registerName("setCompareFunction:");
@@ -79,6 +81,7 @@ internal static class Sel
     public static readonly nint setFastMathEnabled_ = Objc.sel_registerName("setFastMathEnabled:");
     public static readonly nint setFormat_ = Objc.sel_registerName("setFormat:");
     public static readonly nint setFragmentBuffer_offset_atIndex_ = Objc.sel_registerName("setFragmentBuffer:offset:atIndex:");
+    public static readonly nint setFragmentBytes_length_atIndex_ = Objc.sel_registerName("setFragmentBytes:length:atIndex:");
     public static readonly nint setFragmentFunction_ = Objc.sel_registerName("setFragmentFunction:");
     public static readonly nint setFragmentSamplerState_atIndex_ = Objc.sel_registerName("setFragmentSamplerState:atIndex:");
     public static readonly nint setFragmentTexture_atIndex_ = Objc.sel_registerName("setFragmentTexture:atIndex:");
@@ -123,6 +126,7 @@ internal static class Sel
     public static readonly nint setTexture_atIndex_ = Objc.sel_registerName("setTexture:atIndex:");
     public static readonly nint setUsage_ = Objc.sel_registerName("setUsage:");
     public static readonly nint setVertexBuffer_offset_atIndex_ = Objc.sel_registerName("setVertexBuffer:offset:atIndex:");
+    public static readonly nint setVertexBytes_length_atIndex_ = Objc.sel_registerName("setVertexBytes:length:atIndex:");
     public static readonly nint setVertexDescriptor_ = Objc.sel_registerName("setVertexDescriptor:");
     public static readonly nint setVertexFunction_ = Objc.sel_registerName("setVertexFunction:");
     public static readonly nint setVertexSamplerState_atIndex_ = Objc.sel_registerName("setVertexSamplerState:atIndex:");
@@ -143,6 +147,7 @@ internal static class Sel
 /// <summary>Looked-up Objective-C classes.</summary>
 internal static class Cls
 {
+    public static readonly nint CAMetalLayer = Objc.objc_getClass("CAMetalLayer");
     public static readonly nint MTLCompileOptions = Objc.objc_getClass("MTLCompileOptions");
     public static readonly nint MTLDepthStencilDescriptor = Objc.objc_getClass("MTLDepthStencilDescriptor");
     public static readonly nint MTLRenderPassDescriptor = Objc.objc_getClass("MTLRenderPassDescriptor");
