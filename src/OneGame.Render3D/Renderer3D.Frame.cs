@@ -92,7 +92,7 @@ public sealed partial class Renderer3D
             new(0, 2, 1, ResourceKind.StorageBuffer, ShaderStage.Compute),
         ];
         _clusterLayout = Own(device.CreatePipelineLayout(bindings));
-        _clusterCs = Own(device.CreateShader(ShaderStage.Compute, Cluster.CSMain.SpirV, Cluster.CSMain.EntryPoint));
+        _clusterCs = Own(device.CreateShader(ShaderStage.Compute, Cluster.CSMain.SpirV, Cluster.CSMain.EntryPoint, Cluster.CSMain.Wgsl, Cluster.CSMain.WgslEntryPoint));
         _clusterPipeline = Own(device.CreateComputePipeline(new ComputePipelineDesc { Layout = _clusterLayout, Compute = _clusterCs, Label = "cluster lights" }));
         InitShadows();
         InitInstancing();

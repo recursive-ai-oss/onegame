@@ -20,8 +20,8 @@ public sealed class GraphTests
         {
             _d = d;
             Name = name;
-            _vs = d.CreateShader(ShaderStage.Vertex, Sample2D.VSMain.SpirV.ToArray(), Sample2D.VSMain.EntryPoint);
-            _ps = d.CreateShader(ShaderStage.Pixel, Sample2D.PSMain.SpirV.ToArray(), Sample2D.PSMain.EntryPoint);
+            _vs = d.CreateShader(ShaderStage.Vertex, Sample2D.VSMain.SpirV.ToArray(), Sample2D.VSMain.EntryPoint, Sample2D.VSMain.Wgsl, Sample2D.VSMain.WgslEntryPoint);
+            _ps = d.CreateShader(ShaderStage.Pixel, Sample2D.PSMain.SpirV.ToArray(), Sample2D.PSMain.EntryPoint, Sample2D.PSMain.Wgsl, Sample2D.PSMain.WgslEntryPoint);
             _layout = d.CreatePipelineLayout([new ResourceBinding(0, 0, 1, ResourceKind.SampledTexture, ShaderStage.Pixel), new ResourceBinding(0, 1, 1, ResourceKind.Sampler, ShaderStage.Pixel)]);
             _pipeline = d.CreateGraphicsPipeline(new GraphicsPipelineDesc { Layout = _layout, Vertex = _vs, Pixel = _ps, ColorTargets = [new ColorTargetState(format)] });
             _sampler = d.CreateSampler(SamplerDesc.Nearest);
@@ -87,10 +87,10 @@ public sealed class GraphTests
 
     static readonly TextureDesc Small = new(8, 8, GpuFormat.Rgba8Unorm, TextureUsage.None);
 
-    static byte[] Read(GpuDevice d, GpuTexture t)
+    static async Task<byte[]> ReadAsync(GpuDevice d, GpuTexture t)
     {
         var bytes = new byte[t.Width * t.Height * 4];
-        d.ReadTexture(t, 0, 0, bytes);
+        await d.ReadTextureAsync(t, 0, 0, bytes);
         return bytes;
     }
 
@@ -130,7 +130,7 @@ public sealed class GraphTests
     }
 
     [Fact]
-    public void AnOverwrittenWriteIsCulledAndSideEffectsSurvive()
+    public async Task AnOverwrittenWriteIsCulledAndSideEffectsSurvive()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -147,12 +147,12 @@ public sealed class GraphTests
         graph.Execute();
         Assert.Equal(["second", "probe"], log);
 
-        var px = Read(d, output);
+        var px = await ReadAsync(d, output);
         Assert.Equal((0, 255, 0), (px[0], px[1], px[2]));
     }
 
     [Fact]
-    public void TransientsWithDisjointLifetimesShareMemoryAndPoolAcrossFrames()
+    public async Task TransientsWithDisjointLifetimesShareMemoryAndPoolAcrossFrames()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -210,22 +210,22 @@ public sealed class GraphTests
         }
 
         // 0.5 converts to 127 or 128 depending on the device's rounding.
-        var px = Read(d, output);
+        var px = await ReadAsync(d, output);
         Assert.Equal((255, 0), (px[0], px[2]));
         Assert.InRange(px[1], 127, 128);
     }
 
     [Fact]
-    public void ComputeRasterAndCustomPassesAreOrderedByTheirDeclarations()
+    public async Task ComputeRasterAndCustomPassesAreOrderedByTheirDeclarations()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
         using var graph = new RenderGraph(d);
         using var output = Output(d);
         using var tex = d.CreateTexture(new TextureDesc(16, 16, GpuFormat.Rgba8Unorm, TextureUsage.Storage | TextureUsage.Sampled));
-        using var cs = d.CreateShader(ShaderStage.Compute, StorageImage.CSMain.SpirV.ToArray(), StorageImage.CSMain.EntryPoint);
-        using var vs = d.CreateShader(ShaderStage.Vertex, StorageImage.VSMain.SpirV.ToArray(), StorageImage.VSMain.EntryPoint);
-        using var ps = d.CreateShader(ShaderStage.Pixel, StorageImage.PSMain.SpirV.ToArray(), StorageImage.PSMain.EntryPoint);
+        using var cs = d.CreateShader(ShaderStage.Compute, StorageImage.CSMain.SpirV.ToArray(), StorageImage.CSMain.EntryPoint, StorageImage.CSMain.Wgsl, StorageImage.CSMain.WgslEntryPoint);
+        using var vs = d.CreateShader(ShaderStage.Vertex, StorageImage.VSMain.SpirV.ToArray(), StorageImage.VSMain.EntryPoint, StorageImage.VSMain.Wgsl, StorageImage.VSMain.WgslEntryPoint);
+        using var ps = d.CreateShader(ShaderStage.Pixel, StorageImage.PSMain.SpirV.ToArray(), StorageImage.PSMain.EntryPoint, StorageImage.PSMain.Wgsl, StorageImage.PSMain.WgslEntryPoint);
         using var computeLayout = d.CreatePipelineLayout([new ResourceBinding(0, 0, 1, ResourceKind.StorageTexture, ShaderStage.Compute)]);
         using var drawLayout = d.CreatePipelineLayout([new ResourceBinding(1, 0, 1, ResourceKind.SampledTexture, ShaderStage.Pixel)]);
         using var computeGroup = d.CreateBindGroup(computeLayout, 0, [BindGroupEntry.ForTexture(0, tex)]);
@@ -253,7 +253,7 @@ public sealed class GraphTests
         graph.Execute();
 
         var px = new byte[16 * 16 * 4];
-        d.ReadTexture(wide, 0, 0, px);
+        await d.ReadTextureAsync(wide, 0, 0, px);
         Assert.InRange(px[(5 * 16 + 15) * 4], 254, 255);
         Assert.InRange(px[(15 * 16 + 5) * 4 + 1], 254, 255);
         var report = graph.Describe();
@@ -415,8 +415,8 @@ public sealed class GraphTests
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
-        using var vs = d.CreateShader(ShaderStage.Vertex, Triangle.VSMain.SpirV.ToArray(), Triangle.VSMain.EntryPoint);
-        using var ps = d.CreateShader(ShaderStage.Pixel, Triangle.PSMain.SpirV.ToArray(), Triangle.PSMain.EntryPoint);
+        using var vs = d.CreateShader(ShaderStage.Vertex, Triangle.VSMain.SpirV.ToArray(), Triangle.VSMain.EntryPoint, Triangle.VSMain.Wgsl, Triangle.VSMain.WgslEntryPoint);
+        using var ps = d.CreateShader(ShaderStage.Pixel, Triangle.PSMain.SpirV.ToArray(), Triangle.PSMain.EntryPoint, Triangle.PSMain.Wgsl, Triangle.PSMain.WgslEntryPoint);
         using var emptyLayout = d.CreatePipelineLayout([]);
         using var colorPipeline = d.CreateGraphicsPipeline(new GraphicsPipelineDesc { Layout = emptyLayout, Vertex = vs, Pixel = ps, ColorTargets = [new ColorTargetState(GpuFormat.Rgba8Unorm)] });
         using var depthPipeline = d.CreateGraphicsPipeline(new GraphicsPipelineDesc
@@ -427,7 +427,7 @@ public sealed class GraphTests
             ColorTargets = [new ColorTargetState(GpuFormat.Rgba8Unorm)],
             DepthStencil = new DepthStencilState(GpuFormat.Depth32Float),
         });
-        using var cs = d.CreateShader(ShaderStage.Compute, Fill.CSMain.SpirV.ToArray(), Fill.CSMain.EntryPoint);
+        using var cs = d.CreateShader(ShaderStage.Compute, Fill.CSMain.SpirV.ToArray(), Fill.CSMain.EntryPoint, Fill.CSMain.Wgsl, Fill.CSMain.WgslEntryPoint);
         using var computeLayout = d.CreatePipelineLayout(
         [
             new ResourceBinding(0, 0, 1, ResourceKind.StorageBuffer, ShaderStage.Compute),

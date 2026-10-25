@@ -117,16 +117,16 @@ public sealed partial class Renderer3D : IDisposable
             new(2, 10, 1, ResourceKind.Sampler, ShaderStage.Pixel),
         ];
         _layout = Own(device.CreatePipelineLayout(bindings));
-        _pbrVs = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSMain.SpirV, Pbr.VSMain.EntryPoint));
-        _pbrPs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSMain.SpirV, Pbr.PSMain.EntryPoint));
-        _pbrVsInst = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSInst.SpirV, Pbr.VSInst.EntryPoint));
-        _outlineVs = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSOutline.SpirV, Pbr.VSOutline.EntryPoint));
-        _outlineVsInst = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSOutlineInst.SpirV, Pbr.VSOutlineInst.EntryPoint));
-        _shadowMaskPs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSShadowMask.SpirV, Pbr.PSShadowMask.EntryPoint));
-        _prepassPs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSPrepass.SpirV, Pbr.PSPrepass.EntryPoint));
-        _outlinePs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSOutline.SpirV, Pbr.PSOutline.EntryPoint));
-        _skyVs = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSSky.SpirV, Pbr.VSSky.EntryPoint));
-        _skyPs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSSky.SpirV, Pbr.PSSky.EntryPoint));
+        _pbrVs = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSMain.SpirV, Pbr.VSMain.EntryPoint, Pbr.VSMain.Wgsl, Pbr.VSMain.WgslEntryPoint));
+        _pbrPs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSMain.SpirV, Pbr.PSMain.EntryPoint, Pbr.PSMain.Wgsl, Pbr.PSMain.WgslEntryPoint));
+        _pbrVsInst = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSInst.SpirV, Pbr.VSInst.EntryPoint, Pbr.VSInst.Wgsl, Pbr.VSInst.WgslEntryPoint));
+        _outlineVs = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSOutline.SpirV, Pbr.VSOutline.EntryPoint, Pbr.VSOutline.Wgsl, Pbr.VSOutline.WgslEntryPoint));
+        _outlineVsInst = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSOutlineInst.SpirV, Pbr.VSOutlineInst.EntryPoint, Pbr.VSOutlineInst.Wgsl, Pbr.VSOutlineInst.WgslEntryPoint));
+        _shadowMaskPs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSShadowMask.SpirV, Pbr.PSShadowMask.EntryPoint, Pbr.PSShadowMask.Wgsl, Pbr.PSShadowMask.WgslEntryPoint));
+        _prepassPs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSPrepass.SpirV, Pbr.PSPrepass.EntryPoint, Pbr.PSPrepass.Wgsl, Pbr.PSPrepass.WgslEntryPoint));
+        _outlinePs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSOutline.SpirV, Pbr.PSOutline.EntryPoint, Pbr.PSOutline.Wgsl, Pbr.PSOutline.WgslEntryPoint));
+        _skyVs = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSSky.SpirV, Pbr.VSSky.EntryPoint, Pbr.VSSky.Wgsl, Pbr.VSSky.WgslEntryPoint));
+        _skyPs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSSky.SpirV, Pbr.PSSky.EntryPoint, Pbr.PSSky.Wgsl, Pbr.PSSky.WgslEntryPoint));
 
         // The packed glTF vertex (GltfPrimitive.PackVertices). Joint indices are two 32-bit words, each holding two 16-bit indices.
         _vertexLayout = new VertexBufferLayout

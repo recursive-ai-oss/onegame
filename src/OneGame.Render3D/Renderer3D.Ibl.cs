@@ -101,25 +101,25 @@ public sealed partial class Renderer3D
         _equirectPipeline = Own(device.CreateComputePipeline(new ComputePipelineDesc
         {
             Layout = _iblLayout,
-            Compute = Own(device.CreateShader(ShaderStage.Compute, IblEquirect.CSMain.SpirV, IblEquirect.CSMain.EntryPoint)),
+            Compute = Own(device.CreateShader(ShaderStage.Compute, IblEquirect.CSMain.SpirV, IblEquirect.CSMain.EntryPoint, IblEquirect.CSMain.Wgsl, IblEquirect.CSMain.WgslEntryPoint)),
             Label = "env equirect",
         }));
         _prefilterPipeline = Own(device.CreateComputePipeline(new ComputePipelineDesc
         {
             Layout = _iblLayout,
-            Compute = Own(device.CreateShader(ShaderStage.Compute, IblPrefilter.CSMain.SpirV, IblPrefilter.CSMain.EntryPoint)),
+            Compute = Own(device.CreateShader(ShaderStage.Compute, IblPrefilter.CSMain.SpirV, IblPrefilter.CSMain.EntryPoint, IblPrefilter.CSMain.Wgsl, IblPrefilter.CSMain.WgslEntryPoint)),
             Label = "env prefilter",
         }));
         _irradiancePipeline = Own(device.CreateComputePipeline(new ComputePipelineDesc
         {
             Layout = _iblLayout,
-            Compute = Own(device.CreateShader(ShaderStage.Compute, IblIrradiance.CSMain.SpirV, IblIrradiance.CSMain.EntryPoint)),
+            Compute = Own(device.CreateShader(ShaderStage.Compute, IblIrradiance.CSMain.SpirV, IblIrradiance.CSMain.EntryPoint, IblIrradiance.CSMain.Wgsl, IblIrradiance.CSMain.WgslEntryPoint)),
             Label = "env irradiance",
         }));
         _lutPipeline = Own(device.CreateComputePipeline(new ComputePipelineDesc
         {
             Layout = _lutLayout,
-            Compute = Own(device.CreateShader(ShaderStage.Compute, EnvBrdf.CSMain.SpirV, EnvBrdf.CSMain.EntryPoint)),
+            Compute = Own(device.CreateShader(ShaderStage.Compute, EnvBrdf.CSMain.SpirV, EnvBrdf.CSMain.EntryPoint, EnvBrdf.CSMain.Wgsl, EnvBrdf.CSMain.WgslEntryPoint)),
             Label = "brdf lut",
         }));
         _equirectSampler = Own(device.CreateSampler(SamplerDesc.Linear with { AddressU = AddressMode.Repeat }));

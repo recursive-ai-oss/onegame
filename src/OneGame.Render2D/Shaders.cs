@@ -6,7 +6,9 @@ namespace OneGame.Render2D;
 /// <param name="Stage">The pipeline stage.</param>
 /// <param name="EntryPoint">The entry point function name in the SPIR-V module.</param>
 /// <param name="SpirV">The SPIR-V words as bytes. The renderer reads it while creating pipelines and does not keep it.</param>
-public readonly record struct ShaderCode(ShaderStage Stage, string EntryPoint, ReadOnlyMemory<byte> SpirV);
+/// <param name="Wgsl">The same shader as WGSL text (UTF-8), for the WebGPU backend; empty when the shader was compiled for SPIR-V only.</param>
+/// <param name="WgslEntryPoint">The entry point name in the WGSL; the same as <paramref name="EntryPoint"/> when null.</param>
+public readonly record struct ShaderCode(ShaderStage Stage, string EntryPoint, ReadOnlyMemory<byte> SpirV, ReadOnlyMemory<byte> Wgsl = default, string? WgslEntryPoint = null);
 
 /// <summary>
 /// Supplies the renderer's built-in shaders by program and entry point name. A game passes the source generated from the shader build output;

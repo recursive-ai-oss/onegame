@@ -7,13 +7,13 @@ public sealed class RenderTests
 {
     const int Size = 64;
 
-    static GpuShader VertexShader(GpuDevice d, ReadOnlySpan<byte> spirv, string entry) => d.CreateShader(ShaderStage.Vertex, spirv.ToArray(), entry);
-    static GpuShader PixelShader(GpuDevice d, ReadOnlySpan<byte> spirv, string entry) => d.CreateShader(ShaderStage.Pixel, spirv.ToArray(), entry);
+    static GpuShader VertexShader(GpuDevice d, ReadOnlySpan<byte> spirv, string entry, ReadOnlySpan<byte> wgsl = default, string? wgslEntry = null) => d.CreateShader(ShaderStage.Vertex, spirv.ToArray(), entry, wgsl, wgslEntry ?? entry);
+    static GpuShader PixelShader(GpuDevice d, ReadOnlySpan<byte> spirv, string entry, ReadOnlySpan<byte> wgsl = default, string? wgslEntry = null) => d.CreateShader(ShaderStage.Pixel, spirv.ToArray(), entry, wgsl, wgslEntry ?? entry);
 
     static GraphicsPipelineDesc TrianglePipeline(GpuDevice d, GpuFormat format, out GpuShader vs, out GpuShader fs, out GpuPipelineLayout layout)
     {
-        vs = VertexShader(d, Triangle.VSMain.SpirV, Triangle.VSMain.EntryPoint);
-        fs = PixelShader(d, Triangle.PSMain.SpirV, Triangle.PSMain.EntryPoint);
+        vs = VertexShader(d, Triangle.VSMain.SpirV, Triangle.VSMain.EntryPoint, Triangle.VSMain.Wgsl, Triangle.VSMain.WgslEntryPoint);
+        fs = PixelShader(d, Triangle.PSMain.SpirV, Triangle.PSMain.EntryPoint, Triangle.PSMain.Wgsl, Triangle.PSMain.WgslEntryPoint);
         layout = d.CreatePipelineLayout([]);
         return new GraphicsPipelineDesc
         {
@@ -26,7 +26,7 @@ public sealed class RenderTests
     }
 
     [Fact]
-    public void TriangleMatchesGolden()
+    public async Task TriangleMatchesGolden()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -42,7 +42,7 @@ public sealed class RenderTests
         d.Submit(enc);
 
         var pixels = new byte[Size * Size * 4];
-        d.ReadTexture(target, 0, 0, pixels);
+        await d.ReadTextureAsync(target, 0, 0, pixels);
         Golden.Assert_("triangle", Size, Size, pixels);
 
         // Clip space is +Y up: the third vertex (0, 0.8) is the blue apex, near the top of the image.
@@ -56,7 +56,7 @@ public sealed class RenderTests
     }
 
     [Fact]
-    public void BackFaceIsCulledWhenWindingIsFlipped()
+    public async Task BackFaceIsCulledWhenWindingIsFlipped()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -73,7 +73,7 @@ public sealed class RenderTests
         pass.EndPass();
         d.Submit(enc);
         var pixels = new byte[Size * Size * 4];
-        d.ReadTexture(target, 0, 0, pixels);
+        await d.ReadTextureAsync(target, 0, 0, pixels);
         Assert.All(Enumerable.Range(0, Size * Size), i => Assert.Equal(0, pixels[i * 4] + pixels[i * 4 + 1] + pixels[i * 4 + 2]));
         vs.Dispose();
         fs.Dispose();
@@ -94,7 +94,7 @@ public sealed class RenderTests
     }
 
     [Fact]
-    public void TexturedAlphaBlendedQuadsMatchGolden()
+    public async Task TexturedAlphaBlendedQuadsMatchGolden()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -147,8 +147,8 @@ public sealed class RenderTests
         d.WriteBuffer(ub2, 0, MemoryMarshal.AsBytes<Params>([new Params { R = 1, G = 1, B = 1, A = 0.5f, OffsetX = 0.25f, OffsetY = 0.25f }]));
 
         using var sampler = d.CreateSampler(SamplerDesc.Nearest);
-        using var vs = VertexShader(d, TexturedQuad.VSMain.SpirV, TexturedQuad.VSMain.EntryPoint);
-        using var fs = PixelShader(d, TexturedQuad.PSMain.SpirV, TexturedQuad.PSMain.EntryPoint);
+        using var vs = VertexShader(d, TexturedQuad.VSMain.SpirV, TexturedQuad.VSMain.EntryPoint, TexturedQuad.VSMain.Wgsl, TexturedQuad.VSMain.WgslEntryPoint);
+        using var fs = PixelShader(d, TexturedQuad.PSMain.SpirV, TexturedQuad.PSMain.EntryPoint, TexturedQuad.PSMain.Wgsl, TexturedQuad.PSMain.WgslEntryPoint);
         using var layout = d.CreatePipelineLayout(
         [
             new ResourceBinding(0, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Vertex | ShaderStage.Pixel),
@@ -187,18 +187,18 @@ public sealed class RenderTests
         d.Submit(enc);
 
         var pixels = new byte[Size * Size * 4];
-        d.ReadTexture(target, 0, 0, pixels);
+        await d.ReadTextureAsync(target, 0, 0, pixels);
         Golden.Assert_("textured-quads", Size, Size, pixels);
 
         // The generated top mip of a checker averages orange and half-transparent white.
         var mip = new byte[4];
-        d.ReadTexture(texture, 2, 0, mip);
+        await d.ReadTextureAsync(texture, 2, 0, mip);
         Assert.InRange(mip[0], 250, 255);
         Assert.InRange(mip[1], 185, 200);
     }
 
     [Fact]
-    public void ComputeWritesStorageBuffer()
+    public async Task ComputeWritesStorageBuffer()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -208,7 +208,7 @@ public sealed class RenderTests
         using var outBuf = d.CreateBuffer(new BufferDesc(N * 4, BufferUsage.Storage | BufferUsage.CopySource));
         d.WriteBuffer(inBuf, 0, MemoryMarshal.AsBytes<uint>(input));
 
-        using var cs = d.CreateShader(ShaderStage.Compute, Fill.CSMain.SpirV.ToArray(), Fill.CSMain.EntryPoint);
+        using var cs = d.CreateShader(ShaderStage.Compute, Fill.CSMain.SpirV.ToArray(), Fill.CSMain.EntryPoint, Fill.CSMain.Wgsl, Fill.CSMain.WgslEntryPoint);
         using var layout = d.CreatePipelineLayout(
         [
             new ResourceBinding(0, 0, 1, ResourceKind.StorageBuffer, ShaderStage.Compute),
@@ -226,7 +226,7 @@ public sealed class RenderTests
         d.Submit(enc);
 
         var result = new uint[N];
-        d.ReadBuffer(outBuf, 0, MemoryMarshal.AsBytes(result.AsSpan()));
+        await TestRead.Buffer(d, outBuf, result);
         for (uint i = 0; i < N; i++)
         {
             Assert.Equal(input[i] * 3u + i * i + 7u, result[i]);
@@ -234,7 +234,7 @@ public sealed class RenderTests
     }
 
     [Fact]
-    public void ChainedComputeDispatchesAreOrdered()
+    public async Task ChainedComputeDispatchesAreOrdered()
     {
         // The second dispatch reads what the first wrote (the same buffer bound as output then input): needs a barrier between them.
         using var gpu = new GpuFixture();
@@ -244,7 +244,7 @@ public sealed class RenderTests
         using var b = d.CreateBuffer(new BufferDesc(N * 4, BufferUsage.Storage | BufferUsage.CopyDestination | BufferUsage.CopySource));
         d.WriteBuffer(a, 0, MemoryMarshal.AsBytes<uint>(new uint[N]));
         d.WriteBuffer(b, 0, MemoryMarshal.AsBytes<uint>(new uint[N]));
-        using var cs = d.CreateShader(ShaderStage.Compute, Fill.CSMain.SpirV.ToArray(), Fill.CSMain.EntryPoint);
+        using var cs = d.CreateShader(ShaderStage.Compute, Fill.CSMain.SpirV.ToArray(), Fill.CSMain.EntryPoint, Fill.CSMain.Wgsl, Fill.CSMain.WgslEntryPoint);
         using var layout = d.CreatePipelineLayout(
         [
             new ResourceBinding(0, 0, 1, ResourceKind.StorageBuffer, ShaderStage.Compute),
@@ -278,12 +278,12 @@ public sealed class RenderTests
         }
 
         var got = new uint[N];
-        d.ReadBuffer(a, 0, MemoryMarshal.AsBytes(got.AsSpan()));
+        await TestRead.Buffer(d, a, got);
         Assert.Equal(x, got);
     }
 
     [Fact]
-    public void BufferRoundTripThroughCopyAndReadback()
+    public async Task BufferRoundTripThroughCopyAndReadback()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -295,12 +295,12 @@ public sealed class RenderTests
         enc.CopyBuffer(src, 0, dst, 0, 1000);
         d.Submit(enc);
         var back = new byte[1000];
-        d.ReadBuffer(dst, 0, back);
+        await d.ReadBufferAsync(dst, 0, back);
         Assert.Equal(data, back);
     }
 
     [Fact]
-    public void MultisampledTargetResolves()
+    public async Task MultisampledTargetResolves()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -315,7 +315,7 @@ public sealed class RenderTests
         pass.EndPass();
         d.Submit(enc);
         var pixels = new byte[Size * Size * 4];
-        d.ReadTexture(resolved, 0, 0, pixels);
+        await d.ReadTextureAsync(resolved, 0, 0, pixels);
         Golden.Assert_("triangle-msaa", Size, Size, pixels);
         vs.Dispose();
         fs.Dispose();
@@ -323,7 +323,7 @@ public sealed class RenderTests
     }
 
     [Fact]
-    public void DepthTestOrdersOverlappingTriangles()
+    public async Task DepthTestOrdersOverlappingTriangles()
     {
         // A triangle at depth 0 passes LessEqual against a cleared depth of 1, so the depth-tested image equals the plain one.
         using var gpu = new GpuFixture();
@@ -346,7 +346,7 @@ public sealed class RenderTests
         pass.EndPass();
         d.Submit(enc);
         var pixels = new byte[Size * Size * 4];
-        d.ReadTexture(target, 0, 0, pixels);
+        await d.ReadTextureAsync(target, 0, 0, pixels);
         Golden.Assert_("triangle-depth", Size, Size, pixels);
         vs.Dispose();
         fs.Dispose();
@@ -419,7 +419,9 @@ public sealed class RenderTests
         var d = gpu.Device;
         using var buf = d.CreateBuffer(new BufferDesc(16, BufferUsage.Vertex));
         Assert.Throws<ArgumentException>(() => d.WriteBuffer(buf, 0, new byte[4]));
+#if !WEB_BACKEND
         Assert.Throws<ArgumentException>(() => d.CreateShader(ShaderStage.Vertex, new byte[] { 1, 2, 3 }, "main"));
+#endif
         Assert.Throws<ArgumentOutOfRangeException>(() => d.CreateBuffer(new BufferDesc(0, BufferUsage.Vertex)));
         using var tex = d.CreateTexture(new TextureDesc(4, 4, GpuFormat.Rgba8Unorm, TextureUsage.CopyDestination));
         Assert.Throws<ArgumentException>(() => d.WriteTexture(tex, 0, 0, new byte[10]));
@@ -428,6 +430,7 @@ public sealed class RenderTests
         Assert.Throws<InvalidOperationException>(() => d.Submit(enc));
     }
 
+#if !WEB_BACKEND
     [Fact]
     public void AdapterSelectionByKindAndName()
     {
@@ -437,4 +440,5 @@ public sealed class RenderTests
         Assert.Equal(adapters[0].Name, sw.Adapter.Name);
         Assert.Throws<GpuUnsupportedException>(() => VulkanGpu.CreateDevice(new GpuDeviceOptions { Adapter = "no such adapter" }));
     }
+#endif
 }

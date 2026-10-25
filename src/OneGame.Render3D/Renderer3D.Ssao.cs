@@ -32,8 +32,8 @@ public sealed partial class Renderer3D
             new(0, 2, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
         ];
         _ssaoLayout = Own(device.CreatePipelineLayout(bindings));
-        var ssaoPs = Own(device.CreateShader(ShaderStage.Pixel, Ssao.PSSsao.SpirV, Ssao.PSSsao.EntryPoint));
-        var blurPs = Own(device.CreateShader(ShaderStage.Pixel, Ssao.PSBlur.SpirV, Ssao.PSBlur.EntryPoint));
+        var ssaoPs = Own(device.CreateShader(ShaderStage.Pixel, Ssao.PSSsao.SpirV, Ssao.PSSsao.EntryPoint, Ssao.PSSsao.Wgsl, Ssao.PSSsao.WgslEntryPoint));
+        var blurPs = Own(device.CreateShader(ShaderStage.Pixel, Ssao.PSBlur.SpirV, Ssao.PSBlur.EntryPoint, Ssao.PSBlur.Wgsl, Ssao.PSBlur.WgslEntryPoint));
         GraphicsPipelineDesc Desc(GpuShader pixel, string label) => new()
         {
             Layout = _ssaoLayout,

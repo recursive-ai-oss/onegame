@@ -7,11 +7,11 @@ namespace OneGame.Gpu.Vulkan.Tests;
 /// <summary>Each feature of the 3D-capable GPU layer, rendered or computed and read back, with the validation layer required to stay silent.</summary>
 public sealed class FeatureTests
 {
-    static GpuShader Vertex(GpuDevice d, ReadOnlySpan<byte> spirv, string entry) => d.CreateShader(ShaderStage.Vertex, spirv.ToArray(), entry);
+    static GpuShader Vertex(GpuDevice d, ReadOnlySpan<byte> spirv, string entry, ReadOnlySpan<byte> wgsl = default, string? wgslEntry = null) => d.CreateShader(ShaderStage.Vertex, spirv.ToArray(), entry, wgsl, wgslEntry ?? entry);
 
-    static GpuShader Pixel(GpuDevice d, ReadOnlySpan<byte> spirv, string entry) => d.CreateShader(ShaderStage.Pixel, spirv.ToArray(), entry);
+    static GpuShader Pixel(GpuDevice d, ReadOnlySpan<byte> spirv, string entry, ReadOnlySpan<byte> wgsl = default, string? wgslEntry = null) => d.CreateShader(ShaderStage.Pixel, spirv.ToArray(), entry, wgsl, wgslEntry ?? entry);
 
-    static GpuShader Compute(GpuDevice d, ReadOnlySpan<byte> spirv, string entry) => d.CreateShader(ShaderStage.Compute, spirv.ToArray(), entry);
+    static GpuShader Compute(GpuDevice d, ReadOnlySpan<byte> spirv, string entry, ReadOnlySpan<byte> wgsl = default, string? wgslEntry = null) => d.CreateShader(ShaderStage.Compute, spirv.ToArray(), entry, wgsl, wgslEntry ?? entry);
 
     static GpuGraphicsPipeline Fullscreen(GpuDevice d, GpuShader vs, GpuShader ps, GpuPipelineLayout layout, GpuFormat format, uint samples = 1) =>
         d.CreateGraphicsPipeline(new GraphicsPipelineDesc
@@ -26,10 +26,10 @@ public sealed class FeatureTests
     static GpuTexture Target(GpuDevice d, uint w, uint h, GpuFormat format = GpuFormat.Rgba8Unorm) =>
         d.CreateTexture(new TextureDesc(w, h, format, TextureUsage.RenderTarget | TextureUsage.CopySource));
 
-    static byte[] Read(GpuDevice d, GpuTexture t, uint mip = 0, uint layer = 0)
+    static async Task<byte[]> ReadAsync(GpuDevice d, GpuTexture t, uint mip = 0, uint layer = 0)
     {
         var bytes = new byte[GpuDevice.LevelByteSize(t.Format, t.Width, t.Height, t.Depth, mip)];
-        d.ReadTexture(t, mip, layer, bytes);
+        await d.ReadTextureAsync(t, mip, layer, bytes);
         return bytes;
     }
 
@@ -68,11 +68,13 @@ public sealed class FeatureTests
         Assert.True(caps.MaxSampleCount >= 1);
         Assert.True(caps.MaxTextureSize >= 4096);
         Assert.True(caps.MaxTextureSize3D >= 256);
+#if !WEB_BACKEND
         Assert.True(caps.MaxResourceArrayCount >= 16);
+#endif
     }
 
     [Fact]
-    public void CubeMapIsRenderedFaceByFaceWithDynamicOffsetsThenSampled()
+    public async Task CubeMapIsRenderedFaceByFaceWithDynamicOffsetsThenSampled()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -87,8 +89,8 @@ public sealed class FeatureTests
             d.WriteBuffer(ub, (ulong)i * GpuDevice.DynamicOffsetAlignment, MemoryMarshal.AsBytes<float>(c));
         }
 
-        using var vs = Vertex(d, FaceFill.VSMain.SpirV, FaceFill.VSMain.EntryPoint);
-        using var ps = Pixel(d, FaceFill.PSMain.SpirV, FaceFill.PSMain.EntryPoint);
+        using var vs = Vertex(d, FaceFill.VSMain.SpirV, FaceFill.VSMain.EntryPoint, FaceFill.VSMain.Wgsl, FaceFill.VSMain.WgslEntryPoint);
+        using var ps = Pixel(d, FaceFill.PSMain.SpirV, FaceFill.PSMain.EntryPoint, FaceFill.PSMain.Wgsl, FaceFill.PSMain.WgslEntryPoint);
         using var fillLayout = d.CreatePipelineLayout([new ResourceBinding(0, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Pixel) { Dynamic = true }]);
         using var fillGroup = d.CreateBindGroup(fillLayout, 0, [BindGroupEntry.ForBuffer(0, ub, 0, 16)]);
         using var fillPipeline = Fullscreen(d, vs, ps, fillLayout, GpuFormat.Rgba8Unorm);
@@ -105,8 +107,8 @@ public sealed class FeatureTests
 
         d.Submit(enc);
 
-        using var svs = Vertex(d, CubeSample.VSMain.SpirV, CubeSample.VSMain.EntryPoint);
-        using var sps = Pixel(d, CubeSample.PSMain.SpirV, CubeSample.PSMain.EntryPoint);
+        using var svs = Vertex(d, CubeSample.VSMain.SpirV, CubeSample.VSMain.EntryPoint, CubeSample.VSMain.Wgsl, CubeSample.VSMain.WgslEntryPoint);
+        using var sps = Pixel(d, CubeSample.PSMain.SpirV, CubeSample.PSMain.EntryPoint, CubeSample.PSMain.Wgsl, CubeSample.PSMain.WgslEntryPoint);
         using var layout = d.CreatePipelineLayout([SampledAt0, SamplerAt1]);
         using var sampler = d.CreateSampler(SamplerDesc.Nearest);
         using var group = d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTexture(0, cube), BindGroupEntry.ForSampler(1, sampler)]);
@@ -114,7 +116,7 @@ public sealed class FeatureTests
         using var target = Target(d, 6, 1);
         DrawFullscreen(d, target, pipeline, (0, group));
 
-        var pixels = Read(d, target);
+        var pixels = await ReadAsync(d, target);
         for (var i = 0; i < 6; i++)
         {
             AssertPixel(pixels, i, colors[i][0], colors[i][1], colors[i][2]);
@@ -131,7 +133,7 @@ public sealed class FeatureTests
     }
 
     [Fact]
-    public void TextureViewsSelectMipLevels()
+    public async Task TextureViewsSelectMipLevels()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -149,8 +151,8 @@ public sealed class FeatureTests
             d.WriteTexture(tex, m, 0, data);
         }
 
-        using var vs = Vertex(d, Sample2D.VSMain.SpirV, Sample2D.VSMain.EntryPoint);
-        using var ps = Pixel(d, Sample2D.PSMain.SpirV, Sample2D.PSMain.EntryPoint);
+        using var vs = Vertex(d, Sample2D.VSMain.SpirV, Sample2D.VSMain.EntryPoint, Sample2D.VSMain.Wgsl, Sample2D.VSMain.WgslEntryPoint);
+        using var ps = Pixel(d, Sample2D.PSMain.SpirV, Sample2D.PSMain.EntryPoint, Sample2D.PSMain.Wgsl, Sample2D.PSMain.WgslEntryPoint);
         using var layout = d.CreatePipelineLayout([SampledAt0, SamplerAt1]);
         using var sampler = d.CreateSampler(SamplerDesc.Nearest);
         using var pipeline = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
@@ -159,7 +161,7 @@ public sealed class FeatureTests
         {
             using var group = d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTexture(0, tex, TextureViewDesc.Mip(m)), BindGroupEntry.ForSampler(1, sampler)]);
             DrawFullscreen(d, target, pipeline, (0, group));
-            var px = Read(d, target);
+            var px = await ReadAsync(d, target);
             AssertPixel(px, 0, colors[m][0], colors[m][1], colors[m][2]);
         }
 
@@ -167,7 +169,7 @@ public sealed class FeatureTests
     }
 
     [Fact]
-    public void ArrayLayersAreRenderTargetsAndSampledAsAnArray()
+    public async Task ArrayLayersAreRenderTargetsAndSampledAsAnArray()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -180,15 +182,15 @@ public sealed class FeatureTests
 
         d.Submit(enc);
 
-        using var vs = Vertex(d, Layers.VSMain.SpirV, Layers.VSMain.EntryPoint);
-        using var ps = Pixel(d, Layers.PSMain.SpirV, Layers.PSMain.EntryPoint);
+        using var vs = Vertex(d, Layers.VSMain.SpirV, Layers.VSMain.EntryPoint, Layers.VSMain.Wgsl, Layers.VSMain.WgslEntryPoint);
+        using var ps = Pixel(d, Layers.PSMain.SpirV, Layers.PSMain.EntryPoint, Layers.PSMain.Wgsl, Layers.PSMain.WgslEntryPoint);
         using var layout = d.CreatePipelineLayout([SampledAt0, SamplerAt1]);
         using var sampler = d.CreateSampler(SamplerDesc.Nearest);
         using var group = d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTexture(0, arr), BindGroupEntry.ForSampler(1, sampler)]);
         using var pipeline = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
         using var target = Target(d, 4, 1);
         DrawFullscreen(d, target, pipeline, (0, group));
-        var px = Read(d, target);
+        var px = await ReadAsync(d, target);
         for (var i = 0; i < 4; i++)
         {
             AssertPixel(px, i, (int)MathF.Round(i / 3f * 255), (int)MathF.Round((1 - i / 3f) * 255), 128, tolerance: 1);
@@ -196,7 +198,7 @@ public sealed class FeatureTests
     }
 
     [Fact]
-    public void VolumeTextureIsWrittenSampledAndMipped()
+    public async Task VolumeTextureIsWrittenSampledAndMipped()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -236,28 +238,28 @@ public sealed class FeatureTests
         enc.GenerateMips(vol);
         d.Submit(enc);
 
-        using var vs = Vertex(d, Volume.VSMain.SpirV, Volume.VSMain.EntryPoint);
-        using var ps = Pixel(d, Volume.PSMain.SpirV, Volume.PSMain.EntryPoint);
+        using var vs = Vertex(d, Volume.VSMain.SpirV, Volume.VSMain.EntryPoint, Volume.VSMain.Wgsl, Volume.VSMain.WgslEntryPoint);
+        using var ps = Pixel(d, Volume.PSMain.SpirV, Volume.PSMain.EntryPoint, Volume.PSMain.Wgsl, Volume.PSMain.WgslEntryPoint);
         using var layout = d.CreatePipelineLayout([SampledAt0, SamplerAt1]);
         using var sampler = d.CreateSampler(SamplerDesc.Nearest);
         using var group = d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTexture(0, vol), BindGroupEntry.ForSampler(1, sampler)]);
         using var pipeline = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
         using var target = Target(d, 4, 1);
         DrawFullscreen(d, target, pipeline, (0, group));
-        var px = Read(d, target);
+        var px = await ReadAsync(d, target);
         AssertPixel(px, 0, 0, 255, 0);
         AssertPixel(px, 1, 60, 195, 0);
         AssertPixel(px, 2, 120, 135, 0);
         AssertPixel(px, 3, 200, 10, 0);
 
         // The 1x1x1 top level averages all four slices: red (0 + 60 + 120 + 200) / 4, green (255 + 195 + 135 + 10) / 4.
-        var top = Read(d, vol, 2);
+        var top = await ReadAsync(d, vol, 2);
         Assert.InRange(top[0], 95, 97);
         Assert.InRange(top[1], 147, 150);
     }
 
     [Fact]
-    public void MultisampledTargetResolves()
+    public async Task MultisampledTargetResolves()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -267,8 +269,8 @@ public sealed class FeatureTests
         }
 
         const uint S = 64;
-        using var vs = Vertex(d, Triangle.VSMain.SpirV, Triangle.VSMain.EntryPoint);
-        using var ps = Pixel(d, Triangle.PSMain.SpirV, Triangle.PSMain.EntryPoint);
+        using var vs = Vertex(d, Triangle.VSMain.SpirV, Triangle.VSMain.EntryPoint, Triangle.VSMain.Wgsl, Triangle.VSMain.WgslEntryPoint);
+        using var ps = Pixel(d, Triangle.PSMain.SpirV, Triangle.PSMain.EntryPoint, Triangle.PSMain.Wgsl, Triangle.PSMain.WgslEntryPoint);
         using var layout = d.CreatePipelineLayout([]);
         using var single = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
         using var multi = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm, 4);
@@ -297,8 +299,8 @@ public sealed class FeatureTests
         pass.EndPass();
         d.Submit(enc);
 
-        var a = Read(d, plain);
-        var b = Read(d, resolved);
+        var a = await ReadAsync(d, plain);
+        var b = await ReadAsync(d, resolved);
         var edges = 0;
         var interior = 0;
         for (var i = 0; i < S * S; i++)
@@ -326,15 +328,15 @@ public sealed class FeatureTests
     }
 
     [Fact]
-    public void ShadowComparisonSamplesDepth()
+    public async Task ShadowComparisonSamplesDepth()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
         using var depth = d.CreateTexture(new TextureDesc(4, 4, GpuFormat.Depth32Float, TextureUsage.RenderTarget | TextureUsage.Sampled));
-        using var depthVs = Vertex(d, Shadow.VSDepth.SpirV, Shadow.VSDepth.EntryPoint);
-        using var farVs = Vertex(d, Shadow.VSFar.SpirV, Shadow.VSFar.EntryPoint);
-        using var vs = Vertex(d, Shadow.VSMain.SpirV, Shadow.VSMain.EntryPoint);
-        using var ps = Pixel(d, Shadow.PSMain.SpirV, Shadow.PSMain.EntryPoint);
+        using var depthVs = Vertex(d, Shadow.VSDepth.SpirV, Shadow.VSDepth.EntryPoint, Shadow.VSDepth.Wgsl, Shadow.VSDepth.WgslEntryPoint);
+        using var farVs = Vertex(d, Shadow.VSFar.SpirV, Shadow.VSFar.EntryPoint, Shadow.VSFar.Wgsl, Shadow.VSFar.WgslEntryPoint);
+        using var vs = Vertex(d, Shadow.VSMain.SpirV, Shadow.VSMain.EntryPoint, Shadow.VSMain.Wgsl, Shadow.VSMain.WgslEntryPoint);
+        using var ps = Pixel(d, Shadow.PSMain.SpirV, Shadow.PSMain.EntryPoint, Shadow.PSMain.Wgsl, Shadow.PSMain.WgslEntryPoint);
         using var emptyLayout = d.CreatePipelineLayout([]);
         using var layout = d.CreatePipelineLayout([SampledAt0, SamplerAt1]);
         using var cmp = d.CreateSampler(SamplerDesc.Nearest with { Compare = CompareFunction.LessEqual });
@@ -342,7 +344,7 @@ public sealed class FeatureTests
         using var target = Target(d, 2, 1);
         using var group = d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTexture(0, depth), BindGroupEntry.ForSampler(1, cmp)]);
 
-        void Case(GpuShader depthShader, DepthStencilState state, bool clamp, float clear, bool expectLow, bool expectHigh)
+        async Task Case(GpuShader depthShader, DepthStencilState state, bool clamp, float clear, bool expectLow, bool expectHigh)
         {
             using var writer = d.CreateGraphicsPipeline(new GraphicsPipelineDesc { Layout = emptyLayout, Vertex = depthShader, DepthStencil = state, DepthClamp = clamp });
             var enc = d.BeginCommands();
@@ -352,7 +354,7 @@ public sealed class FeatureTests
             pass.EndPass();
             d.Submit(enc);
             DrawFullscreen(d, target, lookup, (0, group));
-            var px = Read(d, target);
+            var px = await ReadAsync(d, target);
 
             // The lookup compares 0.4 and 0.6 against the stored depth with "reference <= stored".
             Assert.Equal(expectLow ? 255 : 0, px[0]);
@@ -360,29 +362,29 @@ public sealed class FeatureTests
         }
 
         // Stored depth 0.5: 0.4 <= 0.5 passes, 0.6 <= 0.5 fails.
-        Case(depthVs, new DepthStencilState(GpuFormat.Depth32Float), false, 1f, true, false);
+        await Case(depthVs, new DepthStencilState(GpuFormat.Depth32Float), false, 1f, true, false);
 
         // A constant bias of 2^22 steps moves 0.5 by 0.25 (float depth steps at 0.5 are 2^-24), so 0.6 now passes.
-        Case(depthVs, new DepthStencilState(GpuFormat.Depth32Float) { DepthBias = 1 << 22 }, false, 1f, true, true);
+        await Case(depthVs, new DepthStencilState(GpuFormat.Depth32Float) { DepthBias = 1 << 22 }, false, 1f, true, true);
 
         if (d.Capabilities.DepthClamp)
         {
             // Depth 1.5 is clipped away without clamping, so the cleared 0 stays; with clamping 1.0 is written.
             var always = new DepthStencilState(GpuFormat.Depth32Float) { DepthCompare = CompareFunction.Always };
-            Case(farVs, always, false, 0f, false, false);
-            Case(farVs, always, true, 0f, true, true);
+            await Case(farVs, always, false, 0f, false, false);
+            await Case(farVs, always, true, 0f, true, true);
         }
     }
 
     [Fact]
-    public void ComputeWritesStorageTextureThenDrawReadsIt()
+    public async Task ComputeWritesStorageTextureThenDrawReadsIt()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
         using var tex = d.CreateTexture(new TextureDesc(16, 16, GpuFormat.Rgba8Unorm, TextureUsage.Storage | TextureUsage.Sampled));
-        using var cs = Compute(d, StorageImage.CSMain.SpirV, StorageImage.CSMain.EntryPoint);
-        using var vs = Vertex(d, StorageImage.VSMain.SpirV, StorageImage.VSMain.EntryPoint);
-        using var ps = Pixel(d, StorageImage.PSMain.SpirV, StorageImage.PSMain.EntryPoint);
+        using var cs = Compute(d, StorageImage.CSMain.SpirV, StorageImage.CSMain.EntryPoint, StorageImage.CSMain.Wgsl, StorageImage.CSMain.WgslEntryPoint);
+        using var vs = Vertex(d, StorageImage.VSMain.SpirV, StorageImage.VSMain.EntryPoint, StorageImage.VSMain.Wgsl, StorageImage.VSMain.WgslEntryPoint);
+        using var ps = Pixel(d, StorageImage.PSMain.SpirV, StorageImage.PSMain.EntryPoint, StorageImage.PSMain.Wgsl, StorageImage.PSMain.WgslEntryPoint);
         using var computeLayout = d.CreatePipelineLayout([new ResourceBinding(0, 0, 1, ResourceKind.StorageTexture, ShaderStage.Compute)]);
         using var drawLayout = d.CreatePipelineLayout([new ResourceBinding(1, 0, 1, ResourceKind.SampledTexture, ShaderStage.Pixel)]);
         using var computeGroup = d.CreateBindGroup(computeLayout, 0, [BindGroupEntry.ForTexture(0, tex)]);
@@ -404,7 +406,7 @@ public sealed class FeatureTests
         pass.EndPass();
         d.Submit(enc);
 
-        var px = Read(d, target);
+        var px = await ReadAsync(d, target);
         for (var y = 0; y < 16; y++)
         {
             for (var x = 0; x < 16; x++)
@@ -421,7 +423,7 @@ public sealed class FeatureTests
     }
 
     [Fact]
-    public void IndirectDrawsAndDispatchesMatchDirectOnes()
+    public async Task IndirectDrawsAndDispatchesMatchDirectOnes()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -439,8 +441,8 @@ public sealed class FeatureTests
         using var iargs = d.CreateBuffer(new BufferDesc(2 * DrawIndexedIndirectArgs.Size, BufferUsage.Indirect | BufferUsage.CopyDestination));
         d.WriteBuffer(iargs, 0, MemoryMarshal.AsBytes<DrawIndexedIndirectArgs>([new(3, 1, 0, 0, 0), new(3, 1, 3, 0, 0)]));
 
-        using var vs = Vertex(d, Indirect.VSMain.SpirV, Indirect.VSMain.EntryPoint);
-        using var ps = Pixel(d, Indirect.PSMain.SpirV, Indirect.PSMain.EntryPoint);
+        using var vs = Vertex(d, Indirect.VSMain.SpirV, Indirect.VSMain.EntryPoint, Indirect.VSMain.Wgsl, Indirect.VSMain.WgslEntryPoint);
+        using var ps = Pixel(d, Indirect.PSMain.SpirV, Indirect.PSMain.EntryPoint, Indirect.PSMain.Wgsl, Indirect.PSMain.WgslEntryPoint);
         using var layout = d.CreatePipelineLayout([]);
         using var pipeline = d.CreateGraphicsPipeline(new GraphicsPipelineDesc
         {
@@ -483,14 +485,14 @@ public sealed class FeatureTests
         pass.EndPass();
         d.Submit(enc);
 
-        var reference = Read(d, direct);
+        var reference = await ReadAsync(d, direct);
         var red = Enumerable.Range(0, 32 * 32).Count(i => reference[i * 4] == 255);
         Assert.True(red > 200, $"expected two red triangles, found {red} red pixels");
-        Assert.Equal(reference, Read(d, indirect));
-        Assert.Equal(reference, Read(d, indexed));
+        Assert.Equal(reference, await ReadAsync(d, indirect));
+        Assert.Equal(reference, await ReadAsync(d, indexed));
 
         // Only the second record: the right-hand triangle, so the left half stays black.
-        var one = Read(d, single);
+        var one = await ReadAsync(d, single);
         Assert.Equal(0, one[(16 * 32 + 8) * 4]);
         Assert.Equal(255, one[(16 * 32 + 24) * 4]);
 
@@ -499,8 +501,8 @@ public sealed class FeatureTests
         using var result = d.CreateBuffer(new BufferDesc(64, BufferUsage.Storage | BufferUsage.CopySource | BufferUsage.CopyDestination));
         d.WriteBuffer(argBuf, 0, new byte[DispatchIndirectArgs.Size]);
         d.WriteBuffer(result, 0, new byte[64]);
-        using var csArgs = Compute(d, Indirect.CSArgs.SpirV, Indirect.CSArgs.EntryPoint);
-        using var csFill = Compute(d, Indirect.CSFill.SpirV, Indirect.CSFill.EntryPoint);
+        using var csArgs = Compute(d, Indirect.CSArgs.SpirV, Indirect.CSArgs.EntryPoint, Indirect.CSArgs.Wgsl, Indirect.CSArgs.WgslEntryPoint);
+        using var csFill = Compute(d, Indirect.CSFill.SpirV, Indirect.CSFill.EntryPoint, Indirect.CSFill.Wgsl, Indirect.CSFill.WgslEntryPoint);
         using var argsLayout = d.CreatePipelineLayout([new ResourceBinding(0, 0, 1, ResourceKind.StorageBuffer, ShaderStage.Compute)]);
         using var fillLayout = d.CreatePipelineLayout([new ResourceBinding(0, 1, 1, ResourceKind.StorageBuffer, ShaderStage.Compute)]);
         using var argsGroup = d.CreateBindGroup(argsLayout, 0, [BindGroupEntry.ForBuffer(0, argBuf)]);
@@ -518,7 +520,7 @@ public sealed class FeatureTests
         cp.EndPass();
         d.Submit(enc);
         var values = new uint[16];
-        d.ReadBuffer(result, 0, MemoryMarshal.AsBytes(values.AsSpan()));
+        await TestRead.Buffer(d, result, values);
         for (uint i = 0; i < 16; i++)
         {
             Assert.Equal(i < 12 ? i + 1 : 0u, values[i]);
@@ -542,12 +544,12 @@ public sealed class FeatureTests
     }
 
     [Fact]
-    public void PushConstantsReachTheShader()
+    public async Task PushConstantsReachTheShader()
     {
         // The shader compiler has no push-constant support yet, so the test turns the fill shader's constant buffer into a push block.
         using var gpu = new GpuFixture();
         var d = gpu.Device;
-        using var vs = Vertex(d, FaceFill.VSMain.SpirV, FaceFill.VSMain.EntryPoint);
+        using var vs = Vertex(d, FaceFill.VSMain.SpirV, FaceFill.VSMain.EntryPoint, FaceFill.VSMain.Wgsl, FaceFill.VSMain.WgslEntryPoint);
         using var ps = d.CreateShader(ShaderStage.Pixel, SpirvPatch.UniformToPushConstant(FaceFill.PSMain.SpirV), FaceFill.PSMain.EntryPoint);
         using var layout = d.CreatePipelineLayout([], new PushConstantRange(16, ShaderStage.Pixel));
         using var pipeline = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
@@ -567,7 +569,7 @@ public sealed class FeatureTests
 
         pass.EndPass();
         d.Submit(enc);
-        var px = Read(d, target);
+        var px = await ReadAsync(d, target);
         AssertPixel(px, 0, 255, 0, 128, tolerance: 1);
         AssertPixel(px, 1, 0, 255, 0);
 
@@ -582,8 +584,9 @@ public sealed class FeatureTests
         Assert.Throws<ArgumentException>(() => d.CreatePipelineLayout([], new PushConstantRange(GpuDevice.MaxPushConstantBytes + 4, ShaderStage.Pixel)));
     }
 
+#if !WEB_BACKEND
     [Fact]
-    public void ResourceArrayIsIndexedNonUniformly()
+    public async Task ResourceArrayIsIndexedNonUniformly()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -605,7 +608,7 @@ public sealed class FeatureTests
         using var pipeline = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
         using var target = Target(d, 4, 1);
         DrawFullscreen(d, target, pipeline, (0, group));
-        var px = Read(d, target);
+        var px = await ReadAsync(d, target);
         for (var i = 0; i < 4; i++)
         {
             AssertPixel(px, i, colors[i][0], colors[i][1], colors[i][2]);
@@ -617,6 +620,7 @@ public sealed class FeatureTests
             t.Dispose();
         }
     }
+#endif
 
     [StructLayout(LayoutKind.Sequential)]
     struct Instance
@@ -626,7 +630,7 @@ public sealed class FeatureTests
     }
 
     [Fact]
-    public void TenThousandInstancesDrawInOneCall()
+    public async Task TenThousandInstancesDrawInOneCall()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -644,8 +648,8 @@ public sealed class FeatureTests
         using var instances = d.CreateBuffer(new BufferDesc((ulong)(inst.Length * 12), BufferUsage.Vertex | BufferUsage.CopyDestination));
         d.WriteBuffer(instances, 0, MemoryMarshal.AsBytes<Instance>(inst));
 
-        using var vs = Vertex(d, Instanced.VSMain.SpirV, Instanced.VSMain.EntryPoint);
-        using var ps = Pixel(d, Instanced.PSMain.SpirV, Instanced.PSMain.EntryPoint);
+        using var vs = Vertex(d, Instanced.VSMain.SpirV, Instanced.VSMain.EntryPoint, Instanced.VSMain.Wgsl, Instanced.VSMain.WgslEntryPoint);
+        using var ps = Pixel(d, Instanced.PSMain.SpirV, Instanced.PSMain.EntryPoint, Instanced.PSMain.Wgsl, Instanced.PSMain.WgslEntryPoint);
         using var layout = d.CreatePipelineLayout([]);
         using var pipeline = d.CreateGraphicsPipeline(new GraphicsPipelineDesc
         {
@@ -675,7 +679,7 @@ public sealed class FeatureTests
         pass.EndPass();
         d.Submit(enc);
 
-        var px = Read(d, target);
+        var px = await ReadAsync(d, target);
         var wrong = 0;
         for (var row = 0; row < 100; row++)
         {
@@ -694,7 +698,7 @@ public sealed class FeatureTests
     }
 
     [Fact]
-    public void PartialTextureWriteTouchesOnlyItsRectangle()
+    public async Task PartialTextureWriteTouchesOnlyItsRectangle()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -707,7 +711,7 @@ public sealed class FeatureTests
         }
 
         d.WriteTexture(tex, TextureRegion.Rect(0, 0, 2, 3, 3, 2), patch);
-        var px = Read(d, tex);
+        var px = await ReadAsync(d, tex);
         for (var y = 0; y < 8; y++)
         {
             for (var x = 0; x < 8; x++)
@@ -726,7 +730,7 @@ public sealed class FeatureTests
     }
 
     [Fact]
-    public void WholeTexturesAreCopiedWithTheirMips()
+    public async Task WholeTexturesAreCopiedWithTheirMips()
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
@@ -745,8 +749,8 @@ public sealed class FeatureTests
         var enc = d.BeginCommands();
         enc.CopyTexture(a, b);
         d.Submit(enc);
-        Assert.All(Read(d, b, 2, 1), v => Assert.Equal(65, v));
-        Assert.All(Read(d, b, 0, 0), v => Assert.Equal(5, v));
+        Assert.All(await ReadAsync(d, b, 2, 1), v => Assert.Equal(65, v));
+        Assert.All(await ReadAsync(d, b, 0, 0), v => Assert.Equal(5, v));
         using var other = d.CreateTexture(new TextureDesc(8, 4, GpuFormat.Rgba8Unorm, usage) { MipLevels = 3, ArrayLayers = 2 });
         Assert.Throws<ArgumentException>(() => d.BeginCommands().CopyTexture(a, other));
     }

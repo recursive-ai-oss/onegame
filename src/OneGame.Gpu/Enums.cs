@@ -393,4 +393,7 @@ public enum SurfaceKind
     Wayland,
     /// <summary>Win32: an HINSTANCE and an HWND.</summary>
     Win32,
+
+    /// <summary>A browser canvas element, named by its id.</summary>
+    Canvas,
 }

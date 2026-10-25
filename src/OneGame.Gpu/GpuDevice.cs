@@ -37,6 +37,13 @@ public abstract class GpuDevice : IDisposable
     /// <summary>Creates a shader from SPIR-V code (4-byte aligned words, little-endian).</summary>
     public abstract GpuShader CreateShader(ShaderStage stage, ReadOnlySpan<byte> spirv, string entryPoint);
 
+    /// <summary>
+    /// Creates a shader from the forms the shader build produced. Vulkan uses the SPIR-V; WebGPU uses the WGSL text (UTF-8) and its entry point.
+    /// Pass both so the same call works on every backend.
+    /// </summary>
+    public virtual GpuShader CreateShader(ShaderStage stage, ReadOnlySpan<byte> spirv, string entryPoint, ReadOnlySpan<byte> wgsl, string wgslEntryPoint) =>
+        CreateShader(stage, spirv, entryPoint);
+
     /// <summary>Creates a pipeline layout from the resource bindings of the pipeline's shaders. Entries from several shaders may repeat; identical ones merge and their stages combine.</summary>
     public abstract GpuPipelineLayout CreatePipelineLayout(ReadOnlySpan<ResourceBinding> bindings);
 
@@ -88,6 +95,24 @@ public abstract class GpuDevice : IDisposable
 
     /// <summary>Waits for all submitted work, then copies a texture mip level into <paramref name="destination"/> with tightly packed rows.</summary>
     public abstract void ReadTexture(GpuTexture texture, uint mipLevel, uint layer, Span<byte> destination);
+
+    /// <summary>
+    /// Like <see cref="ReadBuffer"/>, for backends that cannot block (the browser). Native backends complete before returning.
+    /// </summary>
+    public virtual ValueTask ReadBufferAsync(GpuBuffer buffer, ulong offset, Memory<byte> destination)
+    {
+        ReadBuffer(buffer, offset, destination.Span);
+        return ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// Like <see cref="ReadTexture"/>, for backends that cannot block (the browser). Native backends complete before returning.
+    /// </summary>
+    public virtual ValueTask ReadTextureAsync(GpuTexture texture, uint mipLevel, uint layer, Memory<byte> destination)
+    {
+        ReadTexture(texture, mipLevel, layer, destination.Span);
+        return ValueTask.CompletedTask;
+    }
 
     /// <summary>Blocks until the GPU has finished everything submitted.</summary>
     public abstract void WaitIdle();

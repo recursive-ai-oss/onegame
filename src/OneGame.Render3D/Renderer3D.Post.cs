@@ -41,10 +41,10 @@ public sealed partial class Renderer3D
             new(0, 3, 1, ResourceKind.Sampler, ShaderStage.Pixel),
         ];
         _postLayout = Own(device.CreatePipelineLayout(bindings));
-        _postVs = Own(device.CreateShader(ShaderStage.Vertex, Post.VSFull.SpirV, Post.VSFull.EntryPoint));
-        _downPs = Own(device.CreateShader(ShaderStage.Pixel, Post.PSDown.SpirV, Post.PSDown.EntryPoint));
-        _upPs = Own(device.CreateShader(ShaderStage.Pixel, Post.PSUp.SpirV, Post.PSUp.EntryPoint));
-        _tonemapPs = Own(device.CreateShader(ShaderStage.Pixel, Post.PSTonemap.SpirV, Post.PSTonemap.EntryPoint));
+        _postVs = Own(device.CreateShader(ShaderStage.Vertex, Post.VSFull.SpirV, Post.VSFull.EntryPoint, Post.VSFull.Wgsl, Post.VSFull.WgslEntryPoint));
+        _downPs = Own(device.CreateShader(ShaderStage.Pixel, Post.PSDown.SpirV, Post.PSDown.EntryPoint, Post.PSDown.Wgsl, Post.PSDown.WgslEntryPoint));
+        _upPs = Own(device.CreateShader(ShaderStage.Pixel, Post.PSUp.SpirV, Post.PSUp.EntryPoint, Post.PSUp.Wgsl, Post.PSUp.WgslEntryPoint));
+        _tonemapPs = Own(device.CreateShader(ShaderStage.Pixel, Post.PSTonemap.SpirV, Post.PSTonemap.EntryPoint, Post.PSTonemap.Wgsl, Post.PSTonemap.WgslEntryPoint));
         _postBuffer = Own(device.CreateBuffer(new BufferDesc((ulong)PostSlots * GpuDevice.DynamicOffsetAlignment, BufferUsage.Uniform | BufferUsage.CopyDestination) { Label = "3d post" }));
         _postSampler = Own(device.CreateSampler(SamplerDesc.Linear));
         _downPipeline = Own(device.CreateGraphicsPipeline(PostPipeline(_downPs, HdrFormat, null, "bloom down")));
