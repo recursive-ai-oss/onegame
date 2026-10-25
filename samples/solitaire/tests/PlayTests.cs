@@ -448,7 +448,7 @@ public class SoundTests
 public class LiveSessionTests
 {
     [Fact]
-    public void AgentStartsAGameMakesAMoveReadsTheScoreAndCapturesAFrameOverMcp()
+    public void ClientStartsAGameMakesAMoveReadsTheScoreAndCapturesAFrameOverMcp()
     {
         using var cluster = TestCluster.Start(new SolitaireGame(), new TestOptions { Seed = 1 });
         using var server = new LiveServer(cluster.Client.Control);
@@ -457,7 +457,7 @@ public class LiveSessionTests
         var replies = new List<JsonDocument>();
         Exception? failure = null;
         var done = new ManualResetEventSlim();
-        var agent = new Thread(() =>
+        var driver = new Thread(() =>
         {
             try
             {
@@ -473,7 +473,7 @@ public class LiveSessionTests
                     replies.Add(JsonDocument.Parse(reader.ReadLine()!));
                 }
 
-                writer.WriteLine("""{"jsonrpc":"2.0","id":100,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"agent","version":"1"}}}""");
+                writer.WriteLine("""{"jsonrpc":"2.0","id":100,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"client","version":"1"}}}""");
                 _ = reader.ReadLine();
                 writer.WriteLine("""{"jsonrpc":"2.0","method":"notifications/initialized"}""");
                 Call("screen_open", """{"name":"main"}""");
@@ -494,7 +494,7 @@ public class LiveSessionTests
                 done.Set();
             }
         });
-        agent.Start();
+        driver.Start();
         var deadline = Environment.TickCount64 + 60000;
         while (!done.IsSet && Environment.TickCount64 < deadline)
         {
@@ -502,7 +502,7 @@ public class LiveSessionTests
             server.WaitForWork(5);
         }
 
-        agent.Join();
+        driver.Join();
         Assert.Null(failure);
         Assert.Equal(8, replies.Count);
         string Text(int i) => replies[i].RootElement.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString()!;
