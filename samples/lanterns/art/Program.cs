@@ -223,7 +223,6 @@ static class Models
     private static readonly Mat Cloth = new("cloth", 0f, 0.8f);
     private static readonly Mat Skin = new("skin", 0f, 0.55f);
     private static readonly Mat Water = new("water", 0f, 0.06f);
-    private static readonly Mat Shadow = new("shadow", 0f, 1f) { Blend = true, DoubleSided = true };
     private static readonly Mat Warm = new("lamp", 0f, 0.4f) { Emissive = new Vector3(1f, 0.62f, 0.25f), EmissiveStrength = 3f };
 
     // The island is 16 x 8 m of play area (the game's 384 x 192 units at 24 to the metre) plus a margin of rim around it.
@@ -240,7 +239,6 @@ static class Models
         yield return ("water", WaterPlane());
         yield return ("walker-me", Walker(Pal.Hex(0xF1E6D2), Pal.Hex(0xE08A2E), Pal.Hex(0xF2C14E)));
         yield return ("walker-other", Walker(Pal.Hex(0x6F86B8), Pal.Hex(0x2B3550), Pal.Hex(0x9CB2D8)));
-        yield return ("blob", Blob());
         yield return ("lantern-red", LanternModel(0xE5484D, new Vector3(1f, 0.10f, 0.08f)));
         yield return ("lantern-blue", LanternModel(0x4C9BE8, new Vector3(0.12f, 0.45f, 1f)));
         yield return ("lantern-gold", LanternModel(0xF2C14E, new Vector3(1f, 0.62f, 0.10f)));
@@ -469,27 +467,6 @@ static class Models
         model.Lathe(Cloth, new Vector3(0f, 0.86f, 0f), [(0f, 0f, hat), (0.20f, 0f, hat), (0.12f, 0.02f, hat), (0.10f, 0.12f, hat), (0f, 0.26f, hat)], 12, smooth: false);
         model.Sphere(Matte, new Vector3(-0.05f, 0.80f, -0.115f), 0.022f, Pal.Hex(0x1B1B20), 6, 4);
         model.Sphere(Matte, new Vector3(0.05f, 0.80f, -0.115f), 0.022f, Pal.Hex(0x1B1B20), 6, 4);
-        return model;
-    }
-
-    private static Model Blob()
-    {
-        var model = new Model();
-        var mesh = model.On(Shadow);
-        var hub = mesh.Vertex(new Vector3(0, 0, 0), Vector3.UnitY, new Vector4(0f, 0f, 0f, 0.42f));
-        const int n = 16;
-        var ring = new uint[n];
-        for (var j = 0; j < n; j++)
-        {
-            var a = j / (float)n * MathF.Tau;
-            ring[j] = mesh.Vertex(new Vector3(MathF.Cos(a) * 0.36f, 0f, MathF.Sin(a) * 0.36f), Vector3.UnitY, new Vector4(0f, 0f, 0f, 0f));
-        }
-
-        for (var j = 0; j < n; j++)
-        {
-            mesh.Tri(hub, ring[j], ring[(j + 1) % n]);
-        }
-
         return model;
     }
 

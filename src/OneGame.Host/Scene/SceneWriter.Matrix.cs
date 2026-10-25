@@ -27,8 +27,17 @@ public sealed partial class SceneWriter
     /// <param name="direction">The way the light travels.</param>
     /// <param name="color">Linear RGB.</param>
     /// <param name="lux">Intensity.</param>
-    public void DirectionalLight(Vector3 direction, Vector3 color, float lux)
-        => _lights.Add(new LightDraw(LightKind.Directional, default, Vector3.Normalize(direction), color, lux, 0f, 0f, 0f));
+    /// <param name="castShadows">Whether models and instances cast shadows from this light (cascaded; needs a quality level that allows shadows).</param>
+    public void DirectionalLight(Vector3 direction, Vector3 color, float lux, bool castShadows = false)
+        => _lights.Add(new LightDraw(LightKind.Directional, default, Vector3.Normalize(direction), color, lux, 0f, 0f, 0f, castShadows));
+
+    /// <summary>Shows one copy of a static model among many at a world matrix; see the <see cref="Transform3"/> form.</summary>
+    /// <param name="model">The name the model was added under.</param>
+    /// <param name="world">Where it is; scale must be uniform and unmirrored.</param>
+    /// <param name="tint">Linear RGBA multiplied into the base colour; null leaves it unchanged.</param>
+    /// <exception cref="UnknownModelException">The library has no such model.</exception>
+    public void Instance(string model, in Matrix4x4 world, Vector4? tint = null)
+        => _instances.Add(new InstanceDraw(_models.IndexOf(model), world, tint ?? Vector4.One));
 
     /// <summary>Offers a camera placed by a rigid camera-to-world matrix (it looks down its -Z). Same choice rule as the transform form.</summary>
     /// <param name="world">Camera-to-world matrix.</param>
