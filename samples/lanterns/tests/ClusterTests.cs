@@ -7,7 +7,7 @@ namespace Lanterns.Tests;
 /// <summary>The whole game as separate programs: a master, two islands and two bots over real sockets.</summary>
 public class ClusterTests
 {
-    private static string Program(string project, string exe)
+    internal static string Program(string project, string exe)
     {
         // <artifacts>/bin/<this test app>/<configuration>/ sits next to <artifacts>/bin/<project>/<configuration>/
         var config = new DirectoryInfo(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar)).Name;
@@ -15,7 +15,7 @@ public class ClusterTests
         return File.Exists(path) ? path : throw new FileNotFoundException(path + " is not built; build the test project first.");
     }
 
-    private static NodeSpec Server(string name, string listen, uint scope, params string[] peers) => new()
+    internal static NodeSpec Server(string name, string listen, uint scope, params string[] peers) => new()
     {
         Name = name,
         Role = NodeRole.Server,
@@ -25,7 +25,7 @@ public class ClusterTests
         Args = ["--option", $"peers={{port:{name}.peer}}", .. peers.SelectMany(p => new[] { "--option", p }), "--option", "data={dir}/data"],
     };
 
-    private static ClusterSpec Spec(string name) => new()
+    internal static ClusterSpec Spec(string name) => new()
     {
         Name = name,
         StartupTimeoutMs = 90_000,

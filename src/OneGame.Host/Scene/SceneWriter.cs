@@ -32,7 +32,7 @@ public readonly record struct ViewCamera(Matrix4x4 World, float YFov, float Orth
 /// What an entity's <see cref="IView3D.Describe3D"/> writes into: models, lights and cameras for one frame. Calls only collect; the host
 /// turns them into a renderer scene afterwards, so describing costs no allocation once the lists have grown.
 /// </summary>
-public sealed class SceneWriter
+public sealed partial class SceneWriter
 {
     private const float Deg = MathF.PI / 180f;
     private readonly ModelLibrary _models;
@@ -54,8 +54,8 @@ public sealed class SceneWriter
     /// <summary>How far past <see cref="Tick"/> the frame is, from 0 to just under 1: pass both to <c>Timed&lt;T&gt;.ValueAt(tick, alpha)</c> to move smoothly between ticks.</summary>
     public Fixed Alpha { get; internal set; }
 
-    /// <summary>The entity being described.</summary>
-    public EntityId Entity { get; internal set; }
+    /// <summary>The entity being described. A <see cref="SceneView3D.Describer"/> that draws on behalf of entities sets it before each model, so picking reports that entity.</summary>
+    public EntityId Entity { get; set; }
 
     internal List<ModelDraw> Draws => _draws;
 

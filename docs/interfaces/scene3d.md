@@ -36,6 +36,10 @@ An entity that implements `IView3D` is asked once per drawn frame, in entity ord
 
 `SceneView3D.CameraOverride` replaces the entities' camera for tools; it is a view setting, not state, and not recorded.
 
+### Describing from view code
+
+A game whose entities live in a library that cannot reference the host (a rules assembly shared with servers) cannot implement `IView3D`. It sets `SceneView3D.Describer` instead: `Action<World, SceneWriter>`, called after the entities. It writes with the float forms `Model(name, in Matrix4x4, pickable)`, `PointLight(Vector3, ...)`, `DirectionalLight(Vector3, ...)` and `Camera(in Matrix4x4, ...)`, and sets `SceneWriter.Entity` before a model so picking reports that entity. Keep per-frame state keyed by `scene.Tick`: the same tick may be described several times in a frame (pinned labels ask too). Use indexed loops over `world.Entities`; `foreach` allocates.
+
 ## Picking and projection
 
 `view.Pick(x, y, width, height)` / `view.Cast(ray)`: nearest pickable model along the ray, tested triangle by triangle at the rest pose (broad phase on the model's box), both sides. Result `PickHit(Entity, Model, Distance, Point)`. Animation and skinning are not applied to the test. `TryProject(point, w, h, out pixel, out depth)` is false for points behind the camera or outside the near/far planes; pixels have the origin at the top left.

@@ -1,6 +1,6 @@
 # Lanterns
 
-The networked sample. Two islands joined by a bridge, each simulated by its own server; a master server that keeps accounts, a leaderboard and the swap ledger. Players walk, pick up lanterns (red, blue, gold), cross the bridge, and swap one lantern for another with any player, on either island. Plain boxes and the kit's dialog: the look is a placeholder, and the views can be replaced without touching the rules.
+The networked sample. Two islands joined by a bridge, each simulated by its own server; a master server that keeps accounts, a leaderboard and the swap ledger. Players walk, pick up lanterns (red, blue, gold), cross the bridge, and swap one lantern for another with any player, on either island. It is drawn in 3D on the PBR renderer: low-poly islands, a wooden bridge, walkers, and lanterns that glow and light the ground around them, with the kit's HUD and swap dialog over it. The look is a placeholder, and the views can be replaced without touching the rules.
 
 It is also the example for multiplayer: `docs/interfaces/sync.md` (views, prediction, transfer, relaying, escrow), `transport.md` and `cluster.md` are what it is built from.
 
@@ -10,9 +10,11 @@ It is also the example for multiplayer: `docs/interfaces/sync.md` (views, predic
 |---|---|
 | `Sim/` | The rules (library, shared by everything): `Island`, `Player`, `Lantern`, `Account`, `Market`, the swap handler, and `Worlds` (how each scope is built). Integer positions, named random streams, no floats. |
 | `Server/` | `LanternsServer`: one program; the scope it is given decides if it is an island (1, 2) or the master (3). `Realm` is all of its logic. |
-| `Views/`, `Game.cs` | The client: `Session` (what is mine, what is here), `IslandView`, `Autopilot`. |
-| `scenarios/` | Single-player scenarios and 720p captures, run by `onegame test`. |
+| `Views/`, `Game.cs` | The client: `Session` (what is mine, what is here), `IslandView` (HUD, names, swap dialog), `IslandScene` (the 3D scene and camera), `Motion` (view-only smoothing), `Autopilot`. |
+| `models/`, `art/` | The glTF models (embedded in the program) and `art/Program.cs`, the small program that writes them: `dotnet run --project art -- models`. |
+| `scenarios/` | Single-player scenarios, picks and captures (3D frames against lavapipe references, 4 of 255 per channel on at most 0.1% of pixels), run by `onegame test`. |
 | `cluster.yaml`, `cluster/play.yaml`, `cluster/crash.yaml` | The five-process cluster, the scenario that plays 2000 ticks on it, and the one that kills the master (while a swap is open) and then island B and starts them again. |
+| `cluster-3d.yaml` | The same cluster with graphics devices on the bots, for capturing what a bot sees. |
 | `cluster/reconnect.yaml`, `cluster/leave.yaml` | Island A is killed and started again with bot1 playing on it (nobody restarts the bot); a bot is killed and its player leaves the game. |
 | `cluster-release.yaml`, `cluster/play-release.yaml` | The same cluster made of exported builds, whose clients have no live control. |
 | `tests/` | In-process network tests, privacy at the byte level, determinism, and the process cluster. |
@@ -25,6 +27,15 @@ It is also the example for multiplayer: `docs/interfaces/sync.md` (views, predic
 - **The bridge is an authority transfer.** The sim moves a player to the arrival place and sets `Dest`; the island server (`Realm.HandOver`) then calls `BeginTransfer`. The entity gets a new id on the other island, its commands in flight are forwarded exactly once, and `Moves` (the count of applied steers) travels with it.
 - **A swap is an escrow.** `Account.Accept` on the master opens a trade; the master's `EscrowDriver` takes one lantern from each player on their island (`Withdraw`), then credits the other (`Credit`), or gives it back. Servers save every other tick and answer peers only for what the save holds (`Durability.AfterSave`), so a server killed and started from its file keeps every lantern. A player who has a swap pending, or is already on the bridge, cannot take part in the other.
 - **Servers find each other** with `--option peer.N=udp://host:port` and listen for each other on a private port, `--option peers=PORT` (the transport does not authenticate, so that port must not be reachable by players). A link that drops opens again by itself.
+
+## The 3D view
+
+The rules live in a library that servers share and cannot reference the host, so no entity draws itself. `IslandScene` is the scene view's `Describer`: each frame it reads the island worlds (for the one I walk on, the predicted copy) and writes models, lights and the camera. The two islands sit side by side along X with the bridge between, so the camera follows my player over the hand-over without a cut; a walker waiting for the other server glides across at a fixed speed.
+
+- **Motion is view state.** `Motion` moves the drawn position towards the state's position a little each tick, so a prediction correction bends the path instead of popping. It counts ticks, never the clock, so a capture after N ticks always looks the same.
+- **Names** are UI labels pinned to a point above each walker (`PinToWorld`). Lanterns circling a walker are its count; only your own copy knows their colours.
+- **Picking:** `scenarios/12-pick.yaml` clicks a lantern, a walker and the ground. Models of lanterns and walkers are pickable, scenery is not.
+- **Looking at it:** `onegame view models/island-a.glb` renders one model; `onegame capture --out a.png --size 720p --fixture crowded --screen main --after 45` renders the game.
 
 ## Run it
 
@@ -44,6 +55,14 @@ onegame cluster up --spec cluster.yaml --dir run
 onegame cluster hashes --dir run --json      # exit 1 on a mismatch or drift
 onegame cluster down --dir run
 onegame cluster test cluster/play.yaml --spec cluster.yaml --json    # up, 2000 ticks, expectations, down
+```
+
+For a 3D capture from a running bot, use `cluster-3d.yaml` (bots with a graphics device) and ask a bot for a frame:
+
+```
+onegame cluster up --spec cluster-3d.yaml --dir run
+onegame cluster call bot1 capture_frame '{"size":"720p","path":"bot1.png"}' --dir run     # written under run/artifacts
+onegame cluster down --dir run
 ```
 
 `bot1` reaches its island over UDP with 100 ms latency and 2% loss, `bot2` over a WebSocket. A client whose name starts with `bot` plays itself (`Autopilot`).

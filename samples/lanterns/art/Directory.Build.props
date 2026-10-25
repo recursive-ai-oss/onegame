@@ -1,0 +1,10 @@
+<Project>
+
+  <!-- The model maker is a tool that writes the sample's art; it does not ship in a player's game. -->
+  <PropertyGroup>
+    <OneGameShips>false</OneGameShips>
+  </PropertyGroup>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+</Project>
