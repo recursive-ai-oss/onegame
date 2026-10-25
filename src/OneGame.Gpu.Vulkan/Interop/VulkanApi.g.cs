@@ -4459,6 +4459,7 @@ internal sealed unsafe class VkDeviceFns
     public delegate* unmanaged<VkQueue, uint, VkSubmitInfo2*, VkFence, VkResult> vkQueueSubmit2;
     public delegate* unmanaged<VkQueue, VkResult> vkQueueWaitIdle;
     public delegate* unmanaged<VkDevice, VkCommandPool, VkCommandPoolResetFlagBits, VkResult> vkResetCommandPool;
+    public delegate* unmanaged<VkDevice, VkQueryPool, uint, uint, void> vkResetQueryPool;
     public delegate* unmanaged<VkDevice, VkDeviceMemory, void> vkUnmapMemory;
     public delegate* unmanaged<VkDevice, uint, VkWriteDescriptorSet*, uint, VkCopyDescriptorSet*, void> vkUpdateDescriptorSets;
     public delegate* unmanaged<VkDevice, VkSemaphoreWaitInfo*, ulong, VkResult> vkWaitSemaphores;
@@ -4542,6 +4543,7 @@ internal sealed unsafe class VkDeviceFns
         vkQueueSubmit2 = (delegate* unmanaged<VkQueue, uint, VkSubmitInfo2*, VkFence, VkResult>)get(handle, "vkQueueSubmit2\0"u8.GetPointer());
         vkQueueWaitIdle = (delegate* unmanaged<VkQueue, VkResult>)get(handle, "vkQueueWaitIdle\0"u8.GetPointer());
         vkResetCommandPool = (delegate* unmanaged<VkDevice, VkCommandPool, VkCommandPoolResetFlagBits, VkResult>)get(handle, "vkResetCommandPool\0"u8.GetPointer());
+        vkResetQueryPool = (delegate* unmanaged<VkDevice, VkQueryPool, uint, uint, void>)get(handle, "vkResetQueryPool\0"u8.GetPointer());
         vkUnmapMemory = (delegate* unmanaged<VkDevice, VkDeviceMemory, void>)get(handle, "vkUnmapMemory\0"u8.GetPointer());
         vkUpdateDescriptorSets = (delegate* unmanaged<VkDevice, uint, VkWriteDescriptorSet*, uint, VkCopyDescriptorSet*, void>)get(handle, "vkUpdateDescriptorSets\0"u8.GetPointer());
         vkWaitSemaphores = (delegate* unmanaged<VkDevice, VkSemaphoreWaitInfo*, ulong, VkResult>)get(handle, "vkWaitSemaphores\0"u8.GetPointer());

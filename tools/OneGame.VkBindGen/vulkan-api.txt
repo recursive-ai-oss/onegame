@@ -97,6 +97,7 @@ command vkCmdDrawIndexedIndirect
 command vkCmdDispatchIndirect
 command vkCmdPushConstants
 command vkCreateQueryPool
+command vkResetQueryPool
 command vkDestroyQueryPool
 command vkCmdResetQueryPool
 command vkCmdWriteTimestamp2

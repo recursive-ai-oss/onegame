@@ -151,6 +151,7 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
         {
             pNext = &e13,
             timelineSemaphore = 1,
+            hostQueryReset = f12.hostQueryReset,
             shaderSampledImageArrayNonUniformIndexing = f12.shaderSampledImageArrayNonUniformIndexing,
             shaderStorageBufferArrayNonUniformIndexing = f12.shaderStorageBufferArrayNonUniformIndexing,
             shaderStorageImageArrayNonUniformIndexing = f12.shaderStorageImageArrayNonUniformIndexing,
@@ -231,7 +232,9 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
             _instanceFns.vkGetPhysicalDeviceQueueFamilyProperties(_physical, &qCount, qp);
         }
 
-        var timestamps = props.limits.timestampComputeAndGraphics != 0 && QueueFamily < qCount && qProps[QueueFamily].timestampValidBits >= 36
+        // Queries are reset from the host so that creating or reading a set never submits work (a submission in the middle of a frame
+        // would consume the swapchain image acquired for it).
+        var timestamps = f12.hostQueryReset != 0 && props.limits.timestampComputeAndGraphics != 0 && QueueFamily < qCount && qProps[QueueFamily].timestampValidBits >= 36
             && props.limits.timestampPeriod > 0;
         _timestampMask = timestamps && qProps[QueueFamily].timestampValidBits < 64 ? (1UL << (int)qProps[QueueFamily].timestampValidBits) - 1 : ulong.MaxValue;
         var counts = props.limits.framebufferColorSampleCounts & props.limits.framebufferDepthSampleCounts;

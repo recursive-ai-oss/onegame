@@ -209,8 +209,10 @@ public sealed class GraphTests
 
         }
 
+        // 0.5 converts to 127 or 128 depending on the device's rounding.
         var px = Read(d, output);
-        Assert.Equal((255, 128, 0), (px[0], px[1], px[2]));
+        Assert.Equal((255, 0), (px[0], px[2]));
+        Assert.InRange(px[1], 127, 128);
     }
 
     [Fact]

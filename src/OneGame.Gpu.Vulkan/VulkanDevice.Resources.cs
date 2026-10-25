@@ -727,8 +727,8 @@ internal sealed unsafe partial class VulkanDevice
         VkQueryPool pool;
         Check(Fns.vkCreateQueryPool(Handle, &ci, null, &pool), "vkCreateQueryPool");
 
-        // Queries must be reset before the first read; the reset runs ahead of the next submission.
-        Fns.vkCmdResetQueryPool(UploadEncoder.Current, pool, 0, count);
+        // Queries must be reset before the first read.
+        Fns.vkResetQueryPool(Handle, pool, 0, count);
         return new VulkanTimestampSet(this, pool, count);
     }
 
@@ -743,11 +743,6 @@ internal sealed unsafe partial class VulkanDevice
         if ((ulong)first + (ulong)nanoseconds.Length > s.Count)
         {
             throw new ArgumentOutOfRangeException(nameof(nanoseconds), "read extends past the end of the timestamp set");
-        }
-
-        if (_upload is not null)
-        {
-            Submit(BeginCommands());
         }
 
         var n = nanoseconds.Length;
