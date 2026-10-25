@@ -20,7 +20,7 @@ class OneGameOutput extends AudioWorkletProcessor {
     this.starved = false;
     this.quanta = 0;
     this.port.onmessage = (e) => {
-      if (e.data === 'flush') { this.queue = []; this.pos = 0; } else { this.queue.push(e.data); }
+      if (e.data === 'flush') { this.queue = []; this.pos = 0; this.started = false; this.starved = false; } else { this.queue.push(e.data); }
     };
   }
   process(inputs, outputs) {

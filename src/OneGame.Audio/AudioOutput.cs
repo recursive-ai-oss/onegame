@@ -71,6 +71,8 @@ public sealed class AudioOutput : IDisposable
     private long _allocBaseline;
     private long _allocExcluded;
     private long _allocNow;
+    private long _pumpAllocated;
+    private int _pumps;
     private long _nextRetry;
     private long _silentOrigin;
     private long _silentFramesPaced;
@@ -323,11 +325,24 @@ public sealed class AudioOutput : IDisposable
         }
 
         var wanted = pumped.WantedFrames;
+        var before = GC.GetAllocatedBytesForCurrentThread();
         while (wanted > 0)
         {
             var n = Math.Min(wanted, MaxChunkFrames);
             Tick(n);
             wanted -= n;
+        }
+
+        // The same steady-state figure the audio thread reports, for the rendering a page does on its own thread.
+        _pumpAllocated += GC.GetAllocatedBytesForCurrentThread() - before;
+        if (_pumps < WarmupTicks)
+        {
+            _pumps++;
+            _pumpAllocated = 0;
+        }
+        else
+        {
+            Interlocked.Exchange(ref _allocNow, _pumpAllocated);
         }
     }
 
