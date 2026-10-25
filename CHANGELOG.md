@@ -4,7 +4,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
-## [1.0.0] - Unreleased
+## [1.0.0] - 2026-10-25
 
 The first release: a C# game engine with no editor, driven from a terminal.
 
