@@ -4,4 +4,9 @@
     <ProjectReference Include="../../src/OneGame.Cli/OneGame.Cli.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="../../testdata/gltf/Fox/**" Link="testdata/gltf/Fox/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../testdata/gltf/Box/**" Link="testdata/gltf/Box/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

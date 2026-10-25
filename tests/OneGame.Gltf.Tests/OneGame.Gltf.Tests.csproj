@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneGame.Gltf/OneGame.Gltf.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../testdata/gltf/**" Link="testdata/gltf/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../testdata/fuzz-gltf/**/*.bin" Link="testdata/fuzz-gltf/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

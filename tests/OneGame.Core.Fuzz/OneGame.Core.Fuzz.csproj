@@ -18,10 +18,17 @@
     <Compile Include="../OneGame.Sync.Tests/RelayRig.cs" Link="Sync/RelayRig.cs" />
     <Compile Include="../OneGame.Sync.Tests/Fuzz/SyncFuzzTargets.cs" Link="Sync/SyncFuzzTargets.cs" />
     <Compile Include="../OneGame.Net.Tests/Fuzz/NetFuzzTargets.cs" Link="Net/NetFuzzTargets.cs" />
+    <Compile Include="../OneGame.Gltf.Tests/Fuzz/GltfFuzzTargets.cs" Link="Gltf/GltfFuzzTargets.cs" />
+    <ProjectReference Include="../../src/OneGame.Gltf/OneGame.Gltf.csproj" />
     <ProjectReference Include="../../src/OneGame.Net/OneGame.Net.csproj" />
     <ProjectReference Include="../../src/OneGame.Core/OneGame.Core.csproj" />
     <ProjectReference Include="../../src/OneGame.Sync/OneGame.Sync.csproj" />
     <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Real models the glTF targets mutate. -->
+    <None Include="../../testdata/gltf/**" Link="testdata/gltf/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

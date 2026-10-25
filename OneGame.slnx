@@ -6,6 +6,7 @@
     <Project Path="src/OneGame.Control/OneGame.Control.csproj" />
     <Project Path="src/OneGame.Core/OneGame.Core.csproj" />
     <Project Path="src/OneGame.Generators/OneGame.Generators.csproj" />
+    <Project Path="src/OneGame.Gltf/OneGame.Gltf.csproj" />
     <Project Path="src/OneGame.Gpu/OneGame.Gpu.csproj" />
     <Project Path="src/OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan.csproj" />
     <Project Path="src/OneGame.Host/OneGame.Host.csproj" />
@@ -35,6 +36,7 @@
     <Project Path="tests/OneGame.Core.Fuzz/OneGame.Core.Fuzz.csproj" />
     <Project Path="tests/OneGame.Core.Tests/OneGame.Core.Tests.csproj" />
     <Project Path="tests/OneGame.Generators.Tests/OneGame.Generators.Tests.csproj" />
+    <Project Path="tests/OneGame.Gltf.Tests/OneGame.Gltf.Tests.csproj" />
     <Project Path="tests/OneGame.Gpu.Tests/OneGame.Gpu.Tests.csproj" />
     <Project Path="tests/OneGame.Gpu.Vulkan.Tests/OneGame.Gpu.Vulkan.Tests.csproj" />
     <Project Path="tests/OneGame.Net.Tests/OneGame.Net.Tests.csproj" />

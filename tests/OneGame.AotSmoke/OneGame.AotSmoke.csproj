@@ -29,6 +29,9 @@
     <ProjectReference Include="../../src/OneGame.Audio/OneGame.Audio.csproj" />
     <EmbeddedResource Include="../../testdata/audio/tone44k.ogg" LogicalName="tone44k.ogg" />
     <EmbeddedResource Include="../../testdata/audio/loop48k.opus" LogicalName="loop48k.opus" />
+    <ProjectReference Include="../../src/OneGame.Gltf/OneGame.Gltf.csproj" />
+    <EmbeddedResource Include="../../testdata/gltf/Fox/glTF-Binary/Fox.glb" LogicalName="fox.glb" />
+    <EmbeddedResource Include="../../testdata/gltf/Box/glTF-Embedded/Box.gltf" LogicalName="box.gltf" />
     <ProjectReference Include="../../src/OneGame.Steam/OneGame.Steam.csproj" />
     <ProjectReference Include="../../src/OneGame.Control/OneGame.Control.csproj" />
     <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
