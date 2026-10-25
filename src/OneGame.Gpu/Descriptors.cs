@@ -12,7 +12,19 @@ public readonly record struct VertexElement(uint Location, VertexFormat Format, 
 /// <param name="Count">Array size (1 for a single resource).</param>
 /// <param name="Kind">Resource kind.</param>
 /// <param name="Stages">Stages that use the resource.</param>
-public readonly record struct ResourceBinding(uint Set, uint Binding, uint Count, ResourceKind Kind, ShaderStage Stages);
+public readonly record struct ResourceBinding(uint Set, uint Binding, uint Count, ResourceKind Kind, ShaderStage Stages)
+{
+    /// <summary>
+    /// For constant and storage buffers: the buffer range is moved at bind time by an offset given to <c>SetBindGroup</c>, so one bind
+    /// group serves many objects. Offsets are given in binding order and are multiples of <see cref="GpuDevice.DynamicOffsetAlignment"/>.
+    /// </summary>
+    public bool Dynamic { get; init; }
+}
+
+/// <summary>Small constant data written straight into the command stream with <c>SetPushConstants</c>.</summary>
+/// <param name="Size">Bytes, a multiple of 4 and at most <see cref="GpuDevice.MaxPushConstantBytes"/>.</param>
+/// <param name="Stages">Stages that read it.</param>
+public readonly record struct PushConstantRange(uint Size, ShaderStage Stages);
 
 /// <summary>Describes a buffer to create.</summary>
 /// <param name="Size">Size in bytes.</param>
@@ -23,18 +35,27 @@ public readonly record struct BufferDesc(ulong Size, BufferUsage Usage)
     public string? Label { get; init; }
 }
 
-/// <summary>Describes a 2D texture (or 2D array) to create.</summary>
+/// <summary>Describes a texture to create: 2D, 2D array, cube, cube array or 3D.</summary>
 /// <param name="Width">Width in texels.</param>
 /// <param name="Height">Height in texels.</param>
 /// <param name="Format">Pixel format.</param>
 /// <param name="Usage">Allowed uses.</param>
 public readonly record struct TextureDesc(uint Width, uint Height, GpuFormat Format, TextureUsage Usage)
 {
-    /// <summary>Number of mip levels; 1 by default. <see cref="GpuTexture.FullMipCount"/> computes the full chain.</summary>
+    /// <summary>Number of mip levels; 1 by default. <see cref="GpuTexture.FullMipCount(uint, uint)"/> computes the full chain.</summary>
     public uint MipLevels { get; init; } = 1;
 
-    /// <summary>Number of array layers; more than 1 makes the texture an array that shaders sample as a 2D array.</summary>
+    /// <summary>
+    /// Number of array layers. More than 1 makes a 2D texture an array that shaders sample as a 2D array. A cube texture has a multiple
+    /// of 6 (6 faces per cube).
+    /// </summary>
     public uint ArrayLayers { get; init; } = 1;
+
+    /// <summary>Shape of the texture; 2D by default.</summary>
+    public TextureDimension Dimension { get; init; }
+
+    /// <summary>Depth in texels of a 3D texture; 1 otherwise.</summary>
+    public uint Depth { get; init; } = 1;
 
     /// <summary>Samples per texel for multisampled render targets (1, 2, 4 or 8).</summary>
     public uint SampleCount { get; init; } = 1;
@@ -60,6 +81,28 @@ public readonly record struct SamplerDesc
 
     /// <summary>Addressing in V.</summary>
     public AddressMode AddressV { get; init; }
+
+    /// <summary>Addressing in W (3D and cube textures).</summary>
+    public AddressMode AddressW { get; init; }
+
+    /// <summary>
+    /// Makes this a comparison sampler for shadow lookups: <c>SampleCmp</c> returns how many of the filtered texels pass
+    /// <c>reference &lt;op&gt; texel</c>. Only depth textures can be sampled with it.
+    /// </summary>
+    public CompareFunction? Compare { get; init; }
+
+    /// <summary>Lowest mip level sampled.</summary>
+    public float MinLod { get; init; }
+
+    /// <summary>Highest mip level sampled.</summary>
+    public float MaxLod { get; init; }
+
+    /// <summary>Creates a sampler description with nearest filtering, clamped edges, no anisotropy and every mip level available.</summary>
+    public SamplerDesc()
+    {
+        MaxLod = 1000f;
+        MaxAnisotropy = 1f;
+    }
 
     /// <summary>Maximum anisotropy; 1 disables it.</summary>
     public float MaxAnisotropy { get; init; }
@@ -87,6 +130,11 @@ public readonly record struct BlendState(BlendComponent Color, BlendComponent Al
         new BlendComponent(BlendFactor.SourceAlpha, BlendFactor.OneMinusSourceAlpha, BlendOperation.Add),
         new BlendComponent(BlendFactor.One, BlendFactor.OneMinusSourceAlpha, BlendOperation.Add));
 
+    /// <summary>Additive blending: source * alpha + destination, for glow and particles.</summary>
+    public static BlendState Additive { get; } = new(
+        new BlendComponent(BlendFactor.SourceAlpha, BlendFactor.One, BlendOperation.Add),
+        new BlendComponent(BlendFactor.One, BlendFactor.One, BlendOperation.Add));
+
     /// <summary>Premultiplied-alpha blending: source + destination * (1 - alpha).</summary>
     public static BlendState Premultiplied { get; } = new(
         new BlendComponent(BlendFactor.One, BlendFactor.OneMinusSourceAlpha, BlendOperation.Add),
@@ -113,6 +161,15 @@ public readonly record struct DepthStencilState(GpuFormat Format)
 
     /// <summary>Depth comparison.</summary>
     public CompareFunction DepthCompare { get; init; } = CompareFunction.Less;
+
+    /// <summary>Constant depth offset in units of the smallest depth step, added to every fragment (shadow maps use it against acne).</summary>
+    public int DepthBias { get; init; }
+
+    /// <summary>Depth offset that grows with the polygon's slope.</summary>
+    public float DepthBiasSlopeScale { get; init; }
+
+    /// <summary>Largest absolute offset applied; 0 means no limit. Needs <see cref="GpuCapabilities.DepthBiasClamp"/> when non-zero.</summary>
+    public float DepthBiasClamp { get; init; }
 }
 
 /// <summary>Layout of one vertex buffer binding.</summary>
@@ -161,6 +218,12 @@ public sealed class GraphicsPipelineDesc
     /// <summary>Samples per pixel; must match the pass's attachments.</summary>
     public uint SampleCount { get; init; } = 1;
 
+    /// <summary>
+    /// Clamps fragment depth to the viewport range instead of clipping the primitive, so shadow casters behind the light's near plane
+    /// still write depth. Needs <see cref="GpuCapabilities.DepthClamp"/> (a feature WebGPU only offers optionally).
+    /// </summary>
+    public bool DepthClamp { get; init; }
+
     /// <summary>Optional name shown in debugging tools.</summary>
     public string? Label { get; init; }
 }
@@ -176,6 +239,31 @@ public sealed class ComputePipelineDesc
 
     /// <summary>Optional name shown in debugging tools.</summary>
     public string? Label { get; init; }
+}
+
+/// <summary>Selects part of a texture for a shader to see: some mip levels, some layers, and how they are presented.</summary>
+public readonly record struct TextureViewDesc
+{
+    /// <summary>First mip level visible.</summary>
+    public uint BaseMip { get; init; }
+
+    /// <summary>Number of mip levels visible; 0 means all from <see cref="BaseMip"/>.</summary>
+    public uint MipCount { get; init; }
+
+    /// <summary>First array layer visible.</summary>
+    public uint BaseLayer { get; init; }
+
+    /// <summary>Number of layers visible; 0 means all from <see cref="BaseLayer"/>.</summary>
+    public uint LayerCount { get; init; }
+
+    /// <summary>How the shader sees it.</summary>
+    public TextureViewKind Kind { get; init; }
+
+    /// <summary>One mip level of a texture.</summary>
+    public static TextureViewDesc Mip(uint mip) => new() { BaseMip = mip, MipCount = 1 };
+
+    /// <summary>One layer of an array or cube texture, seen as a 2D image.</summary>
+    public static TextureViewDesc Layer(uint layer) => new() { BaseLayer = layer, LayerCount = 1, Kind = TextureViewKind.D2 };
 }
 
 /// <summary>One resource bound at a binding index of a bind group.</summary>
@@ -199,6 +287,18 @@ public readonly record struct BindGroupEntry
     /// <summary>Bound sampler, for sampler kinds.</summary>
     public GpuSampler? Sampler { get; init; }
 
+    /// <summary>Part of <see cref="Texture"/> (or of each of <see cref="Textures"/>) the shader sees; null means the whole texture.</summary>
+    public TextureViewDesc? View { get; init; }
+
+    /// <summary>Textures of a resource array (a binding whose count is more than 1); one per element.</summary>
+    public IReadOnlyList<GpuTexture>? Textures { get; init; }
+
+    /// <summary>Samplers of a resource array; one per element.</summary>
+    public IReadOnlyList<GpuSampler>? Samplers { get; init; }
+
+    /// <summary>Buffers of a resource array; one per element, each visible from offset 0 for <see cref="Size"/> bytes.</summary>
+    public IReadOnlyList<GpuBuffer>? Buffers { get; init; }
+
     /// <summary>Binds a whole buffer.</summary>
     public static BindGroupEntry ForBuffer(uint binding, GpuBuffer buffer) => new() { Binding = binding, Buffer = buffer };
 
@@ -208,6 +308,18 @@ public readonly record struct BindGroupEntry
 
     /// <summary>Binds a texture.</summary>
     public static BindGroupEntry ForTexture(uint binding, GpuTexture texture) => new() { Binding = binding, Texture = texture };
+
+    /// <summary>Binds part of a texture: chosen mip levels or layers, or a different presentation.</summary>
+    public static BindGroupEntry ForTexture(uint binding, GpuTexture texture, in TextureViewDesc view) => new() { Binding = binding, Texture = texture, View = view };
+
+    /// <summary>Binds an array of textures; the count must equal the binding's declared count.</summary>
+    public static BindGroupEntry ForTextures(uint binding, IReadOnlyList<GpuTexture> textures) => new() { Binding = binding, Textures = textures };
+
+    /// <summary>Binds an array of samplers; the count must equal the binding's declared count.</summary>
+    public static BindGroupEntry ForSamplers(uint binding, IReadOnlyList<GpuSampler> samplers) => new() { Binding = binding, Samplers = samplers };
+
+    /// <summary>Binds an array of buffers, each seen from offset 0 for <paramref name="size"/> bytes (0 means all).</summary>
+    public static BindGroupEntry ForBuffers(uint binding, IReadOnlyList<GpuBuffer> buffers, ulong size = 0) => new() { Binding = binding, Buffers = buffers, Size = size };
 
     /// <summary>Binds a sampler.</summary>
     public static BindGroupEntry ForSampler(uint binding, GpuSampler sampler) => new() { Binding = binding, Sampler = sampler };
@@ -256,6 +368,12 @@ public readonly record struct DepthAttachment
 {
     /// <summary>Depth texture; must have <see cref="TextureUsage.RenderTarget"/>.</summary>
     public required GpuTexture Target { get; init; }
+
+    /// <summary>Mip level rendered into.</summary>
+    public uint MipLevel { get; init; }
+
+    /// <summary>Array layer rendered into (a cascade of a shadow map array, say).</summary>
+    public uint Layer { get; init; }
 
     /// <summary>What happens at the start of the pass.</summary>
     public LoadOp Load { get; init; }
@@ -326,4 +444,86 @@ public sealed class GpuDeviceOptions
 
     /// <summary>Application name reported to the driver.</summary>
     public string ApplicationName { get; init; } = "onegame";
+}
+
+/// <summary>Where a group of passes writes its GPU start and end times: pass <c>k</c> of the group uses queries <c>First + 2k</c> and <c>First + 2k + 1</c>.</summary>
+/// <param name="Set">The query set.</param>
+/// <param name="First">Index of the first query used.</param>
+/// <param name="MaxPasses">Number of passes that get timed; later ones are not.</param>
+public readonly record struct PassTiming(GpuTimestampSet Set, uint First, uint MaxPasses);
+
+/// <summary>Arguments of one indirect non-indexed draw, as stored in a buffer. Same layout on every backend.</summary>
+/// <param name="VertexCount">Vertices per instance.</param>
+/// <param name="InstanceCount">Instances.</param>
+/// <param name="FirstVertex">First vertex.</param>
+/// <param name="FirstInstance">First instance; must be 0 unless <see cref="GpuCapabilities.IndirectFirstInstance"/>.</param>
+[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+public readonly record struct DrawIndirectArgs(uint VertexCount, uint InstanceCount, uint FirstVertex, uint FirstInstance)
+{
+    /// <summary>Size in bytes.</summary>
+    public const int Size = 16;
+}
+
+/// <summary>Arguments of one indirect indexed draw, as stored in a buffer. Same layout on every backend.</summary>
+/// <param name="IndexCount">Indices per instance.</param>
+/// <param name="InstanceCount">Instances.</param>
+/// <param name="FirstIndex">First index.</param>
+/// <param name="BaseVertex">Value added to every index.</param>
+/// <param name="FirstInstance">First instance; must be 0 unless <see cref="GpuCapabilities.IndirectFirstInstance"/>.</param>
+[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+public readonly record struct DrawIndexedIndirectArgs(uint IndexCount, uint InstanceCount, uint FirstIndex, int BaseVertex, uint FirstInstance)
+{
+    /// <summary>Size in bytes.</summary>
+    public const int Size = 20;
+}
+
+/// <summary>Arguments of one indirect dispatch, as stored in a buffer.</summary>
+/// <param name="X">Workgroups in X.</param>
+/// <param name="Y">Workgroups in Y.</param>
+/// <param name="Z">Workgroups in Z.</param>
+[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+public readonly record struct DispatchIndirectArgs(uint X, uint Y, uint Z)
+{
+    /// <summary>Size in bytes.</summary>
+    public const int Size = 12;
+}
+
+/// <summary>Optional features and limits of a device. Code that needs more than the portable baseline checks these.</summary>
+/// <param name="Timestamps">GPU timestamp queries work (<see cref="GpuDevice.CreateTimestampSet"/>).</param>
+/// <param name="MultiDrawIndirect">An indirect draw with a count above 1 is one GPU command; otherwise the backend issues them one by one with the same result.</param>
+/// <param name="IndirectFirstInstance">Indirect draws may use a non-zero first instance.</param>
+/// <param name="DepthClamp">Pipelines may set <see cref="GraphicsPipelineDesc.DepthClamp"/>.</param>
+/// <param name="DepthBiasClamp">Pipelines may set <see cref="DepthStencilState.DepthBiasClamp"/>.</param>
+/// <param name="NonUniformArrayIndexing">Shaders may index resource arrays with values that differ between invocations.</param>
+/// <param name="MaxSampleCount">Largest MSAA sample count for color and depth targets (1, 2, 4 or 8).</param>
+/// <param name="MaxTextureSize">Largest 2D texture width or height.</param>
+/// <param name="MaxTextureSize3D">Largest 3D texture size in any dimension.</param>
+/// <param name="MaxArrayLayers">Most layers in a texture.</param>
+/// <param name="MaxResourceArrayCount">Most elements in a resource array binding.</param>
+public readonly record struct GpuCapabilities(
+    bool Timestamps,
+    bool MultiDrawIndirect,
+    bool IndirectFirstInstance,
+    bool DepthClamp,
+    bool DepthBiasClamp,
+    bool NonUniformArrayIndexing,
+    uint MaxSampleCount,
+    uint MaxTextureSize,
+    uint MaxTextureSize3D,
+    uint MaxArrayLayers,
+    uint MaxResourceArrayCount);
+
+/// <summary>Where a texture region is: a mip level, a layer, a box inside it.</summary>
+/// <param name="MipLevel">Mip level.</param>
+/// <param name="Layer">Array layer (cube face index for cube textures); 0 for 3D textures.</param>
+/// <param name="X">Left edge in texels.</param>
+/// <param name="Y">Top edge in texels.</param>
+/// <param name="Z">Front slice of a 3D texture; 0 otherwise.</param>
+/// <param name="Width">Width in texels.</param>
+/// <param name="Height">Height in texels.</param>
+/// <param name="Depth">Slices of a 3D texture; 1 otherwise.</param>
+public readonly record struct TextureRegion(uint MipLevel, uint Layer, uint X, uint Y, uint Z, uint Width, uint Height, uint Depth = 1)
+{
+    /// <summary>A 2D rectangle of one layer.</summary>
+    public static TextureRegion Rect(uint mip, uint layer, uint x, uint y, uint width, uint height) => new(mip, layer, x, y, 0, width, height);
 }

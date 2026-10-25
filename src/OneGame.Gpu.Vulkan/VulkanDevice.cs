@@ -144,10 +144,39 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
         _anisotropy = f2.features.samplerAnisotropy != 0;
         QueueFamily = info.QueueFamily;
 
+        // Optional features are switched on when the adapter has them and reported through Capabilities, so code asks first.
+        var have = f2.features;
         var e13 = new VkPhysicalDeviceVulkan13Features { dynamicRendering = 1, synchronization2 = 1 };
-        var e12 = new VkPhysicalDeviceVulkan12Features { pNext = &e13, timelineSemaphore = 1 };
+        var e12 = new VkPhysicalDeviceVulkan12Features
+        {
+            pNext = &e13,
+            timelineSemaphore = 1,
+            shaderSampledImageArrayNonUniformIndexing = f12.shaderSampledImageArrayNonUniformIndexing,
+            shaderStorageBufferArrayNonUniformIndexing = f12.shaderStorageBufferArrayNonUniformIndexing,
+            shaderStorageImageArrayNonUniformIndexing = f12.shaderStorageImageArrayNonUniformIndexing,
+            shaderUniformBufferArrayNonUniformIndexing = f12.shaderUniformBufferArrayNonUniformIndexing,
+        };
         var e2 = new VkPhysicalDeviceFeatures2 { pNext = &e12 };
-        e2.features.samplerAnisotropy = _anisotropy ? 1u : 0u;
+        e2.features.samplerAnisotropy = have.samplerAnisotropy;
+        e2.features.independentBlend = have.independentBlend;
+        e2.features.imageCubeArray = have.imageCubeArray;
+        e2.features.multiDrawIndirect = have.multiDrawIndirect;
+        e2.features.drawIndirectFirstInstance = have.drawIndirectFirstInstance;
+        e2.features.depthClamp = have.depthClamp;
+        e2.features.depthBiasClamp = have.depthBiasClamp;
+        e2.features.fragmentStoresAndAtomics = have.fragmentStoresAndAtomics;
+        e2.features.vertexPipelineStoresAndAtomics = have.vertexPipelineStoresAndAtomics;
+        e2.features.shaderStorageImageReadWithoutFormat = have.shaderStorageImageReadWithoutFormat;
+        e2.features.shaderStorageImageWriteWithoutFormat = have.shaderStorageImageWriteWithoutFormat;
+        e2.features.shaderStorageImageExtendedFormats = have.shaderStorageImageExtendedFormats;
+        e2.features.shaderUniformBufferArrayDynamicIndexing = have.shaderUniformBufferArrayDynamicIndexing;
+        e2.features.shaderSampledImageArrayDynamicIndexing = have.shaderSampledImageArrayDynamicIndexing;
+        e2.features.shaderStorageBufferArrayDynamicIndexing = have.shaderStorageBufferArrayDynamicIndexing;
+        e2.features.shaderStorageImageArrayDynamicIndexing = have.shaderStorageImageArrayDynamicIndexing;
+        _multiDraw = have.multiDrawIndirect != 0;
+        _cubeArrays = have.imageCubeArray != 0;
+        var nonUniform = f12.shaderSampledImageArrayNonUniformIndexing != 0 && f12.shaderStorageBufferArrayNonUniformIndexing != 0
+            && have.shaderSampledImageArrayDynamicIndexing != 0 && have.shaderStorageBufferArrayDynamicIndexing != 0;
 
         float priority = 1f;
         var qci = new VkDeviceQueueCreateInfo { queueFamilyIndex = QueueFamily, queueCount = 1, pQueuePriorities = &priority };
@@ -193,6 +222,33 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
         VkPhysicalDeviceProperties props;
         _instanceFns.vkGetPhysicalDeviceProperties(_physical, &props);
         _maxAnisotropy = props.limits.maxSamplerAnisotropy;
+        _timestampPeriod = props.limits.timestampPeriod;
+        var qCount = 0u;
+        _instanceFns.vkGetPhysicalDeviceQueueFamilyProperties(_physical, &qCount, null);
+        var qProps = new VkQueueFamilyProperties[qCount];
+        fixed (VkQueueFamilyProperties* qp = qProps)
+        {
+            _instanceFns.vkGetPhysicalDeviceQueueFamilyProperties(_physical, &qCount, qp);
+        }
+
+        var timestamps = props.limits.timestampComputeAndGraphics != 0 && QueueFamily < qCount && qProps[QueueFamily].timestampValidBits >= 36
+            && props.limits.timestampPeriod > 0;
+        _timestampMask = timestamps && qProps[QueueFamily].timestampValidBits < 64 ? (1UL << (int)qProps[QueueFamily].timestampValidBits) - 1 : ulong.MaxValue;
+        var counts = props.limits.framebufferColorSampleCounts & props.limits.framebufferDepthSampleCounts;
+        var maxSamples = (counts & VkSampleCountFlagBits._8) != 0 ? 8u : (counts & VkSampleCountFlagBits._4) != 0 ? 4u : (counts & VkSampleCountFlagBits._2) != 0 ? 2u : 1u;
+        _caps = new GpuCapabilities(
+            timestamps,
+            _multiDraw,
+            have.drawIndirectFirstInstance != 0,
+            have.depthClamp != 0,
+            have.depthBiasClamp != 0,
+            nonUniform,
+            maxSamples,
+            Math.Min(props.limits.maxImageDimension2D, props.limits.maxImageDimensionCube),
+            props.limits.maxImageDimension3D,
+            props.limits.maxImageArrayLayers,
+            Math.Min(512u, Math.Min(props.limits.maxPerStageDescriptorSampledImages, props.limits.maxPerStageDescriptorStorageBuffers)));
+        _maxPushConstants = Math.Min(props.limits.maxPushConstantsSize, MaxPushConstantBytes);
         VkPhysicalDeviceMemoryProperties mem;
         _instanceFns.vkGetPhysicalDeviceMemoryProperties(_physical, &mem);
         _memory = new MemoryAllocator(this, mem, props.limits.bufferImageGranularity);
@@ -459,22 +515,44 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
     public override void WriteTexture(GpuTexture texture, uint mipLevel, uint layer, ReadOnlySpan<byte> data)
     {
         var t = (VulkanTexture)texture;
+        ValidateSubresource(t, mipLevel, layer);
+        var region = new TextureRegion(mipLevel, layer, 0, 0, 0, Math.Max(t.Width >> (int)mipLevel, 1), Math.Max(t.Height >> (int)mipLevel, 1), Math.Max(t.Depth >> (int)mipLevel, 1));
+        WriteTexture(texture, region, data);
+    }
+
+    public override void WriteTexture(GpuTexture texture, in TextureRegion region, ReadOnlySpan<byte> data)
+    {
+        var t = (VulkanTexture)texture;
         if ((t.Usage & TextureUsage.CopyDestination) == 0)
         {
             throw new ArgumentException("texture was not created with TextureUsage.CopyDestination", nameof(texture));
         }
 
-        ValidateSubresource(t, mipLevel, layer);
-        var expected = LevelByteSize(t.Format, t.Width, t.Height, mipLevel);
+        ValidateSubresource(t, region.MipLevel, region.Layer);
+        var lw = Math.Max(t.Width >> (int)region.MipLevel, 1);
+        var lh = Math.Max(t.Height >> (int)region.MipLevel, 1);
+        var ld = Math.Max(t.Depth >> (int)region.MipLevel, 1);
+        if (region.Width == 0 || region.Height == 0 || region.Depth == 0
+            || (ulong)region.X + region.Width > lw || (ulong)region.Y + region.Height > lh || (ulong)region.Z + region.Depth > ld)
+        {
+            throw new ArgumentOutOfRangeException(nameof(region), $"region lies outside mip {region.MipLevel} ({lw}x{lh}x{ld})");
+        }
+
+        if (t.Dimension != TextureDimension.D3 && (region.Z != 0 || region.Depth != 1))
+        {
+            throw new ArgumentOutOfRangeException(nameof(region), "only 3D textures have slices; use Layer for arrays and cube faces");
+        }
+
+        var expected = (ulong)region.Width * region.Height * region.Depth * BytesPerTexel(t.Format);
         if ((ulong)data.Length != expected)
         {
-            throw new ArgumentException($"expected {expected} bytes of tightly packed texel rows for mip {mipLevel}, got {data.Length}", nameof(data));
+            throw new ArgumentException($"expected {expected} bytes of tightly packed texel rows for a {region.Width}x{region.Height}x{region.Depth} region, got {data.Length}", nameof(data));
         }
 
         var st = AcquireStaging(expected, false);
         data.CopyTo(new Span<byte>(st.Alloc.Mapped, data.Length));
         _stagingPending.Add(st);
-        UploadEncoder.CopyRawToTexture(st.Buffer, t, mipLevel, layer);
+        UploadEncoder.CopyRawToTexture(st.Buffer, t, region);
     }
 
     static void ValidateSubresource(VulkanTexture t, uint mip, uint layer)
@@ -518,7 +596,7 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
         }
 
         ValidateSubresource(t, mipLevel, layer);
-        var expected = LevelByteSize(t.Format, t.Width, t.Height, mipLevel);
+        var expected = LevelByteSize(t.Format, t.Width, t.Height, t.Depth, mipLevel);
         if ((ulong)destination.Length != expected)
         {
             throw new ArgumentException($"expected a destination of {expected} bytes for mip {mipLevel}, got {destination.Length}", nameof(destination));
@@ -652,4 +730,19 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
     }
 
     internal float MaxAnisotropy => _anisotropy ? _maxAnisotropy : 1f;
+
+    GpuCapabilities _caps;
+    bool _multiDraw;
+    bool _cubeArrays;
+    float _timestampPeriod;
+    ulong _timestampMask;
+    uint _maxPushConstants;
+
+    /// <inheritdoc />
+    public override GpuCapabilities Capabilities => _caps;
+
+    internal bool MultiDraw => _multiDraw;
+    internal float TimestampPeriod => _timestampPeriod;
+    internal ulong TimestampMask => _timestampMask;
+    internal uint MaxPushConstants => _maxPushConstants;
 }

@@ -40,6 +40,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The compute shader of the graph smoke is compiled during the build, like a game's shaders. -->
+    <PackageReference Include="RecursiveAI.OneShader.Build" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- A font and an icon for the text smoke. -->
     <EmbeddedResource Include="../../testdata/text/fonts/NotoSans-Subset-Regular.ttf" LogicalName="font.ttf" />
     <EmbeddedResource Include="../../testdata/text/svg/coin.svg" LogicalName="coin.svg" />

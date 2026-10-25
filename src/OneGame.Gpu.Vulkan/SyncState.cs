@@ -16,6 +16,7 @@ internal enum Use
     VertexBuffer,
     IndexBuffer,
     UniformBuffer,
+    IndirectBuffer,
 }
 
 /// <summary>The last known GPU access to a resource, used to insert the barriers the portable API leaves implicit.</summary>
@@ -85,6 +86,11 @@ internal struct SyncState
             case Use.IndexBuffer:
                 stage = VkPipelineStageFlagBits2.IndexInput;
                 access = VkAccessFlagBits2.IndexRead;
+                layout = VkImageLayout.Undefined;
+                break;
+            case Use.IndirectBuffer:
+                stage = VkPipelineStageFlagBits2.DrawIndirect;
+                access = VkAccessFlagBits2.IndirectCommandRead;
                 layout = VkImageLayout.Undefined;
                 break;
             default:

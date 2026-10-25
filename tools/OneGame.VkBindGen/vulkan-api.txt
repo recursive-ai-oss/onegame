@@ -90,7 +90,17 @@ command vkCmdCopyBuffer
 command vkCmdCopyBufferToImage
 command vkCmdCopyImageToBuffer
 command vkCmdBlitImage
+command vkCmdCopyImage
 command vkCmdFillBuffer
+command vkCmdDrawIndirect
+command vkCmdDrawIndexedIndirect
+command vkCmdDispatchIndirect
+command vkCmdPushConstants
+command vkCreateQueryPool
+command vkDestroyQueryPool
+command vkCmdResetQueryPool
+command vkCmdWriteTimestamp2
+command vkGetQueryPoolResults
 command vkCmdBeginDebugUtilsLabelEXT
 command vkCmdEndDebugUtilsLabelEXT
 type VkPhysicalDeviceVulkan12Features
