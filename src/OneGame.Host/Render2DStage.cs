@@ -60,6 +60,17 @@ public class Render2DStage : IRenderStage, IDisposable
     {
     }
 
+    /// <summary>
+    /// Adds passes that draw into the target before the 2D renderer and the UI, for a stage that draws a 3D scene. Return true when it did;
+    /// the 2D pass then keeps the target's contents instead of clearing it.
+    /// </summary>
+    /// <param name="device">The graphics device.</param>
+    /// <param name="graph">The frame's render graph, already begun.</param>
+    /// <param name="target">The target as a graph resource.</param>
+    /// <param name="targetTexture">The target texture.</param>
+    /// <param name="frame">The frame being drawn.</param>
+    protected virtual bool AddScenePasses(GpuDevice device, RenderGraph graph, GraphTexture target, GpuTexture targetTexture, in FrameInfo frame) => false;
+
     /// <summary>Called every frame after the UI is drawn, to add the game's own sprites and tiles.</summary>
     /// <param name="renderer">The renderer drawing this frame.</param>
     /// <param name="frame">The frame being drawn.</param>
@@ -89,13 +100,17 @@ public class Render2DStage : IRenderStage, IDisposable
         }
 
         _seen.Add(target);
-        renderer.BeginFrame(target, new FrameOptions { Clear = ClearColor });
-        renderer.Ui.Draw(frame.List, _text, _glyphs, _resources.Art);
-        DrawOverUi(renderer, frame);
         _graph ??= new RenderGraph(device);
         _graph.BeginFrame();
-        _pass.Renderer = renderer;
         _pass.Target = _graph.ImportTexture("target", target);
+
+        // A scene stage draws first; the 2D pass then adds to what it left instead of clearing the target.
+        var hasScene = AddScenePasses(device, _graph, _pass.Target, target, frame);
+        renderer.BeginFrame(target, new FrameOptions { Clear = hasScene ? null : ClearColor });
+        renderer.Ui.Draw(frame.List, _text, _glyphs, _resources.Art);
+        DrawOverUi(renderer, frame);
+        _pass.Renderer = renderer;
+        _pass.Preserve = hasScene;
         _graph.AddPass(_pass);
         _graph.Execute();
         _pass.Renderer = null;
@@ -108,9 +123,21 @@ public class Render2DStage : IRenderStage, IDisposable
 
         public GraphTexture Target { get; set; }
 
+        public bool Preserve { get; set; }
+
         public string Name => "render2d";
 
-        public void Setup(PassBuilder builder) => builder.Write(Target);
+        public void Setup(PassBuilder builder)
+        {
+            if (Preserve)
+            {
+                builder.ReadWrite(Target);
+            }
+            else
+            {
+                builder.Write(Target);
+            }
+        }
 
         public void Execute(PassContext context) => Renderer!.EndFrame(context.Encoder);
     }
@@ -150,7 +177,7 @@ public class Render2DStage : IRenderStage, IDisposable
     }
 
     /// <inheritdoc />
-    public void Dispose()
+    public virtual void Dispose()
     {
         foreach (var r in _renderers.Values)
         {

@@ -11,6 +11,7 @@
     <ProjectReference Include="../OneGame.Sync/OneGame.Sync.csproj" />
     <ProjectReference Include="../OneGame.Net/OneGame.Net.csproj" />
     <ProjectReference Include="../OneGame.Render2D/OneGame.Render2D.csproj" />
+    <ProjectReference Include="../OneGame.Render3D/OneGame.Render3D.csproj" />
     <ProjectReference Include="../OneGame.Atlas/OneGame.Atlas.csproj" />
     <ProjectReference Include="../OneGame.Text/OneGame.Text.csproj" />
     <ProjectReference Include="../OneGame.Platform/OneGame.Platform.csproj" />

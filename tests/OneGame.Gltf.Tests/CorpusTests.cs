@@ -230,13 +230,13 @@ public class CorpusTests
         {
             var r = mat.BaseColorTexture!;
             var t = r.Transform!.Value;
-            // uv' = T * R * S * uv for column vectors; check a point by hand.
+            // uv' = T * R * S * uv with v pointing down, so a positive rotation turns the image clockwise on screen (the sample's arrow must hit the green marker).
             var uv = new System.Numerics.Vector2(0.25f, 0.75f);
             var sx = uv.X * t.Scale.X;
             var sy = uv.Y * t.Scale.Y;
             var c = MathF.Cos(t.Rotation);
             var s = MathF.Sin(t.Rotation);
-            var expected = new System.Numerics.Vector2((c * sx) - (s * sy) + t.Offset.X, (s * sx) + (c * sy) + t.Offset.Y);
+            var expected = new System.Numerics.Vector2((c * sx) + (s * sy) + t.Offset.X, (-s * sx) + (c * sy) + t.Offset.Y);
             var actual = System.Numerics.Vector2.Transform(uv, r.UvMatrix);
             Assert.True(System.Numerics.Vector2.Distance(expected, actual) < 1e-5f, mat.Name);
         }

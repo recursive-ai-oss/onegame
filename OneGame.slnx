@@ -14,6 +14,7 @@
     <Project Path="src/OneGame.Net/OneGame.Net.csproj" />
     <Project Path="src/OneGame.Platform/OneGame.Platform.csproj" />
     <Project Path="src/OneGame.Render2D/OneGame.Render2D.csproj" />
+    <Project Path="src/OneGame.Render3D/OneGame.Render3D.csproj" />
     <Project Path="src/OneGame.Steam/OneGame.Steam.csproj" />
     <Project Path="src/OneGame.Server/OneGame.Server.csproj" />
     <Project Path="src/OneGame.Server.Live/OneGame.Server.Live.csproj" />
@@ -42,6 +43,7 @@
     <Project Path="tests/OneGame.Net.Tests/OneGame.Net.Tests.csproj" />
     <Project Path="tests/OneGame.Platform.Tests/OneGame.Platform.Tests.csproj" />
     <Project Path="tests/OneGame.Render2D.Tests/OneGame.Render2D.Tests.csproj" />
+    <Project Path="tests/OneGame.Render3D.Tests/OneGame.Render3D.Tests.csproj" />
     <Project Path="tests/OneGame.Server.SamplePlugin/counter.csproj" />
     <Project Path="tests/OneGame.Server.Tests/OneGame.Server.Tests.csproj" />
     <Project Path="tests/OneGame.Steam.Tests/OneGame.Steam.Tests.csproj" />

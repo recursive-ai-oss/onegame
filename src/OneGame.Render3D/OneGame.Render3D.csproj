@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Physically based 3D renderer: glTF materials, clustered forward lighting, image-based lighting, bloom and tone mapping on the render graph.</Description>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Gpu/OneGame.Gpu.csproj" />
+    <ProjectReference Include="../OneGame.Gltf/OneGame.Gltf.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Compiles Shaders/*.hlsl during the build and generates the C# bindings. -->
+    <PackageReference Include="RecursiveAI.OneShader.Build" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System.Numerics" />
+    <InternalsVisibleTo Include="OneGame.Render3D.Tests" />
+  </ItemGroup>
+
+</Project>

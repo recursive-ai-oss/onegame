@@ -16,6 +16,7 @@
     <ProjectReference Include="../OneGame.Control/OneGame.Control.csproj" />
     <ProjectReference Include="../OneGame.Gltf/OneGame.Gltf.csproj" />
     <ProjectReference Include="../OneGame.Host/OneGame.Host.csproj" />
+    <ProjectReference Include="../OneGame.Render3D/OneGame.Render3D.csproj" />
     <ProjectReference Include="../OneGame.Testing/OneGame.Testing.csproj" />
   </ItemGroup>
 
