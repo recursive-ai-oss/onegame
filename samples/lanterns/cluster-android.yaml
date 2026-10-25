@@ -21,7 +21,8 @@ nodes:
     listen: udp+ws
     scopes: [{ id: 2, seed: 2 }]
     args: [--option, "peers={port:islandB.peer}", --option, "peer.1=udp://127.0.0.1:{port:islandA.peer}", --option, "peer.3=udp://127.0.0.1:{port:master.peer}", --option, "data={dir}/data"]
-  # The Android client plays until its replica reaches a tick and prints its result, like an exported release build.
+  # The Android client plays until its replica reaches a tick and prints its result, like an exported release build. It is over a slow,
+# lossy link (the conditioner runs inside the app); without latency the bot dithers around its target instead of reaching it.
   - name: bot1
     role: client
     exe: cluster/android-client.sh
@@ -29,7 +30,8 @@ nodes:
     connect: islandA
     transport: udp
     scope: 1
-    args: [--also-scopes, "2,3", --until-tick, "2400"]
+    args: [--also-scopes, "2,3", --until-tick, "3600"]
+    net: "latency=100,loss=0.02,seed=5"
   # This one is a desktop client over a WebSocket.
   - name: bot2
     role: client
