@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- A server plugin that adds an entity, a command and a system. Build it with -p:Variant=2 or -p:Variant=3 to get the edited
+       versions used by the hot-reload checks (Variant 3 changes the entity layout and carries a migration). -->
+  <PropertyGroup>
+    <AssemblyName>counter</AssemblyName>
+    <RootNamespace>Sample</RootNamespace>
+    <OneGameAnalyzers>true</OneGameAnalyzers>
+    <Variant Condition="'$(Variant)' == ''">1</Variant>
+    <DefineConstants>$(DefineConstants);VARIANT$(Variant)</DefineConstants>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneGame.Server/OneGame.Server.csproj" Private="false" />
+    <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OneGameAnalyzers>false</OneGameAnalyzers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneGame.Server/OneGame.Server.csproj" />
+    <ProjectReference Include="../../src/OneGame.Server.Plugins/OneGame.Server.Plugins.csproj" />
+    <ProjectReference Include="../../src/OneGame.Server.Live/OneGame.Server.Live.csproj" />
+    <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
+    <!-- The plugin test builds edited versions of the sample plugin source with the real generator, like a rebuild would. -->
+    <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <EmbeddedResource Include="../OneGame.Server.SamplePlugin/CounterPlugin.cs" LogicalName="CounterPlugin.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="OneGame.Core" />
+    <Using Include="OneGame.Sync" />
+    <Using Include="OneGame.Server" />
+    <Using Include="OneGame.Testing" />
+  </ItemGroup>
+
+</Project>

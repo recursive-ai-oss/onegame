@@ -24,9 +24,15 @@ public sealed class LiveServer : IDisposable
 
     /// <summary>Creates a server for a game's control surface. Nothing listens until <see cref="Start"/>.</summary>
     public LiveServer(ControlSurface surface)
+        : this((IControlEndpoint)surface)
     {
-        ArgumentNullException.ThrowIfNull(surface);
-        _protocol = new McpProtocol(surface);
+    }
+
+    /// <summary>Creates a server for any control endpoint, such as a game server's. Nothing listens until <see cref="Start"/>.</summary>
+    public LiveServer(IControlEndpoint endpoint)
+    {
+        ArgumentNullException.ThrowIfNull(endpoint);
+        _protocol = new McpProtocol(endpoint);
     }
 
     /// <summary>The socket path being listened on.</summary>

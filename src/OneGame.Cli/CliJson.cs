@@ -60,6 +60,7 @@ internal sealed record ExportResult(
 [JsonSerializable(typeof(TestResult))]
 [JsonSerializable(typeof(ExportResult))]
 [JsonSerializable(typeof(JsonElement))]
+[JsonSerializable(typeof(string))]
 internal sealed partial class CliJson : JsonSerializerContext
 {
 }
