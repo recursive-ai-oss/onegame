@@ -118,7 +118,9 @@ public sealed partial class ControlSurface : IControlEndpoint
         "shaders" => Json(ShaderCheck(), ControlJson.Default.ShadersResult),
         "render_graph" => Json(RenderGraphReport(), ControlJson.Default.RenderGraphReport),
         "theme_lint" => Json(ThemeLintCheck(), ControlJson.Default.ThemeLintReport),
+        "steam_input" => Json(SteamInputOp(a), ControlJson.Default.SteamInputReport),
         "audio" => Json(AudioReport(a), ControlJson.Default.AudioStatus),
+        "audio_events" => Json(AudioEvents(a), ControlJson.Default.AudioEventsResult),
         "audio_capture" => Json(AudioCapture(a), ControlJson.Default.AudioCaptureResult),
         "store" => Json(StoreAction(a), ControlJson.Default.PurchaseStatus),
         "capture_frame" => CaptureFrameAsync(a).AsTask().GetAwaiter().GetResult(),
@@ -895,8 +897,22 @@ public sealed partial class ControlSurface : IControlEndpoint
     /// <summary>The game's audio, for the <c>audio</c> operations. Defaults to the most recently created <see cref="AudioService"/>, so a game needs to do nothing; set it to point at another.</summary>
     public AudioService? Audio { get; set; }
 
-    private AudioService AudioOrThrow() =>
-        Audio ?? AudioService.Active ?? throw new ControlException("no_audio", "This game has no audio service running.");
+    private AudioService AudioOrThrow()
+    {
+        var audio = Audio ?? AudioService.Active ?? throw new ControlException("no_audio", "This game has no audio service running.");
+        // The play log stamps each sound with the frame it was asked for in, so scenarios can ask for a window of frames. A service named by
+        // this surface follows this game; the process-wide newest service follows whichever game asked first (there is one game per process).
+        if (Audio is not null)
+        {
+            audio.FrameClock = () => Game.Frame;
+        }
+        else
+        {
+            audio.FrameClock ??= () => Game.Frame;
+        }
+
+        return audio;
+    }
 
     private AudioStatus AudioReport(Args a)
     {
@@ -928,8 +944,42 @@ public sealed partial class ControlSurface : IControlEndpoint
                 : audio.DisableBusMeter(new AudioBus(index)) ? "disabled" : "queue_full";
         }
 
+        var deviceRequest = DeviceRequest(audio, a);
         var status = audio.Describe();
+        if (deviceRequest is not null && status.Device is not null)
+        {
+            status = status with { Device = status.Device with { Request = deviceRequest } };
+        }
+
         return request is null ? status : status with { MeterRequest = request };
+    }
+
+    // The device-level requests of the audio operation: start audio in a page, post an iOS interruption, stop or start the device like the lifecycle does.
+    private static string? DeviceRequest(AudioService audio, Args a)
+    {
+        string? request = null;
+        if (a.Bool("unlock", false))
+        {
+            request = OperatingSystem.IsBrowser() ? "unlock:" + WebAudioBackend.Unlock() : "unlock:not_a_web_page";
+        }
+
+        if (a.Str("interrupt") is { } phase)
+        {
+            if (phase is not ("begin" or "end"))
+            {
+                throw new ControlException("bad_args", "interrupt is 'begin' or 'end'.");
+            }
+
+            request = AudioUnitBackend.SimulateInterruption(phase == "begin") ? "interrupt:" + phase : "interrupt:not_ios";
+        }
+
+        if (a.Has("suspend"))
+        {
+            audio.SetSuspended(a.Bool("suspend", false));
+            request = "suspend:" + (a.Bool("suspend", false) ? "true" : "false");
+        }
+
+        return request;
     }
 
     private AudioCaptureResult AudioCapture(Args a)

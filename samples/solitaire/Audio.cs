@@ -32,6 +32,7 @@ public sealed class AudioSounds : ISoundSink, IDisposable
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or InvalidDataException or AudioLoadException or DllNotFoundException)
         {
+            Console.Error.WriteLine("solitaire: no sound: " + ex.GetType().Name + ": " + ex.Message);
             return null;
         }
     }

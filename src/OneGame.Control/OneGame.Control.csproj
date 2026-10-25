@@ -13,6 +13,7 @@
     <ProjectReference Include="../OneGame.Platform/OneGame.Platform.csproj" />
     <ProjectReference Include="../OneGame.Audio/OneGame.Audio.csproj" />
     <ProjectReference Include="../OneGame.Purchases/OneGame.Purchases.csproj" />
+    <ProjectReference Include="../OneGame.Steam/OneGame.Steam.csproj" />
   </ItemGroup>
 
   <ItemGroup>

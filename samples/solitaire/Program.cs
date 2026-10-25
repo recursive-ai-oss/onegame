@@ -13,8 +13,12 @@ internal static class Program
         }
         finally
         {
-            (services.Sounds as IDisposable)?.Dispose();
-            services.Store?.Dispose();
+            // In a web page Main returns at once and the game keeps running on the page's frame loop, so its services stay open.
+            if (!OperatingSystem.IsBrowser())
+            {
+                (services.Sounds as IDisposable)?.Dispose();
+                services.Store?.Dispose();
+            }
         }
     }
 }

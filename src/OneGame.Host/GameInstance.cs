@@ -558,6 +558,7 @@ public sealed class GameInstance : IDisposable
     private void RunFrame(int ticks)
     {
         DrainInput();
+        Definition.OnEachFrame(this);
         if (_stick.Tick(out var repeat))
         {
             Ui.Dispatch(repeat);
@@ -618,6 +619,12 @@ public sealed class GameInstance : IDisposable
                 return;
             case PlatformEventKind.AppLifecycle:
                 Suspended = e.Lifecycle == AppLifecycleState.Paused;
+                if (e.Lifecycle is AppLifecycleState.Paused or AppLifecycleState.Resumed)
+                {
+                    // Leaving the foreground releases the audio hardware; coming back starts it again where the sound left off.
+                    OneGame.Audio.AudioService.Active?.SetSuspended(Suspended);
+                }
+
                 if (e.Lifecycle == AppLifecycleState.LowMemory)
                 {
                     _stage.ReleaseTargets(null);

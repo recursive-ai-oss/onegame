@@ -132,6 +132,8 @@ public sealed record BusLoudnessStatus(int Index, string? Name, OneGame.Audio.Lo
 /// <summary>Source-generated JSON metadata for control results; nothing here uses reflection.</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(InfoResult))]
+[JsonSerializable(typeof(OneGame.Steam.Input.SteamInputReport))]
+[JsonSerializable(typeof(AudioEventsResult))]
 [JsonSerializable(typeof(StateResult))]
 [JsonSerializable(typeof(UiScaleResult))]
 [JsonSerializable(typeof(PatchResult))]
@@ -243,8 +245,8 @@ public static partial class ControlOps
             "Run frames and capture each one: 'count' captures, 'ticksPerFrame' ticks between them. Writes frame-NNNN.png and manifest.json (the video form: frames plus fps) into 'dir' under the output folder.",
             """{"type":"object","properties":{"dir":{"type":"string"},"count":{"type":"integer","minimum":1,"maximum":3600},"ticksPerFrame":{"type":"integer","minimum":1},"size":{"type":"string"},"scale":{"type":"number"},"fps":{"type":"integer","minimum":1}},"required":["dir","count"]}""", true),
         new("audio",
-            "The mixing state of the game's audio as JSON: every bus (volume, mute, low-pass, high-pass, reverb, ducking), the master limiter and its gain reduction, the loudness at the output (momentary, short-term and integrated LUFS, true peak dBTP, seconds measured; null while silent), and the music track's position and length. With reset=true the loudness measurement starts over first, so a scene can be measured from its beginning. enableMeter=BUS or disableMeter=BUS moves a per-bus loudness meter, and meterRequest in the answer says what came of it: metered, no_free_slot (every slot is used by another bus; freeBusMeters is 0), queue_full (a slot is free; try again), unavailable (this service measures no buses) or disabled. Fails with 'no_audio' when the game runs no audio service.",
-            """{"type":"object","properties":{"reset":{"type":"boolean"},"enableMeter":{"type":"integer","minimum":0},"disableMeter":{"type":"integer","minimum":0}}}""", false),
+            "The mixing state of the game's audio as JSON: every bus (volume, mute, low-pass, high-pass, reverb, ducking), the master limiter and its gain reduction, the loudness at the output (momentary, short-term and integrated LUFS, true peak dBTP, seconds measured; null while silent), and the music track's position and length. With reset=true the loudness measurement starts over first, so a scene can be measured from its beginning. enableMeter=BUS or disableMeter=BUS moves a per-bus loudness meter, and meterRequest in the answer says what came of it: metered, no_free_slot (every slot is used by another bus; freeBusMeters is 0), queue_full (a slot is free; try again), unavailable (this service measures no buses) or disabled. Fails with 'no_audio' when the game runs no audio service. The device section says where the sound goes: backend, the device's own state (started, paused, awaiting_gesture, interrupted), underruns, frames written and frames the device has taken, and the peak among them (0 = only silence reached the device). unlock=true asks a web page to start audio (works only after a user gesture; the answer is in device.request); interrupt=begin|end posts an iOS audio-session interruption; suspend=true|false stops or starts the device as the app lifecycle does.",
+            """{"type":"object","properties":{"reset":{"type":"boolean"},"enableMeter":{"type":"integer","minimum":0},"disableMeter":{"type":"integer","minimum":0},"unlock":{"type":"boolean"},"interrupt":{"type":"string","enum":["begin","end"]},"suspend":{"type":"boolean"}}}""", false),
         new("audio_capture",
             "For a game whose audio runs on the capture sink (no device): render 'seconds' of audio (default 1) and report the frames, peak and loudness. With 'path' the whole recording is written as a WAV under the output folder, with its SHA-256. clear=true empties the recording first; reset=true restarts the loudness measurement. Fails with 'rejected' when audio plays on a device.",
             """{"type":"object","properties":{"seconds":{"type":"number","minimum":0,"maximum":600},"path":{"type":"string"},"clear":{"type":"boolean"},"reset":{"type":"boolean"}}}""", true),
@@ -252,6 +254,8 @@ public static partial class ControlOps
         ..Scene3DOps,
         ..TouchOps,
         ..StoreOps,
+        ..SteamInputOps,
+        ..AudioEventOps,
         new("quit", "Ask the game to exit.", NoArgs, false),
     ];
 }

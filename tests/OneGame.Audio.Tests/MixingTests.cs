@@ -254,6 +254,43 @@ public class MixingTests
         Assert.InRange(hz, 430, 450);
     }
 
+    // burst-silence.ogg: a 160-sample 3 kHz decaying burst that starts loud at sample 0 (0.8 * exp(-n / 50) * cos(2 pi 3000 n / 48000)),
+    // then digital silence to 0.5 s, mono 48 kHz, made with `ffmpeg -i burst.wav -c:a libvorbis -q:a 4 burst-silence.ogg`.
+    // Its audio fits on a single Ogg page, which an older decoder read as a start offset and so dropped the whole burst.
+    [Fact]
+    public void AShortVorbisBurstKeepsItsTransient()
+    {
+        using var s = Service();
+        using var data = File.OpenRead(Asset("burst-silence.ogg"));
+        var sound = s.LoadSound(data, "burst");
+        Assert.InRange(sound.DurationSeconds, 0.49, 0.51);
+        s.Play(sound, new PlayOptions { Bus = AudioBus.Sfx });
+        s.Advance(Rate / 2);
+        var samples = s.Capture!.Samples;
+
+        float peak = 0;
+        for (var i = 0; i < 400; i++)
+        {
+            peak = Math.Max(peak, Math.Abs(samples[i * 2]));
+        }
+
+        // Vorbis is lossy: the decoded burst peaks a few percent under the source (0.8 here, 0.757 from a reference decoder).
+        Assert.InRange(peak / Centre, 0.72, 0.84);
+
+        // The first samples follow the source, so nothing is cut from the start.
+        for (var i = 0; i < 16; i++)
+        {
+            var source = 0.8 * Math.Exp(-i / 50.0) * Math.Cos(2 * Math.PI * 3000 * i / Rate);
+            Assert.InRange(samples[i * 2] / Centre, source - 0.08, source + 0.08);
+        }
+
+        // After the burst the clip is silent.
+        for (var i = 1000; i < Rate / 2; i += 97)
+        {
+            Assert.InRange(samples[i * 2], -0.01f, 0.01f);
+        }
+    }
+
     [Fact]
     public void ADamagedFlacFailsWithATypedError()
     {

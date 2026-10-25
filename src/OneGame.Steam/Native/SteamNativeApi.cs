@@ -53,6 +53,12 @@ internal sealed unsafe class SteamNativeApi : ISteamNative
 
     public void Shutdown() => SteamApi.Shutdown();
 
+    public ISteamInputNative? CreateInput()
+    {
+        var input = SteamApi.GetInput();
+        return input == 0 ? null : new SteamInputNative(input, _utils);
+    }
+
     public void RunFrame() => SteamApi.ManualDispatchRunFrame(Pipe);
 
     public bool TryGetNextCallback(out int callbackId, out ReadOnlySpan<byte> data)
