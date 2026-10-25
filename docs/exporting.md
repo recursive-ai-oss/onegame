@@ -96,3 +96,9 @@ Not run from the Linux host that builds the Windows export, so still open:
 2. The folder runs on a machine without .NET installed.
 3. With `--steam`: the game started from Steam loads `steam_api64.dll`; started directly it relaunches through Steam.
 4. The NativeAOT export (`onegame export --target win-x64` on Windows) builds without warnings, starts, and opens a window.
+
+## Web
+
+`onegame export --target web [--dev] [--out <dir>]` builds the game for the browser: .NET on WebAssembly (the interpreter; no workload needed), WebGPU, the page and its script modules in one folder that any static file server can host (serve `.wasm` as `application/wasm`; Brotli and gzip copies sit beside the files). The export writes a small wrapper project under `obj/onegame-web/` that compiles the game's own files, resources and references with the WebAssembly SDK. `--dev` keeps the development tools (a Debug build). The Release export is trimmed and builds with zero trim warnings.
+
+`onegame web test [--scenario <folder>] [--tolerance N] [--max-diff F] [--dir <exported folder>]` exports with development tools, serves the folder, opens it in headless Chrome (`ONEGAME_CHROME` names the browser) and runs the scenarios in the page. The page dials back over a WebSocket (a page cannot listen), the tool sends the scenario files and reads the result, which has the same shape as `onegame test --json`; actual and diff images of failed checks are saved to `<project>/artifacts/web/`. `--tolerance` and `--max-diff` loosen capture checks for a rasterizer that differs from the one the references came from. A page opened with `?control=page` has no socket and exposes `__control(message)` (one MCP message in, the answer out) for scripts that inject real input.
