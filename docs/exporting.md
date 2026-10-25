@@ -12,6 +12,8 @@ Options: `--target linux-x64|win-x64|osx` (default: the host's), `--steam`, `--s
 
 Android: `onegame export --target android [--abi arm64-v8a,x86_64] [--dev]` makes a debug-signed APK (NativeAOT shared library, no Java). Setup, device commands and what is verified are in [android](interfaces/android.md).
 
+iOS (on a Mac with Xcode): `onegame export --target ios-simulator [--dev]` makes an ad-hoc signed `.app` for the Simulator, `onegame export --target ios` an unsigned arm64 `.app` for a device, which the owner of an Apple Developer account signs (the steps are printed as `signingNeeds` and listed in [ios](interfaces/ios.md)). Both are NativeAOT executables; no workload is installed.
+
 ## What the build is
 
 Always the Release configuration, with the development tools left out of the program: no live-control listener, no scenario parser, no capture or replay options (`--live` exits 5 with `no_dev_tools`). The export fails with `dev_tools_present` if the program mentions the live-control assembly anyway, and `devTools` in the result is `false`.

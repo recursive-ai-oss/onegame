@@ -61,6 +61,7 @@ Single-threaded: use an app from the thread that created it. All real and synthe
 | `Win32` | `HINSTANCE` | `HWND` |
 | `Cocoa` | `NSWindow*` | `CAMetalLayer*` of the content view (give it to the Metal backend as `SurfaceSource.MetalLayer`) |
 | `Android` | 0 | `ANativeWindow*` |
+| `MetalLayer` | 0 | `CAMetalLayer*` of the window's view (iOS; macOS uses it too). Lives as long as the window |
 | `None` | 0 | 0 (headless) |
 
 A GPU swapchain that presents to a Wayland window must not be combined with `SoftwareSurface`.
@@ -81,7 +82,7 @@ A reader that gets no answer in time returns null instead of hanging. Text from 
 
 ## Mobile: touch, lifecycle, safe area, keyboard
 
-These are the events a phone or tablet adds. They are backend-neutral: Android posts them today, and iOS (UIKit) is meant to post the same ones, so a game written against this section runs on both. Desktop backends never post the lifecycle, surface or safe-area events and post touch only from injection.
+These are the events a phone or tablet adds. They are backend-neutral: Android and iOS (UIKit) post the same ones, so a game written against this section runs on both. Desktop backends never post the lifecycle, surface or safe-area events and post touch only from injection.
 
 **Touch.** A finger is a `TouchId` from `TouchDown` until `TouchUp` or `TouchCancel` (cancel means the system took the gesture; do not activate anything). Ids are small integers (0 to 31) reused after a lift. `app.Input.TouchCount` and `TryGetTouch(id, out x, out y)` give the fingers that are down. Positions are window pixels, like the pointer's.
 
@@ -97,7 +98,9 @@ These are the events a phone or tablet adds. They are backend-neutral: Android p
 
 **Back.** `BackRequested` is the system back button or gesture (on key up). `GameInstance` sends the UI a `Cancel`; if nothing handles it, the app quits to the launcher. A game that needs another meaning handles the event in `OnInput` first.
 
-**Soft keyboard and text.** `window.SetTextInput(true, ...)` shows the system keyboard and `SetTextInput(false)` hides it (the kit's text fields already do this). On Android the keyboard's letters, digits and punctuation arrive as `KeyDown`/`KeyUp` plus a `TextInput` for the character the device's layout makes, which is also what `adb shell input text` and a hardware keyboard produce. **Composed text** (predictive text, swipe typing, CJK input methods) needs an input connection that only a Java view can offer; it is not delivered yet, so `TextComposition` never fires on Android, and keyboards that commit whole words instead of keys deliver nothing.
+**Soft keyboard and text.** `window.SetTextInput(true, ...)` shows the system keyboard and `SetTextInput(false)` hides it (the kit's text fields already do this). On iOS composed text is delivered (`TextComposition`, then `TextInput` on commit). On Android the keyboard's letters, digits and punctuation arrive as `KeyDown`/`KeyUp` plus a `TextInput` for the character the device's layout makes, which is also what `adb shell input text` and a hardware keyboard produce. **Composed text** (predictive text, swipe typing, CJK input methods) needs an input connection that only a Java view can offer; it is not delivered yet, so `TextComposition` never fires on Android, and keyboards that commit whole words instead of keys deliver nothing.
+
+**iOS.** One scene, one window, drawn through a `CAMetalLayer` (`MetalLayer` handle). `Scale` is points to pixels (`contentScaleFactor`, 2 or 3 on phones), so a logical unit is a point, like the dp on Android; `SafeArea` is `safeAreaInsets` and follows rotation, which arrives as `WindowResized`. The layer outlives backgrounding, so there is no `SurfaceLost`; `Paused` arrives from `sceneDidEnterBackground` and the system waits (up to 1 s) for the game to see it, because queued GPU work ends an app that is in the background. `BackRequested` never fires (iOS has no back button). Touch, the hardware keyboard (HID usages), the soft keyboard with marked text (`TextComposition`, `UITextInput`), GameController pads and the clipboard are all there; details, export and the simulator commands are in [ios](ios.md). `app.NativeCommand(action, argument)` and the control operation `platform_native` reach backend-only commands (`describe`, `orientation`, `text_*` on iOS).
 
 **Gamepads.** Android hands pads over as input events already in the standard layout (A south, B east, the d-pad as hat or keys, sticks and triggers as axes). Each device gets a `GamepadId` on its first event, with `GamepadConnected` and the usual button and axis events; the sticks use `StickDeadZone`.
 

@@ -24,6 +24,9 @@ public enum PlatformBackendKind : byte
     Cocoa,
     /// <summary>Android through the NDK: a native activity with touch, lifecycle and a Vulkan surface.</summary>
     Android,
+
+    /// <summary>iOS through UIKit: a scene with touch, lifecycle, a soft keyboard and a Metal layer.</summary>
+    Ios,
 }
 
 /// <summary>The kind of native window system handles in a <see cref="NativeWindowHandle"/>.</summary>
@@ -47,6 +50,9 @@ public enum NativeWindowKind : byte
     Cocoa,
     /// <summary>Android: <see cref="NativeWindowHandle.Display"/> is 0, <see cref="NativeWindowHandle.Window"/> the ANativeWindow*. The pointer is valid until a <see cref="PlatformEventKind.SurfaceLost"/> event has been handled.</summary>
     Android,
+
+    /// <summary>Metal (macOS and iOS): <see cref="NativeWindowHandle.Display"/> is 0, <see cref="NativeWindowHandle.Window"/> the <c>CAMetalLayer*</c> of the window's view. It lives as long as the window.</summary>
+    MetalLayer,
 }
 
 /// <summary>The raw handles a graphics API needs to create a presentable surface for a window.</summary>

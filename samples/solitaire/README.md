@@ -66,6 +66,18 @@ onegame android test --package dev.onegame.solitaire --scenario scenarios --capt
 onegame android run --package dev.onegame.solitaire -- --headless --frames 5 --json
 ```
 
+## On iOS
+
+The game runs as a NativeAOT app bundle (see [ios](../../docs/interfaces/ios.md)); it needs a Mac with Xcode and an iOS Simulator runtime. A finger drags cards like the mouse, the screens are laid out in points, and the game keeps its state across the home button and rotation. `IosOrientation` in the project file limits it to landscape.
+
+```
+onegame export --target ios-simulator --dev --json                      # ad-hoc signed .app
+onegame ios install export/Solitaire-*-ios-simulator-dev/Solitaire.app
+onegame ios test --bundle dev.onegame.solitaire --scenario scenarios --json   # 14 of 14, same state hashes as on Linux
+onegame ios live --bundle dev.onegame.solitaire -- --seed 1               # then: onegame mcp --socket tcp:127.0.0.1:7878
+onegame export --target ios --json                                        # unsigned device build: the owner signs it
+```
+
 ## Scenarios and tests
 
 `scenarios/*.yaml` run in a headless game and are the main tests. Numbers `01` to `05` play the game: a scripted win of a known seed (the solver in `tests/Solver.cs` found the line), an illegal move, undo restoring the hash, save and continue ending in the same hash as a straight run, and a gamepad-only walk through menu, moves, pause and statistics. Numbers `10` to `16` capture the screens at 1280x720 and at 1920x1080 with a UI scale of 1.5, and compare against `scenarios/refs/`.
