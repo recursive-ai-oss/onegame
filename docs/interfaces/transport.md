@@ -41,7 +41,7 @@ Datagram formats (little endian). Byte 0 = `version << 4 | kind`; the version is
 | 3 Accept (s→c) | `b0, nonce, connId u32` | Repeated if the Response repeats. |
 | 4 Reject (s→c) | `b0, nonce, reason` | `ServerFull`, `VersionMismatch`. |
 | 5 Data | `b0, connId u32, packetNo u32, ackBase u32, sack u64, window u16, frames…` | `packetNo` drops duplicates and replays (64-wide window). `ackBase` is the next fragment expected, bit *i* of `sack` is fragment `ackBase+1+i`, `window` is the free reorder slots. |
-| 6 Disconnect | `b0, connId u32, reason, detail` | Sent three times. |
+| 6 Disconnect | `b0, connId u32, reason, detail` | Sent three times. A listener answers a Data datagram for a connection id it has never had with one Disconnect(`Shutdown`) for that id, so a client of a server that was killed and started again learns at its next keep-alive instead of at its timeout (a 7-byte reply to a datagram of at least the header size; a Disconnect is never answered). |
 
 Frames in a Data packet: `0` ends; reliable fragment `0x01 | flags<<2, seq u32, len u16, bytes` (flags: 1 begin, 2 end); unreliable `0x02, len u16, bytes`. A message is a run of fragments from begin to end with consecutive sequence numbers; the receiver joins them in order. Frames are validated before anything is applied; a datagram with a bad frame changes no state.
 

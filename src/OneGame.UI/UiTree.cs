@@ -15,6 +15,7 @@ public sealed partial class UiTree
     private readonly Painter _painter;
     private readonly DisplayList _list = new();
     private ITextMeasurer _measurer;
+    private IArtSizes? _artSizes;
     private float _scale = 1;
     private float _width;
     private float _height;
@@ -54,6 +55,17 @@ public sealed partial class UiTree
         {
             ArgumentNullException.ThrowIfNull(value);
             _measurer = value;
+            InvalidateAllLayout();
+        }
+    }
+
+    /// <summary>Reports the natural size of images and SVGs by asset id. Background sizing keywords (<c>auto</c>, <c>cover</c>, <c>contain</c>) and tiling need it; without it every background image is stretched to its box.</summary>
+    public IArtSizes? ArtSizes
+    {
+        get => _artSizes;
+        set
+        {
+            _artSizes = value;
             InvalidateAllLayout();
         }
     }
@@ -461,6 +473,28 @@ public sealed partial class UiTree
         {
             _scratch[(int)d.Prop] = value;
         }
+    }
+
+    /// <summary>Reads a color token (such as <c>--kit-accent</c>) as the cascade resolved it on the root, game overrides included. False when the token is not defined, or is not a color. Styles resolve on the first frame, so call it after one.</summary>
+    /// <param name="name">The token name, with its leading <c>--</c>.</param>
+    /// <param name="color">The color, when found.</param>
+    public bool TryGetColorToken(string name, out Color color)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        if (Root.Tokens is { } t)
+        {
+            for (var i = t.Length - 1; i >= 0; i--)
+            {
+                if (string.Equals(t[i].Name, name, StringComparison.Ordinal) && t[i].Value.Kind == ValueKind.Color)
+                {
+                    color = t[i].Value.AsColor;
+                    return true;
+                }
+            }
+        }
+
+        color = default;
+        return false;
     }
 
     // The nearest definition wins: the element's own tokens (when allowed), then each ancestor's.

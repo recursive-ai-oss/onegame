@@ -268,12 +268,47 @@ Selectors with combinators make state changes restyle subtrees, so prefer single
 | Box | `Width Height MinWidth MaxWidth MinHeight MaxHeight Margin Padding BorderWidth Border BoxSizing` (border-box by default) |
 | Flex | `Direction Wrap JustifyContent AlignItems AlignSelf AlignContent Grow Shrink Basis Flex Gap RowGap ColumnGap Order` |
 | Position | `Position(Relative/Absolute/Fixed) Left Top Right Bottom Inset Anchor ZIndex Overflow Translate Scale Rotate` |
-| Paint | `Background BackgroundImage BackgroundSlice BorderColor Radius Opacity Shadow Outline Visibility` |
+| Paint | `Background BackgroundImage BackgroundSlice BackgroundTint BackgroundRepeat BackgroundSize BackgroundPosition BorderColor Radius Opacity Shadow Outline Visibility` |
 | Text | `TextColor FontFamily FontSize FontWeight FontStyle LineHeight LetterSpacing TextAlign WhiteSpace` |
 | Input | `PointerEvents Cursor` |
 
 `Set("css-name", value)` sets any property by name. `Display(DisplayMode.None)` or `IsVisible = false` removes an element from layout and input.
 Text properties are inherited; everything else is not.
+
+### Background images: stretch, tile, place
+
+`BackgroundImage("id")` draws a raster image or SVG registered under that id (`DefineArt`). By default it is stretched over the whole border box, as an image element is. Repeat, size and position follow the CSS model
+(Backgrounds 3, sections 3.3 to 3.10), with these differences: the positioning area is the border box, and the default size is `fill`.
+
+```csharp
+// A scanline pattern from one small tile, instead of dozens of stacked bands: the tile is 2x4 UI units and repeats over the whole panel.
+ui.Root.Add(Ui.Box().Style(s => s
+    .Size(Length.Percent(100), Length.Percent(100))
+    .BackgroundImage("scanlines").BackgroundRepeat(BackgroundRepeat.Repeat).BackgroundSize(Length.Ui(2), Length.Ui(4))));
+// A poster that covers its box, centred; and a badge placed in the bottom-right corner, drawn once.
+ui.Root.Add(Ui.Box().Style(s => s.Size(Length.Ui(300), Length.Ui(160))
+    .BackgroundImage("poster").BackgroundSize(BackgroundSizing.Cover).BackgroundPosition(Length.Percent(50), Length.Percent(50))));
+ui.Root.Add(Ui.Box().Style(s => s.Size(Length.Ui(300), Length.Ui(160))
+    .BackgroundImage("badge").BackgroundSize(Length.Ui(32), Length.Ui(32)).BackgroundPosition(Length.Percent(100), Length.Percent(100))));
+```
+
+| Property | Values |
+|---|---|
+| `background-repeat` | `no-repeat` (default), `repeat`, `repeat-x`, `repeat-y` |
+| `background-size` | `fill` (default: the box), `auto` (natural size times the UI scale), `cover`, `contain`; or `BackgroundSize(width, height)` with lengths (an `auto` side keeps the aspect ratio; `%` is of the box) |
+| `background-position-x`, `-y` | a length from the box's top-left corner, or `%`: that fraction of the free space, so 50% centres and 100% right-aligns |
+
+- A repeated tile is rounded to whole pixels, so the pattern stays crisp and seamless at any UI scale. An SVG tile is rasterized at exactly that size; a raster tile is scaled by the sampler (use a size equal to the image's pixels times the scale for one-to-one).
+- Tiling costs one draw instruction however many tiles it covers: the display list holds a tile size and an origin, and the renderer repeats the tile in its shader. `background-tint`, rounded corners and clips apply to the pattern.
+- Sizing keywords and tiling need the art's natural size, which the game host supplies (`UiTree.ArtSizes`; `GameInstance` sets it). In a bare `UiTree` set `ui.ArtSizes = new ArtAtlasSizes(art)`, or every background stays stretched.
+- `BackgroundSlice` (nine-slice) and tiling do not combine: a tiled or sized image ignores the slice.
+
+### Large images
+
+A raster or SVG whose side is over 512 pixels gets a texture of its own instead of a place on the shared 1024-pixel atlas pages, so a painted full-panel backdrop is drawn at its full resolution at any UI scale.
+An SVG in a box bigger than 512 pixels is rasterized at the box's own size, not at its natural size times the scale and then stretched, so a vector backdrop stays sharp at 1080p and UI scale 1.5.
+Limits (`ArtLimits`): 8192 pixels and 16 megapixels per raster, and 256 MiB of such textures at once; past that the least recently drawn ones are released and rasterized again when needed (`docs/interfaces/atlas.md`).
+Stay under them by registering art at the size you draw it: a 2048x1152 backdrop is 9 MiB on the GPU.
 
 ### Tokens: values the theme can change
 
@@ -345,6 +380,18 @@ ui.Root.Add(Ui.Row(save, danger, price).Gap(8));
 
 Kinds: `Normal`, `Primary` (accent), `Danger`, `Flat`. Disable with `button.IsEnabled = false` or `.BindEnabled(...)`; a disabled button never calls back.
 Click, Enter, Space and the confirm button all call the lambda.
+
+A toggle button is a button that is switched on or off, like a button with `aria-pressed`: a speed switch, a bold-text toggle, a filter chip. The kit draws the switched-on state, so the game has no rule of its own for it:
+
+```csharp
+var fastOn = false;
+var fast = UiKit.ToggleButton("FAST", () => fastOn, v => fastOn = v, id: "fast");    // clicking, Enter, Space and confirm flip it
+ui.Root.Add(Ui.Row(fast, UiKit.Button("Pause", () => { }, "pause")).Gap(8));
+```
+
+While on, the button has `Element.Pressed == true`, the class `pressed`, an accent-tinted fill and an accent outline (in every kind, so a primary toggle that is on does not look like the main action). The inspect JSON has `"pressed": true` (a plain button has no `pressed` field), and scenarios check it with `ui: { id: fast, pressed: true }`.
+
+The states are told apart by more than color (section 11, "States and legibility"): hover and pressed change the fill, focus adds a ring outside the button, and a disabled button of any kind is flat and dim, with no accent or danger fill, so a disabled primary never looks like the main action.
 
 ### Checkbox, radio group, slider, stepper, progress bar
 
@@ -635,7 +682,42 @@ ui.AddStyleSheet(new StyleSheet()
 - `host.SetTheme(sheet)` swaps the kit's sheet in place, so the sheets you added after it still win.
 - Scope a different look to a screen by putting tokens on a class and giving that class to the screen's root: `new StyleSheet().Rule(".night", s => s.Token("--kit-panel", Color.Hex("#0b0c10")))`.
 - The structure of every component is stable: kind, role, classes and part ids are API. Style them through those, never through child positions.
-- SVG art (`KitArt`) has its colors baked in; replace it by registering your own SVG under the same ids.
+- SVG art (`KitArt`): the small icons (sort arrows, chevron, check) are white and take their color from the theme with `background-tint`, so they follow a light or dark theme. The frame, key caps and gamepad glyphs have their own colors (dark) baked in; replace them by registering your own SVG under the same ids when your theme is light.
+
+### States and legibility
+
+Every kit control looks different in each state, and the differences do not rely on color alone:
+
+| State | Look |
+|---|---|
+| hover | the fill goes lighter (accent and hover tokens), the pointer is a hand |
+| pressed | the fill goes darker (`--kit-active`, `--kit-accent-active`) |
+| focus | a ring of `--kit-focus-width` outside the control, 2 px away from it, so it reads against the surface behind and not against a primary fill; inside clipped parts (list rows, table headers, drop-down options, tabs) the ring is drawn inside |
+| selected | row and option: fill, text color and an accent frame inside the row; tab: accent underline; checkbox and radio: accent fill |
+| switched on (toggle button) | a tinted fill (`--kit-pressed-fill`, `-hover`, `-active`) and an accent outline (`--kit-pressed-border`), so it is not a hover fill, a focus ring or a disabled fill; disabled and switched on keeps a faint tint and an outline in `--kit-disabled-text` |
+| disabled | the fill is flat (`--kit-disabled-fill`), the outline dim (`--kit-disabled-border`), the text `--kit-disabled-text`; no hover or pressed change, no opacity fade, the same for every variant |
+
+`:disabled` matches a disabled element and everything inside it, so `card.IsEnabled = false` dims the whole card.
+
+The theme derives state colors from your tokens and makes the ones that carry text or an indicator legible by the WCAG 2.x AA ratios (text 4.5:1, including the text on a switched-on toggle; focus ring, control outlines, the switched-on outline, accent fills and scroll thumbs 3:1,
+disabled text 3:1). `KitTheme.Create` moves a token that would fall short just far enough toward white or black: `Text` and `TextDim` on every surface, `AccentText` on the accent in all its states,
+`SelectionText`, `Focus`, `Border` for control outlines (`--kit-control-border`), `Scrollbar`. It never touches one that already passes. Colors that are not text, such as your `Accent` against the panel, are only checked.
+
+Check a theme, including any token your game overrides by hand after the kit's sheet (which skips the repair), from a test or from the command line:
+
+```csharp
+var report = ThemeLint.Check(ui);             // the tokens in effect on the root; ThemeLint.Check(KitTokens) checks a token set before you use it
+if (!report.Passed)
+{
+    foreach (var f in report.Failures)         // worst first, e.g. "primary button text on accent: --kit-accent-text #d9a441 on --kit-accent, 1.0:1, needs 4.5"
+    {
+        Console.WriteLine($"{f.Name}: {f.Foreground} {f.ForegroundColor} on {f.Background} {f.BackgroundColor} = {f.Ratio}:1, needs {f.Required}");
+    }
+}
+```
+
+`onegame lint-theme --json` runs the game headless and prints the same report (exit code 1 when a pair fails); the control operation `theme_lint` returns it from a running game over MCP.
+Put a `ThemeLint.Check` in your game's tests so a theme edit cannot silently break legibility.
 
 ## 12. Testing a screen
 
@@ -729,6 +811,7 @@ expect:
   - ui: { id: buy, enabled: true }
   - ui: { selector: .kit-row, count: 1 }      # the filter left one row; rows are recycled, so this counts the rows that exist
   - ui: { id: confirm, visible: false }
+  - ui: { id: fast, pressed: true }          # a toggle button is switched on
   - state: { entity: Shop, property: Gold, equals: 10 }
   - capture: { reference: refs/market.png, size: 1280x720, tolerance: 2 }
 ```

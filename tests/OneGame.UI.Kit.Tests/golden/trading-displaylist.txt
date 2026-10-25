@@ -4,12 +4,12 @@ Text 'Gold 2500' #e8eaf0 size=14 [1184.4,20 Gold 2500]
 Border (12,52.8 1256x35.8) #3a4050 widths=0,0,0,1
 Border (12,52.8 82.4x34.8) #d9a441 widths=0,0,0,2
 Text 'Market' #e8eaf0 size=14 [28,60.8 Market]
-Text 'Cargo' #8a93a6 size=14 [112.4,60.8 Cargo]
-Text 'Ships' #8a93a6 size=14 [188.4,60.8 Ships]
+Text 'Cargo' #8e97a9 size=14 [112.4,60.8 Cargo]
+Text 'Ships' #8e97a9 size=14 [188.4,60.8 Ships]
 Rect (12,96.6 944x32) #171a20 radii=4,4,4,4
-Border (12,96.6 944x32) #3a4050 widths=1,1,1,1 radii=4,4,4,4
+Border (12,96.6 944x32) #666b77 widths=1,1,1,1 radii=4,4,4,4
 PushClip (21,104.2 926x16.8)
-  Text 'Filter goods' #8a93a6 size=14 [21,104.2 Filter goods]
+  Text 'Filter goods' #8e97a9 size=14 [21,104.2 Filter goods]
 PopClip
 Rect (12,136.6 944x563.4062) #171a20 radii=4,4,4,4
 Border (12,136.6 944x563.4062) #3a4050 widths=1,1,1,1 radii=4,4,4,4
@@ -67,6 +67,7 @@ PushClip (13,137.6 942x561.4062)
     PushClip (875,230.2 80x16.8)
       Text '26' #ffffff size=14 [930.2,230.2 26]
     PopClip
+    Border (13,224.6 942x28) #d9a441 widths=2,2,2,2
     PushClip (13,258.2 509.3333x16.8)
       Text 'Salted Grain 4' #e8eaf0 size=14 [21,258.2 Salted Grain 4]
     PopClip
@@ -284,8 +285,8 @@ PushClip (13,137.6 942x561.4062)
       Text '60' #e8eaf0 size=14 [930.2,734.2 60]
     PopClip
   PopClip
-  Rect (947,168.6 6x24) #59627a radii=3,3,3,3
-  Border (10,165.6 948x536.4062) #6cb6ff widths=2,2,2,2
+  Rect (947,168.6 6x24) #626b81 radii=3,3,3,3
+  Border (9,164.6 950x538.4062) #6cb6ff widths=2,2,2,2
 PopClip
 Image (968,96.6 300x603.4062) 'kit/frame' slice=12
 Rect (980,108.6 276x264.8) #1e2128 radii=4,4,4,4
@@ -296,18 +297,16 @@ Text 'Price 79' #e8eaf0 size=14 [993,169.2 Price 79]
 Text 'In stock 26' #e8eaf0 size=14 [993,192 In stock 26]
 Text 'Quantity' #e8eaf0 size=14 [993,214.8 Quantity]
 Rect (1003,248.6 178x6) #171a20 radii=3,3,3,3
-Border (1003,248.6 178x6) #3a4050 widths=1,1,1,1 radii=3,3,3,3
+Border (1003,248.6 178x6) #666b77 widths=1,1,1,1 radii=3,3,3,3
 Rect (1004,249.6 0x4) #d9a441
 PushTransform [1 0 0 1 -8 -8]
   Rect (1004,251.6 16x16) #e8eaf0 radii=8,8,8,8
   Border (1004,251.6 16x16) #d9a441 widths=2,2,2,2 radii=8,8,8,8
 PopTransform
 Text '1' #e8eaf0 size=14 [1224.6,243.2 1]
-PushOpacity 0.4
-  Rect (993,271.6 28x28) #2b303a radii=4,4,4,4
-  Border (993,271.6 28x28) #3a4050 widths=1,1,1,1 radii=4,4,4,4
-  Text '-' #e8eaf0 size=14 [1002.8,277.2 -]
-PopOpacity
+Rect (993,271.6 28x28) #23272f radii=4,4,4,4
+Border (993,271.6 28x28) #2c303c widths=1,1,1,1 radii=4,4,4,4
+Text '-' #69707d size=14 [1002.8,277.2 -]
 Text '1' #e8eaf0 size=14 [1044.8,277.2 1]
 Rect (1077,271.6 28x28) #2b303a radii=4,4,4,4
 Border (1077,271.6 28x28) #3a4050 widths=1,1,1,1 radii=4,4,4,4

@@ -91,6 +91,78 @@ public class RelayTests
     }
 
     [Fact]
+    public void ARelayResumesWhenItsAuthorityRestartsFromAnOlderSave()
+    {
+        var rig = new RelayRig();
+        var ada = rig.JoinRelay("ada", Of(rig, 1, 10));
+        var guest = rig.JoinRelay("guest", Trust.Reader(rig.Scope.Id));
+        rig.Cluster.Step(10);
+        var save = rig.Scope.Save();
+        var savedTick = rig.Scope.World.Tick;
+        rig.Cluster.Step(15);
+        Assert.Equal(rig.Scope.World.Tick, ada.Replica.World.Tick);
+
+        // The authority comes back from its save: its tick is lower than what the relay already served.
+        Assert.Equal(SaveStatus.Ok, rig.Scope.Load(save).Status);
+        Assert.Equal(savedTick, rig.Scope.World.Tick);
+        rig.Cluster.Step(20);
+
+        Assert.Equal(rig.Scope.World.Tick, rig.Upstream.World.Tick);
+        Assert.Equal(rig.Scope.World.Tick, ada.Replica.World.Tick);
+        Assert.Equal(rig.Scope.World.Tick, guest.Replica.World.Tick);
+        Assert.Empty(rig.Cluster.CheckReplicas());
+        Assert.Empty(rig.Cluster.DriftReports);
+    }
+
+    /// <summary>A channel whose far end can be replaced, like a link that opens again to a restarted peer.</summary>
+    private sealed class Swappable(IMessageChannel first) : IMessageChannel
+    {
+        public IMessageChannel Inner { get; set; } = first;
+
+        public void Send(ReadOnlySpan<byte> message) => Inner.Send(message);
+
+        public bool TryReceive(out ReadOnlySpan<byte> message) => Inner.TryReceive(out message);
+    }
+
+    [Theory]
+    [InlineData(10, 25)]
+    [InlineData(15, 15)]
+    [InlineData(0, 12)]
+    public void ARelayResumesWhenItsAuthorityIsReplacedByOneRestartedFromAnOlderSave(int ticksBeforeSave, int ticksBeforeCrash)
+    {
+        Swappable? link = null;
+        var rig = new RelayRig(null, end => link = new Swappable(end));
+        var ada = rig.JoinRelay("ada", Of(rig, 1, 10));
+        var guest = rig.JoinRelay("guest", Trust.Reader(rig.Scope.Id));
+        rig.Cluster.Step(ticksBeforeSave);
+        var save = rig.Scope.Save();
+        var savedTick = rig.Scope.World.Tick;
+        rig.Cluster.Step(ticksBeforeCrash);
+        Assert.Equal(rig.Scope.World.Tick, ada.Replica.World.Tick);
+
+        // The authority process dies and a new one starts from the save: a lower tick than the relay already served, and a new connection.
+        Assert.True(rig.Cluster.RemoveNode(rig.Auth));
+        var restarted = rig.Cluster.AddNode("auth-again");
+        var scope = rig.Cluster.AddScope(restarted, rig.Scope.Id, Arena.Empty(WorldRole.Authority));
+        Assert.Equal(SaveStatus.Ok, scope.Load(save).Status);
+        Assert.Equal(savedTick, scope.World.Tick);
+        var (relayEnd, authorityEnd) = Loopback.CreatePair();
+        var connection = restarted.Accept(authorityEnd, Trust.Owner(scope.Id).AsRelay(), "relay");
+        link!.Inner = relayEnd;
+        rig.Relay.Resubscribe(rig.Upstream);
+        rig.Cluster.Step(30);
+
+        Assert.Equal(scope.World.Tick, rig.Upstream.World.Tick);
+        Assert.Equal(scope.World.Tick, ada.Replica.World.Tick);
+        Assert.Equal(scope.World.Tick, guest.Replica.World.Tick);
+
+        // The relay's link still names the node that died, so its hop is compared by hand; the other hops by the cluster.
+        Assert.Equal(scope.ViewHashFor(connection), rig.Upstream.ViewHash);
+        Assert.DoesNotContain(rig.Cluster.CheckReplicas(), r => r.ReplicaNode != "relay");
+        Assert.Empty(rig.Cluster.DriftReports);
+    }
+
+    [Fact]
     public void AMismatchInjectedAtTheRelayIsReportedNamingTheHop()
     {
         var rig = new RelayRig(new ClusterOptions { DriftCheckInterval = 1, FatalDrift = false, ResyncOnDrift = true });

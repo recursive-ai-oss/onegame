@@ -69,7 +69,7 @@ internal sealed class Compound
             return false;
         }
 
-        if ((p & Pseudo.Disabled) != 0 && el.IsEnabled)
+        if ((p & Pseudo.Disabled) != 0 && el.IsEffectivelyEnabled)
         {
             return false;
         }

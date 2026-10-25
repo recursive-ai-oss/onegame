@@ -28,7 +28,7 @@ Without `--headless` the game opens a window (Wayland when `WAYLAND_DISPLAY` is 
 
 ## Operations
 
-`ControlOps.All` is the table; `ControlSurface.Invoke(op, argsJson)` runs one and returns `ControlResult(Json, Png?)`; `Call(op, argsJson)` returns the JSON text. Failures are `ControlException(code, message)`; codes are stable (`unknown_op`, `bad_args`, `not_found`, `rejected`, `path_outside`, `too_large`, ...). Names use underscores so they are valid MCP tool names. Paths are relative to the output folder and cannot leave it.
+`ControlOps.All` is the table; `ControlSurface.Invoke(op, argsJson)` runs one and returns `ControlResult(Json, Png?)`; `Call(op, argsJson)` returns the JSON text. Failures are `ControlException(code, message)`; codes are stable (`unknown_op`, `bad_args`, `not_found`, `rejected`, `path_outside`, `too_large`, ...). Names use underscores so they are valid MCP tool names. Every operation that reads or writes a file (`snapshot_save`, `snapshot_load`, `capture_frame`, `capture_sequence`, `audio_capture`) takes a path relative to the output folder: the game's `--artifacts` folder, or `artifacts/` in the working directory when the option is not given (`ControlSurface`'s own default is the working directory; the runner passes the folder). Relative paths may have subfolders (`shots/a.png`) and are created as needed. Anything that would leave the folder is refused with `path_outside`: `..`, an absolute path (even one inside the folder), or a link inside the folder that points out of it. An empty path or one with a NUL is `bad_args`. The result's `path` is the full path written.
 
 | Group | Operations |
 |---|---|
@@ -38,8 +38,10 @@ Without `--headless` the game opens a window (Wayland when `WAYLAND_DISPLAY` is 
 | Clipboard | `clipboard_get`, `clipboard_set` (`selection`: `clipboard` or `primary`) |
 | UI | `ui_tree`, `ui_query`, `ui_hit`, `screen_open`, `ui_scale` (override the UI scale; `scale: null` or `reset: true` follows the window) |
 | Output | `snapshot_save`, `capture_frame`, `capture_sequence` |
+| Theme | `theme_lint` (WCAG AA contrast of the kit theme in effect, as a report; `docs/interfaces/ui-kit.md`) |
 | Shaders | `shaders` (hot reload status; recompiles changed shader files first, see `docs/interfaces/render2d.md`) |
 | Rendering | `render_graph` (passes, resources and per-pass GPU time of the last frame; see `render-graph.md`) |
+| Audio | `audio` (buses, filters, reverb, limiter, loudness LUFS and dBTP, music position), `audio_capture` (render capture-mode audio, report peak and loudness, write a WAV; see `audio.md`) |
 | Lifecycle | `quit` |
 
 `tools/list` over MCP returns exactly this table (name, description, JSON schema). Entity addressing everywhere: numeric id, `Type` (first of that type) or `Type#n`.
@@ -49,7 +51,7 @@ Commands go through the entities' generated `SendFromText(name, args[])` (argume
 ## Faces
 
 - **C# test API** (`OneGame.Testing`): `TestCluster.Start(game, options)` → `Client` (`Send`, `Step`, `Call`, `Hash`, `Game`), `Determinism.RunTwice/SnapshotRestore/Replay`, `ScenarioParser` and `ScenarioRunner` (below). Everything goes through `ControlSurface`, so a test does what an agent does.
-- **CLI** (`onegame`): verbs `new build run test capture replay mcp export` (`export` is described below). `--json` prints one object. Errors are `{"ok":false,"error":{"code","message"}}`. Exit codes: 0 ok, 1 a check failed, 2 usage, 3 build failed, 4 could not run, 5 needs a development build.
+- **CLI** (`onegame`): verbs `new build run test capture lint-theme replay mcp export` (`export` is described below). `--json` prints one object. Errors are `{"ok":false,"error":{"code","message"}}`. Exit codes: 0 ok, 1 a check failed, 2 usage, 3 build failed, 4 could not run, 5 needs a development build.
 - **MCP**: MCP revision 2025-06-18, JSON-RPC 2.0, tools only (`initialize`, `tools/list`, `tools/call`; captures return `image` content plus text). A Debug game listens on a Unix domain socket (`--live [path]`) and speaks one JSON-RPC message per line; requests are handled on the game thread between frames, so the game stays single-threaded. `onegame mcp` is the stdio bridge agent hosts spawn: `--socket <path>`, or `--project <dir>` to start the game and bridge it, or no option to attach to the only live game. The game starts paused (an agent steps it) unless `--realtime`.
 
 Release builds do not reference `OneGame.Live`, `OneGame.Control`, `OneGame.Testing` or OneYaml and do not compile the start-up hook (`build/Game.targets`, `OneGameDev`), so there is no listener, no operation table and no scenario parser in the binary.

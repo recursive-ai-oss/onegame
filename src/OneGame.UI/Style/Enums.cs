@@ -152,3 +152,41 @@ public enum WhiteSpace
     /// <summary>Never wrap, and break at newline characters.</summary>
     Pre,
 }
+
+/// <summary>The <c>background-repeat</c> property (CSS Backgrounds 3 §3.3). The default is <c>no-repeat</c>, so a lone image is drawn once.</summary>
+public enum BackgroundRepeat
+{
+    /// <summary>The image is drawn once.</summary>
+    NoRepeat,
+    /// <summary>Tiled across and down.</summary>
+    Repeat,
+    /// <summary>Tiled across only.</summary>
+    RepeatX,
+    /// <summary>Tiled down only.</summary>
+    RepeatY,
+}
+
+/// <summary>The keyword forms of <c>background-size</c> (CSS Backgrounds 3 §3.9).</summary>
+public enum BackgroundSizing
+{
+    /// <summary>The image is stretched to the whole box. This is the default and what an image element does.</summary>
+    Fill,
+    /// <summary>The image's natural size times the UI scale. <c>background-width</c> and <c>background-height</c> override it.</summary>
+    Auto,
+    /// <summary>Scaled, keeping its aspect ratio, to the smallest size that covers the box.</summary>
+    Cover,
+    /// <summary>Scaled, keeping its aspect ratio, to the largest size that fits inside the box.</summary>
+    Contain,
+}
+
+/// <summary>Which axes of a background image repeat, as carried by a display list command.</summary>
+[Flags]
+public enum TileAxes
+{
+    /// <summary>Neither.</summary>
+    None = 0,
+    /// <summary>Across.</summary>
+    X = 1,
+    /// <summary>Down.</summary>
+    Y = 2,
+}

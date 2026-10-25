@@ -168,6 +168,72 @@ public class UdpTests
     }
 
     [Fact]
+    public void ADatagramForAConnectionTheServerNeverHadIsAnsweredWithADisconnectSoARestartIsNoticedAtOnce()
+    {
+        var rig = new Rig();
+        var serverSocket = rig.Net.CreateSocket();
+        var server = UdpTransport.Listen(serverSocket, null, rig.Clock);
+        var probe = rig.Net.CreateSocket();
+        var data = new byte[ReliableCore.HeaderSize + 40];
+        data[0] = Wire.Header(Wire.KindData);
+        BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(1), 0xDEADBEEF);
+        probe.Send(data, serverSocket.LocalAddress);
+
+        // A disconnect for an unknown connection is not answered: two peers could otherwise bounce it forever.
+        var bye = new byte[Wire.DisconnectSize];
+        bye[0] = Wire.Header(Wire.KindDisconnect);
+        BinaryPrimitives.WriteUInt32LittleEndian(bye.AsSpan(1), 0xDEADBEEF);
+        probe.Send(bye, serverSocket.LocalAddress);
+        server.Pump();
+
+        var buf = new byte[2048];
+        var from = new SocketAddress(AddressFamily.InterNetwork);
+        var n = probe.Receive(buf, from);
+        Assert.Equal(Wire.DisconnectSize, n);
+        Assert.True(n < data.Length);
+        Assert.Equal(Wire.Header(Wire.KindDisconnect), buf[0]);
+        Assert.Equal(0xDEADBEEFu, BinaryPrimitives.ReadUInt32LittleEndian(buf.AsSpan(1)));
+        Assert.Equal((byte)DisconnectReason.Shutdown, buf[5]);
+        Assert.Equal(-1, probe.Receive(buf, from));
+        Assert.Equal(2, server.DatagramsIgnored);
+    }
+
+    [Fact]
+    public void AClientOfAServerThatStartedAgainClosesWithinAKeepAliveNotTheTimeout()
+    {
+        // Real sockets: a second listener binds the port the first one had.
+        var firstSocket = new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0));
+        var first = UdpTransport.Listen(firstSocket);
+        var port = ((IPEndPoint)new IPEndPoint(IPAddress.Loopback, 0).Create(firstSocket.LocalAddress)).Port;
+        var options = new UdpOptions { KeepAliveMs = 100, TimeoutMs = 20_000 };
+        var client = UdpTransport.Connect(new IPEndPoint(IPAddress.Loopback, port), options);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (client.State != ConnectionState.Connected && clock.ElapsedMilliseconds < 5000)
+        {
+            first.Pump();
+            client.Pump();
+            Thread.Sleep(2);
+        }
+
+        Assert.Equal(ConnectionState.Connected, client.State);
+
+        // The first server dies without a word (its connections are dropped, not disconnected), and a new one starts on the same port.
+        firstSocket.Dispose();
+        using var restarted = UdpTransport.Listen(new IPEndPoint(IPAddress.Loopback, port));
+        clock.Restart();
+        while (client.State != ConnectionState.Closed && clock.ElapsedMilliseconds < 5000)
+        {
+            restarted.Pump();
+            client.Pump();
+            Thread.Sleep(2);
+        }
+
+        Assert.Equal(ConnectionState.Closed, client.State);
+        Assert.True(client.CloseInfo.ByRemote);
+        Assert.True(clock.ElapsedMilliseconds < 2000, $"took {clock.ElapsedMilliseconds} ms");
+    }
+
+    [Fact]
     public void AChallengeIsSmallerThanTheRequestSoTheServerCannotBeUsedToAmplify()
     {
         Assert.True(Wire.ChallengeSize < Wire.MinHandshakeSize);

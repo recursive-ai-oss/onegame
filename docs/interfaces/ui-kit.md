@@ -6,7 +6,7 @@
 
 - `new KitHost(tree, theme?)`: adds the default theme sheet and a tooltip layer to the tree. Per frame call `host.Advance(seconds)` (tooltip delays; the kit reads no clock), send input through `host.Dispatch(e)` (it forwards to `tree.Dispatch` and tells `host.Glyphs` which device is in use), then `tree.Frame()`.
 - `host.SetTheme(KitTheme.Create(tokens))` swaps the theme in place (`UiTree.ReplaceStyleSheet`): same elements and boxes, new colors and sizes in the display list.
-- `UiKit` is the factory class: `Button`, `Toggle`, `RadioGroup<T>`, `Slider` (int and float), `NumberStepper`, `Progress`, `Card`, `Frame`, `Tabs`, `ScrollView`, `VirtualList<T>`, `TextList`, `Table<T>`, `Dropdown<T>`, `Dialog`, `ConfirmDialog`, `TextInput`, `InputGlyph`, plus `host.Tooltip(element, text)` and `FocusHelpers` (`FocusGroup`, `AsDefaultFocus`, `FocusDefault`).
+- `UiKit` is the factory class: `Button`, `ToggleButton`, `Toggle`, `RadioGroup<T>`, `Slider` (int and float), `NumberStepper`, `Progress`, `Card`, `Frame`, `Tabs`, `ScrollView`, `VirtualList<T>`, `TextList`, `Table<T>`, `Dropdown<T>`, `Dialog`, `ConfirmDialog`, `TextInput`, `InputGlyph`, plus `host.Tooltip(element, text)` and `FocusHelpers` (`FocusGroup`, `AsDefaultFocus`, `FocusDefault`).
 - Components are controlled: they read state through `Func<T>` and report edits through `Action<T>`. A refused edit shows the old value on the next frame.
 - Art (`KitArt.Assets`) is exposed as SVG bytes with nine-slice margins; the game registers them in its `ArtAtlas`. The kit has no atlas dependency.
 
@@ -17,6 +17,7 @@ Every kit element has `Role` (an ARIA-style name) and often `Value` (the human-r
 | Component | Root role | Parts (ids are `<id>/…`) |
 |---|---|---|
 | Button | `button` (value = label; inspection `text` = label) | none |
+| ToggleButton | `button`, `Pressed` = on/off, class `pressed` while on; inspection `pressed` | none |
 | Toggle | `checkbox` (value `on`/`off`) | none |
 | RadioGroup | `radiogroup` (value = selected label) | `radio`, one per choice |
 | Slider | `slider` (value = number) | thumb and track are unnamed |
@@ -41,15 +42,29 @@ Rows are recycled: `RealizedRowCount` is the number of row elements that exist, 
 
 colors `--kit-bg --kit-panel --kit-raised --kit-field --kit-text --kit-text-dim --kit-accent --kit-accent-hover --kit-accent-text --kit-danger --kit-border --kit-focus --kit-hover --kit-active --kit-select --kit-select-text --kit-scrim --kit-scrollbar`; sizes `--kit-font-size --kit-radius --kit-focus-width`.
 
+Derived by `KitTheme.Create` (not `KitTokens` members): `--kit-accent-active --kit-danger-hover --kit-danger-active --kit-danger-text --kit-control-border --kit-disabled-fill --kit-disabled-border --kit-disabled-text`.
+A token that carries text or an indicator and would miss WCAG 2.x AA against what it sits on is moved toward white or black just far enough (`KitContrast.Ensure`); passing tokens are untouched.
+The rules for each state of every component are in `KitTheme`; disabled never uses opacity.
+
+## Contrast lint
+
+`ThemeLint.Check(KitTokens | UiTree | Func<string, Color?>)` returns a `ThemeLintReport` (`Passed`, `Checked`, `Failures` worst first, `Checks`). Each `ContrastCheck` names the pair (`Foreground`/`Background` tokens, `ForegroundColor`/`BackgroundColor`, `Ratio`, `Required`, `Kind` = `text` | `disabled-text` | `indicator`). Text needs 4.5:1; disabled text and indicators (focus ring, control outline, accent fill, scroll thumb) 3:1. A token that is not defined is reported as `missing` with ratio 0.
+Faces: control operation `theme_lint` (MCP), dev option `--lint-theme` on a game, and `onegame lint-theme [--json]` (exit 1 when a pair fails). `KitContrast` has `Luminance`, `Ratio`, `Mix`, `Ensure`.
+
 A game restyles by passing its own `KitTokens`, by adding a sheet after the theme that overrides a token on `:root`, or by adding rules for the `kit-*` classes (`kit-button`, `kit-row`, …). Rules added by the game survive a theme swap.
 
 ## Hooks the kit added to `OneGame.UI`
 
+- `Element.Pressed` (`bool?`): toggle state, like `aria-pressed`; null for elements that are not toggles. Printed by `DumpJson` as `pressed`; the scenario expectation `ui: {pressed: true}` reads it.
+- `UiTree.ArtSizes` (`IArtSizes`): natural sizes of art ids, for `background-size` keywords and tiling; `OneGame.Text.ArtAtlasSizes` adapts an `ArtAtlas`. Background repeat, size and position are `background-repeat`, `background-size`, `background-width`, `background-height`, `background-position-x`, `background-position-y` (`docs/ui-guide.md`).
 - `Element.Role`, `Element.Value`: inspection only; they do not affect style or layout. Printed by `DumpJson`.
 - `UiTree.CapturePointer(el)` / `ReleasePointer()` / `PointerCaptor`: while captured, moves and the release go to the captor even outside its box (slider drag, text selection, scrollbar thumb). The press itself still hit-tests normally.
 - `UiTree.RequestFocus(el)`: focuses at the end of the current `Update`. Use it from bindings, where `Focus` would re-enter the update.
 - `UiTree.TextStyleOf(el)`: the resolved text style the engine measures with, for caret geometry.
 - `UiTree.ReplaceStyleSheet(old, new)`: swaps a sheet at its cascade position.
+- `UiTree.TryGetColorToken(name, out color)`: a color token as the cascade resolved it on the root (what `ThemeLint.Check(tree)` reads).
+- `background-tint` (`StyleBuilder.BackgroundTint`): multiplies the background image by a color; white single-color art follows a theme token.
+- `:disabled` matches an element that is disabled or inside a disabled ancestor (as CSS does for controls in a disabled fieldset).
 - `UiTree.Invoke` sends `Click` with `Button = -1` (an activation without a pointer); pointer clicks carry the real button.
 - Directional focus ignores candidates that overlap the source along the direction of travel when a wholly-ahead candidate exists, so Right from a wide table does not land on its own header cells.
 

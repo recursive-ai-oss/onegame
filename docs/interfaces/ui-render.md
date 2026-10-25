@@ -23,11 +23,20 @@ if (list.Version != lastVersion) Record(list);
 | `Rect` | `Bounds`, `Color`, `Radii` | Filled rounded rectangle (the border box). |
 | `Border` | `Bounds`, `Color`, `Widths` (left, top, right, bottom), `Radii` | Stroke along the inside of `Bounds`. Also used for outlines (then `Bounds` is already grown). |
 | `Shadow` | `Bounds`, `Color`, `Radii`, `Offset`, `Value` (blur radius), `Spread` | Blurred shadow of the rounded box; not drawn under the box itself. |
-| `Image` | `Bounds`, `Resource`, `Color` (tint, white = none), `Radii`, `Slice` | `Resource` is an asset id for a raster image or an SVG; the renderer resolves it. A non-zero `Slice` gives nine-slice insets in pixels. |
+| `Image` | `Bounds`, `Resource`, `Color` (tint, white = none), `Radii`, `Slice`, `TileSize`, `TileOrigin`, `Repeat` | `Resource` is an asset id for a raster image or an SVG; the renderer resolves it. A non-zero `Slice` gives nine-slice insets in pixels. A non-zero `TileSize` places or tiles the image instead (below). |
 | `Text` | `TextRun` (index into `list.TextRuns`), `Bounds` (content box), `Color` | See below. |
 | `PushClip` | `Bounds`, `Radii` | Intersect the clip with a rounded rectangle (the padding box of a scroll or `overflow: hidden` element). |
 | `PushTransform` | `Transform` (`Matrix3x2`, row vectors) | Applies to everything until the pop. The matrix already includes the pivot, so it maps absolute screen coordinates to absolute screen coordinates. Translate, scale and rotate compose about the box center. |
 | `PushOpacity` | `Value` (0..1) | Everything until the pop is drawn as a group, then blended with this opacity. |
+
+### Placed and tiled images
+
+When a style sets `background-repeat`, `background-size` or `background-position`, the `Image` command carries the final geometry in pixels, so a renderer needs no style knowledge:
+`TileSize` is the size of one image or tile, `TileOrigin` the top-left corner (in the same coordinates as `Bounds`) of the tile at index (0, 0), and `Repeat` (`TileAxes`: `X`, `Y`, both, or none) the axes it continues along
+in both directions from the origin. Nothing is drawn outside `Bounds` (rounded by `Radii`), and where an axis does not repeat, nothing outside the single tile. `Slice` is zero for these commands. Repeated tiles are whole pixels.
+A renderer draws the whole pattern as one primitive: wrap the texture coordinate inside the tile. Taps that wrap by hand inside the art's region keep a tile cut from a shared atlas page seamless (the OneGame renderer does this in its shader).
+`UiTree.ArtSizes` (`IArtSizes`) tells the painter the natural size of an id; without it the command stays a plain stretched image.
+`DisplayList.ToText()` appends ` tile=WxH@x,y repeat=X+Y|X|Y|none`.
 
 Swapping a style sheet or redefining a token (`ReplaceStyleSheet`, the kit's theme swap) changes the commands and bumps `Version` without rebuilding any element. The component kit draws its icons and frames from atlas ids listed in `KitArt.Assets`; a game registers them like any art (`docs/interfaces/ui-kit.md`).
 

@@ -5,7 +5,7 @@ namespace OneGame.Testing;
 
 /// <summary>
 /// Runs a scenario against a <see cref="ProcessCluster"/>: each step goes to the node it names through that node's live control, the same
-/// operations an agent calls, and the cluster-wide expectations compare hashes across processes.
+/// operations a caller uses, and the cluster-wide expectations compare hashes across processes.
 /// </summary>
 internal sealed class ClusterScenarioRunner(ProcessCluster cluster)
 {
@@ -89,6 +89,15 @@ internal sealed class ClusterScenarioRunner(ProcessCluster cluster)
                     throw new ControlException("timeout", $"Line {s.Line}: node '{s.Node}' did not reach tick {s.Tick} within {s.TimeoutMs} ms (it is at {cluster.TickOf(s.Node!)}).");
                 }
 
+                break;
+            case StepKind.Kill:
+                cluster.Kill(s.Node!);
+                break;
+            case StepKind.Start:
+                cluster.Start(s.Node!);
+                break;
+            case StepKind.Restart:
+                cluster.Restart(s.Node!);
                 break;
             case StepKind.Click:
                 cluster.Call(RequireNode(s), "ui_click", s.Id is not null ? obj(("id", s.Id)) : obj(("selector", s.Selector)));
@@ -235,6 +244,10 @@ internal sealed class ClusterScenarioRunner(ProcessCluster cluster)
             else if (check.Server != server.Name)
             {
                 list.Add(new ExpectationResult(index, "agree", e.Line, false, client, server.Name, check.Server, $"{client} is connected to '{check.Server}', not '{server.Name}'", client));
+            }
+            else if (report.Problems.FirstOrDefault(p => p.StartsWith(client + ":", StringComparison.Ordinal) && p.Contains("(followed)", StringComparison.Ordinal)) is { } stale)
+            {
+                list.Add(new ExpectationResult(index, "agree", e.Line, false, $"{client} vs {server.Name}", check.ServerHash, check.ClientHash, stale, client));
             }
             else
             {

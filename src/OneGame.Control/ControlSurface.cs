@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using OneGame.Audio;
 using OneGame.Core;
 using OneGame.Host;
 using OneGame.Platform;
@@ -17,7 +18,7 @@ public sealed class ControlSurface : IControlEndpoint
 
     /// <summary>Creates a control surface over a game.</summary>
     /// <param name="game">The game to control.</param>
-    /// <param name="outputDirectory">Where captures and snapshots are written and read. Relative paths in operations resolve here and may not leave it. Defaults to the current directory.</param>
+    /// <param name="outputDirectory">Where captures and snapshots are written and read. Relative paths in operations resolve here and may not leave it. Defaults to the current directory; the game runner passes its <c>--artifacts</c> folder.</param>
     public ControlSurface(GameInstance game, string? outputDirectory = null)
     {
         Game = game ?? throw new ArgumentNullException(nameof(game));
@@ -109,6 +110,9 @@ public sealed class ControlSurface : IControlEndpoint
         "snapshot_save" => Json(SnapshotSave(a), ControlJson.Default.SnapshotResult),
         "shaders" => Json(ShaderCheck(), ControlJson.Default.ShadersResult),
         "render_graph" => Json(RenderGraphReport(), ControlJson.Default.RenderGraphReport),
+        "theme_lint" => Json(ThemeLintCheck(), ControlJson.Default.ThemeLintReport),
+        "audio" => Json(AudioReport(a), ControlJson.Default.AudioStatus),
+        "audio_capture" => Json(AudioCapture(a), ControlJson.Default.AudioCaptureResult),
         "capture_frame" => CaptureFrame(a),
         "capture_sequence" => Json(CaptureSequence(a), ControlJson.Default.SequenceResult),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", ControlOps.All.Select(o => o.Name))}."),
@@ -629,16 +633,60 @@ public sealed class ControlSurface : IControlEndpoint
 
     // ---- snapshots ----
 
+    // Every operation that reads or writes a file goes through here. A path is relative to the output folder and has to stay inside it,
+    // whether it climbs out with "..", is absolute, or goes through a symbolic link that points elsewhere.
     private string ResolveOutput(string path)
     {
+        if (string.IsNullOrWhiteSpace(path) || path.Contains('\0', StringComparison.Ordinal))
+        {
+            throw new ControlException("bad_args", "path is empty or contains a NUL character. Give a path relative to the output folder, such as shots/a.png.");
+        }
+
+        if (Path.IsPathRooted(path))
+        {
+            throw new ControlException("path_outside", $"'{path}' is an absolute path. Paths are relative to the output folder {OutputDirectory}, for example shots/a.png.");
+        }
+
         var full = Path.GetFullPath(path, OutputDirectory);
         var root = OutputDirectory.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         if (!full.StartsWith(root, StringComparison.Ordinal))
         {
-            throw new ControlException("path_outside", $"'{path}' is outside the output folder {OutputDirectory}. Use a relative path.");
+            throw new ControlException("path_outside", $"'{path}' leaves the output folder {OutputDirectory}. Paths are relative to it and may not use '..'.");
+        }
+
+        // A link inside the folder that points out of it would let a lexically clean path write elsewhere: follow each existing component.
+        var real = RealPath(OutputDirectory);
+        var realRoot = real.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var current = OutputDirectory;
+        foreach (var part in full[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, part);
+            if (!Directory.Exists(current) && !File.Exists(current))
+            {
+                break;
+            }
+
+            var resolved = RealPath(current);
+            if (!resolved.StartsWith(realRoot, StringComparison.Ordinal) && !resolved.StartsWith(root, StringComparison.Ordinal))
+            {
+                throw new ControlException("path_outside", $"'{path}' goes through a link that leaves the output folder {OutputDirectory}.");
+            }
         }
 
         return full;
+    }
+
+    private static string RealPath(string path)
+    {
+        var info = new FileInfo(path);
+        try
+        {
+            return info.ResolveLinkTarget(true)?.FullName ?? path;
+        }
+        catch (IOException)
+        {
+            return path;
+        }
     }
 
     private SnapshotResult SnapshotSave(Args a)
@@ -707,8 +755,69 @@ public sealed class ControlSurface : IControlEndpoint
 
     private ShaderReloader Reloader => _reloader ??= new ShaderReloader(Game.HotShaders);
 
+    /// <summary>The game's audio, for the <c>audio</c> operations. Defaults to the most recently created <see cref="AudioService"/>, so a game needs to do nothing; set it to point at another.</summary>
+    public AudioService? Audio { get; set; }
+
+    private AudioService AudioOrThrow() =>
+        Audio ?? AudioService.Active ?? throw new ControlException("no_audio", "This game has no audio service running.");
+
+    private AudioStatus AudioReport(Args a)
+    {
+        var audio = AudioOrThrow();
+        if (a.Bool("reset", false))
+        {
+            audio.ResetLoudness();
+        }
+
+        return audio.Describe();
+    }
+
+    private AudioCaptureResult AudioCapture(Args a)
+    {
+        var audio = AudioOrThrow();
+        var sink = audio.Capture ?? throw new ControlException("rejected", "Audio is not in capture mode (AudioServiceOptions.Capture). A playing device can't be recorded this way.");
+        var seconds = a.Double("seconds", 1);
+        if (!(seconds >= 0 && seconds <= 600))
+        {
+            throw new ControlException("bad_args", "seconds must be between 0 and 600.");
+        }
+
+        if (a.Bool("clear", false))
+        {
+            sink.Clear();
+        }
+
+        if (a.Bool("reset", false))
+        {
+            audio.ResetLoudness();
+        }
+
+        audio.Advance((int)Math.Round(seconds * audio.Format.SampleRate));
+        string? path = null;
+        string? sha = null;
+        var target = a.Str("path");
+        if (target is not null)
+        {
+            path = ResolveOutput(target);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            using var ms = new MemoryStream();
+            sink.WriteWav(ms);
+            File.WriteAllBytes(path, ms.ToArray());
+            sha = Sha256(ms.ToArray());
+        }
+
+        return new AudioCaptureResult(target, sink.FramesCaptured, sink.FramesCaptured / (double)audio.Format.SampleRate, sink.Peak, sha, audio.Describe().Loudness);
+    }
+
     private OneGame.Gpu.Graph.RenderGraphReport RenderGraphReport() =>
         Game.DescribeRenderGraph() ?? throw new ControlException("no_graph", "This game has no graphics device, or its render stage does not draw with a render graph.");
+
+    private OneGame.UI.Kit.ThemeLintReport ThemeLintCheck()
+    {
+        // Styles resolve on update; the tokens read are the ones in effect on the root, with the game's own overrides.
+        Game.Ui.Update();
+        return OneGame.UI.Kit.ThemeLint.Check(Game.Ui);
+    }
 
     private ShadersResult ShaderCheck()
     {

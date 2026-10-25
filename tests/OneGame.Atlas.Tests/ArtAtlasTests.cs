@@ -218,14 +218,14 @@ public class ArtAtlasTests
         var huge = new byte[5 * 1024 * 1024];
         var hugeNatural = System.Text.Encoding.UTF8.GetBytes("""<svg xmlns="http://www.w3.org/2000/svg" width="100000" height="100000"><rect width="5" height="5"/></svg>""");
         var bigPng = PngHeaderClaiming(60000, 60000);
-        var moderatePng = PngHeaderClaiming(4000, 4000);
+        var moderatePng = PngHeaderClaiming(5000, 5000);
         var garbage = new byte[100];
 
         var before = GC.GetAllocatedBytesForCurrentThread();
         Assert.Throws<AtlasAssetException>(() => atlas.AddSvg("big-file", huge));
         Assert.Throws<AtlasAssetException>(() => atlas.AddSvg("big-natural", hugeNatural));
         Assert.Throws<AtlasAssetException>(() => atlas.AddImage("big-png", bigPng));
-        Assert.Throws<AtlasAssetException>(() => atlas.AddImage("moderate-png", moderatePng)); // 16 megapixels is over the raster budget
+        Assert.Throws<AtlasAssetException>(() => atlas.AddImage("moderate-png", moderatePng)); // 25 megapixels is over the raster budget
         Assert.Throws<AtlasAssetException>(() => atlas.AddImage("garbage", garbage));
         Assert.Throws<AtlasAssetException>(() => atlas.AddSvg("empty", ReadOnlyMemory<byte>.Empty));
         var refused = GC.GetAllocatedBytesForCurrentThread() - before;
@@ -234,8 +234,8 @@ public class ArtAtlasTests
 
         // A request beyond the raster budget never reaches the SVG renderer.
         before = GC.GetAllocatedBytesForCurrentThread();
-        Assert.Equal(AtlasStatus.TooLarge, atlas.TryGetScaled("frame", 64, out _));      // 2048 px fits the raster budget but not a 1024 px page
-        Assert.Equal(AtlasStatus.TooLarge, atlas.TryGetScaled("frame", 65, out _));
+        Assert.Equal(AtlasStatus.TooLarge, atlas.TryGet("frame", 4097, 4097, out _));      // over 16 megapixels
+        Assert.Equal(AtlasStatus.TooLarge, atlas.TryGet("frame", 8193, 10, out _));       // over the side limit
         Assert.Equal(AtlasStatus.TooLarge, atlas.TryGet("frame", 5000, 5000, out _));
         Assert.Equal(AtlasStatus.TooLarge, atlas.TryGet("frame", int.MaxValue, int.MaxValue, out _));
         Assert.Equal(AtlasStatus.TooLarge, atlas.TryGetScaled("frame", float.NaN, out _));
@@ -245,7 +245,8 @@ public class ArtAtlasTests
 
         var small = new ArtAtlas(new AtlasOptions { PageSize = 128 });
         small.AddSvg("coin", Fixtures.Svg("coin.svg"));
-        Assert.Equal(AtlasStatus.TooLarge, small.TryGetScaled("coin", 6, out _)); // 144 px does not fit a 128 px page
+        Assert.Equal(AtlasStatus.Ok, small.TryGetScaled("coin", 6, out var big)); // 144 px does not fit a 128 px page, so it gets a texture of its own
+        Assert.NotEqual(0, big.Standalone);
 
         var few = new ArtAtlas(limits: new ArtLimits { MaxResources = 2 });
         few.AddSvg("a", Fixtures.Svg("coin.svg"));

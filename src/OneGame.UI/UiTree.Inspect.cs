@@ -157,6 +157,11 @@ public sealed partial class UiTree
             w.WriteString("value", e.Value);
         }
 
+        if (e.Pressed is { } pressed)
+        {
+            w.WriteBoolean("pressed", pressed);
+        }
+
         if (e.Classes.Count > 0)
         {
             w.WriteStartArray("classes");
@@ -184,7 +189,7 @@ public sealed partial class UiTree
             states.Add("focus");
         }
 
-        if (!e.IsEnabled)
+        if (!e.IsEffectivelyEnabled)
         {
             states.Add("disabled");
         }

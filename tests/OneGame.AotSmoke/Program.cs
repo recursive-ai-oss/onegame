@@ -14,6 +14,7 @@ using OneGame.Sync;
 using OneGame.Text;
 using OneGame.Testing;
 using OneGame.UI;
+using OneGame.UI.Kit;
 
 // Touches every runtime assembly so the native publish has to compile and trim all of them.
 string[] names =
@@ -70,6 +71,24 @@ using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true 
     }
 
     Console.WriteLine($"ok: audio vorbis 44.1 kHz and opus decoded and mixed at {audio.Format.SampleRate} Hz, peak {audio.Capture.Peak:F3}");
+}
+
+// FLAC and MP3 decoding, bus filter, reverb, the master limiter and the loudness meter under NativeAOT.
+using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true, MasterLimiter = new LimiterOptions() }))
+{
+    audio.SetBusFilter(AudioBus.Sfx, AudioFilterKind.LowPass, 6000f);
+    audio.SetBusReverb(AudioBus.Ui, new ReverbOptions());
+    audio.Play(audio.LoadSound(ReadAsset("tone44k.flac")));
+    audio.Play(audio.LoadSound(ReadAsset("tone44k.mp3")), new PlayOptions { Bus = AudioBus.Ui });
+    audio.Advance(24_000);
+    var status = audio.Describe();
+    if (!(audio.Capture!.Peak > 0.1f) || status.Loudness.IntegratedLufs is not { } lufs || lufs > 0 || lufs < -40 || status.Limiter is null)
+    {
+        Console.Error.WriteLine($"audio effects smoke failed: peak {audio.Capture.Peak}, loudness {status.Loudness.IntegratedLufs}");
+        return 1;
+    }
+
+    Console.WriteLine($"ok: audio flac and mp3 decoded, filter, reverb and limiter ran, {lufs:F1} LUFS");
 }
 
 using (var audio = AudioService.Create(new AudioServiceOptions { Device = new AudioDeviceOptions { DeviceName = "onegame_no_such_device" } }))
@@ -234,6 +253,24 @@ if (textLines.Count < 2 || placed.Count == 0 || glyphStatus != AtlasStatus.Ok ||
 }
 
 Console.WriteLine($"ok: text {textLines.Count} lines, {placed.Count} glyphs, glyph {glyph.Width}x{glyph.Height}, svg {coin.Width}x{coin.Height}");
+
+// Large art and tiled backgrounds: a standalone texture for an SVG over the page threshold, tile geometry from the atlas's sizes, and a toggle button's state.
+var backdropStatus = art.TryGetFitted("coin", 1920, 1080, 1.5f, out var backdrop);
+var tileTree = new UiTree(measurer) { ArtSizes = new ArtAtlasSizes(art) };
+tileTree.SetViewport(200, 100);
+tileTree.Root.With(Ui.Box().Style(s => s.Size(100, 50).BackgroundImage("coin").BackgroundRepeat(BackgroundRepeat.Repeat).BackgroundSize(BackgroundSizing.Auto)));
+var tiled = tileTree.Frame().Commands.ToArray().FirstOrDefault(c => c.Kind == DrawKind.Image);
+var fastOn = false;
+var toggle = UiKit.ToggleButton("FAST", () => fastOn, v => fastOn = v);
+tileTree.Root.With(toggle);
+tileTree.Frame();
+if (backdropStatus != AtlasStatus.Ok || backdrop.Standalone == 0 || !art.TryGetStandalone(backdrop.Standalone, out _) || tiled.TileSize != new System.Numerics.Vector2(24, 24) || toggle.Pressed != false)
+{
+    Console.Error.WriteLine($"art smoke failed: backdrop={backdropStatus} standalone={backdrop.Standalone} tile={tiled.TileSize} pressed={toggle.Pressed}");
+    return 1;
+}
+
+Console.WriteLine($"ok: standalone art {backdrop.Width}x{backdrop.Height}, tiled background {tiled.TileSize.X}x{tiled.TileSize.Y}, toggle button state");
 
 // The component kit: a table, a filter field, a dialog and a theme swap, driven through input events.
 var kitProblem = KitSmoke.Run(measurer);

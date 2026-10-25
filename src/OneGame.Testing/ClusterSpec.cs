@@ -55,13 +55,19 @@ public sealed record NodeSpec
 
     /// <summary>Clients: network conditions applied to this client's traffic, as <c>latency=100,loss=0.02</c>.</summary>
     public string? Net { get; init; }
+
+    /// <summary>
+    /// Clients: an exported release build, which has no live control. It runs on its own (give it <c>--until-tick N</c> in <see cref="Args"/>), prints
+    /// its result when it stops, and the cluster reads that result to compare it with its server.
+    /// </summary>
+    public bool Release { get; init; }
 }
 
 /// <summary>The nodes of a process cluster and how long to wait for them.</summary>
 public sealed record ClusterSpec
 {
     private static readonly string[] TopKeys = ["name", "dir", "startupTimeout", "nodes"];
-    private static readonly string[] NodeKeys = ["name", "role", "exe", "args", "listen", "scopes", "tickRate", "manual", "connect", "transport", "scope", "net"];
+    private static readonly string[] NodeKeys = ["name", "role", "exe", "args", "listen", "scopes", "tickRate", "manual", "connect", "transport", "scope", "net", "release"];
     private static readonly string[] ScopeKeys = ["id", "seed"];
 
     /// <summary>The cluster's name.</summary>
@@ -154,6 +160,11 @@ public sealed record ClusterSpec
 
         foreach (var n in Nodes.Where(n => n.Role == NodeRole.Client))
         {
+            if (n.Release && !n.Args.Contains("--until-tick"))
+            {
+                throw new ScenarioException($"client '{n.Name}' is a release build with no live control; give it args: [--until-tick, N] so it stops by itself", source, 0);
+            }
+
             var server = Nodes.FirstOrDefault(s => s.Name == n.Connect && s.Role == NodeRole.Server)
                 ?? throw new ScenarioException($"client '{n.Name}' connects to '{n.Connect}', which is not a server node of this cluster", source, 0);
             if (!server.Listen.Split('+').Contains(n.Transport))
@@ -230,6 +241,7 @@ public sealed record ClusterSpec
             Transport = transport,
             Scope = (uint)(Whole(item, "scope", source) ?? 1),
             Net = NetText(item, source),
+            Release = Text(item, "release", source) == "true",
         };
     }
 

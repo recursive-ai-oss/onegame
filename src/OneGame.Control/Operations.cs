@@ -109,6 +109,15 @@ public sealed record SequenceResult(string Directory, string Manifest, int Frame
 /// <summary>Result of <c>snapshot_save</c>.</summary>
 public sealed record SnapshotResult(string? Path, int Bytes, string? Base64, string Hash, long Tick);
 
+/// <summary>Result of <c>audio_capture</c>: what the capture sink holds after the advance.</summary>
+/// <param name="Path">The WAV file written under the output folder, or null.</param>
+/// <param name="Frames">Frames recorded since the sink was last cleared.</param>
+/// <param name="Seconds">The same in seconds.</param>
+/// <param name="Peak">The highest sample magnitude recorded.</param>
+/// <param name="Sha256">Hash of the WAV file, when written.</param>
+/// <param name="Loudness">The output loudness now.</param>
+public sealed record AudioCaptureResult(string? Path, int Frames, double Seconds, float Peak, string? Sha256, OneGame.Audio.LoudnessStatus Loudness);
+
 /// <summary>Source-generated JSON metadata for control results; nothing here uses reflection.</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(InfoResult))]
@@ -131,6 +140,9 @@ public sealed record SnapshotResult(string? Path, int Bytes, string? Base64, str
 [JsonSerializable(typeof(NetDivergeResult))]
 [JsonSerializable(typeof(ShadersResult))]
 [JsonSerializable(typeof(OneGame.Gpu.Graph.RenderGraphReport))]
+[JsonSerializable(typeof(OneGame.UI.Kit.ThemeLintReport))]
+[JsonSerializable(typeof(OneGame.Audio.AudioStatus))]
+[JsonSerializable(typeof(AudioCaptureResult))]
 public sealed partial class ControlJson : JsonSerializerContext
 {
 }
@@ -204,12 +216,21 @@ public static class ControlOps
         new("render_graph",
             "Describe the render graph of the last frame drawn: every pass in order (type, what it reads and writes, whether it was culled, GPU time in microseconds when measured), every texture and buffer (format, size, lifetime, which allocation it shares), and totals (memory in use versus memory without sharing). Draws one frame offscreen first if none was drawn. Fails with 'no_graph' without a graphics device.",
             NoArgs, false),
+        new("theme_lint",
+            "Check the UI theme in effect for legibility: WCAG 2.x AA contrast of every text, state and indicator color pair the kit draws (text 4.5:1; disabled text and indicators such as the focus ring 3:1), using the tokens as the cascade resolved them, game overrides included. Returns passed, the number of pairs checked, the failing pairs (token names, colors, ratio, required) worst first, and every pair.",
+            NoArgs, false),
         new("capture_frame",
             "Render the current state offscreen to a PNG. size is WxH or a name (360p 720p 1080p 1440p 4k deck phone tablet); scale is the UI scale. With 'path' the file is written under the output folder. With presented=true, a windowed game instead returns the frame it presents to its window (the swapchain image, at the window's size; size and scale are ignored).",
             """{"type":"object","properties":{"size":{"type":"string"},"scale":{"type":"number"},"path":{"type":"string"},"presented":{"type":"boolean"}}}""", false),
         new("capture_sequence",
             "Run frames and capture each one: 'count' captures, 'ticksPerFrame' ticks between them. Writes frame-NNNN.png and manifest.json (the video form: frames plus fps) into 'dir' under the output folder.",
             """{"type":"object","properties":{"dir":{"type":"string"},"count":{"type":"integer","minimum":1,"maximum":3600},"ticksPerFrame":{"type":"integer","minimum":1},"size":{"type":"string"},"scale":{"type":"number"},"fps":{"type":"integer","minimum":1}},"required":["dir","count"]}""", true),
+        new("audio",
+            "The mixing state of the game's audio as JSON: every bus (volume, mute, low-pass, high-pass, reverb, ducking), the master limiter and its gain reduction, the loudness at the output (momentary, short-term and integrated LUFS, true peak dBTP, seconds measured; null while silent), and the music track's position and length. With reset=true the loudness measurement starts over first, so a scene can be measured from its beginning. Fails with 'no_audio' when the game runs no audio service.",
+            """{"type":"object","properties":{"reset":{"type":"boolean"}}}""", false),
+        new("audio_capture",
+            "For a game whose audio runs on the capture sink (no device): render 'seconds' of audio (default 1) and report the frames, peak and loudness. With 'path' the whole recording is written as a WAV under the output folder, with its SHA-256. clear=true empties the recording first; reset=true restarts the loudness measurement. Fails with 'rejected' when audio plays on a device.",
+            """{"type":"object","properties":{"seconds":{"type":"number","minimum":0,"maximum":600},"path":{"type":"string"},"clear":{"type":"boolean"},"reset":{"type":"boolean"}}}""", true),
         new("quit", "Ask the game to exit.", NoArgs, false),
     ];
 }
