@@ -75,4 +75,7 @@ internal interface ISteamNative
     bool CloudQuota(out ulong total, out ulong available);
     bool CloudEnabledForAccount();
     bool CloudEnabledForApp();
+
+    // Steam Input; null when the library does not hand out the interface.
+    ISteamInputNative? CreateInput() => null;
 }

@@ -30,12 +30,15 @@ steps:
   - set: { entity: Counter, property: Count, value: 40 }
   - set: { table: lanes, row: 2, property: Heat, value: 7 }   # one cell of a [HotData] table
   - press: Tab             # keys, also: type: "text", nav: next, wheel, screen, fixture, snapshot, reset: 77, ui-scale: 1.5, invoke
+  - steam-input: { connect: 3 }          # the stand-in Steam Input controller (ONEGAME_STEAM_INPUT=fake): connect, disconnect, press, release, analog + x/y; runs 2 frames
+  - steam-input: { press: map_select }
   - nav: start             # a controller button: up down left right next previous activate cancel, or any button by name (start, back, west, north, x, y, left_stick...)
 expect:
   - state: { entity: Counter, property: Count, equals: 3 }
   - state: { entity: Ship, property: Fitted.count, equals: 2 }   # a SyncList: count, [index], or the whole list as JSON
   - state: { table: lanes, row: 2, property: Heat, equals: 7 }
   - ui: { id: count, text: "Count: 3" }       # or selector + count/contains/visible/enabled/focused/pressed
+  - steam-input: { set: Map, controllers: 1, down: map_select, keyboard: false }   # active action set, pads, held actions, on-screen keyboard (docs/interfaces/steam.md)
   - tick: 3
   - capture: { reference: refs/main.png, size: 320x200, tolerance: 2, max-diff: 0.001 }
 ```

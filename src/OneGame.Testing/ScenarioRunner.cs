@@ -307,6 +307,10 @@ public sealed class ScenarioRunner
             case StepKind.Camera:
                 _surface.Call("camera", s.ControlArgs);
                 break;
+            case StepKind.SteamInput:
+                _surface.Call("steam_input", s.ControlArgs);
+                _surface.Call("step", "{\"count\":2}");
+                break;
             case StepKind.Expect:
                 var r = await CheckAsync(s.Expect!, index, scenario.Name, ctx, scenario);
                 inline.Add(r);
@@ -338,6 +342,7 @@ public sealed class ScenarioRunner
                 ExpectKind.Hash => Compare(e, index, "hash", "hash", _surface.Game.World.ComputeHash().ToString("x16", CultureInfo.InvariantCulture), e.EqualTo!.ToLowerInvariant()),
                 ExpectKind.Capture => await CheckCaptureAsync(e, index, scenarioName, ctx, scenario),
                 ExpectKind.Pick => CheckPick(e, index),
+                ExpectKind.SteamInput => CheckSteamInput(e, index),
                 _ => throw new ControlException("bad_args", "Unknown expectation."),
             };
         }
@@ -358,6 +363,65 @@ public sealed class ScenarioRunner
         || (double.TryParse(actual, NumberStyles.Float, CultureInfo.InvariantCulture, out var a)
             && double.TryParse(expected, NumberStyles.Float, CultureInfo.InvariantCulture, out var b)
             && Math.Abs(a - b) < 1e-9);
+
+    private ExpectationResult CheckSteamInput(ScenarioExpectation e, int index)
+    {
+        using var doc = JsonDocument.Parse(_surface.Call("steam_input"));
+        var root = doc.RootElement;
+        var problems = new List<string>();
+        var actual = new List<string>();
+        var expected = new List<string>();
+        if (e.ActiveSet is not null)
+        {
+            var set = root.TryGetProperty("activeSet", out var s) ? s.GetString() : null;
+            expected.Add($"set={e.ActiveSet}");
+            actual.Add($"set={set ?? "none"}");
+            if (set != e.ActiveSet)
+            {
+                problems.Add($"active set is {set ?? "none"}, expected {e.ActiveSet}");
+            }
+        }
+
+        if (e.Count is { } want)
+        {
+            var n = root.GetProperty("controllers").GetArrayLength();
+            expected.Add($"controllers={want}");
+            actual.Add($"controllers={n}");
+            if (n != want)
+            {
+                problems.Add($"{n} controllers connected, expected {want}");
+            }
+        }
+
+        foreach (var (name, wantDown) in new[] { (e.DownAction, true), (e.UpAction, false) })
+        {
+            if (name is null)
+            {
+                continue;
+            }
+
+            var down = root.GetProperty("values").EnumerateArray().Any(v => v.GetProperty("action").GetString() == name && v.GetProperty("down").GetBoolean());
+            expected.Add($"{name}={(wantDown ? "down" : "up")}");
+            actual.Add($"{name}={(down ? "down" : "up")}");
+            if (down != wantDown)
+            {
+                problems.Add($"{name} is {(down ? "down" : "up")}, expected {(wantDown ? "down" : "up")}");
+            }
+        }
+
+        if (e.Visible is { } kb)
+        {
+            var shown = root.GetProperty("keyboard").GetProperty("visible").GetBoolean();
+            expected.Add($"keyboard={(kb ? "visible" : "hidden")}");
+            actual.Add($"keyboard={(shown ? "visible" : "hidden")}");
+            if (shown != kb)
+            {
+                problems.Add($"on-screen keyboard is {(shown ? "visible" : "hidden")}, expected {(kb ? "visible" : "hidden")}");
+            }
+        }
+
+        return new ExpectationResult(index, "steam-input", e.Line, problems.Count == 0, "steam-input", string.Join(", ", expected), string.Join(", ", actual), problems.Count == 0 ? null : string.Join("; ", problems));
+    }
 
     private ExpectationResult CheckPick(ScenarioExpectation e, int index)
     {

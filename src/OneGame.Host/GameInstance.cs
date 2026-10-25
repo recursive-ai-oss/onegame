@@ -558,6 +558,7 @@ public sealed class GameInstance : IDisposable
     private void RunFrame(int ticks)
     {
         DrainInput();
+        Definition.OnEachFrame(this);
         if (_stick.Tick(out var repeat))
         {
             Ui.Dispatch(repeat);

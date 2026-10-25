@@ -8,6 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../OneGame.Platform/OneGame.Platform.csproj" />
+    <ProjectReference Include="../OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="OneGame.Steam.Tests" />
   </ItemGroup>
 
