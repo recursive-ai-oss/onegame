@@ -17,7 +17,7 @@ internal sealed class DevTools : IDevTools
 {
     private static readonly string[] Known =
     [
-        "live", "realtime", "scenario", "artifacts", "update-references", "record", "capture", "sequence", "count", "every", "replay",
+        "live", "realtime", "parent", "scenario", "artifacts", "update-references", "record", "capture", "sequence", "count", "every", "replay",
         "fixture", "screen", "after",
     ];
 
@@ -28,7 +28,7 @@ internal sealed class DevTools : IDevTools
         {
             foreach (var name in args.Names)
             {
-                if (name is "headless" or "frames" or "size" or "scale" or "seed" or "json" or "gpu" or "backend" or "display" or "present")
+                if (name is "headless" or "frames" or "size" or "scale" or "seed" or "json" or "gpu" or "backend" or "display" or "present" or "connect" or "scope" or "name" or "net")
                 {
                     continue;
                 }
@@ -39,6 +39,7 @@ internal sealed class DevTools : IDevTools
                 }
             }
 
+            using var watch = args.Has("parent") ? new ParentWatch((int)args.GetInt("parent", 0), game.Platform.RequestQuit) : null;
             var surface = new ControlSurface(game, args.Get("artifacts") ?? Directory.GetCurrentDirectory());
             if (args.Has("fixture"))
             {
@@ -120,7 +121,11 @@ internal sealed class DevTools : IDevTools
         output.Flush();
         if (args.Has("realtime"))
         {
-            game.RunRealtime(args.GetInt("frames", 0), () => server.Pump());
+            game.RunRealtime(args.GetInt("frames", 0), () =>
+            {
+                surface.PollShaders();
+                server.Pump();
+            });
         }
         else
         {
@@ -128,6 +133,7 @@ internal sealed class DevTools : IDevTools
             var lastDraw = Environment.TickCount64;
             while (!game.QuitRequested)
             {
+                surface.PollShaders();
                 server.Pump();
                 game.DrainInput();
                 if (!game.Options.Headless && Environment.TickCount64 - lastDraw >= 16)

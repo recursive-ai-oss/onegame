@@ -54,6 +54,12 @@ public sealed record GameOptions
     /// <summary>How the swapchain paces presentation. <see cref="PresentMode.Vsync"/> (the default) is always available; the other two fall back to it where the system lacks them.</summary>
     public PresentMode PresentMode { get; init; } = PresentMode.Vsync;
 
+    /// <summary>
+    /// Connect to a server instead of running a world of its own. The game's world is then a replica of the server's scope: the server
+    /// runs the simulation, commands are forwarded to it, and state cannot be written locally.
+    /// </summary>
+    public ConnectOptions? Connect { get; init; }
+
     /// <summary>Where the 2D renderer gets its compiled shaders. When null, the renderer's own shaders, compiled during the build, are used.</summary>
     public IShaderSource? Shaders { get; init; }
 }
@@ -89,9 +95,11 @@ public sealed class GameInstance : IDisposable
     private bool _grabNext;
     private CapturedFrame? _grab;
     private bool _disposed;
-    private Cluster _cluster = null!;
-    private AuthorityScope _scope = null!;
+    private Cluster? _cluster;
+    private AuthorityScope? _scope;
     private ReplicaScope _replica = null!;
+    private RemoteSession? _remote;
+    private long _remoteTick = -1;
 
     private GameInstance(GameDefinition definition, GameOptions options)
     {
@@ -107,7 +115,8 @@ public sealed class GameInstance : IDisposable
         var art = new ArtAtlas();
         definition.DefineArt(art);
         var shaders = options.Shaders ?? GeneratedShaders.Instance;
-        _stage = definition.CreateRenderStage(new HostResources(haveFonts ? fonts : null, measurer, art, shaders));
+        HotShaders = new HotShaders();
+        _stage = definition.CreateRenderStage(new HostResources(haveFonts ? fonts : null, measurer, art, shaders) { HotShaders = HotShaders });
         Platform = PlatformApp.Create(new PlatformOptions
         {
             Backend = options.Headless ? PlatformBackendKind.Headless : options.Backend,
@@ -123,7 +132,15 @@ public sealed class GameInstance : IDisposable
         }
 
         Seed = options.Seed ?? definition.Seed;
-        Attach(NewWorld(null));
+        if (options.Connect is { } connect)
+        {
+            AttachRemote(connect);
+        }
+        else
+        {
+            Attach(NewWorld(null));
+        }
+
         definition.Style(Ui);
         SyncViewport();
         OpenScreen(_screenSet.Names.Any(n => n == "main") ? "main" : _screenSet.Names.Count > 0 ? _screenSet.Names[0] : throw new InvalidOperationException($"{definition.Name} declares no screens. Add one named \"main\" in DefineScreens."));
@@ -155,16 +172,21 @@ public sealed class GameInstance : IDisposable
     public World World { get; private set; } = null!;
 
     /// <summary>The single-player cluster: one authority node holding <see cref="World"/> and one local replica of it. Rebuilt whenever the world is replaced.</summary>
-    public Cluster Cluster => _cluster;
+    /// <exception cref="ReplicaWriteException">The game is connected to a server and has no cluster of its own.</exception>
+    public Cluster Cluster => _cluster ?? throw RemoteOnly("has no local cluster");
 
     /// <summary>The authority scope that owns <see cref="World"/>. Recordings start here.</summary>
-    public AuthorityScope Scope => _scope;
+    /// <exception cref="ReplicaWriteException">The game is connected to a server and has no authority scope.</exception>
+    public AuthorityScope Scope => _scope ?? throw RemoteOnly("has no authority scope");
+
+    /// <summary>The connection to the server when the game was started with <see cref="GameOptions.Connect"/>; null for a game that runs its own world.</summary>
+    public RemoteSession? Remote => _remote;
 
     /// <summary>The local replica of the world, kept in step by the cluster. Its hash must equal the authority's at every tick; drift is reported by <see cref="DriftReports"/>.</summary>
     public ReplicaScope Replica => _replica;
 
     /// <summary>Drift reports filed so far by the local replica; empty while replica and authority agree.</summary>
-    public IReadOnlyList<DriftReport> DriftReports => _cluster.DriftReports;
+    public IReadOnlyList<DriftReport> DriftReports => _remote is { } r ? r.DriftReports : _cluster!.DriftReports;
 
     /// <summary>The seed of the current run.</summary>
     public ulong Seed { get; private set; }
@@ -180,6 +202,9 @@ public sealed class GameInstance : IDisposable
 
     /// <summary>Frames run so far.</summary>
     public long Frame { get; private set; }
+
+    /// <summary>The shaders the game's render stage registered for hot reload. A development build recompiles them when their files change.</summary>
+    public HotShaders HotShaders { get; }
 
     /// <summary>True once the window was closed or a quit was requested.</summary>
     public bool QuitRequested => Platform.QuitRequested || Window.IsClosed;
@@ -264,21 +289,35 @@ public sealed class GameInstance : IDisposable
     }
 
     /// <summary>Builds a world the way the game does (registry, tables, systems) and fills it with the game's starting state. Replays run on such a world.</summary>
-    public World CreateWorld() => NewWorld(null);
+    public World CreateWorld() => _remote is null ? NewWorld(null) : throw RemoteOnly("cannot build a starting world");
 
     /// <summary>Builds an empty world with the game's registry and systems, the starting point for a replay or a snapshot load.</summary>
     public World CreateBlankWorld() => NewWorld(static _ => { });
 
+    private static ReplicaWriteException RemoteOnly(string what) =>
+        new($"This game is connected to a server: it {what}. The server owns the world; send commands instead, or start the game without --connect.");
+
+    private void AttachRemote(ConnectOptions connect)
+    {
+        var view = new World(Seed, _registry, WorldRole.Replica);
+        Definition.RegisterSystems(view);
+        _remote = new RemoteSession(connect, view);
+        _replica = _remote.Replica;
+        World = view;
+        _remote.Pump();
+    }
+
     private void Attach(World world)
     {
         World = world;
-        _cluster = new Cluster(new ClusterOptions());
-        var node = _cluster.AddNode("game");
-        _scope = _cluster.AddScope(node, new ScopeId(1), world);
+        var cluster = new Cluster(new ClusterOptions());
+        _cluster = cluster;
+        var node = cluster.AddNode("game");
+        _scope = cluster.AddScope(node, new ScopeId(1), world);
         var view = new World(Seed, _registry, WorldRole.Replica);
         Definition.RegisterSystems(view);
-        _replica = _cluster.AddLocalReplica(_scope, view);
-        _cluster.Settle();
+        _replica = cluster.AddLocalReplica(_scope, view);
+        cluster.Settle();
     }
 
     private void Replace(World world)
@@ -289,7 +328,7 @@ public sealed class GameInstance : IDisposable
 
     /// <summary>Starts recording the run from the current state. Stop the recorder to get the <see cref="Recording"/>; replay it with <see cref="Replay(Recording, Action{World})"/>.</summary>
     /// <exception cref="InvalidOperationException">Commands are queued; step once first.</exception>
-    public Recorder StartRecording(RecordingOptions? options = null) => _scope.StartRecording(options ?? new RecordingOptions { CheckpointInterval = 1 });
+    public Recorder StartRecording(RecordingOptions? options = null) => Scope.StartRecording(options ?? new RecordingOptions { CheckpointInterval = 1 });
 
     /// <summary>
     /// Starts recording the session from the current state and keeps going across world replacements (resets, fixtures, loaded saves),
@@ -331,6 +370,11 @@ public sealed class GameInstance : IDisposable
     /// <summary>Starts a new game: a fresh world filled by <see cref="GameDefinition.Setup"/>, optionally with a different seed.</summary>
     public void Reset(ulong? seed = null)
     {
+        if (_remote is not null)
+        {
+            throw RemoteOnly("cannot be reset");
+        }
+
         if (seed is { } s)
         {
             Seed = s;
@@ -367,6 +411,11 @@ public sealed class GameInstance : IDisposable
     /// <exception cref="KeyNotFoundException">No fixture has that name.</exception>
     public void LoadFixture(string name)
     {
+        if (_remote is not null)
+        {
+            throw RemoteOnly("cannot load fixtures");
+        }
+
         if (!_fixtureSet.TryGet(name, out var populate))
         {
             throw new KeyNotFoundException($"No fixture named '{name}'. Declared: {string.Join(", ", _fixtureSet.Names)}.");
@@ -379,6 +428,11 @@ public sealed class GameInstance : IDisposable
     /// <exception cref="InvalidDataException">The save is malformed, damaged or from an unsupported version.</exception>
     public void LoadSnapshot(ReadOnlySpan<byte> snapshot)
     {
+        if (_remote is not null)
+        {
+            throw RemoteOnly("cannot load snapshots");
+        }
+
         var world = NewWorld(static _ => { });
         var result = SaveFile.Load(snapshot, world);
         if (result.Status != SaveStatus.Ok)
@@ -428,6 +482,7 @@ public sealed class GameInstance : IDisposable
     /// <summary>Handles all pending input without running a tick. Control operations call this after injecting input so its effect is visible at once.</summary>
     public void DrainInput()
     {
+        _remote?.Pump();
         Platform.PumpEvents();
         while (Platform.TryGetEvent(out var e))
         {
@@ -463,10 +518,23 @@ public sealed class GameInstance : IDisposable
             Ui.Dispatch(repeat);
         }
 
-        for (var t = 0; t < ticks; t++)
+        if (_remote is { } remote)
         {
-            _cluster.Step(1);
-            TickCompleted?.Invoke(World);
+            // The server runs the ticks; a frame takes in whatever arrived.
+            remote.Pump();
+            if (World.Tick != _remoteTick)
+            {
+                _remoteTick = World.Tick;
+                TickCompleted?.Invoke(World);
+            }
+        }
+        else
+        {
+            for (var t = 0; t < ticks; t++)
+            {
+                _cluster!.Step(1);
+                TickCompleted?.Invoke(World);
+            }
         }
 
         Frame++;
@@ -747,6 +815,7 @@ public sealed class GameInstance : IDisposable
         }
 
         _disposed = true;
+        _remote?.Close();
         _device?.WaitIdle();
         _swapchain?.Dispose();
         (_stage as IDisposable)?.Dispose();

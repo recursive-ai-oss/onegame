@@ -1,3 +1,5 @@
+using OneGame.Testing;
+
 namespace OneGame.Cli;
 
 /// <summary>Result of <c>onegame --version --json</c>.</summary>
@@ -50,6 +52,12 @@ internal sealed record ExportResult(
     bool Ok, string Game, string GameVersion, string EngineVersion, string Target, string Configuration, string Runtime, bool Steam, bool DevTools,
     string Renderer, string Directory, string Executable, ExportArchive? Archive, ExportFile[] Files, ExportSkipped[] Skipped, ExportWarning[] Warnings, double Seconds);
 
+/// <summary>What the <c>cluster</c> verbs print with <c>--json</c>: whether it went well, and the result object.</summary>
+internal sealed record ClusterResult<T>(bool Ok, T Result);
+
+/// <summary>Result of <c>onegame cluster test</c>.</summary>
+internal sealed record ClusterTestResult(int Passed, int Failed, ScenarioResult[] Scenarios, DownReport Down);
+
 /// <summary>Source-generated JSON metadata; the command line never uses reflection-based serialization.</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(VersionResult))]
@@ -60,6 +68,11 @@ internal sealed record ExportResult(
 [JsonSerializable(typeof(TestResult))]
 [JsonSerializable(typeof(ExportResult))]
 [JsonSerializable(typeof(JsonElement))]
+[JsonSerializable(typeof(ClusterResult<ClusterState>))]
+[JsonSerializable(typeof(ClusterResult<ClusterStatus>))]
+[JsonSerializable(typeof(ClusterResult<ClusterHashReport>))]
+[JsonSerializable(typeof(ClusterResult<DownReport>))]
+[JsonSerializable(typeof(ClusterResult<ClusterTestResult>))]
 [JsonSerializable(typeof(string))]
 internal sealed partial class CliJson : JsonSerializerContext
 {

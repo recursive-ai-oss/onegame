@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="../OneGame.Control/OneGame.Control.csproj" />
     <ProjectReference Include="../OneGame.Host/OneGame.Host.csproj" />
+    <ProjectReference Include="../OneGame.Testing/OneGame.Testing.csproj" />
   </ItemGroup>
 
   <ItemGroup>

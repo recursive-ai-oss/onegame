@@ -269,7 +269,17 @@ public sealed class Material : IDisposable
 
     internal GpuBindGroup Group { get; }
 
-    internal GpuGraphicsPipeline Pipeline { get; }
+    internal GpuGraphicsPipeline Pipeline { get; private set; }
+
+    internal bool OwnsPipeline => _ownsPipeline;
+
+    /// <summary>Swaps in a new pipeline and returns the old one for the caller to release once the GPU is done with it.</summary>
+    internal GpuGraphicsPipeline SwapPipeline(GpuGraphicsPipeline next)
+    {
+        var old = Pipeline;
+        Pipeline = next;
+        return old;
+    }
 
     internal int Version { get; private set; }
 

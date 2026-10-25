@@ -313,6 +313,36 @@ public sealed partial class Renderer2D : IDisposable
         return NewMaterial(pipeline, ownsPipeline: true);
     }
 
+    /// <summary>
+    /// Replaces the pixel shader of a material made by <see cref="CreateMaterial"/> without touching its parameters, so a shader edited
+    /// while the game runs shows from the next frame on. The new shader must keep the interface the material was made with (same
+    /// resources and vertex inputs); it is the caller's job to check that, for example with <c>InterfaceCompatibility.Compare</c>.
+    /// </summary>
+    /// <param name="material">A material from <see cref="CreateMaterial"/>.</param>
+    /// <param name="pixelShader">The new compiled pixel stage.</param>
+    /// <exception cref="ArgumentException">The shader is not a pixel shader, or the material is one of the renderer's own.</exception>
+    public void ReplaceMaterialShader(Material material, ShaderCode pixelShader)
+    {
+        ArgumentNullException.ThrowIfNull(material);
+        if (pixelShader.Stage != ShaderStage.Pixel)
+        {
+            throw new ArgumentException("a material needs a pixel shader", nameof(pixelShader));
+        }
+
+        if (!material.OwnsPipeline)
+        {
+            throw new ArgumentException("the renderer's own materials cannot be replaced", nameof(material));
+        }
+
+        using var ps = _device.CreateShader(pixelShader.Stage, pixelShader.SpirV.Span, pixelShader.EntryPoint);
+        var pipeline = Pipeline(_layoutParams, _quadVertex, ps, Layouts.QuadVertex(), "material");
+        var old = material.SwapPipeline(pipeline);
+
+        // Frames in flight may still reference the old pipeline; a reload is a development action, so waiting for the device is fine.
+        _device.WaitIdle();
+        old.Dispose();
+    }
+
     private Material NewMaterial(GpuGraphicsPipeline pipeline, bool ownsPipeline)
     {
         var buffer = _device.CreateBuffer(new BufferDesc(128, BufferUsage.Uniform | BufferUsage.CopyDestination) { Label = "2d material" });

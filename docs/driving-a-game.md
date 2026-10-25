@@ -78,7 +78,7 @@ Debug builds listen on a local socket: `onegame run -- --live` (add `--realtime`
 { "mcpServers": { "shop": { "command": "onegame", "args": ["mcp", "--project", "."] } } }
 ```
 
-`--project` starts the game and bridges to it; `--socket <path>` attaches to a given one; with neither, the bridge attaches to the only live game. Tools: `info`, `hash`, `state_query`, `state_patch`, `commands_list`, `command_send`, `input_pointer`, `input_key`, `input_text`, `input_composition`, `clipboard_get`, `clipboard_set`, `input_nav`, `step`, `ui_tree`, `ui_query`, `ui_invoke`, `ui_click`, `ui_hit`, `screen_open`, `fixture_load`, `reset`, `snapshot_save`, `snapshot_load`, `capture_frame`, `capture_sequence`, `quit`. A typical session: `info` → `state_query` → `ui_click` → `step 10` → `ui_tree` → `capture_frame`. Errors come back as `{"error":{"code","message"}}` with a stable code. Release builds contain none of this.
+`--project` starts the game and bridges to it; `--socket <path>` attaches to a given one; with neither, the bridge attaches to the only live game. Tools: `info`, `hash`, `state_query`, `state_patch`, `commands_list`, `command_send`, `input_pointer`, `input_key`, `input_text`, `input_composition`, `clipboard_get`, `clipboard_set`, `input_nav`, `step`, `ui_tree`, `ui_query`, `ui_invoke`, `ui_click`, `ui_hit`, `screen_open`, `fixture_load`, `reset`, `snapshot_save`, `snapshot_load`, `capture_frame`, `capture_sequence`, `shaders`, `quit`. A typical session: `info` → `state_query` → `ui_click` → `step 10` → `ui_tree` → `capture_frame`. Errors come back as `{"error":{"code","message"}}` with a stable code. Release builds contain none of this.
 
 ## 6. Run it in a window
 
@@ -91,7 +91,49 @@ onegame mcp --socket /tmp/shop.sock     # then: info, ui_click, input_text, clip
 
 `capture_frame` renders offscreen at any size; with `"presented": true` it returns the frame the window actually shows. `input_*` operations go through the same queue as the keyboard and mouse, so a text field cannot tell them apart; `input_composition` plays an input method's pre-edit text and `clipboard_get`/`clipboard_set` read and write the system clipboard (paste with `input_key` `v` + `Control`). With no display (a CI machine) run headless, or start `Xvfb :88 -noreset` for a window.
 
-## 6. Ship it
+### Shader hot reload
+
+In a development build, a game that registered its material shaders (`docs/interfaces/render2d.md`) picks up edits to the `.hlsl` file while it runs; no restart, and the tick and frame counts carry on. `capture_frame` and `shaders` check the files first, so edit, then capture, and the frame shows the change. The `shaders` result lists each shader with `state`:
+
+```
+{"shaders":[{"name":"glow","path":"Shaders/Glow.hlsl","state":"ok","reloads":2}],"changed":["glow"]}
+{"shaders":[{"name":"glow","state":"incompatible","message":"The shader's interface changed, so it cannot replace the running one: Params.P changed array length from 2 to 3. Rebuild the project to use it."}]}
+{"shaders":[{"name":"glow","state":"compile_error","problems":[{"file":"Shaders/Glow.hlsl","line":21,"column":48,"code":"OSH0200","message":"Expected ';' ..."}]}]}
+```
+
+On `incompatible` or `compile_error` the previous shader keeps drawing; fix the file and the next check recovers. A changed cbuffer layout, vertex input or binding needs a rebuild. Exports and Release builds have none of this.
+
+## 7. Servers and clusters
+
+A game with a dedicated server (`onegame new shop --server` adds `server/`, a small project that compiles the game's `Sim.cs`) runs as separate processes on a real network:
+
+```
+onegame export --server --project server --out ./srv     # NativeAOT linux-x64 server, same JSON report as a game export
+onegame run -- --connect udp://127.0.0.1:7777 --headless --live /tmp/p1.sock --realtime   # a client on the server's world
+```
+
+A cluster file names the processes; `onegame cluster` starts, inspects and stops them, and every node has its own live socket:
+
+```yaml
+name: shop
+nodes:
+  - { name: arena, role: server, exe: srv/shop-server-1.0.0-linux-x64/shopServer, listen: udp+ws, scopes: [{ id: 1, seed: 7 }] }
+  - { name: p1, role: client, exe: bin/shop, connect: arena, transport: udp, net: { latencyMs: 100, lossRate: 0.02 } }
+  - { name: p2, role: client, exe: bin/shop, connect: arena, transport: ws }
+```
+
+```
+onegame cluster up --spec cluster.yaml --json      # pids, sockets, bound ports
+onegame cluster call p1 command_send '{"entity":"Counter","command":"Increment","args":["1"]}'
+onegame cluster hashes --json                      # every replica against its server at the same tick; exit 1 on a mismatch or drift
+onegame cluster test scenarios/two-players.yaml --spec cluster.yaml   # up, run, down
+onegame cluster down
+onegame mcp --cluster .onegame-cluster             # one MCP server for all nodes; every tool takes a node argument
+```
+
+In C#: `TestCluster.Launch(spec)` returns a `ProcessCluster` (`Call`, `WaitForTick`, `Hashes`, `Run(scenario)`, `Down`). A cluster scenario aims steps and expectations at nodes with `node:`; `wait`, `agree` and `drift` are its own verbs. `docs/interfaces/cluster.md` has the details.
+
+## 8. Ship it
 
 ```
 onegame export --target linux-x64 --steam --json     # a folder and a .tar.gz under ./export, nothing else in them

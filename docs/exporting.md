@@ -37,6 +37,10 @@ Content folders are copied as they are. `fonts/` takes `.ttf .otf` and their lic
 
 The Linux archive is a `.tar.gz` with one top folder, owner root, a fixed timestamp and sorted entries (the same folder gives the same archive); the program and `run.sh` are executable. Windows gets a `.zip` the same way. Unpack anywhere and run `run.sh` or the program.
 
+## Dedicated servers
+
+`onegame export --server [--project <server project>] [--out <dir>]` packages a game's server project (a project importing `build/Server.targets`, made by `onegame new <name> --server`): NativeAOT for linux-x64, the same folder, archive and JSON report as a game export, with `renderer: "none"`, no fonts or Steam, and a `run.sh`. The server keeps its live-control socket (an operator interface on a local Unix socket, mode 0600). `--plugins` packages the engine's plugin-capable `onegame-server` instead: framework-dependent CoreCLR (`runtime: coreclr-framework-dependent`), started by `run.sh` through the installed `dotnet`. Servers export for linux-x64 only.
+
 ## Steam
 
 `--steam` copies Valve's library next to the program, from a copy you supply (it is never in this repository and never downloaded):

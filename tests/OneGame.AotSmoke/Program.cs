@@ -124,6 +124,15 @@ if (syncProblem is not null)
     return 1;
 }
 
+var transferProblem = TransferSmoke.Run();
+if (transferProblem is not null)
+{
+    Console.Error.WriteLine("transfer smoke failed: " + transferProblem);
+    return 1;
+}
+
+Console.WriteLine("ok: authority hand-off with replay, relay with a filtered client, escrow trade settled");
+
 var netProblem = NetSmoke.Run();
 if (netProblem is not null)
 {

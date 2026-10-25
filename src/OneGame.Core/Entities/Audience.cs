@@ -7,7 +7,8 @@ namespace OneGame.Core;
 /// </summary>
 /// <param name="Player">The player id the connection owns entities as; 0 for none.</param>
 /// <param name="Team">The team id; 0 for none.</param>
-public readonly record struct Audience(uint Player, uint Team = 0)
+/// <param name="Relay">True for a trusted relay node: it receives every member that is not <see cref="Visibility.Hidden"/> (as if it were each entity's owner), so it can filter them again for its own subscribers.</param>
+public readonly record struct Audience(uint Player, uint Team = 0, bool Relay = false)
 {
     /// <summary>No player and no team: sees only what everyone sees.</summary>
     public static Audience Anonymous => default;

@@ -38,6 +38,7 @@ Without `--headless` the game opens a window (Wayland when `WAYLAND_DISPLAY` is 
 | Clipboard | `clipboard_get`, `clipboard_set` (`selection`: `clipboard` or `primary`) |
 | UI | `ui_tree`, `ui_query`, `ui_hit`, `screen_open`, `ui_scale` (override the UI scale; `scale: null` or `reset: true` follows the window) |
 | Output | `snapshot_save`, `capture_frame`, `capture_sequence` |
+| Shaders | `shaders` (hot reload status; recompiles changed shader files first, see `docs/interfaces/render2d.md`) |
 | Lifecycle | `quit` |
 
 `tools/list` over MCP returns exactly this table (name, description, JSON schema). Entity addressing everywhere: numeric id, `Type` (first of that type) or `Type#n`.
@@ -67,6 +68,10 @@ Release builds do not reference `OneGame.Live`, `OneGame.Control`, `OneGame.Test
 ```
 
 `runtime` is `nativeaot` or `coreclr-self-contained`; `renderer` is `2d`; `archive` is absent with `--no-archive`; `files` is every file in `directory` (paths relative, `/`-separated, sorted). Warning codes: `not_native_aot`, `glibc_too_new`, `font_licence_missing`, `large_file`. Failure codes: `bad_target` (exit 2), `steam_redist_missing` and `dev_tools_present` (exit 4), `publish_failed`, `bad_project` and `no_executable` (exit 3), plus `no_project` and `ambiguous_project` as for the other verbs.
+
+## Playing on a server
+
+`--connect udp://host:port|ws://host:port` (with `--scope`, `--name`, `--net latency=100,loss=0.02`) makes the game a client: its world is a replica, `step` pumps the connection, commands go to the server, and `net_status`, `net_wait` and `net_diverge` are added to the table. `onegame cluster`, `onegame mcp --cluster` and cluster scenarios drive many such processes at once: `cluster.md`.
 
 ## Scenarios
 

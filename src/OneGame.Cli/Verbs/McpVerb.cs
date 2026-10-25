@@ -12,11 +12,11 @@ internal sealed class McpVerb : IVerb
 {
     public string Name => "mcp";
 
-    public string Summary => "MCP server on stdio for a running Debug game: --socket <path>, or --project <dir> to start one, or no option to attach to the only live game.";
+    public string Summary => "MCP server on stdio for a running Debug game: --socket <path>, or --project <dir> to start one, or no option to attach to the only live game; --cluster <file|folder> serves every node of a process cluster (tools take a 'node' argument).";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
-        string? socket = null, projectArg = null;
+        string? socket = null, projectArg = null, clusterArg = null;
         var headless = false;
         var realtime = false;
         for (var i = 0; i < args.Length; i++)
@@ -29,6 +29,9 @@ internal sealed class McpVerb : IVerb
                 case "--project" when i + 1 < args.Length:
                     projectArg = args[++i];
                     break;
+                case "--cluster" when i + 1 < args.Length:
+                    clusterArg = args[++i];
+                    break;
                 case "--headless":
                     headless = true;
                     break;
@@ -36,8 +39,13 @@ internal sealed class McpVerb : IVerb
                     realtime = true;
                     break;
                 default:
-                    throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {args[i]}. Usage: onegame mcp [--socket <path> | --project <dir> [--headless] [--realtime]].");
+                    throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {args[i]}. Usage: onegame mcp [--socket <path> | --project <dir> [--headless] [--realtime] | --cluster <file|folder>].");
             }
+        }
+
+        if (clusterArg is not null)
+        {
+            return ClusterMcp.Serve(clusterArg, Console.OpenStandardInput(), Console.OpenStandardOutput());
         }
 
         Process? child = null;

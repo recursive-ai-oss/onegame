@@ -5,7 +5,7 @@ namespace OneGame.Sync;
 /// one frame per tick to each subscriber. Subscribers are grouped by <see cref="Audience"/>; each group gets the view its audience is
 /// allowed to see (see <see cref="Visibility"/>), so private data never reaches a connection that may not have it.
 /// </summary>
-public sealed class AuthorityScope
+public sealed partial class AuthorityScope
 {
     private const int OutcomeHistory = 256;
     private const int DigestRing = 4;
@@ -34,6 +34,9 @@ public sealed class AuthorityScope
     private readonly SyncWriter _scratch = new(1024);
 
     private Recorder? _recorder;
+    private readonly List<(IMessageChannel Channel, byte[] Message)> _deferred = [];
+    private readonly Dictionary<uint, Origin> _relayPending = [];
+    private long _relayTick = -1;
 
     internal AuthorityScope(Node node, ScopeId id, World world)
     {
@@ -44,6 +47,49 @@ public sealed class AuthorityScope
         world.Observer = OnCommandExecuted;
         world.InputObserver = OnInput;
     }
+
+    /// <summary>A relay: serves <paramref name="upstream"/>'s replica onward to this node's own subscribers.</summary>
+    internal AuthorityScope(Node node, ReplicaScope upstream)
+    {
+        Node = node;
+        Id = upstream.Id;
+        World = upstream.World;
+        Upstream = upstream;
+        _chainedObserver = upstream.World.Observer;
+        upstream.World.Observer = OnCommandExecuted;
+        upstream.CommandCompleted += OnUpstreamResult;
+    }
+
+    /// <summary>For a relay, the replica it serves from; null for a scope this node is authority of.</summary>
+    public ReplicaScope? Upstream { get; }
+
+    /// <summary>True when this scope serves a replica onward instead of simulating (see <see cref="Node.Relay"/>).</summary>
+    public bool IsRelay => Upstream is not null;
+
+    /// <summary>
+    /// When command answers and transfer confirmations may leave this scope. <see cref="Durability.Immediate"/> (default) sends them as they happen;
+    /// <see cref="Durability.AfterSave"/> holds them until <see cref="Save"/> has captured the state they describe, so a node restored from its last
+    /// save never contradicts something it already told a peer.
+    /// </summary>
+    public Durability Durability
+    {
+        get => _durability;
+        set
+        {
+            _durability = value;
+            if (value == Durability.Immediate)
+            {
+                ReleaseDeferred();
+            }
+        }
+    }
+
+    private Durability _durability;
+
+    /// <summary>The world tick of the last <see cref="Save"/> or <see cref="Load"/>; -1 before either.</summary>
+    public long SavedTick { get; private set; } = -1;
+
+    private bool RandomVisible => _randomVisibility == Visibility.Everyone && World.RandomIncluded;
 
     /// <summary>The scope id.</summary>
     public ScopeId Id { get; }
@@ -109,12 +155,19 @@ public sealed class AuthorityScope
     /// The hash of the view this connection holds of the scope: what its replica's <see cref="ReplicaScope.ViewHash"/> must equal at the same
     /// tick. For a connection that sees everything it equals <see cref="Hash"/>.
     /// </summary>
-    public ulong ViewHashFor(Connection connection) => World.ComputeAudienceHash(connection.Trust.Who, _randomVisibility == Visibility.Everyone);
+    public ulong ViewHashFor(Connection connection) => World.ComputeAudienceHash(connection.Trust.Who, RandomVisible);
 
     /// <summary>Runs one tick and publishes the resulting frame.</summary>
     public void StepAndPublish()
     {
+        if (IsRelay)
+        {
+            return; // a relay publishes when its upstream frame arrives
+        }
+
         World.Step();
+        _recorder?.OnTickEnd();
+        RunTransfers();
         Publish();
     }
 
@@ -134,7 +187,18 @@ public sealed class AuthorityScope
     internal void RecorderStopped() => _recorder = null;
 
     /// <summary>Writes a save file of the scope's current state.</summary>
-    public byte[] Save() => SaveFile.Write(World);
+    public byte[] Save()
+    {
+        if (IsRelay)
+        {
+            throw new InvalidOperationException("A relay holds a copy of another scope's state; save the authority.");
+        }
+
+        var bytes = SaveFile.Write(World);
+        SavedTick = World.Tick;
+        ReleaseDeferred();
+        return bytes;
+    }
 
     /// <summary>
     /// Replaces the scope's state with a save. Subscribers get a fresh snapshot. The world must have been built the same way as the one saved.
@@ -142,6 +206,11 @@ public sealed class AuthorityScope
     /// <exception cref="InvalidOperationException">A recording is running.</exception>
     public LoadResult Load(ReadOnlySpan<byte> save)
     {
+        if (IsRelay)
+        {
+            throw new InvalidOperationException("A relay holds a copy of another scope's state; load the authority.");
+        }
+
         if (_recorder is not null)
         {
             throw new InvalidOperationException("Stop the recording before loading a save: the log would no longer describe the run.");
@@ -157,6 +226,9 @@ public sealed class AuthorityScope
             }
 
             _origins.Clear();
+            _deferred.Clear();
+            SavedTick = World.Tick;
+            ResetTransfersAfterLoad();
             ResendSnapshots();
         }
 
@@ -259,7 +331,7 @@ public sealed class AuthorityScope
     }
 
     /// <summary>Gives every subscriber a snapshot of the current state and makes it the baseline for the next frame.</summary>
-    private void ResendSnapshots()
+    internal void ResendSnapshots()
     {
         if (_views.Count == 0)
         {
@@ -281,11 +353,24 @@ public sealed class AuthorityScope
 
     internal void QueueExternal(Connection from, uint sequence, EntityId entity, uint commandId, ReadOnlySpan<byte> payload)
     {
+        if (IsRelay)
+        {
+            // Pass the command up. The replica sends it with its own sequence number; remember whose it was so the answer can go back.
+            var before = Upstream!.LastSequence;
+            World.Submit(entity, commandId, payload);
+            if (sequence != 0 && Upstream.LastSequence != before)
+            {
+                _relayPending[Upstream.LastSequence] = new Origin(from, sequence, entity, commandId, false);
+            }
+
+            return;
+        }
+
         long ticket = 0;
         if (sequence != 0)
         {
             ticket = ++_nextTicket;
-            _origins[ticket] = new Origin(from, sequence, entity, commandId);
+            _origins[ticket] = new Origin(from, sequence, entity, commandId, false);
         }
 
         World.Submit(entity, commandId, payload, ticket);
@@ -294,8 +379,30 @@ public sealed class AuthorityScope
     private void OnInput(long tick, EntityId entity, uint commandId, ReadOnlySpan<byte> payload, CommandStatus status)
         => _recorder?.AddCommand(tick, entity, commandId, payload);
 
+    /// <summary>Queues a command a peer node forwarded here for an entity that moved to this scope; the answer goes back as a <c>ForwardResult</c>.</summary>
+    internal void QueueForwarded(Connection from, ulong forwardSequence, EntityId entity, uint commandId, ReadOnlySpan<byte> payload)
+    {
+        var ticket = ++_nextTicket;
+        _origins[ticket] = new Origin(from, (uint)Math.Min(forwardSequence, uint.MaxValue), entity, commandId, true) { ForwardSequence = forwardSequence };
+        World.Submit(entity, commandId, payload, ticket);
+    }
+
+    private void OnUpstreamResult(CommandResult result)
+    {
+        if (_relayPending.Remove(result.Sequence, out var origin))
+        {
+            SendResult(origin, result.Verdict, result.Refusal, origin.Entity, origin.CommandId, result.Reason);
+        }
+    }
+
     private void OnCommandExecuted(long tick, EntityId entity, uint commandId, ReadOnlySpan<byte> payload, CommandStatus status)
     {
+        if (IsRelay)
+        {
+            _chainedObserver?.Invoke(tick, entity, commandId, payload, status);
+            return;
+        }
+
         CommandsRun++;
         _outcomes[_outcomeCount++ % OutcomeHistory] = new CommandOutcome(tick, entity, commandId, status);
         var ticket = World.CurrentTicket;
@@ -324,15 +431,46 @@ public sealed class AuthorityScope
 
         var w = Node.Out;
         w.Reset();
-        w.WriteByte(Msg.CommandResult);
+        w.WriteByte(to.Forward ? Msg.ForwardResult : Msg.CommandResult);
         w.WriteVarUInt(Id.Value);
-        w.WriteVarUInt(to.Sequence);
+        w.WriteVarUInt(to.Forward ? to.ForwardSequence : to.Sequence);
         w.WriteVarUInt(entity.Value);
         w.WriteVarUInt(commandId);
         w.WriteByte((byte)verdict);
         w.WriteByte((byte)refusal);
         w.WriteString(reason ?? string.Empty);
-        to.From.Channel.Send(w.Written);
+
+        // "Dropped" says the command was not applied, which is true whatever was saved, so it never waits.
+        if (verdict == CommandVerdict.Dropped)
+        {
+            to.From.Channel.Send(w.Written);
+        }
+        else
+        {
+            SendDurable(to.From.Channel, w.Written);
+        }
+    }
+
+    /// <summary>Sends now, or holds the message until the next <see cref="Save"/> when <see cref="Durability"/> asks for that.</summary>
+    internal void SendDurable(IMessageChannel channel, ReadOnlySpan<byte> message)
+    {
+        if (_durability == Durability.AfterSave)
+        {
+            _deferred.Add((channel, message.ToArray()));
+            return;
+        }
+
+        channel.Send(message);
+    }
+
+    private void ReleaseDeferred()
+    {
+        foreach (var (channel, message) in _deferred)
+        {
+            channel.Send(message);
+        }
+
+        _deferred.Clear();
     }
 
     // ---- frames -------------------------------------------------------------------------------------------------------
@@ -375,7 +513,7 @@ public sealed class AuthorityScope
         view.KnownMasks.Clear();
         foreach (var e in World.Entities)
         {
-            if (e.TryGetVisibleMask(view.Who, out var mask))
+            if (e.TryGetAudienceMask(view.Who, out var mask))
             {
                 view.KnownIds.Add(e.Id.Value);
                 view.KnownMasks.Add(e.NormalizeMask(mask));
@@ -385,7 +523,6 @@ public sealed class AuthorityScope
 
     internal void Publish()
     {
-        _recorder?.OnTickEnd();
         if (_views.Count == 0)
         {
             return;
@@ -398,7 +535,7 @@ public sealed class AuthorityScope
         // Random streams and hot tables are sent whole when their bytes changed. Row-level deltas are a later refinement.
         _scratch.Reset();
         World.Rng.Write(_scratch);
-        var randomVisible = _randomVisibility == Visibility.Everyone;
+        var randomVisible = RandomVisible;
         _rngChanged = !_rngBlob.Matches(_scratch.Written);
         if (_rngChanged)
         {
@@ -500,7 +637,7 @@ public sealed class AuthorityScope
             }
 
             var e = entities[i];
-            var visible = e.TryGetVisibleMask(view.Who, out var rawMask);
+            var visible = e.TryGetAudienceMask(view.Who, out var rawMask);
             var mask = e.NormalizeMask(rawMask);
             if (entityId < knownId)
             {
@@ -587,7 +724,7 @@ public sealed class AuthorityScope
         w.WriteByte(Msg.Snapshot);
         w.WriteVarUInt(Id.Value);
         w.WriteVarInt(World.Tick);
-        World.WriteViewSnapshot(w, view.Who, _randomVisibility == Visibility.Everyone);
+        World.WriteViewSnapshot(w, view.Who, RandomVisible);
         to.Channel.Send(w.Written);
     }
 
@@ -644,7 +781,10 @@ public sealed class AuthorityScope
         public int DigestNext { get; set; }
     }
 
-    private readonly record struct Origin(Connection From, uint Sequence, EntityId Entity, uint CommandId);
+    internal readonly record struct Origin(Connection From, uint Sequence, EntityId Entity, uint CommandId, bool Forward)
+    {
+        public ulong ForwardSequence { get; init; }
+    }
 
     /// <summary>A grow-only byte buffer that remembers the last bytes it was given, so unchanged data can be skipped without allocating.</summary>
     private sealed class Blob

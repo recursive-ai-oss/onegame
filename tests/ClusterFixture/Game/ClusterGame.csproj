@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OneGameRoot>$(MSBuildThisFileDirectory)../../../</OneGameRoot>
+    <AssemblyName>ClusterGame</AssemblyName>
+    <RootNamespace>ClusterFixture</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <Compile Include="../Sim/*.cs" Link="Sim/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

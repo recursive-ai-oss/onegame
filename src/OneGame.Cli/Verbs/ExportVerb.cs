@@ -9,11 +9,11 @@ using OneGame.Host;
 namespace OneGame.Cli.Verbs;
 
 /// <summary>Packages a game as a folder (and an archive) that contains everything it ships and nothing else.</summary>
-internal sealed class ExportVerb : IVerb
+internal sealed partial class ExportVerb : IVerb
 {
     public string Name => "export";
 
-    public string Summary => "Package the game: onegame export --target linux-x64|win-x64 [--steam] [--out <dir>] [--no-archive] [--no-aot].";
+    public string Summary => "Package the game: onegame export --target linux-x64|win-x64 [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins].";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
@@ -21,6 +21,18 @@ internal sealed class ExportVerb : IVerb
         var steam = a.Game.Remove("--steam");
         var noArchive = a.Game.Remove("--no-archive");
         var noAot = a.Game.Remove("--no-aot");
+        var server = a.Game.Remove("--server");
+        var plugins = a.Game.Remove("--plugins");
+        if (plugins && !server)
+        {
+            throw new CliException(ExitCodes.Usage, "bad_args", "--plugins goes with --server: onegame export --server --plugins packages the plugin-capable server host.");
+        }
+
+        if (server)
+        {
+            return RunServerExport(a, steam, plugins, noArchive, noAot, json, output);
+        }
+
         if (a.Game.Count > 0)
         {
             throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {a.Game[0]}. Usage: onegame export --target linux-x64|win-x64 [--steam] [--steam-redist <dir>] [--out <dir>] [--no-archive] [--no-aot].");
@@ -297,10 +309,11 @@ internal sealed class ExportVerb : IVerb
         return newest;
     }
 
-    /// <summary>Whether any program file in the export mentions the live-control assembly.</summary>
+    /// <summary>Whether any program file in the export mentions the live-control assembly or the shader hot-reload watcher.</summary>
     private static bool DevToolsPresent(string folder)
     {
         var needle = "OneGame.Live"u8.ToArray();
+        var reloader = "ShaderReloader"u8.ToArray();
         foreach (var f in Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly))
         {
             if (f.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) && Path.GetFileName(f).StartsWith("OneGame.Live", StringComparison.Ordinal))
@@ -314,7 +327,8 @@ internal sealed class ExportVerb : IVerb
                 continue;
             }
 
-            if (File.ReadAllBytes(f).AsSpan().IndexOf(needle) >= 0)
+            var bytes = File.ReadAllBytes(f);
+            if (bytes.AsSpan().IndexOf(needle) >= 0 || bytes.AsSpan().IndexOf(reloader) >= 0)
             {
                 return true;
             }
