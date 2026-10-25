@@ -365,6 +365,32 @@ public class HarnessTests
     }
 
     [Fact]
+    public void LiveListenerOnEveryInterfaceAcceptsIpv4AndIpv6Connections()
+    {
+        // "tcp:*:port" is for a device the computer reaches over a cable's network tunnel; plain "tcp:port" stays on the loopback.
+        using var cluster = TestCluster.Start(new ShopGame(), Options());
+        using var server = new LiveServer(cluster.Client.Control);
+        int port;
+        using (var probe = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0))
+        {
+            probe.Start();
+            port = ((System.Net.IPEndPoint)probe.LocalEndpoint).Port;
+        }
+
+        server.Start($"tcp:*:{port}");
+        Assert.Equal($"tcp:*:{port}", server.Path);
+        foreach (var address in new[] { System.Net.IPAddress.Loopback, System.Net.IPAddress.IPv6Loopback })
+        {
+            using var client = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            client.Connect(address, port);
+            Assert.True(client.Connected);
+        }
+
+        using var other = new LiveServer(cluster.Client.Control);
+        Assert.Throws<IOException>(() => other.Start("tcp:*:0"));
+    }
+
+    [Fact]
     public void AgentDrivesARunningGameOverTheLiveSocket()
     {
         using var cluster = TestCluster.Start(new ShopGame(), Options());

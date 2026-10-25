@@ -45,6 +45,10 @@ nodes:
 
 `ProcessCluster.Up(spec)` starts each node as its own OS process (servers first; clients when their `connect` target is ready), output to `<dir>/<node>.log`, and records `<dir>/cluster.json` (name, pid, live socket, endpoints, log per node). Nodes watch the starting process (`--parent`), so a crashed test leaves nothing behind within about a second; `Down()` stops them by PID (a live `shutdown`/`quit` first, then a kill) and verifies none is alive. `Call(node, op, args)` runs any control op on a node. `Hashes()` returns every node's (scope, role, tick, hash) and checks each client replica's view hash against its server's recorded view hashes **at the replica's tick**, plus each node's drift reports. `ClusterHashReport.Ok` is false on any mismatch or drift; mismatches name node, scope and tick. `TestCluster.Launch(spec)` is the test entry.
 
+### Nodes on other machines
+
+Servers bind the loopback address, so clients on the same computer reach them. For a client on a phone or another computer, start the cluster with `ONEGAME_CLUSTER_BIND=0.0.0.0` (or one interface's address): every server then listens there, on the same ports, and a client node whose `exe` is a script (`samples/lanterns/cluster/android-client.sh`, `ios-device-client.sh`, `ssh-client.sh`) rewrites `127.0.0.1` to this computer's network address before it starts the game on the device. Nothing authenticates a player connection, so use it on a network you trust.
+
 ### Killing and starting nodes
 
 `Kill(node)` ends a node's process with SIGKILL (nothing saved, nothing announced), `Start(node)` runs it again with the same arguments, data folder and ports and waits until it is up, `Restart(node)` does both. Servers load what they saved; a restarted client is a new connection and, to the game, a new player. Only the process that started the cluster can do this (`not_owner` otherwise). A node that is down stays in `cluster.json` with its old pid until it starts again.

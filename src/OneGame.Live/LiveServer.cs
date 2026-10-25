@@ -97,18 +97,36 @@ public sealed class LiveServer : IDisposable
     }
 
     // "tcp:port" listens on the loopback interface only. A phone has no folder that both the game and the tool can reach, so `adb forward`
-    // maps this port to the computer. Development builds only, like the rest of the listener.
+    // maps this port to the computer. "tcp:*:port" listens on every interface (IPv4 and IPv6), for a device the computer can only reach
+    // over the network, such as an iPad on a cable: nothing authenticates the listener, so use it on test devices only. Development builds only,
+    // like the rest of the listener.
     private void StartTcp(string spec)
     {
-        if (!int.TryParse(spec.AsSpan(4), NumberStyles.None, CultureInfo.InvariantCulture, out var port) || port is < 1 or > 65535)
+        var rest = spec.AsSpan(4);
+        var any = rest.StartsWith("*:", StringComparison.Ordinal);
+        if (any)
         {
-            throw new IOException($"'{spec}' is not tcp:<port>.");
+            rest = rest[2..];
+        }
+
+        if (!int.TryParse(rest, NumberStyles.None, CultureInfo.InvariantCulture, out var port) || port is < 1 or > 65535)
+        {
+            throw new IOException($"'{spec}' is not tcp:<port> or tcp:*:<port>.");
         }
 
         try
         {
-            _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            _listener.Bind(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, port));
+            if (any)
+            {
+                _listener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp) { DualMode = true };
+                _listener.Bind(new System.Net.IPEndPoint(System.Net.IPAddress.IPv6Any, port));
+            }
+            else
+            {
+                _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                _listener.Bind(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, port));
+            }
+
             _listener.Listen(8);
         }
         catch (SocketException ex)
@@ -116,7 +134,7 @@ public sealed class LiveServer : IDisposable
             throw new IOException($"Cannot listen on {spec}: {ex.Message}", ex);
         }
 
-        Path = "tcp:127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture);
+        Path = (any ? "tcp:*:" : "tcp:127.0.0.1:") + port.ToString(CultureInfo.InvariantCulture);
         _acceptor = new Thread(AcceptLoop) { IsBackground = true, Name = "onegame-live-accept" };
         _acceptor.Start();
     }
