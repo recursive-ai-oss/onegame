@@ -28,13 +28,32 @@ Get-Pinned $mesaUrl $mesaSha $mesa7z
 
 $sdkRoot = Join-Path $Destination 'sdk'
 $install = Start-Process -FilePath $sdkExe -Wait -PassThru -ArgumentList @(
-    '--root', $sdkRoot, '--accept-licenses', '--default-answer', '--confirm-command', 'install', 'com.lunarg.vulkan.core')
+    '--root', $sdkRoot, '--accept-licenses', '--default-answer', '--confirm-command', 'install')
 Write-Host "SDK installer exit code $($install.ExitCode)"
-$bin = Join-Path $sdkRoot 'Bin'
-if (-not (Test-Path (Join-Path $bin 'vulkan-1.dll'))) {
-    Get-ChildItem -Recurse $sdkRoot -Filter 'vulkan-1.dll' | ForEach-Object { Write-Host $_.FullName }
-    throw "the SDK install has no Bin\vulkan-1.dll under $sdkRoot"
+
+# The installer may hand the work to another process or ignore --root, so look for the loader in the places it could be,
+# for up to five minutes.
+$searchRoots = @($sdkRoot, 'C:\VulkanSDK', (Join-Path $env:ProgramFiles 'VulkanSDK'), (Join-Path $env:RUNNER_TEMP 'VulkanSDK'))
+$loader = $null
+$deadline = (Get-Date).AddMinutes(5)
+while (-not $loader -and (Get-Date) -lt $deadline) {
+    foreach ($root in $searchRoots) {
+        if (Test-Path $root) {
+            $loader = Get-ChildItem -Recurse -Path $root -Filter 'vulkan-1.dll' -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -match '\\Bin\\' } | Select-Object -First 1
+            if ($loader) { break }
+        }
+    }
+    if (-not $loader) { Start-Sleep -Seconds 5 }
 }
+if (-not $loader) {
+    Write-Host 'vulkan-1.dll was not found. Folders that exist:'
+    Get-ChildItem C:\ -Directory | ForEach-Object { Write-Host "  $($_.FullName)" }
+    foreach ($root in $searchRoots) { if (Test-Path $root) { Write-Host "contents of ${root}:"; Get-ChildItem -Recurse $root -ErrorAction SilentlyContinue | Select-Object -First 40 | ForEach-Object { Write-Host "  $($_.FullName)" } } }
+    throw 'the SDK install produced no Bin\vulkan-1.dll'
+}
+$bin = $loader.DirectoryName
+Write-Host "SDK Bin folder: $bin"
 
 $mesaDir = Join-Path $Destination 'mesa'
 # The runner image ships 7-Zip.
