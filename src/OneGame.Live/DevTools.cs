@@ -28,7 +28,7 @@ internal sealed class DevTools : IDevTools
         {
             foreach (var name in args.Names)
             {
-                if (name is "headless" or "frames" or "size" or "scale" or "seed" or "json" or "gpu" or "backend" or "display" or "present" or "connect" or "scope" or "name" or "net")
+                if (name is "headless" or "frames" or "size" or "scale" or "seed" or "json" or "gpu" or "backend" or "display" or "present" or "connect" or "scope" or "also-scopes" or "name" or "net")
                 {
                     continue;
                 }

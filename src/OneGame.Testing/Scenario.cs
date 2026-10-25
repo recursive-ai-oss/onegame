@@ -164,6 +164,9 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
     /// <summary>Entity spec (state).</summary>
     public string? Entity { get; init; }
 
+    /// <summary>The scope to read on a server that hosts several (cluster scenarios; 1 when absent).</summary>
+    public int? Scope { get; init; }
+
     /// <summary>Property name (state).</summary>
     public string? Property { get; init; }
 
@@ -576,11 +579,12 @@ public static class ScenarioParser
             switch (kind)
             {
                 case "state":
-                    var s = Map(v, ["entity", "property", "equals", "min", "max", "within"], "state");
+                    var s = Map(v, ["entity", "property", "scope", "equals", "min", "max", "within"], "state");
                     return new ScenarioExpectation(ExpectKind.State, line)
                     {
                         Entity = s.TryGetValue("entity", out var e) ? Text(e, "entity") : throw Error(v, "state needs an entity"),
                         Property = s.TryGetValue("property", out var p) ? Text(p, "property") : throw Error(v, "state needs a property"),
+                        Scope = s.TryGetValue("scope", out var stScope) ? Whole(stScope, "scope") : null,
                         EqualTo = OptText(v, "equals"),
                         Min = s.TryGetValue("min", out var mn) ? Number(mn, "min") : null,
                         Max = s.TryGetValue("max", out var mx) ? Number(mx, "max") : null,

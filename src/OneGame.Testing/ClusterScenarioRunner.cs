@@ -191,7 +191,7 @@ internal sealed class ClusterScenarioRunner(ProcessCluster cluster)
 
     private ExpectationResult CheckState(ScenarioExpectation e, int index, string node)
     {
-        var json = cluster.Call(node, "state_query", ScenarioRunner.Obj(("entity", e.Entity), ("property", e.Property)));
+        var json = cluster.Call(node, "state_query", ScenarioRunner.Obj(("entity", e.Entity), ("property", e.Property), ("scope", e.Scope ?? 1)));
         using var doc = JsonDocument.Parse(json);
         var el = doc.RootElement;
         var actual = el.ValueKind == JsonValueKind.String ? el.GetString()! : el.GetRawText();

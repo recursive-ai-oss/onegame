@@ -161,7 +161,12 @@ public sealed class ProcessCluster : IDisposable
         var started = new List<NodeState>();
         var processes = new List<Process>();
         var stateFile = Path.Combine(dir, "cluster.json");
-        var ports = spec.Nodes.Where(n => n.Role == NodeRole.Server).ToDictionary(n => n.Name, _ => FreePort(), StringComparer.Ordinal);
+        var ports = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var n in spec.Nodes.Where(n => n.Role == NodeRole.Server))
+        {
+            ports[n.Name] = FreePort();
+            ports[n.Name + ".peer"] = FreePort(); // a second port per server, for servers that talk to each other privately
+        }
         ProcessCluster? cluster = null;
         try
         {
@@ -707,7 +712,7 @@ public sealed class ProcessCluster : IDisposable
         throw new ClusterException("no_port", "Could not find a free port for a server.");
     }
 
-    // {port:NAME} is the port server NAME listens on; {dir} is the cluster's folder (saves and logs).
+    // {port:NAME} is the port server NAME listens on, {port:NAME.peer} a second free port reserved for it; {dir} is the cluster's folder (saves and logs).
     private static string Expand(string arg, Dictionary<string, int> ports, string dir)
     {
         var text = arg.Replace("{dir}", dir, StringComparison.Ordinal);

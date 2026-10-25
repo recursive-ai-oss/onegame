@@ -105,7 +105,7 @@ public interface IDevTools
 /// <summary>The entry point of a game: parse the command line, create the instance, run it.</summary>
 public static class GameApp
 {
-    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "name", "net"];
+    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "also-scopes", "name", "net"];
 
     /// <summary>
     /// Set by development builds before <see cref="Run(GameDefinition, string[])"/> so the extra options work. A release build leaves it
