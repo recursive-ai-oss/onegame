@@ -41,6 +41,19 @@ onegame cluster test cluster/play-android.yaml --spec cluster-android.yaml --jso
 
 `ONEGAME` (the command), `ANDROID_SERIAL`, `LANTERNS_HOST` and `LANTERNS_TIMEOUT` configure the script. The bot dithers around its target when the link has no latency, so `cluster-android.yaml` gives the device the same slow link as the other clusters.
 
+## On iOS and in a browser
+
+On a Mac the iOS Simulator shares the computer's network, so the client needs no address change (`cluster/ios-client.sh` runs `onegame ios run` and prints the game's result line):
+
+```
+onegame export --target ios-simulator --dev
+onegame ios install export/Lanterns-*-ios-simulator-dev/Lanterns.app
+onegame cluster test cluster/play-ios.yaml --spec cluster-ios.yaml --json    # bot1 in the simulator, the servers and bot2 here
+onegame ios test --scenario scenarios --json -- --capture-tolerance 4 --capture-max-diff 0.0025
+```
+
+Metal's frames differ from the lavapipe references along edges by up to 0.2 % of pixels, so the simulator run allows 0.25 %. In a browser, `onegame export --target web` and `onegame web test --tolerance 4 --max-diff 0.01` run the scenarios (WebGPU edges differ by up to 0.4 %); `tools/web/lanterns-test.mjs` checks a page connected over a WebSocket to an island against the server's view hash. See `docs/devices.md`.
+
 ## The 3D view
 
 The rules live in a library that servers share and cannot reference the host, so no entity draws itself. `IslandScene` is the scene view's `Describer`: each frame it reads the island worlds (for the one I walk on, the predicted copy) and writes models, lights and the camera. The two islands sit side by side along X with the bridge between, so the camera follows my player over the hand-over without a cut; a walker waiting for the other server glides across at a fixed speed.
