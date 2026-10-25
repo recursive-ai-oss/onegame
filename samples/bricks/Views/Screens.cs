@@ -13,7 +13,7 @@ internal static class Screens
     private static Element Page(Session s, Element content, Length? top = null) =>
         s.Kit.AttachTo(Ui.Box(content)
             .Class("screen")
-            .Style(st => st.Position(PositionMode.Absolute).Inset(0).JustifyContent(top is null ? Align.Center : Align.Start).AlignItems(Align.Center).Padding(top ?? Length.Ui(0), Length.Ui(0))));
+            .Style(st => st.Position(PositionMode.Absolute).Inset(0).Direction(FlexDirection.Column).JustifyContent(top is null ? Align.Center : Align.Start).AlignItems(Align.Center).Padding(top ?? Length.Ui(0), Length.Ui(0))));
 
     // ---- title -------------------------------------------------------------------------------------------------------
 
