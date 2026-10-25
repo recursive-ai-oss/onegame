@@ -4,8 +4,7 @@ namespace Solitaire;
 
 /// <summary>
 /// Plays the game's sounds through the audio service. The clips are short tones and noise bursts made here, so the sample needs no audio files;
-/// a game with recorded sounds would load them with <c>LoadSound</c> instead. Where the machine has no audio device or no mixer is
-/// installed, the service runs silently and nothing else changes.
+/// a game with recorded sounds would load them with <c>LoadSound</c> instead. Where the machine has no audio device, the service runs silently and nothing else changes.
 /// </summary>
 public sealed class AudioSounds : ISoundSink, IDisposable
 {
@@ -31,7 +30,7 @@ public sealed class AudioSounds : ISoundSink, IDisposable
         {
             return new AudioSounds(AudioService.Create(options));
         }
-        catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or InvalidDataException or DllNotFoundException)
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or InvalidDataException or AudioLoadException or DllNotFoundException)
         {
             return null;
         }

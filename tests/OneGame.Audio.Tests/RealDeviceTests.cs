@@ -21,6 +21,8 @@ public class RealDeviceTests
         Console.Error.WriteLine(text);
     }
 
+    private static string HerePath([System.Runtime.CompilerServices.CallerFilePath] string here = "") => here;
+
     [Fact]
     public void ToneThenSoakOnTheRealDevice()
     {
@@ -36,7 +38,6 @@ public class RealDeviceTests
         using var service = AudioService.Create(new AudioServiceOptions
         {
             Backend = backend,
-            CoreFactory = TestCore.Factory,
             Device = new AudioDeviceOptions { LatencyMilliseconds = 40 },
         });
         var output = service.Output;
@@ -46,18 +47,21 @@ public class RealDeviceTests
         var rate = service.Format.SampleRate;
         Report($"format={rate}Hz x{service.Format.Channels} period={output.PeriodFrames} buffer={output.BufferFrames} frames");
 
-        // A quiet half-second A440, then a ten-second (default) soak of a barely audible loop with a sound started every 100 ms.
-        var tone = service.LoadSound(new MemoryStream(TestCore.Sine(rate, 440, 0.05f, rate / 2)));
-        service.Play(tone);
+        // A quiet Vorbis tone (44.1 kHz, converted to the device rate), then a ten-second (default) soak: a quiet looping Vorbis stream
+        // with a pitched Opus clip started every 100 ms.
+        var dir = Path.Combine(Path.GetDirectoryName(HerePath())!, "..", "..", "testdata", "audio");
+        service.Play(service.LoadSound(File.OpenRead(Path.Combine(dir, "tone44k.ogg"))), new PlayOptions { Volume = 0.15f });
         Thread.Sleep(700);
 
-        var soak = service.LoadSound(new MemoryStream(TestCore.Sine(rate, 220, 0.02f, rate / 10)));
+        service.PlayMusic(File.OpenRead(Path.Combine(dir, "tone44k.ogg")), new MusicOptions { Volume = 0.05f });
+        var blip = service.LoadSound(File.OpenRead(Path.Combine(dir, "loop48k.opus")));
         var seconds = int.Parse(Environment.GetEnvironmentVariable("ONEGAME_AUDIO_SOAK_SECONDS") ?? "10", CultureInfo.InvariantCulture);
         var end = DateTime.UtcNow.AddSeconds(seconds);
         var latency = new List<double>();
+        var n = 0;
         while (DateTime.UtcNow < end)
         {
-            service.Play(soak);
+            service.Play(blip, new PlayOptions { Volume = 0.1f, Pitch = 0.8f + ((n++ % 5) * 0.1f) });
             service.Update();
             latency.Add(output.LatencyMilliseconds);
             Thread.Sleep(100);

@@ -430,6 +430,10 @@ public class SoundTests
 
         sounds.SetVolumes(0.7f, 0.8f);
         Assert.NotNull(sounds.Service.Capture);
+
+        // The clips are decoded by the real mixer and reach the recording as sound, not silence.
+        sounds.Service.Advance(24000);
+        Assert.InRange(sounds.Service.Capture.Peak, 0.05f, 1f);
     }
 
     [Fact]

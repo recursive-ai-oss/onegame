@@ -61,6 +61,12 @@ public readonly record struct VoiceRequest
 
     /// <summary>Frames over which the voice fades in from silence.</summary>
     public int FadeInFrames { get; init; }
+
+    /// <summary>Playback speed and pitch multiplier; 1 is the source's own.</summary>
+    public float Pitch { get; init; } = 1f;
+
+    /// <summary>Reserve what the core needs to change the pitch later with <see cref="IAudioCore.SetPitch"/>.</summary>
+    public bool VariablePitch { get; init; }
 }
 
 /// <summary>
@@ -133,6 +139,31 @@ public interface IAudioCore : IAudioRenderSource, IDisposable
     /// <returns>The new voice, or an invalid id when the queue is full.</returns>
     VoiceId Crossfade(VoiceId from, in VoiceRequest incoming, int frames);
 
+    /// <summary>Changes a voice's playback speed and pitch. Only voices started with a pitch other than 1 or with <see cref="VoiceRequest.VariablePitch"/> respond.</summary>
+    /// <param name="voice">The voice.</param>
+    /// <param name="pitch">Speed multiplier; 1 is the source's own.</param>
+    /// <param name="rampFrames">Frames to glide; 0 jumps.</param>
+    /// <returns>Whether the command was queued. Cores without pitch support return false.</returns>
+    bool SetPitch(VoiceId voice, float pitch, int rampFrames) => false;
+
+    /// <summary>Mutes or unmutes a bus without touching its gain.</summary>
+    /// <param name="bus">The bus index.</param>
+    /// <param name="muted">Whether to silence the bus.</param>
+    /// <returns>Whether the command was queued. Cores without bus mute return false.</returns>
+    bool SetBusMute(int bus, bool muted) => false;
+
+    /// <summary>Turns <paramref name="targetBus"/> down while <paramref name="sourceBus"/> is loud.</summary>
+    /// <param name="targetBus">The bus that is turned down.</param>
+    /// <param name="sourceBus">The bus whose level is watched.</param>
+    /// <param name="settings">Threshold, depth and timing.</param>
+    /// <returns>Whether the command was queued. Cores without ducking return false.</returns>
+    bool SetDucking(int targetBus, int sourceBus, DuckingOptions settings) => false;
+
+    /// <summary>Removes the ducking of a bus.</summary>
+    /// <param name="targetBus">The bus.</param>
+    /// <returns>Whether the command was queued. Cores without ducking return false.</returns>
+    bool ClearDucking(int targetBus) => false;
+
     /// <summary>Takes the next event the audio thread produced.</summary>
     /// <param name="audioEvent">The event.</param>
     /// <returns>Whether there was one.</returns>
@@ -160,90 +191,23 @@ public interface IAudioCoreFactory
     IAudioCore Create(int sampleRate, int channels, int maxVoices, int buses);
 }
 
-/// <summary>A core that renders silence and accepts every call. It lets a game run, and the audio service be exercised, where no mixer is wired in.</summary>
-public sealed class NullAudioCore : IAudioCore
+/// <summary>How one bus is turned down by the level of another, for example music under spoken lines.</summary>
+public readonly record struct DuckingOptions
 {
-    private long _next;
-
-    /// <summary>Creates the core.</summary>
-    /// <param name="sampleRate">Frames per second.</param>
-    /// <param name="channels">Samples per frame.</param>
-    public NullAudioCore(int sampleRate, int channels)
-    {
-        SampleRate = sampleRate;
-        Channels = channels;
-    }
-
-    /// <summary>A factory for silent cores.</summary>
-    public static IAudioCoreFactory Factory { get; } = new NullFactory();
-
-    /// <inheritdoc/>
-    public int SampleRate { get; }
-
-    /// <inheritdoc/>
-    public int Channels { get; }
-
-    /// <inheritdoc/>
-    public int ActiveVoices => 0;
-
-    /// <inheritdoc/>
-    public long DroppedCommands => 0;
-
-    /// <inheritdoc/>
-    public void Render(Span<float> interleaved) => interleaved.Clear();
-
-    /// <inheritdoc/>
-    public object LoadClip(Stream data) => new object();
-
-    /// <inheritdoc/>
-    public object OpenStream(Stream data, bool looping) => new object();
-
-    /// <inheritdoc/>
-    public double DurationSeconds(object source) => -1;
-
-    /// <inheritdoc/>
-    public VoiceId Play(in VoiceRequest request) => new(Interlocked.Increment(ref _next));
-
-    /// <inheritdoc/>
-    public bool StopVoice(VoiceId voice, int fadeOutFrames) => true;
-
-    /// <inheritdoc/>
-    public bool StopAll(int fadeOutFrames) => true;
-
-    /// <inheritdoc/>
-    public bool SetGain(VoiceId voice, float gain, int rampFrames) => true;
-
-    /// <inheritdoc/>
-    public bool SetPan(VoiceId voice, float pan) => true;
-
-    /// <inheritdoc/>
-    public bool SetLoop(VoiceId voice, bool looping) => true;
-
-    /// <inheritdoc/>
-    public bool SetBusGain(int bus, float gain) => true;
-
-    /// <inheritdoc/>
-    public VoiceId Crossfade(VoiceId from, in VoiceRequest incoming, int frames) => Play(incoming);
-
-    /// <inheritdoc/>
-    public bool TryGetEvent(out AudioEvent audioEvent)
-    {
-        audioEvent = default;
-        return false;
-    }
-
-    /// <inheritdoc/>
-    public void Pump()
+    /// <summary>Creates the defaults: duck 12 dB when the watched bus passes -30 dBFS, 10 ms attack, 250 ms release.</summary>
+    public DuckingOptions()
     {
     }
 
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-    }
+    /// <summary>Level of the watched bus, in dBFS, above which ducking starts.</summary>
+    public float ThresholdDb { get; init; } = -30f;
 
-    private sealed class NullFactory : IAudioCoreFactory
-    {
-        public IAudioCore Create(int sampleRate, int channels, int maxVoices, int buses) => new NullAudioCore(sampleRate, channels);
-    }
+    /// <summary>How far the target is turned down, in dB (positive).</summary>
+    public float ReductionDb { get; init; } = 12f;
+
+    /// <summary>Milliseconds to reach full reduction.</summary>
+    public float AttackMs { get; init; } = 10f;
+
+    /// <summary>Milliseconds to recover once the watched bus is quiet.</summary>
+    public float ReleaseMs { get; init; } = 250f;
 }

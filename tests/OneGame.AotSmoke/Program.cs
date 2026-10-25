@@ -55,19 +55,23 @@ using (var app = PlatformApp.Create(new PlatformOptions { Backend = PlatformBack
 // Audio: the capture path (no device, exact frame counts) and the no-device path through the real OS backend, which must stay silent and alive.
 using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true }))
 {
-    audio.Play(audio.LoadSound(new MemoryStream([0, 0, 0, 0])));
-    audio.Advance(480);
+    // Decodes Vorbis (44.1 kHz into the 48 kHz output) and Opus through the real mixer, with a pitch change and a stream.
+    audio.Play(audio.LoadSound(ReadAsset("tone44k.ogg")));
+    audio.Play(audio.LoadSound(ReadAsset("loop48k.opus")), new PlayOptions { Pitch = 1.5f });
+    audio.PlayMusic(ReadAsset("tone44k.ogg"));
+    audio.Advance(4800);
     audio.Update();
-    if (audio.Capture is not { FramesCaptured: 480 })
+    if (audio.Capture is not { FramesCaptured: 4800 } || !(audio.Capture.Peak > 0.1f) || audio.Capture.Samples.ToArray().Any(v => !float.IsFinite(v)))
     {
         Console.Error.WriteLine("audio capture smoke failed");
         return 1;
     }
+
+    Console.WriteLine($"ok: audio vorbis 44.1 kHz and opus decoded and mixed at {audio.Format.SampleRate} Hz, peak {audio.Capture.Peak:F3}");
 }
 
 using (var audio = AudioService.Create(new AudioServiceOptions { Device = new AudioDeviceOptions { DeviceName = "onegame_no_such_device" } }))
 {
-    audio.Play(audio.LoadSound(new MemoryStream([0, 0, 0, 0])));
     audio.Update();
     if (audio.Output.Status != AudioOutputStatus.NoDevice || AudioService.DefaultBackend().Name.Length == 0)
     {
@@ -281,4 +285,13 @@ static byte[] ReadResource(string name)
     using var copy = new MemoryStream();
     stream.CopyTo(copy);
     return copy.ToArray();
+}
+
+static MemoryStream ReadAsset(string name)
+{
+    using var s = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(name) ?? throw new InvalidOperationException(name);
+    var m = new MemoryStream();
+    s.CopyTo(m);
+    m.Position = 0;
+    return m;
 }

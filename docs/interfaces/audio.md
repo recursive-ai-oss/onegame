@@ -1,12 +1,13 @@
 # Audio
 
-Device output and the game-facing audio service (`OneGame.Audio`). Decoding and mixing come from oneaudio; this assembly owns the real-time thread, the operating-system backends and the service on top.
+Device output and the game-facing audio service (`OneGame.Audio`). Decoding and mixing come from the oneaudio package; this assembly owns the real-time thread, the operating-system backends and the service on top.
 
 ## Layers
 
 ```
 AudioService   game thread: load, play, buses, music, events        (AudioService.cs)
-  IAudioCore   the mixer seam: Render + thread-safe control calls   (AudioCore.cs)
+  IAudioCore   the mixer: Render + thread-safe control calls        (AudioCore.cs)
+    OneAudioCore  the default: oneaudio mixer + WAV/Ogg/Vorbis/Opus  (OneAudioCore.cs)
 AudioOutput    real-time thread: render -> limiter -> sink          (AudioOutput.cs)
   IAudioSink   one open device (blocking Write of float frames)
 IAudioBackend  ALSA, WASAPI, capture, fakes in tests
@@ -17,11 +18,15 @@ The device decides the format. `AudioService.Create` opens the device first, the
 ## Using it
 
 ```csharp
-using var audio = AudioService.Create(new AudioServiceOptions { CoreFactory = ... });
+using var audio = AudioService.Create();          // the default core is oneaudio's mixer
 var click = audio.LoadSound(File.OpenRead("click.wav"));
 audio.Play(click, new PlayOptions { Bus = AudioBus.Ui, Volume = 0.8f, Pan = -0.2f });
 audio.PlayMusic(File.OpenRead("theme.ogg"), new MusicOptions { CrossfadeSeconds = 2 });
 audio.SetBusVolume(AudioBus.Music, 0.5f);
+audio.SetBusMuted(AudioBus.Sfx, true);                       // mute keeps the volume
+audio.SetDucking(AudioBus.Music, AudioBus.Ui);               // music dips 12 dB while ui sounds play
+var v = audio.Play(click, new PlayOptions { Pitch = 1.2f, VariablePitch = true });
+audio.SetPitch(v, 0.9f, rampSeconds: 0.2);
 // once per frame:
 audio.Update();                      // drains mixer events, raises EventRaised
 // from the window layer:
@@ -35,11 +40,18 @@ audio.SetFocused(hasFocus);          // pauses when PauseOnFocusLoss (default tr
 - `Paused` / `SetFocused(false)` feed the device silence and stop rendering the core, so the mixer clock holds still and voices resume where they were.
 - All service calls are for the game thread. The service runs its own small pump thread that calls `IAudioCore.Pump()` (streaming decode); cores must tolerate `Pump` concurrent with the control calls.
 
-## The core seam and the switch to oneaudio
+## The core and oneaudio
 
-`IAudioCore` mirrors oneaudio's `AudioMixer` contract: `Render(Span<float>)` overwrites, never allocates, locks or throws, and output is not clipped; control calls are thread-safe and report a full queue with `false` / an invalid id; `TryGetEvent` polls `VoiceEnded`, `VoiceStolen`, `PlayDropped`, `Underrun`. `AudioServiceOptions.CoreFactory` supplies it; without one the service uses `NullAudioCore` (silence).
+`IAudioCore` is the small surface the service needs from a mixer: `Render(Span<float>)` overwrites, never allocates, locks or throws, and output is not clipped; control calls are thread-safe and report a full queue with `false` / an invalid id; `TryGetEvent` polls `VoiceEnded`, `VoiceStolen`, `PlayDropped`, `Underrun`. `OneAudioCore` implements it over `RecursiveAI.OneAudio` and is what `AudioService.Create` uses unless `AudioServiceOptions.CoreFactory` says otherwise (tests use a tiny stand-in). `OneAudioCore.Mixer` exposes the `AudioMixer` for counters.
 
-The oneaudio package is not published yet, so runtime code does not reference it. An adapter, `OneAudioCore` (about 130 lines, in `tests/OneGame.Audio.OneAudio.Tests`), already drives the real mixer against the service. **The switch is one step:** when the package exists, add the `RecursiveAI.OneAudio` reference to `OneGame.Audio.csproj`, move `OneAudioCore.cs` into `src/OneGame.Audio`, make it the default `CoreFactory` (with `AddWav()` plus whichever codecs are shipped), and give the adapter on-load resampling for files at another rate (`AudioMixer.Play` rejects a source whose rate differs from the mixer's; the adapter currently throws `NotSupportedException` instead). The integration project then becomes an ordinary test of the service. Until then it is outside `OneGame.slnx` and needs the sibling checkout next to the repository (`ONEAUDIO_PROJECT` overrides the path).
+- **Formats:** WAV, Ogg Vorbis and Opus, detected from the bytes. Any source rate and channel count plays; the mixer converts to the device format (ratio 0.5 to 16 after pitch, so a 8 kHz clip into a 48 kHz device is the limit).
+- **Clips vs streams:** `LoadSound` decodes a whole file into memory (refused above `MaxClipSeconds`, default 120). `PlayMusic` streams: the first block is decoded before the call returns, then the service's pump thread refills; a stream is released when its voice ends or is stolen.
+- **Failure:** a malformed, truncated, unsupported or over-limit file throws `AudioLoadException` from `LoadSound` / `PlayMusic` on the game thread. A NaN or out-of-range volume, pan or pitch throws `ArgumentException` (or a subclass) from `Play`; nothing from content reaches the audio thread.
+- **Pitch:** `PlayOptions.Pitch` (0.0625 to 16) works at play time. To change it later set `VariablePitch` (the mixer reserves a converter) and call `SetPitch`; without that, `SetPitch` is ignored. A full converter pool gives an invalid `VoiceId`, as a full queue does.
+- **Gain changes smooth** over about 10 ms (bus volume, mute, `SetVolume` with a ramp of 0); crossfades, fades and ducking (`SetDucking(target, watched, DuckingOptions)`, which rejects cycles) run inside the mixer.
+- **Master volume / `Muted`** still scale the bus gains the service sets, so they behave the same on every core.
+- A mono source is centred with an equal-power law (-3 dB per channel).
+- Build the service at startup: it allocates the mixer and about 2.6 MB of converters up front. Setting `GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency` while a game runs keeps collections off the pump thread.
 
 ## Device selection, latency, no device
 
@@ -59,4 +71,4 @@ The oneaudio package is not published yet, so runtime code does not reference it
 
 ## Tests
 
-`dotnet test tests/OneGame.Audio.Tests`: capture-sink scenarios (sums, gains, pans, bus/master, frame-exact start, clamp and knee, pause, mute, crossfade), the output thread against a fake device (pacing, loss, reconnect, rate refusal, no device, device switch, render fault, zero allocation), WASAPI logic, ALSA failure paths. `ONEGAME_AUDIO_DEVICE_TESTS=1` adds a quiet tone plus soak on the real device (`ONEGAME_AUDIO_SOAK_SECONDS`, `ONEGAME_AUDIO_REPORT` for the numbers).
+`dotnet test tests/OneGame.Audio.Tests`: capture-sink scenarios on the stand-in core (sums, gains, pans, bus/master, frame-exact start, clamp and knee, pause, mute, crossfade) and on the real mixer (`RealMixerTests`: 44.1 kHz Vorbis into 48 kHz, looping Opus with pitch, crossfade, bus volume and mute, ducking, limiter, bad content), with fixtures from `testdata/audio`, the output thread against a fake device (pacing, loss, reconnect, rate refusal, no device, device switch, render fault, zero allocation), WASAPI logic, ALSA failure paths. `ONEGAME_AUDIO_DEVICE_TESTS=1` adds a quiet Vorbis tone plus a Vorbis/Opus soak on the real device (`ONEGAME_AUDIO_SOAK_SECONDS`, `ONEGAME_AUDIO_REPORT` for the numbers).
