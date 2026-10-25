@@ -41,3 +41,7 @@ Shadows, SSAO, depth prepass, instancing at scale, quality ladder, frustum culli
 ## Host
 
 `Render2DStage.AddScenePasses` is the hook; `Render3DStage` (Host) owns a `Renderer3D` and a `Scene3D`; a game returns it from `CreateRenderStage`.
+
+## Reference renders
+
+`testdata/render3d/cases.json` lists eight Khronos sample scenes (camera, lights, pose, environment); `testdata/render3d/ref/` holds the 480x360 images the Khronos glTF Sample Viewer drew for them (black-box output, `tools/reference3d/shoot.mjs`). `ReferenceTests` compares on model pixels with edges eroded: mean difference under 6 of 255 and p95 under 28, or 11 and 45 for scenes lit by an image-based environment (filtering differs between renderers; the reasons are in the test). The panorama centre looks down +Z, the front of a glTF model seen from the default camera. Needs `ONEGAME_GLTF_SAMPLES` (`tools/fetch-gltf-samples.sh`) and `ONEGAME_ENV_DIR` (a Poly Haven 1k studio panorama); cases are skipped without them.
