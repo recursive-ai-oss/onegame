@@ -289,7 +289,10 @@ internal sealed unsafe class AudioUnitSink : CallbackSink
             else
             {
                 samples.Clear();
-                *(uint*)flags |= AudioToolbox.ActionOutputIsSilence;
+                if (flags != 0)
+                {
+                    *(uint*)flags |= AudioToolbox.ActionOutputIsSilence;
+                }
             }
 
             sink.CountCallback(frames, samples);
