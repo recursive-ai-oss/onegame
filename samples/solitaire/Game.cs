@@ -137,15 +137,6 @@ public sealed class SolitaireGame : GameDefinition
         ArgumentNullException.ThrowIfNull(game);
         Session.For(game).HandleInput(input);
     }
-
-    /// <inheritdoc />
-    public override IRenderStage CreateRenderStage(HostResources resources)
-    {
-        ArgumentNullException.ThrowIfNull(resources);
-        // Until the shader build package replaces them, the renderer's compiled shaders travel inside the program.
-        var shaders = resources.Shaders ?? new EmbeddedShaders();
-        return new Render2DStage(resources with { Shaders = shaders });
-    }
 }
 
 /// <summary>Reads the files embedded in the program.</summary>
@@ -158,13 +149,6 @@ internal static class Assets
         stream.CopyTo(copy);
         return copy.ToArray();
     }
-}
-
-/// <summary>The renderer's compiled shaders, read from the program's embedded files.</summary>
-internal sealed class EmbeddedShaders : OneGame.Render2D.IShaderSource
-{
-    public OneGame.Render2D.ShaderCode Load(string program, string entryPoint) =>
-        new(entryPoint.StartsWith("VS", StringComparison.Ordinal) ? OneGame.Gpu.ShaderStage.Vertex : OneGame.Gpu.ShaderStage.Pixel, "main", Assets.Read("spv/" + program + "." + entryPoint));
 }
 
 /// <summary>Command-line helpers for the program entry point.</summary>

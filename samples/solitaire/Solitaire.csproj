@@ -23,9 +23,6 @@
     <!-- Card art and the default fonts travel inside the program, so the game runs from any folder. -->
     <EmbeddedResource Include="art/*.svg" LogicalName="art/%(Filename)%(Extension)" />
     <EmbeddedResource Include="fonts/*.ttf" LogicalName="fonts/%(Filename)%(Extension)" />
-    <!-- Compiled renderer shaders. These are the reference compiler's output for src/OneGame.Render2D/Shaders; they are replaced by the
-         shader build package when the game takes it. -->
-    <EmbeddedResource Include="$(OneGameRoot)tests/OneGame.Render2D.Tests/Shaders/*.spv" LogicalName="spv/%(Filename)" Exclude="$(OneGameRoot)tests/OneGame.Render2D.Tests/Shaders/Ripple.*" />
     <InternalsVisibleTo Include="Solitaire.Tests" />
   </ItemGroup>
 
