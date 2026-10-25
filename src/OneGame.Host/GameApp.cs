@@ -105,7 +105,7 @@ public interface IDevTools
 /// <summary>The entry point of a game: parse the command line, create the instance, run it.</summary>
 public static class GameApp
 {
-    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "also-scopes", "name", "net", "realtime", "until-tick"];
+    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "also-scopes", "name", "net", "realtime", "until-tick", "no-present"];
 
     /// <summary>
     /// Set by development builds before <see cref="Run(GameDefinition, string[])"/> so the extra options work. A release build leaves it
@@ -147,6 +147,13 @@ public static class GameApp
         {
             return Fail(json, output, error, ExitCodes.NoDevTools, "no_dev_tools",
                 $"{string.Join(", ", extra.Select(n => "--" + n))}: this build has no development tools. Build the Debug configuration (or set OneGameDev=true).");
+        }
+
+        if (OperatingSystem.IsBrowser())
+        {
+            // A browser cannot block: the page creates the GPU device asynchronously and drives the frames, so Main returns at once.
+            BrowserHost.Start(game, options, parsed, extra.Length > 0 ? DevTools : null, output);
+            return ExitCodes.Ok;
         }
 
         try
@@ -221,6 +228,11 @@ public static class GameApp
                     var other => throw new FormatException($"--backend is wayland, x11 or cocoa, got '{other}'."),
                 },
             };
+        }
+
+        if (a.Has("no-present"))
+        {
+            o = o with { PresentFrames = false };
         }
 
         if (a.Get("display") is { } display)

@@ -2,7 +2,7 @@ namespace OneGame.Gpu;
 
 /// <summary>
 /// One compiled shader entry point in every form a backend may need. Fill it from the members the shader build generates:
-/// <c>SpirV</c> for Vulkan, <c>Msl</c> and <c>MslFunctionName</c> for Metal, and the file's <c>Bindings.All</c> so a backend that numbers
+/// <c>SpirV</c> for Vulkan, <c>Msl</c> and <c>MslFunctionName</c> for Metal, <c>Wgsl</c> and <c>WgslEntryPoint</c> for the browser, and the file's <c>Bindings.All</c> so a backend that numbers
 /// resources per shader file (Metal) can place each (set, binding) pair.
 /// </summary>
 /// <remarks>A backend reads only the parts it needs and throws <see cref="GpuUnsupportedException"/> when its part is empty.</remarks>
@@ -28,6 +28,12 @@ public readonly ref struct ShaderSource
 
     /// <summary>UTF-8 Metal Shading Language source, for Metal.</summary>
     public ReadOnlySpan<byte> Msl { get; init; }
+
+    /// <summary>UTF-8 WGSL source, for browser WebGPU.</summary>
+    public ReadOnlySpan<byte> Wgsl { get; init; }
+
+    /// <summary>The entry point name in the WGSL. Defaults to <see cref="EntryPoint"/>.</summary>
+    public string? WgslEntryPoint { get; init; }
 
     /// <summary>The function to look up in the MSL source. Defaults to <see cref="EntryPoint"/>.</summary>
     public string? MslFunctionName { get; init; }
@@ -57,4 +63,13 @@ public readonly ref struct ShaderSource
     /// shader has none. Other backends ignore it.
     /// </summary>
     public int MslPushConstantIndex { get; init; } = -1;
+
+    /// <summary>
+    /// The WGSL bind group of the shader's push-constant block (the generated <c>Bindings.PushConstants.WgslGroup</c>), or -1 when it has none.
+    /// WebGPU has no push constants: the backend binds the block as a uniform buffer here. Other backends ignore it.
+    /// </summary>
+    public int WgslPushGroup { get; init; } = -1;
+
+    /// <summary>The WGSL binding number of the push-constant block (<c>Bindings.PushConstants.WgslBinding</c>); see <see cref="WgslPushGroup"/>.</summary>
+    public int WgslPushBinding { get; init; } = -1;
 }

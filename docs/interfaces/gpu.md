@@ -141,3 +141,15 @@ Verified: X11 (Xlib window created by the test, under Xvfb), including resize. W
 - Vertex buffer slot `n` is bound at Metal buffer index `30 - n`; resources use the shader build's Metal indices, counted per class (buffer, texture, sampler) over a shader file. A bind group is applied lazily at the next draw or dispatch, so one layout can serve shaders of different files (the 2D materials).
 - Presenting: `SurfaceSource.MetalLayer(caMetalLayer)` (the layer a view owns, made by the window system layer). Backbuffers are readable. A layer that belongs to no view works too, for headless tests.
 - Not built yet: timestamps (`Capabilities.Timestamps` is false, so the render graph reports no pass times), shader hot reload (the reloader recompiles SPIR-V only), x86-64 Macs (struct-returning message sends need `objc_msgSend_stret` there).
+
+## WebGPU backend (`OneGame.Gpu.WebGpu`, browser only)
+
+`GpuBackends.Selected` is `WebGpu` in a browser. A page creates the device asynchronously: `GpuBackends.CreateDeviceAsync` (or `WebGpu.CreateDeviceAsync`); the synchronous `CreateDevice` throws `GpuUnsupportedException` there. Shaders come from the same HLSL files, built with `OneShaderTargets` including `Wgsl`; a `ShaderSource` carries `Wgsl`, `WgslEntryPoint` and, for a shader with a `[[vk::push_constant]]` block, `WgslPushGroup`/`WgslPushBinding`.
+
+- **A browser cannot block.** `WaitIdle` and the synchronous reads throw `GpuUnsupportedException`; use `ReadBufferAsync`/`ReadTextureAsync` (native backends complete them before returning) and `Offscreen3D.CaptureAsync`. `GameInstance.CaptureAsync` is the harness's path.
+- **Command stream.** Calls are recorded into one byte stream per encoder and executed by `js/onegame-gpu.js` in a single JavaScript call per submit; resources are integer handles.
+- **Layouts per pipeline.** WebGPU layouts name each texture's dimension, so the script builds a layout variant for each set of shaders from the declarations in their WGSL and makes bind groups against the variant of the pipeline they are used with. A slot a pipeline's shaders do not declare is left out of its layout. After changing to a pipeline made for a different `GpuPipelineLayout`, bind groups again.
+- **Push constants** are a uniform buffer at the generated group and binding, bound with a dynamic offset into a ring: the block is at most 128 bytes, rounded up to 16, and must not share its group with the layout's own bindings.
+- **Not available:** binding arrays (`Count` above 1; WGSL has none), timestamp queries (`TryReadTimestamps` returns false), `rg16f` storage images (the environment BRDF table is `Rgba16Float` on every backend for this reason), MSAA other than 1 or 4 samples (2 maps to 4).
+- **Canvas.** `SurfaceSource.Canvas(id)`; the swapchain is `bgra8unorm` with an sRGB view. Headless Chrome on its software adapter cannot present a canvas (the GPU process loses the device); run such a page with `--no-present`.
+- **Tests.** `tests/OneGame.Gpu.WebRunner` runs the shared graphics tests in a browser (`tools/web/run-page.mjs`), `tests/OneGame.Render3D.WebRunner` the Khronos reference cases. Test tooling only.

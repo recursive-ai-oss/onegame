@@ -13,7 +13,7 @@ internal sealed partial class ExportVerb : IVerb
 {
     public string Name => "export";
 
-    public string Summary => "Package the game: onegame export --target linux-x64|win-x64|osx [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins]; or a debug-signed APK: export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id].";
+    public string Summary => "Package the game: onegame export --target linux-x64|win-x64|osx|web [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins]; or a debug-signed APK: export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id].";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
@@ -44,6 +44,11 @@ internal sealed partial class ExportVerb : IVerb
             return RunAndroidExport(a, dev, noAot, json, output);
         }
 
+        if (a.Get("--target") == "web")
+        {
+            return RunWebExport(a, dev, json, output);
+        }
+
         if (dev || a.Game.Count > 0)
         {
             throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {(dev ? "--dev (Android only)" : a.Game[0])}. Usage: onegame export --target linux-x64|win-x64|osx [--steam] [--steam-redist <dir>] [--bundle-id <id>] [--out <dir>] [--no-archive] [--no-aot].");
@@ -57,7 +62,7 @@ internal sealed partial class ExportVerb : IVerb
 
         if (target is not ("linux-x64" or "win-x64" or "osx-arm64"))
         {
-            throw new CliException(ExitCodes.Usage, "bad_target", $"Unknown target '{target}'. Targets: linux-x64, win-x64, osx (Apple silicon), android.");
+            throw new CliException(ExitCodes.Usage, "bad_target", $"Unknown target '{target}'. Targets: linux-x64, win-x64, osx (Apple silicon), android, web.");
         }
 
         var mac = target == "osx-arm64";

@@ -19,6 +19,8 @@
   <ItemGroup>
     <!-- Test projects only. Shipping projects may depend on the one* family and nothing else. -->
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
+    <PackageVersion Include="xunit.v3.assert" Version="4.0.2" />
+    <PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.2" />
     <!-- Reference renderer for comparing glyph coverage; tests only. -->
     <PackageVersion Include="RecursiveAI.OneImage.Text" Version="1.10.0" />
   </ItemGroup>
