@@ -57,6 +57,12 @@ public sealed record GameOptions
     public PresentMode PresentMode { get; init; } = PresentMode.Vsync;
 
     /// <summary>
+    /// False runs frames (simulation, input, layout) without drawing them to the window; captures still render offscreen. A web page whose
+    /// browser cannot present WebGPU canvases (headless Chrome on a software adapter) runs this way under test.
+    /// </summary>
+    public bool PresentFrames { get; init; } = true;
+
+    /// <summary>
     /// Connect to a server instead of running a world of its own. The game's world is then a replica of the server's scope: the server
     /// runs the simulation, commands are forwarded to it, and state cannot be written locally.
     /// </summary>
@@ -660,6 +666,9 @@ public sealed class GameInstance : IDisposable
     private long _hostOwed;
     private long _hostLast;
 
+    /// <summary>True while a harness holds a hosted page still: frames still draw, but the simulation does not advance.</summary>
+    public bool HostPaused { get; set; }
+
     /// <summary>
     /// Runs one frame of a realtime run for a host that owns the loop (a browser's animation-frame callback): the ticks the clock owes since
     /// the last call, then drawing. Passing <paramref name="paused"/> draws without advancing the simulation, which is how a harness holds a page still.
@@ -737,7 +746,7 @@ public sealed class GameInstance : IDisposable
     {
         EnsureDevice();
         var list = Ui.Frame();
-        if (_device is null || Window.NativeHandle.Kind == NativeWindowKind.None || Window.IsMinimized)
+        if (!Options.PresentFrames || _device is null || Window.NativeHandle.Kind == NativeWindowKind.None || Window.IsMinimized)
         {
             return;
         }

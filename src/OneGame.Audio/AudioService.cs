@@ -301,6 +301,12 @@ public sealed class AudioService : IDisposable
         ArgumentOutOfRangeException.ThrowIfLessThan(options.BusCount, 3);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxVoices, 1);
 
+        if (OperatingSystem.IsBrowser() && !options.Capture && options.Backend is null)
+        {
+            // The mixer runs on its own thread, which a browser page does not have; a game plays silent until a page backend exists.
+            throw new NotSupportedException("Audio output is not available in a web page yet.");
+        }
+
         CaptureAudioBackend? capture = options.Capture ? new CaptureAudioBackend() : null;
         var backend = capture ?? options.Backend ?? DefaultBackend();
         ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxReverbs, 0);

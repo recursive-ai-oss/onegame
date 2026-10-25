@@ -1,6 +1,6 @@
 // Serves a folder, opens a page in headless Chrome with WebGPU, waits for the page to set window.__result and prints it.
 // A test tool: nothing here ships.
-//   node run-page.mjs --root <dir> [--path /index.html?x=1] [--timeout 300] [--out file.json] [--chrome-flags "..."] [--eval "js"]
+//   node run-page.mjs --root <dir> [--path /index.html?x=1] [--timeout 300] [--out file.json] [--chrome-flags "..."] [--eval "js"] [--screenshot file.png]
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -27,10 +27,10 @@ const dbg = 9300 + Math.floor(Math.random() * 600);
 const profile = path.join(process.env.TMPDIR || '/tmp', 'chrome-profile-' + dbg);
 const chromeFlags = (args['chrome-flags'] || '').split(' ').filter(Boolean);
 const chrome = spawn(process.env.ONEGAME_CHROME || 'google-chrome', [
-  '--headless=new', '--no-sandbox', '--enable-unsafe-webgpu', '--use-webgpu-adapter=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',
+  ...(process.env.CHROME_HEADED ? [] : ['--headless=new']), ...(process.env.CHROME_LOG ? ['--enable-logging=stderr', '--v=0'] : []), '--no-sandbox', ...(process.env.CHROME_GPU_FLAGS ? process.env.CHROME_GPU_FLAGS.split(' ') : ['--enable-unsafe-webgpu', '--use-webgpu-adapter=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']),
   '--remote-debugging-port=' + dbg, '--user-data-dir=' + profile, '--window-size=1280,800', '--hide-scrollbars', '--mute-audio', ...chromeFlags,
   `http://127.0.0.1:${httpPort}${args.path || '/index.html'}`,
-], { stdio: 'ignore' });
+], { stdio: process.env.CHROME_LOG ? ['ignore', 'ignore', fs.openSync(process.env.CHROME_LOG, 'w')] : 'ignore' });
 
 const done = (code) => { try { chrome.kill('SIGKILL'); } catch { } server.close(); fs.rmSync(profile, { recursive: true, force: true }); process.exit(code); };
 process.on('SIGINT', () => done(130));
@@ -48,16 +48,22 @@ ws.onmessage = m => {
   const d = JSON.parse(m.data);
   if (d.id && pending.has(d.id)) pending.get(d.id)(d);
   else if (d.method === 'Runtime.consoleAPICalled') logs.push(d.params.type + ': ' + d.params.args.map(a => a.value ?? a.description ?? '').join(' '));
+  else if (d.method === 'Log.entryAdded') logs.push('log ' + d.params.entry.level + ': ' + d.params.entry.text);
   else if (d.method === 'Runtime.exceptionThrown') logs.push('exception: ' + (d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text));
 };
 const send = (method, params = {}) => new Promise(r => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
 await send('Runtime.enable');
+await send('Log.enable');
 const start = Date.now();
 let result;
 while (Date.now() - start < timeout) {
   await new Promise(r => setTimeout(r, 500));
   const r = await send('Runtime.evaluate', { expression: args.eval || 'window.__result', returnByValue: true });
   if (r.result?.result?.value) { result = r.result.result.value; break; }
+}
+if (args.screenshot) {
+  const shot = await send('Page.captureScreenshot', { format: 'png' });
+  if (shot.result?.data) fs.writeFileSync(args.screenshot, Buffer.from(shot.result.data, 'base64'));
 }
 if (args.out && result) fs.writeFileSync(args.out, typeof result === 'string' ? result : JSON.stringify(result));
 if (args['log'] || !result) console.error(logs.join('\n'));

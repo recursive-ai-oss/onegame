@@ -13,7 +13,7 @@ internal sealed partial class ExportVerb : IVerb
 {
     public string Name => "export";
 
-    public string Summary => "Package the game: onegame export --target linux-x64|win-x64 [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins].";
+    public string Summary => "Package the game: onegame export --target linux-x64|win-x64|web [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins].";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
@@ -39,9 +39,14 @@ internal sealed partial class ExportVerb : IVerb
         }
 
         var target = a.Get("--target") ?? (OperatingSystem.IsWindows() ? "win-x64" : "linux-x64");
+        if (target == "web")
+        {
+            return RunWebExport(a, noArchive, json, output);
+        }
+
         if (target is not ("linux-x64" or "win-x64"))
         {
-            throw new CliException(ExitCodes.Usage, "bad_target", $"Unknown target '{target}'. Targets: linux-x64, win-x64.");
+            throw new CliException(ExitCodes.Usage, "bad_target", $"Unknown target '{target}'. Targets: linux-x64, win-x64, web.");
         }
 
         var project = Projects.Find(a.Get("--project"));

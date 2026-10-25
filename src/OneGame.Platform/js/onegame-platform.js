@@ -168,7 +168,15 @@ export function clipboardWrite(text) { try { navigator.clipboard.writeText(text)
 let running = false;
 export function startFrames(callback) {
   running = true;
-  const tick = (t) => { if (!running) return; callback(t); requestAnimationFrame(tick); };
+  const tick = (t) => {
+    if (!running) return;
+    callback(t);
+    // Page-level counters for tools: how many frames ran and when the first one finished (milliseconds since navigation start).
+    const o = (window.__onegame = window.__onegame || {});
+    o.frames = (o.frames || 0) + 1;
+    if (o.frames === 1) o.firstFrameMs = performance.now();
+    requestAnimationFrame(tick);
+  };
   requestAnimationFrame(tick);
 }
 export function stopFrames() { running = false; }
