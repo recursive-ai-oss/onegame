@@ -11,6 +11,12 @@ internal static class Msg
     public const byte Command = 3;
     public const byte DigestRequest = 4;
 
+    // Authority transfer, between nodes: sent by the node handing entities over.
+    public const byte XferOffer = 32;
+    public const byte XferCommit = 33;
+    public const byte XferAbort = 34;
+    public const byte Forward = 35;
+
     // Authority to client.
     public const byte Snapshot = 16;
     public const byte Frame = 17;
@@ -19,17 +25,28 @@ internal static class Msg
     public const byte SubscribeRefused = 20;
     public const byte CommandResult = 21;
     public const byte Revoked = 22;
+
+    // Authority transfer, between nodes: answers from the node receiving the entities, and the hint to subscribers.
+    public const byte XferStaged = 48;
+    public const byte XferRefused = 49;
+    public const byte XferDone = 50;
+    public const byte ForwardResult = 51;
+    public const byte Moved = 52;
 }
 
 /// <summary>The client end of a connection to another node: where a node sends subscriptions and commands, and receives snapshots and frames.</summary>
 public sealed class Link
 {
-    internal Link(Node owner, Node? server, IMessageChannel channel)
+    internal Link(Node owner, Node? server, IMessageChannel channel, string? peerName = null)
     {
         Owner = owner;
         Server = server;
         Channel = channel;
+        PeerName = peerName ?? server?.Name ?? "remote";
     }
+
+    /// <summary>Name of the node at the other end, used to name the hop in drift reports.</summary>
+    public string PeerName { get; }
 
     /// <summary>The node that holds this end.</summary>
     public Node Owner { get; }
@@ -89,6 +106,9 @@ public sealed class Connection
     /// <summary>The channel to the peer. Tests may send raw bytes through it to play a misbehaving authority.</summary>
     public IMessageChannel Channel { get; }
 
+    /// <summary>The highest forwarded-command number accepted on this connection; lower or equal numbers are repeats.</summary>
+    internal ulong LastForward { get; set; }
+
     /// <summary>
     /// Submits a command as this connection, exactly as if it had arrived over the channel: the trust record is checked, a refusal is
     /// filed and sent back, and an accepted command runs at the start of the scope's next tick.
@@ -119,7 +139,7 @@ public sealed class Connection
 /// A participant: it holds the scopes it is authority for, the replicas it subscribes to, and the connections that carry both.
 /// Nothing runs on its own; <see cref="Pump"/> processes whatever has arrived, and <see cref="Cluster"/> calls it in a fixed order.
 /// </summary>
-public sealed class Node
+public sealed partial class Node
 {
     private const int MaxHistory = 256;
 
@@ -260,9 +280,10 @@ public sealed class Node
     /// authority's decision, made when it accepts the channel; nothing is passed here.
     /// </summary>
     /// <param name="channel">A connected channel to the remote node.</param>
-    public Link ConnectVia(IMessageChannel channel)
+    /// <param name="peerName">The remote node's name, for drift reports; "remote" if omitted.</param>
+    public Link ConnectVia(IMessageChannel channel, string? peerName = null)
     {
-        var link = new Link(this, null, channel);
+        var link = new Link(this, null, channel, peerName);
         _links.Add(link);
         return link;
     }
@@ -395,6 +416,7 @@ public sealed class Node
             _drift.RemoveAt(0);
         }
 
+        report.Upstream = UpstreamOf(report);
         _drift.Add(report);
         DriftCount++;
     }
@@ -421,8 +443,9 @@ public sealed class Node
         }
 
         // Owner-only commands need the right to own in this scope, and to be the entity's owner. The check reads the authority's state as
-        // it is now; only commands that pass are queued and logged, so replays see exactly the accepted ones.
-        if (authority.World.Find(entity) is { } target && target.IsOwnerOnlyCommand(commandId))
+        // it is now (or the departing entity's, when it is in transit); only commands that pass are queued and logged, so replays see exactly
+        // the accepted ones. A relay already checked the real sender's identity, so only its right to own is checked here.
+        if ((authority.World.Find(entity) ?? authority.FindDeparted(entity)) is { } target && target.IsOwnerOnlyCommand(commandId))
         {
             if (!from.Trust.Own.Contains(scope))
             {
@@ -430,11 +453,16 @@ public sealed class Node
                 return SubmitResult.NotTrusted;
             }
 
-            if (!from.Trust.Who.IsOwnerOf(target.OwnerKey))
+            if (!from.Trust.Who.Relay && !from.Trust.Who.IsOwnerOf(target.OwnerKey))
             {
                 Refuse(from, new CommandRefusal(scope, from.Id, entity, commandId, RefusalReason.NotOwner), sequence);
                 return SubmitResult.NotTrusted;
             }
+        }
+
+        if (authority.TryDivert(from, sequence, entity, commandId, payload))
+        {
+            return SubmitResult.Queued;
         }
 
         authority.QueueExternal(from, sequence, entity, commandId, payload);
@@ -506,6 +534,13 @@ public sealed class Node
                 return;
             }
 
+            case Msg.XferOffer:
+            case Msg.XferCommit:
+            case Msg.XferAbort:
+            case Msg.Forward:
+                HandleTransferMessage(from, type, scope, ref r, message);
+                return;
+
             case Msg.DigestRequest:
             {
                 var tick = r.ReadVarInt();
@@ -534,6 +569,12 @@ public sealed class Node
             return;
         }
 
+        if (type >= Msg.XferStaged)
+        {
+            HandlePeerReply(link, type, scope, ref r);
+            return;
+        }
+
         ReplicaScope? replica = null;
         foreach (var candidate in _replicas)
         {
@@ -549,5 +590,12 @@ public sealed class Node
         }
 
         replica.Handle(type, ref r, message);
+        for (var i = 0; i < _relays.Count; i++)
+        {
+            if (_relays[i].Upstream == replica)
+            {
+                _relays[i].OnUpstream(type);
+            }
+        }
     }
 }

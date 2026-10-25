@@ -183,7 +183,7 @@ public sealed class StateDigest
             {
                 into._entries.Add(new DigestEntry(DigestKind.Entity, e.Id.Value, null, e.ComputeViewHash()));
             }
-            else if (e.TryGetVisibleMask(audience.Value, out var mask))
+            else if (e.TryGetAudienceMask(audience.Value, out var mask))
             {
                 into._entries.Add(new DigestEntry(DigestKind.Entity, e.Id.Value, null, e.ComputeViewHash(mask)));
             }
@@ -350,6 +350,9 @@ public sealed class DriftReport
     /// <summary>Name of the node holding the replica.</summary>
     public string ReplicaNode { get; }
 
+    /// <summary>Name of the node the replica follows (the authority or a relay), so a mismatch names the hop <c>Upstream -> ReplicaNode</c>. Null when the link does not know its peer.</summary>
+    public string? Upstream { get; internal set; }
+
     /// <summary>The completed tick count at which the hashes differed.</summary>
     public long Tick { get; }
 
@@ -372,7 +375,7 @@ public sealed class DriftReport
     public override string ToString()
     {
         var names = string.Join(", ", Differences.Take(8).Select(d => d.Kind == DigestKind.Entity ? $"{d.TypeName ?? "entity"} {d.EntityId}" : d.Kind == DigestKind.Table ? $"table {d.Name}" : "rng"));
-        return $"drift in {Scope} on {ReplicaNode} at tick {Tick}: authority {AuthorityHash:x16}, replica {ReplicaHash:x16}; differs: {(names.Length == 0 ? (TimedOut ? "(the authority did not answer the digest request)" : "(no detail)") : names)}";
+        return $"drift in {Scope} on {(Upstream is null ? ReplicaNode : Upstream + " -> " + ReplicaNode)} at tick {Tick}: authority {AuthorityHash:x16}, replica {ReplicaHash:x16}; differs: {(names.Length == 0 ? (TimedOut ? "(the authority did not answer the digest request)" : "(no detail)") : names)}";
     }
 
     /// <summary>The report as JSON.</summary>
@@ -384,6 +387,8 @@ public sealed class DriftReport
         j.Value(Scope.Value);
         j.Name("node");
         j.Value(ReplicaNode);
+        j.Name("upstream");
+        j.Value(Upstream ?? string.Empty);
         j.Name("tick");
         j.Value(Tick);
         j.Name("authorityHash");

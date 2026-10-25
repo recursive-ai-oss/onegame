@@ -411,7 +411,7 @@ public sealed class World
             {
                 h = StateHash.Combine(h, e.ComputeViewHash());
             }
-            else if (e.TryGetVisibleMask(audience.Value, out var mask))
+            else if (e.TryGetAudienceMask(audience.Value, out var mask))
             {
                 h = StateHash.Combine(h, e.ComputeViewHash(mask));
             }
@@ -468,7 +468,7 @@ public sealed class World
         ulong visible = 0;
         foreach (var e in _entities)
         {
-            if (e.TryGetVisibleMask(audience, out _))
+            if (e.TryGetAudienceMask(audience, out _))
             {
                 visible++;
             }
@@ -477,7 +477,7 @@ public sealed class World
         w.WriteVarUInt(visible);
         foreach (var e in _entities)
         {
-            if (!e.TryGetVisibleMask(audience, out var mask))
+            if (!e.TryGetAudienceMask(audience, out var mask))
             {
                 continue;
             }

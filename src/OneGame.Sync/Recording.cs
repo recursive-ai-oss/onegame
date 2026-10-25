@@ -2,7 +2,7 @@ using System.Globalization;
 
 namespace OneGame.Sync;
 
-/// <summary>A command that entered an authority from outside its tick.</summary>
+/// <summary>A command that entered an authority from outside its tick. Authority transfers are logged here too, as operations on entity 0.</summary>
 /// <param name="Tick">The tick it ran in (the world's completed tick count when it was submitted).</param>
 /// <param name="Entity">The target entity id.</param>
 /// <param name="CommandId">The command id.</param>
@@ -458,7 +458,15 @@ public static class Replayer
             while (commandIndex < recording.Commands.Count && recording.Commands[commandIndex].Tick <= world.Tick)
             {
                 var c = recording.Commands[commandIndex++];
-                world.Submit(new EntityId(c.Entity), c.CommandId, c.Payload);
+                if (TransferOps.IsOp(c.Entity, c.CommandId))
+                {
+                    // An authority transfer changed the world between ticks (entities left or arrived); do the same change at the same point.
+                    TransferOps.Apply(world, c.CommandId, c.Payload);
+                }
+                else
+                {
+                    world.Submit(new EntityId(c.Entity), c.CommandId, c.Payload);
+                }
             }
 
             world.Step();

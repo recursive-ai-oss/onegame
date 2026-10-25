@@ -76,6 +76,26 @@ public abstract class Entity
         return true;
     }
 
+    /// <summary>
+    /// The mask an audience gets of this copy: what <see cref="TryGetVisibleMask"/> allows, cut down to what this copy holds (a replica of a
+    /// filtered entity cannot pass on what it never received). A relay audience is treated as the entity's owner and team.
+    /// </summary>
+    internal bool TryGetAudienceMask(in Audience audience, out ulong mask)
+    {
+        var who = audience.Relay ? new Audience((uint)OwnerKey, (uint)TeamKey) : audience;
+        if (!TryGetVisibleMask(who, out mask))
+        {
+            return false;
+        }
+
+        if (ViewMask != ulong.MaxValue)
+        {
+            mask &= ViewMask;
+        }
+
+        return true;
+    }
+
     /// <summary>True when the command is marked <c>OwnerOnly</c>.</summary>
     public virtual bool IsOwnerOnlyCommand(uint commandId) => false;
 
