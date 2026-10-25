@@ -279,6 +279,17 @@ public sealed partial class AuthorityScope
                 t.State = TransferState.Aborted;
                 t.Reason = "the scope loaded a save";
             }
+
+            // Commands that were waiting for this transfer were never applied and now never will be: say so.
+            foreach (var h in t.Held)
+            {
+                if (h.Sequence != 0)
+                {
+                    SendResult(new Origin(h.From, h.Sequence, h.Entity, h.CommandId, false), CommandVerdict.Dropped, RefusalReason.Malformed, h.Entity, h.CommandId, null);
+                }
+            }
+
+            t.Held.Clear();
         }
 
         _transfers.Clear();

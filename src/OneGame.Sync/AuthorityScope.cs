@@ -439,7 +439,16 @@ public sealed partial class AuthorityScope
         w.WriteByte((byte)verdict);
         w.WriteByte((byte)refusal);
         w.WriteString(reason ?? string.Empty);
-        SendDurable(to.From.Channel, w.Written);
+
+        // "Dropped" says the command was not applied, which is true whatever was saved, so it never waits.
+        if (verdict == CommandVerdict.Dropped)
+        {
+            to.From.Channel.Send(w.Written);
+        }
+        else
+        {
+            SendDurable(to.From.Channel, w.Written);
+        }
     }
 
     /// <summary>Sends now, or holds the message until the next <see cref="Save"/> when <see cref="Durability"/> asks for that.</summary>

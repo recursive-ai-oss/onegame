@@ -45,6 +45,7 @@ public partial class Hero : Entity
 [HotData(Visibility = Visibility.Hidden)] public struct SecretRow { ... }              // a table that stays on the authority
 ```
 
+- `Audience.Relay` (set through `Trust.AsRelay()` in the sync layer) marks a trusted relay node: it is treated as each entity's owner and team, so it receives every member that is not `Hidden` and can filter them again for its own subscribers. `Entity.ViewMask` limits what a replica passes on to what it holds.
 - Levels: `Everyone` (default), `Owner`, `Team` (the owner and everyone whose team equals the entity's team key), `Hidden`. They sit on top of the scope's read trust. Entity-level and member-level visibility combine: a member is visible only if the entity is.
 - A connection's `Audience` (`Trust.Who`: player, team; 0 = none, never matches) is matched against the entity's `[OwnerKey]` / `[TeamKey]` values at the moment a frame is built, so changing a key moves the data between subscribers on the next frame.
 - A replica holds the type's default for every member it may not see, and the generated `ReadOnlyView` has no getter for `Hidden` members. At most one `[OwnerKey]` and one `[TeamKey]` per entity, each a `[Synced]` `uint` or `int`.

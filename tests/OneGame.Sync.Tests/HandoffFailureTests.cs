@@ -191,12 +191,38 @@ public class HandoffFailureTests
         Assert.Equal(TransferState.Offered, transfer.State);
         Assert.Null(Realm.FindTraveler(rig.ScopeOnA.World, HandoffRig.Player));
 
+        // A command for the traveller arrives while it is in transit and is held.
+        var connection = rig.ViewOfA.Link.Connection;
+        Assert.Equal(SubmitResult.Queued, rig.A.AcceptCommand(connection, HandoffRig.ScopeA, rig.Original, StateHash.Fnv32("Hit"), default, 77));
+        Assert.Equal(1, rig.ScopeOnA.CommandsHeld);
+
         // A saved while the traveller was in transit, then crashed. The save holds the bundle; on restart the unanswered offer is undone.
         var inTransit = rig.ScopeOnA.Save();
         Assert.Equal(SaveStatus.Ok, rig.ScopeOnA.Load(inTransit).Status);
+
+        // The held command was never applied and now never will be; its sender is told so.
+        CommandVerdict? verdict = null;
+        while (rig.ViewOfA.Link.Channel.TryReceive(out var message))
+        {
+            var r = new SyncReader(message);
+            if (r.ReadByte() == 21)
+            {
+                r.ReadVarUInt();
+                if (r.ReadVarUInt() == 77)
+                {
+                    r.ReadVarUInt();
+                    r.ReadVarUInt();
+                    verdict = (CommandVerdict)r.ReadByte();
+                }
+            }
+        }
+
+        Assert.Equal(CommandVerdict.Dropped, verdict);
+
         rig.Run(3, send: false);
         Assert.Equal(1, Realm.CountTravelers(rig.ScopeOnA.World, HandoffRig.Player));
         Assert.Equal(0, TransferLog.Of(rig.ScopeOnA.World)!.OpenCount);
         Assert.NotNull(save);
+
     }
 }
