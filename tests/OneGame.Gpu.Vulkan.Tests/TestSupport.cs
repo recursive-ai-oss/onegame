@@ -27,8 +27,6 @@ internal static class TestFiles
 
     public static string RepoRoot => Path.GetFullPath(Path.Combine(SourceDir(), "..", ".."));
 
-    public static byte[] Spirv(string name) => File.ReadAllBytes(Path.Combine(SourceDir(), "Shaders", name + ".spv"));
-
     public static string GoldenPath(string name) => Path.Combine(RepoRoot, "testdata", "gpu", name + ".png");
 }
 

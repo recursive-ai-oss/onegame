@@ -9,7 +9,7 @@ Source: `src/OneGame.Control` (operations), `src/OneGame.Host` (the game being d
 - `World` is the authority world; state queries, patches, hashes and snapshots act on it. Replacing the world (`Reset`, `LoadFixture`, `LoadSnapshot`) rebuilds the cluster.
 - `SaveSnapshot()`/`LoadSnapshot()` are `SaveFile` bytes (header, hashes, versioned snapshot).
 - `StartRecording()` returns u6's `Recorder` (checkpoint every tick by default); `Replay(recording)` runs it on a fresh world built like the game's and returns `ReplayResult`. `RecordingFile.Save/Load` handle files (`OGRP`).
-- A `GameDefinition` declares entities, `Setup`, `RegisterSystems`, `DefineScreens`, `DefineFixtures`, `Style`, `OnInput`, `DefineFonts` (default: `fonts/*.ttf|otf`), `DefineArt`, and optionally `CreateRenderStage(HostResources)`. The default stage is `Render2DStage` (the 2D renderer, sRGB targets) when the game has fonts and shaders are available (`GameOptions.Shaders`, or `ONEGAME_SHADER_DIR` holding `Program.Entry.spv` files until the shader build package is wired in); otherwise `StubStage`, a GPU clear plus a CPU raster of the display list. A GPU-less capture always uses the CPU raster.
+- A `GameDefinition` declares entities, `Setup`, `RegisterSystems`, `DefineScreens`, `DefineFixtures`, `Style`, `OnInput`, `DefineFonts` (default: `fonts/*.ttf|otf`), `DefineArt`, and optionally `CreateRenderStage(HostResources)`. The default stage is `Render2DStage` (the 2D renderer, sRGB targets) when the game has fonts (the shaders are the renderer's own, compiled during the build; `GameOptions.Shaders` replaces them); otherwise `StubStage`, a GPU clear plus a CPU raster of the display list. A GPU-less capture always uses the CPU raster.
 - `GameApp.Run(definition, args)` is the whole `Main` of a game: `--headless --frames N --size WxH --scale S --seed N --gpu auto|off|required --json`. Any other flag needs the development tools (`Dev.Enable()`, called by a module initializer that exists only in Debug builds); without them the game exits 5 `no_dev_tools`.
 
 ## Operations
@@ -47,11 +47,11 @@ Release builds do not reference `OneGame.Live`, `OneGame.Control`, `OneGame.Test
  "directory":"/abs/export/demo-1.0.0-linux-x64","executable":"Demo",
  "archive":{"path":"/abs/export/demo-1.0.0-linux-x64.tar.gz","format":"tar.gz","size":3391682,"sha256":"…"},
  "files":[{"path":"Demo","size":6181872,"sha256":"…"}],
- "skipped":[{"path":"shaders/","reason":"…"}],
- "warnings":[{"code":"shaders_not_included","message":"…"}],"seconds":10.2}
+ "skipped":[{"path":"saves/","reason":"…"}],
+ "warnings":[{"code":"glibc_too_new","message":"…"}],"seconds":10.2}
 ```
 
-`runtime` is `nativeaot` or `coreclr-self-contained`; `renderer` is `ui-preview` until the shader package ships, then `2d`; `archive` is absent with `--no-archive`; `files` is every file in `directory` (paths relative, `/`-separated, sorted). Warning codes: `not_native_aot`, `shaders_not_included`, `glibc_too_new`, `font_licence_missing`, `large_file`. Failure codes: `bad_target` (exit 2), `steam_redist_missing` and `dev_tools_present` (exit 4), `publish_failed`, `bad_project` and `no_executable` (exit 3), plus `no_project` and `ambiguous_project` as for the other verbs.
+`runtime` is `nativeaot` or `coreclr-self-contained`; `renderer` is `2d`; `archive` is absent with `--no-archive`; `files` is every file in `directory` (paths relative, `/`-separated, sorted). Warning codes: `not_native_aot`, `glibc_too_new`, `font_licence_missing`, `large_file`. Failure codes: `bad_target` (exit 2), `steam_redist_missing` and `dev_tools_present` (exit 4), `publish_failed`, `bad_project` and `no_executable` (exit 3), plus `no_project` and `ambiguous_project` as for the other verbs.
 
 ## Scenarios
 

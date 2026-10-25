@@ -14,7 +14,7 @@ onegame run --headless --frames 60 --json
 
 A game is a `GameDefinition` (entities, `Setup`, screens, fixtures) plus entity classes: synced state as partial properties, commands as methods, simulation in `OnTick`, views as `[View]` members. The scaffold shows all of it in 40 lines. Warnings are errors; a sim or view rule you break is a compile error with an `OG....` id and a message that says the fix.
 
-Fonts: put `.ttf`/`.otf` files in a `fonts/` folder next to the game (or override `DefineFonts`). With fonts and compiled shaders (`ONEGAME_SHADER_DIR`, until the shader build package is wired in) the 2D renderer draws the UI; without them a plain preview is drawn, enough to check layout. SVG art goes in `DefineArt`.
+Fonts: put `.ttf`/`.otf` files in a `fonts/` folder next to the game (or override `DefineFonts`). With fonts the 2D renderer draws the UI through the GPU, using the shaders the engine compiles during its own build; without fonts a plain preview is drawn, enough to check layout. SVG art goes in `DefineArt`.
 
 ## 2. Scenarios: tests as text
 

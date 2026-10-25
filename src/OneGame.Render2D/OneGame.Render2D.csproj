@@ -14,6 +14,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Compiles Shaders/*.hlsl during the build and generates the C# bindings. -->
+    <PackageReference Include="RecursiveAI.OneShader.Build" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="OneGame.Render2D.Tests" />
   </ItemGroup>
 

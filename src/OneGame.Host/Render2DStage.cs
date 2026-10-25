@@ -14,29 +14,6 @@ namespace OneGame.Host;
 public sealed record HostResources(FontLibrary? Fonts, FontTextMeasurer? Measurer, ArtAtlas Art, IShaderSource? Shaders);
 
 /// <summary>
-/// Reads the renderer's compiled shaders from a folder of <c>Program.Entry.spv</c> files (for example <c>Ui.VSMain.spv</c>), each with the
-/// entry point <c>main</c>. It is the stand-in for the shader build package: set <c>ONEGAME_SHADER_DIR</c> to use it.
-/// </summary>
-public sealed class DirectoryShaders : IShaderSource
-{
-    private readonly string _directory;
-
-    /// <summary>Creates a source reading from <paramref name="directory"/>.</summary>
-    public DirectoryShaders(string directory)
-    {
-        _directory = directory ?? throw new ArgumentNullException(nameof(directory));
-    }
-
-    /// <inheritdoc />
-    public ShaderCode Load(string program, string entryPoint)
-    {
-        var path = Path.Combine(_directory, program + "." + entryPoint + ".spv");
-        var stage = entryPoint.StartsWith("VS", StringComparison.Ordinal) ? ShaderStage.Vertex : ShaderStage.Pixel;
-        return new ShaderCode(stage, "main", File.ReadAllBytes(path));
-    }
-}
-
-/// <summary>
 /// The default render stage: the 2D renderer draws the UI display list into the host's target. The renderer is made on first use for
 /// the target's format (which must be an sRGB format). With no usable GPU the host falls back to <see cref="DisplayListRaster"/>.
 /// </summary>

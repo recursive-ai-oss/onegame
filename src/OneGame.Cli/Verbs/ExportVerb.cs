@@ -111,12 +111,6 @@ internal sealed class ExportVerb : IVerb
             skipped.Add(new ExportSkipped("steam_appid.txt", "never shipped: it disables the relaunch-through-Steam check"));
         }
 
-        if (!ExportAssets.GeneratedShaders)
-        {
-            warnings.Add(new ExportWarning("shaders_not_included",
-                "The 2D renderer's compiled shaders are not part of this build yet, so the game draws the plain UI preview. Nothing compiled by a third-party tool is shipped."));
-        }
-
         if (target == "linux-x64" && NewestGlibc(exe) is { } glibc && glibc > SteamRuntimeGlibc)
         {
             warnings.Add(new ExportWarning("glibc_too_new",
@@ -155,7 +149,7 @@ internal sealed class ExportVerb : IVerb
         }
 
         var result = new ExportResult(true, project.Name, version, Program.GetVersion(), target, "Release", aot ? "nativeaot" : "coreclr-self-contained", steam, false,
-            ExportAssets.GeneratedShaders ? "2d" : "ui-preview", folder, exeName, archive, files, [.. skipped], [.. warnings], Math.Round(clock.Elapsed.TotalSeconds, 1));
+            "2d", folder, exeName, archive, files, [.. skipped], [.. warnings], Math.Round(clock.Elapsed.TotalSeconds, 1));
         if (json)
         {
             output.WriteLine(JsonSerializer.Serialize(result, CliJson.Default.ExportResult));
@@ -391,13 +385,6 @@ internal sealed class ExportVerb : IVerb
 /// <summary>What goes into an export besides the program: content folders, and the licence text.</summary>
 internal static class ExportAssets
 {
-    /// <summary>
-    /// Whether the renderer's shaders are compiled into the engine by the shader build package. While they are not, the 2D renderer
-    /// finds shaders only through a folder of SPIR-V compiled by a test tool, which an export never ships. When the package lands, set this
-    /// to true: the shaders then travel inside the program and nothing else in the export changes.
-    /// </summary>
-    internal const bool GeneratedShaders = false;
-
     /// <summary>The project folders that ship, copied under the same name beside the program. Anything else in the project is left out.</summary>
     internal static readonly string[] ContentFolders = ["fonts", "art", "data"];
 
@@ -444,17 +431,10 @@ internal static class ExportAssets
             }
         }
 
-        // The shader folder of test-compiled SPIR-V never ships. Say so rather than silently dropping it.
-        var shaders = Path.Combine(projectDir, "shaders");
-        if (Directory.Exists(shaders))
-        {
-            skipped.Add(new ExportSkipped("shaders/", "SPIR-V compiled by a third-party tool is never shipped; shaders come from the engine's shader package"));
-        }
-
         foreach (var dir in Directory.EnumerateDirectories(projectDir))
         {
             var name = Path.GetFileName(dir);
-            if (name.StartsWith('.') || Array.IndexOf(ContentFolders, name) >= 0 || Array.IndexOf(Quiet, name) >= 0 || name == "shaders")
+            if (name.StartsWith('.') || Array.IndexOf(ContentFolders, name) >= 0 || Array.IndexOf(Quiet, name) >= 0)
             {
                 continue;
             }

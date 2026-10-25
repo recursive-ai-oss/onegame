@@ -29,7 +29,7 @@ public sealed class ExportTests : IDisposable
         Make("proj/art/raw.exr");
         Make("proj/data/items.yaml");
         Make("proj/scenarios/click.yaml");
-        Make("proj/shaders/Ui.VSMain.spv");
+        Make("proj/shaders/Ui.hlsl");
         Make("proj/saves/slot1.bin");
         Make("proj/bin/Debug/x.dll");
         Directory.CreateDirectory(Path.Combine(_root, "out"));
