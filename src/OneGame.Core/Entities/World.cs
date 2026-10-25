@@ -78,7 +78,7 @@ public sealed class World
     internal EntityRegistry Registry => _registry;
 
     /// <summary>Commands accepted and waiting for the next tick. Snapshots do not hold them, so a recording must not start while any wait.</summary>
-    internal int PendingCommandCount => _pending.Count;
+    public int PendingCommandCount => _pending.Count;
 
     /// <summary>Called for every command an authority accepts from outside its tick (connections, tests, local input), with the tick it will run in. The command log hooks in here; commands the sim queues itself are left out because the sim recreates them.</summary>
     internal CommandObserver? InputObserver { get; set; }

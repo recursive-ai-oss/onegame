@@ -139,6 +139,9 @@ public sealed class GameInstance : IDisposable
     /// <summary>Raised after the world is replaced by a reset, a fixture or a snapshot load. Recorders reattach here.</summary>
     public event Action<World>? WorldReplaced;
 
+    /// <summary>Raised after <see cref="EditWorld"/> changed the world outside the simulation. Session recorders start a new segment here.</summary>
+    public event Action<World>? WorldEdited;
+
     /// <summary>Raised after every simulation tick with the world that ran it. Recorders use it to log state hashes; keep handlers cheap.</summary>
     public event Action<World>? TickCompleted;
 
@@ -205,12 +208,48 @@ public sealed class GameInstance : IDisposable
     /// <summary>The system clipboard (a private in-process one when headless). Text fields use it for copy and paste.</summary>
     public PlatformClipboard Clipboard => Platform.Clipboard;
 
-    /// <summary>The current UI scale.</summary>
-    public float UiScale => Options.Headless ? Options.Scale : Window.Scale;
+    private float? _uiScaleOverride;
 
-    private World NewWorld(Action<World>? populate)
+    /// <summary>The scale the window system (or <see cref="GameOptions.Scale"/> for a headless run) asks for, before any <see cref="UiScaleOverride"/>.</summary>
+    public float WindowScale => Options.Headless ? Options.Scale : Window.Scale;
+
+    /// <summary>
+    /// The current UI scale: <see cref="UiScaleOverride"/> when set, otherwise the window's scale. Layout, hit-testing, drawing and
+    /// captures that do not name a scale all use it.
+    /// </summary>
+    public float UiScale => _uiScaleOverride ?? WindowScale;
+
+    /// <summary>
+    /// A UI scale chosen by the player (a settings screen's "UI size") that replaces the window's. Null follows the window, including
+    /// later changes of the window's scale. The UI is laid out again at once. Not part of the simulation, so it is not recorded.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not between 0 (exclusive) and 16.</exception>
+    public float? UiScaleOverride
     {
-        var world = new World(Seed, _registry);
+        get => _uiScaleOverride;
+        set
+        {
+            if (value is { } v && !(v > 0 && v <= MaxUiScale))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), v, "The UI scale override must be above 0 and at most 16, or null to follow the window.");
+            }
+
+            if (_uiScaleOverride == value)
+            {
+                return;
+            }
+
+            _uiScaleOverride = value;
+            SyncViewport();
+            Ui.Update();
+        }
+    }
+
+    private const float MaxUiScale = 16f;
+
+    private World NewWorld(Action<World>? populate, ulong? seed = null)
+    {
+        var world = new World(seed ?? Seed, _registry);
         Definition.RegisterSystems(world);
         if (populate is null)
         {
@@ -248,15 +287,45 @@ public sealed class GameInstance : IDisposable
         WorldReplaced?.Invoke(world);
     }
 
-    /// <summary>Starts recording the run from the current state. Stop the recorder to get the <see cref="Recording"/>; replay it with <see cref="Replay"/>.</summary>
+    /// <summary>Starts recording the run from the current state. Stop the recorder to get the <see cref="Recording"/>; replay it with <see cref="Replay(Recording, Action{World})"/>.</summary>
     /// <exception cref="InvalidOperationException">Commands are queued; step once first.</exception>
     public Recorder StartRecording(RecordingOptions? options = null) => _scope.StartRecording(options ?? new RecordingOptions { CheckpointInterval = 1 });
+
+    /// <summary>
+    /// Starts recording the session from the current state and keeps going across world replacements (resets, fixtures, loaded saves),
+    /// so the result replays a run that starts new games. Stop the recorder to get the <see cref="SessionRecording"/>; replay it with <see cref="Replay(SessionRecording)"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Commands are queued; step once first.</exception>
+    public SessionRecorder StartSessionRecording(RecordingOptions? options = null) => new(this, options ?? new RecordingOptions { CheckpointInterval = 1 });
+
+    /// <summary>Replays every segment of a session, each on a fresh world, and stops at the first divergence. The running game is left alone.</summary>
+    public SessionReplayResult Replay(SessionRecording session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        long ticks = 0;
+        var verified = 0;
+        ulong final = 0;
+        for (var i = 0; i < session.Segments.Count; i++)
+        {
+            var r = Replay(session.Segments[i]);
+            ticks += r.TicksRun;
+            verified += r.CheckpointsVerified;
+            final = r.FinalHash;
+            if (!r.Ok)
+            {
+                return new SessionReplayResult(false, ticks, verified, final, i, r.Divergence);
+            }
+        }
+
+        return new SessionReplayResult(true, ticks, verified, final, -1, null);
+    }
 
     /// <summary>Replays a recording on a fresh world built like the game's and compares the hashes. The running game is left alone.</summary>
     public ReplayResult Replay(Recording recording, Action<World>? onTick = null)
     {
         ArgumentNullException.ThrowIfNull(recording);
-        return Replayer.Replay(recording, CreateBlankWorld(), new ReplayOptions { OnTick = onTick });
+        // The world's seed decides random streams that did not exist yet when the snapshot was taken, so replay builds the world with the recorded seed.
+        return Replayer.Replay(recording, NewWorld(static _ => { }, recording.Seed), new ReplayOptions { OnTick = onTick });
     }
 
     /// <summary>Starts a new game: a fresh world filled by <see cref="GameDefinition.Setup"/>, optionally with a different seed.</summary>
@@ -268,6 +337,30 @@ public sealed class GameInstance : IDisposable
         }
 
         Replace(NewWorld(null));
+    }
+
+    /// <summary>
+    /// Runs a change to the world that does not go through commands or ticks (the harness's state patch), and tells session recorders
+    /// about it: the recording continues from the edited state, so replay reproduces it.
+    /// </summary>
+    /// <param name="edit">Changes the world; returns false when it changed nothing.</param>
+    /// <returns>What <paramref name="edit"/> returned.</returns>
+    /// <exception cref="InvalidOperationException">A session is being recorded and commands are queued for the next tick: step first, because a recording cannot restart from a state that holds queued commands.</exception>
+    public bool EditWorld(Func<bool> edit)
+    {
+        ArgumentNullException.ThrowIfNull(edit);
+        if (WorldEdited is not null && World.PendingCommandCount > 0)
+        {
+            throw new InvalidOperationException("Commands are queued for the next tick and a recording is running. Step once before editing state, so the recording can continue from the edited state.");
+        }
+
+        if (!edit())
+        {
+            return false;
+        }
+
+        WorldEdited?.Invoke(World);
+        return true;
     }
 
     /// <summary>Replaces the world with one filled by a named fixture.</summary>

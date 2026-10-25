@@ -52,7 +52,10 @@ public sealed record ControlResult(string Json, byte[]? Png = null);
 /// <summary>Result of <c>info</c>. <c>Drift</c> counts drift reports filed by the local replica; it must stay 0.</summary>
 public sealed record InfoResult(
     string Game, long Tick, long Frame, string Hash, int Width, int Height, float Scale, bool Headless, string? Screen,
-    int Entities, string[] Screens, string[] Fixtures, string Stage, string? Adapter, int Drift, string Backend, long Presented);
+    int Entities, string[] Screens, string[] Fixtures, string Stage, string? Adapter, int Drift, string Backend, long Presented, float? ScaleOverride = null);
+
+/// <summary>Result of <c>ui_scale</c>: the scale in effect, the override (null when following the window) and the window's own scale.</summary>
+public sealed record UiScaleResult(float Scale, float? Override, float WindowScale);
 
 /// <summary>Result of <c>clipboard_get</c> and <c>clipboard_set</c>. <c>Text</c> is null when the clipboard holds no text.</summary>
 public sealed record ClipboardResult(string? Text, bool Ok);
@@ -98,6 +101,7 @@ public sealed record SnapshotResult(string? Path, int Bytes, string? Base64, str
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(InfoResult))]
 [JsonSerializable(typeof(StateResult))]
+[JsonSerializable(typeof(UiScaleResult))]
 [JsonSerializable(typeof(PatchResult))]
 [JsonSerializable(typeof(SendResult))]
 [JsonSerializable(typeof(CommandsResult))]
@@ -117,6 +121,8 @@ public sealed partial class ControlJson : JsonSerializerContext
 /// <summary>The operation table. Every face (CLI, test API, MCP) is a view of this list.</summary>
 public static class ControlOps
 {
+    private static string NavActionList => "\"" + string.Join("\",\"", NavActions.Names) + "\"";
+
     private const string NoArgs = """{"type":"object","properties":{}}""";
 
     /// <summary>All operations.</summary>
@@ -128,7 +134,7 @@ public static class ControlOps
             "Read synced state as JSON. With no arguments: the whole world (entities and tables). With entity: that entity. With property too: just that value. 'entity' is a numeric id, a type name (first of that type) or 'Type#n' (nth of that type, from 1).",
             """{"type":"object","properties":{"entity":{"type":"string"},"property":{"type":"string"}}}""", false),
         new("state_patch",
-            "Set one scalar synced property from text (numbers, bool, string, Fixed like '12.5'; enums by number). The change bypasses commands, so it is not in a recorded command log.",
+            "Set one scalar synced property from text (numbers, bool, string, Fixed like '12.5'; enums by number). The change bypasses commands; a recording that is running continues from the edited state, so replay includes it. Step first if commands are queued.",
             """{"type":"object","properties":{"entity":{"type":"string"},"property":{"type":"string"},"value":{"type":"string"}},"required":["entity","property","value"]}""", true),
         new("commands_list", "List the commands an entity accepts, with parameter types. Without 'entity', every entity type present.",
             """{"type":"object","properties":{"entity":{"type":"string"}}}""", false),
@@ -147,8 +153,10 @@ public static class ControlOps
             """{"type":"object","properties":{"selection":{"type":"string","enum":["clipboard","primary"]}}}""", false),
         new("clipboard_set", "Put text on the system clipboard, so a paste (Control+V) can be tested. selection: clipboard (default) or primary (X11 only).",
             """{"type":"object","properties":{"text":{"type":"string"},"selection":{"type":"string","enum":["clipboard","primary"]}},"required":["text"]}""", false),
-        new("input_nav", "Inject a controller action: up, down, left, right, next, previous, activate, cancel (a virtual gamepad's d-pad, shoulders, South and East buttons).",
-            """{"type":"object","properties":{"action":{"type":"string","enum":["up","down","left","right","next","previous","activate","cancel"]}},"required":["action"]}""", true),
+        new("input_nav", "Inject a controller button on a virtual gamepad. Actions: up, down, left, right, next, previous, activate, cancel; or any button by name: south east west north (a b x y), left_shoulder right_shoulder, back, start, guide, left_stick right_stick, dpad_up dpad_down dpad_left dpad_right, misc1, touchpad, paddle1..paddle4. The button is pressed and released.",
+            """{"type":"object","properties":{"action":{"type":"string","enum":[__NAV__]}},"required":["action"]}""".Replace("__NAV__", NavActionList), true),
+        new("ui_scale", "Read or set the UI scale override. With scale (a number above 0, at most 16) the UI is laid out at that scale instead of the window's; with scale null, or reset true, it follows the window again. Returns the scale in effect.",
+            """{"type":"object","properties":{"scale":{"type":["number","null"],"exclusiveMinimum":0,"maximum":16},"reset":{"type":"boolean"}}}""", false),
         new("step", "Run frames. Each frame handles input, runs one 60 Hz tick and updates the UI. Returns the new tick and state hash.",
             """{"type":"object","properties":{"frames":{"type":"integer","minimum":1,"maximum":1000000}}}""", true),
         new("ui_tree", "Dump the UI tree as JSON (kind, id, classes, states, text, boxes, computed style). 'id' limits it to a subtree.",
@@ -163,7 +171,7 @@ public static class ControlOps
             """{"type":"object","properties":{"x":{"type":"number"},"y":{"type":"number"}},"required":["x","y"]}""", false),
         new("screen_open", "Replace the UI with a declared screen.", """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}""", true),
         new("fixture_load", "Replace the world with a declared fixture.", """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}""", true),
-        new("reset", "Start a new game: a fresh world from the game's setup, optionally with another seed.", """{"type":"object","properties":{"seed":{"type":"integer","minimum":0}}}""", true),
+        new("reset", "Start a new game: a fresh world from the game's setup, optionally with another seed. A recording that is running keeps both worlds.", """{"type":"object","properties":{"seed":{"type":"integer","minimum":0}}}""", true),
         new("snapshot_save", "Write the world as a snapshot to 'path' (under the output folder), or return it as base64 when no path is given.",
             """{"type":"object","properties":{"path":{"type":"string"}}}""", false),
         new("snapshot_load", "Replace the world with a snapshot, from 'path' or 'base64'.",

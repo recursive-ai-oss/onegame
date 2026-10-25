@@ -12,11 +12,11 @@
 
 ## Inspection: ids, roles, values
 
-Every kit element has `Role` (an ARIA-style name) and often `Value` (the human-readable current value). Both appear in `DumpJson` as `role` and `value`; password fields never expose their text.
+Every kit element has `Role` (an ARIA-style name) and often `Value` (the human-readable current value). Both appear in `DumpJson` as `role` and `value`. A part-built control (role button, checkbox, radio, tab, option, columnheader, combobox) also reports `text`: the visible text of its parts, so a scenario `ui: {id: buy, text: Buy}` reads a Button's label, a Toggle's label, a Tab's title. Password fields never expose their text.
 
 | Component | Root role | Parts (ids are `<id>/…`) |
 |---|---|---|
-| Button | `button` (value = label) | none |
+| Button | `button` (value = label; inspection `text` = label) | none |
 | Toggle | `checkbox` (value `on`/`off`) | none |
 | RadioGroup | `radiogroup` (value = selected label) | `radio`, one per choice |
 | Slider | `slider` (value = number) | thumb and track are unnamed |

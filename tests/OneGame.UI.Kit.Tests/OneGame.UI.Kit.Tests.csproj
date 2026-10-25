@@ -7,7 +7,14 @@
     <ProjectReference Include="../../src/OneGame.Render2D/OneGame.Render2D.csproj" />
     <ProjectReference Include="../../src/OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan.csproj" />
     <ProjectReference Include="../../src/OneGame.Host/OneGame.Host.csproj" />
+    <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
+    <ProjectReference Include="../../src/OneGame.Control/OneGame.Control.csproj" />
     <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The scenario parser reads YAML; the test project needs the library next to it at run time. -->
+    <PackageReference Include="OneYaml" />
   </ItemGroup>
 
   <ItemGroup>

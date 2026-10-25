@@ -114,6 +114,30 @@ public sealed partial class UiTree
         w.WriteEndObject();
     }
 
+    // The visible text of an element's descendants, in tree order, joined by single spaces; null when there is none. Walks with an
+    // explicit stack so a deep tree cannot overflow the call stack.
+    private static string? ComposedText(Element root)
+    {
+        StringBuilder? sb = null;
+        var stack = new Stack<Element>();
+        stack.Push(root);
+        while (stack.Count > 0 && (sb?.Length ?? 0) < 4096)
+        {
+            var el = stack.Pop();
+            if (el != root && el.Text is { Length: > 0 } t && el.IsVisible)
+            {
+                sb = (sb ?? new StringBuilder()).Append(sb is { Length: > 0 } ? " " : "").Append(t);
+            }
+
+            for (var i = el.ChildCount - 1; i >= 0; i--)
+            {
+                stack.Push(el.ChildAt(i));
+            }
+        }
+
+        return sb?.ToString();
+    }
+
     private static void WriteElement(Utf8JsonWriter w, Element e, bool allStyles, bool children)
     {
         w.WriteStartObject();
@@ -186,9 +210,11 @@ public sealed partial class UiTree
             w.WriteEndArray();
         }
 
-        if (e.Text is not null)
+        // A control built from parts (a button, a toggle, a tab: by role) keeps its label in a child; report it so "what does this say" has one answer.
+        var text = e.Text ?? (e.Role is "button" or "checkbox" or "radio" or "tab" or "option" or "columnheader" or "combobox" or "menuitem" ? ComposedText(e) : null);
+        if (text is not null)
         {
-            w.WriteString("text", e.Text);
+            w.WriteString("text", text);
         }
 
         WriteRect(w, "bounds", e.Bounds);
