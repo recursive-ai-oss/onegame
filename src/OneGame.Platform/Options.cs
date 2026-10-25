@@ -18,6 +18,8 @@ public enum PlatformBackendKind : byte
     /// <summary>Win32.</summary>
     Win32,
 
+    /// <summary>Cocoa (AppKit) on macOS.</summary>
+    Cocoa,
     /// <summary>Android through the NDK: a native activity with touch, lifecycle and a Vulkan surface.</summary>
     Android,
 }
@@ -37,6 +39,8 @@ public enum NativeWindowKind : byte
     /// <summary>Win32: <see cref="NativeWindowHandle.Display"/> is the HINSTANCE, <see cref="NativeWindowHandle.Window"/> the HWND.</summary>
     Win32,
 
+    /// <summary>Cocoa: <see cref="NativeWindowHandle.Display"/> is the NSWindow*, <see cref="NativeWindowHandle.Window"/> the CAMetalLayer* of its content view.</summary>
+    Cocoa,
     /// <summary>Android: <see cref="NativeWindowHandle.Display"/> is 0, <see cref="NativeWindowHandle.Window"/> the ANativeWindow*. The pointer is valid until a <see cref="PlatformEventKind.SurfaceLost"/> event has been handled.</summary>
     Android,
 }

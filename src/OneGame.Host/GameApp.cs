@@ -115,7 +115,7 @@ public static class GameApp
 
     /// <summary>
     /// Runs a game. Options: <c>--headless</c>, <c>--frames N</c> (stop after N frames), <c>--size 1280x720</c>, <c>--scale 1.5</c>
-    /// (headless UI scale), <c>--seed N</c>, <c>--gpu auto|off|required</c>, <c>--backend wayland|x11</c> and <c>--display NAME</c> (which window system and display
+    /// (headless UI scale), <c>--seed N</c>, <c>--gpu auto|off|required</c>, <c>--backend wayland|x11|cocoa</c> and <c>--display NAME</c> (which window system and display
     /// a windowed run opens on; the environment decides without them), <c>--present vsync|lowlatency|immediate</c>, <c>--json</c> (print one result object),
     /// <c>--connect udp://host:port|ws://host:port</c> (play on a server: the world is a replica of its scope), with <c>--scope N</c>, <c>--name N</c> and
     /// <c>--net latency=100,loss=0.02</c> (network conditions on this client's traffic). <c>--realtime</c> makes a headless run follow the clock instead of
@@ -217,7 +217,8 @@ public static class GameApp
                 {
                     "wayland" => PlatformBackendKind.Wayland,
                     "x11" => PlatformBackendKind.X11,
-                    var other => throw new FormatException($"--backend is wayland or x11, got '{other}'."),
+                    "cocoa" => PlatformBackendKind.Cocoa,
+                    var other => throw new FormatException($"--backend is wayland, x11 or cocoa, got '{other}'."),
                 },
             };
         }
