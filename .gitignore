@@ -1,7 +1,9 @@
 # Allowlist: every tracked top-level path is named here.
 /*
+!/.gitattributes
 !/.gitignore
 !/.editorconfig
+!/CHANGELOG.md
 !/.github
 !/Directory.Build.props
 !/Directory.Build.targets

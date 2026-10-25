@@ -16,7 +16,7 @@ dotnet run --project src/OneGame.Cli -- help --json
 
 Build output goes to `artifacts/` at the repository root. Set `ONEGAME_ARTIFACTS` to put it elsewhere.
 
-The renderer's HLSL shaders are compiled during the build by the `RecursiveAI.OneShader.Build` package (from nuget.org), and audio mixing and decoding come from `RecursiveAI.OneAudio`. While OneAudio is a prerelease not yet on nuget.org, point `RestoreAdditionalProjectSources` (an MSBuild property, read from the environment) at a folder holding its `.nupkg` file before restoring: `export RestoreAdditionalProjectSources=/path/to/feed`. Games made with `onegame new` restore the same way.
+The renderer's HLSL shaders are compiled during the build by the `RecursiveAI.OneShader.Build` package, and audio mixing and decoding come from `RecursiveAI.OneAudio`; both restore from nuget.org.
 
 Native AOT publish (Linux needs `clang` and `zlib1g-dev`):
 

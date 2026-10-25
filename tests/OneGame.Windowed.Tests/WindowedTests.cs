@@ -295,6 +295,22 @@ public abstract class WindowedTests
     private static (double X, double Y) Center(Session s, string id) => s.Center(id);
 }
 
+/// <summary>The windowed suite on Windows: a Win32 window with a Vulkan swapchain, driven through the control layer.</summary>
+public sealed class Win32WindowedTests : WindowedTests
+{
+    private protected override bool IsX11 => false;
+
+    private protected override string BackendName => "win32";
+
+    private protected override bool HonorsRequestedSize => true;
+
+    private protected override Session Start()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "needs Windows");
+        return new Session(PlatformBackendKind.Win32, "");
+    }
+}
+
 public sealed class X11WindowedTests : WindowedTests, IClassFixture<XvfbFixture>
 {
     private readonly XvfbFixture _xvfb;

@@ -1,0 +1,151 @@
+name: ci
+
+# Builds and tests on Linux and Windows for every push to main and every pull request. A push to a ci-check/* branch
+# runs the same checks on a commit that is not on main yet, and so does a manual dispatch.
+on:
+  push:
+    branches: [main, 'ci-check/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+
+jobs:
+  check:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, rid: linux-x64 }
+          - { os: windows-latest, rid: win-x64 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      # Software Vulkan (lavapipe) is deterministic and needs no GPU; the validation layer reports misuse.
+      ONEGAME_GPU_VALIDATION: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build output goes outside the checkout
+        run: |
+          echo "ONEGAME_ARTIFACTS=$RUNNER_TEMP/artifacts" >> "$GITHUB_ENV"
+          echo "OUT=$RUNNER_TEMP/out" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      # The distro's Mesa gives a CPU Vulkan device (lavapipe); xvfb and weston give the X11 and Wayland tests a display
+      # server; clang and zlib are what NativeAOT links with on Linux.
+      - name: Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev mesa-vulkan-drivers libvulkan1 vulkan-validationlayers \
+            xvfb xauth weston libxkbcommon0 libasound2t64
+          icd=$(find /usr/share/vulkan/icd.d -name "lvp_icd*.json" | head -1)
+          echo "VK_ICD_FILENAMES=$icd" >> "$GITHUB_ENV"
+          echo "lavapipe: $icd"
+
+      # A hosted Windows machine has no GPU driver, so no Vulkan loader and no device: add the loader and a CPU driver.
+      - name: Windows Vulkan loader and lavapipe
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/ci/windows-vulkan.ps1
+
+      # Debug is the configuration with the development tools (live control, scenarios) that the tests and clusters use.
+      - name: Build (warnings are errors)
+        run: dotnet build OneGame.slnx
+
+      - name: Test
+        run: bash tools/ci/run-tests.sh Debug
+
+      - name: Release build (warnings are errors)
+        if: ${{ !cancelled() }}
+        run: dotnet build OneGame.slnx -c Release
+
+      - name: Publish AOT smoke app (warnings are errors)
+        if: ${{ !cancelled() }}
+        run: dotnet publish tests/OneGame.AotSmoke -c Release -r ${{ matrix.rid }} -o "$RUNNER_TEMP/smoke" -warnaserror
+      - name: Run AOT smoke app
+        if: ${{ !cancelled() }}
+        env:
+          ONEGAME_GPU_ADAPTER: software
+        run: '"$RUNNER_TEMP/smoke/OneGame.AotSmoke"'
+
+      - name: Publish the onegame command (warnings are errors)
+        if: ${{ !cancelled() }}
+        run: dotnet publish src/OneGame.Cli -c Release -r ${{ matrix.rid }} -o "$RUNNER_TEMP/cli" -warnaserror
+      - name: Run the onegame command
+        if: ${{ !cancelled() }}
+        run: '"$RUNNER_TEMP/cli/onegame" --version --json'
+
+      - name: Solitaire scenarios
+        if: ${{ !cancelled() }}
+        env:
+          ONEGAME_GPU_ADAPTER: software
+        run: bash tools/ci/scenarios.sh "$RUNNER_TEMP/cli/onegame" samples/solitaire "$OUT/hashes" --no-unit
+
+      - name: Lanterns scenarios
+        if: ${{ !cancelled() }}
+        env:
+          ONEGAME_GPU_ADAPTER: software
+        run: bash tools/ci/scenarios.sh "$RUNNER_TEMP/cli/onegame" samples/lanterns "$OUT/hashes" --no-unit
+
+      - name: Lanterns process cluster
+        if: ${{ !cancelled() }}
+        env:
+          ONEGAME_GPU_ADAPTER: software
+        run: bash tools/ci/lanterns-cluster.sh "$RUNNER_TEMP/cli/onegame" "$OUT/cluster"
+
+      # The shipped program: NativeAOT, no development tools, started headless; its world hash is compared across systems below.
+      - name: Export solitaire and run it
+        if: ${{ !cancelled() }}
+        run: bash tools/ci/export-run.sh "$RUNNER_TEMP/cli/onegame" ${{ matrix.rid }} "$OUT/hashes"
+
+      - name: Export with the Steam library
+        if: ${{ !cancelled() }}
+        run: bash tools/ci/steam-pack.sh "$RUNNER_TEMP/cli/onegame" ${{ matrix.rid }} "$OUT/steam"
+
+      - name: Keep the logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: logs-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/artifacts/test-logs
+            ${{ runner.temp }}/out/cluster
+            ${{ runner.temp }}/out/hashes/*.json
+            ${{ runner.temp }}/out/hashes/*.txt
+          if-no-files-found: warn
+
+  # The same scenarios and the same exported game must end in the same world hash on every system.
+  same-hashes:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: logs-*
+          path: logs
+      - name: Compare
+        run: bash tools/ci/compare-hashes.sh logs/logs-ubuntu-latest logs/logs-windows-latest

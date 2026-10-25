@@ -816,28 +816,62 @@ public sealed class ProcessCluster : IDisposable
             args.AddRange(["--parent", parent.ToString(CultureInfo.InvariantCulture)]);
         }
 
-        var info = new ProcessStartInfo("/bin/sh") { UseShellExecute = false, RedirectStandardInput = true, WorkingDirectory = dir };
-        info.ArgumentList.Add("-c");
-        info.ArgumentList.Add("exec \"$@\" >\"$0\" 2>&1");
-        info.ArgumentList.Add(log);
-        if (node.Exe.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+        // A program built for Windows ends in .exe; node specs name it without the suffix so one spec serves every system.
+        var exe = node.Exe;
+        if (OperatingSystem.IsWindows() && !File.Exists(exe) && File.Exists(exe + ".exe"))
         {
-            info.ArgumentList.Add(DotnetHost());
+            exe += ".exe";
         }
 
-        info.ArgumentList.Add(node.Exe);
+        if (!File.Exists(exe))
+        {
+            throw new ClusterException("start_failed", $"Node '{node.Name}': the program {node.Exe} does not exist. Build or export it first.");
+        }
+
+        // On Unix a shell sends the node's output to its log file before it execs the program, so the log survives this process.
+        // Windows has no such one-line redirect: the output is read here and copied to the file.
+        ProcessStartInfo info;
+        if (OperatingSystem.IsWindows())
+        {
+            info = new ProcessStartInfo(exe.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? DotnetHost() : exe)
+            {
+                UseShellExecute = false,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                WorkingDirectory = dir,
+            };
+            if (exe.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            {
+                info.ArgumentList.Add(exe);
+            }
+        }
+        else
+        {
+            info = new ProcessStartInfo("/bin/sh") { UseShellExecute = false, RedirectStandardInput = true, WorkingDirectory = dir };
+            info.ArgumentList.Add("-c");
+            info.ArgumentList.Add("exec \"$@\" >\"$0\" 2>&1");
+            info.ArgumentList.Add(log);
+            if (exe.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            {
+                info.ArgumentList.Add(DotnetHost());
+            }
+
+            info.ArgumentList.Add(exe);
+        }
+
         foreach (var a in args)
         {
             info.ArgumentList.Add(a);
         }
 
-        if (!File.Exists(node.Exe))
-        {
-            throw new ClusterException("start_failed", $"Node '{node.Name}': the program {node.Exe} does not exist. Build or export it first.");
-        }
-
         var process = Process.Start(info) ?? throw new ClusterException("start_failed", $"Node '{node.Name}' did not start.");
         process.StandardInput.Close();
+        if (OperatingSystem.IsWindows())
+        {
+            PumpToFile(process, log);
+        }
+
         try
         {
             if (node.Release)
@@ -948,12 +982,34 @@ public sealed class ProcessCluster : IDisposable
 
     private static string Tail(string log) => File.Exists(log) ? string.Join('\n', File.ReadAllLines(log).TakeLast(15)) : "(no output)";
 
+    private static void PumpToFile(Process process, string log)
+    {
+        var writer = new StreamWriter(new FileStream(log, FileMode.Create, FileAccess.Write, FileShare.ReadWrite)) { AutoFlush = true };
+        var gate = new object();
+        void Line(object sender, DataReceivedEventArgs e)
+        {
+            if (e.Data is not null)
+            {
+                lock (gate)
+                {
+                    writer.WriteLine(e.Data);
+                }
+            }
+        }
+
+        process.OutputDataReceived += Line;
+        process.ErrorDataReceived += Line;
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+    }
+
     private static string DotnetHost()
     {
         var root = Environment.GetEnvironmentVariable("DOTNET_ROOT");
-        if (root is not null && File.Exists(Path.Combine(root, "dotnet")))
+        var name = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet";
+        if (root is not null && File.Exists(Path.Combine(root, name)))
         {
-            return Path.Combine(root, "dotnet");
+            return Path.Combine(root, name);
         }
 
         return Environment.ProcessPath is { } p && Path.GetFileNameWithoutExtension(p) == "dotnet" ? p : "dotnet";

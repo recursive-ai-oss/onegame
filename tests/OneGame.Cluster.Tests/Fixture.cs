@@ -7,7 +7,7 @@ internal static class Fixture
     {
         // <artifacts>/bin/<this test app>/<configuration>/ next to <artifacts>/bin/<program>/<configuration>/
         var config = new DirectoryInfo(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar)).Name;
-        var path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", name, config, name));
+        var path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", name, config, name + (OperatingSystem.IsWindows() ? ".exe" : "")));
         return File.Exists(path) ? path : throw new FileNotFoundException($"{path} is not built; build the test project (it builds the fixture programs).");
     }
 

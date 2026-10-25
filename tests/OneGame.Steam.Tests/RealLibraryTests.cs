@@ -32,10 +32,10 @@ public partial class RealLibraryTests
     }
 
     [Fact]
-    public void EveryBoundFunctionIsExportedByTheLinuxLibrary()
+    public void EveryBoundFunctionIsExportedByThisSystemsLibrary()
     {
         Assert.SkipUnless(Redist is not null, $"set {SteamLibrary.RedistDirectoryVariable}");
-        var path = Path.Combine(Redist!, "linux-x64", "libsteam_api.so");
+        var path = Path.Combine(Redist!, SteamLibrary.PlatformFolder, SteamLibrary.FileName);
         Assert.True(NativeLibrary.TryLoad(path, out var handle), $"cannot load {path}");
         try
         {
@@ -101,9 +101,9 @@ public partial class RealLibraryTests
     public void LoadingTheRealLibraryAndStartingWithoutAClientFallsBackToNoOpServices()
     {
         Assert.SkipUnless(Redist is not null, $"set {SteamLibrary.RedistDirectoryVariable}");
-        if (!OperatingSystem.IsLinux())
+        if (!(OperatingSystem.IsLinux() || OperatingSystem.IsWindows()))
         {
-            Assert.Skip("The redistributable under test is the Linux one.");
+            Assert.Skip("The no-client message is checked against the Linux and Windows redistributables.");
         }
 
         using var store = SteamPlatform.Start(new SteamOptions());
@@ -114,9 +114,18 @@ public partial class RealLibraryTests
 
         Assert.Equal("none", store.Name);
         Assert.False(store.RelaunchRequested);
-        // The library's own documented failure for a missing client, not a crash.
-        Assert.Contains("NoSteamClient", store.UnavailableReason);
-        Assert.Contains("Steam is probably not running", store.UnavailableReason);
+        // The library's own documented failure for a missing client, not a crash. Where Steam is not installed at all (a Windows machine
+        // without the registry entry for it) the library cannot find a client directory and says so with the generic failure.
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Matches("NoSteamClient|FailedGeneric", store.UnavailableReason);
+        }
+        else
+        {
+            Assert.Contains("NoSteamClient", store.UnavailableReason);
+            Assert.Contains("Steam is probably not running", store.UnavailableReason);
+        }
+
         Assert.Equal(StoreResult.Unavailable, store.Achievements.Unlock("ACH_WIN"));
         Assert.Equal(StoreResult.Unavailable, store.Cloud.Write("a", [1]));
         store.Pump();
@@ -126,9 +135,9 @@ public partial class RealLibraryTests
     public void ARealInitWithoutAClientReportsTheDocumentedResultAndMessage()
     {
         Assert.SkipUnless(Redist is not null, $"set {SteamLibrary.RedistDirectoryVariable}");
-        if (!OperatingSystem.IsLinux())
+        if (!(OperatingSystem.IsLinux() || OperatingSystem.IsWindows()))
         {
-            Assert.Skip("The redistributable under test is the Linux one.");
+            Assert.Skip("The no-client message is checked against the Linux and Windows redistributables.");
         }
 
         Assert.True(SteamLibrary.TryLoad(out _, out var failure), failure);
@@ -140,7 +149,7 @@ public partial class RealLibraryTests
             Assert.Skip("A Steam client is running on this machine.");
         }
 
-        Assert.Equal(SteamInitStatus.NoSteamClient, status);
+        Assert.True(status == SteamInitStatus.NoSteamClient || (OperatingSystem.IsWindows() && status == SteamInitStatus.FailedGeneric), status.ToString());
         Assert.False(string.IsNullOrWhiteSpace(message));
     }
 

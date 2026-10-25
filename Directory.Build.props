@@ -39,7 +39,25 @@
     <Copyright>Copyright (c) Recursive AI, LLC</Copyright>
     <PackageLicenseExpression>MIT OR Apache-2.0</PackageLicenseExpression>
     <PackageId>$(PackagePrefix)$(MSBuildProjectName.Substring(7))</PackageId>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/recursive-ai-oss/onegame</RepositoryUrl>
+    <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>gamedev;game-engine;nativeaot;trimmable;source-generators;deterministic</PackageTags>
+    <!-- Symbols ship as .snupkg files; SourceLink comes with the SDK. A CI build (and so a release) uses deterministic source paths. -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
+
+  <!-- Only the engine libraries under src/ are packages. The sample games and the tools are built, not published to nuget.org. -->
+  <PropertyGroup Condition="!$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)').StartsWith('$(MSBuildThisFileDirectory)src/'))">
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
 
   <!-- "Ships" means the code goes into a player's game: everything under src/ and samples/. Those projects get the package
        guard (build/PackageGuard.targets) and the AOT and trim analyzers. Tests, tools and validation are free to use any package. -->
