@@ -7,7 +7,11 @@
 // Clips are a table of rounded boxes (set 0, binding 1; four float4 each). An instance names the innermost clip, and each entry
 // names its parent, so nested clips with rounded corners or rotation multiply together (up to four deep).
 //
-// Kinds: 0 fill, 1 border, 2 shadow, 3 image (rgba page), 4 glyph (coverage page).
+// Kinds: 0 fill, 1 border, 2 shadow, 3 image (rgba page), 4 glyph (coverage page), 5 placed or tiled image.
+//
+// Kind 5 draws one tile at Widths = (x, y, w, h) in local coordinates and repeats it along the axes flagged in Grad.xy; Grad.zw is the size of the
+// region in texels. The four bilinear taps wrap inside the region by hand, so a tile cut from a shared page never reads its neighbour and the
+// seam between tiles is exact.
 
 [[vk::binding(0, 0)]] cbuffer Frame
 {
@@ -159,6 +163,31 @@ float4 PSMain(UiOut i) : SV_Target
         float4 tx = Tex.Sample(Samp, uv);
         float4 tint = float4(col.rgb * col.a, col.a);
         outc = tx * tint * Cover(d);
+    }
+    else if (kind == 5u)
+    {
+        float2 tile = max(i.Widths.zw, 1e-3);
+        float2 t = (i.Local - i.Widths.xy) / tile;
+        float inside = 1.0;
+        if (i.Grad.x > 0.5) { t.x = t.x - floor(t.x); } else { inside *= step(0.0, t.x) * step(t.x, 0.99999); }
+        if (i.Grad.y > 0.5) { t.y = t.y - floor(t.y); } else { inside *= step(0.0, t.y) * step(t.y, 0.99999); }
+        float2 size = max(i.Grad.zw, 1.0);
+        float2 tc = t * size - 0.5;
+        float2 b = floor(tc);
+        float2 f = tc - b;
+        float2 b1 = b + 1.0;
+        // Wrap (repeating axes) or clamp (single tile) each tap into the region, then sample at the texel centre.
+        float2 ax = float2(i.Grad.x > 0.5 ? b.x - size.x * floor(b.x / size.x) : clamp(b.x, 0.0, size.x - 1.0), i.Grad.y > 0.5 ? b.y - size.y * floor(b.y / size.y) : clamp(b.y, 0.0, size.y - 1.0));
+        float2 bx = float2(i.Grad.x > 0.5 ? b1.x - size.x * floor(b1.x / size.x) : clamp(b1.x, 0.0, size.x - 1.0), i.Grad.y > 0.5 ? b1.y - size.y * floor(b1.y / size.y) : clamp(b1.y, 0.0, size.y - 1.0));
+        float2 step1 = i.Uv.zw / size;
+        float2 o = i.Uv.xy + 0.5 * step1;
+        float4 t00 = Tex.SampleLevel(Samp, o + float2(ax.x, ax.y) * step1, 0.0);
+        float4 t10 = Tex.SampleLevel(Samp, o + float2(bx.x, ax.y) * step1, 0.0);
+        float4 t01 = Tex.SampleLevel(Samp, o + float2(ax.x, bx.y) * step1, 0.0);
+        float4 t11 = Tex.SampleLevel(Samp, o + float2(bx.x, bx.y) * step1, 0.0);
+        float4 tx = lerp(lerp(t00, t10, f.x), lerp(t01, t11, f.x), f.y);
+        float4 tint = float4(col.rgb * col.a, col.a);
+        outc = tx * tint * (Cover(d) * inside);
     }
     else
     {

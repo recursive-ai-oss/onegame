@@ -40,7 +40,7 @@ internal sealed class DevTools : IDevTools
             }
 
             using var watch = args.Has("parent") ? new ParentWatch((int)args.GetInt("parent", 0), game.Platform.RequestQuit) : null;
-            var surface = new ControlSurface(game, args.Get("artifacts") ?? Directory.GetCurrentDirectory());
+            var surface = new ControlSurface(game, args.Get("artifacts") ?? Path.Combine(Directory.GetCurrentDirectory(), "artifacts"));
             if (args.Has("fixture"))
             {
                 game.LoadFixture(args.Get("fixture") ?? throw new FormatException("--fixture needs a name."));

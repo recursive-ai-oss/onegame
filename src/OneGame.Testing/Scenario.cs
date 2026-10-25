@@ -209,6 +209,9 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
     /// <summary>The first match has focus or not (ui).</summary>
     public bool? Focused { get; init; }
 
+    /// <summary>The first match is a toggle control that is switched on or off (ui); a control that is not a toggle never matches.</summary>
+    public bool? Pressed { get; init; }
+
     /// <summary>Reference PNG, relative to the scenario file (capture).</summary>
     public string? Reference { get; init; }
 
@@ -608,7 +611,7 @@ public static class ScenarioParser
                         WithinMs = s.TryGetValue("within", out var wi) ? Whole(wi, "within") : 0,
                     };
                 case "ui":
-                    var u = Map(v, ["id", "selector", "count", "text", "contains", "visible", "enabled", "focused"], "ui");
+                    var u = Map(v, ["id", "selector", "count", "text", "contains", "visible", "enabled", "focused", "pressed"], "ui");
                     if (!u.ContainsKey("id") && !u.ContainsKey("selector"))
                     {
                         throw Error(v, "ui needs an id or a selector");
@@ -624,6 +627,7 @@ public static class ScenarioParser
                         Visible = u.TryGetValue("visible", out var vi) ? Bool(vi, "visible") : null,
                         Enabled = u.TryGetValue("enabled", out var en) ? Bool(en, "enabled") : null,
                         Focused = u.TryGetValue("focused", out var fo) ? Bool(fo, "focused") : null,
+                        Pressed = u.TryGetValue("pressed", out var pr) ? Bool(pr, "pressed") : null,
                     };
                 case "tick":
                     return new ScenarioExpectation(ExpectKind.Tick, line) { EqualTo = Text(v, "tick") };

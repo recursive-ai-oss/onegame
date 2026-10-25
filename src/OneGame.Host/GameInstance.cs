@@ -125,7 +125,7 @@ public sealed class GameInstance : IDisposable
             EnableGamepadDevices = !options.Headless,
         });
         Window = Platform.CreateWindow(new WindowOptions { Title = definition.Name, Width = options.Width, Height = options.Height });
-        Ui = new UiTree(measurer);
+        Ui = new UiTree(measurer) { ArtSizes = new OneGame.Text.ArtAtlasSizes(art) };
         if (!options.Headless && Platform.Clipboard.IsAvailable)
         {
             // The kit's text fields copy and paste through the window system's clipboard.

@@ -62,6 +62,12 @@ public partial class Element
     /// <summary>The current value a control shows or holds, as text (a slider's number, a tab's title, a toggle's <c>true</c>). Components keep it current; the JSON dump prints it.</summary>
     public string? Value { get; set; }
 
+    /// <summary>
+    /// Whether a toggle control is switched on, like WAI-ARIA <c>aria-pressed</c>: <see langword="null"/> for an element that is not a toggle, otherwise <see langword="true"/> or <see langword="false"/>.
+    /// Components keep it current; the JSON dump prints it as <c>pressed</c> and scenarios check it with <c>pressed:</c>. It has no effect on painting by itself: the kit also sets the class <c>pressed</c>.
+    /// </summary>
+    public bool? Pressed { get; set; }
+
     /// <summary>The parent, or null for the root and for elements not yet added.</summary>
     public Element? Parent => _parent;
 

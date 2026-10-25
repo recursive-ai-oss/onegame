@@ -63,8 +63,14 @@ lazy:
 - `TryGetScaled(id, list.Scale, out ArtRegion)`: an SVG at its natural size × the UI scale (rounded to whole pixels), re-rasterized the
   first time a new scale is asked for; a raster image at its own size.
 - `TryGet(id, widthPx, heightPx, out ArtRegion)`: an SVG at exactly that size (use the element's pixel box for stretched art).
+- `TryGetFitted(id, boxWidthPx, boxHeightPx, scale, out ArtRegion)`: what the renderer calls for an image drawn into a box. An SVG in a box over `StandaloneThreshold` on a side whose size is more than a pixel off its natural size times `scale` is rasterized at the box size; everything else is `TryGetScaled`. A refused exact size falls back to the scaled one.
 
-`ArtRegion`: `Page`, `X Y Width Height`, `U0 V0 U1 V1`, `Slice`. The renderer draws the region as a textured quad over the command's
+**Standalone textures.** A raster with a side over `ArtLimits.StandaloneThreshold` (default 512, never more than a page holds) is not packed: `region.Standalone` is a non-zero handle, `Page` is -1, the rectangle is the whole texture and `U0 V0 U1 V1` are `0 0 1 1`.
+`TryGetStandalone(handle, out StandaloneArt)` gives its size and its pixels (premultiplied RGBA, tightly packed). The renderer creates one texture per handle, writes `Pixels`, calls `MarkUploaded()` (which drops the CPU copy, so each large raster is held once) and draws the region like a page entry.
+After each frame's lookups call `TakeReleased(list)` and dispose the textures of the handles it returns (the atlas gave them up to stay inside `MaxStandaloneBytes`, or the resource was replaced). `StandaloneCount` and `StandaloneBytes` report what is held.
+Eviction is least recently used, and a texture looked up in the current frame (`BeginFrame`) is never evicted: when the frame itself needs more than the budget the lookup returns `AtlasStatus.Full` and the caller skips that image for the frame.
+
+`ArtRegion`: `Page`, `X Y Width Height`, `U0 V0 U1 V1`, `Slice`, `Standalone`. The renderer draws the region as a textured quad over the command's
 `Bounds`, tinted by `Color` (multiply the premultiplied texel by the tint, alpha included), blending source-over premultiplied
 (`One, OneMinusSrcAlpha`).
 
@@ -79,9 +85,10 @@ size, edges stretched along one axis, the middle in both, with texture coordinat
 |---|---|---|
 | SVG file / image file | 4 MiB / 32 MiB | `AtlasAssetException` at registration |
 | SVG natural size per side | 16384 | `AtlasAssetException` at registration |
-| Raster image size | 2048 per side, 4 Mpx | `AtlasAssetException` at registration |
+| Raster image size | 8192 per side, 16 Mpx | `AtlasAssetException` at registration |
 | Registered resources | 4096 | `AtlasAssetException` |
-| One raster (`TryGet*`) | 2048 per side, 4 Mpx, and inside a page | `AtlasStatus.TooLarge` |
+| One raster (`TryGet*`) | 8192 per side, 16 Mpx, and inside `MaxStandaloneBytes` | `AtlasStatus.TooLarge` |
+| Standalone textures held at once | 256 MiB (`MaxStandaloneBytes`) | least recently used released; `AtlasStatus.Full` if the current frame needs more |
 | Glyph request | font size ≤ 512 px, bitmap ≤ 640 px per side and 262,144 px | `AtlasStatus.TooLarge` |
 | Text length | 1,048,576 UTF-16 units | `TextLimitException` |
 | Font file / faces | 64 MiB / 256 | `TextLimitException` |

@@ -136,6 +136,16 @@ public static class KitTheme
         sheet.Rule(".kit-button:disabled, .kit-button.primary:disabled, .kit-button.danger:disabled", s => s.Var("background-color", "--kit-disabled-fill").Var("border-color", "--kit-disabled-border")
             .Var("color", "--kit-disabled-text").Cursor(CursorShape.NotAllowed));
         sheet.Rule(".kit-button.flat:disabled", s => s.Background(Color.Transparent).BorderColor(Color.Transparent).Var("color", "--kit-disabled-text").Cursor(CursorShape.NotAllowed));
+        // A toggle button that is switched on (aria-pressed): an accent-tinted fill with an accent outline, in every variant. It is not a fill that hover or the focus ring can
+        // produce, and not the flat dim of disabled, so the four states read apart. Switched on and disabled keeps the tint and the outline in the muted colors.
+        const string pressed = ".kit-button.pressed, .kit-button.primary.pressed, .kit-button.danger.pressed, .kit-button.flat.pressed";
+        sheet.Rule(pressed, s => s.Var("background-color", "--kit-pressed-fill").Var("border-color", "--kit-pressed-border").Var("color", "--kit-text"));
+        sheet.Rule(".kit-button.pressed:hover, .kit-button.primary.pressed:hover, .kit-button.danger.pressed:hover, .kit-button.flat.pressed:hover",
+            s => s.Var("background-color", "--kit-pressed-hover").Var("border-color", "--kit-pressed-border"));
+        sheet.Rule(".kit-button.pressed:active, .kit-button.primary.pressed:active, .kit-button.danger.pressed:active, .kit-button.flat.pressed:active",
+            s => s.Var("background-color", "--kit-pressed-active").Var("border-color", "--kit-pressed-border"));
+        sheet.Rule(".kit-button.pressed:disabled, .kit-button.primary.pressed:disabled, .kit-button.danger.pressed:disabled, .kit-button.flat.pressed:disabled",
+            s => s.Var("background-color", "--kit-disabled-pressed-fill").Var("border-color", "--kit-disabled-text").Var("color", "--kit-disabled-text").Cursor(CursorShape.NotAllowed));
 
         // Checkbox and radio
         sheet.Rule(".kit-toggle, .kit-radio", s => s.AlignItems(Align.Center).Gap(Length.Ui(8)).Padding(Length.Ui(4), Length.Ui(6)).Cursor(CursorShape.Hand));
@@ -318,7 +328,22 @@ public static class KitTheme
         var dangerActive = KitContrast.Mix(t.Danger, Color.Black, 0.28);
 
         // Text: AA 4.5:1 on every surface it sits on. Primary text must hold on the accent in all of its states.
-        var text = KitContrast.Ensure(t.Text, [bg, panel, raised, field, hover, active, t.Selection], KitContrast.TextAa, 7);
+        // The switched-on button tint comes from the raised fill toward the accent, and eases back until the text can be read on it in all three of its states.
+        var pressedFill = raised;
+        var pressedHover = hover;
+        var pressedActive = active;
+        for (var mix = 0.32; mix >= 0.04; mix -= 0.04)
+        {
+            pressedFill = KitContrast.Mix(raised, t.Accent, mix);
+            pressedHover = KitContrast.Mix(hover, t.Accent, mix + 0.1);
+            pressedActive = KitContrast.Mix(active, t.Accent, mix + 0.05);
+            if (KitContrast.Worst(t.Text, [pressedFill, pressedHover, pressedActive]) >= KitContrast.TextAa)
+            {
+                break;
+            }
+        }
+
+        var text = KitContrast.Ensure(t.Text, [bg, panel, raised, field, hover, active, t.Selection, pressedFill, pressedHover, pressedActive], KitContrast.TextAa, 7);
         var dim = KitContrast.Ensure(t.TextDim, [bg, panel, raised, field], KitContrast.TextAa, 5.5);
         // The hover fill is pulled toward the accent when no text color can be read on it as well as on the accent itself.
         var accentHover = t.AccentHover;
@@ -340,6 +365,31 @@ public static class KitTheme
         var disabledFill = KitContrast.Mix(raised, panel, 0.6);
         var disabledBorder = KitContrast.Mix(t.Border, panel, 0.5);
         var disabledText = KitContrast.Ensure(KitContrast.Mix(dim, disabledFill, 0.4), [disabledFill, bg, panel, field], KitContrast.IndicatorAa);
+        // A disabled toggle that is switched on gets a faint tint of the accent. The tint is kept as light (or as dark) as the flat disabled fill, by moving it away from the text color,
+        // so the disabled text token stays what it was and still reads on it.
+        var disabledPressedFill = disabledFill;
+        var away = KitContrast.Luminance(disabledText) > KitContrast.Luminance(disabledFill) ? Color.Black : Color.White;
+        for (var mix = 0.14; mix >= 0.02; mix -= 0.02)
+        {
+            var tinted = KitContrast.Mix(disabledFill, t.Accent, mix);
+            for (var shift = 0.0; shift <= 0.6; shift += 0.05)
+            {
+                var candidate = KitContrast.Mix(tinted, away, shift);
+                if (KitContrast.Worst(disabledText, [candidate]) >= KitContrast.IndicatorAa + 0.05)
+                {
+                    disabledPressedFill = candidate;
+                    break;
+                }
+            }
+
+            if (disabledPressedFill != disabledFill)
+            {
+                break;
+            }
+        }
+
+        // The outline of a switched-on button must stand out from the fill inside it and from the surface around it.
+        var pressedBorder = KitContrast.Ensure(t.Accent, [pressedFill, pressedHover, pressedActive, bg, panel, field], KitContrast.IndicatorAa);
 
         return
         [
@@ -351,6 +401,8 @@ public static class KitTheme
             ("--kit-hover", hover), ("--kit-active", active), ("--kit-select", t.Selection), ("--kit-select-text", selectText),
             ("--kit-scrim", t.Scrim), ("--kit-scrollbar", scrollbar),
             ("--kit-disabled-fill", disabledFill), ("--kit-disabled-border", disabledBorder), ("--kit-disabled-text", disabledText),
+            ("--kit-pressed-fill", pressedFill), ("--kit-pressed-hover", pressedHover), ("--kit-pressed-active", pressedActive), ("--kit-pressed-border", pressedBorder),
+            ("--kit-disabled-pressed-fill", disabledPressedFill),
         ];
     }
 

@@ -15,6 +15,7 @@ public sealed partial class UiTree
     private readonly Painter _painter;
     private readonly DisplayList _list = new();
     private ITextMeasurer _measurer;
+    private IArtSizes? _artSizes;
     private float _scale = 1;
     private float _width;
     private float _height;
@@ -54,6 +55,17 @@ public sealed partial class UiTree
         {
             ArgumentNullException.ThrowIfNull(value);
             _measurer = value;
+            InvalidateAllLayout();
+        }
+    }
+
+    /// <summary>Reports the natural size of images and SVGs by asset id. Background sizing keywords (<c>auto</c>, <c>cover</c>, <c>contain</c>) and tiling need it; without it every background image is stretched to its box.</summary>
+    public IArtSizes? ArtSizes
+    {
+        get => _artSizes;
+        set
+        {
+            _artSizes = value;
             InvalidateAllLayout();
         }
     }

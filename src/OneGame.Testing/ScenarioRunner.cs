@@ -358,7 +358,7 @@ public sealed class ScenarioRunner
             return Fail($"{want} match(es)", $"{count} match(es)", $"'{selector}' matches {count} element(s), expected {want}");
         }
 
-        var needsFirst = e.Text is not null || e.Contains is not null || e.Visible is not null || e.Enabled is not null || e.Focused is not null;
+        var needsFirst = e.Text is not null || e.Contains is not null || e.Visible is not null || e.Enabled is not null || e.Focused is not null || e.Pressed is not null;
         if (!needsFirst)
         {
             return count > 0 || e.Count == 0
@@ -401,6 +401,16 @@ public sealed class ScenarioRunner
             if (actual != w)
             {
                 return Fail($"{label}={Bool(w)}", $"{label}={Bool(actual)}", $"'{selector}' should be {label}={Bool(w)} but is {label}={Bool(actual)}");
+            }
+        }
+
+        if (e.Pressed is { } wantPressed)
+        {
+            var have = first.TryGetProperty("pressed", out var pv) && pv.ValueKind is JsonValueKind.True or JsonValueKind.False ? pv.GetBoolean() : (bool?)null;
+            if (have != wantPressed)
+            {
+                var shown = have is null ? "not a toggle" : "pressed=" + Bool(have.Value);
+                return Fail($"pressed={Bool(wantPressed)}", shown, $"'{selector}' should be pressed={Bool(wantPressed)} but is {shown}");
             }
         }
 
