@@ -41,7 +41,7 @@ public static class Worlds
             return;
         }
 
-        world.Add(new Island { Keeper = Rules.ServerPlayer, ScopeNo = scope.Value });
+        world.Add(new Island { Keeper = Rules.ServerPlayer, ScopeNo = scope.Value, Linked = true });
         var rng = world.Rng["spawn"];
         for (var i = 0; i < Rules.GroundTarget / 2; i++)
         {
@@ -55,6 +55,7 @@ public static class Worlds
         ArgumentNullException.ThrowIfNull(world);
         Seed(world, new ScopeId(Rules.IslandA));
         var island = Island.Of(world)!;
+        island.Linked = false;
         island.Join(1, "You");
         island.Join(2, "Ada");
         foreach (var e in world.Entities)

@@ -1,0 +1,8 @@
+name: capture-island
+description: The island with players and lanterns at 720p.
+fixture: crowded
+steps:
+  - screen: main
+  - step: 45
+expect:
+  - capture: { reference: refs/island-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }

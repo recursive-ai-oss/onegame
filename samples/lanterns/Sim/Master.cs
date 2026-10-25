@@ -32,6 +32,9 @@ public partial class Market : Entity
     /// <summary>Owned by server code, so only the server can update accounts.</summary>
     [Synced, OwnerKey] public partial uint Keeper { get; set; }
 
+    /// <summary>Swaps that went through, in total.</summary>
+    [Synced] public partial long Settled { get; set; }
+
     /// <summary>The next swap number.</summary>
     [Synced] public partial long NextTx { get; set; }
 
@@ -202,6 +205,11 @@ public partial class Account : Entity
         if (trade is { IsFinal: true })
         {
             Status = trade.State == EscrowState.Settled ? SwapStatus.Done : SwapStatus.Failed;
+            if (Status == SwapStatus.Done && Partner > Owner && MarketOf(World!) is { } market)
+            {
+                market.Settled++; // counted once per swap: by the account with the lower player id
+            }
+
             Tx = 0;
         }
     }

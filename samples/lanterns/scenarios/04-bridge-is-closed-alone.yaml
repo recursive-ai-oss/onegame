@@ -1,0 +1,10 @@
+name: bridge-is-closed-alone
+description: With no second island the bridge ends at the water, so the player stops at the edge.
+fixture: meadow
+steps:
+  - set: { entity: Player, property: X, value: 380 }
+  - command: { entity: Player, name: Steer, args: [1, 0] }
+  - step: 20
+expect:
+  - state: { entity: Player, property: X, equals: 384 }
+  - state: { entity: Player, property: Dest, equals: 0 }

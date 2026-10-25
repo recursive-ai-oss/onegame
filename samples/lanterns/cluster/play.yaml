@@ -1,0 +1,21 @@
+name: bots-play
+description: Two bots walk, cross the bridge both ways, pick up lanterns and swap across the islands, for 2000 ticks; nothing drifts.
+steps:
+  - wait: { node: islandA, tick: 2000, timeout: 120000 }
+  - wait: { node: bot1, tick: 2000, timeout: 60000 }
+expect:
+  - state: { entity: Island, property: Arrivals, min: 1 }
+    node: islandA
+  - state: { entity: Island, property: Arrivals, min: 1, scope: 2 }
+    node: islandB
+  - state: { entity: Island, property: Collected, min: 3 }
+    node: islandA
+  - state: { entity: Island, property: Collected, min: 3, scope: 2 }
+    node: islandB
+  - state: { entity: Market, property: NextTx, min: 1, scope: 3 }
+    node: master
+  - state: { entity: Market, property: Settled, min: 1, scope: 3 }
+    node: master
+  - agree: { server: islandA, clients: [bot1] }
+  - agree: { server: islandB, clients: [bot2] }
+  - drift: { nodes: [islandA, islandB, master, bot1, bot2], equals: 0 }

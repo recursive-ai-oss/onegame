@@ -1,0 +1,10 @@
+name: collect
+description: Walking onto a lantern picks it up; the colour and the public count both go up.
+fixture: meadow
+steps:
+  - command: { entity: Player, name: Steer, args: [1, 0] }
+  - step: 30
+expect:
+  - state: { entity: Player, property: Blue, min: 1 }
+  - state: { entity: Player, property: Total, min: 1 }
+  - state: { entity: Island, property: Collected, min: 1 }

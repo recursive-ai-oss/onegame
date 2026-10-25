@@ -82,7 +82,7 @@ internal sealed class Session
     }
 
     /// <summary>The world to draw for an island: the predicted one when there is one.</summary>
-    public World WorldOf(ReplicaScope replica) => _predictions.TryGetValue(replica.Id.Value, out var p) ? p.World : replica.World;
+    public World WorldOf(ReplicaScope replica) => !Networked ? Game.World : _predictions.TryGetValue(replica.Id.Value, out var p) ? p.World : replica.World;
 
     public ReplicaScope? ReplicaOf(uint scope)
     {
@@ -111,7 +111,7 @@ internal sealed class Session
 
                 foreach (var e in WorldOf(r).Entities)
                 {
-                    if (e is Player { Mine: true } p)
+                    if (e is Player p && (Networked ? p.Mine : p.Owner == 1))
                     {
                         _scope = r.Id.Value;
                         return p;

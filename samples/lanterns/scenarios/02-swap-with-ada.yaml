@@ -1,0 +1,13 @@
+name: swap-with-ada
+description: A one-for-one swap changes both players' colours and creates no lantern.
+fixture: traders
+steps:
+  - command: { entity: Player, name: SwapLocal, args: [2, 0, 1] }
+  - step: 1
+expect:
+  - state: { entity: Player#1, property: Red, equals: 1 }
+  - state: { entity: Player#1, property: Blue, equals: 1 }
+  - state: { entity: Player#2, property: Red, equals: 1 }
+  - state: { entity: Player#2, property: Blue, equals: 1 }
+  - state: { entity: Player#1, property: Total, equals: 2 }
+  - state: { entity: Island, property: Collected, equals: 0 }

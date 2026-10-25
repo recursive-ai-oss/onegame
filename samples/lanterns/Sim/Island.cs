@@ -15,8 +15,14 @@ public partial class Island : Entity
     /// <summary>Lanterns ever picked up here. Held lanterns plus lanterns in a swap always equal the sum of these over the islands.</summary>
     [Synced] public partial long Collected { get; set; }
 
+    /// <summary>Players who arrived over the bridge from the other island.</summary>
+    [Synced] public partial long Arrivals { get; set; }
+
     /// <summary>The number of the last player who joined here.</summary>
     [Synced] public partial uint NextPlayer { get; set; }
+
+    /// <summary>False on an island with no neighbour (single player): the bridge ends at the water.</summary>
+    [Synced] public partial bool Linked { get; set; }
 
     /// <summary>Puts a new player on the island.</summary>
     [Command(OwnerOnly = true)]

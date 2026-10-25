@@ -144,6 +144,7 @@ public partial class Player : Entity
 
             Island = Dest;
             Dest = 0;
+            island.Arrivals++;
         }
 
         if (Auto)
@@ -163,7 +164,7 @@ public partial class Player : Entity
     {
         var nx = X + (Dx * Rules.Speed);
         var ny = Math.Clamp(Y + (Dy * Rules.Speed), 0, Rules.Height);
-        var canCross = !Auto && Pending == 0 && Rules.OnBridge(ny);
+        var canCross = !Auto && Pending == 0 && island.Linked && Rules.OnBridge(ny);
         if (nx < 0)
         {
             if (canCross && island.ScopeNo == Rules.IslandB)

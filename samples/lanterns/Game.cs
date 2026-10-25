@@ -50,6 +50,18 @@ public sealed class LanternsGame : GameDefinition
     public override void DefineFixtures(FixtureSet fixtures)
     {
         ArgumentNullException.ThrowIfNull(fixtures);
+        fixtures.Add("meadow", world =>
+        {
+            Meadow(world);
+            world.Add(new Lantern { X = 206, Y = 100, Color = 1 });
+        });
+        fixtures.Add("traders", world =>
+        {
+            Meadow(world);
+            var players = world.Entities.OfType<Player>().ToList();
+            players[0].Change(0, 2);
+            players[1].Change(1, 2);
+        });
         fixtures.Add("crowded", world =>
         {
             Worlds.SeedSinglePlayer(world);
@@ -67,6 +79,22 @@ public sealed class LanternsGame : GameDefinition
             me.Change(0, 2);
             me.Change(1, 1);
         });
+    }
+
+    private static void Meadow(World world)
+    {
+        Worlds.SeedSinglePlayer(world);
+        foreach (var l in world.Entities.OfType<Lantern>().ToList())
+        {
+            world.Remove(l.Id);
+        }
+
+        foreach (var p in world.Entities.OfType<Player>())
+        {
+            p.Auto = false;
+            p.X = p.Owner == 1 ? 190 : 300;
+            p.Y = 100;
+        }
     }
 
     /// <inheritdoc />
