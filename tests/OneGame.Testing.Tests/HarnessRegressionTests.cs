@@ -114,6 +114,40 @@ public class HarnessRegressionTests
     }
 
     [Fact]
+    public void UpdateReferencesCreatesMissingFilesAndReportsThemInJson()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "og-ref-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "s.yaml");
+            File.WriteAllText(file, "name: cap\nwindow: 160x100\nsteps:\n  - step: 1\nexpect:\n  - capture: { reference: refs/deep/new.png }\n");
+            Dev.Enable();
+            var reference = Path.Combine(dir, "refs", "deep", "new.png");
+
+            var plain = new StringWriter();
+            Assert.Equal(1, GameApp.Run(new ShopGame(), ["--headless", "--gpu", "off", "--json", "--scenario", file, "--artifacts", dir], plain, TextWriter.Null));
+            Assert.False(File.Exists(reference));
+
+            var update = new StringWriter();
+            Assert.Equal(0, GameApp.Run(new ShopGame(), ["--headless", "--gpu", "off", "--json", "--update-references", "--scenario", file, "--artifacts", dir], update, TextWriter.Null));
+            Assert.True(File.Exists(reference));
+            using var doc = JsonDocument.Parse(update.ToString());
+            var created = doc.RootElement.GetProperty("references").GetProperty("created");
+            Assert.Equal(reference, Assert.Single(created.EnumerateArray()).GetString());
+            Assert.Equal(0, doc.RootElement.GetProperty("references").GetProperty("updated").GetArrayLength());
+            Assert.Equal("created", doc.RootElement.GetProperty("scenarios")[0].GetProperty("expectations")[0].GetProperty("referenceAction").GetString());
+
+            var again = new StringWriter();
+            Assert.Equal(0, GameApp.Run(new ShopGame(), ["--headless", "--gpu", "off", "--json", "--scenario", file, "--artifacts", dir], again, TextWriter.Null));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
     public void ReplayRefusesToCallAnEmptyRecordingIdentical()
     {
         var dir = Path.Combine(Path.GetTempPath(), "og-rec-" + Guid.NewGuid().ToString("N"));

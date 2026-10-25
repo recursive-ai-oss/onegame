@@ -25,7 +25,8 @@ public sealed record StepResult(int Index, string Kind, int Line, bool Ok, strin
 /// <param name="Actual">What the game had.</param>
 /// <param name="Message">A sentence on a failure, or a note on a pass.</param>
 /// <param name="Node">The cluster node the expectation looked at, or null.</param>
-public sealed record ExpectationResult(int Index, string Kind, int Line, bool Passed, string? Target, string? Expected, string? Actual, string? Message, string? Node = null);
+/// <param name="ReferenceAction"><c>created</c> or <c>updated</c> when a capture check wrote its reference image (update mode), otherwise null.</param>
+public sealed record ExpectationResult(int Index, string Kind, int Line, bool Passed, string? Target, string? Expected, string? Actual, string? Message, string? Node = null, string? ReferenceAction = null);
 
 /// <summary>Outcome of a scenario.</summary>
 /// <param name="Name">The scenario's name.</param>
@@ -244,7 +245,7 @@ public sealed class ScenarioRunner
                 _surface.Call("command_send", Obj(("entity", s.Entity), ("command", s.Name), ("args", s.Args)));
                 break;
             case StepKind.Set:
-                _surface.Call("state_patch", Obj(("entity", s.Entity), ("property", s.Name), ("value", s.Args[0])));
+                _surface.Call("state_patch", Obj(("entity", s.Entity), ("table", s.Table), ("row", s.Row), ("property", s.Name), ("value", s.Args[0])));
                 break;
             case StepKind.Screen:
                 _surface.Call("screen_open", Obj(("name", s.Text)));
@@ -359,13 +360,16 @@ public sealed class ScenarioRunner
         return new ExpectationResult(index, "pick", e.Line, ok, target, expected, actual, ok ? null : $"{target} is {actual}, expected {expected}");
     }
 
+    internal static string StateTarget(ScenarioExpectation e) =>
+        e.Table is null ? $"{e.Entity}.{e.Property}" : e.Row is { } row ? $"{e.Table}[{row.ToString(CultureInfo.InvariantCulture)}].{e.Property}" : $"{e.Table}.{e.Property}";
+
     private ExpectationResult CheckState(ScenarioExpectation e, int index)
     {
-        var json = _surface.Call("state_query", Obj(("entity", e.Entity), ("property", e.Property)));
+        var json = _surface.Call("state_query", Obj(("entity", e.Entity), ("table", e.Table), ("row", e.Row), ("property", e.Property)));
         using var doc = JsonDocument.Parse(json);
         var el = doc.RootElement;
         var actual = el.ValueKind == JsonValueKind.String ? el.GetString()! : el.GetRawText();
-        var target = $"{e.Entity}.{e.Property}";
+        var target = StateTarget(e);
         if (e.EqualTo is not null)
         {
             return Compare(e, index, "state", target, actual, e.EqualTo);
@@ -490,20 +494,33 @@ public sealed class ScenarioRunner
     {
         var reference = Path.GetFullPath(e.Reference!, ctx.BaseDir);
         var result = _surface.Invoke("capture_frame", Obj(("size", e.Size ?? scenario.Window), ("scale", e.Scale)));
-        var actual = Png.Decode(result.Png!, "capture");
         if (!File.Exists(reference))
         {
             if (ctx.Update)
             {
+                // Written from the captured bytes before anything decodes them, so a missing reference is created even for a frame the image reader cannot parse.
                 Directory.CreateDirectory(Path.GetDirectoryName(reference)!);
                 File.WriteAllBytes(reference, result.Png!);
-                return new ExpectationResult(index, "capture", e.Line, true, e.Reference, null, null, "reference written");
+                return new ExpectationResult(index, "capture", e.Line, true, e.Reference, null, null, $"reference created: {reference}", null, "created");
             }
 
-            return new ExpectationResult(index, "capture", e.Line, false, e.Reference, "a reference image", "none", $"No reference image at {reference}. Run with ONEGAME_UPDATE_REFERENCES=1 to create it from the current frame, then look at it.");
+            return new ExpectationResult(index, "capture", e.Line, false, e.Reference, "a reference image", "none", $"No reference image at {reference}. Run with --update-references (or ONEGAME_UPDATE_REFERENCES=1) to create it from the current frame, then look at it.");
         }
 
-        var expected = Png.Load(reference);
+        CapturedFrame actual;
+        CapturedFrame expected;
+        try
+        {
+            actual = Png.Decode(result.Png!, "capture");
+            expected = Png.Load(reference);
+        }
+        catch (InvalidDataException) when (ctx.Update)
+        {
+            // In update mode an image the reader cannot parse is replaced by the captured bytes rather than ending the run.
+            File.WriteAllBytes(reference, result.Png!);
+            return new ExpectationResult(index, "capture", e.Line, true, e.Reference, null, null, $"reference updated (a frame was unreadable): {reference}", null, "updated");
+        }
+
         var tolerance = Math.Max(e.Tolerance, _options.MinCaptureTolerance);
         var maxDiff = Math.Max(e.MaxDiff, _options.MinCaptureMaxDiff);
         var diff = ImageCompare.Compare(actual, expected, tolerance);
@@ -515,7 +532,7 @@ public sealed class ScenarioRunner
         if (ctx.Update)
         {
             File.WriteAllBytes(reference, result.Png!);
-            return new ExpectationResult(index, "capture", e.Line, true, e.Reference, null, null, "reference updated");
+            return new ExpectationResult(index, "capture", e.Line, true, e.Reference, null, null, $"reference updated: {reference}", null, "updated");
         }
 
         string? saved = null;
