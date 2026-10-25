@@ -13,8 +13,8 @@
     <PackageVersion Include="RecursiveAI.OneImage.Svg" Version="1.10.1" />
     <PackageVersion Include="OneYaml" Version="1.2.1" />
     <PackageVersion Include="RecursiveAI.OneAudio" Version="0.1.0-alpha.4" />
-    <PackageVersion Include="RecursiveAI.OneShader" Version="0.3.0-preview.1" />
-    <PackageVersion Include="RecursiveAI.OneShader.Build" Version="0.3.0-preview.1" />
+    <PackageVersion Include="RecursiveAI.OneShader" Version="0.4.0-preview.1" />
+    <PackageVersion Include="RecursiveAI.OneShader.Build" Version="0.4.0-preview.1" />
   </ItemGroup>
   <ItemGroup>
     <!-- Test projects only. Shipping projects may depend on the one* family and nothing else. -->
