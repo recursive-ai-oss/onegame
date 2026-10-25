@@ -1,0 +1,12 @@
+# Level 10. Glyphs: . empty, 1-6 one-hit brick (colour), T two hits, H three hits, # unbreakable.
+name: Crown
+speed: 18
+capsules: 12
+rows:
+  - "1..2.33.2..1"
+  - "1.2T.33.T2.1"
+  - "12TTT44TTT21"
+  - "1TTHHHHHHTT1"
+  - "1HHH5555HHH1"
+  - "#.H666666H.#"
+  - "#..#.##.#..#"

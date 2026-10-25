@@ -1,0 +1,14 @@
+# Level 8. Glyphs: . empty, 1-6 one-hit brick (colour), T two hits, H three hits, # unbreakable.
+name: Zigzag
+speed: 12
+capsules: 14
+rows:
+  - "1111........"
+  - ".2222......."
+  - "..3333......"
+  - "...4444....."
+  - "....TTTT...."
+  - ".....5555..."
+  - "......6666.."
+  - ".......HHHH."
+  - "........1111"

@@ -1,0 +1,26 @@
+name: game-over-scores
+description: Losing the last ball ends the game. The score earns a place; the name is typed and saved. After a restart (the restart fixture stands for quitting the program and starting it again) the table is read back from the saved file and the high-scores screen shows it.
+steps:
+  - fixture: last-life
+  - screen: play
+  - step: 80
+  - expect: { state: { entity: Court, property: Phase, equals: 4 } }
+  - expect: { ui: { id: over, visible: true } }
+  - expect: { ui: { id: over-score, text: "Score 1230 on level 3" } }
+  - expect: { ui: { id: save-score, visible: true } }
+  - expect: { sound: { name: Over, count: 1 } }
+  - click: name
+  - type: Ada
+  - click: save-score
+  - step: 2
+  - expect: { ui: { id: save-score, visible: false } }
+  - screen: scores
+  - step: 2
+  - expect: { ui: { selector: ".kit-cell:nth-child(2)", text: Ada } }
+  - fixture: restart
+  - step: 1
+  - screen: scores
+  - step: 2
+  - expect: { ui: { selector: ".kit-cell:nth-child(2)", text: Ada } }
+  - expect: { ui: { selector: ".kit-cell:nth-child(3)", text: "1230" } }
+  - expect: { ui: { id: empty, text: "" } }

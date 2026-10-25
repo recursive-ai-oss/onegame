@@ -1,0 +1,9 @@
+# Level 1. Glyphs: . empty, 1-6 one-hit brick (colour), T two hits, H three hits, # unbreakable.
+name: First Light
+speed: 0
+capsules: 25
+rows:
+  - "112233112233"
+  - "112233112233"
+  - "112233112233"
+  - "112233112233"

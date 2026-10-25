@@ -1,0 +1,13 @@
+name: capture-pause
+description: The pause dialog over a game in progress, at 1280x720 and at 1920x1080 with a UI scale of 1.5.
+steps:
+  - click: play
+  - step: 2
+  - press: Space
+  - step: 30
+  - click: pause-button
+  - step: 3
+  - expect:
+      capture: { reference: refs/pause-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }
+  - expect:
+      capture: { reference: refs/pause-1080p.png, size: 1920x1080, scale: 1.5, tolerance: 2, max-diff: 0.001 }

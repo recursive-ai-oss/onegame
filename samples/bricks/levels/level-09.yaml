@@ -1,0 +1,13 @@
+# Level 9. Glyphs: . empty, 1-6 one-hit brick (colour), T two hits, H three hits, # unbreakable.
+name: Fortress
+speed: 14
+capsules: 12
+rows:
+  - "#.#.#..#.#.#"
+  - "############"
+  - "#HHTTHHTTHH#"
+  - "#T1T1TT1T1T#"
+  - "#H2H2HH2H2H#"
+  - "#T3T3TT3T3T#"
+  - "#HHTTHHTTHH#"
+  - "#....##....#"

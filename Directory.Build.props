@@ -38,7 +38,8 @@
     <Company>Recursive AI, LLC</Company>
     <Copyright>Copyright (c) Recursive AI, LLC</Copyright>
     <PackageLicenseExpression>MIT OR Apache-2.0</PackageLicenseExpression>
-    <PackageId>$(PackagePrefix)$(MSBuildProjectName.Substring(7))</PackageId>
+    <PackageId Condition="$(MSBuildProjectName.StartsWith('OneGame.'))">$(PackagePrefix)$(MSBuildProjectName.Substring(7))</PackageId>
+    <PackageId Condition="'$(PackageId)' == ''">$(PackagePrefix).$(MSBuildProjectName)</PackageId>
   </PropertyGroup>
 
   <!-- "Ships" means the code goes into a player's game: everything under src/ and samples/. Those projects get the package
