@@ -38,7 +38,7 @@ What only a phone shows: a real GPU driver's output (compare a capture with the 
 
 ## A real iPhone
 
-Needs the owner's Apple Developer account, a development certificate in the Mac's keychain, a provisioning profile that lists the phone, and the phone in Developer Mode (Settings → Privacy & Security).
+`tools/devices/ios.py` does the steps below, including the account side, when an App Store Connect API key is set (see the table above). By hand it needs an Apple Developer account, a development certificate in a keychain the shell can unlock (a locked login keychain fails with `errSecInternalComponent` over ssh; `tools/devices/ios-signing.sh` makes a keychain of its own with a certificate the API issues), a provisioning profile that lists the device, and the device in Developer Mode (Settings → Privacy & Security).
 
 1. `onegame export --target ios --dev --bundle-id <an id the account owns> --json` from the sample. The bundle is unsigned and the command prints `signingNeeds`.
 2. Copy the profile to `<Name>.app/embedded.mobileprovision`, put the profile's team id into the `.entitlements` file beside the bundle, then

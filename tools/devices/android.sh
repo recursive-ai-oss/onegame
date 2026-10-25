@@ -62,6 +62,9 @@ say "device $SERIAL: $MODEL abi=$ABI sdk=$SDK soc=$SOC ${VK:-no vulkan feature}"
 case $ABI in arm64-v8a|x86_64) ;; *) echo "ANDROID FAIL unsupported ABI $ABI (the export builds arm64-v8a and x86_64)"; exit 1;; esac
 [ -n "$VK" ] || fail "no Vulkan feature reported"
 
+# A dark or locked screen stops the game from starting; stay awake while the checks run (undone at the end).
+A shell svc power stayon usb >/dev/null 2>&1; A shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1; A shell wm dismiss-keyguard >/dev/null 2>&1
+
 # Reaching this computer from the phone: the address of this computer on the phone's network.
 if [ -z "$LAN" ] && [ -n "$CLUSTER" ]; then
   PIP=$(A shell ip -f inet addr show wlan0 2>/dev/null | tr -d '\r' | awk '/inet /{sub("/.*","",$2); print $2}' | head -1)
@@ -87,7 +90,7 @@ for S in ${SAMPLES//,/ }; do
   APK=$(jget "$W/export.json" apk); PKG=$(jget "$W/export.json" package); PKGS+=("$PKG")
   say "$S: install $PKG"
   A uninstall "$PKG" >/dev/null 2>&1   # an older build signed with another debug key would refuse the update
-  (cd "$D" && $ONEGAME android install "$APK" --json) > "$W/install.log" 2>&1 || { fail "$S install"; tail -c 400 "$W/install.log" >&2; continue; }
+  (cd "$D" && $ONEGAME android install "$APK" --json) > "$W/install.log" 2>&1 || { fail "$S install$(grep -q USER_RESTRICTED "$W/install.log" && echo ' (the phone blocks installs over USB: Developer options > Install via USB)')"; tail -c 400 "$W/install.log" >&2; continue; }
   say "$S: desktop reference run"
   (cd "$D" && $ONEGAME test --no-unit --json) > "$W/desktop.json" 2>&1 || NOTES+=("$S: desktop reference run failed")
   say "$S: scenarios on the device"
@@ -139,6 +142,7 @@ done
 $ONEGAME android stop --json >/dev/null 2>&1
 if [ -z "$KEEP" ]; then for p in "${PKGS[@]}"; do A uninstall "$p" >/dev/null 2>&1; done; fi
 A forward --remove-all >/dev/null 2>&1
+A shell svc power stayon false >/dev/null 2>&1
 
 # --- 4. verdict ---
 STATUS=PASS; [ ${#FAILS[@]} -gt 0 ] && STATUS=FAIL

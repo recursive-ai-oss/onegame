@@ -73,10 +73,11 @@ for _ in range(4):
 time.sleep(1.5)
 m.call('step', frames=60)
 dev = (m.call('audio') or {}).get('device', {})
-res['audio'] = {k: dev.get(k) for k in ('backend', 'deviceState', 'framesPlayed', 'peakPlayed', 'underruns', 'losses', 'audioThreadAllocatedBytes')}
+dev = dict(dev, deviceState=dev.get('deviceState') or dev.get('state'))   # the Linux backend names it `state`
+res['audio'] = {k: dev.get(k) for k in ('backend', 'deviceState', 'framesPlayed', 'peakPlayed', 'underruns', 'losses', 'audioThreadAllocatedBytes', 'detail')}
 if expect_audio and dev.get('backend') != expect_audio:
     problems.append(f"audio backend {dev.get('backend')} (wanted {expect_audio})")
-if dev.get('deviceState') != 'started' or not dev.get('framesPlayed'):
+if dev.get('deviceState') not in ('started', 'Running') or not dev.get('framesPlayed'):
     problems.append('audio device not playing')
 if not dev.get('peakPlayed'):
     problems.append('no sound reached the device (peakPlayed 0)')

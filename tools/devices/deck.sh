@@ -13,7 +13,8 @@
 # copied folders are removed unless --keep.
 #
 # The Deck needs ssh on and this computer's public key in ~/.ssh/authorized_keys of the user. Environment: ONEGAME (the onegame
-# command), DECK_HOST, DECK_USER, CAPTURE_TOLERANCE (default 48) and CAPTURE_MAX_DIFF (default 0.02), as for android.sh.
+# command), DECK_HOST, DECK_USER, DECK_SSH_KEY (a key file other than the default), DECK_REMOTE_ENV (extra NAME=value words for the
+# programs run there, for a machine standing in for a Deck), CAPTURE_TOLERANCE (default 48) and CAPTURE_MAX_DIFF (default 0.02), as for android.sh.
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
@@ -55,6 +56,7 @@ XSOCK=$(R 'ls /tmp/.X11-unix 2>/dev/null | head -1'); WSOCK=$(R "ls /run/user/$U
 MODE=none; [ -n "$XSOCK" ] && MODE=x11; R 'pgrep -x gamescope >/dev/null' && MODE="gamescope($MODE)"
 say "display: mode=$MODE x=${XSOCK:-none} wayland=${WSOCK:-none}"
 REMOTE='$HOME/onegame-check'
+RENV=${DECK_REMOTE_ENV:-}
 
 # --- 2. samples ---
 [ -n "$SAMPLES" ] || { SAMPLES="solitaire,lanterns"; [ -d "$ROOT/samples/bricks" ] && SAMPLES="$SAMPLES,bricks"; }
@@ -75,7 +77,7 @@ for S in ${SAMPLES//,/ }; do
   say "$S: desktop reference run"
   (cd "$D" && $ONEGAME test --no-unit --json) > "$W/desktop.json" 2>&1 || NOTES+=("$S: reference run failed")
   say "$S: scenarios on the Deck"
-  R "cd $REMOTE/$S && ./$EXE --headless --scenario scenarios --artifacts artifacts --json --capture-tolerance $TOL --capture-max-diff $MAXD" > "$W/device.json" 2> "$W/device.err"
+  R "cd $REMOTE/$S && env $RENV ./$EXE --headless --scenario scenarios --artifacts artifacts --json --capture-tolerance $TOL --capture-max-diff $MAXD" > "$W/device.json" 2> "$W/device.err"
   CMP=$(python3 "$HERE/compare-hashes.py" "$W/desktop.json" "$W/device.json" 2>&1 | tail -1); echo "$CMP" > "$W/compare.json"
   H=$(echo "$CMP" | jget - hashEqual 2>/dev/null); N=$(echo "$CMP" | jget - scenarios 2>/dev/null); P=$(echo "$CMP" | jget - passed 2>/dev/null)
   SUMMARY[$S]="$S scenarios $P/$N hash-equal $H/$N"
@@ -89,7 +91,7 @@ for S in ${SAMPLES//,/ }; do
       say "solitaire: windowed run in the Deck's session, live control through a tunnel"
       BACKEND=x11; ENVS="DISPLAY=:${XSOCK#X} XDG_RUNTIME_DIR=/run/user/$UID_R"
       [ -n "$XSOCK" ] || { BACKEND=wayland; ENVS="WAYLAND_DISPLAY=$WSOCK XDG_RUNTIME_DIR=/run/user/$UID_R"; }
-      R "cd $REMOTE/$S && env $ENVS nohup ./$EXE --live tcp:7878 --realtime --backend $BACKEND --seed 1 > live.log 2>&1 & echo \$! > live.pid"
+      R "cd $REMOTE/$S && { env $ENVS $RENV nohup ./$EXE --live tcp:7878 --realtime --backend $BACKEND --seed 1 > live.log 2>&1 & echo \$! > live.pid; }"
       sleep 5
       ssh "${SSHO[@]}" -f -N -o ExitOnForwardFailure=yes -L 17878:127.0.0.1:7878 "$USERN@$HOST"
       TUN=$(pgrep -n -f "17878:127.0.0.1:7878 $USERN@$HOST")
@@ -132,7 +134,7 @@ done
 # --- 3. the gamepads the platform layer sees on the Deck ---
 PADDIR=$OUT/padprobe
 if dotnet publish "$HERE/PadProbe/PadProbe.csproj" -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o "$PADDIR" -v quiet -clp:NoSummary > "$OUT/padprobe-publish.log" 2>&1; then
-  scp "${SSHO[@]}" -q "$PADDIR/padprobe" "$USERN@$HOST:$REMOTE/padprobe" 2>/dev/null
+  R "mkdir -p $REMOTE && cat > $REMOTE/padprobe && chmod +x $REMOTE/padprobe" < "$PADDIR/padprobe" 2>/dev/null
   PADS=$(R "cd $REMOTE && ./padprobe --seconds 4 --quiet" 2>&1 | tail -1)
   echo "$PADS" > "$OUT/pads.json"
   SUMMARY[pads]="pads: $(echo "$PADS" | python3 -c 'import json,sys

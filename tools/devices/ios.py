@@ -93,7 +93,7 @@ def find_device():
         cands.append({'name': name, 'udid': udid, 'id': d.get('identifier', udid), 'model': hw.get('marketingName') or hw.get('productType'),
                       'os': dp.get('osVersionNumber'), 'developerMode': dp.get('developerModeStatus'), 'tunnel': cp.get('tunnelState'),
                       'tunnelAddress': cp.get('tunnelIPAddress'), 'transport': cp.get('transportType')})
-    ready = [c for c in cands if c['tunnel'] in ('connected', None)]
+    ready = sorted([c for c in cands if c['tunnel'] != 'unavailable'], key=lambda c: c['tunnel'] != 'connected')   # a tunnel starts on first use
     if ready:
         return ready[0], ''
     if cands:
@@ -252,15 +252,21 @@ for s in samples:
     rc, o = copy_to(bundle, os.path.join(sd, 'scenarios'), 'Documents/scenarios')
     if rc != 0:
         fail(f'{s} copy scenarios: {o.strip()[-200:]}'); continue
-    rc, o = launch(bundle, ['--headless', '--scenario', 'scenarios', '--artifacts', 'artifacts', '--json', '--capture-tolerance', TOL, '--capture-max-diff', MAXD])
-    open(os.path.join(W, 'device.log'), 'w').write(o)
-    res = last_json(o)
-    if not res:
-        copy_from(bundle, 'Documents/onegame-stdout.txt', os.path.join(W, 'device-stdout.txt'))
-        try:
-            res = last_json(open(os.path.join(W, 'device-stdout.txt')).read())
-        except OSError:
-            res = {}
+    res = {}
+    for folder in ('scenarios', 'scenarios/scenarios'):   # copying a folder may or may not nest it
+        rc, o = launch(bundle, ['--headless', '--scenario', folder, '--artifacts', 'artifacts', '--json', '--capture-tolerance', TOL, '--capture-max-diff', MAXD])
+        open(os.path.join(W, 'device.log'), 'w').write(o)
+        res = last_json(o)
+        if not res:
+            copy_from(bundle, 'Documents/onegame-stdout.txt', os.path.join(W, 'device-stdout.txt'))
+            try:
+                res = last_json(open(os.path.join(W, 'device-stdout.txt')).read())
+            except OSError:
+                res = {}
+        if res.get('passed') is not None or res.get('scenarios'):
+            break
+        if 'locked' in o.lower():
+            fail(f'{s}: the device is locked: unlock it and keep it awake (Settings > Display > Auto-Lock > Never)'); break
     if not res:
         fail(f'{s}: no scenario result from the device: {o.strip()[-300:]}'); continue
     json.dump({'result': res}, open(os.path.join(W, 'device.json'), 'w'))
