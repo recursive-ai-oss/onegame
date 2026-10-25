@@ -71,6 +71,7 @@ internal static class Banned
             // Randomness
             case "System.Random":
             case "System.Security.Cryptography.RandomNumberGenerator":
+            case "OneGame.Core.Entropy":
                 return Rules.UnnamedRandom;
             case "System.Guid":
                 return member == "NewGuid" ? Rules.UnnamedRandom : null;

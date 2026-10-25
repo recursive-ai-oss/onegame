@@ -16,6 +16,7 @@ It is also the example for multiplayer: `docs/interfaces/sync.md` (views, predic
 | `cluster.yaml`, `cluster/play.yaml`, `cluster/crash.yaml` | The five-process cluster, the scenario that plays 2000 ticks on it, and the one that kills the master (while a swap is open) and then island B and starts them again. |
 | `cluster-3d.yaml` | The same cluster with graphics devices on the bots, for capturing what a bot sees. |
 | `cluster/reconnect.yaml`, `cluster/leave.yaml` | Island A is killed and started again with bot1 playing on it (nobody restarts the bot); a bot is killed and its player leaves the game. |
+| `cluster-android.yaml`, `cluster/play-android.yaml`, `cluster/android-client.sh` | The same cluster with bot1 on an Android device or emulator. |
 | `cluster-release.yaml`, `cluster/play-release.yaml` | The same cluster made of exported builds, whose clients have no live control. |
 | `tests/` | In-process network tests, privacy at the byte level, determinism, and the process cluster. |
 
@@ -27,6 +28,18 @@ It is also the example for multiplayer: `docs/interfaces/sync.md` (views, predic
 - **The bridge is an authority transfer.** The sim moves a player to the arrival place and sets `Dest`; the island server (`Realm.HandOver`) then calls `BeginTransfer`. The entity gets a new id on the other island, its commands in flight are forwarded exactly once, and `Moves` (the count of applied steers) travels with it.
 - **A swap is an escrow.** `Account.Accept` on the master opens a trade; the master's `EscrowDriver` takes one lantern from each player on their island (`Withdraw`), then credits the other (`Credit`), or gives it back. Servers save every other tick and answer peers only for what the save holds (`Durability.AfterSave`), so a server killed and started from its file keeps every lantern. A player who has a swap pending, or is already on the bridge, cannot take part in the other.
 - **Servers find each other** with `--option peer.N=udp://host:port` and listen for each other on a private port, `--option peers=PORT` (the transport does not authenticate, so that port must not be reachable by players). A link that drops opens again by itself.
+
+## On Android
+
+The client runs on Android as a NativeAOT APK, connected to servers over UDP or a WebSocket (the platform's crypto library is not needed: see `docs/interfaces/transport.md`). The project sets `AndroidInternet` so even a release APK may open sockets. With an emulator on the computer that runs the servers, the device sees that computer as `10.0.2.2`, and `cluster/android-client.sh` rewrites the address a cluster gives its clients:
+
+```
+onegame export --target android --dev --abi x86_64     # a dev build lets `onegame android run` read the app's output
+onegame android install export/Lanterns-*-android-dev.apk
+onegame cluster test cluster/play-android.yaml --spec cluster-android.yaml --json   # servers and one desktop bot here, bot1 on the device
+```
+
+`ONEGAME` (the command), `ANDROID_SERIAL`, `LANTERNS_HOST` and `LANTERNS_TIMEOUT` configure the script. The bot dithers around its target when the link has no latency, so `cluster-android.yaml` gives the device the same slow link as the other clusters.
 
 ## The 3D view
 

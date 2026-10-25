@@ -46,6 +46,14 @@ public class AndroidExportTests
         Assert.DoesNotContain("BILLING", ExportVerb.AndroidManifest("com.example.game", "G", "1.0.0", "G", dev: false, "unspecified"), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void NetworkedReleaseBuildsAskForInternetAndStayNotDebuggable()
+    {
+        var xml = ExportVerb.AndroidManifest("com.example.game", "G", "1.0.0", "G", dev: false, "unspecified", internet: true);
+        Assert.Contains("android.permission.INTERNET", xml, StringComparison.Ordinal);
+        Assert.Contains("android:debuggable='false'", xml, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("0.1.0", 100)]
     [InlineData("1.2.3", 10203)]

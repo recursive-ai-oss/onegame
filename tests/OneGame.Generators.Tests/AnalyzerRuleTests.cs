@@ -58,6 +58,8 @@ public class AnalyzerRuleTests
         { "Random.Shared", Harness.Entity("protected override void OnTick() { N = Random.Shared.Next(); }"), "OG0007" },
         { "Guid.NewGuid", Harness.Entity("protected override void OnTick() { var g = Guid.NewGuid(); }"), "OG0007" },
         { "RandomNumberGenerator", Harness.Entity("protected override void OnTick() { N = RandomNumberGenerator.GetInt32(5); }"), "OG0007" },
+        { "Entropy", Harness.Entity("protected override void OnTick() { var b = new byte[4]; OneGame.Core.Entropy.Fill(b); }"), "OG0007" },
+        { "Entropy", Harness.Entity("protected override void OnTick() { var b = new byte[4]; OneGame.Core.Entropy.Fill(b); }"), "OG0007" },
 
         // OG0008: view code changing state
         { "view assigns synced property", Harness.Entity("[View] public void Show() { N = 5; }"), "OG0008" },

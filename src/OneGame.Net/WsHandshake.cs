@@ -1,5 +1,5 @@
 using System.Buffers.Text;
-using System.Security.Cryptography;
+using OneGame.Core;
 using System.Text;
 
 namespace OneGame.Net;
@@ -42,7 +42,7 @@ internal static class WsHandshake
     public static void NewKey(Span<byte> key24)
     {
         Span<byte> nonce = stackalloc byte[16];
-        RandomNumberGenerator.Fill(nonce);
+        Entropy.Fill(nonce);
         _ = Base64.EncodeToUtf8(nonce, key24, out _, out _);
     }
 
