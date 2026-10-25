@@ -59,6 +59,15 @@ internal static class Rules
     public static readonly DiagnosticDescriptor Culture = Error("OG0016", "Culture-sensitive text in sim code",
         "{0} follows the machine's culture, so it gives different results on different machines. Pass CultureInfo.InvariantCulture, or compare with StringComparison.Ordinal.");
 
+    public static readonly DiagnosticDescriptor KeyShape = Error("OG0017", "Owner or team key is declared wrongly",
+        "{0}");
+
+    public static readonly DiagnosticDescriptor VisibilityShape = Error("OG0018", "Visibility has nothing to match against",
+        "{0}");
+
+    public static readonly DiagnosticDescriptor ViewReadsUnreceived = Error("OG0019", "View reads a member that replicas never receive",
+        "View code reads '{0}', which is Hidden: the authority never sends it, so a replica always holds the default. Make the member visible to the audience that needs it, or compute what the view shows on the authority and sync that.");
+
     public static readonly DiagnosticDescriptor MigrationShape = Error("OG0014", "Migration is declared wrongly",
         "{0}");
 }

@@ -9,29 +9,50 @@ public sealed class EntityAttribute : Attribute
 
     /// <summary>A fixed type id (default 0 means "derive it"). By default the id is a hash of the full type name, which stays stable until the type is renamed or moved.</summary>
     public uint Id { get; set; }
+
+    /// <summary>Who may know the entity exists at all. Subscribers outside the audience never receive the entity. Members can be narrower still (see <see cref="SyncedAttribute.Visibility"/>). <see cref="Visibility.Owner"/> and <see cref="Visibility.Team"/> need an <see cref="OwnerKeyAttribute"/> or <see cref="TeamKeyAttribute"/> property.</summary>
+    public Visibility Visibility { get; set; } = Visibility.Everyone;
 }
 
 /// <summary>Marks a partial property as synced state. It becomes tracked, serialized, hashed and replicated. Properties are written in declaration order.</summary>
 [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
 public sealed class SyncedAttribute : Attribute
 {
-    /// <summary>Who may read the property. Recorded for the sync layer; nothing is enforced in the entity model yet.</summary>
+    /// <summary>Who may receive the property. The authority leaves it out of the snapshots and deltas it builds for everyone else, so a replica holds the type's default there. Defaults to everyone who may read the scope.</summary>
     public Visibility Visibility { get; set; } = Visibility.Everyone;
 }
 
-/// <summary>Who may see a synced property. The sync layer will enforce it; the entity model only records it.</summary>
+/// <summary>
+/// Marks the synced <see cref="uint"/> or <see cref="int"/> property that says which player owns the entity. A connection whose
+/// trust names the same player (<c>Audience.Player</c>) is the entity's owner. Zero means nobody. At most one per entity.
+/// </summary>
+[AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
+public sealed class OwnerKeyAttribute : Attribute
+{
+}
+
+/// <summary>
+/// Marks the synced <see cref="uint"/> or <see cref="int"/> property that says which team the entity belongs to. A connection whose
+/// trust names the same team (<c>Audience.Team</c>) is on the entity's team, and so is the owner. Zero means no team. At most one per entity.
+/// </summary>
+[AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
+public sealed class TeamKeyAttribute : Attribute
+{
+}
+
+/// <summary>Who may receive an entity or one of its synced properties. The authority enforces it when it builds snapshots and deltas for a subscriber; a value that is not sent never reaches the subscriber's bytes at all. Every level is on top of the scope's read trust.</summary>
 public enum Visibility
 {
-    /// <summary>Every subscriber.</summary>
+    /// <summary>Every subscriber that may read the scope.</summary>
     Everyone = 0,
 
-    /// <summary>Only the owner of the entity.</summary>
+    /// <summary>Only the owner of the entity (the connection whose player matches the entity's <see cref="OwnerKeyAttribute"/> property).</summary>
     Owner = 1,
 
-    /// <summary>Only the owner's team.</summary>
+    /// <summary>The owner and everyone on the entity's team (<see cref="TeamKeyAttribute"/> property matches the connection's team).</summary>
     Team = 2,
 
-    /// <summary>Never leaves the authority.</summary>
+    /// <summary>Never leaves the authority: no subscriber receives it, whatever its trust.</summary>
     Hidden = 3,
 }
 
@@ -39,6 +60,12 @@ public enum Visibility
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
 public sealed class CommandAttribute : Attribute
 {
+    /// <summary>
+    /// When true, the authority accepts the command from a connection only if its trust owns the scope (<c>Trust.Own</c>) and its player is the target
+    /// entity's owner (<see cref="OwnerKeyAttribute"/>). Others are refused before the handler runs. Needs an <see cref="OwnerKeyAttribute"/> property.
+    /// Commands sent from the authority's own code are not checked.
+    /// </summary>
+    public bool OwnerOnly { get; set; }
 }
 
 /// <summary>Marks a member or a whole class as view code. Views read state and send commands; the analyzers make writing synced state from a view a compile error. View code may use floats and other things sim code may not.</summary>
@@ -71,6 +98,9 @@ public sealed class HotDataAttribute : Attribute
 {
     /// <summary>The table's name in snapshots. Defaults to the struct's name.</summary>
     public string? Name { get; set; }
+
+    /// <summary>Whether subscribers receive the table. Only <see cref="Visibility.Everyone"/> (default) and <see cref="Visibility.Hidden"/> apply: rows have no owner.</summary>
+    public Visibility Visibility { get; set; } = Visibility.Everyone;
 }
 
 /// <summary>Marks a static method on an entity that loads state saved at an older schema version into the current layout: <c>static void Name(ref SyncReader old, MyEntity entity)</c>.</summary>

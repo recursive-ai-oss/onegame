@@ -89,7 +89,7 @@ public sealed class ServerHost
     /// <summary>The log.</summary>
     public ServerLog Log { get; }
 
-    /// <summary>The node that is authority for every hosted scope. Clients connect to it with <see cref="Node.ConnectTo"/>.</summary>
+    /// <summary>The node that is authority for every hosted scope. Clients connect to it with <see cref="Node.ConnectTo(Node, Trust, string)"/>.</summary>
     public Node Node { get; }
 
     /// <summary>Where the server is in its life.</summary>

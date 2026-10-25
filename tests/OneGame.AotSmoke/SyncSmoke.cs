@@ -63,6 +63,66 @@ internal static class SyncSmoke
             return "fixed-step driver miscounted";
         }
 
+        return RunFiltered();
+    }
+
+    /// <summary>Two players follow one scope: each gets its own view, private data stays private, answers come back, trust changes apply.</summary>
+    private static string? RunFiltered()
+    {
+        var authority = NewWorld(WorldRole.Authority);
+        authority.Add(new Locker { Player = 1, Combination = "left-right-left" });
+        authority.Add(new Locker { Player = 2, Combination = "up-down-up" });
+        var cluster = new Cluster(new ClusterOptions { DriftCheckInterval = 1, FatalDrift = true });
+        var host = cluster.AddNode("host");
+        var scope = cluster.AddScope(host, new ScopeId(1), authority);
+        var first = cluster.AddLocalReplica(scope, NewWorld(WorldRole.Replica), Trust.Owner(scope.Id).As(1), "first");
+        var second = cluster.AddLocalReplica(scope, NewWorld(WorldRole.Replica), Trust.Owner(scope.Id).As(2), "second");
+        cluster.Settle();
+        var mine = (Locker)first.World.Entities[0];
+        var theirs = (Locker)first.World.Entities[1];
+        mine.Send.Open(1);
+        var wrongSequence = first.LastSequence;
+        mine.Send.Reset("new-combination");
+        theirs.Send.Reset("stolen");
+        var stolenSequence = first.LastSequence;
+        cluster.Step(10);
+
+        if (mine.Combination != "new-combination" || theirs.Combination.Length != 0 || theirs.Alarm != 0)
+        {
+            return "a filtered replica held the wrong data";
+        }
+
+        if (first.ViewHash != scope.ViewHashFor(first.Link.Connection) || second.ViewHash != scope.ViewHashFor(second.Link.Connection) || first.ViewHash == second.ViewHash)
+        {
+            return "filtered view hashes did not match the authority";
+        }
+
+        // A refusal is answered at once; the others once their tick has run.
+        CommandResult? wrong = null, refused = null;
+        foreach (var result in first.Results)
+        {
+            if (result.Sequence == wrongSequence)
+            {
+                wrong = result;
+            }
+            else if (result.Sequence == stolenSequence)
+            {
+                refused = result;
+            }
+        }
+
+        if (first.Results.Count != 3 || wrong?.Reason != "wrong code" || wrong?.Verdict != CommandVerdict.Rejected || refused?.Refusal != RefusalReason.NotOwner)
+        {
+            return "command answers did not reach the sender";
+        }
+
+        first.Link.Connection.Trust = Trust.Owner(scope.Id).As(2);
+        cluster.Step(3);
+        if (((Locker)first.World.Entities[1]).Combination != "up-down-up" || ((Locker)first.World.Entities[0]).Combination.Length != 0 || cluster.DriftReports.Count != 0)
+        {
+            return "a trust change did not move the private data";
+        }
+
         return null;
     }
 }

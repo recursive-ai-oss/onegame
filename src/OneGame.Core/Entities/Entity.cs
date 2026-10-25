@@ -57,6 +57,40 @@ public abstract class Entity
     /// <summary>Applies a delta. All values are decoded before any is stored, so an error leaves the entity unchanged. Applied properties become dirty, so a relay can forward them.</summary>
     public abstract void ApplyDelta(ref SyncReader reader);
 
+    /// <summary>Writes a delta holding exactly the properties in <paramref name="mask"/>, whatever their dirty state. With the visible mask of an audience it is that audience's full view of the entity.</summary>
+    public abstract void WriteMaskedDelta(SyncWriter writer, ulong mask);
+
+    /// <summary>The value of the <see cref="OwnerKeyAttribute"/> property, or 0.</summary>
+    public virtual ulong OwnerKey => 0;
+
+    /// <summary>The value of the <see cref="TeamKeyAttribute"/> property, or 0.</summary>
+    public virtual ulong TeamKey => 0;
+
+    /// <summary>
+    /// Which of this entity's properties (bit i = property i) an audience may receive. Returns false when the entity as a whole is
+    /// hidden from it. Entities without visibility rules show everything to everyone.
+    /// </summary>
+    public virtual bool TryGetVisibleMask(in Audience audience, out ulong mask)
+    {
+        mask = FullMask;
+        return true;
+    }
+
+    /// <summary>True when the command is marked <c>OwnerOnly</c>.</summary>
+    public virtual bool IsOwnerOnlyCommand(uint commandId) => false;
+
+    /// <summary>The mask with a bit for every synced property.</summary>
+    public ulong FullMask => PropertyCount >= 64 ? ulong.MaxValue : (1UL << PropertyCount) - 1;
+
+    /// <summary>
+    /// Which properties this copy actually holds. A replica of a filtered entity holds only what its authority was allowed to send;
+    /// the rest stay at their defaults. <see cref="ulong.MaxValue"/> means all of them.
+    /// </summary>
+    internal ulong ViewMask { get; set; } = ulong.MaxValue;
+
+    /// <summary>Collapses a mask that covers every property to the all-properties marker, so the same view always hashes the same way.</summary>
+    internal ulong NormalizeMask(ulong mask) => (mask & FullMask) == FullMask ? ulong.MaxValue : mask & FullMask;
+
     /// <summary>Writes the entity as a JSON object.</summary>
     public abstract void WriteJson(JsonOut json);
 
@@ -91,6 +125,28 @@ public abstract class Entity
         return StateHash.Combine(h, StateHash.Of(scratch.Written));
     }
 
+    /// <summary>
+    /// Hash of what an audience sees of this entity: with every property visible it equals <see cref="ComputeHash"/>, otherwise it
+    /// covers the type, the id and only the visible properties. A replica computes the same value with <see cref="ComputeViewHash()"/>.
+    /// </summary>
+    public ulong ComputeViewHash(ulong visibleMask)
+    {
+        var mask = NormalizeMask(visibleMask);
+        if (mask == ulong.MaxValue)
+        {
+            return ComputeHash();
+        }
+
+        var scratch = World?.Scratch ?? new SyncWriter();
+        scratch.Reset();
+        WriteMaskedDelta(scratch, mask);
+        var h = StateHash.Combine(TypeId, Id.Value);
+        return StateHash.Combine(h, StateHash.Of(scratch.Written));
+    }
+
+    /// <summary>The hash of what this copy holds: <see cref="ComputeHash"/> for a complete entity, the filtered form for a replica of a filtered one.</summary>
+    public ulong ComputeViewHash() => ComputeViewHash(ViewMask);
+
     /// <summary>Throws if this entity belongs to a replica world. Generated setters call it.</summary>
     /// <exception cref="ReplicaWriteException">The entity is a replica; only the authority changes state.</exception>
     protected void AssertWritable()
@@ -107,6 +163,15 @@ public abstract class Entity
 
     /// <summary>Ends <see cref="BeginRestore"/>.</summary>
     protected void EndRestore() => _restoring--;
+
+    /// <summary>Records why the command handler running now rejected the command; the authority sends the text back to the submitter.</summary>
+    protected void SetRejectReason(string? reason)
+    {
+        if (World is { } world)
+        {
+            world.LastRejectReason = reason;
+        }
+    }
 
     /// <summary>Starts a command message: returns the world's scratch writer for the arguments.</summary>
     /// <exception cref="NotInWorldException">The entity is not in a world.</exception>

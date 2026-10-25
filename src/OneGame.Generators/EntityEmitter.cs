@@ -220,6 +220,12 @@ internal static class EntityEmitter
 
         public bool IsList { get; }
 
+        public int Visibility { get; set; }
+
+        public bool IsOwnerKey { get; set; }
+
+        public bool IsTeamKey { get; set; }
+
         public string Name => Symbol.Name;
 
         public string Field => "__p_" + Symbol.Name;
@@ -246,6 +252,10 @@ internal static class EntityEmitter
         public uint Id => EmitUtil.Fnv32(Method.Name);
 
         public bool ReturnsBool => Method.ReturnType.SpecialType == SpecialType.System_Boolean;
+
+        public bool ReturnsReply => Method.ReturnType is INamedTypeSymbol { Name: "CommandReply" } n && global::OneGame.Generators.Codecs.IsInCore(n);
+
+        public bool OwnerOnly { get; set; }
     }
 
     public static GenResult Build(GeneratorAttributeSyntaxContext context, CancellationToken ct)
@@ -259,9 +269,14 @@ internal static class EntityEmitter
         var attribute = context.Attributes[0];
         uint schema = 1;
         uint typeIdOverride = 0;
+        var entityVisibility = 0;
         foreach (var arg in attribute.NamedArguments)
         {
-            if (arg.Key == "Schema" && arg.Value.Value is uint sv)
+            if (arg.Key == "Visibility" && arg.Value.Value is int ev)
+            {
+                entityVisibility = ev;
+            }
+            else if (arg.Key == "Schema" && arg.Value.Value is uint sv)
             {
                 schema = sv;
             }
@@ -322,7 +337,7 @@ internal static class EntityEmitter
                     continue;
                 }
 
-                props.Add(new Prop(p, props.Count, null, Codecs.TryGet(elementType), true));
+                props.Add(new Prop(p, props.Count, null, Codecs.TryGet(elementType), true) { Visibility = VisibilityOf(p) });
                 continue;
             }
 
@@ -333,14 +348,26 @@ internal static class EntityEmitter
                 continue;
             }
 
-            props.Add(new Prop(p, props.Count, Codecs.TryGet(p.Type), null, false));
+            props.Add(new Prop(p, props.Count, Codecs.TryGet(p.Type), null, false)
+            {
+                Visibility = VisibilityOf(p),
+                IsOwnerKey = Codecs.HasAttribute(p, "OwnerKeyAttribute"),
+                IsTeamKey = Codecs.HasAttribute(p, "TeamKeyAttribute"),
+            });
         }
+
+        CheckKeys(type, props, diags);
 
         var serialized = props.Where(p => p.Serialized).ToList();
         // Bit positions follow the serialized order.
         for (var i = 0; i < serialized.Count; i++)
         {
-            serialized[i] = new Prop(serialized[i].Symbol, i, serialized[i].Codec, serialized[i].Element, serialized[i].IsList);
+            serialized[i] = new Prop(serialized[i].Symbol, i, serialized[i].Codec, serialized[i].Element, serialized[i].IsList)
+            {
+                Visibility = serialized[i].Visibility,
+                IsOwnerKey = serialized[i].IsOwnerKey,
+                IsTeamKey = serialized[i].IsTeamKey,
+            };
         }
 
         var unserialized = props.Where(p => !p.Serialized && !p.IsList).ToList();
@@ -358,10 +385,11 @@ internal static class EntityEmitter
             var location = EmitUtil.LocationOf(m);
             var codecs = new List<Codec>();
             var ok = true;
-            if (m.IsStatic || m.IsGenericMethod || (m.ReturnType.SpecialType != SpecialType.System_Void && m.ReturnType.SpecialType != SpecialType.System_Boolean))
+            var returnsReply = m.ReturnType is INamedTypeSymbol { Name: "CommandReply" } rt && Codecs.IsInCore(rt);
+            if (m.IsStatic || m.IsGenericMethod || (m.ReturnType.SpecialType != SpecialType.System_Void && m.ReturnType.SpecialType != SpecialType.System_Boolean && !returnsReply))
             {
                 diags.Add(DiagData.Create(Rules.CommandShape, location,
-                    $"Command '{m.Name}' must be a non-static, non-generic instance method returning void or bool (false rejects the command)."));
+                    $"Command '{m.Name}' must be a non-static, non-generic instance method returning void, bool (false rejects the command) or CommandReply (CommandReply.Reject(\"why\") rejects with a reason)."));
                 ok = false;
             }
 
@@ -393,9 +421,17 @@ internal static class EntityEmitter
             }
 
             commandIds[EmitUtil.Fnv32(m.Name)] = m.Name;
+            var ownerOnly = Codecs.FindAttribute(m, "CommandAttribute") is { } commandAttribute
+                && commandAttribute.NamedArguments.Any(a => a.Key == "OwnerOnly" && a.Value.Value is true);
+            if (ownerOnly && !props.Any(x => x.IsOwnerKey))
+            {
+                diags.Add(DiagData.Create(Rules.VisibilityShape, location,
+                    $"Command '{m.Name}' is OwnerOnly, but '{type.Name}' has no [OwnerKey] property to say who the owner is. Mark a synced uint or int property with [OwnerKey]."));
+            }
+
             if (ok)
             {
-                commands.Add(new Command(m, codecs));
+                commands.Add(new Command(m, codecs) { OwnerOnly = ownerOnly });
             }
         }
 
@@ -434,6 +470,8 @@ internal static class EntityEmitter
             migrations.Add((from, m));
         }
 
+        CheckVisibility(type, props, entityVisibility, typeLocation, diags);
+
         var typeId = typeIdOverride != 0
             ? typeIdOverride
             : EmitUtil.Fnv32(type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", string.Empty));
@@ -446,7 +484,7 @@ internal static class EntityEmitter
         }
 
         s.Open($"{EmitUtil.Access(type.DeclaredAccessibility == Accessibility.NotApplicable ? Accessibility.Internal : type.DeclaredAccessibility)} partial class {type.Name}");
-        EmitMembers(s, type, serialized, unserialized, props, commands, migrations, schema, typeId);
+        EmitMembers(s, type, serialized, unserialized, props, commands, migrations, schema, typeId, entityVisibility);
         s.Close();
         if (ns.Length > 0)
         {
@@ -455,6 +493,76 @@ internal static class EntityEmitter
 
         var registration = new Registration(Codecs.TypeText(type), type.Name, typeId);
         return new GenResult(EmitUtil.HintName(type, "Entity"), s.ToString(), new EquatableArray<DiagData>(diags.ToArray()), registration);
+    }
+
+    private static int VisibilityOf(IPropertySymbol p)
+    {
+        if (Codecs.FindAttribute(p, "SyncedAttribute") is { } a)
+        {
+            foreach (var arg in a.NamedArguments)
+            {
+                if (arg.Key == "Visibility" && arg.Value.Value is int v)
+                {
+                    return v;
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    private static string VisibilityName(int v) => v switch { 1 => "Owner", 2 => "Team", 3 => "Hidden", _ => "Everyone" };
+
+    /// <summary>[OwnerKey] and [TeamKey]: one of each at most, on a synced uint or int property.</summary>
+    private static void CheckKeys(INamedTypeSymbol type, List<Prop> props, List<DiagData> diags)
+    {
+        foreach (var key in new[] { "OwnerKeyAttribute", "TeamKeyAttribute" })
+        {
+            var label = key == "OwnerKeyAttribute" ? "OwnerKey" : "TeamKey";
+            var marked = type.GetMembers().OfType<IPropertySymbol>().Where(p => Codecs.HasAttribute(p, key)).ToList();
+            marked.Sort(EmitUtil.SourceOrder);
+            for (var i = 0; i < marked.Count; i++)
+            {
+                var p = marked[i];
+                var location = EmitUtil.LocationOf(p);
+                if (i > 0)
+                {
+                    diags.Add(DiagData.Create(Rules.KeyShape, location, $"'{type.Name}' has more than one [{label}] property. Keep one."));
+                }
+                else if (!Codecs.HasAttribute(p, "SyncedAttribute") || Codecs.IsSyncList(p.Type, out _)
+                    || (p.Type.SpecialType != SpecialType.System_UInt32 && p.Type.SpecialType != SpecialType.System_Int32))
+                {
+                    diags.Add(DiagData.Create(Rules.KeyShape, location,
+                        $"[{label}] property '{p.Name}' must be a [Synced] uint or int: it holds the id that connections are matched against."));
+                }
+            }
+        }
+    }
+
+    /// <summary>Owner and Team visibility need the key property they match against.</summary>
+    private static void CheckVisibility(INamedTypeSymbol type, List<Prop> props, int entityVisibility, Location typeLocation, List<DiagData> diags)
+    {
+        var hasOwner = props.Any(p => p.IsOwnerKey);
+        var hasTeam = props.Any(p => p.IsTeamKey);
+        void Check(int visibility, string what, Location location)
+        {
+            if (visibility == 1 && !hasOwner)
+            {
+                diags.Add(DiagData.Create(Rules.VisibilityShape, location,
+                    $"{what} is Owner-visible, but '{type.Name}' has no [OwnerKey] property to say who the owner is. Mark a synced uint or int property with [OwnerKey]."));
+            }
+            else if (visibility == 2 && !hasTeam)
+            {
+                diags.Add(DiagData.Create(Rules.VisibilityShape, location,
+                    $"{what} is Team-visible, but '{type.Name}' has no [TeamKey] property to say which team it belongs to. Mark a synced uint or int property with [TeamKey]."));
+            }
+        }
+
+        Check(entityVisibility, $"Entity '{type.Name}'", typeLocation);
+        foreach (var p in props)
+        {
+            Check(p.Visibility, $"Property '{p.Name}'", EmitUtil.LocationOf(p.Symbol));
+        }
     }
 
     // Whether a command parameter can be written as text: numbers, bool, string, enums (by number), Fixed and EntityId.
@@ -491,7 +599,7 @@ internal static class EntityEmitter
     }
 
     private static void EmitMembers(Src s, INamedTypeSymbol type, List<Prop> serialized, List<Prop> unserialized, List<Prop> allProps,
-        List<Command> commands, List<(uint From, IMethodSymbol Method)> migrations, uint schema, uint typeId)
+        List<Command> commands, List<(uint From, IMethodSymbol Method)> migrations, uint schema, uint typeId, int entityVisibility)
     {
         var all = allProps.Where(p => !p.Serialized && !p.IsList).Concat(serialized).ToList();
 
@@ -680,6 +788,72 @@ internal static class EntityEmitter
 
         s.Close();
 
+        // Visibility.
+        var ownerKey = allProps.FirstOrDefault(p => p.IsOwnerKey);
+        var teamKey = allProps.FirstOrDefault(p => p.IsTeamKey);
+        if (ownerKey is not null)
+        {
+            s.Line("/// <inheritdoc />");
+            s.Line($"public override ulong OwnerKey => unchecked((ulong)(uint){ownerKey.Field});");
+        }
+
+        if (teamKey is not null)
+        {
+            s.Line("/// <inheritdoc />");
+            s.Line($"public override ulong TeamKey => unchecked((ulong)(uint){teamKey.Field});");
+        }
+
+        if (entityVisibility != 0 || serialized.Any(p => p.Visibility != 0))
+        {
+            ulong everyone = 0, owner = 0, team = 0;
+            foreach (var p in serialized)
+            {
+                var bit = 1UL << p.Index;
+                switch (p.Visibility)
+                {
+                    case 0: everyone |= bit; break;
+                    case 1: owner |= bit; break;
+                    case 2: team |= bit; break;
+                }
+            }
+
+            s.Line("/// <inheritdoc />");
+            s.Open("public override bool TryGetVisibleMask(in global::OneGame.Core.Audience audience, out ulong mask)");
+            if (entityVisibility == 3)
+            {
+                s.Line("mask = 0;");
+                s.Line("return false;");
+            }
+            else
+            {
+                s.Line("var isOwner = audience.IsOwnerOf(OwnerKey);");
+                s.Line("var isTeam = audience.IsTeamOf(OwnerKey, TeamKey);");
+                if (entityVisibility == 1)
+                {
+                    s.Line("if (!isOwner) { mask = 0; return false; }");
+                }
+                else if (entityVisibility == 2)
+                {
+                    s.Line("if (!isTeam) { mask = 0; return false; }");
+                }
+
+                s.Line($"mask = 0x{everyone:X}UL | (isOwner ? 0x{owner:X}UL : 0UL) | (isTeam ? 0x{team:X}UL : 0UL);");
+                s.Line("return true;");
+            }
+
+            s.Close();
+        }
+
+        var ownerOnly = commands.Where(c => c.OwnerOnly).ToList();
+        if (ownerOnly.Count > 0)
+        {
+            s.Line("/// <inheritdoc />");
+            s.Line("public override bool IsOwnerOnlyCommand(uint commandId) => " + string.Join(" || ", ownerOnly.Select(c => $"commandId == {EmitUtil.Hex(c.Id)}")) + ";");
+        }
+
+        s.Line("/// <inheritdoc />");
+        s.Line("public override void WriteMaskedDelta(global::OneGame.Core.SyncWriter w, ulong mask) => __WriteDelta(w, mask & " + valid + ");");
+
         // JSON and text patch.
         s.Line("/// <inheritdoc />");
         s.Open("public override void WriteJson(global::OneGame.Core.JsonOut j)");
@@ -835,7 +1009,14 @@ internal static class EntityEmitter
             s.Line("r.ExpectEnd();");
             s.Line("if (!r.Ok) { return global::OneGame.Core.CommandStatus.Malformed; }");
             var call = $"{c.Method.Name}({string.Join(", ", names)})";
-            if (c.ReturnsBool)
+            if (c.ReturnsReply)
+            {
+                s.Line($"var reply = {call};");
+                s.Line("if (reply.Accepted) { return global::OneGame.Core.CommandStatus.Executed; }");
+                s.Line("SetRejectReason(reply.Reason);");
+                s.Line("return global::OneGame.Core.CommandStatus.Rejected;");
+            }
+            else if (c.ReturnsBool)
             {
                 s.Line($"return {call} ? global::OneGame.Core.CommandStatus.Executed : global::OneGame.Core.CommandStatus.Rejected;");
             }
@@ -882,7 +1063,7 @@ internal static class EntityEmitter
         s.Line($"internal ReadOnlyView({type.Name} e) => _e = e;");
         s.Line("/// <summary>The entity's id.</summary>");
         s.Line("public global::OneGame.Core.EntityId Id => _e.Id;");
-        foreach (var p in serialized.Concat(unserialized))
+        foreach (var p in serialized.Concat(unserialized).Where(p => p.Visibility != 3 && entityVisibility != 3))
         {
             var t = p.IsList ? $"global::System.Collections.Generic.IReadOnlyList<{p.Element!.TypeName}>" : p.TypeText;
             s.Line($"/// <summary>The synced value of <c>{p.Name}</c>.</summary>");

@@ -37,7 +37,7 @@ public sealed class SimRulesAnalyzer : DiagnosticAnalyzer
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
         Rules.FloatInState, Rules.FloatInSim, Rules.UnorderedIteration, Rules.Clock, Rules.Threads, Rules.InputOutput,
-        Rules.UnnamedRandom, Rules.ViewWrites, Rules.NoCodec, Rules.ExternalApi, Rules.Culture);
+        Rules.UnnamedRandom, Rules.ViewWrites, Rules.NoCodec, Rules.ExternalApi, Rules.Culture, Rules.ViewReadsUnreceived);
 
     /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
@@ -57,6 +57,7 @@ public sealed class SimRulesAnalyzer : DiagnosticAnalyzer
             start.RegisterOperationAction(state.AnalyzeViewWrite, OperationKind.SimpleAssignment, OperationKind.CompoundAssignment,
                 OperationKind.Increment, OperationKind.Decrement);
             start.RegisterOperationAction(state.AnalyzeViewCall, OperationKind.Invocation);
+            start.RegisterOperationAction(State.AnalyzeViewRead, OperationKind.PropertyReference);
         });
     }
 
@@ -689,6 +690,42 @@ public sealed class SimRulesAnalyzer : DiagnosticAnalyzer
             {
                 context.ReportDiagnostic(Diagnostic.Create(Rules.ViewWrites, context.Operation.Syntax.GetLocation(), description));
             }
+        }
+
+        // ---- views reading members a replica never receives (OG0019) ------------------------------------------------
+
+        public static void AnalyzeViewRead(OperationAnalysisContext context)
+        {
+            if (ScopeOf(context.ContainingSymbol) != Scope.View)
+            {
+                return;
+            }
+
+            var property = ((IPropertyReferenceOperation)context.Operation).Property;
+            if (!Codecs.HasAttribute(property, "SyncedAttribute"))
+            {
+                return;
+            }
+
+            if (Codecs.FindAttribute(property, "SyncedAttribute") is { } synced && NamedEnum(synced, "Visibility") == 3
+                || Codecs.FindAttribute(property.ContainingType, "EntityAttribute") is { } entity && NamedEnum(entity, "Visibility") == 3)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(Rules.ViewReadsUnreceived, context.Operation.Syntax.GetLocation(),
+                    $"{property.ContainingType.Name}.{property.Name}"));
+            }
+        }
+
+        private static int NamedEnum(AttributeData data, string name)
+        {
+            foreach (var arg in data.NamedArguments)
+            {
+                if (arg.Key == name && arg.Value.Value is int v)
+                {
+                    return v;
+                }
+            }
+
+            return 0;
         }
 
         public void AnalyzeViewCall(OperationAnalysisContext context)

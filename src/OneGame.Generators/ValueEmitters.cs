@@ -167,11 +167,24 @@ internal static class ValueEmitters
         }
 
         var tableName = type.Name;
+        var hidden = false;
         foreach (var arg in context.Attributes[0].NamedArguments)
         {
             if (arg.Key == "Name" && arg.Value.Value is string n && n.Length > 0)
             {
                 tableName = n;
+            }
+            else if (arg.Key == "Visibility" && arg.Value.Value is int v)
+            {
+                if (v == 3)
+                {
+                    hidden = true;
+                }
+                else if (v != 0)
+                {
+                    diags.Add(DiagData.Create(Rules.VisibilityShape, EmitUtil.LocationOf(type),
+                        $"Hot data '{type.Name}' can be Everyone or Hidden: its rows have no owner or team to match. Use Hidden to keep the table on the authority, or split owner data into entities."));
+                }
             }
         }
 
@@ -204,6 +217,12 @@ internal static class ValueEmitters
         s.Close();
         s.Line("/// <inheritdoc />");
         s.Line($"public string Name => {EmitUtil.Literal(tableName)};");
+        if (hidden)
+        {
+            s.Line("/// <inheritdoc />");
+            s.Line("public global::OneGame.Core.Visibility Visibility => global::OneGame.Core.Visibility.Hidden;");
+        }
+
         s.Line("/// <inheritdoc />");
         s.Line("public int Count => _count;");
         s.Line("/// <summary>The number of rows the arrays hold before they grow.</summary>");
