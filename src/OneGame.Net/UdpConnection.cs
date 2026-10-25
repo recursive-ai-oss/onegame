@@ -287,8 +287,6 @@ public sealed class UdpConnection : INetConnection
         _socket.Send(a, _remote);
     }
 
-    internal void Kick(DisconnectReason reason) => Disconnect(reason);
-
     private void SendHandshake(long now)
     {
         _lastHandshake = now;
