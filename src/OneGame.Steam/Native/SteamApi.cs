@@ -13,6 +13,24 @@ internal unsafe struct CallbackMsg
     public int ParamSize;
 }
 
+/// <summary>State of a digital Steam Input action: two one-byte booleans, as the header's struct.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct InputDigitalData
+{
+    public byte State;
+    public byte Active;
+}
+
+/// <summary>State of an analog Steam Input action: source mode, two axes and an active flag (16 bytes with natural alignment).</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct InputAnalogData
+{
+    public int Mode;
+    public float X;
+    public float Y;
+    public byte Active;
+}
+
 /// <summary>Direct calls into the Steam redistributable's flat C API (the <c>SteamAPI_*</c> exports of <c>steam_api</c>). Only 64-bit targets are supported, where there is a single calling convention. Booleans cross as one
 /// byte, as in the C++ <c>bool</c> the library was built with. Every entry point is named explicitly so the set can be checked
 /// against the library's export table.</summary>
@@ -182,5 +200,70 @@ internal static unsafe partial class SteamApi
 
     [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamRemoteStorage_IsCloudEnabledForApp")]
     internal static partial byte RemoteStorageIsCloudEnabledForApp(nint self);
+
+    // ISteamInput (flat API). Handles are 64-bit; booleans are one byte; the two action-data structs are returned by value.
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_SteamInput_v006")]
+    internal static partial nint GetInput();
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_Init")]
+    internal static partial byte InputInit(nint self, byte explicitRunFrame);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_Shutdown")]
+    internal static partial byte InputShutdown(nint self);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_SetInputActionManifestFilePath", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial byte InputSetManifestPath(nint self, string path);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_RunFrame")]
+    internal static partial void InputRunFrame(nint self, byte reserved);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_GetConnectedControllers")]
+    internal static partial int InputGetConnectedControllers(nint self, ulong* handles);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_GetInputTypeForHandle")]
+    internal static partial int InputGetInputTypeForHandle(nint self, ulong controller);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_GetActionSetHandle", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial ulong InputGetActionSetHandle(nint self, string name);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_GetDigitalActionHandle", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial ulong InputGetDigitalActionHandle(nint self, string name);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_GetAnalogActionHandle", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial ulong InputGetAnalogActionHandle(nint self, string name);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_ActivateActionSet")]
+    internal static partial void InputActivateActionSet(nint self, ulong controller, ulong actionSet);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_GetCurrentActionSet")]
+    internal static partial ulong InputGetCurrentActionSet(nint self, ulong controller);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_GetDigitalActionData")]
+    internal static partial InputDigitalData InputGetDigitalActionData(nint self, ulong controller, ulong action);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_GetAnalogActionData")]
+    internal static partial InputAnalogData InputGetAnalogActionData(nint self, ulong controller, ulong action);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_GetDigitalActionOrigins")]
+    internal static partial int InputGetDigitalActionOrigins(nint self, ulong controller, ulong actionSet, ulong action, int* origins);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_GetAnalogActionOrigins")]
+    internal static partial int InputGetAnalogActionOrigins(nint self, ulong controller, ulong actionSet, ulong action, int* origins);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_TranslateActionOrigin")]
+    internal static partial int InputTranslateActionOrigin(nint self, int destinationType, int origin);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_GetGlyphPNGForActionOrigin")]
+    internal static partial byte* InputGetGlyphPng(nint self, int origin, int size, uint flags);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamInput_GetStringForActionOrigin")]
+    internal static partial byte* InputGetStringForActionOrigin(nint self, int origin);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamUtils_ShowFloatingGamepadTextInput")]
+    internal static partial byte UtilsShowFloatingGamepadTextInput(nint self, int mode, int x, int y, int width, int height);
+
+    [LibraryImport(Library, EntryPoint = "SteamAPI_ISteamUtils_DismissFloatingGamepadTextInput")]
+    internal static partial byte UtilsDismissFloatingGamepadTextInput(nint self);
 
 }

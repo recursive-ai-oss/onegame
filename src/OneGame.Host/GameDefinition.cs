@@ -46,6 +46,11 @@ public abstract class GameDefinition
     {
     }
 
+    /// <summary>Called at the start of every frame of every game, local or connected, right after pending input was handled. Read devices and services that need polling here (Steam Input, for example); events they post are handled in the next frame.</summary>
+    public virtual void OnEachFrame(GameInstance game)
+    {
+    }
+
     /// <summary>Called for an input event the UI did not consume, such as a click on empty space or a gameplay key.</summary>
     public virtual void OnInput(GameInstance game, in OneGame.Platform.PlatformEvent input)
     {

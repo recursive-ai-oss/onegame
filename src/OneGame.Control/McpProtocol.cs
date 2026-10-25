@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using System.Buffers;
 
 namespace OneGame.Control;
@@ -32,7 +33,10 @@ public sealed class McpProtocol
     /// Handles one JSON-RPC message (one line of the stdio transport). Returns the response message, or null for a notification.
     /// Never throws on bad input: malformed messages get a JSON-RPC error.
     /// </summary>
-    public string? Handle(string message)
+    public string? Handle(string message) => HandleAsync(message).AsTask().GetAwaiter().GetResult();
+
+    /// <summary>Like <see cref="Handle"/>, for hosts that cannot block while a tool waits for the graphics device (a browser page).</summary>
+    public async ValueTask<string?> HandleAsync(string message)
     {
         ArgumentNullException.ThrowIfNull(message);
         JsonDocument doc;
@@ -76,7 +80,7 @@ public sealed class McpProtocol
                     w.WriteEndObject();
                 }),
                 "tools/list" => ListTools(id),
-                "tools/call" => CallTool(id, parameters),
+                "tools/call" => await CallToolAsync(id, parameters),
                 _ => Error(id, -32601, $"Method not found: {method}."),
             };
         }
@@ -136,7 +140,7 @@ public sealed class McpProtocol
         w.WriteEndObject();
     });
 
-    private string CallTool(JsonElement id, JsonElement parameters)
+    private async ValueTask<string> CallToolAsync(JsonElement id, JsonElement parameters)
     {
         if (parameters.ValueKind != JsonValueKind.Object || !parameters.TryGetProperty("name", out var nameElement) || nameElement.ValueKind != JsonValueKind.String)
         {
@@ -154,7 +158,7 @@ public sealed class McpProtocol
         ControlException? failure = null;
         try
         {
-            result = _surface.Invoke(name, args);
+            result = await _surface.InvokeAsync(name, args);
         }
         catch (ControlException ex)
         {

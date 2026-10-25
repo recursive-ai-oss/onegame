@@ -39,6 +39,7 @@
   </PropertyGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)Android.targets" />
+  <Import Project="$(MSBuildThisFileDirectory)iOS.targets" />
 
   <ItemGroup>
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Host/OneGame.Host.csproj" />
@@ -48,10 +49,16 @@
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
+  <!-- Sound is part of a game, so a game gets the audio service through the same reference chain as everything else and an export builds without the game naming it.
+       A game that plays no sound can leave it out with -p:OneGameAudio=false (an unused library is trimmed from a NativeAOT build either way). -->
+  <ItemGroup Condition="'$(OneGameAudio)' != 'false'">
+    <ProjectReference Include="$(OneGameRoot)/src/OneGame.Audio/OneGame.Audio.csproj" />
+  </ItemGroup>
+
   <ItemGroup Condition="'$(OneGameDev)' == 'true'">
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Live/OneGame.Live.csproj" />
-    <!-- A shared library (Android) has no application code to run a module initializer from; AndroidEntry.cs enables the tools itself. -->
-    <Compile Include="$(MSBuildThisFileDirectory)DevBoot.cs" Visible="false" Condition="'$(OneGameAndroid)' != 'true'" />
+    <!-- A shared library (Android) has no application code to run a module initializer from, and an iOS app starts its game late; AndroidEntry.cs and IosEntry.cs enable the tools themselves. -->
+    <Compile Include="$(MSBuildThisFileDirectory)DevBoot.cs" Visible="false" Condition="'$(OneGameAndroid)' != 'true' and '$(OneGameIos)' != 'true'" />
   </ItemGroup>
 
 </Project>

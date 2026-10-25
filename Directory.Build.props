@@ -43,6 +43,11 @@
 
   <!-- "Ships" means the code goes into a player's game: everything under src/ and samples/. Those projects get the package
        guard (build/PackageGuard.targets) and the AOT and trim analyzers. Tests, tools and validation are free to use any package. -->
+  <PropertyGroup Label="Shaders">
+    <!-- SPIR-V for Vulkan, MSL for Metal, WGSL for WebGPU. -->
+    <OneShaderTargets>SpirV;Msl;Wgsl</OneShaderTargets>
+  </PropertyGroup>
+
   <PropertyGroup Label="Shipping code">
     <_ProjectDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))</_ProjectDir>
     <OneGameShips Condition="'$(OneGameShips)' == '' and ($(_ProjectDir.StartsWith('$(MSBuildThisFileDirectory)src/')) or $(_ProjectDir.StartsWith('$(MSBuildThisFileDirectory)samples/')))">true</OneGameShips>

@@ -16,7 +16,9 @@
     <ProjectReference Include="../OneGame.Text/OneGame.Text.csproj" />
     <ProjectReference Include="../OneGame.Platform/OneGame.Platform.csproj" />
     <ProjectReference Include="../OneGame.Gpu/OneGame.Gpu.csproj" />
+    <ProjectReference Include="../OneGame.Audio/OneGame.Audio.csproj" />
     <ProjectReference Include="../OneGame.Gpu.Backends/OneGame.Gpu.Backends.csproj" />
+    <ProjectReference Include="../OneGame.Gpu.WebGpu/OneGame.Gpu.WebGpu.csproj" />
   </ItemGroup>
 
   <ItemGroup>

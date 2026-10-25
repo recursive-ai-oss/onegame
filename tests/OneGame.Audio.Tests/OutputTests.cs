@@ -279,6 +279,9 @@ public class BackendLogicTests
         using var s = AudioService.Create(new AudioServiceOptions { Device = new AudioDeviceOptions { DeviceName = "onegame_no_such_device" } });
         s.Play(s.LoadSound(new MemoryStream(RealMixerTests.Wav(0, 10))));
         s.Update();
-        Assert.Equal(AudioOutputStatus.NoDevice, s.Output.Status);
+
+        // ALSA and WASAPI refuse an unknown device name. The Apple and Android backends route by the system default and ignore the name, so they run.
+        var routesBySystem = OperatingSystem.IsMacOS() || OperatingSystem.IsIOS() || OperatingSystem.IsAndroid();
+        Assert.True(s.Output.Status == AudioOutputStatus.NoDevice || (routesBySystem && s.Output.Status == AudioOutputStatus.Running), s.Output.Status.ToString());
     }
 }

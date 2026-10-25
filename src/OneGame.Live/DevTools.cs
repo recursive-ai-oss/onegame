@@ -18,7 +18,7 @@ internal sealed class DevTools : IDevTools
     private static readonly string[] Known =
     [
         "live", "realtime", "parent", "scenario", "artifacts", "update-references", "record", "capture", "sequence", "count", "every", "replay",
-        "fixture", "screen", "after", "lint-theme", "capture-tolerance", "capture-max-diff",
+        "fixture", "screen", "after", "lint-theme", "capture-tolerance", "capture-max-diff", "control",
     ];
 
     public int Run(GameInstance game, GameArgs args, TextWriter output)
@@ -28,7 +28,7 @@ internal sealed class DevTools : IDevTools
         {
             foreach (var name in args.Names)
             {
-                if (name is "headless" or "frames" or "size" or "scale" or "seed" or "json" or "gpu" or "backend" or "display" or "present" or "connect" or "scope" or "also-scopes" or "name" or "net")
+                if (name is "headless" or "frames" or "size" or "scale" or "seed" or "json" or "gpu" or "backend" or "display" or "present" or "connect" or "scope" or "also-scopes" or "name" or "net" or "no-present")
                 {
                     continue;
                 }
@@ -58,6 +58,18 @@ internal sealed class DevTools : IDevTools
                 Print(output, json, lint);
                 using var doc = JsonDocument.Parse(lint);
                 return doc.RootElement.GetProperty("passed").GetBoolean() ? ExitCodes.Ok : ExitCodes.Failed;
+            }
+
+            if (args.Has("control"))
+            {
+                // A page in a browser: the control channel runs beside the page's own frame loop and returns at once.
+                if (!OperatingSystem.IsBrowser())
+                {
+                    throw new FormatException("--control only applies to a game running in a web page; use --live on a desktop build.");
+                }
+
+                WebControl.Start(game, surface, args.Get("control") ?? throw new FormatException("--control needs a ws:// address."));
+                return ExitCodes.Ok;
             }
 
             if (args.Has("live"))
@@ -223,6 +235,30 @@ internal sealed class DevTools : IDevTools
                 w.WriteBoolean("ok", failed == 0);
                 w.WriteNumber("passed", results.Count - failed);
                 w.WriteNumber("failed", failed);
+                if (options.UpdateReferences || Environment.GetEnvironmentVariable("ONEGAME_UPDATE_REFERENCES") == "1")
+                {
+                    // Every reference image the run wrote, so an agent knows which files to look at before committing.
+                    w.WritePropertyName("references");
+                    w.WriteStartObject();
+                    foreach (var action in new[] { "created", "updated" })
+                    {
+                        w.WritePropertyName(action);
+                        w.WriteStartArray();
+                        foreach (var r in results)
+                        {
+                            var dir = r.Source is null ? Directory.GetCurrentDirectory() : Path.GetDirectoryName(Path.GetFullPath(r.Source))!;
+                            foreach (var x in r.Expectations.Where(x => x.ReferenceAction == action && x.Target is not null))
+                            {
+                                w.WriteStringValue(Path.GetFullPath(x.Target!, dir));
+                            }
+                        }
+
+                        w.WriteEndArray();
+                    }
+
+                    w.WriteEndObject();
+                }
+
                 w.WritePropertyName("scenarios");
                 w.WriteRawValue(JsonSerializer.Serialize([.. results], ScenarioJson.Default.ScenarioResultArray));
                 w.WriteEndObject();
@@ -248,6 +284,15 @@ internal sealed class DevTools : IDevTools
                         output.WriteLine($"    expected: {e.Expected}");
                         output.WriteLine($"    actual:   {e.Actual}");
                     }
+                }
+            }
+
+            foreach (var r in results)
+            {
+                var dir = r.Source is null ? Directory.GetCurrentDirectory() : Path.GetDirectoryName(Path.GetFullPath(r.Source))!;
+                foreach (var x in r.Expectations.Where(x => x.ReferenceAction is not null && x.Target is not null))
+                {
+                    output.WriteLine($"{x.ReferenceAction} reference {Path.GetFullPath(x.Target!, dir)}");
                 }
             }
 

@@ -102,6 +102,13 @@ public interface IHotTable
     /// <summary>Writes the rows as a JSON array of objects.</summary>
     void WriteJson(JsonOut json);
 
+    /// <summary>Sets one scalar cell from text (numbers, bool, string, Fixed, enums by number), for the harness. The change bypasses commands.</summary>
+    /// <param name="row">The row index.</param>
+    /// <param name="column">The column (field) name.</param>
+    /// <param name="text">The new value.</param>
+    /// <returns>False when the row or column does not exist, the column has no text form, or the text does not parse. Generated tables implement this; a hand-written table does not support it.</returns>
+    bool TrySetFromText(int row, string column, string text) => false;
+
     /// <summary>Makes this table hold exactly the rows of <paramref name="source"/>, a table of the same type. Generated tables copy the columns in place without allocating once they have room; the default goes through the encoded form.</summary>
     void CopyFrom(IHotTable source)
     {

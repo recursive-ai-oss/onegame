@@ -12,6 +12,8 @@ Options: `--target linux-x64|win-x64|osx` (default: the host's), `--steam`, `--s
 
 Android: `onegame export --target android [--abi arm64-v8a,x86_64] [--dev]` makes a debug-signed APK (NativeAOT shared library, no Java). A game that connects to servers sets `<AndroidInternet>true</AndroidInternet>` in its project file to get the INTERNET permission in release builds too. Setup, device commands and what is verified are in [android](interfaces/android.md).
 
+iOS (on a Mac with Xcode): `onegame export --target ios-simulator [--dev]` makes an ad-hoc signed `.app` for the Simulator, `onegame export --target ios` an unsigned arm64 `.app` for a device, which the owner of an Apple Developer account signs (the steps are printed as `signingNeeds` and listed in [ios](interfaces/ios.md)). Both are NativeAOT executables; no workload is installed.
+
 ## What the build is
 
 Always the Release configuration, with the development tools left out of the program: no live-control listener, no scenario parser, no capture or replay options (`--live` exits 5 with `no_dev_tools`). The export fails with `dev_tools_present` if the program mentions the live-control assembly anyway, and `devTools` in the result is `false`.
@@ -100,6 +102,11 @@ Not run from the Linux host that builds the Windows export, so still open:
 3. With `--steam`: the game started from Steam loads `steam_api64.dll`; started directly it relaunches through Steam.
 4. The NativeAOT export (`onegame export --target win-x64` on Windows) builds without warnings, starts, and opens a window.
 
+## Web
+
+`onegame export --target web [--dev] [--out <dir>]` builds the game for the browser: .NET on WebAssembly (the interpreter; no workload needed), WebGPU, the page and its script modules in one folder that any static file server can host (serve `.wasm` as `application/wasm`; Brotli and gzip copies sit beside the files). The export writes a small wrapper project under `obj/onegame-web/` that compiles the game's own files, resources and references with the WebAssembly SDK. `--dev` keeps the development tools (a Debug build). The Release export is trimmed and builds with zero trim warnings.
+
+`onegame web test [--scenario <folder>] [--tolerance N] [--max-diff F] [--dir <exported folder>]` exports with development tools, serves the folder, opens it in headless Chrome (`ONEGAME_CHROME` names the browser) and runs the scenarios in the page. The page dials back over a WebSocket (a page cannot listen), the tool sends the scenario files and reads the result, which has the same shape as `onegame test --json`; actual and diff images of failed checks are saved to `<project>/artifacts/web/`. `--tolerance` and `--max-diff` loosen capture checks for a rasterizer that differs from the one the references came from. Sound plays through Web Audio and starts at the first click, tap or key press, as browsers require; until then the `audio` operation reports `awaiting_gesture` (see `audio.md`). A page opened with `?control=page` has no socket and exposes `__control(message)` (one MCP message in, the answer out) for scripts that inject real input.
 ## macOS
 
 `--target osx` makes `<Game>.app` for Apple silicon (`osx-arm64`): `Contents/MacOS/<Game>` is the NativeAOT program (about 7.5 MB for Solitaire), `Contents/Resources` holds `fonts/`, `art/`, `data/` and the notices file (`fonts/` is found there by `GameDefinition.DefineFonts`), and `Contents/Info.plist` names the bundle. NativeAOT needs a Mac with Apple silicon as the host; anywhere else the bundle is a self-contained CoreCLR build and carries a `not_signed` warning. The bundle is signed **ad hoc** (`codesign --force --sign -`), which lets it run on the Mac that made it (`open Game.app`); the result carries an `ad_hoc_signature` warning. Giving it to other people needs a Developer ID signature and notarization from your Apple developer account, which the tool does not do. `--bundle-id` sets `CFBundleIdentifier` (default `com.example.<name>`). `--steam` is not available for osx. The archive is a `.tar.gz` that keeps the program's executable bit.

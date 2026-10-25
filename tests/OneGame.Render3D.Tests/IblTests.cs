@@ -181,7 +181,7 @@ public class IblTests
         var env = rig.Own(rig.Renderer.CreateEnvironment(TwoTone(), 32));
         rig.Renderer.PrepareEnvironment(env);
         var lut = rig.Renderer.BrdfLut;
-        var bytes = new byte[128 * 128 * 4];
+        var bytes = new byte[128 * 128 * 8];
         rig.Device.ReadTexture(lut, 0, 0, bytes);
         var half = MemoryMarshal.Cast<byte, Half>(bytes.AsSpan());
         foreach (var (x, y) in new[] { (10, 10), (64, 64), (120, 20), (30, 100), (100, 120), (5, 60) })
@@ -189,8 +189,8 @@ public class IblTests
             var nv = (x + 0.5) / 128;
             var rough = (y + 0.5) / 128;
             var (a, b) = ReferenceLut(nv, rough);
-            var ga = (float)half[((y * 128) + x) * 2];
-            var gb = (float)half[(((y * 128) + x) * 2) + 1];
+            var ga = (float)half[((y * 128) + x) * 4];
+            var gb = (float)half[(((y * 128) + x) * 4) + 1];
             Assert.True(Math.Abs(ga - a) < 0.02 && Math.Abs(gb - b) < 0.02, $"n.v {nv:F2} roughness {rough:F2}: ({ga:F3}, {gb:F3}) against ({a:F3}, {b:F3})");
         }
     }

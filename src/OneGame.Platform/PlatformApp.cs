@@ -95,6 +95,13 @@ public sealed class PlatformApp : IDisposable
     /// <summary>Takes the next queued event, oldest first.</summary>
     public bool TryGetEvent(out PlatformEvent platformEvent) => _queue.TryDequeue(out platformEvent);
 
+    /// <summary>
+    /// Runs a command that only one backend understands, for the harness and tests: on iOS <c>describe</c>, <c>orientation</c>,
+    /// <c>text_insert</c>, <c>text_mark</c>, <c>text_unmark</c> and <c>text_delete</c> (see docs/interfaces/ios.md). Returns the backend's answer.
+    /// </summary>
+    /// <exception cref="PlatformException">The backend has no such command.</exception>
+    public string NativeCommand(string action, string? argument = null) => _backend.NativeCommand(action, argument);
+
     /// <summary>Asks the application to quit; the game sees <see cref="PlatformEventKind.QuitRequested"/>.</summary>
     public void RequestQuit() => Post(new PlatformEvent { Kind = PlatformEventKind.QuitRequested });
 
@@ -203,6 +210,10 @@ internal abstract class PlatformBackend : IDisposable
 
     public abstract void Pump(int timeoutMilliseconds);
 
+    /// <summary>A command only this backend understands; see <see cref="PlatformApp.NativeCommand"/>.</summary>
+    public virtual string NativeCommand(string action, string? argument) =>
+        throw new PlatformException($"The {Kind} backend has no native command '{action}'.");
+
     /// <summary>Whether a clipboard can be reached.</summary>
     public virtual bool ClipboardAvailable => false;
 
@@ -221,9 +232,19 @@ internal static class PlatformBackendFactory
 {
     public static PlatformBackendKind Detect()
     {
+        if (OperatingSystem.IsBrowser())
+        {
+            return PlatformBackendKind.Browser;
+        }
+
         if (OperatingSystem.IsAndroid() || AndroidActivityHost.Current is not null)
         {
             return PlatformBackendKind.Android;
+        }
+
+        if (OperatingSystem.IsIOS())
+        {
+            return IosAppHost.Current is not null ? PlatformBackendKind.Ios : PlatformBackendKind.Headless;
         }
 
         if (OperatingSystem.IsWindows())
@@ -259,8 +280,10 @@ internal static class PlatformBackendFactory
         PlatformBackendKind.X11 when OperatingSystem.IsLinux() => new X11Backend(app),
         PlatformBackendKind.Wayland when OperatingSystem.IsLinux() => new WaylandBackend(app),
         PlatformBackendKind.Win32 when OperatingSystem.IsWindows() => new Win32Backend(app),
+        PlatformBackendKind.Browser when OperatingSystem.IsBrowser() => new BrowserBackend(app),
         PlatformBackendKind.Cocoa when OperatingSystem.IsMacOS() => new Cocoa.CocoaBackend(app),
         PlatformBackendKind.Android when AndroidActivityHost.Current is not null => new AndroidBackend(app, AndroidActivityHost.Current),
+        PlatformBackendKind.Ios when IosAppHost.Current is not null => new IosBackend(app, IosAppHost.Current),
         _ => throw new PlatformException($"The {kind} backend is not available on this operating system."),
     };
 }

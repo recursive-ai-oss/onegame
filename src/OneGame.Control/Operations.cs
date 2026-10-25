@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using System.Text.Json.Serialization;
 
 namespace OneGame.Control;
@@ -42,6 +43,9 @@ public interface IControlEndpoint
     /// <summary>Runs an operation; <paramref name="argsJson"/> is a JSON object or null.</summary>
     /// <exception cref="ControlException">The operation is unknown, its arguments are wrong, or it failed.</exception>
     ControlResult Invoke(string op, string? argsJson = null);
+
+    /// <summary>Runs an operation; operations that wait for the graphics device finish here without blocking the caller.</summary>
+    ValueTask<ControlResult> InvokeAsync(string op, string? argsJson = null) => ValueTask.FromResult(Invoke(op, argsJson));
 }
 
 /// <summary>What an operation returns: a JSON text and, for captures, the PNG bytes.</summary>
@@ -128,6 +132,8 @@ public sealed record BusLoudnessStatus(int Index, string? Name, OneGame.Audio.Lo
 /// <summary>Source-generated JSON metadata for control results; nothing here uses reflection.</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(InfoResult))]
+[JsonSerializable(typeof(OneGame.Steam.Input.SteamInputReport))]
+[JsonSerializable(typeof(AudioEventsResult))]
 [JsonSerializable(typeof(StateResult))]
 [JsonSerializable(typeof(UiScaleResult))]
 [JsonSerializable(typeof(PatchResult))]
@@ -172,11 +178,11 @@ public static partial class ControlOps
         new("info", "Describe the running game: tick, frame, state hash, window size, the open screen, and the screens and fixtures it declares.", NoArgs, false),
         new("hash", "The current tick and the 64-bit state hash (hex).", NoArgs, false),
         new("state_query",
-            "Read synced state as JSON. With no arguments: the whole world (entities and tables). With entity: that entity. With property too: just that value. 'entity' is a numeric id, a type name (first of that type) or 'Type#n' (nth of that type, from 1).",
-            """{"type":"object","properties":{"entity":{"type":"string"},"property":{"type":"string"}}}""", false),
+            "Read synced state as JSON. With no arguments: the whole world (entities and tables). With entity: that entity. With property too: just that value. 'entity' is a numeric id, a type name (first of that type) or 'Type#n' (nth of that type, from 1). With table (a hot table's name) instead of entity: the table's rows, one row with 'row' (from 0). 'property' is a path: a name, [index] into a list or table, and names after it (Fitted[0].Kind); on a list, 'count' is its length.",
+            """{"type":"object","properties":{"entity":{"type":"string"},"table":{"type":"string"},"row":{"type":"integer","minimum":0},"property":{"type":"string"}}}""", false),
         new("state_patch",
-            "Set one scalar synced property from text (numbers, bool, string, Fixed like '12.5'; enums by number). The change bypasses commands; a recording that is running continues from the edited state, so replay includes it. Step first if commands are queued.",
-            """{"type":"object","properties":{"entity":{"type":"string"},"property":{"type":"string"},"value":{"type":"string"}},"required":["entity","property","value"]}""", true),
+            "Set one scalar synced property from text (numbers, bool, string, Fixed like '12.5'; enums by number). Give entity, or table and row (a hot table's name and a row from 0) with property as the column. The change bypasses commands; a recording that is running continues from the edited state, so replay includes it. Step first if commands are queued.",
+            """{"type":"object","properties":{"entity":{"type":"string"},"table":{"type":"string"},"row":{"type":"integer","minimum":0},"property":{"type":"string"},"value":{"type":"string"}},"required":["property","value"]}""", true),
         new("commands_list", "List the commands an entity accepts, with parameter types. Without 'entity', every entity type present.",
             """{"type":"object","properties":{"entity":{"type":"string"}}}""", false),
         new("command_send",
@@ -238,14 +244,16 @@ public static partial class ControlOps
             "Run frames and capture each one: 'count' captures, 'ticksPerFrame' ticks between them. Writes frame-NNNN.png and manifest.json (the video form: frames plus fps) into 'dir' under the output folder.",
             """{"type":"object","properties":{"dir":{"type":"string"},"count":{"type":"integer","minimum":1,"maximum":3600},"ticksPerFrame":{"type":"integer","minimum":1},"size":{"type":"string"},"scale":{"type":"number"},"fps":{"type":"integer","minimum":1}},"required":["dir","count"]}""", true),
         new("audio",
-            "The mixing state of the game's audio as JSON: every bus (volume, mute, low-pass, high-pass, reverb, ducking), the master limiter and its gain reduction, the loudness at the output (momentary, short-term and integrated LUFS, true peak dBTP, seconds measured; null while silent), and the music track's position and length. With reset=true the loudness measurement starts over first, so a scene can be measured from its beginning. enableMeter=BUS or disableMeter=BUS moves a per-bus loudness meter, and meterRequest in the answer says what came of it: metered, no_free_slot (every slot is used by another bus; freeBusMeters is 0), queue_full (a slot is free; try again), unavailable (this service measures no buses) or disabled. Fails with 'no_audio' when the game runs no audio service.",
-            """{"type":"object","properties":{"reset":{"type":"boolean"},"enableMeter":{"type":"integer","minimum":0},"disableMeter":{"type":"integer","minimum":0}}}""", false),
+            "The mixing state of the game's audio as JSON: every bus (volume, mute, low-pass, high-pass, reverb, ducking), the master limiter and its gain reduction, the loudness at the output (momentary, short-term and integrated LUFS, true peak dBTP, seconds measured; null while silent), and the music track's position and length. With reset=true the loudness measurement starts over first, so a scene can be measured from its beginning. enableMeter=BUS or disableMeter=BUS moves a per-bus loudness meter, and meterRequest in the answer says what came of it: metered, no_free_slot (every slot is used by another bus; freeBusMeters is 0), queue_full (a slot is free; try again), unavailable (this service measures no buses) or disabled. Fails with 'no_audio' when the game runs no audio service. The device section says where the sound goes: backend, the device's own state (started, paused, awaiting_gesture, interrupted), underruns, frames written and frames the device has taken, and the peak among them (0 = only silence reached the device). unlock=true asks a web page to start audio (works only after a user gesture; the answer is in device.request); interrupt=begin|end posts an iOS audio-session interruption; suspend=true|false stops or starts the device as the app lifecycle does.",
+            """{"type":"object","properties":{"reset":{"type":"boolean"},"enableMeter":{"type":"integer","minimum":0},"disableMeter":{"type":"integer","minimum":0},"unlock":{"type":"boolean"},"interrupt":{"type":"string","enum":["begin","end"]},"suspend":{"type":"boolean"}}}""", false),
         new("audio_capture",
             "For a game whose audio runs on the capture sink (no device): render 'seconds' of audio (default 1) and report the frames, peak and loudness. With 'path' the whole recording is written as a WAV under the output folder, with its SHA-256. clear=true empties the recording first; reset=true restarts the loudness measurement. Fails with 'rejected' when audio plays on a device.",
             """{"type":"object","properties":{"seconds":{"type":"number","minimum":0,"maximum":600},"path":{"type":"string"},"clear":{"type":"boolean"},"reset":{"type":"boolean"}}}""", true),
         ..QualityOps,
         ..Scene3DOps,
         ..TouchOps,
+        ..SteamInputOps,
+        ..AudioEventOps,
         new("quit", "Ask the game to exit.", NoArgs, false),
     ];
 }

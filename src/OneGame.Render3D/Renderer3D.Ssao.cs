@@ -32,8 +32,8 @@ public sealed partial class Renderer3D
             new(0, 2, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
         ];
         _ssaoLayout = Own(device.CreatePipelineLayout(bindings));
-        var ssaoPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Ssao.PSSsao.EntryPoint) { SpirV = Ssao.PSSsao.SpirV, Msl = Ssao.PSSsao.Msl, MslFunctionName = Ssao.PSSsao.MslFunctionName, Bindings = Ssao.Bindings.All }));
-        var blurPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Ssao.PSBlur.EntryPoint) { SpirV = Ssao.PSBlur.SpirV, Msl = Ssao.PSBlur.Msl, MslFunctionName = Ssao.PSBlur.MslFunctionName, Bindings = Ssao.Bindings.All }));
+        var ssaoPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Ssao.PSSsao.EntryPoint) { SpirV = Ssao.PSSsao.SpirV, Wgsl = Ssao.PSSsao.Wgsl, WgslEntryPoint = Ssao.PSSsao.WgslEntryPoint, Msl = Ssao.PSSsao.Msl, MslFunctionName = Ssao.PSSsao.MslFunctionName, Bindings = Ssao.Bindings.All }));
+        var blurPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Ssao.PSBlur.EntryPoint) { SpirV = Ssao.PSBlur.SpirV, Wgsl = Ssao.PSBlur.Wgsl, WgslEntryPoint = Ssao.PSBlur.WgslEntryPoint, Msl = Ssao.PSBlur.Msl, MslFunctionName = Ssao.PSBlur.MslFunctionName, Bindings = Ssao.Bindings.All }));
         GraphicsPipelineDesc Desc(GpuShader pixel, string label) => new()
         {
             Layout = _ssaoLayout,

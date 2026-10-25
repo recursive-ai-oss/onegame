@@ -80,6 +80,8 @@ public sealed class SteamStorePlatform : IStorePlatform
     /// <summary>Typed Steam callbacks and call results, delivered from <see cref="Pump"/>.</summary>
     public SteamCallbacks Callbacks { get; }
 
+    internal ISteamNative Native => _native;
+
     /// <summary>Asks Steam how many players the game has now. The handler runs from <see cref="Pump"/>.</summary>
     public void RequestNumberOfCurrentPlayers(Action<NumberOfCurrentPlayers, bool> handler)
     {

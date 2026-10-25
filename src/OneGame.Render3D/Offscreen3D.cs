@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using OneGame.Gpu;
 using OneGame.Gpu.Graph;
 
@@ -66,6 +67,24 @@ public sealed class Offscreen3D : IDisposable
 
         var bytes = new byte[Width * Height * 4];
         _renderer.Device.ReadTexture(Target, 0, 0, bytes);
+        return bytes;
+    }
+
+    /// <summary>
+    /// Like <see cref="Capture"/>, for backends that cannot block on a read (a browser): the frame is drawn now and the read completes later.
+    /// </summary>
+    /// <param name="scene">What to draw.</param>
+    /// <returns><c>Width * Height * 4</c> bytes, top row first.</returns>
+    public async ValueTask<byte[]> CaptureAsync(Scene3D scene)
+    {
+        Render(scene);
+        if (Format == GpuFormat.Rgba16Float)
+        {
+            throw new InvalidOperationException("Capture returns 8-bit pixels; use Render and read the float target yourself.");
+        }
+
+        var bytes = new byte[Width * Height * 4];
+        await _renderer.Device.ReadTextureAsync(Target, 0, 0, bytes).ConfigureAwait(true);
         return bytes;
     }
 

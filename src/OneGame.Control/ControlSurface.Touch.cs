@@ -62,4 +62,21 @@ public sealed partial class ControlSurface
         });
         return Done();
     }
+
+    private string PlatformNative(Args a)
+    {
+        string answer;
+        try
+        {
+            answer = Game.Platform.NativeCommand(a.Required("action"), a.Str("text"));
+        }
+        catch (PlatformException ex)
+        {
+            throw new ControlException("unsupported", ex.Message);
+        }
+
+        // Text typed through the system reaches the game as platform events; let them take effect before answering.
+        Game.DrainInput();
+        return answer.StartsWith('{') ? answer : "{\"result\":\"" + answer + "\"}";
+    }
 }

@@ -353,6 +353,53 @@ internal static class ValueEmitters
         s.Close();
         s.Line("j.EndArray();");
         s.Close();
+        // One scalar cell from text, for the harness. Only numbers, bool, string, enum and Fixed columns have a text form.
+        s.Line("/// <inheritdoc />");
+        s.Open("public bool TrySetFromText(int row, string column, string text)");
+        s.Line("if ((uint)row >= (uint)_count) { return false; }");
+        s.Open("switch (column)");
+        foreach (var m in members)
+        {
+            var c = m.Codec;
+            if (c.Kind == CodecKind.Value && c.TypeName != "global::OneGame.Core.Fixed")
+            {
+                continue;
+            }
+
+            var cell = $"_{m.Name}[row]";
+            s.Open($"case {EmitUtil.Literal(m.Name)}:");
+            switch (c.Kind)
+            {
+                case CodecKind.String:
+                    s.Line($"{cell} = text; return true;");
+                    break;
+                case CodecKind.Value:
+                    s.Line($"if (!global::OneGame.Core.Fixed.TryParse(text, out var f)) {{ return false; }} {cell} = f; return true;");
+                    break;
+                default:
+                    var typeName = c.Kind == CodecKind.Enum ? c.UnderlyingCs : c.TypeName;
+                    if (c.IsBool)
+                    {
+                        s.Line($"if (!global::OneGame.Core.TextParse.TryBool(text, out var b)) {{ return false; }} {cell} = b; return true;");
+                    }
+                    else if (c.Unsigned)
+                    {
+                        s.Line($"if (!global::OneGame.Core.TextParse.TryUnsigned(text, {typeName}.MaxValue, out var u)) {{ return false; }} {cell} = ({c.TypeName})({typeName})u; return true;");
+                    }
+                    else
+                    {
+                        s.Line($"if (!global::OneGame.Core.TextParse.TryInteger(text, {typeName}.MinValue, {typeName}.MaxValue, out var n)) {{ return false; }} {cell} = ({c.TypeName})({typeName})n; return true;");
+                    }
+
+                    break;
+            }
+
+            s.Close();
+        }
+
+        s.Line("default: return false;");
+        s.Close();
+        s.Close();
         s.Close();
         if (ns.Length > 0)
         {

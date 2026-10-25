@@ -10,6 +10,7 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <!-- On a phone the seven columns want the wide way round. -->
     <AndroidOrientation>sensorLandscape</AndroidOrientation>
+    <IosOrientation>landscape</IosOrientation>
   </PropertyGroup>
 
   <Import Project="$(OneGameRoot)build/Game.targets" />
@@ -18,7 +19,6 @@
     <Compile Include="**/*.cs" Exclude="tests/**;obj/**;bin/**" />
     <ProjectReference Include="$(OneGameRoot)src/OneGame.Steam/OneGame.Steam.csproj" />
     <ProjectReference Include="$(OneGameRoot)src/OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
-    <ProjectReference Include="$(OneGameRoot)src/OneGame.Audio/OneGame.Audio.csproj" />
   </ItemGroup>
 
   <ItemGroup>

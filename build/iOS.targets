@@ -1,0 +1,23 @@
+<Project>
+
+  <!-- Imported by Game.targets. A game published for an iOS runtime identifier (dotnet publish -r iossimulator-arm64 or ios-arm64, on a Mac with
+       Xcode) becomes a NativeAOT executable that UIKit runs: OneGameIosEntry.Main starts the app (IosAppHost.Run) and runs the game's Main on
+       its own thread. The .NET SDK does not list the iOS identifiers as NativeAOT targets unless the iOS workload is installed, so this file
+       adds them to the compiler pack's list; the compiler (runtime.osx-arm64.Microsoft.DotNet.ILCompiler) and the target runtime pack
+       (Microsoft.NETCore.App.Runtime.NativeAOT.<rid>) are ordinary packages restored by NuGet, and the linker uses the Xcode toolchain and
+       the iPhoneOS / iPhoneSimulator SDK. No workload is needed. `onegame export` with the ios-simulator or ios target does all of this. -->
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'ios-arm64' or '$(RuntimeIdentifier)' == 'iossimulator-arm64'">
+    <OneGameIos>true</OneGameIos>
+    <PublishAot>true</PublishAot>
+    <SelfContained>true</SelfContained>
+    <StartupObject>OneGameIosEntry</StartupObject>
+    <DefineConstants>$(DefineConstants);ONEGAME_IOS</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(OneGameIos)' == 'true'">
+    <KnownILCompilerPack Update="Microsoft.DotNet.ILCompiler" ILCompilerRuntimeIdentifiers="%(ILCompilerRuntimeIdentifiers);ios-arm64;iossimulator-arm64" />
+    <Compile Include="$(MSBuildThisFileDirectory)IosEntry.cs" Visible="false" />
+  </ItemGroup>
+
+</Project>
