@@ -14,6 +14,9 @@ public sealed record ConnectOptions
     /// <summary>The scope to subscribe to.</summary>
     public uint Scope { get; init; } = 1;
 
+    /// <summary>More scopes to follow over the same connection, for a server that serves several (its own, and others it relays). Their replicas are in <see cref="RemoteSession.Replicas"/> after the first.</summary>
+    public IReadOnlyList<uint> AlsoScopes { get; init; } = [];
+
     /// <summary>The name this client has in reports.</summary>
     public string Name { get; init; } = "client";
 
@@ -62,7 +65,8 @@ public sealed class RemoteSession
     /// <summary>Connects an empty replica world to a server and subscribes to the scope. Pump it to make progress.</summary>
     /// <param name="options">Where to connect.</param>
     /// <param name="replicaWorld">An empty replica world with the server's entity types, tables and systems.</param>
-    public RemoteSession(ConnectOptions options, World replicaWorld)
+    /// <param name="extraWorlds">Empty replica worlds, one for each of <see cref="ConnectOptions.AlsoScopes"/>, in order.</param>
+    public RemoteSession(ConnectOptions options, World replicaWorld, IReadOnlyList<World>? extraWorlds = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(replicaWorld);
@@ -71,8 +75,22 @@ public sealed class RemoteSession
         Connection = Open(Transport, endpoint, options.Conditions);
         Node = new Node(options.Name);
         var link = Node.ConnectVia(Connection);
+        Link = link;
         Replica = Node.Subscribe(link, new ScopeId(options.Scope), replicaWorld);
+        var all = new List<ReplicaScope> { Replica };
+        for (var i = 0; i < options.AlsoScopes.Count; i++)
+        {
+            all.Add(Node.Subscribe(link, new ScopeId(options.AlsoScopes[i]), extraWorlds![i]));
+        }
+
+        Replicas = all;
     }
+
+    /// <summary>The link to the server, for subscribing to more scopes later.</summary>
+    public Link Link { get; }
+
+    /// <summary>Every replica this session follows, the main one first.</summary>
+    public IReadOnlyList<ReplicaScope> Replicas { get; }
 
     /// <summary>The options it was created with.</summary>
     public ConnectOptions Options { get; }

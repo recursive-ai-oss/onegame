@@ -233,14 +233,15 @@ public static class GameApp
                 {
                     Address = address,
                     Scope = (uint)a.GetInt("scope", 1),
+                    AlsoScopes = a.Get("also-scopes") is { } also ? [.. also.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(t => uint.Parse(t, CultureInfo.InvariantCulture))] : [],
                     Name = a.Get("name") ?? "client",
                     Conditions = a.Get("net") is { } net ? RemoteSession.ParseConditions(net) : null,
                 },
             };
         }
-        else if (a.Has("scope") || a.Has("net") || a.Has("name"))
+        else if (a.Has("scope") || a.Has("also-scopes") || a.Has("net") || a.Has("name"))
         {
-            throw new FormatException("--scope, --name and --net only apply with --connect <address>.");
+            throw new FormatException("--scope, --also-scopes, --name and --net only apply with --connect <address>.");
         }
 
         return a.Get("gpu") switch

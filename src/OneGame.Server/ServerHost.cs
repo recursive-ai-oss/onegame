@@ -60,6 +60,7 @@ public sealed class ServerHost
     /// </summary>
     public void PumpNetwork()
     {
+        _setup.Pump?.Invoke(this);
         _network.PumpOutbound();
         _network.PumpInbound();
     }
@@ -152,6 +153,7 @@ public sealed class ServerHost
         }
 
         State = ServerState.Running;
+        _setup.Started?.Invoke(this);
         Log.Info($"server '{Config.Name}' started: {_scopes.Count} scope(s), {Config.TickRate} ticks/s");
         foreach (var spec in Config.Plugins)
         {
@@ -176,6 +178,7 @@ public sealed class ServerHost
             throw new InvalidOperationException($"The server is {State}; start it before stepping.");
         }
 
+        _setup.BeforeTick?.Invoke(this);
         _network.PumpInbound();
         Node.Pump();
         _localQueued = 0;
@@ -195,6 +198,7 @@ public sealed class ServerHost
 
         Tick++;
         Log.Tick = Tick;
+        _setup.AfterTick?.Invoke(this);
         _network.PumpOutbound();
     }
 

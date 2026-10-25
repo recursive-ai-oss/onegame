@@ -87,6 +87,18 @@ public sealed class ServerSetup
 
     /// <summary>Creates the starting entities of a hosted scope. Called once per authority world, after <see cref="BuildWorld"/>, and never for replica worlds (which fill in from the server's snapshot).</summary>
     public Action<World, ScopeId>? SeedWorld { get; init; }
+
+    /// <summary>Called once at the end of <see cref="ServerHost.Start"/>, with the scopes built and the listeners open. Connect to other servers here, or restore saves.</summary>
+    public Action<ServerHost>? Started { get; init; }
+
+    /// <summary>Called at the start of every tick, before arrived messages are handled. Move the transports of the server's own outgoing connections here.</summary>
+    public Action<ServerHost>? BeforeTick { get; init; }
+
+    /// <summary>Called after every tick, between ticks, so it may start entity transfers, save scopes or drive escrow.</summary>
+    public Action<ServerHost>? AfterTick { get; init; }
+
+    /// <summary>Called whenever the host moves network messages (every loop of <see cref="ServerHost.Run"/>, and between ticks), so connections the game opened keep acknowledging.</summary>
+    public Action<ServerHost>? Pump { get; init; }
 }
 
 /// <summary>One hosted scope.</summary>

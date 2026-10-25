@@ -69,6 +69,10 @@ Without `node:` a `step` goes to every node, `state`/`tick`/`hash` expectations 
 
 `onegame cluster up --spec f.yaml [--dir d]` (starts, prints the state JSON, leaves nodes running), `status`, `hashes` (exit 1 on mismatch or drift), `down`, `call <node> <op> [json]`, `test <scenario.yaml> --spec f.yaml` (up, run, down). The state file is found by `--dir` or `--cluster file`, else `./.onegame-cluster/cluster.json`. `onegame mcp --cluster file` is one MCP server for all nodes: every tool takes an extra `node` argument. `onegame export --server [--plugins]` publishes the server project NativeAOT (or `onegame-server` framework-dependent with `--plugins`) with the export report of `exporting.md`.
 
+## Servers that talk to each other
+
+Every server of a cluster is given its port before any node starts. A server's `args` may use `{port:NAME}` (the port server NAME listens on, udp and ws alike) and `{dir}` (the cluster folder), so a server that starts first can be told where a later one will listen. The game's server code opens its own outgoing connections from the `ServerSetup` hooks `Started`, `BeforeTick`, `AfterTick` and `Pump`, and reads `--option KEY=VALUE` settings from `ServerConfig.Options`. A client may follow more scopes than one over its connection: `--also-scopes 2,3` (`ConnectOptions.AlsoScopes`, `GameInstance.Replicas`), and `GameDefinition.OnFrame` runs each frame after the network was pumped.
+
 ## Limits
 
 One server connection per client process. Servers do not connect to each other yet. A snapshot larger than the transport's `MaxMessageBytes` (1 MiB default) closes that client's connection. Cluster launching uses `/bin/sh` and Unix sockets (Linux, macOS).

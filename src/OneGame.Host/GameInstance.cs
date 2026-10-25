@@ -181,6 +181,9 @@ public sealed class GameInstance : IDisposable
     /// <summary>The local replica of the world, kept in step by the cluster. Its hash must equal the authority's at every tick; drift is reported by <see cref="DriftReports"/>.</summary>
     public ReplicaScope Replica => _replica;
 
+    /// <summary>Every scope this game follows: <see cref="Replica"/> first, then the ones named in <see cref="ConnectOptions.AlsoScopes"/>.</summary>
+    public IReadOnlyList<ReplicaScope> Replicas => _remote is { } r ? r.Replicas : [_replica];
+
     /// <summary>Drift reports filed so far by the local replica; empty while replica and authority agree.</summary>
     public IReadOnlyList<DriftReport> DriftReports => _remote is { } r ? r.DriftReports : _cluster!.DriftReports;
 
@@ -258,7 +261,15 @@ public sealed class GameInstance : IDisposable
     {
         var view = new World(Seed, _registry, WorldRole.Replica);
         Definition.RegisterSystems(view);
-        _remote = new RemoteSession(connect, view);
+        var extra = new List<World>();
+        foreach (var _ in connect.AlsoScopes)
+        {
+            var w = new World(Seed, _registry, WorldRole.Replica);
+            Definition.RegisterSystems(w);
+            extra.Add(w);
+        }
+
+        _remote = new RemoteSession(connect, view, extra);
         _replica = _remote.Replica;
         World = view;
         _remote.Pump();
@@ -425,6 +436,7 @@ public sealed class GameInstance : IDisposable
         {
             // The server runs the ticks; a frame takes in whatever arrived.
             remote.Pump();
+            Definition.OnFrame(this);
             if (World.Tick != _remoteTick)
             {
                 _remoteTick = World.Tick;

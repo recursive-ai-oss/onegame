@@ -92,6 +92,9 @@ public sealed class ServerConfig
     /// <summary>How many recent ticks of per-scope state hashes to keep so another node's hash can be compared at the same tick; 0 turns it off.</summary>
     public int HashHistory { get; init; }
 
+    /// <summary>Free-form <c>key=value</c> settings for the game's own server code (the command line's <c>--option key=value</c>), for example the addresses of other servers to connect to.</summary>
+    public IReadOnlyList<KeyValuePair<string, string>> Options { get; init; } = [];
+
     /// <summary>A socket path for live control, or null for none (the runner may supply its own).</summary>
     public string? Live { get; init; }
 

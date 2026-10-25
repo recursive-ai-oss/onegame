@@ -161,12 +161,13 @@ public sealed class ProcessCluster : IDisposable
         var started = new List<NodeState>();
         var processes = new List<Process>();
         var stateFile = Path.Combine(dir, "cluster.json");
+        var ports = spec.Nodes.Where(n => n.Role == NodeRole.Server).ToDictionary(n => n.Name, _ => FreePort(), StringComparer.Ordinal);
         ProcessCluster? cluster = null;
         try
         {
             foreach (var node in spec.Nodes.Where(n => n.Role == NodeRole.Server).Concat(spec.Nodes.Where(n => n.Role == NodeRole.Client)))
             {
-                var (state, process) = Start(spec, node, dir, parent, started);
+                var (state, process) = Start(spec, node, dir, parent, started, ports);
                 started.Add(state);
                 processes.Add(process);
                 WriteState(new ClusterState(spec.Name, dir, Environment.ProcessId, [.. started]), stateFile);
@@ -544,7 +545,7 @@ public sealed class ProcessCluster : IDisposable
 
     // ---- processes ----
 
-    private static (NodeState State, Process Process) Start(ClusterSpec spec, NodeSpec node, string dir, int parent, List<NodeState> started)
+    private static (NodeState State, Process Process) Start(ClusterSpec spec, NodeSpec node, string dir, int parent, List<NodeState> started, Dictionary<string, int> ports)
     {
         var socket = Path.Combine(dir, node.Name + ".sock");
         var log = Path.Combine(dir, node.Name + ".log");
@@ -552,11 +553,11 @@ public sealed class ProcessCluster : IDisposable
         string? connect = null;
         if (node.Role == NodeRole.Server)
         {
-            args.AddRange(node.Args);
+            args.AddRange(node.Args.Select(a => Expand(a, ports, dir)));
             args.AddRange(["--name", node.Name]);
             foreach (var l in node.Listen.Split('+'))
             {
-                args.AddRange(["--listen", l + ":0@127.0.0.1"]);
+                args.AddRange(["--listen", l + ":" + ports[node.Name].ToString(CultureInfo.InvariantCulture) + "@127.0.0.1"]);
             }
 
             foreach (var s in node.Scopes)
@@ -582,7 +583,7 @@ public sealed class ProcessCluster : IDisposable
             var target = started.First(s => s.Name == node.Connect);
             var endpoint = target.Listen.First(e => e.Transport == node.Transport);
             connect = $"{node.Transport}://127.0.0.1:{endpoint.Port.ToString(CultureInfo.InvariantCulture)}";
-            args.AddRange(node.Args);
+            args.AddRange(node.Args.Select(a => Expand(a, ports, dir)));
             args.AddRange(["--headless", "--gpu", "off", "--name", node.Name, "--connect", connect, "--scope", node.Scope.ToString(CultureInfo.InvariantCulture)]);
             if (node.Net is not null)
             {
@@ -681,6 +682,41 @@ public sealed class ProcessCluster : IDisposable
 
             Thread.Sleep(30);
         }
+    }
+
+    // Every server gets its port before any node starts, so servers can be told where their peers will listen (a server that starts first
+    // is given the address of one that starts later and connects when it is up). The same number serves udp and ws: they are different protocols.
+    private static int FreePort()
+    {
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            using var tcp = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+            tcp.Start();
+            var port = ((System.Net.IPEndPoint)tcp.LocalEndpoint).Port;
+            try
+            {
+                using var udp = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, port));
+                return port;
+            }
+            catch (System.Net.Sockets.SocketException)
+            {
+                // That number is taken for udp; try another.
+            }
+        }
+
+        throw new ClusterException("no_port", "Could not find a free port for a server.");
+    }
+
+    // {port:NAME} is the port server NAME listens on; {dir} is the cluster's folder (saves and logs).
+    private static string Expand(string arg, Dictionary<string, int> ports, string dir)
+    {
+        var text = arg.Replace("{dir}", dir, StringComparison.Ordinal);
+        foreach (var (name, port) in ports)
+        {
+            text = text.Replace("{port:" + name + "}", port.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        }
+
+        return text;
     }
 
     private static string Tail(string log) => File.Exists(log) ? string.Join('\n', File.ReadAllLines(log).TakeLast(15)) : "(no output)";

@@ -41,6 +41,11 @@ public abstract class GameDefinition
     {
     }
 
+    /// <summary>Called once per frame of a game connected to a server, after the network was pumped and before the UI updates. Advance predicted worlds here.</summary>
+    public virtual void OnFrame(GameInstance game)
+    {
+    }
+
     /// <summary>Called for an input event the UI did not consume, such as a click on empty space or a gameplay key.</summary>
     public virtual void OnInput(GameInstance game, in OneGame.Platform.PlatformEvent input)
     {

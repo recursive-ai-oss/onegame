@@ -32,9 +32,10 @@ public sealed partial class ServerAppJson : JsonSerializerContext
 public static class ServerApp
 {
     private const string Usage = "usage: <server> [--config <server.yaml>] [--name N] [--scope ID[:SEED]]... [--listen udp:PORT|ws:PORT[@ADDRESS]]... [--tick-rate N] [--hash-history N]\n"
-        + "          [--live [socket]] [--ticks N] [--manual] [--parent PID]\n"
+        + "          [--option KEY=VALUE]... [--live [socket]] [--ticks N] [--manual] [--parent PID]\n"
         + "  --config        the server configuration (YAML); the other options override it\n"
         + "  --listen        accept clients on a reliable-UDP or WebSocket port (0 picks a free one; the bound ports are printed)\n"
+        + "  --option        a KEY=VALUE setting for the game's own server code (repeatable)\n"
         + "  --live          listen for live control (MCP, JSON lines) on a Unix socket; the path is printed in the ready line\n"
         + "  --ticks N       run N ticks as fast as possible, then stop (without --live) or keep serving (with --live)\n"
         + "  --manual        do not tick on the clock; only the 'step' operation advances the server\n"
@@ -63,6 +64,7 @@ public static class ServerApp
             int? tickRate = null, history = null;
             var scopes = new List<ScopeConfig>();
             var listen = new List<ListenConfig>();
+            var options = new List<KeyValuePair<string, string>>();
             for (var i = 0; i < args.Length; i++)
             {
                 string Value() => i + 1 < args.Length ? args[++i] : throw new FormatException(args[i] + " needs a value");
@@ -79,6 +81,9 @@ public static class ServerApp
                         break;
                     case "--listen":
                         listen.Add(ParseListen(Value()));
+                        break;
+                    case "--option":
+                        options.Add(ParseOption(Value()));
                         break;
                     case "--tick-rate":
                         tickRate = (int)Number(args[i], Value());
@@ -120,6 +125,7 @@ public static class ServerApp
                 Listen = listen.Count > 0 ? listen : baseConfig.Listen,
                 ClientTrust = baseConfig.ClientTrust,
                 HashHistory = history ?? baseConfig.HashHistory,
+                Options = options.Count > 0 ? options : baseConfig.Options,
             };
         }
         catch (Exception ex) when (ex is FormatException or ServerConfigException)
@@ -201,6 +207,12 @@ public static class ServerApp
 
     private static long Number(string option, string text) =>
         long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : throw new FormatException($"{option} needs a whole number, got '{text}'");
+
+    private static KeyValuePair<string, string> ParseOption(string text)
+    {
+        var eq = text.IndexOf('=', StringComparison.Ordinal);
+        return eq > 0 ? new KeyValuePair<string, string>(text[..eq], text[(eq + 1)..]) : throw new FormatException($"--option is KEY=VALUE, got '{text}'");
+    }
 
     private static ScopeConfig ParseScope(string text)
     {
