@@ -5,6 +5,7 @@ using OneGame.Control;
 using OneGame.Core;
 using OneGame.Gpu;
 using OneGame.Gpu.Vulkan;
+using OneGame.Net;
 using OneGame.Platform;
 using OneGame.Render2D;
 using OneGame.Steam;
@@ -19,6 +20,7 @@ string[] names =
 [
     CoreModule.Name,
     SyncModule.Name,
+    NetModule.Name,
     GpuModule.Name,
     VulkanModule.Name,
     PlatformModule.Name,
@@ -119,6 +121,13 @@ var syncProblem = SyncSmoke.Run();
 if (syncProblem is not null)
 {
     Console.Error.WriteLine("sync smoke failed: " + syncProblem);
+    return 1;
+}
+
+var netProblem = NetSmoke.Run();
+if (netProblem is not null)
+{
+    Console.Error.WriteLine("net smoke failed: " + netProblem);
     return 1;
 }
 

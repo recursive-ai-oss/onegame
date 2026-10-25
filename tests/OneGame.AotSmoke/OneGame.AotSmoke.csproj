@@ -17,6 +17,7 @@
     <!-- Every runtime assembly, so the publish trims and compiles all of them. -->
     <ProjectReference Include="../../src/OneGame.Core/OneGame.Core.csproj" />
     <ProjectReference Include="../../src/OneGame.Sync/OneGame.Sync.csproj" />
+    <ProjectReference Include="../../src/OneGame.Net/OneGame.Net.csproj" />
     <ProjectReference Include="../../src/OneGame.Gpu/OneGame.Gpu.csproj" />
     <ProjectReference Include="../../src/OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan.csproj" />
     <ProjectReference Include="../../src/OneGame.Platform/OneGame.Platform.csproj" />

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneGame.Net/OneGame.Net.csproj" />
+    <ProjectReference Include="../../src/OneGame.Sync/OneGame.Sync.csproj" />
+    <!-- The sample entities (a shop, wandering bots, a hot table) run through the generator like a game's would. -->
+    <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <Compile Include="../OneGame.Core.Tests/Samples/*.cs" LinkBase="Samples" />
+    <Compile Include="../OneGame.Core.Tests/Fuzz/FuzzTargets.cs" Link="Fuzz/FuzzTargets.cs" />
+    <Compile Include="../OneGame.Sync.Tests/Scenario.cs" Link="Scenario.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Fuzzer seeds and every crash input it ever found; the regression test replays them all. -->
+    <None Include="../../testdata/fuzz-net/**/*.bin" Link="testdata/fuzz-net/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Real sockets, wall-clock waits and per-thread allocation counts do not mix with other tests running beside them. -->
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- A third-party WebSocket peer used as a black box by the interop tests (needs ONEGAME_WS_PYTHON). -->
+    <Content Include="interop/peer.py" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="OneGame.Core" />
+    <Using Include="OneGame.Sync" />
+    <Using Include="OneGame.Net" />
+  </ItemGroup>
+
+</Project>
