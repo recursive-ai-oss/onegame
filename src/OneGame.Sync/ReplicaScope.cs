@@ -17,6 +17,12 @@ public enum ReplicaState
 
     /// <summary>The authority kept sending data this replica could not apply, three times in a row. It stopped asking.</summary>
     Failed,
+
+    /// <summary>The authority took the read right away. The replica's world was emptied; <see cref="Node.Resubscribe"/> asks again.</summary>
+    Revoked,
+
+    /// <summary>This node stopped following the scope (<see cref="Node.Unsubscribe"/>). The world keeps its last state and is no longer updated.</summary>
+    Unsubscribed,
 }
 
 /// <summary>
@@ -26,6 +32,9 @@ public enum ReplicaState
 public sealed class ReplicaScope
 {
     private const int MaxResyncAttempts = 3;
+    private const int MaxPending = 1024;
+    private const int MaxResults = 256;
+    private const int MaxReasonChars = 256;
 
     private readonly StateDigest _localDigest = new();
     private readonly SyncWriter _digestScratch = new(1024);
@@ -33,7 +42,11 @@ public sealed class ReplicaScope
     private long _pendingTick;
     private ulong _pendingAuthorityHash;
     private ulong _pendingLocalHash;
+    private long _digestRequestedTick;
     private int _failures;
+    private uint _nextSequence = 1;
+    private readonly List<PendingSend> _pending = [];
+    private readonly List<CommandResult> _results = [];
 
     internal ReplicaScope(Node node, Link link, ScopeId id, World world)
     {
@@ -68,8 +81,26 @@ public sealed class ReplicaScope
     /// <summary>How many times this replica asked for a fresh snapshot after the first.</summary>
     public int Resyncs { get; private set; }
 
-    /// <summary>The replica's current hash.</summary>
+    /// <summary>The hash of everything the replica world holds. Equals the authority's <see cref="AuthorityScope.Hash"/> only when this replica is allowed to see everything.</summary>
     public ulong Hash => World.ComputeHash();
+
+    /// <summary>
+    /// The hash of the view this replica holds: the authority computes the same value for the same audience (<see cref="AuthorityScope.ViewHashFor"/>),
+    /// so equality at the same tick means nothing it may see has drifted, and nothing it may not see was sent.
+    /// </summary>
+    public ulong ViewHash => World.ComputeViewHash();
+
+    /// <summary>The sequence number of the command most recently forwarded to the authority, or 0 if none yet. Read it right after <c>entity.Send.X(...)</c> to match the answer in <see cref="Results"/>.</summary>
+    public uint LastSequence => _nextSequence - 1;
+
+    /// <summary>The answers received for forwarded commands, oldest first (the latest 256).</summary>
+    public IReadOnlyList<CommandResult> Results => _results;
+
+    /// <summary>How many forwarded commands have not been answered yet.</summary>
+    public int PendingCommands => _pending.Count;
+
+    /// <summary>Raised for every answer to a forwarded command: executed, rejected with the handler's reason, refused, or dropped.</summary>
+    public event Action<CommandResult>? CommandCompleted;
 
     internal void RequestSnapshot()
     {
@@ -80,6 +111,25 @@ public sealed class ReplicaScope
         Link.Channel.Send(w.Written);
     }
 
+    internal void MarkUnsubscribed()
+    {
+        var w = Node.Out;
+        w.Reset();
+        w.WriteByte(Msg.Unsubscribe);
+        w.WriteVarUInt(Id.Value);
+        Link.Channel.Send(w.Written);
+        State = ReplicaState.Unsubscribed;
+        DropPending();
+    }
+
+    internal void Restart()
+    {
+        _failures = 0;
+        _awaitingDigest = false;
+        State = ReplicaState.Subscribing;
+        RequestSnapshot();
+    }
+
     private void Forward(long tick, EntityId entity, uint commandId, ReadOnlySpan<byte> payload, CommandStatus status)
     {
         if (status != CommandStatus.Forwarded)
@@ -87,10 +137,18 @@ public sealed class ReplicaScope
             return;
         }
 
+        var sequence = _nextSequence++;
+        if (_pending.Count >= MaxPending)
+        {
+            Complete(new CommandResult(Id, _pending[0].Sequence, _pending[0].Entity, _pending[0].CommandId, CommandVerdict.Dropped, default, null));
+        }
+
+        _pending.Add(new PendingSend(sequence, entity, commandId));
         var w = Node.Out;
         w.Reset();
         w.WriteByte(Msg.Command);
         w.WriteVarUInt(Id.Value);
+        w.WriteVarUInt(sequence);
         w.WriteVarUInt(entity.Value);
         w.WriteVarUInt(commandId);
         w.WriteRaw(payload);
@@ -121,12 +179,53 @@ public sealed class ReplicaScope
                 break;
             case Msg.CommandRefused:
             {
+                var sequence = r.ReadVarUInt();
                 var entity = r.ReadVarUInt();
                 var command = r.ReadVarUInt();
                 var reason = r.ReadByte();
-                if (r.Ok && command <= uint.MaxValue)
+                if (r.Ok && command <= uint.MaxValue && sequence <= uint.MaxValue)
                 {
-                    Node.FileRefusal(new CommandRefusal(Id, Link.Connection.Id, new EntityId(entity), (uint)command, (RefusalReason)reason));
+                    Node.FileRefusal(new CommandRefusal(Id, (Link.IsRemote ? 0 : Link.Connection.Id), new EntityId(entity), (uint)command, (RefusalReason)reason));
+                    Answer((uint)sequence, new CommandResult(Id, (uint)sequence, new EntityId(entity), (uint)command, CommandVerdict.Refused, (RefusalReason)reason, null));
+                }
+
+                break;
+            }
+
+            case Msg.CommandResult:
+            {
+                var sequence = r.ReadVarUInt();
+                var entity = r.ReadVarUInt();
+                var command = r.ReadVarUInt();
+                var verdict = r.ReadByte();
+                var refusal = r.ReadByte();
+                var reason = r.ReadString();
+                if (r.Ok && command <= uint.MaxValue && sequence <= uint.MaxValue && verdict <= (byte)CommandVerdict.Dropped)
+                {
+                    if (reason.Length > MaxReasonChars)
+                    {
+                        reason = reason[..MaxReasonChars];
+                    }
+
+                    Answer((uint)sequence, new CommandResult(Id, (uint)sequence, new EntityId(entity), (uint)command, (CommandVerdict)verdict, (RefusalReason)refusal, reason.Length == 0 ? null : reason));
+                }
+                else
+                {
+                    Node.ReportProtocolError(Id, LastTick, "malformed command result");
+                }
+
+                break;
+            }
+
+            case Msg.Revoked:
+            {
+                var reason = r.ReadByte();
+                if (r.Ok)
+                {
+                    State = ReplicaState.Revoked;
+                    World.ClearReplica();
+                    DropPending();
+                    Node.FileRefusal(new CommandRefusal(Id, (Link.IsRemote ? 0 : Link.Connection.Id), EntityId.None, 0, (RefusalReason)reason));
                 }
 
                 break;
@@ -136,7 +235,7 @@ public sealed class ReplicaScope
             {
                 var reason = r.ReadByte();
                 State = ReplicaState.Refused;
-                Node.FileRefusal(new CommandRefusal(Id, Link.Connection.Id, EntityId.None, 0, (RefusalReason)reason));
+                Node.FileRefusal(new CommandRefusal(Id, (Link.IsRemote ? 0 : Link.Connection.Id), EntityId.None, 0, (RefusalReason)reason));
                 break;
             }
 
@@ -218,21 +317,40 @@ public sealed class ReplicaScope
             var typeId = r.ReadFixed32();
             var id = r.ReadVarUInt();
             var schema = r.ReadVarUInt();
+            var form = r.ReadByte();
             var body = r.ReadBytes(int.MaxValue);
             if (!r.Ok)
             {
                 break;
             }
 
-            var entity = id == 0 || schema > uint.MaxValue ? null : World.Registry.Create(typeId);
+            var entity = id == 0 || schema > uint.MaxValue || form > World.EntityFormMasked ? null : World.Registry.Create(typeId);
             if (entity is null)
             {
-                r.Fail(id == 0 || schema > uint.MaxValue ? SyncError.InvalidValue : SyncError.UnknownType);
+                r.Fail(id == 0 || schema > uint.MaxValue || form > World.EntityFormMasked ? SyncError.InvalidValue : SyncError.UnknownType);
                 break;
             }
 
             var sub = new SyncReader(body);
-            entity.ReadState((uint)schema, ref sub);
+            if (form == World.EntityFormFull)
+            {
+                entity.ReadState((uint)schema, ref sub);
+            }
+            else if (schema != entity.SchemaVersion)
+            {
+                r.Fail(SyncError.UnsupportedVersion);
+                break;
+            }
+            else
+            {
+                // A masked body is a delta in the current layout holding only the properties this replica may see.
+                var peek = new SyncReader(body);
+                var visible = peek.ReadVarUInt();
+                entity.ApplyDelta(ref sub);
+                entity.ClearDirty();
+                entity.ViewMask = entity.NormalizeMask(visible);
+            }
+
             sub.ExpectEnd();
             if (!sub.Ok)
             {
@@ -260,6 +378,17 @@ public sealed class ReplicaScope
             {
                 r.Fail(SyncError.Mismatch);
                 break;
+            }
+
+            if (entity.ViewMask != ulong.MaxValue)
+            {
+                // A filtered entity only ever receives changes to the properties it holds.
+                var peek = new SyncReader(body);
+                if ((peek.ReadVarUInt() & ~entity.ViewMask) != 0)
+                {
+                    r.Fail(SyncError.InvalidValue);
+                    break;
+                }
             }
 
             var sub = new SyncReader(body);
@@ -317,9 +446,21 @@ public sealed class ReplicaScope
         LastTick = tick;
         FramesApplied++;
         _failures = 0;
+        if (_awaitingDigest && tick - _digestRequestedTick >= Node.Options.DigestTimeoutTicks)
+        {
+            // The authority never answered. Report the drift without detail rather than waiting forever.
+            _awaitingDigest = false;
+            Node.FileDrift(new DriftReport(Id, Node.Name, _pendingTick, _pendingAuthorityHash, _pendingLocalHash, [], false, timedOut: true));
+            if (Node.Options.ResyncOnDrift)
+            {
+                Resync();
+                return;
+            }
+        }
+
         if ((flags & 2) != 0)
         {
-            var local = World.ComputeHash();
+            var local = World.ComputeViewHash();
             if (local != authorityHash)
             {
                 BeginDrift(tick, authorityHash, local);
@@ -350,8 +491,9 @@ public sealed class ReplicaScope
         }
 
         // Capture the replica side now: by the time the authority answers, newer frames may have changed it.
-        StateDigest.Capture(World, _localDigest, _digestScratch, Node.Options.DigestEntityLimit);
+        StateDigest.CaptureView(World, _localDigest, _digestScratch, Node.Options.DigestEntityLimit, null, World.RandomIncluded);
         _awaitingDigest = true;
+        _digestRequestedTick = LastTick;
         _pendingTick = tick;
         _pendingAuthorityHash = authorityHash;
         _pendingLocalHash = localHash;
@@ -399,6 +541,52 @@ public sealed class ReplicaScope
             Resync();
         }
     }
+
+    private void Answer(uint sequence, CommandResult result)
+    {
+        for (var i = 0; i < _pending.Count; i++)
+        {
+            if (_pending[i].Sequence == sequence)
+            {
+                _pending.RemoveAt(i);
+                Complete(result);
+                return;
+            }
+        }
+
+        // An answer to a command sent through the harness path, or one already given up on: nothing waits for it.
+    }
+
+    private void Complete(CommandResult result)
+    {
+        for (var i = 0; i < _pending.Count; i++)
+        {
+            if (_pending[i].Sequence == result.Sequence)
+            {
+                _pending.RemoveAt(i);
+                break;
+            }
+        }
+
+        if (_results.Count >= MaxResults)
+        {
+            _results.RemoveAt(0);
+        }
+
+        _results.Add(result);
+        CommandCompleted?.Invoke(result);
+    }
+
+    private void DropPending()
+    {
+        while (_pending.Count > 0)
+        {
+            var p = _pending[0];
+            Complete(new CommandResult(Id, p.Sequence, p.Entity, p.CommandId, CommandVerdict.Dropped, default, null));
+        }
+    }
+
+    private readonly record struct PendingSend(uint Sequence, EntityId Entity, uint CommandId);
 
     private void Desync(string reason)
     {

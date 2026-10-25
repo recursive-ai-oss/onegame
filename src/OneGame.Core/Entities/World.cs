@@ -10,6 +10,7 @@ public sealed class World
 {
     private const uint SnapshotMagic = 0x4E53474F; // "OGSN" little-endian
     private const uint SnapshotFormat = 1;
+    private const uint ViewSnapshotFormat = 2;
 
     private readonly EntityRegistry _registry;
     private readonly List<Entity> _entities = [];
@@ -21,6 +22,7 @@ public sealed class World
     private readonly SyncWriter _snapshotScratch = new(1024);
     private ulong _nextId = 1;
     private bool _ticking;
+    private bool _randomIncluded = true;
 
     /// <summary>Creates an empty world.</summary>
     /// <param name="seed">Seeds every random stream.</param>
@@ -54,6 +56,21 @@ public sealed class World
 
     /// <summary>Called for every command this world executes, queues-then-runs on an authority or forwards on a replica. The command log hooks in here.</summary>
     public CommandObserver? Observer { get; set; }
+
+    /// <summary>
+    /// Why the last command handler rejected its command (set by <see cref="CommandReply.Reject"/>), valid while the observer is called
+    /// for that command. The sync layer reads it to answer the submitter.
+    /// </summary>
+    internal string? LastRejectReason { get; set; }
+
+    /// <summary>The ticket the command being executed carried when it was submitted, or 0. The sync layer uses it to find who sent the command.</summary>
+    internal long CurrentTicket { get; private set; }
+
+    /// <summary>
+    /// True when the random streams are part of this world's view hash: always on an authority, and on a replica unless its authority
+    /// keeps the streams from it.
+    /// </summary>
+    internal bool RandomIncluded => _randomIncluded;
 
     internal SyncWriter Scratch { get; } = new(256);
 
@@ -220,7 +237,7 @@ public sealed class World
             for (var n = _pending.Count; n > 0; n--)
             {
                 var cmd = _pending.Dequeue();
-                Execute(cmd.Entity, cmd.CommandId, cmd.Payload);
+                Execute(cmd.Entity, cmd.CommandId, cmd.Payload, cmd.Ticket);
             }
 
             // Entities added during the tick start next tick, and so the loop stops at the count it began with.
@@ -261,7 +278,10 @@ public sealed class World
     /// Sends a command to an entity. An authority queues it for the next tick; a replica passes it on through
     /// <see cref="Observer"/> for the networking layer to deliver.
     /// </summary>
-    public CommandStatus Submit(EntityId entity, uint commandId, ReadOnlySpan<byte> payload)
+    public CommandStatus Submit(EntityId entity, uint commandId, ReadOnlySpan<byte> payload) => Submit(entity, commandId, payload, 0);
+
+    /// <summary>Like <see cref="Submit(EntityId, uint, ReadOnlySpan{byte})"/>, tagging the command so the observer can tell who sent it.</summary>
+    internal CommandStatus Submit(EntityId entity, uint commandId, ReadOnlySpan<byte> payload, long ticket)
     {
         if (payload.Length > SyncLimits.MaxCommandBytes)
         {
@@ -279,7 +299,7 @@ public sealed class World
             InputObserver?.Invoke(Tick, entity, commandId, payload, CommandStatus.Queued);
         }
 
-        _pending.Enqueue(new PendingCommand(entity, commandId, payload.ToArray()));
+        _pending.Enqueue(new PendingCommand(entity, commandId, payload.ToArray(), ticket));
         return CommandStatus.Queued;
     }
 
@@ -305,8 +325,10 @@ public sealed class World
         writer.WriteRaw(payload);
     }
 
-    private void Execute(EntityId id, uint commandId, byte[] payload)
+    private void Execute(EntityId id, uint commandId, byte[] payload, long ticket)
     {
+        LastRejectReason = null;
+        CurrentTicket = ticket;
         var status = CommandStatus.UnknownEntity;
         if (Find(id) is { } entity)
         {
@@ -315,6 +337,8 @@ public sealed class World
         }
 
         Observer?.Invoke(Tick, id, commandId, payload, status);
+        CurrentTicket = 0;
+        LastRejectReason = null;
     }
 
     /// <summary>
@@ -338,6 +362,59 @@ public sealed class World
         foreach (var e in _entities)
         {
             h = StateHash.Combine(h, e.ComputeHash());
+        }
+
+        return h;
+    }
+
+    /// <summary>
+    /// The hash of what this world holds as a subscriber: equal to <see cref="ComputeHash"/> on an authority and on a replica that
+    /// receives everything, and the hash of the filtered view on a replica that does not. The authority computes the same number for
+    /// the same subscriber with <see cref="ComputeAudienceHash"/>, which is how drift is checked when subscribers see different things.
+    /// </summary>
+    public ulong ComputeViewHash() => ViewHash(null, _randomIncluded);
+
+    /// <summary>
+    /// The hash of the view an audience gets from this world: tick, the random streams when <paramref name="includeRandom"/>, the tables
+    /// that are not hidden, and each entity the audience may see with only the properties it may see.
+    /// </summary>
+    /// <param name="audience">The subscriber's player and team.</param>
+    /// <param name="includeRandom">Whether the subscriber receives the random streams.</param>
+    public ulong ComputeAudienceHash(in Audience audience, bool includeRandom = true) => ViewHash(audience, includeRandom);
+
+    private ulong ViewHash(Audience? audience, bool includeRandom)
+    {
+        var h = StateHash.Combine(0, (ulong)Tick);
+        if (includeRandom)
+        {
+            _hashWriter.Reset();
+            Rng.Write(_hashWriter);
+            h = StateHash.Combine(h, StateHash.Of(_hashWriter.Written));
+        }
+
+        foreach (var table in _tables)
+        {
+            if (table.Visibility == Visibility.Hidden)
+            {
+                continue;
+            }
+
+            _hashWriter.Reset();
+            table.Write(_hashWriter);
+            h = StateHash.Combine(h, StateHash.Of(table.Name));
+            h = StateHash.Combine(h, StateHash.Of(_hashWriter.Written));
+        }
+
+        foreach (var e in _entities)
+        {
+            if (audience is null)
+            {
+                h = StateHash.Combine(h, e.ComputeViewHash());
+            }
+            else if (e.TryGetVisibleMask(audience.Value, out var mask))
+            {
+                h = StateHash.Combine(h, e.ComputeViewHash(mask));
+            }
         }
 
         return h;
@@ -373,6 +450,103 @@ public sealed class World
     }
 
     /// <summary>
+    /// Writes the snapshot an audience is allowed to hold: only the entities it may see, each with only the properties it may see,
+    /// without hidden tables, and without the random streams unless <paramref name="includeRandom"/>. <see cref="ReadSnapshot"/> reads it.
+    /// </summary>
+    public void WriteViewSnapshot(SyncWriter w, in Audience audience, bool includeRandom)
+    {
+        w.WriteFixed32(SnapshotMagic);
+        w.WriteVarUInt(ViewSnapshotFormat);
+        w.WriteVarInt(Tick);
+        w.WriteVarUInt(_nextId);
+        w.WriteVarUInt(includeRandom ? 1UL : 0UL);
+        if (includeRandom)
+        {
+            Rng.Write(w);
+        }
+
+        ulong visible = 0;
+        foreach (var e in _entities)
+        {
+            if (e.TryGetVisibleMask(audience, out _))
+            {
+                visible++;
+            }
+        }
+
+        w.WriteVarUInt(visible);
+        foreach (var e in _entities)
+        {
+            if (!e.TryGetVisibleMask(audience, out var mask))
+            {
+                continue;
+            }
+
+            mask = e.NormalizeMask(mask);
+            _snapshotScratch.Reset();
+            if (mask == ulong.MaxValue)
+            {
+                e.WriteState(_snapshotScratch);
+            }
+            else
+            {
+                e.WriteMaskedDelta(_snapshotScratch, mask);
+            }
+
+            w.WriteFixed32(e.TypeId);
+            w.WriteVarUInt(e.Id.Value);
+            w.WriteVarUInt(e.SchemaVersion);
+            w.WriteByte(mask == ulong.MaxValue ? EntityFormFull : EntityFormMasked);
+            w.WriteBytes(_snapshotScratch.Written);
+        }
+
+        var shown = 0;
+        foreach (var t in _tables)
+        {
+            if (t.Visibility != Visibility.Hidden)
+            {
+                shown++;
+            }
+        }
+
+        w.WriteVarUInt((ulong)shown);
+        foreach (var t in _tables)
+        {
+            if (t.Visibility == Visibility.Hidden)
+            {
+                continue;
+            }
+
+            _snapshotScratch.Reset();
+            t.Write(_snapshotScratch);
+            w.WriteString(t.Name);
+            w.WriteBytes(_snapshotScratch.Written);
+        }
+    }
+
+    /// <summary>Entity body forms in a view snapshot or frame: the whole state, or a mask followed by the properties in it.</summary>
+    internal const byte EntityFormFull = 0;
+
+    /// <summary>See <see cref="EntityFormFull"/>.</summary>
+    internal const byte EntityFormMasked = 1;
+
+    /// <summary>Removes every entity and table row, as a replica does when its authority stops sending to it.</summary>
+    internal void ClearReplica()
+    {
+        foreach (var e in _entities)
+        {
+            e.World = null;
+            e.IsRemoved = true;
+        }
+
+        _entities.Clear();
+        foreach (var t in _tables)
+        {
+            t.Clear();
+        }
+    }
+
+    /// <summary>
     /// Replaces this world's contents with a snapshot from untrusted bytes. Entities of older schema versions go through their
     /// migrations. Restore into a freshly built world with the same tables and systems: on an error the world is in an unspecified
     /// state and should be discarded.
@@ -382,13 +556,28 @@ public sealed class World
     public SyncError ReadSnapshot(ReadOnlySpan<byte> bytes)
     {
         var r = new SyncReader(bytes);
-        if (r.ReadFixed32() != SnapshotMagic || r.ReadVarUInt() != SnapshotFormat)
+        var magic = r.ReadFixed32();
+        var format = r.ReadVarUInt();
+        if (magic != SnapshotMagic || (format != SnapshotFormat && format != ViewSnapshotFormat))
         {
             return r.Ok ? SyncError.BadHeader : r.Error;
         }
 
         var tick = r.ReadVarInt();
         var nextId = r.ReadVarUInt();
+        var filtered = format == ViewSnapshotFormat;
+        var randomIncluded = true;
+        if (filtered)
+        {
+            var flags = r.ReadVarUInt();
+            if (r.Ok && flags > 1)
+            {
+                return SyncError.InvalidValue;
+            }
+
+            randomIncluded = flags == 1;
+        }
+
         if (!r.Ok)
         {
             return r.Error;
@@ -399,7 +588,11 @@ public sealed class World
             return SyncError.InvalidValue;
         }
 
-        Rng.Read(ref r);
+        if (randomIncluded)
+        {
+            Rng.Read(ref r);
+        }
+
         var count = r.ReadCount(SyncLimits.MaxEntities);
         var fresh = new List<Entity>(Math.Min(count, 1024));
         ulong previousId = 0;
@@ -408,13 +601,14 @@ public sealed class World
             var typeId = r.ReadFixed32();
             var id = r.ReadVarUInt();
             var schema = r.ReadVarUInt();
+            var form = filtered ? r.ReadByte() : EntityFormFull;
             var body = r.ReadBytes(int.MaxValue);
             if (!r.Ok)
             {
                 break;
             }
 
-            if (id <= previousId || id >= nextId || schema > uint.MaxValue)
+            if (id <= previousId || id >= nextId || schema > uint.MaxValue || form > EntityFormMasked)
             {
                 r.Fail(SyncError.InvalidValue);
                 break;
@@ -429,7 +623,25 @@ public sealed class World
             }
 
             var sub = new SyncReader(body);
-            entity.ReadState((uint)schema, ref sub);
+            if (form == EntityFormFull)
+            {
+                entity.ReadState((uint)schema, ref sub);
+            }
+            else
+            {
+                // A masked body is a delta in the current layout: a mask, then the properties the subscriber may see.
+                if (schema != entity.SchemaVersion)
+                {
+                    return SyncError.UnsupportedVersion;
+                }
+
+                var peek = new SyncReader(body);
+                var visible = peek.ReadVarUInt();
+                entity.ApplyDelta(ref sub);
+                entity.ClearDirty();
+                entity.ViewMask = entity.NormalizeMask(visible);
+            }
+
             sub.ExpectEnd();
             if (!sub.Ok)
             {
@@ -441,7 +653,16 @@ public sealed class World
         }
 
         var tableCount = r.ReadCount(SyncLimits.MaxNamed);
-        if (r.Ok && tableCount != _tables.Count)
+        var expectedTables = 0;
+        foreach (var t in _tables)
+        {
+            if (!filtered || t.Visibility != Visibility.Hidden)
+            {
+                expectedTables++;
+            }
+        }
+
+        if (r.Ok && tableCount != expectedTables)
         {
             return SyncError.Mismatch;
         }
@@ -464,7 +685,7 @@ public sealed class World
                 }
             }
 
-            if (table is null)
+            if (table is null || (filtered && table.Visibility == Visibility.Hidden))
             {
                 return SyncError.Mismatch;
             }
@@ -499,6 +720,7 @@ public sealed class World
 
         _nextId = nextId;
         Tick = tick;
+        _randomIncluded = randomIncluded;
         _pending.Clear();
         return SyncError.None;
     }
@@ -535,5 +757,5 @@ public sealed class World
         return j.ToString();
     }
 
-    private readonly record struct PendingCommand(EntityId Entity, uint CommandId, byte[] Payload);
+    private readonly record struct PendingCommand(EntityId Entity, uint CommandId, byte[] Payload, long Ticket);
 }

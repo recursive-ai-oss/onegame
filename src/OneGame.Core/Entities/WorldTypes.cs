@@ -81,6 +81,12 @@ public interface IHotTable
     /// <summary>The number of rows.</summary>
     int Count { get; }
 
+    /// <summary>Whether subscribers receive the table: <see cref="Visibility.Everyone"/> or <see cref="Visibility.Hidden"/>.</summary>
+    Visibility Visibility => Visibility.Everyone;
+
+    /// <summary>Removes every row.</summary>
+    void Clear();
+
     /// <summary>Writes all rows.</summary>
     void Write(SyncWriter writer);
 
