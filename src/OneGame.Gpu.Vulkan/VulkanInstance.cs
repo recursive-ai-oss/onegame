@@ -22,6 +22,8 @@ internal sealed unsafe class VulkanInstance
     public readonly List<AdapterEntry> Adapters = [];
     int _refs = 1;
 
+    private static int _optionalNoticeShown;
+
     public static bool EnvFlag(string name) => Environment.GetEnvironmentVariable(name) is "1" or "true";
 
     public static VulkanInstance Create(GpuDeviceOptions options)
@@ -122,7 +124,15 @@ internal sealed unsafe class VulkanInstance
                 }
             }
 
-            if (!layerPresent && options.RequireValidation)
+            // A machine that cannot have the layer (a hosted Windows runner) sets ONEGAME_VALIDATION_OPTIONAL=1 and runs without it.
+            if (!layerPresent && options.RequireValidation && EnvFlag("ONEGAME_VALIDATION_OPTIONAL"))
+            {
+                if (Interlocked.Exchange(ref _optionalNoticeShown, 1) == 0)
+                {
+                    Console.Error.WriteLine("vulkan: the validation layer is not installed; running without it (ONEGAME_VALIDATION_OPTIONAL=1)");
+                }
+            }
+            else if (!layerPresent && options.RequireValidation)
             {
                 throw new GpuUnsupportedException("the Vulkan validation layer (VK_LAYER_KHRONOS_validation) is not installed; set VK_ADD_LAYER_PATH to its location");
             }
