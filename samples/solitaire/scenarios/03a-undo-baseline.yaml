@@ -1,0 +1,7 @@
+name: undo-baseline
+description: The state hash of a fresh deal after one tick. The next scenario must come back to exactly this.
+steps:
+  - screen: table
+  - step: 1
+expect:
+  - hash: 56e93945a2fe2fad

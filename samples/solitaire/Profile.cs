@@ -82,9 +82,22 @@ public sealed class Profile
         if (record.Won)
         {
             Wins++;
+            Games = Math.Max(Games, Wins);
             BestScore = Math.Max(BestScore, record.Score);
             BestTicks = BestTicks == 0 ? record.Ticks : Math.Min(BestTicks, record.Ticks);
         }
+    }
+
+    /// <summary>Puts every setting and statistic back to its starting value.</summary>
+    public void ResetAll()
+    {
+        var fresh = new Profile();
+        DrawMode = fresh.DrawMode;
+        AutoFinish = fresh.AutoFinish;
+        MusicVolume = fresh.MusicVolume;
+        EffectsVolume = fresh.EffectsVolume;
+        Glyphs = fresh.Glyphs;
+        ResetStatistics();
     }
 
     /// <summary>Clears the statistics and keeps the settings.</summary>

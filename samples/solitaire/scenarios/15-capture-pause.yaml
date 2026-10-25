@@ -1,0 +1,12 @@
+name: capture-pause
+description: "The pause dialog over the table."
+steps:
+  - screen: table
+  - command: { entity: Table, name: Draw }
+  - step: 2
+  - command: { entity: Table, name: Pause, args: [true] }
+  - step: 45
+  - expect:
+      capture: { reference: refs/pause-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }
+  - expect:
+      capture: { reference: refs/pause-1080p.png, size: 1920x1080, scale: 1.5, tolerance: 2, max-diff: 0.001 }

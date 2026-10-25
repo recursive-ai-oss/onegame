@@ -2,6 +2,7 @@ using System.Numerics;
 using OneGame.Core;
 using OneGame.Host;
 using OneGame.UI;
+using OneGame.UI.Kit;
 
 namespace Solitaire.Views;
 
@@ -32,12 +33,9 @@ internal sealed class TableView
     private Element _board = null!;
     private Element _focusRing = null!;
     private Element _selectRing = null!;
-    private Element _pauseBox = null!;
-    private Element _winBox = null!;
     private float _lastW = -1;
     private float _lastH = -1;
     private long _lastFrame = -1;
-    private bool _overlayWasOpen;
 
     // Dragging.
     private bool _pending;
@@ -96,9 +94,7 @@ internal sealed class TableView
         _board.Add(_selectRing);
 
         var footer = MakeFooter();
-        _pauseBox = MakePause();
-        _winBox = MakeWin();
-        var root = Ui.Column(MakeBar(), _board, footer, _pauseBox, _winBox)
+        var root = Ui.Column(MakeBar(), _board, footer, MakePause(), MakeWin())
             .Class("screen")
             .Named("table")
             .Width(Length.Percent(100))
@@ -121,11 +117,10 @@ internal sealed class TableView
 
             return true;
         });
-        _game.TickCompleted += OnTick;
-        return root;
+        return _s.Kit.AttachTo(root);
     }
 
-    // ---- the bar and the buttons -------------------------------------------------------------------------------------
+    // ---- the bar, the buttons and the dialogs ------------------------------------------------------------------------
 
     private Element MakeBar() =>
         Ui.Row(
@@ -146,95 +141,61 @@ internal sealed class TableView
 
     private Element MakeFooter() =>
         Ui.Row(
-            Button("Undo", "undo", () => _s.Undo()).BindEnabled(() => T.History.Count > 0 && T.Phase == GamePhase.Playing),
-            Button("Auto finish", "auto", () => _s.AutoFinish()).BindEnabled(() => _s.Profile.AutoFinish && T.CanAutoFinish),
-            Button("Menu", "menu", () => _s.TogglePause()),
-            Ui.Label(string.Empty).Class("dim").Named("hint").Grow().BindText(Hint))
+            UiKit.Button("Undo", () => _s.Undo(), "undo").BindEnabled(() => T.History.Count > 0 && T.Phase == GamePhase.Playing),
+            UiKit.Button("Auto finish", () => _s.AutoFinish(), "auto").BindEnabled(() => _s.Profile.AutoFinish && T.CanAutoFinish),
+            UiKit.Button("Menu", () => _s.TogglePause(), "menu"),
+            Ui.Label(string.Empty).Class("dim").Named("notice").Grow().BindText(() => _s.Notice ?? string.Empty),
+            Prompt("confirm", "Pick up / place"),
+            Prompt("undo", "Undo"),
+            Prompt("foundation", "To foundation"),
+            Prompt("back", "Menu"))
             .Class("bar")
             .Height(Length.Ui(FooterUnits))
             .Shrink(0);
 
-    private string Hint()
+    private Element Prompt(string action, string text) =>
+        Ui.Row(UiKit.InputGlyph(_s.Kit.Glyphs, action, "glyph-" + action), Ui.Label(text).Class("dim")).Gap(Length.Ui(6)).Align(Align.Center);
+
+    private DialogView MakePause()
     {
-        if (_s.Notice is { } notice)
-        {
-            return notice;
-        }
-
-        var pad = _s.Profile.Glyphs == GlyphStyle.Gamepad || (_s.Profile.Glyphs == GlyphStyle.Auto && _s.UsedGamepad);
-        if (_s.Selected >= 0)
-        {
-            return pad ? "Pick a place and press A.   B: cancel" : "Pick a place and press Space.   Esc: cancel";
-        }
-
-        return pad ? "A: pick up or place   X: undo   Y: to foundation   B: menu" : "Space: pick up or place   U: undo   F: to foundation   Esc: menu";
+        var dialog = UiKit.Dialog("Paused", Ui.Label("Take your time.").Class("dim"), "pause", onCancel: () => _s.TogglePause());
+        dialog.AddButton("Resume", () => _s.TogglePause(), ButtonKind.Primary, isDefault: true, id: "resume");
+        dialog.AddButton("New game", () => _s.StartGame(_s.Profile.DrawMode), id: "pause-new");
+        dialog.AddButton("Statistics", () => _s.Open("stats"), id: "pause-stats");
+        dialog.AddButton("Settings", () => _s.Open("settings"), id: "pause-settings");
+        dialog.AddButton("Main menu", () => _s.Open("main"), id: "pause-menu");
+        dialog.Buttons.Column().Gap(Length.Ui(8));
+        return dialog.BindOpen(() => T.Paused && T.Phase == GamePhase.Playing);
     }
 
-    internal Element Button(string text, string id, Action onClick, bool primary = false)
+    private DialogView MakeWin()
     {
-        var b = Ui.Button(text, () =>
-        {
-            _s.Play(SoundEvent.Click);
-            onClick();
-        }).Named(id).Class(primary ? "btn primary" : "btn");
-        return b;
-    }
-
-    // ---- overlays ----------------------------------------------------------------------------------------------------
-
-    private Element MakePause()
-    {
-        var first = Button("Resume", "resume", () => _s.TogglePause(), primary: true);
-        var box = Ui.Column(
-            Ui.Label("Paused").Class("title"),
-            first,
-            Button("New game", "pause-new", () => _s.StartGame(_s.Profile.DrawMode)),
-            Button("Statistics", "pause-stats", () => _s.Open("stats")),
-            Button("Settings", "pause-settings", () => _s.Open("settings")),
-            Button("Main menu", "pause-menu", () => _s.Open("main")))
-            .Class("panel")
-            .Align(Align.Stretch)
-            .MinWidth(Length.Ui(280));
-        var overlay = Overlay("pause", box, () => T.Paused && T.Phase == GamePhase.Playing);
-        overlay.Tag = first;
-        return overlay;
-    }
-
-    private Element MakeWin()
-    {
-        var first = Button("New game", "win-new", () => _s.StartGame(_s.Profile.DrawMode), primary: true);
-        var box = Ui.Column(
-            Ui.Label("You won!").Class("title").Named("win-title"),
+        var body = Ui.Column(
             Ui.Label(string.Empty).Class("heading").Named("win-score").BindText(() => T.Score, v => "Score " + v.ToString(CultureInfo.InvariantCulture)),
-            Ui.Label(string.Empty).Named("win-detail").BindText(() => T.Moves + (T.Elapsed * 100000), WinDetail),
-            Ui.Label(string.Empty).Class("won").Named("win-best").BindText(() => _s.Profile.BestScore == T.Score && T.Phase == GamePhase.Won, v => v ? "New best score" : string.Empty),
-            first,
-            Button("Statistics", "win-stats", () => _s.Open("stats")),
-            Button("Main menu", "win-menu", () => _s.Open("main")))
-            .Class("panel")
-            .Align(Align.Stretch)
-            .MinWidth(Length.Ui(300));
-        var overlay = Overlay("win", box, () => T.Phase == GamePhase.Won);
-        overlay.Tag = first;
-        return overlay;
+            Ui.Label(string.Empty).Named("win-detail").BindText(() => T.Moves + (T.Elapsed * 100000L), WinDetail),
+            Ui.Label(string.Empty).Class("best").Named("win-best").BindText(() => _s.Profile.BestScore == T.Score && T.Phase == GamePhase.Won, v => v ? "New best score" : string.Empty))
+            .Gap(Length.Ui(6));
+        var dialog = UiKit.Dialog("You won!", body, "win", onCancel: () => _s.Open("main"));
+        dialog.AddButton("New game", () => _s.StartGame(_s.Profile.DrawMode), ButtonKind.Primary, isDefault: true, id: "win-new");
+        dialog.AddButton("Statistics", () => _s.Open("stats"), id: "win-stats");
+        dialog.AddButton("Main menu", () => _s.Open("main"), id: "win-menu");
+        dialog.Buttons.Column().Gap(Length.Ui(8));
+        return dialog.BindOpen(() => T.Phase == GamePhase.Won);
     }
 
-    private string WinDetail(int packed) =>
-        (packed % 100000).ToString(CultureInfo.InvariantCulture) + " moves in " + FormatClock(packed / 100000 / 60);
-
-    private static Element Overlay(string id, Element box, Func<bool> shown) =>
-        Ui.Box(box)
-            .Named(id)
-            .Class("scrim")
-            .Style(st => st.Anchor(AnchorPoint.Fill, toScreen: true).JustifyContent(Align.Center).AlignItems(Align.Center).ZIndex(50))
-            .TrapFocus()
-            .BindVisible(shown);
+    private static string WinDetail(long packed) =>
+        (packed % 100000).ToString(CultureInfo.InvariantCulture) + " moves in " + FormatClock((int)(packed / 100000 / 60));
 
     // ---- piles and cards ---------------------------------------------------------------------------------------------
 
     private Element MakePile(int pile)
     {
         var el = new Element("Pile").Named(PileIds[pile]).Focusable();
+        if (pile == Piles.Stock)
+        {
+            el.AsDefaultFocus();
+        }
+
         el.Tag = new PileTag(pile);
         _piles[pile] = el;
         el.BindStyle(st =>
@@ -299,7 +260,7 @@ internal sealed class TableView
     {
         var suit = id / 13;
         var rank = (id % 13) + 1;
-        var ink = (suit & 1) == 1 ? Theme.Bad : Color.Rgb(0x1D222B);
+        var ink = (suit & 1) == 1 ? Color.Rgb(0xC4303D) : Color.Rgb(0x1D222B);
         var card = new Element("Card").Named("card-" + Cards.Name(id));
         card.Style(st => st.PointerEvents(PointerEvents.None).Position(PositionMode.Absolute));
         card.BindVisible(() => _slots[id].Present);
@@ -467,35 +428,6 @@ internal sealed class TableView
         return false;
     }
 
-    // Moves focus into a dialog when it opens, and back to the board when it closes.
-    private void OnTick(World world)
-    {
-        if (_board.Tree is null)
-        {
-            _game.TickCompleted -= OnTick;
-            return;
-        }
-
-        var open = OverlayOpen;
-        if (open == _overlayWasOpen)
-        {
-            return;
-        }
-
-        _overlayWasOpen = open;
-        var ui = _game.Ui;
-        if (open)
-        {
-            ui.Update();
-            var dialog = T.Phase == GamePhase.Won ? _winBox : _pauseBox;
-            ui.Focus(dialog.Tag as Element);
-        }
-        else
-        {
-            ui.Focus(_piles[Piles.Stock]);
-        }
-    }
-
     // ---- pointer: drag and drop --------------------------------------------------------------------------------------
 
     private (float X, float Y) Local(in UiEvent e)
@@ -550,7 +482,7 @@ internal sealed class TableView
 
         if (!_dragging)
         {
-            if (!_s.DragStarted(e.X - _downX, e.Y - _downY))
+            if (!Session.DragStarted(e.X - _downX, e.Y - _downY))
             {
                 return false;
             }

@@ -15,6 +15,8 @@
   <ItemGroup>
     <Compile Include="**/*.cs" Exclude="tests/**;obj/**;bin/**" />
     <ProjectReference Include="$(OneGameRoot)src/OneGame.Steam/OneGame.Steam.csproj" />
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.Audio/OneGame.Audio.csproj" />
   </ItemGroup>
 
   <ItemGroup>

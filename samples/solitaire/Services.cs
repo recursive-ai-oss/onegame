@@ -188,6 +188,11 @@ public interface ISoundSink
 {
     /// <summary>Plays a sound at a volume from 0 to 1.</summary>
     void Play(SoundEvent sound, float volume);
+
+    /// <summary>Sets the music and effects volumes, 0 to 1.</summary>
+    void SetVolumes(float music, float effects)
+    {
+    }
 }
 
 /// <summary>Makes no sound.</summary>

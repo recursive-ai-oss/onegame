@@ -1,0 +1,89 @@
+name: capture-midgame
+description: "The same game after 40 scripted moves: foundations growing, columns turned over, a card in the waste."
+steps:
+  - screen: table
+  - command: { entity: Table, name: Move, args: [9, 3, 1] }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [10, 3, 1] }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [9, 8, 1] }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [12, 7, 1] }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [1, 2, 1] }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [1, 3, 1] }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [1, 8, 1] }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [1, 5, 1] }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [1, 2, 1] }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [11, 2, 1] }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [1, 3, 1] }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [1, 2, 1] }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [10, 2, 1] }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [10, 3, 1] }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [1, 12, 1] }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [1, 6, 1] }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [10, 6, 1] }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [10, 9, 1] }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [8, 10, 3] }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [8, 7, 1] }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [1, 8, 1] }
+  - step: 1
+  - command: { entity: Table, name: Move, args: [9, 11, 1] }
+  - step: 1
+  - step: 45
+  - expect:
+      capture: { reference: refs/midgame-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }
+  - expect:
+      capture: { reference: refs/midgame-1080p.png, size: 1920x1080, scale: 1.5, tolerance: 2, max-diff: 0.001 }

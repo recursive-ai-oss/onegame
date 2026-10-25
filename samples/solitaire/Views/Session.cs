@@ -3,6 +3,7 @@ using OneGame.Core;
 using OneGame.Host;
 using OneGame.Platform;
 using OneGame.UI;
+using OneGame.UI.Kit;
 
 namespace Solitaire.Views;
 
@@ -36,6 +37,7 @@ internal sealed class Session
     private long _pointerFrame = -100;
     private bool _suppressClick;
     private (int Score, int Moves, int Ticks, int DrawMode) _live;
+    private int _resets;
 
     private Session(GameInstance game)
     {
@@ -45,11 +47,23 @@ internal sealed class Session
         Sound = Definition.Services.Sounds;
         Profile = Data.TryRead(Profile.FileName, 16 * 1024, out var bytes) && Profile.TryRead(bytes, out var loaded) ? loaded : new Profile();
         HasSave = Data.TryRead(SaveFile, MaxSaveBytes, out _);
+        Kit = Kits.For(game.Ui);
+        Kit.Glyphs
+            .Bind("confirm", keyboard: " ", mouse: "left", gamepad: "a")
+            .Bind("undo", keyboard: "u", gamepad: "x")
+            .Bind("foundation", keyboard: "f", mouse: "right", gamepad: "y")
+            .Bind("back", keyboard: "Escape", gamepad: "b");
+        ApplyVolumes();
         game.TickCompleted += OnTick;
-        game.WorldReplaced += _ => Selected = -1;
+        _resets = Definition.Resets;
+        game.WorldReplaced += OnWorldReplaced;
+        Resync(game.World);
     }
 
     public GameInstance Game { get; }
+
+    /// <summary>The component kit's host for this game's UI tree: theme, tooltips and input glyphs.</summary>
+    public KitHost Kit { get; }
 
     public SolitaireGame Definition { get; }
 
@@ -101,7 +115,7 @@ internal sealed class Session
         }
 
         Game.OpenScreen(screen);
-        Game.Ui.MoveFocus(NavDirection.Next);
+        FocusHelpers.FocusDefault(Game.Ui, Game.Ui.Root);
         Game.Ui.Update();
     }
 
@@ -141,7 +155,7 @@ internal sealed class Session
             return;
         }
 
-        if (Game.World.Entities.Count != 1 || Game.World.Entities[0] is not Table || !IsSane(Table))
+        if (Game.World.Entities.Count != 1 || Game.World.Entities[0] is not Solitaire.Table || !IsSane(Table))
         {
             Game.Reset();
             DropSave("The saved game is damaged and was removed.");
@@ -149,6 +163,46 @@ internal sealed class Session
         }
 
         Open("table");
+    }
+
+    // Starts watching a world that was just put in place (a reset, a fixture, a loaded save). The game in it was counted before, if it has moves.
+    private void Resync(World world)
+    {
+        if (world.Entities.Count == 0 || world.Entities[0] is not Solitaire.Table table)
+        {
+            return;
+        }
+
+        _world = world;
+        _deal = table.Deal;
+        _counted = table.Moves > 0;
+        _ended = table.Phase == GamePhase.Won;
+        _lastMoves = table.Moves;
+        _lastRefused = table.Refused;
+        _lastStock = table.Stock.Count;
+        _savedSignature = Signature(table);
+    }
+
+    private void OnWorldReplaced(World world)
+    {
+        Selected = -1;
+        Resync(world);
+        if (Definition.Resets == _resets)
+        {
+            return;
+        }
+
+        // The harness reset the game. In a run whose files live in memory that means a clean slate: no profile, no save, the keyboard glyphs.
+        _resets = Definition.Resets;
+        if (Data is MemoryStore)
+        {
+            Profile.ResetAll();
+            Data.Delete(Profile.FileName);
+            Data.Delete(SaveFile);
+            HasSave = false;
+            Kit.Glyphs.SetDevice(InputDevice.Keyboard);
+            _notice = null;
+        }
     }
 
     private void DropSave(string message)
@@ -193,6 +247,8 @@ internal sealed class Session
         _notice = message;
         _noticeUntil = Game.Frame + 240;
     }
+
+    public void ApplyVolumes() => Sound.SetVolumes(Profile.MusicVolume / 10f, Profile.EffectsVolume / 10f);
 
     public void Play(SoundEvent sound) => Sound.Play(sound, Profile.EffectsVolume / 10f);
 
@@ -450,9 +506,9 @@ internal sealed class Session
         return w > 0 && h > 0 ? w * h : 0;
     }
 
-    public float DragDistance(float dx, float dy) => MathF.Sqrt((dx * dx) + (dy * dy));
+    public static float DragDistance(float dx, float dy) => MathF.Sqrt((dx * dx) + (dy * dy));
 
-    public bool DragStarted(float dx, float dy) => DragDistance(dx, dy) >= DragStartDistance;
+    public static bool DragStarted(float dx, float dy) => DragDistance(dx, dy) >= DragStartDistance;
 
     // ---- keys and buttons the UI did not take ------------------------------------------------------------------------
 
@@ -524,6 +580,13 @@ internal sealed class Session
 
     private void OnTick(World world)
     {
+        Kit.Advance(1f / GameInstance.TickRate);
+        Definition.Services.Store?.Pump();
+        if (Profile.Glyphs != GlyphStyle.Auto)
+        {
+            Kit.Glyphs.SetDevice(Profile.Glyphs == GlyphStyle.Gamepad ? InputDevice.Gamepad : InputDevice.Keyboard);
+        }
+
         if (world.Entities.Count == 0 || world.Entities[0] is not Table table)
         {
             return;
@@ -531,14 +594,7 @@ internal sealed class Session
 
         if (!ReferenceEquals(world, _world))
         {
-            _world = world;
-            _deal = table.Deal;
-            _counted = table.Moves > 0;
-            _ended = table.Phase == GamePhase.Won;
-            _lastMoves = table.Moves;
-            _lastRefused = table.Refused;
-            _lastStock = table.Stock.Count;
-            _savedSignature = Signature(table);
+            Resync(world);
             return;
         }
 
