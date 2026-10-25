@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Threading;
+using OneAudio.Loudness;
 
 namespace OneGame.Audio;
 
@@ -18,6 +19,14 @@ public enum AudioOutputStatus
     /// <summary>Disposed.</summary>
     Stopped,
 }
+
+/// <summary>What the loudness meter reads at the output (EBU R 128 / ITU-R BS.1770). Silence reads -infinity, shown as <see cref="double.NegativeInfinity"/>.</summary>
+/// <param name="MomentaryLufs">Loudness over the last 400 ms.</param>
+/// <param name="ShortTermLufs">Loudness over the last 3 s.</param>
+/// <param name="IntegratedLufs">Gated loudness since the last reset.</param>
+/// <param name="TruePeakDbtp">The highest true peak since the last reset, in dBTP.</param>
+/// <param name="Frames">Frames measured since the last reset.</param>
+public readonly record struct LoudnessReading(double MomentaryLufs, double ShortTermLufs, double IntegratedLufs, double TruePeakDbtp, long Frames);
 
 /// <summary>
 /// The real-time side of audio: a thread pulls frames from an <see cref="IAudioRenderSource"/>, limits them and writes them to an
@@ -61,6 +70,13 @@ public sealed class AudioOutput : IDisposable
     private long _nextRetry;
     private long _silentOrigin;
     private long _silentFramesPaced;
+    private LoudnessMeter? _meter;
+    private int _resetMeter;
+    private double _momentary = double.NegativeInfinity;
+    private double _shortTerm = double.NegativeInfinity;
+    private double _integrated = double.NegativeInfinity;
+    private double _truePeak = double.NegativeInfinity;
+    private long _meteredFrames;
 
     private AudioOutput(IAudioBackend backend, AudioDeviceOptions options, OutputLimiterMode limiter)
     {
@@ -71,6 +87,37 @@ public sealed class AudioOutput : IDisposable
         _buffer = new float[MaxChunkFrames * options.Channels];
         _deviceName = options.DeviceName;
         _chunkFrames = Math.Clamp(options.SampleRate / 100, MinChunkFrames, MaxChunkFrames);
+    }
+
+    /// <summary>Whether the output measures loudness. Set before <see cref="Start"/>; off by default for an output built directly.</summary>
+    public bool Metering { get; set; }
+
+    /// <summary>The loudness at the output, after the limiter. Safe from any thread; updated once per block while sound is rendering (not while paused).</summary>
+    public LoudnessReading Loudness => new(
+        Volatile.Read(ref _momentary), Volatile.Read(ref _shortTerm), Volatile.Read(ref _integrated), Volatile.Read(ref _truePeak), Interlocked.Read(ref _meteredFrames));
+
+    /// <summary>Clears the meter's history (integrated loudness, true peak) at the next block, so a new measurement starts clean.</summary>
+    public void ResetLoudness()
+    {
+        Volatile.Write(ref _resetMeter, 1);
+        if (_backend.IsManual)
+        {
+            // No audio thread competes for the meter, and a reader expects the reset to show at once.
+            ApplyMeterReset();
+            Volatile.Write(ref _momentary, double.NegativeInfinity);
+            Volatile.Write(ref _shortTerm, double.NegativeInfinity);
+            Volatile.Write(ref _integrated, double.NegativeInfinity);
+            Volatile.Write(ref _truePeak, double.NegativeInfinity);
+        }
+    }
+
+    private void ApplyMeterReset()
+    {
+        if (Interlocked.Exchange(ref _resetMeter, 0) != 0)
+        {
+            _meter?.Reset();
+            Volatile.Write(ref _meteredFrames, 0);
+        }
     }
 
     /// <summary>Opens the device and returns the output. When no device opens, the output still exists and is silent (see <see cref="Status"/>); it never throws for a missing device.</summary>
@@ -166,6 +213,12 @@ public sealed class AudioOutput : IDisposable
             }
 
             _source = source;
+            if (Metering && Format.SampleRate >= LoudnessMeter.MinSampleRate)
+            {
+                // BS.1770 K-weighting is designed per sample rate; the meter and its memory are built here, never on the audio thread.
+                _meter = new LoudnessMeter(Format.SampleRate, Format.Channels, default, true, false);
+            }
+
             Volatile.Write(ref _status, (int)(_sink is not null ? AudioOutputStatus.Running : AudioOutputStatus.NoDevice));
             if (!_backend.IsManual)
             {
@@ -394,6 +447,7 @@ public sealed class AudioOutput : IDisposable
         if (source is not null && !Paused)
         {
             Interlocked.Add(ref _framesRendered, frames);
+            Measure(span);
         }
 
         var sink = _sink;
@@ -418,6 +472,23 @@ public sealed class AudioOutput : IDisposable
             _nextRetry = Stopwatch.GetTimestamp() + RetryTicks;
             _silentOrigin = 0;
         }
+    }
+
+    private void Measure(Span<float> block)
+    {
+        var meter = _meter;
+        if (meter is null)
+        {
+            return;
+        }
+
+        ApplyMeterReset();
+        meter.Process(block);
+        Interlocked.Add(ref _meteredFrames, block.Length / Format.Channels);
+        Volatile.Write(ref _momentary, meter.MomentaryLufs);
+        Volatile.Write(ref _shortTerm, meter.ShortTermLufs);
+        Volatile.Write(ref _integrated, meter.IntegratedLufs);
+        Volatile.Write(ref _truePeak, meter.TruePeakDbtp);
     }
 
     private void PaceSilently(int frames)

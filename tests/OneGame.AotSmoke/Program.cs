@@ -72,6 +72,24 @@ using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true 
     Console.WriteLine($"ok: audio vorbis 44.1 kHz and opus decoded and mixed at {audio.Format.SampleRate} Hz, peak {audio.Capture.Peak:F3}");
 }
 
+// FLAC and MP3 decoding, bus filter, reverb, the master limiter and the loudness meter under NativeAOT.
+using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true, MasterLimiter = new LimiterOptions() }))
+{
+    audio.SetBusFilter(AudioBus.Sfx, AudioFilterKind.LowPass, 6000f);
+    audio.SetBusReverb(AudioBus.Ui, new ReverbOptions());
+    audio.Play(audio.LoadSound(ReadAsset("tone44k.flac")));
+    audio.Play(audio.LoadSound(ReadAsset("tone44k.mp3")), new PlayOptions { Bus = AudioBus.Ui });
+    audio.Advance(24_000);
+    var status = audio.Describe();
+    if (!(audio.Capture!.Peak > 0.1f) || status.Loudness.IntegratedLufs is not { } lufs || lufs > 0 || lufs < -40 || status.Limiter is null)
+    {
+        Console.Error.WriteLine($"audio effects smoke failed: peak {audio.Capture.Peak}, loudness {status.Loudness.IntegratedLufs}");
+        return 1;
+    }
+
+    Console.WriteLine($"ok: audio flac and mp3 decoded, filter, reverb and limiter ran, {lufs:F1} LUFS");
+}
+
 using (var audio = AudioService.Create(new AudioServiceOptions { Device = new AudioDeviceOptions { DeviceName = "onegame_no_such_device" } }))
 {
     audio.Update();

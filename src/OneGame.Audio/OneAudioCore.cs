@@ -15,7 +15,7 @@ public sealed class AudioLoadException : Exception
 }
 
 /// <summary>
-/// The engine's mixer: oneaudio's <see cref="AudioMixer"/> with WAV, Ogg Vorbis and Opus decoders behind the <see cref="IAudioCore"/> calls.
+/// The engine's mixer: oneaudio's <see cref="AudioMixer"/> with WAV, Ogg Vorbis, Opus, FLAC and MP3 decoders behind the <see cref="IAudioCore"/> calls.
 /// Any source rate or channel count is converted by the mixer. Files are decoded on the calling (game) thread, never on the audio thread.
 /// </summary>
 public sealed class OneAudioCore : IAudioCore
@@ -34,10 +34,34 @@ public sealed class OneAudioCore : IAudioCore
     /// <param name="buses">The number of buses.</param>
     /// <param name="maxClipSeconds">The longest clip <see cref="LoadClip"/> decodes into memory; longer files must be streamed.</param>
     public OneAudioCore(int sampleRate, int channels, int maxVoices, int buses, double maxClipSeconds = 120)
+        : this(new AudioCoreSettings(sampleRate, channels, maxVoices, buses), maxClipSeconds)
     {
+    }
+
+    /// <summary>Builds the mixer from full settings, including reverbs and the limiter lookahead.</summary>
+    /// <param name="settings">The format, sizes and effect capacity.</param>
+    /// <param name="maxClipSeconds">The longest clip <see cref="LoadClip"/> decodes into memory.</param>
+    public OneAudioCore(AudioCoreSettings settings, double maxClipSeconds = 120)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
         _maxClipSeconds = maxClipSeconds;
-        _codecs = new AudioCodecRegistry().AddWav().AddOgg().AddVorbis().AddOpus();
-        _mixer = new AudioMixer(new MixerOptions { SampleRate = sampleRate, Channels = channels, MaxVoices = maxVoices, MaxBuses = buses });
+        _codecs = new AudioCodecRegistry().AddWav().AddOgg().AddVorbis().AddOpus().AddFlac().AddMp3();
+        try
+        {
+            _mixer = new AudioMixer(new MixerOptions
+            {
+                SampleRate = settings.SampleRate,
+                Channels = settings.Channels,
+                MaxVoices = settings.MaxVoices,
+                MaxBuses = settings.Buses,
+                MaxReverbs = settings.MaxReverbs,
+                LimiterLookaheadMilliseconds = settings.LimiterLookaheadMilliseconds,
+            });
+        }
+        catch (ArgumentException e)
+        {
+            throw new ArgumentOutOfRangeException(nameof(settings), e.Message);
+        }
     }
 
     /// <summary>Builds <see cref="OneAudioCore"/>s; the default for <see cref="AudioServiceOptions.CoreFactory"/>.</summary>
@@ -46,6 +70,9 @@ public sealed class OneAudioCore : IAudioCore
     {
         /// <inheritdoc/>
         public IAudioCore Create(int sampleRate, int channels, int maxVoices, int buses) => new OneAudioCore(sampleRate, channels, maxVoices, buses, maxClipSeconds);
+
+        /// <inheritdoc/>
+        public IAudioCore Create(AudioCoreSettings settings) => new OneAudioCore(settings, maxClipSeconds);
     }
 
     /// <inheritdoc/>
@@ -101,7 +128,12 @@ public sealed class OneAudioCore : IAudioCore
     }
 
     /// <inheritdoc/>
-    public double DurationSeconds(object source) => source is AudioClip c ? c.Frames / (double)c.Format.SampleRate : -1;
+    public double DurationSeconds(object source) => source switch
+    {
+        AudioClip c => c.Frames / (double)c.Format.SampleRate,
+        StreamingSource { LengthFrames: >= 0 } s => s.LengthFrames / (double)s.Format.SampleRate,
+        _ => -1,
+    };
 
     /// <inheritdoc/>
     public VoiceId Play(in VoiceRequest request)
@@ -153,7 +185,7 @@ public sealed class OneAudioCore : IAudioCore
     public bool SetBusMute(int bus, bool muted) => _mixer.SetBusMute(bus, muted);
 
     /// <inheritdoc/>
-    public bool SetDucking(int targetBus, int sourceBus, DuckingOptions settings) => _mixer.SetDucking(targetBus, sourceBus, new DuckingSettings
+    public bool SetDucking(int targetBus, int sourceBus, DuckingOptions settings) => _mixer.SetDucking(targetBus, sourceBus, !settings.Enabled ? DuckingSettings.None : new DuckingSettings
     {
         ThresholdDb = settings.ThresholdDb,
         ReductionDb = settings.ReductionDb,
@@ -163,6 +195,65 @@ public sealed class OneAudioCore : IAudioCore
 
     /// <inheritdoc/>
     public bool ClearDucking(int targetBus) => _mixer.ClearDucking(targetBus);
+
+    /// <inheritdoc/>
+    public bool SetBusFilter(int bus, AudioFilterKind kind, float cutoffHz, float q, int glideFrames) =>
+        _mixer.SetBusFilter(bus, ToFilter(kind), cutoffHz, q > 0 ? q : AudioMixer.DefaultFilterQ, glideFrames);
+
+    /// <inheritdoc/>
+    public bool ClearBusFilter(int bus, AudioFilterKind kind, int glideFrames) => _mixer.ClearBusFilter(bus, ToFilter(kind), glideFrames);
+
+    /// <inheritdoc/>
+    public bool SetVoiceFilter(VoiceId voice, AudioFilterKind kind, float cutoffHz, float q, int glideFrames) =>
+        _mixer.SetVoiceFilter(new VoiceHandle(voice.Id), ToFilter(kind), cutoffHz, q > 0 ? q : AudioMixer.DefaultFilterQ, glideFrames);
+
+    /// <inheritdoc/>
+    public bool ClearVoiceFilter(VoiceId voice, AudioFilterKind kind, int glideFrames) => _mixer.ClearVoiceFilter(new VoiceHandle(voice.Id), ToFilter(kind), glideFrames);
+
+    /// <inheritdoc/>
+    public bool SetBusReverb(int bus, ReverbOptions options, int glideFrames) => _mixer.SetBusReverb(bus, new ReverbSettings
+    {
+        RoomSize = options.RoomSize,
+        DecaySeconds = options.DecaySeconds,
+        Damping = options.Damping,
+        PreDelayMilliseconds = options.PreDelayMilliseconds,
+        Wet = options.Wet,
+        Dry = options.Dry,
+    }, glideFrames);
+
+    /// <inheritdoc/>
+    public bool ClearBusReverb(int bus) => _mixer.ClearBusReverb(bus);
+
+    /// <inheritdoc/>
+    public bool SetLimiter(LimiterOptions? options) => _mixer.SetLimiter(options is { } o ? new LimiterSettings { CeilingDb = o.CeilingDb, ReleaseMilliseconds = o.ReleaseMilliseconds } : null);
+
+    /// <inheritdoc/>
+    public bool HasLimiter => _mixer.HasLimiter;
+
+    /// <inheritdoc/>
+    public double LimiterGainReductionDb => _mixer.LimiterGainReductionDb;
+
+    /// <inheritdoc/>
+    public bool TryGetStreamPosition(VoiceId voice, out double positionSeconds, out double lengthSeconds)
+    {
+        StreamingSource? s;
+        lock (_streamLock)
+        {
+            _streamsByVoice.TryGetValue(voice.Id, out s);
+        }
+
+        if (s is null)
+        {
+            positionSeconds = 0;
+            lengthSeconds = -1;
+            return false;
+        }
+
+        var rate = (double)s.Format.SampleRate;
+        positionSeconds = s.PositionFrames / rate;
+        lengthSeconds = s.LengthFrames < 0 ? -1 : s.LengthFrames / rate;
+        return true;
+    }
 
     /// <inheritdoc/>
     public VoiceId Crossfade(VoiceId from, in VoiceRequest incoming, int frames)
@@ -273,6 +364,8 @@ public sealed class OneAudioCore : IAudioCore
             s.Dispose();
         }
     }
+
+    private static FilterType ToFilter(AudioFilterKind kind) => kind == AudioFilterKind.HighPass ? FilterType.HighPass : FilterType.LowPass;
 
     private static PlayParams ToParams(in VoiceRequest r) => new((AudioSource)r.Source!)
     {

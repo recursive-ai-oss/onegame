@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/OneGame.Control/OneGame.Control.csproj" />
+    <ProjectReference Include="../../src/OneGame.Audio/OneGame.Audio.csproj" />
   </ItemGroup>
 
 </Project>
