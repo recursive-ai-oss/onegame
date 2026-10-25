@@ -64,11 +64,13 @@ internal static unsafe partial class AudioToolbox
         public nint RefCon;
     }
 
-    // AudioBufferList with its first (and, for interleaved audio, only) buffer inline.
+    // AudioBufferList with its first (and, for interleaved audio, only) buffer inline. The buffer holds a pointer, so it starts on an
+    // 8-byte boundary: four bytes of padding follow the count.
     [StructLayout(LayoutKind.Sequential)]
     public struct BufferList
     {
         public uint BufferCount;
+        public uint Padding;
         public uint Channels;
         public uint ByteSize;
         public nint Data;
@@ -154,6 +156,9 @@ internal sealed unsafe class AudioUnitSink : CallbackSink
     private readonly GCHandle _self;
     private readonly AudioSessionCategory _category;
     private long _callbacks;
+    private long _requested;
+    private uint _lastFrames;
+    private int _callbackPeakBits;
     private long _callbackAllocBase;
     private long _callbackAlloc;
     private int _callbackThread;
@@ -176,7 +181,7 @@ internal sealed unsafe class AudioUnitSink : CallbackSink
         get
         {
             var route = OperatingSystem.IsIOS() ? AudioSession.Describe(_category) : "default output";
-            return $"{route}; interruptions={Interlocked.Read(ref _interruptions)}; routeChanges={Interlocked.Read(ref _routeChanges)}; callbacks={Interlocked.Read(ref _callbacks)}; callbackAllocatedBytes={Interlocked.Read(ref _callbackAlloc)}";
+            return $"{route}; interruptions={Interlocked.Read(ref _interruptions)}; routeChanges={Interlocked.Read(ref _routeChanges)}; callbacks={Interlocked.Read(ref _callbacks)}; requestedFrames={Interlocked.Read(ref _requested)}; lastCallbackFrames={_lastFrames}; callbackPeak={BitConverter.Int32BitsToSingle(Volatile.Read(ref _callbackPeakBits)):0.####}; callbackAllocatedBytes={Interlocked.Read(ref _callbackAlloc)}";
         }
     }
 
@@ -287,7 +292,7 @@ internal sealed unsafe class AudioUnitSink : CallbackSink
                 *(uint*)flags |= AudioToolbox.ActionOutputIsSilence;
             }
 
-            sink.CountCallback();
+            sink.CountCallback(frames, samples);
         }
         catch (Exception)
         {
@@ -298,8 +303,20 @@ internal sealed unsafe class AudioUnitSink : CallbackSink
     }
 
     // The callback thread's own allocation counter, after a warm-up: the figure the harness shows for "allocates nothing".
-    private void CountCallback()
+    private void CountCallback(uint frames, Span<float> delivered)
     {
+        _requested += frames;
+        _lastFrames = frames;
+        var peak = BitConverter.Int32BitsToSingle(_callbackPeakBits);
+        foreach (var v in delivered)
+        {
+            if (MathF.Abs(v) > peak)
+            {
+                peak = MathF.Abs(v);
+            }
+        }
+
+        Volatile.Write(ref _callbackPeakBits, BitConverter.SingleToInt32Bits(peak));
         var n = Interlocked.Increment(ref _callbacks);
         var thread = Environment.CurrentManagedThreadId;
         var allocated = GC.GetAllocatedBytesForCurrentThread();
