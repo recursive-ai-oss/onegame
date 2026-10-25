@@ -1,0 +1,13 @@
+name: swap-in-3d
+description: Two walkers swap a red lantern for a blue one. The lanterns circling the one on the left change colour while the count stays two.
+fixture: swappers
+window: 960x540
+steps:
+  - screen: main
+  - step: 30
+  - expect: { capture: { reference: refs/swap3d-before.png, tolerance: 4, max-diff: 0.001 } }
+  - command: { entity: Player, name: SwapLocal, args: [2, 0, 1] }
+  - step: 30
+expect:
+  - state: { entity: Player#1, property: Total, equals: 2 }
+  - capture: { reference: refs/swap3d-after.png, tolerance: 4, max-diff: 0.001 }

@@ -71,14 +71,14 @@ internal sealed class Realms : IDisposable
         _servers.Remove(scope);
     }
 
-    public GameInstance Client(string name, uint island)
+    public GameInstance Client(string name, uint island, GpuMode gpu = GpuMode.Off)
     {
         var port = Host(island).Endpoints.First(e => e.Transport == "udp").Port;
         var also = new[] { Rules.IslandA, Rules.IslandB }.Where(s => s != island).Append(Rules.Master).ToArray();
         var game = GameInstance.Create(new LanternsGame(), new GameOptions
         {
             Headless = true,
-            Gpu = GpuMode.Off,
+            Gpu = gpu,
             Connect = new ConnectOptions { Address = "udp://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture), Scope = island, AlsoScopes = also, Name = name },
         });
         _clients.Add(game);

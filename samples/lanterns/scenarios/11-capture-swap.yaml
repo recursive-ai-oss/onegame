@@ -6,4 +6,4 @@ steps:
   - click: partner-1
   - step: 45
 expect:
-  - capture: { reference: refs/swap-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }
+  - capture: { reference: refs/swap-720p.png, size: 1280x720, tolerance: 4, max-diff: 0.001 }

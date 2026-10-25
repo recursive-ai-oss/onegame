@@ -6,28 +6,22 @@ using OneGame.UI.Kit;
 namespace Lanterns.Views;
 
 /// <summary>
-/// The game screen: a bar with what I hold, the island with its players and lanterns (plain boxes, placed every frame from the world), the
-/// leaderboard, and the swap dialog. The class reads the session and sends commands through it.
+/// The game screen over the 3D scene (<see cref="IslandScene"/>): a bar with what I hold, a name floating over each walker, the leaderboard,
+/// and the swap dialog. The class reads the session and sends commands through it.
 /// </summary>
 [View]
 internal sealed class IslandView
 {
     private const float BarUnits = 44;
     private const float SideUnits = 250;
-    private const int MaxLanterns = 24;
-    private const int MaxPlayers = 16;
     private const int Rows = 8;
     private const int Partners = 6;
 
     private readonly Session _s;
     private readonly GameInstance _game;
     private readonly bool _swapScreen;
-    private float _ppu = 1;
-    private float _ox;
-    private float _oy;
-    private uint _scope = Rules.IslandA;
-    private Lantern[] _lanterns = [];
-    private Player[] _players = [];
+    private readonly IslandScene _scene;
+    private readonly SceneView3D _view;
     private (uint Id, string Name, int Total, uint Island)[] _board = [];
     private (uint Id, string Name, int Total, uint Island)[] _partners = [];
 
@@ -36,37 +30,19 @@ internal sealed class IslandView
         _game = game;
         _s = Session.For(game);
         _swapScreen = swap;
+        var lanterns = (LanternsGame)game.Definition;
+        _scene = lanterns.Scene;
+        _view = lanterns.View;
     }
 
     public static Element Build(GameInstance game, bool swap) => new IslandView(game, swap).Make();
 
     private Element Make()
     {
-        if (_swapScreen)
-        {
-            _s.SwapOpen = true;
-        }
+        _s.SwapOpen = _swapScreen;
 
         var board = new Element("Board").Style(st => st.Grow(1).Shrink(1).MinWidth(Length.Px(0)).Overflow(OverflowMode.Hidden));
         board.OnUpdate(_ => Update());
-        board.Add(Ui.Box().Named("island").Style(st => st.Position(PositionMode.Absolute).Background(Theme.Sand).Radius(Length.Ui(10)))
-            .BindStyle(st => st.Left(_ox).Top(_oy).Width(Rules.Width * _ppu).Height(Rules.Height * _ppu)));
-        board.Add(Ui.Box().Named("bridge").Style(st => st.Position(PositionMode.Absolute).Background(Theme.Bridge))
-            .BindStyle(st =>
-            {
-                var x = _scope == Rules.IslandA ? _ox + (Rules.Width * _ppu) : _ox - (24 * _ppu);
-                st.Left(x).Top(_oy + (Rules.BridgeTop * _ppu)).Width(24 * _ppu).Height((Rules.BridgeBottom - Rules.BridgeTop) * _ppu);
-            }));
-        for (var i = 0; i < MaxLanterns; i++)
-        {
-            board.Add(MakeLantern(i));
-        }
-
-        for (var i = 0; i < MaxPlayers; i++)
-        {
-            board.Add(MakePlayer(i));
-        }
-
         var side = Ui.Column(
             Ui.Label("Leaderboard").Class("heading"),
             Rows0(),
@@ -75,6 +51,12 @@ internal sealed class IslandView
             .Class("side").Width(Length.Ui(SideUnits)).Shrink(0);
         var root = Ui.Column(MakeBar(), Ui.Row(board, side).Style(st => st.Grow(1).MinHeight(Length.Px(0))), MakeSwapDialog())
             .Class("screen").Named("island-screen").Width(Length.Percent(100)).Height(Length.Percent(100));
+        // The names float over the 3D scene; each follows a walker the scene drew this frame.
+        for (var i = 0; i < IslandScene.MaxLabels; i++)
+        {
+            root.Add(MakeLabel(i));
+        }
+
         return _s.Kit.AttachTo(root);
     }
 
@@ -83,6 +65,7 @@ internal sealed class IslandView
             Ui.Label(string.Empty).Class("stat").Named("where").BindText(() => _s.Scope, s => s == Rules.IslandA ? "North island" : "South island"),
             Ui.Label(string.Empty).Named("mine").BindText(() => _s.Me is { } m ? Hash(m) : 0, v => v == 0 ? "Looking for you..." : Holding()),
             Ui.Spacer(),
+            Ui.Label("Walk: arrows or WASD").Class("dim").Named("hint"),
             Ui.Label(string.Empty).Class("dim").Named("swap-status").BindText(() => _s.MyAccount?.Status ?? -1, StatusText))
             .Class("bar").Height(Length.Ui(BarUnits)).Shrink(0);
 
@@ -125,42 +108,16 @@ internal sealed class IslandView
         return $"{(row + 1).ToString(CultureInfo.InvariantCulture)}. {b.Name}  {b.Total.ToString(CultureInfo.InvariantCulture)}";
     }
 
-    private Element MakeLantern(int i) =>
-        Ui.Box().Named("lantern-" + i.ToString(CultureInfo.InvariantCulture))
-            .Style(st => st.Position(PositionMode.Absolute).Radius(Length.Ui(8)).PointerEvents(PointerEvents.None))
-            .BindVisible(() => i < _lanterns.Length)
-            .BindStyle(st =>
-            {
-                if (i >= _lanterns.Length)
-                {
-                    return;
-                }
-
-                var l = _lanterns[i];
-                var size = 10 * _ppu;
-                st.Left(_ox + ((l.X - 5) * _ppu)).Top(_oy + ((l.Y - 5) * _ppu)).Width(size).Height(size).Background(Theme.Lantern[l.Color % Rules.Colors]);
-            });
-
-    private Element MakePlayer(int i)
+    private Element MakeLabel(int slot)
     {
-        var el = Ui.Box().Named("player-" + i.ToString(CultureInfo.InvariantCulture))
-            .Style(st => st.Position(PositionMode.Absolute).Radius(Length.Ui(12)).PointerEvents(PointerEvents.None).ZIndex(5))
-            .BindVisible(() => i < _players.Length)
-            .BindStyle(st =>
-            {
-                if (i >= _players.Length)
-                {
-                    return;
-                }
-
-                var p = _players[i];
-                var size = 14 * _ppu;
-                st.Left(_ox + ((p.X - 7) * _ppu)).Top(_oy + ((p.Y - 7) * _ppu)).Width(size).Height(size).Background(p.Mine ? Theme.Me : Theme.Other);
-            });
-        el.Add(Ui.Label(string.Empty).Style(st => st.Position(PositionMode.Absolute).FontSize(Length.Ui(11)).Top(Length.Ui(-16)).Left(Length.Ui(-6)))
-            .BindText(() => i < _players.Length ? _players[i].Owner : 0, _ => i < _players.Length ? $"{_players[i].Name} ({_players[i].Total.ToString(CultureInfo.InvariantCulture)})" : string.Empty));
-        return el;
+        var el = Ui.Label(string.Empty).Class("tag").Named("name-" + (slot + 1).ToString(CultureInfo.InvariantCulture))
+            .Style(st => st.PointerEvents(PointerEvents.None))
+            .BindText(() => _scene.LabelPlayer(slot) is { } p ? (p.Owner * 100_000UL) + (ulong)p.Total + (_s.IsMine(p) ? 1UL << 50 : 0) : 0, _ => LabelText(slot));
+        return el.PinToWorld(_view, _game, () => _scene.LabelPoint(slot));
     }
+
+    private string LabelText(int slot) =>
+        _scene.LabelPlayer(slot) is { } p ? $"{p.Name} ({p.Total.ToString(CultureInfo.InvariantCulture)})" : string.Empty;
 
     // ---- the swap dialog ---------------------------------------------------------------------------------------------
 
@@ -254,16 +211,8 @@ internal sealed class IslandView
 
     private void Update()
     {
-        var ui = _game.Ui;
-        var bw = Math.Max(1, ui.Width - (SideUnits * ui.Scale));
-        var bh = Math.Max(1, ui.Height - (BarUnits * ui.Scale));
-        var margin = 28f;
-        _ppu = Math.Min(bw / (Rules.Width + (2 * margin)), bh / (Rules.Height + (2 * margin)));
-        _ox = (bw - (Rules.Width * _ppu)) / 2;
-        _oy = (bh - (Rules.Height * _ppu)) / 2;
-        _scope = _s.Scope;
-        _lanterns = [.. _s.LanternsHere.OrderBy(l => l.Id.Value).Take(MaxLanterns)];
-        _players = [.. _s.PlayersHere.Where(p => p.Dest == 0).OrderBy(p => p.Id.Value).Take(MaxPlayers)];
+        // The names read where the scene put each walker, so the scene is described before they ask (it is cheap and repeats harmlessly within a tick).
+        _view.Prepare(_game.World, _game.World.Tick, _game.FrameAlpha);
         _board = [.. _s.Board().Take(Rows)];
         var me = _s.Me?.Owner ?? 0;
         _partners = [.. _s.Board().Where(b => b.Id != me).Take(Partners)];
