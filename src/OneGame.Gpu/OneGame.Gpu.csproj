@@ -6,6 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Support types of the shader library (resource bindings with their Metal indices). -->
+    <PackageReference Include="RecursiveAI.OneShader" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="OneGame.Gpu.Tests" />
   </ItemGroup>
 

@@ -63,7 +63,7 @@ internal static class GraphSmoke
     public static bool Run(GpuDevice device)
     {
         // Compute, direct and indirect, into a storage buffer.
-        using var cs = device.CreateShader(ShaderStage.Compute, SmokeCompute.CSMain.SpirV.ToArray(), SmokeCompute.CSMain.EntryPoint);
+        using var cs = device.CreateShader(new ShaderSource(ShaderStage.Compute, SmokeCompute.CSMain.EntryPoint) { SpirV = SmokeCompute.CSMain.SpirV, Msl = SmokeCompute.CSMain.Msl, MslFunctionName = SmokeCompute.CSMain.MslFunctionName, Bindings = SmokeCompute.Bindings.All, ComputeGroupX = SmokeCompute.CSMain.ThreadGroupSizeX, ComputeGroupY = SmokeCompute.CSMain.ThreadGroupSizeY, ComputeGroupZ = SmokeCompute.CSMain.ThreadGroupSizeZ });
         using var layout = device.CreatePipelineLayout([new ResourceBinding(0, 0, 1, ResourceKind.StorageBuffer, ShaderStage.Compute)]);
         using var output = device.CreateBuffer(new BufferDesc(256, BufferUsage.Storage | BufferUsage.CopySource));
         using var group = device.CreateBindGroup(layout, 0, [BindGroupEntry.ForBuffer(0, output)]);

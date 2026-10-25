@@ -252,7 +252,7 @@ public class View3DTests
         game.Setup(world);
 
         Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
-        using var device = VulkanGpu.CreateDevice(new GpuDeviceOptions { Validation = true, RequireValidation = true });
+        using var device = GpuBackends.CreateDevice(new GpuDeviceOptions { Validation = true, RequireValidation = true });
         var renderer = new Renderer3D(device);
         var target = new Offscreen3D(renderer, 320, 180);
         var scene = new Scene { Samples = 1 };

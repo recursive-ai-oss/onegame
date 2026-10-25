@@ -3,6 +3,8 @@
   <PropertyGroup>
     <!-- The tests open their own X11 window through Xlib, which needs source-generated P/Invoke. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- The texture-array fixture uses a resource array, which WebGPU's shading language cannot express. -->
+    <OneShaderTargets>SpirV;Msl</OneShaderTargets>
   </PropertyGroup>
 
   <ItemGroup>
@@ -10,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan.csproj" />
+    <ProjectReference Include="../../src/OneGame.Gpu.Backends/OneGame.Gpu.Backends.csproj" />
   </ItemGroup>
 
 </Project>

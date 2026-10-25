@@ -39,7 +39,7 @@ internal sealed class Rig : IDisposable
 
     public Rig(int width = 320, int height = 240, GpuFormat format = GpuFormat.Rgba8UnormSrgb)
     {
-        Device = VulkanGpu.CreateDevice(new GpuDeviceOptions { Validation = true, RequireValidation = true });
+        Device = GpuBackends.CreateDevice(new GpuDeviceOptions { Validation = true, RequireValidation = true });
         Renderer = new Renderer3D(Device);
         Target = new Offscreen3D(Renderer, width, height, format);
     }

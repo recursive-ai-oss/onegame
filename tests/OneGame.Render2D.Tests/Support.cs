@@ -28,7 +28,7 @@ internal sealed class Rig : IDisposable
     {
         Width = width;
         Height = height;
-        Device = VulkanGpu.CreateDevice(new GpuDeviceOptions { Validation = true, RequireValidation = true });
+        Device = GpuBackends.CreateDevice(new GpuDeviceOptions { Validation = true, RequireValidation = true });
         Renderer = Renderer2D.Create(Device, GpuFormat.Rgba8UnormSrgb, GeneratedShaders.Instance);
         Target = Device.CreateTexture(new TextureDesc((uint)width, (uint)height, GpuFormat.Rgba8UnormSrgb, TextureUsage.RenderTarget | TextureUsage.CopySource));
     }
