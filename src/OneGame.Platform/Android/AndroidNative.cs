@@ -108,6 +108,9 @@ internal static unsafe partial class AndroidNative
     public static partial nint ALooper_forThread();
 
     [LibraryImport(Android)]
+    public static partial void ALooper_acquire(nint looper);
+
+    [LibraryImport(Android)]
     public static partial int ALooper_pollOnce(int timeoutMillis, int* outFd, int* outEvents, nint* outData);
 
     [LibraryImport(Android)]

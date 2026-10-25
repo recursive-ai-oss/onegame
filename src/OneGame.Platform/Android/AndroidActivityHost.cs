@@ -92,6 +92,9 @@ public sealed unsafe class AndroidActivityHost
     private void GameThread(string argLine)
     {
         _looper = AndroidNative.ALooper_prepare(AndroidNative.LooperPrepareAllowNonCallbacks);
+        // The activity's callbacks keep waking this looper after the game thread has ended (finishing the activity sends them). A looper is
+        // destroyed with its thread unless someone holds a reference, and waking a destroyed one aborts the process. One reference is kept for good.
+        AndroidNative.ALooper_acquire(_looper);
         _looperReady.Set();
         var jni = AndroidJni.Attach(_activity->Vm);
         GameJni = jni;
@@ -284,13 +287,13 @@ public sealed unsafe class AndroidActivityHost
     private void Post(Command command)
     {
         _commands.Enqueue(command);
-        if (_looper != 0)
+        if (_looper != 0 && !_gameFinished)
         {
             AndroidNative.ALooper_wake(_looper);
         }
     }
 
-    private void PostInsets() => Post(Command.WithInsets(_mainJni.GetSystemInsets(Activity)));
+    private void PostInsets() => Post(Command.WithInsets(_mainJni.GetSystemInsets(_activity->Clazz)));
 
     private static string Utf8(byte* p) => p == null ? "" : Marshal.PtrToStringUTF8((nint)p) ?? "";
 

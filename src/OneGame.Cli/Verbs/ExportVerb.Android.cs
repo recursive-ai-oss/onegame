@@ -123,13 +123,14 @@ internal sealed partial class ExportVerb
         var project = Projects.Find(a.Get("--project"));
         var clock = System.Diagnostics.Stopwatch.StartNew();
         var props = ReadProperties(project);
-        var package = a.Get("--package") ?? "dev.onegame." + new string([.. props.AssemblyName.ToLowerInvariant().Where(char.IsAsciiLetterOrDigit)]);
+        var settings = ReadAndroidSettings(project);
+        var package = a.Get("--package") ?? settings.GetValueOrDefault("AndroidPackage") ?? "dev.onegame." + new string([.. props.AssemblyName.ToLowerInvariant().Where(char.IsAsciiLetterOrDigit)]);
         if (!System.Text.RegularExpressions.Regex.IsMatch(package, "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"))
         {
             throw new CliException(ExitCodes.Usage, "bad_package", $"'{package}' is not an Android package name (lower-case words joined by dots, such as com.example.game).");
         }
 
-        var label = a.Get("--label") ?? project.Name;
+        var label = a.Get("--label") ?? settings.GetValueOrDefault("AndroidLabel") ?? project.Name;
         var outRoot = Path.GetFullPath(a.Get("--out") ?? Path.Combine(project.Directory, "export"));
         var work = Path.Combine(outRoot, ".android-" + project.Name);
         if (Directory.Exists(work))
@@ -155,7 +156,7 @@ internal sealed partial class ExportVerb
         }
 
         var manifest = Path.Combine(work, "AndroidManifest.xml");
-        File.WriteAllText(manifest, AndroidManifest(package, label, props.Version, props.AssemblyName, dev, a.Get("--orientation") ?? "unspecified"), new UTF8Encoding(false));
+        File.WriteAllText(manifest, AndroidManifest(package, label, props.Version, props.AssemblyName, dev, a.Get("--orientation") ?? settings.GetValueOrDefault("AndroidOrientation") ?? "unspecified"), new UTF8Encoding(false));
 
         var versionCode = VersionCode(props.Version);
         var baseApk = Path.Combine(work, "base.apk");
@@ -209,6 +210,26 @@ internal sealed partial class ExportVerb
         }
 
         return ExitCodes.Ok;
+    }
+
+    // The project can set AndroidPackage, AndroidLabel and AndroidOrientation; the command line wins.
+    private static Dictionary<string, string> ReadAndroidSettings(ProjectRef project)
+    {
+        var settings = new Dictionary<string, string>(StringComparer.Ordinal);
+        var run = Proc.Run(Proc.Dotnet, ["msbuild", project.File, "-getProperty:AndroidPackage", "-getProperty:AndroidLabel", "-getProperty:AndroidOrientation", "-nologo"], project.Directory);
+        if (run.ExitCode == 0)
+        {
+            using var doc = JsonDocument.Parse(run.Output);
+            foreach (var property in doc.RootElement.GetProperty("Properties").EnumerateObject())
+            {
+                if (property.Value.GetString() is { Length: > 0 } value)
+                {
+                    settings[property.Name] = value;
+                }
+            }
+        }
+
+        return settings;
     }
 
     private static void PublishAndroid(ProjectRef project, string rid, string folder, bool dev, AndroidSdk sdk)

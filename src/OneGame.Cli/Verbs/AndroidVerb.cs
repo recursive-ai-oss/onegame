@@ -15,11 +15,12 @@ internal sealed record AndroidDevice(string Serial, string State, string? Model,
 /// <param name="Package">The app that ran.</param>
 /// <param name="Serial">The device.</param>
 /// <param name="TimedOut">True when the game had not finished after the time limit.</param>
+/// <param name="Crashed">True when the app's process ended without writing an exit code. <c>Output</c> then ends with the crash log.</param>
 /// <param name="Result">The game's own JSON result (its last line of output when that is JSON), when it printed one.</param>
 /// <param name="Output">Everything the game wrote to standard output and error.</param>
 /// <param name="Pulled">Files copied back from the device.</param>
 /// <param name="Seconds">How long the run took.</param>
-internal sealed record AndroidRunResult(bool Ok, int ExitCode, string Package, string Serial, bool TimedOut, JsonElement? Result, string Output, string[] Pulled, double Seconds);
+internal sealed record AndroidRunResult(bool Ok, int ExitCode, string Package, string Serial, bool TimedOut, bool Crashed, JsonElement? Result, string Output, string[] Pulled, double Seconds);
 
 /// <summary>Result of <c>onegame android live</c>.</summary>
 internal sealed record AndroidLiveResult(bool Ok, string Package, string Serial, string Endpoint, int DevicePort, string Next);
@@ -237,7 +238,9 @@ internal sealed class AndroidVerb : IVerb
 
         var exit = -1;
         var timedOut = true;
+        var crashed = false;
         var deadline = Stopwatch.StartNew();
+        var gone = 0;
         while (deadline.Elapsed.TotalSeconds < timeout)
         {
             var marker = adb.RunAs(package, "cat files/onegame-exit.txt 2>/dev/null").Output.Trim();
@@ -247,11 +250,29 @@ internal sealed class AndroidVerb : IVerb
                 break;
             }
 
+            // A process that is gone without an exit code crashed (or was killed): do not wait out the time limit for it.
+            gone = adb.Shell("pidof " + package).Output.Trim().Length == 0 ? gone + 1 : 0;
+            if (gone >= 3)
+            {
+                crashed = true;
+                timedOut = false;
+                break;
+            }
+
             Thread.Sleep(300);
         }
 
         var text = adb.ExecOut(["run-as", package, "cat", "files/onegame-stdout.txt"]);
         var stdout = Encoding.UTF8.GetString(text);
+        if (crashed)
+        {
+            // The newest tombstone, without the long tail of runtime frames: the first frames name where it went wrong.
+            var log = adb.Run(["logcat", "-d", "-b", "crash", "-t", "400"]).Output.Split('\n')
+                .Where(l => !System.Text.RegularExpressions.Regex.IsMatch(l, @"#(\d{3}|[2-9]\d) pc "))
+                .TakeLast(45);
+            stdout += "\n--- crash log ---\n" + string.Join('\n', log);
+        }
+
         var pulled = new List<string>();
         var outDir = Path.GetFullPath(a.Get("--out") ?? Path.Combine(Directory.GetCurrentDirectory(), "artifacts"));
         foreach (var pull in pulls)
@@ -274,8 +295,8 @@ internal sealed class AndroidVerb : IVerb
             }
         }
 
-        var ok = !timedOut && exit == ExitCodes.Ok;
-        var run = new AndroidRunResult(ok, timedOut ? -1 : exit, package, adb.SerialOrDefault, timedOut, result, stdout, [.. pulled], Math.Round(clock.Elapsed.TotalSeconds, 1));
+        var ok = !timedOut && !crashed && exit == ExitCodes.Ok;
+        var run = new AndroidRunResult(ok, timedOut || crashed ? -1 : exit, package, adb.SerialOrDefault, timedOut, crashed, result, stdout, [.. pulled], Math.Round(clock.Elapsed.TotalSeconds, 1));
         if (json)
         {
             output.WriteLine(JsonSerializer.Serialize(run, CliJson.Default.AndroidRunResult));
@@ -288,13 +309,18 @@ internal sealed class AndroidVerb : IVerb
                 output.WriteLine($"error: the game had not finished after {timeout} s");
             }
 
+            if (crashed)
+            {
+                output.WriteLine("error: the app ended without an exit code (crashed or was killed); the crash log is above");
+            }
+
             foreach (var p in pulled)
             {
                 output.WriteLine($"pulled {p}");
             }
         }
 
-        return ok ? ExitCodes.Ok : timedOut ? ExitCodes.RuntimeError : ExitCodes.Failed;
+        return ok ? ExitCodes.Ok : timedOut || crashed ? ExitCodes.RuntimeError : ExitCodes.Failed;
     }
 
     private static int Live(ProjectArgs a, AndroidSdk sdk, Adb adb, bool json, TextWriter output)
@@ -377,8 +403,24 @@ internal sealed class AndroidVerb : IVerb
         Directory.CreateDirectory(local);
         var root = Path.GetFullPath(local).TrimEnd('/') + "/";
         using var reader = new TarReader(new MemoryStream(tar));
-        while (reader.GetNextEntry() is { } entry)
+        while (true)
         {
+            TarEntry? entry;
+            try
+            {
+                entry = reader.GetNextEntry();
+            }
+            catch (Exception ex) when (ex is EndOfStreamException or InvalidDataException or IOException)
+            {
+                // A stream cut short (the app died mid-write): keep what arrived.
+                break;
+            }
+
+            if (entry is null)
+            {
+                break;
+            }
+
             if (entry.EntryType is not (TarEntryType.RegularFile or TarEntryType.V7RegularFile) || entry.DataStream is null)
             {
                 continue;
