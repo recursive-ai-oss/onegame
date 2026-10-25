@@ -49,6 +49,9 @@ internal sealed class Session
 
     public bool SwapOpen { get; set; }
 
+    /// <summary>Steering commands sent so far (tests compare it with the player's own count of applied ones).</summary>
+    public int SteersSent { get; private set; }
+
     public string Notice { get; private set; } = string.Empty;
 
     public static Session For(GameInstance game) => All.GetValue(game, g => new Session(g));
@@ -193,6 +196,7 @@ internal sealed class Session
         _steerX = dx;
         _steerY = dy;
         me.Send.Steer(dx, dy);
+        SteersSent++;
     }
 
     /// <summary>Asks for the swap picked in the dialog.</summary>

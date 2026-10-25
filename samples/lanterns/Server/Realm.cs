@@ -40,7 +40,8 @@ public sealed class Realm
     /// <summary>The escrow driver on the master, or null.</summary>
     public EscrowDriver? Driver => _driver;
 
-    private ServerSetup Create() => new()
+    /// <summary>The setup for this one server (a test makes the realm itself to reach it afterwards).</summary>
+    public ServerSetup Create() => new()
     {
         RegisterEntities = Worlds.Register,
         BuildWorld = Worlds.Build,
@@ -50,6 +51,22 @@ public sealed class Realm
         AfterTick = After,
         Pump = _ => PumpNetwork(),
     };
+
+    /// <summary>Closes the private port and the links to other servers, as a stopped process would. Tests call it before starting the server again from its save.</summary>
+    public void Close()
+    {
+        _listener?.Dispose();
+        _listener = null;
+        foreach (var p in _peers.Values)
+        {
+            p.Channel.Close();
+        }
+    }
+
+    /// <summary>A line about this server's replica of another scope: its state, tick, resubscriptions and the link, for logs and tests.</summary>
+    public string PeerState(uint scope) => _peers.TryGetValue(scope, out var p)
+        ? $"{p.Replica.State} tick {p.Replica.LastTick} resyncs {p.Replica.Resyncs} link {(p.Channel.IsConnected ? "up" : "down")}"
+        : "none";
 
     private bool IsMaster => _scopeNo == Rules.Master;
 
