@@ -73,6 +73,12 @@ public readonly record struct Trust(ScopeSet Read, ScopeSet Command, ScopeSet Ow
     /// <param name="team">The team id; 0 for none.</param>
     public Trust As(uint player, uint team = 0) => this with { Who = new Audience(player, team) };
 
+    /// <summary>
+    /// The same trust, for a relay node: the authority sends it every member except <see cref="Visibility.Hidden"/> ones, because the
+    /// relay filters them again for its own subscribers. Only grant this to a node you trust with all the data of the scope.
+    /// </summary>
+    public Trust AsRelay() => this with { Who = Who with { Relay = true } };
+
     /// <summary>May do nothing.</summary>
     public static Trust None => new(ScopeSet.None, ScopeSet.None, ScopeSet.None);
 
@@ -112,6 +118,9 @@ public enum RefusalReason : byte
 
     /// <summary>The connection's trust no longer allows reading the scope, so the authority stopped sending it.</summary>
     ReadRevoked,
+
+    /// <summary>An authority transfer was not accepted: the scope has no transfer log or the destination's gate said no.</summary>
+    TransferNotAccepted,
 }
 
 /// <summary>How a command sent from a replica ended.</summary>
