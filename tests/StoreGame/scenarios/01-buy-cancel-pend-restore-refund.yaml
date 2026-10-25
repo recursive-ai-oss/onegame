@@ -1,0 +1,64 @@
+name: buy, cancel, pend, restore and refund through the fake store
+description: The shop connects to the fake store by itself; the scenario scripts what the store does with each purchase and checks the wallet, the screen and the purchase service after every step.
+window: 360x640
+steps:
+  - step: 3
+  - expect: {store: {connection: connected, products: "2", unfinished: "0"}}
+  - expect: {ui: {id: status, text: "ready: 2 products"}}
+
+  # A plain purchase of a consumable: granted through a command, then finished.
+  - store: {action: buy, product: coins.100}
+  - step: 1
+  - expect: {state: {entity: Wallet#1, property: Coins, equals: 100}}
+  - expect: {store: {unfinished: "0", recent: "finished coins.100 purchased"}}
+  - expect: {ui: {id: status, text: "bought coins.100"}}
+  - expect: {ui: {id: coins, text: "Coins: 100"}}
+
+  # The player backs out: nothing is granted and nothing is owned.
+  - store: {action: script, product: remove_ads, outcome: cancel}
+  - store: {action: buy, product: remove_ads}
+  - step: 1
+  - expect: {ui: {id: status, text: "cancelled remove_ads"}}
+  - expect: {store: {not-owned: remove_ads, pending: none}}
+  - expect: {state: {entity: Wallet#1, property: AdsRemoved, equals: "false"}}
+
+  # Approval is needed elsewhere: pending first, granted when approved.
+  - store: {action: script, product: remove_ads, outcome: pend}
+  - store: {action: buy, product: remove_ads}
+  - step: 1
+  - expect: {ui: {id: status, text: "waiting for approval: remove_ads"}}
+  - expect: {store: {pending: remove_ads, not-owned: remove_ads}}
+  - store: {action: resolve, product: remove_ads, approve: true}
+  - step: 1
+  - expect: {store: {owned: remove_ads, pending: none, unfinished: "0"}}
+  - expect: {state: {entity: Wallet#1, property: AdsRemoved, equals: "true"}}
+  - expect: {ui: {id: ads, text: "Ads: removed"}}
+
+  # Restore after a reinstall brings the unlock back; here it is granted again, which is harmless because it is idempotent.
+  - store: {action: restore}
+  - step: 1
+  - expect: {ui: {id: status, text: "restore finished"}}
+  - expect: {store: {owned: remove_ads, unfinished: "0"}}
+
+  # A refund takes it away again.
+  - store: {action: revoke, product: remove_ads}
+  - step: 1
+  - expect: {store: {not-owned: remove_ads}}
+  - expect: {state: {entity: Wallet#1, property: AdsRemoved, equals: "false"}}
+  - expect: {ui: {id: status, text: "refunded remove_ads"}}
+
+  # A store failure is shown and grants nothing.
+  - store: {action: script, product: coins.100, outcome: fail, error: network}
+  - store: {action: buy, product: coins.100}
+  - step: 1
+  - expect: {ui: {id: status, text: "failed coins.100: Network"}}
+  - expect: {state: {entity: Wallet#1, property: Coins, equals: 100}}
+
+  # The buttons work too, through real input.
+  # The store's answer is delivered after the tick and the grant runs on the next one, so a click takes two ticks to show.
+  - click: buy-coins
+  - step: 2
+  - expect: {state: {entity: Wallet#1, property: Coins, equals: 200}}
+  - click: restore
+  - step: 2
+  - expect: {ui: {id: status, text: "restore finished"}}

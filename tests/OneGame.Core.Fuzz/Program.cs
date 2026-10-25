@@ -3,6 +3,7 @@ using System.Text;
 using OneGame.Core.Tests.Fuzzing;
 using OneGame.Gltf.Tests.Fuzzing;
 using OneGame.Net.Tests.Fuzzing;
+using OneGame.Purchases.Tests;
 using OneGame.Sync.Tests.Fuzzing;
 
 // A seeded, time-boxed mutation fuzzer for the decoders that read untrusted bytes. It has no coverage feedback: it mutates
@@ -11,7 +12,7 @@ using OneGame.Sync.Tests.Fuzzing;
 //
 //   dotnet run -c Release --project tests/OneGame.Core.Fuzz -- --seconds 300 --seed 1 --out <dir> [--target name] [--seeds <dir>]
 
-var allTargets = FuzzTargets.All.Concat(SyncFuzzTargets.All).Concat(NetFuzzTargets.All).Concat(GltfFuzzTargets.All.Select(t => new FuzzTargets.Target(t.Name, t.Run, t.Seeds))).ToList();
+var allTargets = FuzzTargets.All.Concat(SyncFuzzTargets.All).Concat(NetFuzzTargets.All).Concat(GltfFuzzTargets.All.Select(t => new FuzzTargets.Target(t.Name, t.Run, t.Seeds))).Concat(PurchasesFuzzTargets.All.Select(t => new FuzzTargets.Target(t.Name, t.Run, t.Seeds))).ToList();
 var seconds = 60;
 ulong seed = 1;
 string? outDir = null;

@@ -166,8 +166,18 @@ internal sealed partial class ExportVerb
             libraries.Add((abi, so));
         }
 
+        // A game that sells things carries the Billing Library, our Java wrapper for it and the manifest entries it needs.
+        var playBilling = string.Equals(settings.GetValueOrDefault("AndroidPlayBilling"), "true", StringComparison.OrdinalIgnoreCase);
+        string? dex = null;
+        if (playBilling)
+        {
+            var root = settings.GetValueOrDefault("OneGameRoot") ?? throw new CliException(ExitCodes.RuntimeError, "play_billing_sources", "The project does not say where the engine is (OneGameRoot), so the Java wrapper for Play Billing cannot be found.");
+            var buildWork = Directory.CreateDirectory(Path.Combine(work, "play-billing")).FullName;
+            dex = PlayBillingKit.BuildDex(sdk, Path.Combine(Path.GetFullPath(root), "src", "OneGame.Purchases", "Java"), buildWork);
+        }
+
         var manifest = Path.Combine(work, "AndroidManifest.xml");
-        File.WriteAllText(manifest, AndroidManifest(package, label, props.Version, props.AssemblyName, dev, a.Get("--orientation") ?? settings.GetValueOrDefault("AndroidOrientation") ?? "unspecified", string.Equals(settings.GetValueOrDefault("AndroidInternet"), "true", StringComparison.OrdinalIgnoreCase)), new UTF8Encoding(false));
+        File.WriteAllText(manifest, AndroidManifest(package, label, props.Version, props.AssemblyName, dev, a.Get("--orientation") ?? settings.GetValueOrDefault("AndroidOrientation") ?? "unspecified", playBilling, string.Equals(settings.GetValueOrDefault("AndroidInternet"), "true", StringComparison.OrdinalIgnoreCase)), new UTF8Encoding(false));
 
         var versionCode = VersionCode(props.Version);
         var baseApk = Path.Combine(work, "base.apk");
@@ -179,6 +189,11 @@ internal sealed partial class ExportVerb
             foreach (var (abi, so) in libraries)
             {
                 zip.CreateEntryFromFile(so, $"lib/{abi}/lib{props.AssemblyName}.so", CompressionLevel.Optimal);
+            }
+
+            if (dex is not null)
+            {
+                zip.CreateEntryFromFile(dex, "classes.dex", CompressionLevel.Optimal);
             }
         }
 
@@ -196,6 +211,11 @@ internal sealed partial class ExportVerb
         {
             new("debug_signed", "The APK is signed with a debug key: fine for installing on a device or emulator, not for a store. A release key and an AAB for Play come with the store binding."),
         };
+        if (dex is not null)
+        {
+            warnings.Add(new("play_billing", $"The APK carries Google Play Billing Library {PlayBillingKit.BillingVersion} and the engine's wrapper class as classes.dex ({new FileInfo(dex).Length / 1024} KiB after shrinking), the BILLING permission and Play's purchase activities. Test purchases need the app on a Play track and a licence-tester account."));
+        }
+
         if (!dev)
         {
             warnings.Add(new("no_dev_tools", "Release build: no live control and no scenario options. Pass --dev for a build you can drive from outside (adb forward, onegame android run)."));
@@ -223,11 +243,11 @@ internal sealed partial class ExportVerb
         return ExitCodes.Ok;
     }
 
-    // The project can set AndroidPackage, AndroidLabel, AndroidOrientation and AndroidInternet (true for a game that connects to servers); the command line wins.
+    // The project can set AndroidPackage, AndroidLabel, AndroidOrientation, AndroidInternet (true for a game that connects to servers) and AndroidPlayBilling (true to carry Google Play Billing); the command line wins.
     private static Dictionary<string, string> ReadAndroidSettings(ProjectRef project)
     {
         var settings = new Dictionary<string, string>(StringComparer.Ordinal);
-        var run = Proc.Run(Proc.Dotnet, ["msbuild", project.File, "-getProperty:AndroidPackage", "-getProperty:AndroidLabel", "-getProperty:AndroidOrientation", "-getProperty:AndroidInternet", "-nologo"], project.Directory);
+        var run = Proc.Run(Proc.Dotnet, ["msbuild", project.File, "-getProperty:AndroidPackage", "-getProperty:AndroidLabel", "-getProperty:AndroidOrientation", "-getProperty:AndroidInternet", "-getProperty:AndroidPlayBilling", "-getProperty:OneGameRoot", "-nologo"], project.Directory);
         if (run.ExitCode == 0)
         {
             using var doc = JsonDocument.Parse(run.Output);
@@ -268,7 +288,7 @@ internal sealed partial class ExportVerb
         }
     }
 
-    internal static string AndroidManifest(string package, string label, string version, string library, bool dev, string orientation, bool internet = false)
+    internal static string AndroidManifest(string package, string label, string version, string library, bool dev, string orientation, bool playBilling = false, bool internet = false)
     {
         static string X(string s) => System.Security.SecurityElement.Escape(s) ?? "";
         _ = version;
@@ -290,13 +310,33 @@ internal sealed partial class ExportVerb
             lines.Add("  <uses-permission android:name='android.permission.INTERNET'/>");
         }
 
-        lines.Add($"  <application android:label='{X(label)}' android:hasCode='false' android:allowBackup='false' android:debuggable='{debuggable}'>");
+        if (playBilling)
+        {
+            // What the Billing Library's own manifest declares (it is merged by Gradle in other builds): the permission, the intent filters
+            // that let the app see Play's billing service on Android 11 and later, and the activities that host Play's purchase screens.
+            lines.Add("  <uses-permission android:name='com.android.vending.BILLING'/>");
+            lines.Add("  <queries>");
+            lines.Add("    <intent><action android:name='com.android.vending.billing.InAppBillingService.BIND'/></intent>");
+            lines.Add("    <intent><action android:name='com.google.android.apps.play.billingtestcompanion.BillingOverrideService.BIND'/></intent>");
+            lines.Add("  </queries>");
+        }
+
+        lines.Add($"  <application android:label='{X(label)}' android:hasCode='{(playBilling ? "true" : "false")}' android:allowBackup='false' android:debuggable='{debuggable}'>");
         lines.Add($"    <activity android:name='android.app.NativeActivity' android:exported='true' android:launchMode='singleTask' android:screenOrientation='{X(orientation)}'");
         lines.Add("        android:theme='@android:style/Theme.Black.NoTitleBar.Fullscreen'");
         lines.Add("        android:configChanges='orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density|uiMode|fontScale|layoutDirection|locale'>");
         lines.Add($"      <meta-data android:name='android.app.lib_name' android:value='{X(library)}'/>");
         lines.Add("      <intent-filter><action android:name='android.intent.action.MAIN'/><category android:name='android.intent.category.LAUNCHER'/></intent-filter>");
         lines.Add("    </activity>");
+        if (playBilling)
+        {
+            foreach (var name in new[] { "ProxyBillingActivity", "ProxyBillingActivityV2" })
+            {
+                lines.Add($"    <activity android:name='com.android.billingclient.api.{name}' android:exported='false' android:theme='@android:style/Theme.Translucent.NoTitleBar'");
+                lines.Add("        android:configChanges='keyboard|keyboardHidden|screenLayout|screenSize|orientation'/>");
+            }
+        }
+
         lines.Add("  </application>");
         lines.Add("</manifest>");
         return string.Join('\n', lines) + "\n";
