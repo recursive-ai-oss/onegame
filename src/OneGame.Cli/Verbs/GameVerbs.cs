@@ -74,17 +74,6 @@ internal sealed class ReplayVerb : IVerb
     }
 }
 
-/// <summary>Reserved for the export unit.</summary>
-internal sealed class ExportVerb : IVerb
-{
-    public string Name => "export";
-
-    public string Summary => "Reserved: package the game for Windows and Linux (not available yet).";
-
-    public int Run(string[] args, bool json, TextWriter output, TextWriter error) =>
-        throw new CliException(ExitCodes.Usage, "not_implemented", "export is reserved and not available yet. Publish with 'dotnet publish -c Release -r <rid> -p:PublishAot=true' meanwhile.");
-}
-
 /// <summary>Shared by the verbs that run the game with some options.</summary>
 internal static class GameRunner
 {
@@ -220,7 +209,7 @@ internal sealed class TestVerb : IVerb
         var tail = new List<string>();
         foreach (var p in projects)
         {
-            var result = Proc.Run(Proc.Dotnet, ["test", p, "-c", configuration, "--nologo", "-v", "q"], project.Directory, line => stream?.WriteLine(line));
+            var result = Proc.Run(Proc.Dotnet, ["test", "--project", p, "-c", configuration, "-v", "q"], project.Directory, line => stream?.WriteLine(line));
             ok &= result.ExitCode == 0;
             foreach (var raw in (result.Output + "\n" + result.Error).Split('\n'))
             {

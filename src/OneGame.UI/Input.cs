@@ -85,7 +85,7 @@ public readonly record struct UiEvent
     /// <summary>Pointer Y in screen pixels.</summary>
     public float Y { get; init; }
 
-    /// <summary>Pointer button: 0 primary, 1 secondary, 2 middle.</summary>
+    /// <summary>Pointer button: 0 primary, 1 secondary, 2 middle. A <see cref="UiEventKind.Click"/> raised by keyboard or gamepad activation carries -1.</summary>
     public int Button { get; init; }
 
     /// <summary>Horizontal scroll amount in pixels.</summary>

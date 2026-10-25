@@ -21,7 +21,7 @@ internal sealed class Session : IDisposable
         Directory.CreateDirectory(OutputDirectory);
         Game = GameInstance.Create(
             new WindowedGame(),
-            new GameOptions { Width = 640, Height = 360, Gpu = GpuMode.Required, Shaders = new DirectoryShaders(Paths.Shaders), Backend = backend, DisplayName = display });
+            new GameOptions { Width = 640, Height = 360, Gpu = GpuMode.Required, Backend = backend, DisplayName = display });
         Control = new ControlSurface(Game, OutputDirectory);
         StepUntil(() => Game.PresentedFrames >= 3 && Game.Window.IsFocused || Game.PresentedFrames >= 30);
     }
@@ -42,6 +42,8 @@ internal sealed class Session : IDisposable
             Thread.Sleep(2);
         }
     }
+
+    public OneGame.UI.Kit.TextInputView Field => (OneGame.UI.Kit.TextInputView)Game.Ui.Find("name")!;
 
     public string Text(string id)
     {
@@ -191,9 +193,9 @@ public abstract class WindowedTests
         // Clicking the field focuses it; typed text and Backspace then edit it.
         s.Click("name");
         Assert.Contains("name", s.Call("input_text", """{"text":"hello"}""").GetProperty("focused").GetString(), StringComparison.Ordinal);
-        Assert.Equal("Name: hello", s.Text("name"));
+        Assert.Equal("hello", s.Field.FieldText);
         s.Call("input_key", """{"key":"Backspace"}""");
-        Assert.Equal("Name: hell", s.Text("name"));
+        Assert.Equal("hell", s.Field.FieldText);
         Assert.True(s.Game.Window.TextInputActive, "a focused text field must switch the platform's text input on");
 
         // Gamepad focus navigation reaches the button and activates it.
@@ -212,10 +214,15 @@ public abstract class WindowedTests
         using var s = Start();
         s.Click("name");
         s.Call("input_composition", """{"text":"ka","cursorStart":2,"cursorEnd":2}""");
-        Assert.Equal("Name: [ka]", s.Text("name"));
+        Assert.Equal("ka", s.Field.Preedit);
+        s.Call("step", """{"frames":2}""");
+        Assert.Equal("ka", s.Game.Ui.Find("name/text")!.Text);
+        Assert.True(s.Game.Window.TextInputActive);
+        Session.Save((IsX11 ? "x11" : "wayland") + "-preedit", s.Game.CapturePresented()!);
         s.Call("input_composition", """{"text":""}""");
         s.Call("input_text", """{"text":"か"}""");
-        Assert.Equal("Name: か", s.Text("name"));
+        Assert.Equal("", s.Field.Preedit);
+        Assert.Equal("か", s.Field.FieldText);
     }
 
     [Fact]
@@ -226,9 +233,10 @@ public abstract class WindowedTests
         s.Click("name");
         s.Call("clipboard_set", """{"text":"from outside"}""");
         s.Call("input_key", """{"key":"v","modifiers":["Control"]}""");
-        Assert.Equal("Name: from outside", s.Text("name"));
+        Assert.Equal("from outside", s.Field.FieldText);
 
         s.Call("input_text", """{"text":"!"}""");
+        s.Call("input_key", """{"key":"a","modifiers":["Control"]}""");
         s.Call("input_key", """{"key":"c","modifiers":["Control"]}""");
         Assert.Equal("from outside!", s.Call("clipboard_get").GetProperty("text").GetString());
     }
@@ -386,7 +394,7 @@ public sealed class X11WindowedTests : WindowedTests, IClassFixture<XvfbFixture>
         // The game reads the other program's clipboard through the X selection protocol while it keeps presenting.
         s.Click("name");
         s.Call("input_key", """{"key":"v","modifiers":["Control"]}""");
-        Assert.Equal("Name: pasted from another program", s.Text("name"));
+        Assert.Equal("pasted from another program", s.Field.FieldText);
     }
 }
 

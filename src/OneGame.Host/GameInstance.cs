@@ -54,7 +54,7 @@ public sealed record GameOptions
     /// <summary>How the swapchain paces presentation. <see cref="PresentMode.Vsync"/> (the default) is always available; the other two fall back to it where the system lacks them.</summary>
     public PresentMode PresentMode { get; init; } = PresentMode.Vsync;
 
-    /// <summary>Where the 2D renderer gets its compiled shaders. When null, the folder named by <c>ONEGAME_SHADER_DIR</c> is used if set.</summary>
+    /// <summary>Where the 2D renderer gets its compiled shaders. When null, the renderer's own shaders, compiled during the build, are used.</summary>
     public IShaderSource? Shaders { get; init; }
 }
 
@@ -106,7 +106,7 @@ public sealed class GameInstance : IDisposable
         var measurer = haveFonts ? new FontTextMeasurer(fonts) : null;
         var art = new ArtAtlas();
         definition.DefineArt(art);
-        var shaders = options.Shaders ?? (Environment.GetEnvironmentVariable("ONEGAME_SHADER_DIR") is { Length: > 0 } dir ? new DirectoryShaders(dir) : null);
+        var shaders = options.Shaders ?? GeneratedShaders.Instance;
         _stage = definition.CreateRenderStage(new HostResources(haveFonts ? fonts : null, measurer, art, shaders));
         Platform = PlatformApp.Create(new PlatformOptions
         {
@@ -116,6 +116,12 @@ public sealed class GameInstance : IDisposable
         });
         Window = Platform.CreateWindow(new WindowOptions { Title = definition.Name, Width = options.Width, Height = options.Height });
         Ui = new UiTree(measurer);
+        if (!options.Headless && Platform.Clipboard.IsAvailable)
+        {
+            // The kit's text fields copy and paste through the window system's clipboard.
+            OneGame.UI.Kit.UiKit.DefaultClipboard = new SystemClipboard(Platform.Clipboard);
+        }
+
         Seed = options.Seed ?? definition.Seed;
         Attach(NewWorld(null));
         definition.Style(Ui);

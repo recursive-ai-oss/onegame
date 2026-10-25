@@ -1,0 +1,22 @@
+name: capture-statistics
+description: "The statistics screen after one win and two games left unfinished."
+steps:
+  - fixture: nearly-won
+  - command: { entity: Table, name: AutoFinish }
+  - step: 3
+  - command: { entity: Table, name: NewGame, args: [3] }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: NewGame, args: [3] }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: NewGame, args: [1] }
+  - step: 1
+  - screen: stats
+  - step: 5
+  - expect:
+      capture: { reference: refs/statistics-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }
+  - expect:
+      capture: { reference: refs/statistics-1080p.png, size: 1920x1080, scale: 1.5, tolerance: 2, max-diff: 0.001 }

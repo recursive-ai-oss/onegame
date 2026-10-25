@@ -64,12 +64,14 @@ public class HostInputTests
 
         inj.Composition(window, "ni", 0, 2);
         game.Step();
-        Assert.Equal("Name: [ni]", game.Ui.Find("name")!.Text);
+        game.Step();
+        Assert.Equal("ni", ((OneGame.UI.Kit.TextInputView)game.Ui.Find("name")!).Preedit);
+        Assert.Equal("ni", game.Ui.Find("name/text")!.Text);
 
         inj.Composition(window, string.Empty);
         inj.Text(window, "x");
         game.Step();
-        Assert.Equal("Name: x", game.Ui.Find("name")!.Text);
+        Assert.Equal("x", ((OneGame.UI.Kit.TextInputView)game.Ui.Find("name")!).FieldText);
 
         // Focus moving to a button switches the input method off.
         game.Ui.Focus(game.Ui.Find("click")!);

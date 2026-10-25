@@ -116,6 +116,16 @@ public sealed partial class UiTree
             w.WriteString("id", e.Id);
         }
 
+        if (e.Role is not null)
+        {
+            w.WriteString("role", e.Role);
+        }
+
+        if (e.Value is not null)
+        {
+            w.WriteString("value", e.Value);
+        }
+
         if (e.Classes.Count > 0)
         {
             w.WriteStartArray("classes");

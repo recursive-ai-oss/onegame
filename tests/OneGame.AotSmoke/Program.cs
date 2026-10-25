@@ -204,6 +204,16 @@ if (textLines.Count < 2 || placed.Count == 0 || glyphStatus != AtlasStatus.Ok ||
 
 Console.WriteLine($"ok: text {textLines.Count} lines, {placed.Count} glyphs, glyph {glyph.Width}x{glyph.Height}, svg {coin.Width}x{coin.Height}");
 
+// The component kit: a table, a filter field, a dialog and a theme swap, driven through input events.
+var kitProblem = KitSmoke.Run(measurer);
+if (kitProblem is not null)
+{
+    Console.Error.WriteLine("kit smoke failed: " + kitProblem);
+    return 1;
+}
+
+Console.WriteLine("ok: ui kit table, filter, sort, dialog and theme swap");
+
 // Graphics: create a device, clear an offscreen target and read it back. "--require-gpu" turns a missing Vulkan driver into a failure.
 var requireGpu = args.Contains("--require-gpu");
 if (!VulkanGpu.IsAvailable)
@@ -228,7 +238,7 @@ if (pixels[0] != 255 || pixels[1] is < 127 or > 128 || pixels[2] != 0 || pixels[
 Console.WriteLine($"gpu: {device.Adapter.Name} ({device.Adapter.Kind}) cleared and read back 8x8");
 
 // The 2D renderer: sprites, a rounded rectangle and a line of text through the atlases, offscreen, read back.
-using var renderer = Renderer2D.Create(device, GpuFormat.Rgba8UnormSrgb, new EmbeddedShaders());
+using var renderer = Renderer2D.Create(device, GpuFormat.Rgba8UnormSrgb, GeneratedShaders.Instance);
 using var frameTarget = device.CreateTexture(new TextureDesc(96, 64, GpuFormat.Rgba8UnormSrgb, TextureUsage.RenderTarget | TextureUsage.CopySource));
 using var sprite = renderer.CreateTexture(2, 2, [255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255], TextureFilter.Nearest);
 var scene = new Scene2D();
@@ -271,19 +281,4 @@ static byte[] ReadResource(string name)
     using var copy = new MemoryStream();
     stream.CopyTo(copy);
     return copy.ToArray();
-}
-
-/// <summary>The renderer's shaders compiled by a test tool and embedded in this smoke test; a game gets them from the shader build.</summary>
-internal sealed class EmbeddedShaders : IShaderSource
-{
-    public ShaderCode Load(string program, string entryPoint) =>
-        new(entryPoint.StartsWith("VS", StringComparison.Ordinal) ? ShaderStage.Vertex : ShaderStage.Pixel, "main", ReadResource("spv/" + program + "." + entryPoint));
-
-    private static byte[] ReadResource(string name)
-    {
-        using var stream = typeof(EmbeddedShaders).Assembly.GetManifestResourceStream(name) ?? throw new InvalidOperationException("missing resource " + name);
-        using var copy = new MemoryStream();
-        stream.CopyTo(copy);
-        return copy.ToArray();
-    }
 }

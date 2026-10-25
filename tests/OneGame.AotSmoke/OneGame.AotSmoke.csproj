@@ -22,6 +22,7 @@
     <ProjectReference Include="../../src/OneGame.Platform/OneGame.Platform.csproj" />
     <ProjectReference Include="../../src/OneGame.Render2D/OneGame.Render2D.csproj" />
     <ProjectReference Include="../../src/OneGame.UI/OneGame.UI.csproj" />
+    <ProjectReference Include="../../src/OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
     <ProjectReference Include="../../src/OneGame.Atlas/OneGame.Atlas.csproj" />
     <ProjectReference Include="../../src/OneGame.Text/OneGame.Text.csproj" />
     <ProjectReference Include="../../src/OneGame.Audio/OneGame.Audio.csproj" />
@@ -36,7 +37,6 @@
     <!-- A font and an icon for the text smoke. -->
     <EmbeddedResource Include="../../testdata/text/fonts/NotoSans-Subset-Regular.ttf" LogicalName="font.ttf" />
     <EmbeddedResource Include="../../testdata/text/svg/coin.svg" LogicalName="coin.svg" />
-    <EmbeddedResource Include="../OneGame.Render2D.Tests/Shaders/*.spv" LogicalName="spv/%(Filename)" />
   </ItemGroup>
 
 </Project>

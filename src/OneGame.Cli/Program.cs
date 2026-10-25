@@ -95,7 +95,7 @@ internal static class Program
         return exitCode;
     }
 
-    private static string GetVersion()
+    internal static string GetVersion()
     {
         var info = typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
         // Drop the source-revision suffix the SDK appends.

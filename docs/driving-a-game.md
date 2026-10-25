@@ -14,7 +14,7 @@ onegame run --headless --frames 60 --json
 
 A game is a `GameDefinition` (entities, `Setup`, screens, fixtures) plus entity classes: synced state as partial properties, commands as methods, simulation in `OnTick`, views as `[View]` members. The scaffold shows all of it in 40 lines. Warnings are errors; a sim or view rule you break is a compile error with an `OG....` id and a message that says the fix.
 
-Fonts: put `.ttf`/`.otf` files in a `fonts/` folder next to the game (or override `DefineFonts`). With fonts and compiled shaders (`ONEGAME_SHADER_DIR`, until the shader build package is wired in) the 2D renderer draws the UI; without them a plain preview is drawn, enough to check layout. SVG art goes in `DefineArt`.
+Fonts: put `.ttf`/`.otf` files in a `fonts/` folder next to the game (or override `DefineFonts`). With fonts the 2D renderer draws the UI through the GPU, using the shaders the engine compiles during its own build; without fonts a plain preview is drawn, enough to check layout. SVG art goes in `DefineArt`.
 
 ## 2. Scenarios: tests as text
 
@@ -87,6 +87,15 @@ onegame mcp --socket /tmp/shop.sock     # then: info, ui_click, input_text, clip
 ```
 
 `capture_frame` renders offscreen at any size; with `"presented": true` it returns the frame the window actually shows. `input_*` operations go through the same queue as the keyboard and mouse, so a text field cannot tell them apart; `input_composition` plays an input method's pre-edit text and `clipboard_get`/`clipboard_set` read and write the system clipboard (paste with `input_key` `v` + `Control`). With no display (a CI machine) run headless, or start `Xvfb :88 -noreset` for a window.
+
+## 6. Ship it
+
+```
+onegame export --target linux-x64 --steam --json     # a folder and a .tar.gz under ./export, nothing else in them
+onegame export --target win-x64 --json              # a folder and a .zip
+```
+
+The JSON lists every file with its size and hash, and the warnings worth acting on. Release builds only; see `docs/exporting.md`.
 
 ## Exit codes
 
