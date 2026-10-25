@@ -711,6 +711,7 @@ public sealed class ProcessCluster : IDisposable
             File.Delete(_stateFile);
             if (_owner && _ownsDir)
             {
+                KeepLogs();
                 Directory.Delete(_state.Dir, true);
             }
         }
@@ -720,6 +721,29 @@ public sealed class ProcessCluster : IDisposable
         }
 
         return report;
+    }
+
+    // When ONEGAME_CLUSTER_LOGS names a folder, the nodes' log files are copied there before the cluster's temporary folder goes, so a failed CI run can be read.
+    private void KeepLogs()
+    {
+        if (Environment.GetEnvironmentVariable("ONEGAME_CLUSTER_LOGS") is not { Length: > 0 } target)
+        {
+            return;
+        }
+
+        try
+        {
+            var to = Path.Combine(target, _state.Name + "-" + Path.GetFileName(_state.Dir));
+            Directory.CreateDirectory(to);
+            foreach (var file in Directory.EnumerateFiles(_state.Dir, "*.log"))
+            {
+                File.Copy(file, Path.Combine(to, Path.GetFileName(file)), true);
+            }
+        }
+        catch (IOException)
+        {
+            // Keeping logs is best effort.
+        }
     }
 
     /// <summary>Stops the cluster when this object started it (see <see cref="Down"/>); one found with <see cref="Attach"/> is left running.</summary>

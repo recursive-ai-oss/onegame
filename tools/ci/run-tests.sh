@@ -9,6 +9,8 @@ config=$(echo "${1:-Debug}" | tr 'A-Z' 'a-z')
 : "${ONEGAME_ARTIFACTS:?set ONEGAME_ARTIFACTS to the build output folder}"
 logs="$ONEGAME_ARTIFACTS/test-logs"
 mkdir -p "$logs"
+# Process clusters started by the tests leave their node logs here (uploaded with the test logs).
+export ONEGAME_CLUSTER_LOGS="$logs/cluster"
 
 failed=0
 count=0

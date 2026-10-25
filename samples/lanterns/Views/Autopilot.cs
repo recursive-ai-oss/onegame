@@ -12,10 +12,15 @@ internal sealed class Autopilot(Session session)
     private const int GatherGoal = 3;
     private const int ProposeEveryTicks = 300;
 
+    // An accept can be lost with the master's unsaved state when the master restarts, leaving the offer open on both sides with nothing
+    // changing for either. A player would click again; the bot asks again after this many ticks (a repeat is rejected harmlessly).
+    private const int AcceptAgainTicks = 180;
+
     private uint _island;
     private int _baseline;
     private long _lastPropose = -ProposeEveryTicks;
     private int _lastStatus;
+    private long _lastAccept = -AcceptAgainTicks;
 
     public void Step()
     {
@@ -70,8 +75,9 @@ internal sealed class Autopilot(Session session)
             return;
         }
 
-        if (account.Status == SwapStatus.Incoming && _lastStatus != SwapStatus.Incoming)
+        if (account.Status == SwapStatus.Incoming && (_lastStatus != SwapStatus.Incoming || Now < _lastAccept || Now - _lastAccept >= AcceptAgainTicks))
         {
+            _lastAccept = Now;
             account.Send.Accept();
         }
         else if (account.Status == SwapStatus.None || account.Status >= SwapStatus.Done)
