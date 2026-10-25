@@ -145,6 +145,9 @@ public sealed class SteamInputService : IDisposable
     // Steam's origin numbers for an Xbox One controller start at 114 (A). Everything is translated to that family to pick a kit glyph.
     private const int XboxOneType = 3;
 
+    // How often (in frames) unresolved handles are asked for again: about twice a second at 60 Hz.
+    private const int ResolveRetryFrames = 30;
+
     private readonly ISteamInputNative? _native;
     private readonly SteamInputActions _actions;
     private readonly List<ActionSlot> _slots = [];
@@ -256,46 +259,63 @@ public sealed class SteamInputService : IDisposable
         return svc;
     }
 
+    // Steam answers 0 for every handle until it has adopted the app's configuration (about a second after Init), and again after
+    // the player changes configuration, so unresolved names are asked for again instead of being given up on.
     private void Resolve()
     {
         var n = _native!;
+        if (_slots.Count == 0)
+        {
+            foreach (var set in _actions.Sets)
+            {
+                foreach (var d in set.Digital)
+                {
+                    _slots.Add(new ActionSlot(d.Name, SteamActionKind.Digital, set.Name, 0, d.Button, null, null));
+                }
+
+                foreach (var d in set.Sticks)
+                {
+                    _slots.Add(new ActionSlot(d.Name, SteamActionKind.Stick, set.Name, 0, null, d.Stick, null));
+                }
+
+                foreach (var d in set.Triggers)
+                {
+                    _slots.Add(new ActionSlot(d.Name, SteamActionKind.Trigger, set.Name, 0, null, null, d.Axis));
+                }
+            }
+        }
+
+        _missing.Clear();
         foreach (var set in _actions.Sets)
         {
-            var h = n.GetActionSet(set.Name);
-            _setHandles[set.Name] = h;
-            if (h == 0)
+            if (_setHandles.GetValueOrDefault(set.Name) == 0)
+            {
+                _setHandles[set.Name] = n.GetActionSet(set.Name);
+            }
+
+            if (_setHandles[set.Name] == 0)
             {
                 _missing.Add("set " + set.Name);
             }
         }
 
-        foreach (var set in _actions.Sets)
+        for (var i = 0; i < _slots.Count; i++)
         {
-            foreach (var d in set.Digital)
+            var s = _slots[i];
+            if (s.Handle == 0)
             {
-                Add(new ActionSlot(d.Name, SteamActionKind.Digital, set.Name, n.GetDigitalAction(d.Name), d.Button, null, null));
+                var h = s.Kind == SteamActionKind.Digital ? n.GetDigitalAction(s.Name) : n.GetAnalogAction(s.Name);
+                s = s with { Handle = h };
+                _slots[i] = s;
             }
 
-            foreach (var d in set.Sticks)
-            {
-                Add(new ActionSlot(d.Name, SteamActionKind.Stick, set.Name, n.GetAnalogAction(d.Name), null, d.Stick, null));
-            }
-
-            foreach (var d in set.Triggers)
-            {
-                Add(new ActionSlot(d.Name, SteamActionKind.Trigger, set.Name, n.GetAnalogAction(d.Name), null, null, d.Axis));
-            }
-        }
-
-        void Add(ActionSlot s)
-        {
             if (s.Handle == 0)
             {
                 _missing.Add(s.Name);
             }
-
-            _slots.Add(s);
         }
+
+        _glyphSignature = "";
     }
 
     /// <summary>Makes <paramref name="name"/> the active set on every controller (and on controllers that connect later). Cheap; safe to call every frame.</summary>
@@ -342,12 +362,23 @@ public sealed class SteamInputService : IDisposable
         var n = _native!;
         _frame++;
         n.RunFrame();
+        var before = _controllers.Count;
         SyncControllers(n);
+        if (_missing.Count > 0 && (_frame % ResolveRetryFrames == 0 || _controllers.Count > before))
+        {
+            Resolve();
+        }
+
         if (_activeSet is not null)
         {
             var handle = _setHandles[_activeSet];
             foreach (var c in _controllers)
             {
+                if (handle == 0)
+                {
+                    break;
+                }
+
                 // Steam may reset a controller's set (focus changes, reconfiguration); re-assert it when it differs.
                 if (_setDirty || n.GetCurrentActionSet(c.Handle) != handle)
                 {
