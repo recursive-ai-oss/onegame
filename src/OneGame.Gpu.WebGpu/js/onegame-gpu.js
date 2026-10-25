@@ -142,7 +142,12 @@ function variantFor(L, shaders) {
         Object.assign(e, te);
         break;
       }
-      case 4: e.sampler = { type: d && /sampler_comparison/.test(d.type) ? 'comparison' : 'filtering' }; break;
+      case 4:
+        // A sampler the pipeline's shaders do not declare is left out, as textures are: a layout entry of the wrong kind
+        // (filtering for the shadow map's comparison sampler) makes every bind group of the set invalid.
+        if (!d) continue;
+        e.sampler = { type: /sampler_comparison/.test(d.type) ? 'comparison' : 'filtering' };
+        break;
     }
     entries[b.set].push(e);
     while (V.sets.length <= b.set) V.sets.push(new Set());
