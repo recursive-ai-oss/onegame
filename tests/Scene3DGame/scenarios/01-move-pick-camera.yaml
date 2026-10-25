@@ -1,0 +1,34 @@
+name: entities in 3D move, are picked, and are seen from a changed camera
+window: 640x360
+steps:
+  - step: 20
+  # The standing box is under the middle-left of the view; the orbiting one is at the right at this tick.
+  - expect: {pick: {x: 202, y: 180, entity: Crate#1}}
+  - expect: {pick: {x: 502, y: 199, entity: Crate#2}}
+  - expect: {pick: {x: 320, y: 300, entity: Slab#1}}
+  - expect: {pick: {x: 320, y: 20, entity: none}}
+  - expect: {state: {entity: Crate#2, property: Angle, min: 0.49, max: 0.51}}
+  # Moving entities: forty ticks later the orbiting box has left that pixel, and the nudged box has moved sideways.
+  - step: 40
+  - expect: {pick: {x: 396, y: 226, entity: Crate#2}}
+  - command: {entity: Crate#1, name: Nudge, args: [1]}
+  - step: 2
+  - expect: {pick: {x: 261, y: 180, entity: Crate#1}}
+  - expect: {pick: {x: 202, y: 180, entity: Slab#1}}
+  - expect: {capture: {reference: refs/tick62.png, tolerance: 4, max-diff: 0.001}}
+  # A camera override looking straight down at the nudged box.
+  - camera: {position: [-1, 10, 0.01], target: [-1, 0, 0], fov: 40}
+  - expect: {pick: {x: 320, y: 180, entity: Crate#1}}
+  - expect: {capture: {reference: refs/topdown.png, tolerance: 4, max-diff: 0.001}}
+  # Turned round, the camera has the orbiting box's label behind it: the label is hidden.
+  - expect: {ui: {id: tag, visible: true}}
+  - camera: {position: [0, 3, 8], target: [0, 3, 20]}
+  - expect: {ui: {id: tag, visible: false}}
+  # Back to the entities' camera, which a command moves.
+  - camera: reset
+  - command: {entity: Rig, name: MoveTo, args: [6, 2, 6]}
+  - step: 1
+  - expect: {pick: {x: 320, y: 20, entity: none}}
+expect:
+  - tick: 63
+  - capture: {reference: refs/side.png, tolerance: 4, max-diff: 0.001}

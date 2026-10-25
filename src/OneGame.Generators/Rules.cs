@@ -14,7 +14,7 @@ internal static class Rules
         => new(id, title, message, Category, DiagnosticSeverity.Error, isEnabledByDefault: true);
 
     public static readonly DiagnosticDescriptor FloatInState = Error("OG0001", "Floating-point type in synced state",
-        "'{0}' uses a floating-point type, which differs between platforms. Use OneGame.Core.Fixed (or FVec2) for synced state.");
+        "'{0}' uses a floating-point type, which differs between platforms. Use OneGame.Core.Fixed (or FVec2, FVec3, FQuat, Transform3) for synced state.");
 
     public static readonly DiagnosticDescriptor FloatInSim = Error("OG0002", "Floating-point arithmetic in sim code",
         "Floating-point value in sim code ({0}). Sim code must use OneGame.Core.Fixed; floats belong in [View] code.");
@@ -38,7 +38,7 @@ internal static class Rules
         "View code cannot change simulation state: {0}. Views read state and send commands; use entity.Send.<Command>(...) instead.");
 
     public static readonly DiagnosticDescriptor NoCodec = Error("OG0009", "Synced type has no codec",
-        "Type '{0}' cannot be synced. Use a number, bool, string, enum, Fixed, FVec2, EntityId, Timed<T>, SyncList<T> (as a get-only property) or a [SyncedStruct].");
+        "Type '{0}' cannot be synced. Use a number, bool, string, enum, Fixed, FVec2, FVec3, FQuat, Transform3, EntityId, Timed<T>, SyncList<T> (as a get-only property) or a [SyncedStruct].");
 
     public static readonly DiagnosticDescriptor EntityShape = Error("OG0010", "Entity declaration is not supported",
         "{0}");

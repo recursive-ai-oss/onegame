@@ -150,13 +150,16 @@ public sealed record BusLoudnessStatus(int Index, string? Name, OneGame.Audio.Lo
 [JsonSerializable(typeof(OneGame.UI.Kit.ThemeLintReport))]
 [JsonSerializable(typeof(OneGame.Audio.AudioStatus))]
 [JsonSerializable(typeof(AudioCaptureResult))]
+[JsonSerializable(typeof(CameraResult))]
+[JsonSerializable(typeof(PickResult))]
+[JsonSerializable(typeof(ProjectResult))]
 [JsonSerializable(typeof(BusLoudnessStatus))]
 public sealed partial class ControlJson : JsonSerializerContext
 {
 }
 
 /// <summary>The operation table. Every face (CLI, test API, MCP) is a view of this list.</summary>
-public static class ControlOps
+public static partial class ControlOps
 {
     private static string NavActionList => "\"" + string.Join("\",\"", NavActions.Names) + "\"";
 
@@ -239,6 +242,7 @@ public static class ControlOps
         new("audio_capture",
             "For a game whose audio runs on the capture sink (no device): render 'seconds' of audio (default 1) and report the frames, peak and loudness. With 'path' the whole recording is written as a WAV under the output folder, with its SHA-256. clear=true empties the recording first; reset=true restarts the loudness measurement. Fails with 'rejected' when audio plays on a device.",
             """{"type":"object","properties":{"seconds":{"type":"number","minimum":0,"maximum":600},"path":{"type":"string"},"clear":{"type":"boolean"},"reset":{"type":"boolean"}}}""", true),
+        ..Scene3DOps,
         new("quit", "Ask the game to exit.", NoArgs, false),
     ];
 }

@@ -56,6 +56,7 @@
     <Project Path="tests/OneGame.Server.Tests/OneGame.Server.Tests.csproj" />
     <Project Path="tests/OneGame.Steam.Tests/OneGame.Steam.Tests.csproj" />
     <Project Path="tests/OneGame.Sync.Tests/OneGame.Sync.Tests.csproj" />
+    <Project Path="tests/OneGame.Scene3D.Tests/OneGame.Scene3D.Tests.csproj" />
     <Project Path="tests/OneGame.Testing.Tests/OneGame.Testing.Tests.csproj" />
     <Project Path="tests/OneGame.Text.Tests/OneGame.Text.Tests.csproj" />
     <Project Path="tests/OneGame.UI.Kit.Tests/OneGame.UI.Kit.Tests.csproj" />
