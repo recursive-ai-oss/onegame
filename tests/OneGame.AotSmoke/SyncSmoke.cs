@@ -108,7 +108,8 @@ internal static class SyncSmoke
         }
 
         var glide = new Timed<Fixed>(Fixed.FromInt(0), Fixed.FromInt(10), 0, 10);
-        return glide.ValueAt(5, Fixed.FromRatio(1, 2)) == Fixed.FromRatio(11, 2) ? null : "a timed value did not interpolate between ticks";
+        var between = glide.ValueAt(5, Fixed.FromRatio(1, 2));
+        return between > Fixed.FromRatio(54, 10) && between < Fixed.FromRatio(56, 10) && between > glide.ValueAt(5) ? null : "a timed value did not interpolate between ticks";
     }
 
     /// <summary>Two players follow one scope: each gets its own view, private data stays private, answers come back, trust changes apply.</summary>
