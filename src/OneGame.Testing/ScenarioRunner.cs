@@ -1,3 +1,4 @@
+using OneGame.Audio;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
@@ -38,8 +39,9 @@ public sealed record ExpectationResult(int Index, string Kind, int Line, bool Pa
 /// <param name="ElapsedMs">Wall time of the run in milliseconds.</param>
 /// <param name="Steps">Every step.</param>
 /// <param name="Expectations">Every expectation that was checked.</param>
+/// <param name="Sounds">The sounds the game asked the audio service to play during the run, oldest first (the audio event log); null when the game runs no audio service.</param>
 public sealed record ScenarioResult(
-    string Name, string? Source, bool Passed, long Tick, string Hash, long ElapsedMs, StepResult[] Steps, ExpectationResult[] Expectations);
+    string Name, string? Source, bool Passed, long Tick, string Hash, long ElapsedMs, StepResult[] Steps, ExpectationResult[] Expectations, PlayedSound[]? Sounds = null);
 
 /// <summary>Source-generated JSON for scenario results.</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
@@ -98,6 +100,7 @@ public sealed class ScenarioRunner
         var steps = new List<StepResult>();
         var results = new List<ExpectationResult>();
         var game = _surface.Game;
+        _soundBase = SoundLastSequence();
 
         var setup = Guarded(() =>
         {
@@ -148,7 +151,97 @@ public sealed class ScenarioRunner
         var passed = !failed && results.TrueForAll(r => r.Passed);
         return new ScenarioResult(
             scenario.Name, scenario.SourcePath, passed, game.World.Tick, game.World.ComputeHash().ToString("x16", CultureInfo.InvariantCulture),
-            clock.ElapsedMilliseconds, [.. steps], [.. results]);
+            clock.ElapsedMilliseconds, [.. steps], [.. results], SoundsSinceStart());
+    }
+
+    private long _soundBase;
+
+    // The sequence number of the newest sound before the scenario began, or 0 when the game has no audio service yet.
+    private long SoundLastSequence()
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(_surface.Call("audio_events"));
+            return doc.RootElement.GetProperty("lastSequence").GetInt64();
+        }
+        catch (ControlException)
+        {
+            return 0;
+        }
+    }
+
+    private PlayedSound[]? SoundsSinceStart()
+    {
+        try
+        {
+            return ReadSounds(out _);
+        }
+        catch (ControlException)
+        {
+            return null;
+        }
+    }
+
+    // A service created after the scenario began restarts its sequence numbers, so its sounds all count.
+    private PlayedSound[] ReadSounds(out long frame)
+    {
+        var result = ReadEvents(_soundBase, out frame, out var last);
+        if (last < _soundBase)
+        {
+            result = ReadEvents(0, out frame, out _);
+        }
+
+        return result;
+    }
+
+    private PlayedSound[] ReadEvents(long since, out long frame, out long last)
+    {
+        using var doc = JsonDocument.Parse(_surface.Call("audio_events", Obj(("since", since))));
+        var root = doc.RootElement;
+        last = root.GetProperty("lastSequence").GetInt64();
+        frame = root.GetProperty("frame").GetInt64();
+        return [.. root.GetProperty("events").EnumerateArray().Select(e => new PlayedSound(
+            e.GetProperty("sequence").GetInt64(), e.GetProperty("frame").GetInt64(), e.GetProperty("sound").GetString()!, e.GetProperty("bus").GetInt32(),
+            e.GetProperty("volume").GetSingle(), e.GetProperty("loop").GetBoolean(), e.GetProperty("music").GetBoolean(), e.GetProperty("started").GetBoolean()))];
+    }
+
+    private ExpectationResult CheckSound(ScenarioExpectation e, int index)
+    {
+        var events = ReadSounds(out var frame);
+        var name = e.SoundName!;
+        var count = events.Count(ev => (ev.Sound == name || Path.GetFileNameWithoutExtension(ev.Sound) == name) && ev.Started && (e.SoundFrames <= 0 || ev.Frame > frame - e.SoundFrames));
+        var target = e.SoundFrames > 0 ? $"sound {name} in the last {e.SoundFrames} frames" : $"sound {name}";
+        var problems = new List<string>();
+        var wanted = new List<string>();
+        if (e.Count is { } exact)
+        {
+            wanted.Add($"exactly {exact}");
+            if (count != exact)
+            {
+                problems.Add($"{target} was played {count} times, expected exactly {exact}");
+            }
+        }
+
+        if (e.Min is { } min)
+        {
+            wanted.Add($"at least {min:0}");
+            if (count < min)
+            {
+                problems.Add($"{target} was played {count} times, expected at least {min:0}");
+            }
+        }
+
+        if (e.Max is { } max)
+        {
+            wanted.Add($"at most {max:0}");
+            if (count > max)
+            {
+                problems.Add($"{target} was played {count} times, expected at most {max:0}");
+            }
+        }
+
+        var ok = problems.Count == 0;
+        return new ExpectationResult(index, "sound", e.Line, ok, target, string.Join(", ", wanted), count.ToString(CultureInfo.InvariantCulture) + " plays", ok ? null : string.Join("; ", problems));
     }
 
     private sealed record Context(string BaseDir, bool Update);
@@ -343,6 +436,7 @@ public sealed class ScenarioRunner
                 ExpectKind.Capture => await CheckCaptureAsync(e, index, scenarioName, ctx, scenario),
                 ExpectKind.Pick => CheckPick(e, index),
                 ExpectKind.SteamInput => CheckSteamInput(e, index),
+                ExpectKind.Sound => CheckSound(e, index),
                 _ => throw new ControlException("bad_args", "Unknown expectation."),
             };
         }

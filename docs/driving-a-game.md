@@ -39,9 +39,12 @@ expect:
   - state: { table: lanes, row: 2, property: Heat, equals: 7 }
   - ui: { id: count, text: "Count: 3" }       # or selector + count/contains/visible/enabled/focused/pressed
   - steam-input: { set: Map, controllers: 1, down: map_select, keyboard: false }   # active action set, pads, held actions, on-screen keyboard (docs/interfaces/steam.md)
+  - sound: { name: coin, count: 1, frames: 5 }  # the game played the clip loaded as "coin" (or coin.ogg) once in the last 5 frames; also min, max; no bounds = at least once
   - tick: 3
   - capture: { reference: refs/main.png, size: 320x200, tolerance: 2, max-diff: 0.001 }
 ```
+
+**Sounds.** A scenario can assert what the game played without a sound device: `sound:` counts the sounds the game asked the audio service for since the scenario began (earlier ones don't count), matched by the name the clip was loaded under (`audio.LoadSound(stream, "coin")`; a file extension in that name is optional in the scenario). `frames: N` counts only those requested in the last N frames. Every scenario result carries the whole event log as `sounds` (sequence, frame, sound, bus, volume, loop, music, started), and the `audio_events` operation reads it live. Name clips when loading them: the default name is `sound`.
 
 `onegame test --json` runs them all (and the project's C# tests; `--no-unit` skips those). A failing expectation reports `expected` and `actual` with the line. Unknown keys are errors with a line number. Run one with `onegame test --scenario scenarios/x.yaml`. `onegame test --update-references` creates missing capture references and rewrites changed ones; look at them before committing. With `--json`, the result has `references: {created: [...], updated: [...]}` (absolute paths) and each such expectation carries `referenceAction`.
 

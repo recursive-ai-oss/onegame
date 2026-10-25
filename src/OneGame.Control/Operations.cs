@@ -133,6 +133,7 @@ public sealed record BusLoudnessStatus(int Index, string? Name, OneGame.Audio.Lo
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(InfoResult))]
 [JsonSerializable(typeof(OneGame.Steam.Input.SteamInputReport))]
+[JsonSerializable(typeof(AudioEventsResult))]
 [JsonSerializable(typeof(StateResult))]
 [JsonSerializable(typeof(UiScaleResult))]
 [JsonSerializable(typeof(PatchResult))]
@@ -252,6 +253,7 @@ public static partial class ControlOps
         ..Scene3DOps,
         ..TouchOps,
         ..SteamInputOps,
+        ..AudioEventOps,
         new("quit", "Ask the game to exit.", NoArgs, false),
     ];
 }

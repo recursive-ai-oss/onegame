@@ -229,7 +229,7 @@ public sealed record AudioStatus(
 /// The game-facing audio service: load clips, play sounds and music on buses, set volumes, crossfade, and pump events. Everything here is called from
 /// the game thread. It owns the device output and the mixer, and keeps working (silently) when there is no device.
 /// </summary>
-public sealed class AudioService : IDisposable
+public sealed partial class AudioService : IDisposable
 {
     private static AudioService? s_active;
     private readonly AudioServiceOptions _options;
@@ -444,7 +444,9 @@ public sealed class AudioService : IDisposable
             options = new PlayOptions();
         }
 
-        return Core.Play(Request(sound.Native, options.Volume, options.Pan, options.Loop, options.Bus.Index, options.Priority, options.FadeInSeconds, options.StartAtFrame, options.Pitch, options.VariablePitch));
+        var played = Core.Play(Request(sound.Native, options.Volume, options.Pan, options.Loop, options.Bus.Index, options.Priority, options.FadeInSeconds, options.StartAtFrame, options.Pitch, options.VariablePitch));
+        RecordPlay(sound.Name, played, options.Volume, options.Loop, options.Bus.Index, false);
+        return played;
     }
 
     /// <summary>Stops a voice.</summary>
@@ -774,8 +776,9 @@ public sealed class AudioService : IDisposable
     /// <summary>Starts a streamed music track on the music bus. If music is already playing it is replaced, with a crossfade when asked for.</summary>
     /// <param name="data">The encoded file; the stream is owned by the track and closed when it ends.</param>
     /// <param name="options">Volume, looping and crossfade.</param>
+    /// <param name="name">The name the play log records for the track.</param>
     /// <returns>The voice, or an invalid id when the command queue was full.</returns>
-    public VoiceId PlayMusic(Stream data, MusicOptions options = default)
+    public VoiceId PlayMusic(Stream data, MusicOptions options = default, string name = "music")
     {
         ArgumentNullException.ThrowIfNull(data);
         if (options.Equals(default(MusicOptions)))
@@ -803,6 +806,7 @@ public sealed class AudioService : IDisposable
         }
 
         _music = voice;
+        RecordPlay(name, voice, options.Volume, options.Loop, AudioBus.Music.Index, true);
         return voice;
     }
 

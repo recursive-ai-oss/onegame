@@ -204,6 +204,9 @@ public enum ExpectKind
 
     /// <summary>The state of Steam Input: the active action set, the number of controllers, actions held down, the on-screen keyboard.</summary>
     SteamInput,
+
+    /// <summary>Sounds the game asked the audio service to play: how many, by name, optionally within the last few frames.</summary>
+    Sound,
 }
 
 /// <summary>A check on the game's state. Unset fields are not checked.</summary>
@@ -295,6 +298,12 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
 
     /// <summary>The action set that must be active (steam-input).</summary>
     public string? ActiveSet { get; init; }
+
+    /// <summary>The sound's name (sound): the name the clip was loaded under, with or without its file extension.</summary>
+    public string? SoundName { get; init; }
+
+    /// <summary>Only sounds requested in the last this-many frames count (sound); 0 counts every sound since the scenario began.</summary>
+    public int SoundFrames { get; init; }
 
     /// <summary>A digital action that must be down on some controller (steam-input).</summary>
     public string? DownAction { get; init; }
@@ -755,7 +764,7 @@ public static class ScenarioParser
 
         public ScenarioExpectation Expectation(YamlNode node)
         {
-            var (verb, target) = SplitVerb(node, "an expectation is a mapping with one key: state, ui, tick, hash, capture, pick, steam-input, agree or drift (plus node: for a cluster)");
+            var (verb, target) = SplitVerb(node, "an expectation is a mapping with one key: state, ui, tick, hash, capture, pick, steam-input, sound, agree or drift (plus node: for a cluster)");
             var e = ExpectationCore(verb);
             return target is null ? e : e with { Node = target };
         }
@@ -827,6 +836,17 @@ public static class ScenarioParser
                         PickY = pk.TryGetValue("y", out var py) ? Number(py, "y") : throw Error(v, "pick needs x and y"),
                         Size = OptText(v, "size"),
                         Entity = pk.TryGetValue("entity", out var pe) ? Text(pe, "entity") : throw Error(v, "pick needs the entity expected there, or none"),
+                    };
+                case "sound":
+                    var sd = Map(v, ["name", "count", "min", "max", "frames"], "sound");
+                    var noBound = !sd.ContainsKey("count") && !sd.ContainsKey("min") && !sd.ContainsKey("max");
+                    return new ScenarioExpectation(ExpectKind.Sound, line)
+                    {
+                        SoundName = sd.TryGetValue("name", out var sdn) ? Text(sdn, "name") : throw Error(v, "sound needs the name the clip was loaded under"),
+                        Count = sd.TryGetValue("count", out var sdc) ? Whole(sdc, "count") : null,
+                        Min = sd.TryGetValue("min", out var sdmin) ? Number(sdmin, "min") : (noBound ? 1 : null),
+                        Max = sd.TryGetValue("max", out var sdmax) ? Number(sdmax, "max") : null,
+                        SoundFrames = sd.TryGetValue("frames", out var sdf) ? Whole(sdf, "frames") : 0,
                     };
                 case "steam-input":
                     var sx = Map(v, ["set", "controllers", "down", "up", "keyboard"], "steam-input");
