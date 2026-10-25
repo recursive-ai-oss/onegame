@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Network transports behind the message-channel seam: reliable UDP, WebSocket, and a network conditioner for tests.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Sync/OneGame.Sync.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="OneGame.Sync" />
+    <InternalsVisibleTo Include="OneGame.Net.Tests" />
+    <InternalsVisibleTo Include="OneGame.Core.Fuzz" />
+  </ItemGroup>
+
+</Project>
