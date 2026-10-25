@@ -1,0 +1,22 @@
+name: touch-only
+description: >-
+  With fingers alone: start a game from the menu, draw a card, play it onto a column, then press two fingers at once. The first finger
+  drives the pointer like a mouse; the second is only a touch event and must not disturb the move.
+steps:
+  - screen: main
+  - tap: new-draw1                 # new game, draw 1
+  - step: 2
+  - tap: stock                     # draw: the two of hearts turns up
+  - step: 2
+  - tap: waste                     # pick it up
+  - tap: col3                      # and put it on the black three
+  - step: 2
+  - expect:
+      state: { entity: Table, property: Moves, equals: 2 }
+  - touch: { action: down, finger: 0, x: 200, y: 600 }
+  - touch: { action: down, finger: 1, x: 400, y: 600 }
+  - touch: { action: up, finger: 1, x: 400, y: 600 }
+  - touch: { action: up, finger: 0, x: 200, y: 600 }
+  - step: 2
+  - expect:
+      state: { entity: Table, property: Moves, equals: 2 }

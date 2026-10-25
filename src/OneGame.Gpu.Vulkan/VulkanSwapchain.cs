@@ -26,8 +26,13 @@ internal sealed unsafe class VulkanSwapchain : GpuSwapchain, IRetirable
     VkColorSpaceKHR _colorSpace;
     bool _disposed;
 
+    // Android reports Suboptimal for as long as the display is rotated against the swapchain's pre-transform; the compositor does the
+    // rotation (Vulkan 1.3 §30.8: preTransform), so only a change of size makes a rebuild worthwhile there.
+    readonly bool _compositorRotates;
+
     public VulkanSwapchain(VulkanDevice dev, in SurfaceSource source, in SwapchainDesc desc)
     {
+        _compositorRotates = source.Kind == SurfaceKind.Android;
         _dev = dev;
         _desc = desc;
         _requestedWidth = desc.Width;
@@ -99,6 +104,15 @@ internal sealed unsafe class VulkanSwapchain : GpuSwapchain, IRetirable
 
                 var win = new VkWin32SurfaceCreateInfoKHR { hinstance = s.Display, hwnd = s.Window };
                 _dev.Check(_dev.InstanceFns.vkCreateWin32SurfaceKHR(_dev.Instance, &win, null, &surface), "vkCreateWin32SurfaceKHR");
+                break;
+            case SurfaceKind.Android:
+                if (!_dev.AndroidKhr)
+                {
+                    throw new GpuUnsupportedException("VK_KHR_android_surface is not available");
+                }
+
+                var droid = new VkAndroidSurfaceCreateInfoKHR { window = (void*)s.Window };
+                _dev.Check(_dev.InstanceFns.vkCreateAndroidSurfaceKHR(_dev.Instance, &droid, null, &surface), "vkCreateAndroidSurfaceKHR");
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(s));
@@ -254,7 +268,7 @@ internal sealed unsafe class VulkanSwapchain : GpuSwapchain, IRetirable
             imageArrayLayers = 1,
             imageUsage = usage,
             imageSharingMode = VkSharingMode.Exclusive,
-            preTransform = caps.currentTransform,
+            preTransform = _compositorRotates && (caps.supportedTransforms & VkSurfaceTransformFlagBitsKHR.Identity) != 0 ? VkSurfaceTransformFlagBitsKHR.Identity : caps.currentTransform,
             compositeAlpha = alpha,
             presentMode = mode,
             clipped = 1,
@@ -363,13 +377,13 @@ internal sealed unsafe class VulkanSwapchain : GpuSwapchain, IRetirable
 
             if (r == VkResult.Suboptimal)
             {
-                _needsRebuild = true;
+                _needsRebuild = !_compositorRotates;
             }
             else if (r != VkResult.Success)
             {
                 if (r == VkResult.ErrorSurfaceLost)
                 {
-                    throw new GpuException("the window surface was lost");
+                    throw new GpuSurfaceLostException();
                 }
 
                 _dev.Check(r, "vkAcquireNextImageKHR");
@@ -405,13 +419,17 @@ internal sealed unsafe class VulkanSwapchain : GpuSwapchain, IRetirable
         var queue = _dev.Queue;
         var r = _dev.Fns.vkQueuePresentKHR(queue, &pi);
         _acquired = false;
-        if (r is VkResult.ErrorOutOfDate or VkResult.Suboptimal)
+        if (r == VkResult.ErrorOutOfDate || (r == VkResult.Suboptimal && !_compositorRotates))
         {
             _needsRebuild = true;
         }
+        else if (r == VkResult.Suboptimal)
+        {
+            // Nothing to do: see _compositorRotates.
+        }
         else if (r == VkResult.ErrorSurfaceLost)
         {
-            throw new GpuException("the window surface was lost");
+            throw new GpuSurfaceLostException();
         }
         else
         {

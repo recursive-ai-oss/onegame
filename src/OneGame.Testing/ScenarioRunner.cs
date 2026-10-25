@@ -60,13 +60,10 @@ public sealed record ScenarioRunOptions
     /// <summary>Write reference images that are missing or differ instead of failing. Also set by the <c>ONEGAME_UPDATE_REFERENCES=1</c> environment variable.</summary>
     public bool UpdateReferences { get; init; }
 
-    /// <summary>
-    /// A machine whose rasterizer differs from the one the references came from (a browser's software WebGPU against a Vulkan reference)
-    /// can loosen every capture check: the larger of the scenario's per-channel tolerance and this applies.
-    /// </summary>
+    /// <summary>Loosens every capture check to at least this per-channel tolerance. References are drawn by one GPU driver; another driver may place anti-aliased edge pixels differently.</summary>
     public int MinCaptureTolerance { get; init; }
 
-    /// <summary>The same for the allowed fraction of differing pixels: the larger of the scenario's <c>max-diff</c> and this applies.</summary>
+    /// <summary>Loosens every capture check to at least this fraction of differing pixels.</summary>
     public double MinCaptureMaxDiff { get; init; }
 }
 
@@ -245,6 +242,15 @@ public sealed class ScenarioRunner
                 break;
             case StepKind.ClickAt:
                 _surface.Call("input_pointer", Obj(("action", "click"), ("x", s.X), ("y", s.Y)));
+                break;
+            case StepKind.Tap:
+                _surface.Call("ui_tap", s.Id is not null ? Obj(("id", s.Id)) : Obj(("selector", s.Selector)));
+                break;
+            case StepKind.TapAt:
+                _surface.Call("input_touch", Obj(("action", "tap"), ("x", s.X), ("y", s.Y)));
+                break;
+            case StepKind.Touch:
+                _surface.Call("input_touch", Obj(("action", s.Text), ("id", s.Finger), ("x", s.X), ("y", s.Y)));
                 break;
             case StepKind.Invoke:
                 _surface.Call("ui_invoke", s.Id is not null ? Obj(("id", s.Id)) : Obj(("selector", s.Selector)));
@@ -523,9 +529,9 @@ public sealed class ScenarioRunner
 
         var expected = Png.Load(reference);
         var tolerance = Math.Max(e.Tolerance, _options.MinCaptureTolerance);
-        var allowed = Math.Max(e.MaxDiff, _options.MinCaptureMaxDiff);
+        var maxDiff = Math.Max(e.MaxDiff, _options.MinCaptureMaxDiff);
         var diff = ImageCompare.Compare(actual, expected, tolerance);
-        if (diff.Within(allowed))
+        if (diff.Within(maxDiff))
         {
             return new ExpectationResult(index, "capture", e.Line, true, e.Reference, null, $"{diff.DifferingPixels} px differ, max channel delta {diff.MaxChannelDelta}", null);
         }
@@ -551,10 +557,10 @@ public sealed class ScenarioRunner
         }
 
         var message = diff.SameSize
-            ? $"The frame differs from {e.Reference}: {diff.DifferingPixels} px ({diff.Fraction.ToString("P3", CultureInfo.InvariantCulture)}) differ by more than {tolerance}, max channel delta {diff.MaxChannelDelta}; allowed {allowed.ToString("P3", CultureInfo.InvariantCulture)}.{saved}"
+            ? $"The frame differs from {e.Reference}: {diff.DifferingPixels} px ({diff.Fraction.ToString("P3", CultureInfo.InvariantCulture)}) differ by more than {tolerance}, max channel delta {diff.MaxChannelDelta}; allowed {maxDiff.ToString("P3", CultureInfo.InvariantCulture)}.{saved}"
             : $"The frame is {actual.Width}x{actual.Height} but {e.Reference} is {expected.Width}x{expected.Height}.{saved}";
         return new ExpectationResult(
-            index, "capture", e.Line, false, e.Reference, $"within {allowed.ToString(CultureInfo.InvariantCulture)} of reference",
+            index, "capture", e.Line, false, e.Reference, $"within {maxDiff.ToString(CultureInfo.InvariantCulture)} of reference",
             diff.SameSize ? $"{diff.DifferingPixels} px differ (max delta {diff.MaxChannelDelta})" : "different size", message);
     }
 }

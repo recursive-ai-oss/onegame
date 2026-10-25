@@ -11,6 +11,7 @@ public sealed class GamepadManager : IDisposable
     private readonly HashSet<string> _rejected = [];
     private readonly Dictionary<int, GamepadState> _synthetic = [];
     private XInputGamepads? _xinput;
+    private Cocoa.CocoaGamepads? _cocoa;
     private long _nextScan;
     private int _nextDeviceId = 1000;
 
@@ -21,6 +22,11 @@ public sealed class GamepadManager : IDisposable
         if (devicesEnabled && OperatingSystem.IsWindows())
         {
             _xinput = new XInputGamepads(app, () => _nextDeviceId++);
+        }
+
+        if (devicesEnabled && OperatingSystem.IsMacOS())
+        {
+            _cocoa = new Cocoa.CocoaGamepads(app, () => _nextDeviceId++);
         }
     }
 
@@ -85,6 +91,7 @@ public sealed class GamepadManager : IDisposable
         }
 
         _xinput?.Poll();
+        _cocoa?.Poll();
     }
 
     /// <inheritdoc />
@@ -97,6 +104,7 @@ public sealed class GamepadManager : IDisposable
 
         _evdev.Clear();
         _xinput = null;
+        _cocoa = null;
     }
 
     private void Scan()

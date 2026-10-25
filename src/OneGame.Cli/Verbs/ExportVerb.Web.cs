@@ -11,10 +11,8 @@ internal sealed partial class ExportVerb
     /// <c>export --target web</c>: a folder any static file server can host (serve <c>.wasm</c> as <c>application/wasm</c>), with Brotli and gzip
     /// copies beside the files. <c>--dev</c> keeps the development tools (a Debug build) for <c>onegame web test</c>.
     /// </summary>
-    private static int RunWebExport(ProjectArgs a, bool noArchive, bool json, TextWriter output)
+    private static int RunWebExport(ProjectArgs a, bool dev, bool json, TextWriter output)
     {
-        var dev = a.Game.Remove("--dev");
-        _ = noArchive;
         if (a.Game.Count > 0)
         {
             throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {a.Game[0]}. Usage: onegame export --target web [--dev] [--out <dir>].");

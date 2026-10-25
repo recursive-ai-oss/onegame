@@ -12,6 +12,7 @@ public sealed class PlatformApp : IDisposable
     private readonly List<Window> _windows = [];
     private readonly PlatformBackend _backend;
     private int _nextWindowId = 1;
+    private int _primaryTouch = -1;
 
     private PlatformApp(PlatformOptions options, Func<PlatformApp, PlatformBackend> backendFactory)
     {
@@ -125,6 +126,31 @@ public sealed class PlatformApp : IDisposable
         }
 
         _queue.Enqueue(e);
+        if (Options.TouchEmulatesPointer && e.Kind is PlatformEventKind.TouchDown or PlatformEventKind.TouchMove or PlatformEventKind.TouchUp or PlatformEventKind.TouchCancel)
+        {
+            EmulatePointer(e);
+        }
+    }
+
+    // The first finger down is the pointer until it lifts; later fingers are only touch events.
+    private void EmulatePointer(in PlatformEvent e)
+    {
+        switch (e.Kind)
+        {
+            case PlatformEventKind.TouchDown when _primaryTouch < 0:
+                _primaryTouch = e.TouchId;
+                Post(new PlatformEvent { Kind = PlatformEventKind.PointerMoved, WindowId = e.WindowId, X = e.X, Y = e.Y });
+                Post(new PlatformEvent { Kind = PlatformEventKind.PointerButtonDown, WindowId = e.WindowId, Button = MouseButton.Left, X = e.X, Y = e.Y });
+                break;
+            case PlatformEventKind.TouchMove when e.TouchId == _primaryTouch:
+                Post(new PlatformEvent { Kind = PlatformEventKind.PointerMoved, WindowId = e.WindowId, X = e.X, Y = e.Y });
+                break;
+            case PlatformEventKind.TouchUp or PlatformEventKind.TouchCancel when e.TouchId == _primaryTouch:
+                _primaryTouch = -1;
+                Post(new PlatformEvent { Kind = PlatformEventKind.PointerMoved, WindowId = e.WindowId, X = e.X, Y = e.Y });
+                Post(new PlatformEvent { Kind = PlatformEventKind.PointerButtonUp, WindowId = e.WindowId, Button = MouseButton.Left, X = e.X, Y = e.Y });
+                break;
+        }
     }
 
     internal void OnWindowClosed(Window window) => _windows.Remove(window);
@@ -200,9 +226,19 @@ internal static class PlatformBackendFactory
             return PlatformBackendKind.Browser;
         }
 
+        if (OperatingSystem.IsAndroid() || AndroidActivityHost.Current is not null)
+        {
+            return PlatformBackendKind.Android;
+        }
+
         if (OperatingSystem.IsWindows())
         {
             return PlatformBackendKind.Win32;
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return PlatformBackendKind.Cocoa;
         }
 
         if (OperatingSystem.IsLinux())
@@ -229,6 +265,8 @@ internal static class PlatformBackendFactory
         PlatformBackendKind.Wayland when OperatingSystem.IsLinux() => new WaylandBackend(app),
         PlatformBackendKind.Win32 when OperatingSystem.IsWindows() => new Win32Backend(app),
         PlatformBackendKind.Browser when OperatingSystem.IsBrowser() => new BrowserBackend(app),
+        PlatformBackendKind.Cocoa when OperatingSystem.IsMacOS() => new Cocoa.CocoaBackend(app),
+        PlatformBackendKind.Android when AndroidActivityHost.Current is not null => new AndroidBackend(app, AndroidActivityHost.Current),
         _ => throw new PlatformException($"The {kind} backend is not available on this operating system."),
     };
 }

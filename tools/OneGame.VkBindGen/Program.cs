@@ -57,7 +57,7 @@ sealed class Generator
         // Platform types that only appear behind pointers or as opaque ids in the surface-creation structs.
         ["Display"] = "void", ["Window"] = "nuint", ["VisualID"] = "nuint", ["xcb_connection_t"] = "void",
         ["xcb_window_t"] = "uint", ["xcb_visualid_t"] = "uint",
-        ["wl_display"] = "void", ["wl_surface"] = "void",
+        ["wl_display"] = "void", ["wl_surface"] = "void", ["ANativeWindow"] = "void",
         ["HINSTANCE"] = "nint", ["HWND"] = "nint", ["HANDLE"] = "nint", ["HMONITOR"] = "nint", ["DWORD"] = "uint",
         ["LPCWSTR"] = "char*", ["SECURITY_ATTRIBUTES"] = "void",
     };

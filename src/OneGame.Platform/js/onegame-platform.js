@@ -41,24 +41,50 @@ export function init(canvasId) {
   window.addEventListener('beforeunload', () => push({ t: 'close' }));
 
   const rel = (e) => ({ x: pixels(e.clientX - canvas.getBoundingClientRect().left), y: pixels(e.clientY - canvas.getBoundingClientRect().top) });
+  // A finger is a small integer (0 to 31) reused after it lifts, as the platform events define; the mouse and pen use the pointer events.
+  const fingers = new Map();
+  const fingerSlot = (e) => {
+    let id = fingers.get(e.pointerId);
+    if (id === undefined && e.type === 'pointerdown') {
+      const used = new Set(fingers.values());
+      id = 0;
+      while (used.has(id)) id++;
+      fingers.set(e.pointerId, id);
+    }
+    return id;
+  };
+  const touch = (kind, e, release) => {
+    const id = fingerSlot(e);
+    if (id === undefined) return;
+    const p = rel(e);
+    push({ t: kind, id, x: p.x, y: p.y, p: release ? 0 : (e.pressure > 0 ? e.pressure : 1) });
+    if (release) fingers.delete(e.pointerId);
+  };
   canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch') { touch('xm', e, false); return; }
     const p = rel(e);
     push({ t: 'pm', x: p.x, y: p.y, dx: pixels(e.movementX || 0), dy: pixels(e.movementY || 0), lock: document.pointerLockElement === canvas, m: MODS(e) });
   });
   canvas.addEventListener('pointerdown', (e) => {
     canvas.focus({ preventScroll: true });
     try { canvas.setPointerCapture(e.pointerId); } catch { }
+    e.preventDefault();
+    if (e.pointerType === 'touch') { touch('xd', e, false); return; }
     const p = rel(e);
     push({ t: 'pm', x: p.x, y: p.y, dx: 0, dy: 0, m: MODS(e) });
-    push({ t: 'pd', b: e.pointerType === 'touch' ? 0 : e.button, x: p.x, y: p.y, m: MODS(e) });
-    e.preventDefault();
+    push({ t: 'pd', b: e.button, x: p.x, y: p.y, m: MODS(e) });
   });
   canvas.addEventListener('pointerup', (e) => {
-    const p = rel(e);
-    push({ t: 'pu', b: e.pointerType === 'touch' ? 0 : e.button, x: p.x, y: p.y, m: MODS(e) });
     try { canvas.releasePointerCapture(e.pointerId); } catch { }
+    if (e.pointerType === 'touch') { touch('xu', e, true); return; }
+    const p = rel(e);
+    push({ t: 'pu', b: e.button, x: p.x, y: p.y, m: MODS(e) });
   });
-  canvas.addEventListener('pointercancel', (e) => { const p = rel(e); push({ t: 'pu', b: 0, x: p.x, y: p.y, m: MODS(e) }); });
+  canvas.addEventListener('pointercancel', (e) => {
+    if (e.pointerType === 'touch') { touch('xc', e, true); return; }
+    const p = rel(e);
+    push({ t: 'pu', b: 0, x: p.x, y: p.y, m: MODS(e) });
+  });
   canvas.addEventListener('pointerenter', () => push({ t: 'pi', inside: true }));
   canvas.addEventListener('pointerleave', () => push({ t: 'pi', inside: false }));
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());

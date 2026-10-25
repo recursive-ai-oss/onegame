@@ -29,6 +29,15 @@ public enum StepKind
     /// <summary>Click at window coordinates.</summary>
     ClickAt,
 
+    /// <summary>Tap an element with a finger.</summary>
+    Tap,
+
+    /// <summary>Tap at window coordinates.</summary>
+    TapAt,
+
+    /// <summary>One touch action (down, move, up, cancel) for a finger, for gestures and multi-touch.</summary>
+    Touch,
+
     /// <summary>Invoke an element without a pointer.</summary>
     Invoke,
 
@@ -110,6 +119,9 @@ public sealed record ScenarioStep(StepKind Kind, int Line)
 
     /// <summary>Wheel delta y.</summary>
     public double Dy { get; init; }
+
+    /// <summary>The finger of a <see cref="StepKind.Touch"/> step.</summary>
+    public int Finger { get; init; }
 
     /// <summary>Key name, controller action, screen, fixture or typed text, by kind.</summary>
     public string? Text { get; init; }
@@ -522,6 +534,30 @@ public static class ScenarioParser
                     }
 
                     return c.Count == 1 ? new ScenarioStep(StepKind.Click, line) { Id = OptText(v, "id"), Selector = OptText(v, "selector") } : throw Error(v, "click needs one of id, selector or x and y");
+                case "tap":
+                    if (v.Kind == YamlNodeKind.Scalar)
+                    {
+                        return new ScenarioStep(StepKind.Tap, line) { Id = Text(v, "tap") };
+                    }
+
+                    var tp = Map(v, ["id", "selector", "x", "y"], "tap");
+                    if (tp.ContainsKey("x") || tp.ContainsKey("y"))
+                    {
+                        return tp.TryGetValue("x", out var tx) && tp.TryGetValue("y", out var ty)
+                            ? new ScenarioStep(StepKind.TapAt, line) { X = Number(tx, "x"), Y = Number(ty, "y") }
+                            : throw Error(v, "tap at a position needs both x and y");
+                    }
+
+                    return tp.Count == 1 ? new ScenarioStep(StepKind.Tap, line) { Id = OptText(v, "id"), Selector = OptText(v, "selector") } : throw Error(v, "tap needs one of id, selector or x and y");
+                case "touch":
+                    var tm = Map(v, ["action", "finger", "x", "y"], "touch");
+                    return new ScenarioStep(StepKind.Touch, line)
+                    {
+                        Text = tm.TryGetValue("action", out var ta) ? Text(ta, "action") : throw Error(v, "touch needs an action: down, move, up or cancel"),
+                        Finger = tm.TryGetValue("finger", out var tf) ? (int)Number(tf, "finger") : 0,
+                        X = tm.TryGetValue("x", out var tcx) ? Number(tcx, "x") : 0,
+                        Y = tm.TryGetValue("y", out var tcy) ? Number(tcy, "y") : 0,
+                    };
                 case "invoke":
                     if (v.Kind == YamlNodeKind.Scalar)
                     {

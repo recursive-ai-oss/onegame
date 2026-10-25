@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Sockets;
 using OneGame.Control;
 
@@ -89,12 +90,27 @@ public sealed class LiveClient : IDisposable
         }
     }
 
+    /// <summary>Parses <c>tcp:host:port</c> (an IPv4 address or <c>localhost</c>).</summary>
+    public static IPEndPoint TcpEndPoint(string spec)
+    {
+        var parts = spec.Split(':');
+        if (parts.Length != 3 || !int.TryParse(parts[2], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var port) || port is < 1 or > 65535)
+        {
+            throw new FormatException($"'{spec}' is not tcp:host:port.");
+        }
+
+        var address = parts[1] == "localhost" ? IPAddress.Loopback : IPAddress.Parse(parts[1]);
+        return new IPEndPoint(address, port);
+    }
+
     private Socket Connect()
     {
-        var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified) { ReceiveTimeout = _timeoutMs, SendTimeout = _timeoutMs };
+        // "tcp:host:port" is a loopback port, such as one that `adb forward` maps to a game on a phone.
+        var tcp = _path.StartsWith("tcp:", StringComparison.Ordinal);
+        var socket = new Socket(tcp ? AddressFamily.InterNetwork : AddressFamily.Unix, SocketType.Stream, tcp ? ProtocolType.Tcp : ProtocolType.Unspecified) { ReceiveTimeout = _timeoutMs, SendTimeout = _timeoutMs };
         try
         {
-            socket.Connect(new UnixDomainSocketEndPoint(_path));
+            socket.Connect(tcp ? TcpEndPoint(_path) : new UnixDomainSocketEndPoint(_path));
             return socket;
         }
         catch

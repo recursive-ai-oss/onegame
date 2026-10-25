@@ -18,7 +18,7 @@ internal sealed class DevTools : IDevTools
     private static readonly string[] Known =
     [
         "live", "realtime", "parent", "scenario", "artifacts", "update-references", "record", "capture", "sequence", "count", "every", "replay",
-        "fixture", "screen", "after", "lint-theme", "control",
+        "fixture", "screen", "after", "lint-theme", "capture-tolerance", "capture-max-diff", "control",
     ];
 
     public int Run(GameInstance game, GameArgs args, TextWriter output)
@@ -188,7 +188,10 @@ internal sealed class DevTools : IDevTools
         }
 
         var artifacts = Path.GetFullPath(args.Get("artifacts") ?? "artifacts");
-        var options = new ScenarioRunOptions { ArtifactsDirectory = artifacts, UpdateReferences = args.Has("update-references") };
+        var options = new ScenarioRunOptions { ArtifactsDirectory = artifacts, UpdateReferences = args.Has("update-references"),
+            MinCaptureTolerance = (int)args.GetInt("capture-tolerance", 0),
+            MinCaptureMaxDiff = args.Has("capture-max-diff") ? double.Parse(args.Get("capture-max-diff") ?? "0", System.Globalization.CultureInfo.InvariantCulture) : 0,
+        };
         var main = game.CurrentScreen ?? "main";
         var width = game.Window.Width;
         var height = game.Window.Height;

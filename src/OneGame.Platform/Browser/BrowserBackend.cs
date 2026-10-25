@@ -176,6 +176,17 @@ internal sealed class BrowserBackend : PlatformBackend
                     Modifiers = mods,
                 });
                 break;
+            case "xd" or "xm" or "xu" or "xc":
+                App.Post(new PlatformEvent
+                {
+                    Kind = kind switch { "xd" => PlatformEventKind.TouchDown, "xm" => PlatformEventKind.TouchMove, "xu" => PlatformEventKind.TouchUp, _ => PlatformEventKind.TouchCancel },
+                    WindowId = w.Id,
+                    TouchId = e.GetProperty("id").GetInt32(),
+                    X = (float)e.GetProperty("x").GetDouble(),
+                    Y = (float)e.GetProperty("y").GetDouble(),
+                    Pressure = (float)e.GetProperty("p").GetDouble(),
+                });
+                break;
             case "wh":
                 App.Post(new PlatformEvent
                 {

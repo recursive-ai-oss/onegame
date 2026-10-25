@@ -249,6 +249,7 @@ public static partial class ControlOps
             """{"type":"object","properties":{"seconds":{"type":"number","minimum":0,"maximum":600},"path":{"type":"string"},"clear":{"type":"boolean"},"reset":{"type":"boolean"}}}""", true),
         ..QualityOps,
         ..Scene3DOps,
+        ..TouchOps,
         new("quit", "Ask the game to exit.", NoArgs, false),
     ];
 }

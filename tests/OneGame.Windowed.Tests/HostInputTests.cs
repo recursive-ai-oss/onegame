@@ -86,7 +86,7 @@ public class HostInputTests
         var error = new StringWriter();
         var code = GameApp.Run(new WindowedGame(), ["--backend", "vulkan"], output, error);
         Assert.Equal(ExitCodes.Usage, code);
-        Assert.Contains("--backend is wayland or x11", error.ToString(), StringComparison.Ordinal);
+        Assert.Contains("--backend is wayland, x11 or cocoa", error.ToString(), StringComparison.Ordinal);
 
         code = GameApp.Run(new WindowedGame(), ["--present", "fast"], output, error);
         Assert.Equal(ExitCodes.Usage, code);

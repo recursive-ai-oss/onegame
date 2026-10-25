@@ -6,8 +6,9 @@ Klondike with a main menu, statistics, settings, a pause dialog and a win dialog
 onegame build --json                       # from this folder
 onegame run                                # a window
 onegame run --headless --frames 60 --json  # no window; prints the state hash
-onegame test --json                        # 13 scenarios plus the C# tests
+onegame test --json                        # 14 scenarios plus the C# tests
 onegame capture --out table.png --size 1080p --scale 1.5 --after 30
+onegame export --target osx               # on an Apple-silicon Mac: Solitaire.app, ad-hoc signed; `open` runs it
 ```
 
 Driving a game the way a person or an agent would is covered in [driving a game](../../docs/driving-a-game.md); the UI vocabulary is in the [UI guide](../../docs/ui-guide.md) and the [component kit](../../docs/interfaces/ui-kit.md).
@@ -53,6 +54,17 @@ Input comes from all three devices through the same code: pointer (click, drag a
 ### Sounds
 
 `AudioSounds` generates five short clips in code (no audio files) and plays them through `AudioService`. With no audio device the service runs silently and the game does the same. Tests use `RecordingSounds` to check which sounds a move makes.
+
+## On Android
+
+The game runs as a NativeAOT APK (see [android](../../docs/interfaces/android.md)). The screens are laid out in dp, a finger drags cards like the mouse, and the back button opens the menu.
+
+```
+onegame export --target android --dev --abi x86_64 --json                  # debug-signed APK
+onegame android install export/Solitaire-*.apk
+onegame android test --package dev.onegame.solitaire --scenario scenarios --capture-tolerance 48 --capture-max-diff 0.001 --json   # scenarios on the device; the references come from another GPU driver
+onegame android run --package dev.onegame.solitaire -- --headless --frames 5 --json
+```
 
 ## Scenarios and tests
 

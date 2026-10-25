@@ -13,19 +13,15 @@ internal sealed partial class ExportVerb : IVerb
 {
     public string Name => "export";
 
-    public string Summary => "Package the game: onegame export --target linux-x64|win-x64|web [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins].";
+    public string Summary => "Package the game: onegame export --target linux-x64|win-x64|osx|web [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins]; or a debug-signed APK: export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id].";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
-        var a = new ProjectArgs(args, "--target", "--out", "--steam-redist");
-        if (a.Get("--target") == "web")
-        {
-            return RunWebExport(a, a.Game.Remove("--no-archive"), json, output);
-        }
-
+        var a = new ProjectArgs(args, "--target", "--out", "--steam-redist", "--bundle-id", "--abi", "--package", "--label", "--orientation", "--sdk", "--keystore", "--symbols");
         var steam = a.Game.Remove("--steam");
         var noArchive = a.Game.Remove("--no-archive");
         var noAot = a.Game.Remove("--no-aot");
+        var dev = a.Game.Remove("--dev");
         var server = a.Game.Remove("--server");
         var plugins = a.Game.Remove("--plugins");
         if (plugins && !server)
@@ -38,15 +34,41 @@ internal sealed partial class ExportVerb : IVerb
             return RunServerExport(a, steam, plugins, noArchive, noAot, json, output);
         }
 
-        if (a.Game.Count > 0)
+        if (a.Get("--target") == "android")
         {
-            throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {a.Game[0]}. Usage: onegame export --target linux-x64|win-x64 [--steam] [--steam-redist <dir>] [--out <dir>] [--no-archive] [--no-aot].");
+            if (a.Game.Count > 0 || steam)
+            {
+                throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {(steam ? "--steam" : a.Game[0])}. Usage: onegame export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id] [--label name] [--orientation unspecified|sensorLandscape|...] [--sdk <dir>] [--keystore <file>] [--symbols <dir>] [--out <dir>].");
+            }
+
+            return RunAndroidExport(a, dev, noAot, json, output);
         }
 
-        var target = a.Get("--target") ?? (OperatingSystem.IsWindows() ? "win-x64" : "linux-x64");
-        if (target is not ("linux-x64" or "win-x64"))
+        if (a.Get("--target") == "web")
         {
-            throw new CliException(ExitCodes.Usage, "bad_target", $"Unknown target '{target}'. Targets: linux-x64, win-x64, web.");
+            return RunWebExport(a, dev, json, output);
+        }
+
+        if (dev || a.Game.Count > 0)
+        {
+            throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {(dev ? "--dev (Android only)" : a.Game[0])}. Usage: onegame export --target linux-x64|win-x64|osx [--steam] [--steam-redist <dir>] [--bundle-id <id>] [--out <dir>] [--no-archive] [--no-aot].");
+        }
+
+        var target = a.Get("--target") ?? (OperatingSystem.IsWindows() ? "win-x64" : OperatingSystem.IsMacOS() ? "osx-arm64" : "linux-x64");
+        if (target == "osx")
+        {
+            target = "osx-arm64";
+        }
+
+        if (target is not ("linux-x64" or "win-x64" or "osx-arm64"))
+        {
+            throw new CliException(ExitCodes.Usage, "bad_target", $"Unknown target '{target}'. Targets: linux-x64, win-x64, osx (Apple silicon), android, web.");
+        }
+
+        var mac = target == "osx-arm64";
+        if (mac && steam)
+        {
+            throw new CliException(ExitCodes.Usage, "bad_args", "--steam is not available for osx yet.");
         }
 
         var project = Projects.Find(a.Get("--project"));
@@ -55,13 +77,15 @@ internal sealed partial class ExportVerb : IVerb
 
         // NativeAOT links with the target's own toolchain, so it needs a host of the same OS. Anywhere else the game ships as a
         // self-contained, trimmed CoreCLR build with the same layout.
-        var hostMatches = target.StartsWith("win", StringComparison.Ordinal) ? OperatingSystem.IsWindows() : OperatingSystem.IsLinux();
+        var hostMatches = target.StartsWith("win", StringComparison.Ordinal) ? OperatingSystem.IsWindows()
+            : mac ? OperatingSystem.IsMacOS() && System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture == System.Runtime.InteropServices.Architecture.Arm64
+            : OperatingSystem.IsLinux();
         var aot = hostMatches && !noAot;
         if (!aot)
         {
             warnings.Add(new ExportWarning("not_native_aot", hostMatches
                 ? "Built as a self-contained CoreCLR program because --no-aot was given."
-                : $"NativeAOT for {target} needs a {(target.StartsWith("win", StringComparison.Ordinal) ? "Windows" : "Linux")} host; this is a self-contained, trimmed CoreCLR build. Run the same command on a matching host for the NativeAOT build."));
+                : $"NativeAOT for {target} needs a {(target.StartsWith("win", StringComparison.Ordinal) ? "Windows" : mac ? "Mac with Apple silicon" : "Linux")} host; this is a self-contained, trimmed CoreCLR build. Run the same command on a matching host for the NativeAOT build."));
         }
 
         var props = ReadProperties(project);
@@ -71,6 +95,11 @@ internal sealed partial class ExportVerb : IVerb
         var outRoot = Path.GetFullPath(a.Get("--out") ?? Path.Combine(project.Directory, "export"));
         var folder = Path.Combine(outRoot, folderName);
 
+        // On the Mac the program and its content live inside an application bundle; everywhere else the folder is the program folder.
+        var appName = props.AssemblyName + ".app";
+        var programDir = mac ? Path.Combine(folder, appName, "Contents", "MacOS") : folder;
+        var contentDir = mac ? Path.Combine(folder, appName, "Contents", "Resources") : folder;
+
         // Find the redistributable before the slow part, so a missing one fails fast.
         string? redist = steam ? FindSteamLibrary(target, a.Get("--steam-redist")) : null;
 
@@ -79,21 +108,28 @@ internal sealed partial class ExportVerb : IVerb
             Directory.Delete(folder, true);
         }
 
-        Directory.CreateDirectory(folder);
-        Publish(project, target, aot, folder);
+        Directory.CreateDirectory(programDir);
+        Directory.CreateDirectory(contentDir);
+        Publish(project, target, aot, programDir);
 
         // Debug symbols and the XML documentation of the engine assemblies are not part of what ships.
-        foreach (var f in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).ToArray())
+        foreach (var f in Directory.EnumerateFiles(programDir, "*", SearchOption.AllDirectories).ToArray())
         {
             if (f.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".dbg", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".dSYM", StringComparison.OrdinalIgnoreCase)
-                || (Path.GetDirectoryName(f) == folder && f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)))
+                || (Path.GetDirectoryName(f) == programDir && f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)))
             {
                 File.Delete(f);
             }
         }
 
+        // NativeAOT on the Mac leaves a debug-symbol bundle (a folder) beside the program.
+        foreach (var d in Directory.EnumerateDirectories(programDir, "*.dSYM").ToArray())
+        {
+            Directory.Delete(d, true);
+        }
+
         // A self-contained publish carries crash-dump and debugger helpers and alternative garbage collectors. A game runs without them.
-        foreach (var f in Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly).ToArray())
+        foreach (var f in Directory.EnumerateFiles(programDir, "*", SearchOption.TopDirectoryOnly).ToArray())
         {
             var n = Path.GetFileName(f);
             if (n.StartsWith("createdump", StringComparison.Ordinal) || n.Contains("mscordaccore", StringComparison.Ordinal) || n.Contains("mscordbi", StringComparison.Ordinal)
@@ -103,22 +139,22 @@ internal sealed partial class ExportVerb : IVerb
             }
         }
 
-        var exe = Path.Combine(folder, exeName);
+        var exe = Path.Combine(programDir, exeName);
         if (!File.Exists(exe))
         {
             throw new CliException(ExitCodes.BuildFailed, "no_executable", $"The publish did not produce {exeName}.");
         }
 
         var skipped = new List<ExportSkipped>();
-        ExportAssets.Copy(project.Directory, folder, skipped, warnings);
+        ExportAssets.Copy(project.Directory, contentDir, skipped, warnings);
 
         if (redist is not null)
         {
-            File.Copy(redist, Path.Combine(folder, Path.GetFileName(redist)), true);
+            File.Copy(redist, Path.Combine(programDir, Path.GetFileName(redist)), true);
         }
 
         // With this file present Steam's relaunch check always passes and the game would run outside Steam's control.
-        foreach (var f in Directory.EnumerateFiles(folder, "steam_appid.txt", SearchOption.AllDirectories).ToArray())
+        foreach (var f in Directory.EnumerateFiles(programDir, "steam_appid.txt", SearchOption.AllDirectories).ToArray())
         {
             File.Delete(f);
         }
@@ -134,12 +170,12 @@ internal sealed partial class ExportVerb : IVerb
                 $"{exeName} needs glibc {glibc.Major}.{glibc.Minor}, newer than {SteamRuntimeGlibc.Major}.{SteamRuntimeGlibc.Minor} in Steam's Linux runtime (and so on the Steam Deck). Build on an older system, or inside the Steam Linux Runtime SDK: see docs/exporting.md."));
         }
 
-        if (DevToolsPresent(folder))
+        if (DevToolsPresent(programDir))
         {
             throw new CliException(ExitCodes.RuntimeError, "dev_tools_present", "The export contains the live-control listener (OneGame.Live). Exports are Release builds; check the project for OneGameDev=true.");
         }
 
-        File.WriteAllText(Path.Combine(folder, "THIRD-PARTY-NOTICES.txt"), ExportAssets.Notices(project.Name, version, Program.GetVersion(), folder, redist is not null, warnings));
+        File.WriteAllText(Path.Combine(contentDir, "THIRD-PARTY-NOTICES.txt"), ExportAssets.Notices(project.Name, version, Program.GetVersion(), contentDir, redist is not null, warnings));
 
         if (target == "linux-x64")
         {
@@ -151,6 +187,17 @@ internal sealed partial class ExportVerb : IVerb
                 File.SetUnixFileMode(launcher, Executable);
                 File.SetUnixFileMode(exe, Executable);
             }
+        }
+
+        if (mac)
+        {
+            WriteBundleMetadata(folder, appName, props.AssemblyName, project.Name, version, a.Get("--bundle-id"));
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(exe, Executable);
+            }
+
+            SignAdHoc(Path.Combine(folder, appName), warnings);
         }
 
         var files = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
@@ -166,7 +213,7 @@ internal sealed partial class ExportVerb : IVerb
         }
 
         var result = new ExportResult(true, project.Name, version, Program.GetVersion(), target, "Release", aot ? "nativeaot" : "coreclr-self-contained", steam, false,
-            "2d", folder, exeName, archive, files, [.. skipped], [.. warnings], Math.Round(clock.Elapsed.TotalSeconds, 1));
+            "2d", folder, mac ? $"{appName}/Contents/MacOS/{exeName}" : exeName, archive, files, [.. skipped], [.. warnings], Math.Round(clock.Elapsed.TotalSeconds, 1));
         if (json)
         {
             output.WriteLine(JsonSerializer.Serialize(result, CliJson.Default.ExportResult));
@@ -224,6 +271,59 @@ internal sealed partial class ExportVerb : IVerb
             }
 
             throw new CliException(ExitCodes.BuildFailed, "publish_failed", $"dotnet publish failed (exit {run.ExitCode}): {text}");
+        }
+    }
+
+    /// <summary>Writes the bundle's Info.plist.</summary>
+    private static void WriteBundleMetadata(string folder, string appName, string assemblyName, string displayName, string version, string? bundleId)
+    {
+        static string Escape(string v) => System.Security.SecurityElement.Escape(v) ?? "";
+        var id = bundleId ?? "com.example." + new string([.. assemblyName.ToLowerInvariant().Where(char.IsAsciiLetterOrDigit)]);
+        var contents = Path.Combine(folder, appName, "Contents");
+        File.WriteAllText(Path.Combine(contents, "Info.plist"),
+            $"""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+              <key>CFBundleDevelopmentRegion</key><string>en</string>
+              <key>CFBundleExecutable</key><string>{Escape(assemblyName)}</string>
+              <key>CFBundleIdentifier</key><string>{Escape(id)}</string>
+              <key>CFBundleName</key><string>{Escape(displayName)}</string>
+              <key>CFBundleDisplayName</key><string>{Escape(displayName)}</string>
+              <key>CFBundlePackageType</key><string>APPL</string>
+              <key>CFBundleShortVersionString</key><string>{Escape(version)}</string>
+              <key>CFBundleVersion</key><string>{Escape(version)}</string>
+              <key>LSMinimumSystemVersion</key><string>13.0</string>
+              <key>LSApplicationCategoryType</key><string>public.app-category.games</string>
+              <key>NSHighResolutionCapable</key><true/>
+              <key>NSPrincipalClass</key><string>NSApplication</string>
+            </dict>
+            </plist>
+
+            """);
+    }
+
+    /// <summary>
+    /// Signs the bundle with an ad-hoc signature, which is what lets an unsigned program run on Apple silicon on the machine that made it.
+    /// Distributing outside this machine needs a Developer ID signature and notarization, which belong to the publisher's account.
+    /// </summary>
+    private static void SignAdHoc(string app, List<ExportWarning> warnings)
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            warnings.Add(new ExportWarning("not_signed", "The bundle was made on a host that is not a Mac, so it is not signed. Apple silicon refuses unsigned programs: sign it on a Mac (codesign --force --sign - <app>)."));
+            return;
+        }
+
+        var run = Proc.Run("/usr/bin/codesign", ["--force", "--sign", "-", "--timestamp=none", app], Path.GetDirectoryName(app)!);
+        if (run.ExitCode != 0)
+        {
+            warnings.Add(new ExportWarning("codesign_failed", "codesign failed: " + (run.Error + run.Output).Trim()));
+        }
+        else
+        {
+            warnings.Add(new ExportWarning("ad_hoc_signature", "Signed ad hoc: it runs on this Mac. Publishing needs a Developer ID signature and notarization from your Apple developer account."));
         }
     }
 
@@ -356,7 +456,7 @@ internal sealed partial class ExportVerb : IVerb
         var files = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).Select(f => Path.GetRelativePath(folder, f).Replace('\\', '/')).Order(StringComparer.Ordinal).ToArray();
         string path;
         string format;
-        if (target == "linux-x64")
+        if (target is "linux-x64" or "osx-arm64")
         {
             format = "tar.gz";
             path = Path.Combine(outRoot, folderName + ".tar.gz");
@@ -369,7 +469,7 @@ internal sealed partial class ExportVerb : IVerb
                 using var data = File.OpenRead(full);
                 var entry = new PaxTarEntry(TarEntryType.RegularFile, $"{folderName}/{rel}")
                 {
-                    Mode = rel == assemblyName || rel == "run.sh" ? Executable : Plain,
+                    Mode = rel == assemblyName || rel == "run.sh" || rel.EndsWith($".app/Contents/MacOS/{assemblyName}", StringComparison.Ordinal) ? Executable : Plain,
                     ModificationTime = timestamp,
                     DataStream = data,
                     Uid = 0,
