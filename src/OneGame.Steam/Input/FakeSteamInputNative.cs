@@ -96,11 +96,14 @@ internal sealed class FakeSteamInputNative : ISteamInputNative, ISteamInputDrive
 
     public int GetInputType(ulong controller) => Pad(controller)?.InputType ?? 0;
 
-    public ulong GetActionSet(string name) => _actions.FindSet(name) is null ? 0 : Handle("set:" + name);
+    /// <summary>When false, every handle lookup answers 0, as Steam does until it has adopted the app's configuration.</summary>
+    internal bool ConfigurationLoaded { get; set; } = true;
 
-    public ulong GetDigitalAction(string name) => Kind(name) == SteamActionKind.Digital ? Handle("a:" + name) : 0;
+    public ulong GetActionSet(string name) => !ConfigurationLoaded || _actions.FindSet(name) is null ? 0 : Handle("set:" + name);
 
-    public ulong GetAnalogAction(string name) => Kind(name) is SteamActionKind.Stick or SteamActionKind.Trigger ? Handle("a:" + name) : 0;
+    public ulong GetDigitalAction(string name) => ConfigurationLoaded && Kind(name) == SteamActionKind.Digital ? Handle("a:" + name) : 0;
+
+    public ulong GetAnalogAction(string name) => ConfigurationLoaded && Kind(name) is SteamActionKind.Stick or SteamActionKind.Trigger ? Handle("a:" + name) : 0;
 
     public void ActivateActionSet(ulong controller, ulong set)
     {

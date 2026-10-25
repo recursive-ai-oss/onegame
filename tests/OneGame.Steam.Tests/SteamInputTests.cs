@@ -33,6 +33,48 @@ public class SteamInputTests
     }
 
     [Fact]
+    public void HandlesSteamHadNotLoadedYetAreResolvedLater()
+    {
+        var actions = Declare();
+        var native = new FakeSteamInputNative(actions) { ConfigurationLoaded = false };
+        using var svc = SteamInputService.Start(native, actions, null);
+        Assert.Contains("map_select", svc.Describe().Missing);
+        Assert.Contains("set Map", svc.Describe().Missing);
+
+        var pad = native.Connect(3);
+        svc.Update();
+        Assert.Equal(StoreResult.Ok, svc.ActivateSet("Map"));
+        svc.Update();
+        Assert.NotEmpty(svc.Describe().Missing);
+
+        native.ConfigurationLoaded = true;
+        for (var i = 0; i < 31; i++)
+        {
+            svc.Update();
+        }
+
+        Assert.Empty(svc.Describe().Missing);
+        Assert.Equal("Map", svc.Describe().Controllers[0].ActiveSet);
+        Assert.True(native.SetDigital(pad, "map_select", true));
+        svc.Update();
+        Assert.True(svc.IsDown("map_select"));
+        Assert.NotNull(svc.GetOrigins("map_select"));
+    }
+
+    [Fact]
+    public void ANewControllerTriggersAnImmediateRetry()
+    {
+        var actions = Declare();
+        var native = new FakeSteamInputNative(actions) { ConfigurationLoaded = false };
+        using var svc = SteamInputService.Start(native, actions, null);
+        svc.Update();
+        native.ConfigurationLoaded = true;
+        native.Connect(3);
+        svc.Update();
+        Assert.Empty(svc.Describe().Missing);
+    }
+
+    [Fact]
     public void WritesTheActionsFileSteamReads()
     {
         var vdf = new SteamInputActions()
