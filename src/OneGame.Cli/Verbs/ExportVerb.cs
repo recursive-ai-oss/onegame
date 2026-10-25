@@ -13,11 +13,11 @@ internal sealed partial class ExportVerb : IVerb
 {
     public string Name => "export";
 
-    public string Summary => "Package the game: onegame export --target linux-x64|win-x64 [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins]; or a debug-signed APK: export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id].";
+    public string Summary => "Package the game: onegame export --target linux-x64|win-x64 [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins]; or a debug-signed APK: export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id]; or an iOS app bundle (on a Mac): export --target ios-simulator|ios [--dev] [--bundle-id id] [--orientation all|landscape|portrait].";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
-        var a = new ProjectArgs(args, "--target", "--out", "--steam-redist", "--abi", "--package", "--label", "--orientation", "--sdk", "--keystore", "--symbols");
+        var a = new ProjectArgs(args, "--target", "--out", "--steam-redist", "--abi", "--package", "--label", "--orientation", "--sdk", "--keystore", "--symbols", "--bundle-id");
         var steam = a.Game.Remove("--steam");
         var noArchive = a.Game.Remove("--no-archive");
         var noAot = a.Game.Remove("--no-aot");
@@ -44,15 +44,25 @@ internal sealed partial class ExportVerb : IVerb
             return RunAndroidExport(a, dev, noAot, json, output);
         }
 
+        if (a.Get("--target") is "ios-simulator" or "ios")
+        {
+            if (a.Game.Count > 0 || steam)
+            {
+                throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {(steam ? "--steam" : a.Game[0])}. Usage: onegame export --target ios-simulator|ios [--dev] [--bundle-id id] [--label name] [--orientation all|landscape|portrait] [--symbols <dir>] [--out <dir>].");
+            }
+
+            return RunIosExport(a, a.Get("--target") == "ios-simulator", dev, noAot, json, output);
+        }
+
         if (dev || a.Game.Count > 0)
         {
-            throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {(dev ? "--dev (Android only)" : a.Game[0])}. Usage: onegame export --target linux-x64|win-x64 [--steam] [--steam-redist <dir>] [--out <dir>] [--no-archive] [--no-aot].");
+            throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {(dev ? "--dev (Android and iOS only)" : a.Game[0])}. Usage: onegame export --target linux-x64|win-x64 [--steam] [--steam-redist <dir>] [--out <dir>] [--no-archive] [--no-aot].");
         }
 
         var target = a.Get("--target") ?? (OperatingSystem.IsWindows() ? "win-x64" : "linux-x64");
         if (target is not ("linux-x64" or "win-x64"))
         {
-            throw new CliException(ExitCodes.Usage, "bad_target", $"Unknown target '{target}'. Targets: linux-x64, win-x64, android.");
+            throw new CliException(ExitCodes.Usage, "bad_target", $"Unknown target '{target}'. Targets: linux-x64, win-x64, android, ios-simulator, ios.");
         }
 
         var project = Projects.Find(a.Get("--project"));

@@ -750,6 +750,7 @@ public sealed class GameInstance : IDisposable
                 NativeWindowKind.X11 => SurfaceSource.X11(h.Display, h.Window),
                 NativeWindowKind.Wayland => SurfaceSource.Wayland(h.Display, h.Window),
                 NativeWindowKind.Android => SurfaceSource.Android(h.Window),
+                NativeWindowKind.MetalLayer => SurfaceSource.MetalLayer(h.Window),
                 _ => SurfaceSource.Win32(h.Display, h.Window),
             };
             _swapchain = _device.CreateSwapchain(source, new SwapchainDesc((uint)Window.Width, (uint)Window.Height) { Srgb = _stage.RequiresSrgb, PresentMode = Options.PresentMode });

@@ -119,6 +119,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         "input_touch" => Json(InputTouch(a), ControlJson.Default.InputResult),
         "ui_tap" => Json(UiTap(a), ControlJson.Default.InputResult),
         "app_lifecycle" => Json(AppLifecycle(a), ControlJson.Default.InputResult),
+        "platform_native" => new ControlResult(PlatformNative(a)),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", ControlOps.All.Select(o => o.Name))}."),
     };
 
