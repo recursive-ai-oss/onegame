@@ -73,6 +73,12 @@ jobs:
       - name: Build (warnings are errors)
         run: dotnet build OneGame.slnx
 
+      - name: Why did the build fail? (generator inputs of one project)
+        if: ${{ failure() && runner.os == 'Windows' }}
+        continue-on-error: true
+        run: |
+          dotnet build src/OneGame.Sync -v:d -nologo 2>&1 | grep -iE 'OneGame.Generators.dll|EscrowDesk|CS8785|analyzer' | cut -c1-300 | head -40
+
       - name: Test
         run: bash tools/ci/run-tests.sh Debug
 

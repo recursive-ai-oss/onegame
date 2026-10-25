@@ -44,11 +44,11 @@
     <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>gamedev;game-engine;nativeaot;trimmable;source-generators;deterministic</PackageTags>
-    <!-- Symbols ship as .snupkg files; SourceLink comes with the SDK. A CI build (and so a release) uses deterministic source paths. -->
+    <!-- Symbols ship as .snupkg files; SourceLink comes with the SDK. The release workflow sets ContinuousIntegrationBuild for
+         deterministic source paths; ordinary builds keep real paths because tests find their data files through them. -->
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
   <!-- Only the engine libraries under src/ are packages. The sample games and the tools are built, not published to nuget.org. -->
