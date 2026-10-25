@@ -48,6 +48,24 @@ public sealed class Cluster
         return node;
     }
 
+    /// <summary>
+    /// Takes a node out of the cluster as if its process died: it is no longer stepped or pumped, and whatever its channels carried goes
+    /// unanswered. A test restarts it by building a new node from a save.
+    /// </summary>
+    /// <returns>False if the node was not part of this cluster.</returns>
+    public bool RemoveNode(Node node)
+    {
+        var index = _nodes.IndexOf(node);
+        if (index < 0)
+        {
+            return false;
+        }
+
+        _nodes.RemoveAt(index);
+        _seenDrift.RemoveAt(index);
+        return true;
+    }
+
     /// <summary>Makes <paramref name="authority"/> the authority of a new scope.</summary>
     public AuthorityScope AddScope(Node authority, ScopeId id, World world)
     {
