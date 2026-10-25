@@ -85,6 +85,36 @@ public class AudioOpTests
                 Assert.Equal(1, r.GetProperty("activeVoices").GetInt32());
             }
 
+            // The device section is there for every output; a capture sink reports itself and nothing the device never did.
+            using (var doc = JsonDocument.Parse(surface.Call("audio")))
+            {
+                var device = doc.RootElement.GetProperty("device");
+                Assert.Equal("capture", device.GetProperty("backend").GetString());
+                Assert.Equal(0, device.GetProperty("underruns").GetInt64());
+                Assert.False(device.GetProperty("suspended").GetBoolean());
+            }
+
+            // suspend=true stops the device as the app lifecycle does, and the answer says so; this is not a web page or an iPhone, so unlock and interrupt say that.
+            using (var doc = JsonDocument.Parse(surface.Call("audio", """{"suspend":true}""")))
+            {
+                var device = doc.RootElement.GetProperty("device");
+                Assert.True(device.GetProperty("suspended").GetBoolean());
+                Assert.Equal("suspend:true", device.GetProperty("request").GetString());
+            }
+
+            using (var doc = JsonDocument.Parse(surface.Call("audio", """{"unlock":true}""")))
+            {
+                Assert.Equal("unlock:not_a_web_page", doc.RootElement.GetProperty("device").GetProperty("request").GetString());
+            }
+
+            using (var doc = JsonDocument.Parse(surface.Call("audio", """{"interrupt":"begin"}""")))
+            {
+                Assert.Equal("interrupt:not_ios", doc.RootElement.GetProperty("device").GetProperty("request").GetString());
+            }
+
+            Assert.Equal("bad_args", Assert.Throws<ControlException>(() => surface.Call("audio", """{"interrupt":"sideways"}""")).Code);
+            surface.Call("audio", """{"suspend":false}""");
+
             // The service has the default three meters, all taken: asking for a fourth is "no slot", never an error.
             using (var doc = JsonDocument.Parse(surface.Call("audio", """{"enableMeter":3}""")))
             {
