@@ -55,6 +55,23 @@ using (var app = PlatformApp.Create(new PlatformOptions { Backend = PlatformBack
     }
 }
 
+// Touch: two fingers through the shared event path; the first one also drives the pointer.
+using (var app = PlatformApp.Create(new PlatformOptions { Backend = PlatformBackendKind.Headless, EnableGamepadDevices = false }))
+{
+    var window = app.CreateWindow();
+    app.Injector.TouchDown(window.Id, 0, 30, 40);
+    app.Injector.TouchDown(window.Id, 1, 90, 40);
+    var pressed = app.Input.IsButtonDown(MouseButton.Left) && app.Input.TouchCount == 2 && app.Input.PointerX == 30;
+    app.Injector.TouchUp(window.Id, 0, 30, 40);
+    if (!pressed || app.Input.IsButtonDown(MouseButton.Left) || app.Input.TouchCount != 1)
+    {
+        Console.Error.WriteLine("touch smoke failed");
+        return 1;
+    }
+
+    Console.WriteLine("ok: touch drives the pointer with the first finger only");
+}
+
 // Audio: the capture path (no device, exact frame counts) and the no-device path through the real OS backend, which must stay silent and alive.
 using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true }))
 {

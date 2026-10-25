@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using OneGame.Audio;
 using OneGame.Core;
 using OneGame.Host;
@@ -117,6 +116,9 @@ public sealed partial class ControlSurface : IControlEndpoint
         "capture_sequence" => Json(CaptureSequence(a), ControlJson.Default.SequenceResult),
         "quality" => Json(Quality(a), ControlJson.Default.QualityResult),
         "camera" or "pick" or "project" => Dispatch3D(op, a),
+        "input_touch" => Json(InputTouch(a), ControlJson.Default.InputResult),
+        "ui_tap" => Json(UiTap(a), ControlJson.Default.InputResult),
+        "app_lifecycle" => Json(AppLifecycle(a), ControlJson.Default.InputResult),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", ControlOps.All.Select(o => o.Name))}."),
     };
 
@@ -748,7 +750,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         return scale is > 0 and <= 16 ? (w, h, scale) : throw new ControlException("bad_args", "scale must be between 0 and 16.");
     }
 
-    private static string Sha256(byte[] data) => Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
+    private static string Sha256(byte[] data) => Sha256Hex.Hash(data);
 
     /// <summary>Checks the registered shader files for edits, as the <c>shaders</c> operation does. Cheap; call it from a game loop.</summary>
     public void PollShaders() => Reloader.Poll();

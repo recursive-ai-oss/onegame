@@ -20,6 +20,7 @@ command vkGetPhysicalDeviceSurfacePresentModesKHR
 command vkCreateXlibSurfaceKHR
 command vkCreateWaylandSurfaceKHR
 command vkCreateWin32SurfaceKHR
+command vkCreateAndroidSurfaceKHR
 command vkCreateDebugUtilsMessengerEXT
 command vkDestroyDebugUtilsMessengerEXT
 command vkDestroyDevice

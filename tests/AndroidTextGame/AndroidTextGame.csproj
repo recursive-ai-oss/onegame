@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OneGameRoot>$(MSBuildThisFileDirectory)../../</OneGameRoot>
+    <AssemblyName>AndroidTextGame</AssemblyName>
+    <RootNamespace>AndroidTextGame</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+    <AndroidOrientation>fullSensor</AndroidOrientation>
+  </PropertyGroup>
+
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
+    <EmbeddedResource Include="$(OneGameRoot)assets/fonts/NotoSans-Regular.ttf" LogicalName="fonts/NotoSans-Regular.ttf" />
+  </ItemGroup>
+
+</Project>

@@ -38,6 +38,8 @@
     <DefineConstants>$(DefineConstants);ONEGAME_DEV</DefineConstants>
   </PropertyGroup>
 
+  <Import Project="$(MSBuildThisFileDirectory)Android.targets" />
+
   <ItemGroup>
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Host/OneGame.Host.csproj" />
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Core/OneGame.Core.csproj" />
@@ -48,7 +50,8 @@
 
   <ItemGroup Condition="'$(OneGameDev)' == 'true'">
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Live/OneGame.Live.csproj" />
-    <Compile Include="$(MSBuildThisFileDirectory)DevBoot.cs" Visible="false" />
+    <!-- A shared library (Android) has no application code to run a module initializer from; AndroidEntry.cs enables the tools itself. -->
+    <Compile Include="$(MSBuildThisFileDirectory)DevBoot.cs" Visible="false" Condition="'$(OneGameAndroid)' != 'true'" />
   </ItemGroup>
 
 </Project>

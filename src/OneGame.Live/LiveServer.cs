@@ -64,6 +64,12 @@ public sealed class LiveServer : IDisposable
             throw new InvalidOperationException("The server is already listening.");
         }
 
+        if (path.StartsWith("tcp:", StringComparison.Ordinal))
+        {
+            StartTcp(path);
+            return;
+        }
+
         Path = System.IO.Path.GetFullPath(path);
         if (File.Exists(Path))
         {
@@ -86,6 +92,31 @@ public sealed class LiveServer : IDisposable
             throw new IOException($"Cannot listen on {Path}: {ex.Message}", ex);
         }
 
+        _acceptor = new Thread(AcceptLoop) { IsBackground = true, Name = "onegame-live-accept" };
+        _acceptor.Start();
+    }
+
+    // "tcp:port" listens on the loopback interface only. A phone has no folder that both the game and the tool can reach, so `adb forward`
+    // maps this port to the computer. Development builds only, like the rest of the listener.
+    private void StartTcp(string spec)
+    {
+        if (!int.TryParse(spec.AsSpan(4), NumberStyles.None, CultureInfo.InvariantCulture, out var port) || port is < 1 or > 65535)
+        {
+            throw new IOException($"'{spec}' is not tcp:<port>.");
+        }
+
+        try
+        {
+            _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            _listener.Bind(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, port));
+            _listener.Listen(8);
+        }
+        catch (SocketException ex)
+        {
+            throw new IOException($"Cannot listen on {spec}: {ex.Message}", ex);
+        }
+
+        Path = "tcp:127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture);
         _acceptor = new Thread(AcceptLoop) { IsBackground = true, Name = "onegame-live-accept" };
         _acceptor.Start();
     }

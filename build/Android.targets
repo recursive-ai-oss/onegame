@@ -1,0 +1,51 @@
+<Project>
+
+  <!-- Imported by Game.targets. A game published for an Android runtime identifier (dotnet publish -r linux-bionic-arm64 or linux-bionic-x64)
+       becomes a NativeAOT shared library that a native activity loads: libGame.so exporting ANativeActivity_onCreate. The .NET SDK does not
+       list linux-bionic as a NativeAOT target, so this file points the compiler at the packages for it: the host compiler
+       (runtime.<host>.Microsoft.DotNet.ILCompiler) and the target runtime pack (Microsoft.NETCore.App.Runtime.NativeAOT.linux-bionic-*), both
+       downloaded at restore; and at the Android NDK's clang and sysroot for linking. `onegame export` with the android target does all of this. -->
+
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('linux-bionic'))">
+    <OneGameAndroid>true</OneGameAndroid>
+    <PublishAot>true</PublishAot>
+    <NativeLib>Shared</NativeLib>
+    <OutputType>Library</OutputType>
+    <AndroidSdkPath Condition="'$(AndroidSdkPath)' == ''">$(ANDROID_HOME)</AndroidSdkPath>
+    <AndroidSdkPath Condition="'$(AndroidSdkPath)' == ''">$(ANDROID_SDK_ROOT)</AndroidSdkPath>
+    <AndroidNdkPath Condition="'$(AndroidNdkPath)' == ''">$(ANDROID_NDK)</AndroidNdkPath>
+    <_OgPackages>$(NuGetPackageRoot)</_OgPackages>
+    <_OgPackages Condition="'$(_OgPackages)' == ''">$(NUGET_PACKAGES)</_OgPackages>
+    <_OgPackages Condition="'$(_OgPackages)' == ''">$(HOME)/.nuget/packages</_OgPackages>
+    <_OgPackages>$([MSBuild]::EnsureTrailingSlash('$(_OgPackages)'))</_OgPackages>
+    <_OgRuntimeVersion>$(BundledNETCoreAppPackageVersion)</_OgRuntimeVersion>
+    <_OgHostRid>$(NETCoreSdkPortableRuntimeIdentifier)</_OgHostRid>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(OneGameAndroid)' == 'true'">
+    <_OgNdkLlvm>$(AndroidNdkPath)/toolchains/llvm/prebuilt/linux-x86_64</_OgNdkLlvm>
+    <CppCompilerAndLinker>$(_OgNdkLlvm)/bin/clang</CppCompilerAndLinker>
+    <SysRoot>$(_OgNdkLlvm)/sysroot</SysRoot>
+    <ObjCopyName>$(_OgNdkLlvm)/bin/llvm-objcopy</ObjCopyName>
+    <LinkerFlavor>lld</LinkerFlavor>
+    <IlcToolsPath>$(_OgPackages)runtime.$(_OgHostRid).microsoft.dotnet.ilcompiler/$(_OgRuntimeVersion)/tools/</IlcToolsPath>
+    <_OgRuntimePack>$(_OgPackages)microsoft.netcore.app.runtime.nativeaot.$(RuntimeIdentifier)/$(_OgRuntimeVersion)/runtimes/$(RuntimeIdentifier)/</_OgRuntimePack>
+    <IlcFrameworkPath>$(_OgRuntimePack)lib/net10.0/</IlcFrameworkPath>
+    <IlcFrameworkNativePath>$(_OgRuntimePack)native/</IlcFrameworkNativePath>
+    <IlcSdkPath>$(_OgRuntimePack)native/</IlcSdkPath>
+    <DefineConstants>$(DefineConstants);ONEGAME_ANDROID</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(OneGameAndroid)' == 'true'">
+    <!-- A publish already downloads the host compiler itself; a plain restore needs it named. -->
+    <PackageDownload Condition="'$(_IsPublishing)' != 'true'" Include="runtime.$(_OgHostRid).Microsoft.DotNet.ILCompiler" Version="[$(_OgRuntimeVersion)]" />
+    <PackageDownload Include="Microsoft.NETCore.App.Runtime.NativeAOT.$(RuntimeIdentifier)" Version="[$(_OgRuntimeVersion)]" />
+    <Compile Include="$(MSBuildThisFileDirectory)AndroidEntry.cs" Visible="false" />
+  </ItemGroup>
+
+  <Target Name="OneGameCheckAndroidTools" BeforeTargets="CoreCompile;Restore" Condition="'$(OneGameAndroid)' == 'true'">
+    <Error Condition="'$(AndroidNdkPath)' == '' or !Exists('$(_OgNdkLlvm)/bin/clang')" Code="OGANDROID001"
+           Text="The Android NDK was not found. Set ANDROID_NDK (or -p:AndroidNdkPath=) to an NDK folder; onegame export finds one under ANDROID_HOME." />
+  </Target>
+
+</Project>

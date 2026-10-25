@@ -2828,6 +2828,16 @@ internal unsafe struct VkAllocationCallbacks
 }
 
 [StructLayout(LayoutKind.Sequential)]
+internal unsafe struct VkAndroidSurfaceCreateInfoKHR
+{
+    public VkStructureType sType;
+    public void* pNext;
+    public uint flags;
+    public void* window;
+    public VkAndroidSurfaceCreateInfoKHR() { sType = VkStructureType.AndroidSurfaceCreateInfo; }
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal unsafe struct VkApplicationInfo
 {
     public VkStructureType sType;
@@ -4333,6 +4343,7 @@ internal sealed unsafe class VkGlobalFns
 /// <summary>Instance-level entry points, loaded through the loader's proc-address functions.</summary>
 internal sealed unsafe class VkInstanceFns
 {
+    public delegate* unmanaged<VkInstance, VkAndroidSurfaceCreateInfoKHR*, VkAllocationCallbacks*, VkSurfaceKHR*, VkResult> vkCreateAndroidSurfaceKHR;
     public delegate* unmanaged<VkInstance, VkDebugUtilsMessengerCreateInfoEXT*, VkAllocationCallbacks*, VkDebugUtilsMessengerEXT*, VkResult> vkCreateDebugUtilsMessengerEXT;
     public delegate* unmanaged<VkPhysicalDevice, VkDeviceCreateInfo*, VkAllocationCallbacks*, VkDevice*, VkResult> vkCreateDevice;
     public delegate* unmanaged<VkInstance, VkWaylandSurfaceCreateInfoKHR*, VkAllocationCallbacks*, VkSurfaceKHR*, VkResult> vkCreateWaylandSurfaceKHR;
@@ -4355,6 +4366,7 @@ internal sealed unsafe class VkInstanceFns
     public delegate* unmanaged<VkPhysicalDevice, uint, VkSurfaceKHR, uint*, VkResult> vkGetPhysicalDeviceSurfaceSupportKHR;
     public void Load(nint handle, delegate* unmanaged<nint, byte*, nint> get)
     {
+        vkCreateAndroidSurfaceKHR = (delegate* unmanaged<VkInstance, VkAndroidSurfaceCreateInfoKHR*, VkAllocationCallbacks*, VkSurfaceKHR*, VkResult>)get(handle, "vkCreateAndroidSurfaceKHR\0"u8.GetPointer());
         vkCreateDebugUtilsMessengerEXT = (delegate* unmanaged<VkInstance, VkDebugUtilsMessengerCreateInfoEXT*, VkAllocationCallbacks*, VkDebugUtilsMessengerEXT*, VkResult>)get(handle, "vkCreateDebugUtilsMessengerEXT\0"u8.GetPointer());
         vkCreateDevice = (delegate* unmanaged<VkPhysicalDevice, VkDeviceCreateInfo*, VkAllocationCallbacks*, VkDevice*, VkResult>)get(handle, "vkCreateDevice\0"u8.GetPointer());
         vkCreateWaylandSurfaceKHR = (delegate* unmanaged<VkInstance, VkWaylandSurfaceCreateInfoKHR*, VkAllocationCallbacks*, VkSurfaceKHR*, VkResult>)get(handle, "vkCreateWaylandSurfaceKHR\0"u8.GetPointer());

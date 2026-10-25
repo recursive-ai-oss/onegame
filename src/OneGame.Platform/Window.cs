@@ -45,6 +45,12 @@ public abstract class Window : IDisposable
     /// <summary>Whether the cursor is locked: it stays put and <see cref="PlatformEventKind.PointerRelativeMotion"/> events report movement.</summary>
     public bool CursorLocked { get; private protected set; }
 
+    /// <summary>
+    /// The distances in pixels from each edge that content must keep clear of: display cut-outs, rounded corners, system bars and the
+    /// gesture area. Zero on desktop. Changes arrive as <see cref="PlatformEventKind.SafeAreaChanged"/>.
+    /// </summary>
+    public EdgeInsets SafeArea { get; private protected set; }
+
     /// <summary>The window title.</summary>
     public string Title { get; private protected set; } = "";
 
@@ -137,6 +143,17 @@ public abstract class Window : IDisposable
         Width = width;
         Height = height;
         App.Post(new PlatformEvent { Kind = PlatformEventKind.WindowResized, WindowId = Id, Width = width, Height = height });
+    }
+
+    private protected void ApplySafeArea(EdgeInsets insets)
+    {
+        if (insets == SafeArea)
+        {
+            return;
+        }
+
+        SafeArea = insets;
+        App.Post(new PlatformEvent { Kind = PlatformEventKind.SafeAreaChanged, WindowId = Id, Insets = insets });
     }
 
     private protected void ApplyScale(float scale)

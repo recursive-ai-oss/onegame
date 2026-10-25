@@ -105,6 +105,15 @@ internal sealed class ClusterScenarioRunner(ProcessCluster cluster)
             case StepKind.ClickAt:
                 cluster.Call(RequireNode(s), "input_pointer", obj(("action", "click"), ("x", s.X), ("y", s.Y)));
                 break;
+            case StepKind.Tap:
+                cluster.Call(RequireNode(s), "ui_tap", s.Id is not null ? obj(("id", s.Id)) : obj(("selector", s.Selector)));
+                break;
+            case StepKind.TapAt:
+                cluster.Call(RequireNode(s), "input_touch", obj(("action", "tap"), ("x", s.X), ("y", s.Y)));
+                break;
+            case StepKind.Touch:
+                cluster.Call(RequireNode(s), "input_touch", obj(("action", s.Text), ("id", s.Finger), ("x", s.X), ("y", s.Y)));
+                break;
             case StepKind.Invoke:
                 cluster.Call(RequireNode(s), "ui_invoke", s.Id is not null ? obj(("id", s.Id)) : obj(("selector", s.Selector)));
                 break;

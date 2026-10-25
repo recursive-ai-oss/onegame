@@ -76,6 +76,40 @@ public sealed class InputInjector
     public void RelativeMotion(int windowId, float deltaX, float deltaY) =>
         _app.Post(new PlatformEvent { Kind = PlatformEventKind.PointerRelativeMotion, WindowId = windowId, DeltaX = deltaX, DeltaY = deltaY });
 
+    /// <summary>Puts a finger down at a position in window pixels.</summary>
+    public void TouchDown(int windowId, int touchId, float x, float y) =>
+        _app.Post(new PlatformEvent { Kind = PlatformEventKind.TouchDown, WindowId = windowId, TouchId = touchId, X = x, Y = y, Pressure = 1f });
+
+    /// <summary>Moves a finger that is down.</summary>
+    public void TouchMove(int windowId, int touchId, float x, float y) =>
+        _app.Post(new PlatformEvent { Kind = PlatformEventKind.TouchMove, WindowId = windowId, TouchId = touchId, X = x, Y = y, Pressure = 1f });
+
+    /// <summary>Lifts a finger.</summary>
+    public void TouchUp(int windowId, int touchId, float x, float y) =>
+        _app.Post(new PlatformEvent { Kind = PlatformEventKind.TouchUp, WindowId = windowId, TouchId = touchId, X = x, Y = y });
+
+    /// <summary>Takes a finger away without a lift, as the system does when it claims a gesture.</summary>
+    public void TouchCancel(int windowId, int touchId) =>
+        _app.Post(new PlatformEvent
+        {
+            Kind = PlatformEventKind.TouchCancel,
+            WindowId = windowId,
+            TouchId = touchId,
+            X = _app.Input.TryGetTouch(touchId, out var x, out var y) ? x : 0,
+            Y = y,
+        });
+
+    /// <summary>Touches and lifts one finger at a position.</summary>
+    public void Tap(int windowId, float x, float y, int touchId = 0)
+    {
+        TouchDown(windowId, touchId, x, y);
+        TouchUp(windowId, touchId, x, y);
+    }
+
+    /// <summary>Reports that the app moved to the foreground or background, or that memory is short.</summary>
+    public void Lifecycle(AppLifecycleState state) =>
+        _app.Post(new PlatformEvent { Kind = PlatformEventKind.AppLifecycle, Lifecycle = state });
+
     /// <summary>Reports that the OS asked a window to close.</summary>
     public void CloseRequest(int windowId) =>
         _app.Post(new PlatformEvent { Kind = PlatformEventKind.WindowCloseRequested, WindowId = windowId });

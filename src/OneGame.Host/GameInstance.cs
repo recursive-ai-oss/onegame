@@ -122,7 +122,8 @@ public sealed class GameInstance : IDisposable
         {
             Backend = options.Headless ? PlatformBackendKind.Headless : options.Backend,
             DisplayName = options.Headless ? null : options.DisplayName,
-            EnableGamepadDevices = !options.Headless,
+            // Android hands gamepads over as input events; there are no device files to scan.
+            EnableGamepadDevices = !options.Headless && !OperatingSystem.IsAndroid(),
         });
         Window = Platform.CreateWindow(new WindowOptions { Title = definition.Name, Width = options.Width, Height = options.Height });
         Ui = new UiTree(measurer) { ArtSizes = new OneGame.Text.ArtAtlasSizes(art) };
@@ -525,6 +526,19 @@ public sealed class GameInstance : IDisposable
     /// <summary>How far a realtime run is between the last tick and the next, from 0 to just under 1. Stages draw between ticks with it; stepped runs and captures show whole ticks (0).</summary>
     public Fixed FrameAlpha { get; private set; }
 
+    /// <summary>
+    /// True while the app is in the background (the platform reported <see cref="AppLifecycleState.Paused"/>). A realtime run stops its clock
+    /// then, so the simulation does not move while nobody can see it; stepping through live control still works.
+    /// </summary>
+    public bool Suspended { get; private set; }
+
+    private void DropSwapchain()
+    {
+        _stage.ReleaseTargets(null);
+        _swapchain?.Dispose();
+        _swapchain = null;
+    }
+
     private void RunFrame(int ticks)
     {
         DrainInput();
@@ -579,6 +593,30 @@ public sealed class GameInstance : IDisposable
             case PlatformEventKind.WindowCloseRequested:
                 Window.Close();
                 return;
+            case PlatformEventKind.SurfaceLost:
+                DropSwapchain();
+                return;
+            case PlatformEventKind.SurfaceCreated:
+                // The next draw makes a swapchain on the new surface.
+                _stage.ReleaseTargets(null);
+                return;
+            case PlatformEventKind.AppLifecycle:
+                Suspended = e.Lifecycle == AppLifecycleState.Paused;
+                if (e.Lifecycle == AppLifecycleState.LowMemory)
+                {
+                    _stage.ReleaseTargets(null);
+                }
+
+                Definition.OnInput(this, e);
+                return;
+            case PlatformEventKind.BackRequested:
+                // Back closes the topmost thing; with nothing left to close it leaves the app.
+                if (!Ui.Dispatch(UiEvent.Cancel()))
+                {
+                    Platform.RequestQuit();
+                }
+
+                return;
         }
 
         if (e.Kind == PlatformEventKind.GamepadAxisMoved && _stick.OnAxis(e, out var stickNav))
@@ -609,6 +647,15 @@ public sealed class GameInstance : IDisposable
             var now = clock.ElapsedTicks;
             owed = Math.Min(owed + (now - last), step * 5);
             last = now;
+            if (Suspended)
+            {
+                // In the background: keep taking in events, but neither tick nor draw, and owe nothing when the app returns.
+                owed = 0;
+                DrainInput();
+                Platform.PumpEvents(50);
+                continue;
+            }
+
             var ticks = 0;
             while (owed >= step)
             {
@@ -703,22 +750,31 @@ public sealed class GameInstance : IDisposable
                 NativeWindowKind.X11 => SurfaceSource.X11(h.Display, h.Window),
                 NativeWindowKind.Wayland => SurfaceSource.Wayland(h.Display, h.Window),
                 NativeWindowKind.Cocoa => SurfaceSource.MetalLayer(h.Window),
+                NativeWindowKind.Android => SurfaceSource.Android(h.Window),
                 _ => SurfaceSource.Win32(h.Display, h.Window),
             };
             _swapchain = _device.CreateSwapchain(source, new SwapchainDesc((uint)Window.Width, (uint)Window.Height) { Srgb = _stage.RequiresSrgb, PresentMode = Options.PresentMode });
         }
 
-        if (_swapchain.TryAcquire(out var backbuffer) == AcquireStatus.Ready)
+        try
         {
-            _stage.Render(_device, backbuffer, new FrameInfo(Window.Width, Window.Height, UiScale, World.Tick, list, World, FrameAlpha));
-            if (_grabNext)
+            if (_swapchain.TryAcquire(out var backbuffer) == AcquireStatus.Ready)
             {
-                _grabNext = false;
-                _grab = ReadBackbuffer(backbuffer);
-            }
+                _stage.Render(_device, backbuffer, new FrameInfo(Window.Width, Window.Height, UiScale, World.Tick, list, World, FrameAlpha));
+                if (_grabNext)
+                {
+                    _grabNext = false;
+                    _grab = ReadBackbuffer(backbuffer);
+                }
 
-            _swapchain.Present();
-            PresentedFrames++;
+                _swapchain.Present();
+                PresentedFrames++;
+            }
+        }
+        catch (GpuSurfaceLostException)
+        {
+            // The system took the surface before the platform's event reached us; the event follows and a new surface gets a new swapchain.
+            DropSwapchain();
         }
     }
 
