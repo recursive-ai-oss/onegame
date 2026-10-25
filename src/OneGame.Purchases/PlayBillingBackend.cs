@@ -16,6 +16,7 @@ public sealed class PlayBillingBackend : IPurchaseBackend
 
     private readonly StoreEventBuffer _queue = new();
     private readonly Dictionary<string, PurchaseTransaction> _finishing = new(StringComparer.Ordinal);
+    private readonly List<StoreEvent> _scratch = [];
     private readonly AndroidJni? _jni;
     private readonly nint _activity;
     private readonly nint _class;
@@ -33,7 +34,8 @@ public sealed class PlayBillingBackend : IPurchaseBackend
 
         _jni = jni;
         _activity = host.JavaActivity;
-        _class = jni.LoadAppClass(_activity, BridgeClass);
+        // A global reference: the class is used on whichever thread calls the backend, and a local one would die with its thread.
+        _class = jni.ToGlobal(jni.LoadAppClass(_activity, BridgeClass));
         if (_class == 0)
         {
             _initError = new StoreError(StoreErrorKind.Unavailable, "The app does not contain " + BridgeClass + "; export with Play Billing enabled (AndroidPlayBilling).");
@@ -162,7 +164,7 @@ public sealed class PlayBillingBackend : IPurchaseBackend
 
     private void Drain()
     {
-        var events = new List<StoreEvent>();
+        var events = _scratch;
         for (var i = 0; i < MaxMessagesPerPump; i++)
         {
             var line = _jni!.CallStaticObject(_class, _poll);

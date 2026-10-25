@@ -10,6 +10,7 @@ internal sealed unsafe class AndroidJni
     private const int GetVersionIndex = 4;
     private const int FindClassIndex = 6;
     private const int ExceptionClearIndex = 17;
+    private const int NewGlobalRefIndex = 21;
     private const int DeleteLocalRefIndex = 23;
     private const int GetObjectClassIndex = 31;
     private const int GetMethodIdIndex = 33;
@@ -222,6 +223,19 @@ internal sealed unsafe class AndroidJni
         var text = System.Text.Encoding.UTF8.GetString(chars, length);
         ((delegate* unmanaged<nint, nint, byte*, void>)Table[ReleaseStringUtfCharsIndex])(_env, jstring, chars);
         return text;
+    }
+
+    /// <summary>Turns a local reference into one that stays valid on every thread until the process ends; the local one is released.</summary>
+    public nint ToGlobal(nint local)
+    {
+        if (local == 0)
+        {
+            return 0;
+        }
+
+        var global = ((delegate* unmanaged<nint, nint, nint>)Table[NewGlobalRefIndex])(_env, local);
+        DeleteLocal(local);
+        return global;
     }
 
     public void DeleteLocal(nint reference)
