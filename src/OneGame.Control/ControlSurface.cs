@@ -109,6 +109,7 @@ public sealed class ControlSurface : IControlEndpoint
         "snapshot_save" => Json(SnapshotSave(a), ControlJson.Default.SnapshotResult),
         "shaders" => Json(ShaderCheck(), ControlJson.Default.ShadersResult),
         "render_graph" => Json(RenderGraphReport(), ControlJson.Default.RenderGraphReport),
+        "theme_lint" => Json(ThemeLintCheck(), ControlJson.Default.ThemeLintReport),
         "capture_frame" => CaptureFrame(a),
         "capture_sequence" => Json(CaptureSequence(a), ControlJson.Default.SequenceResult),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", ControlOps.All.Select(o => o.Name))}."),
@@ -709,6 +710,13 @@ public sealed class ControlSurface : IControlEndpoint
 
     private OneGame.Gpu.Graph.RenderGraphReport RenderGraphReport() =>
         Game.DescribeRenderGraph() ?? throw new ControlException("no_graph", "This game has no graphics device, or its render stage does not draw with a render graph.");
+
+    private OneGame.UI.Kit.ThemeLintReport ThemeLintCheck()
+    {
+        // Styles resolve on update; the tokens read are the ones in effect on the root, with the game's own overrides.
+        Game.Ui.Update();
+        return OneGame.UI.Kit.ThemeLint.Check(Game.Ui);
+    }
 
     private ShadersResult ShaderCheck()
     {

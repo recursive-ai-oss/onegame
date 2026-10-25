@@ -62,6 +62,12 @@ internal static class KitSmoke
             return "sort by price did not reorder";
         }
 
+        var lint = ThemeLint.Check(ui);
+        if (!lint.Passed || !ThemeLint.Check(KitTokens.Light).Passed)
+        {
+            return "the kit theme fails its own contrast lint";
+        }
+
         var before = ui.Frame().Commands.Length;
         host.SetTheme(KitTheme.Create(KitTokens.Light));
         Settle(host);

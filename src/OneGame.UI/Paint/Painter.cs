@@ -151,7 +151,7 @@ internal sealed class Painter(UiTree ui)
         if (img.Length > 0)
         {
             var sl = ui.Px(s.L(P.BackgroundSlice));
-            _list.Add(new DrawCommand { Kind = DrawKind.Image, Bounds = box, Resource = img, Color = Color.White, Radii = radii, Slice = new Edges(sl, sl, sl, sl), Source = e });
+            _list.Add(new DrawCommand { Kind = DrawKind.Image, Bounds = box, Resource = img, Color = s.C(P.BackgroundTint), Radii = radii, Slice = new Edges(sl, sl, sl, sl), Source = e });
         }
 
         var bl = ui.Px(s.L(P.BorderLeftWidth));

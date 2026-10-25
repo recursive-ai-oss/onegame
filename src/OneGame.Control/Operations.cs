@@ -131,6 +131,7 @@ public sealed record SnapshotResult(string? Path, int Bytes, string? Base64, str
 [JsonSerializable(typeof(NetDivergeResult))]
 [JsonSerializable(typeof(ShadersResult))]
 [JsonSerializable(typeof(OneGame.Gpu.Graph.RenderGraphReport))]
+[JsonSerializable(typeof(OneGame.UI.Kit.ThemeLintReport))]
 public sealed partial class ControlJson : JsonSerializerContext
 {
 }
@@ -203,6 +204,9 @@ public static class ControlOps
             NoArgs, true),
         new("render_graph",
             "Describe the render graph of the last frame drawn: every pass in order (type, what it reads and writes, whether it was culled, GPU time in microseconds when measured), every texture and buffer (format, size, lifetime, which allocation it shares), and totals (memory in use versus memory without sharing). Draws one frame offscreen first if none was drawn. Fails with 'no_graph' without a graphics device.",
+            NoArgs, false),
+        new("theme_lint",
+            "Check the UI theme in effect for legibility: WCAG 2.x AA contrast of every text, state and indicator color pair the kit draws (text 4.5:1; disabled text and indicators such as the focus ring 3:1), using the tokens as the cascade resolved them, game overrides included. Returns passed, the number of pairs checked, the failing pairs (token names, colors, ratio, required) worst first, and every pair.",
             NoArgs, false),
         new("capture_frame",
             "Render the current state offscreen to a PNG. size is WxH or a name (360p 720p 1080p 1440p 4k deck phone tablet); scale is the UI scale. With 'path' the file is written under the output folder. With presented=true, a windowed game instead returns the frame it presents to its window (the swapchain image, at the window's size; size and scale are ignored).",

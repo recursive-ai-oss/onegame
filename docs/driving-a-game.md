@@ -55,6 +55,7 @@ Determinism.Replay(() => new ShopGame(), drive, 120).ThrowIfDifferent();
 ```
 onegame capture --out shots/main.png --size 1080p --scale 2 --after 30 --json
 onegame capture --sequence shots/run --count 60 --every 2        # frame-0000.png ... + manifest.json
+onegame lint-theme --json                                    # WCAG AA contrast of the UI theme; exit 1 and the failing token pairs when one fails
 ```
 
 Sizes: `360p 720p 1080p 1440p 4k deck phone tablet` or `WxH`. Open the PNG and look at it: a hash that matches proves repeatability, not that the picture is right. The JSON says which renderer made it (`cpu` or the GPU's name). `ONEGAME_GPU_VALIDATION=1` turns on the Vulkan validation layer.

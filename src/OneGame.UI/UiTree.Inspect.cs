@@ -184,7 +184,7 @@ public sealed partial class UiTree
             states.Add("focus");
         }
 
-        if (!e.IsEnabled)
+        if (!e.IsEffectivelyEnabled)
         {
             states.Add("disabled");
         }

@@ -38,6 +38,7 @@ Without `--headless` the game opens a window (Wayland when `WAYLAND_DISPLAY` is 
 | Clipboard | `clipboard_get`, `clipboard_set` (`selection`: `clipboard` or `primary`) |
 | UI | `ui_tree`, `ui_query`, `ui_hit`, `screen_open`, `ui_scale` (override the UI scale; `scale: null` or `reset: true` follows the window) |
 | Output | `snapshot_save`, `capture_frame`, `capture_sequence` |
+| Theme | `theme_lint` (WCAG AA contrast of the kit theme in effect, as a report; `docs/interfaces/ui-kit.md`) |
 | Shaders | `shaders` (hot reload status; recompiles changed shader files first, see `docs/interfaces/render2d.md`) |
 | Rendering | `render_graph` (passes, resources and per-pass GPU time of the last frame; see `render-graph.md`) |
 | Lifecycle | `quit` |
@@ -49,7 +50,7 @@ Commands go through the entities' generated `SendFromText(name, args[])` (argume
 ## Faces
 
 - **C# test API** (`OneGame.Testing`): `TestCluster.Start(game, options)` → `Client` (`Send`, `Step`, `Call`, `Hash`, `Game`), `Determinism.RunTwice/SnapshotRestore/Replay`, `ScenarioParser` and `ScenarioRunner` (below). Everything goes through `ControlSurface`, so a test does what an agent does.
-- **CLI** (`onegame`): verbs `new build run test capture replay mcp export` (`export` is described below). `--json` prints one object. Errors are `{"ok":false,"error":{"code","message"}}`. Exit codes: 0 ok, 1 a check failed, 2 usage, 3 build failed, 4 could not run, 5 needs a development build.
+- **CLI** (`onegame`): verbs `new build run test capture lint-theme replay mcp export` (`export` is described below). `--json` prints one object. Errors are `{"ok":false,"error":{"code","message"}}`. Exit codes: 0 ok, 1 a check failed, 2 usage, 3 build failed, 4 could not run, 5 needs a development build.
 - **MCP**: MCP revision 2025-06-18, JSON-RPC 2.0, tools only (`initialize`, `tools/list`, `tools/call`; captures return `image` content plus text). A Debug game listens on a Unix domain socket (`--live [path]`) and speaks one JSON-RPC message per line; requests are handled on the game thread between frames, so the game stays single-threaded. `onegame mcp` is the stdio bridge agent hosts spawn: `--socket <path>`, or `--project <dir>` to start the game and bridge it, or no option to attach to the only live game. The game starts paused (an agent steps it) unless `--realtime`.
 
 Release builds do not reference `OneGame.Live`, `OneGame.Control`, `OneGame.Testing` or OneYaml and do not compile the start-up hook (`build/Game.targets`, `OneGameDev`), so there is no listener, no operation table and no scenario parser in the binary.

@@ -142,10 +142,11 @@ public static class KitArt
         void Add(string id, string svg, float slice = 0) => list.Add(new KitArtAsset(id, Encoding.UTF8.GetBytes(svg), slice));
 
         Add(Frame, Svg(48, 48, 48, "<rect x=\"1.5\" y=\"1.5\" width=\"45\" height=\"45\" rx=\"10\" fill=\"#20242c\" stroke=\"#8a93a6\" stroke-width=\"3\"/><rect x=\"6\" y=\"6\" width=\"36\" height=\"36\" rx=\"6\" fill=\"none\" stroke=\"#3a4050\" stroke-width=\"2\"/>"), FrameSlice);
-        Add(SortAscending, Svg(16, 16, 16, $"<path d=\"M8 3 L14 12 H2 Z\" fill=\"{Ink}\"/>"));
-        Add(SortDescending, Svg(16, 16, 16, $"<path d=\"M8 13 L14 4 H2 Z\" fill=\"{Ink}\"/>"));
-        Add(ChevronDown, Svg(16, 16, 16, Stroke("M3 6 L8 11 L13 6", Ink, 2)));
-        Add(Check, Svg(16, 16, 16, Stroke("M3 8.5 L6.5 12 L13 4.5", Ink, 2.5)));
+        // The icons are white so the theme can tint them with background-tint and they stay legible on dark and light themes alike.
+        Add(SortAscending, Svg(16, 16, 16, "<path d=\"M8 3 L14 12 H2 Z\" fill=\"#ffffff\"/>"));
+        Add(SortDescending, Svg(16, 16, 16, "<path d=\"M8 13 L14 4 H2 Z\" fill=\"#ffffff\"/>"));
+        Add(ChevronDown, Svg(16, 16, 16, Stroke("M3 6 L8 11 L13 6", "#ffffff", 2)));
+        Add(Check, Svg(16, 16, 16, Stroke("M3 8.5 L6.5 12 L13 4.5", "#ffffff", 2.5)));
         Add(KeyCap, Svg(32, 32, 32, Key(null)), KeySlice);
         foreach (var dir in new[] { "up", "down", "left", "right" })
         {

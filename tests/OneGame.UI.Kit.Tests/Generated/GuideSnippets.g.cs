@@ -87,7 +87,7 @@ public sealed class GuideGame
     public List<Good> Goods { get; } = [new("Grain", 12, 40), new("Iron", 30, 8), new("Silk", 95, 3), new("Salt", 7, 120)];
 }
 
-// docs/ui-guide.md line 593
+// docs/ui-guide.md line 595
 public static class MyComponents
 {
     /// <summary>A price tag: shows an amount, turns red when it exceeds the player's gold.</summary>
@@ -108,7 +108,7 @@ public static class MyComponents
     }
 }
 
-// docs/ui-guide.md line 645
+// docs/ui-guide.md line 681
 public sealed class ScreenTest
 {
     public UiTree Tree { get; } = new();
@@ -273,7 +273,7 @@ internal static class Snippets
         ui.Root.Add(Ui.Row(save, danger, price).Gap(8));
     }
 
-    // docs/ui-guide.md line 352
+    // docs/ui-guide.md line 354
     public static void Run13(UiTree ui, KitHost host, GuideGame game)
     {
         var sound = UiKit.Toggle("Sound", () => game.Sound, v => game.Sound = v, "sound");
@@ -291,7 +291,7 @@ internal static class Snippets
         ui.Root.Add(Ui.Column(sound, level, volume, quantity, loading).Gap(8).Padding(12));
     }
 
-    // docs/ui-guide.md line 378
+    // docs/ui-guide.md line 380
     public static void Run14(UiTree ui, KitHost host, GuideGame game)
     {
         var detail = UiKit.Frame(
@@ -304,7 +304,7 @@ internal static class Snippets
         ui.Root.Add(detail.Width(Length.Ui(260)));
     }
 
-    // docs/ui-guide.md line 395
+    // docs/ui-guide.md line 397
     public static void Run15(UiTree ui, KitHost host, GuideGame game)
     {
         var tabs = UiKit.Tabs(
@@ -315,7 +315,7 @@ internal static class Snippets
         ui.Root.Add(tabs);
     }
 
-    // docs/ui-guide.md line 409
+    // docs/ui-guide.md line 411
     public static void Run16(UiTree ui, KitHost host, GuideGame game)
     {
         var entries = Ui.Column(Enumerable.Range(0, 50).Select(i => Ui.Label("Entry " + i)).ToArray());
@@ -323,7 +323,7 @@ internal static class Snippets
         ui.Root.Add(view);
     }
 
-    // docs/ui-guide.md line 424
+    // docs/ui-guide.md line 426
     public static void Run17(UiTree ui, KitHost host, GuideGame game)
     {
         var table = UiKit.Table<Good>(
@@ -345,7 +345,7 @@ internal static class Snippets
         ui.Root.Add(Ui.Column(table).Height(Length.Ui(300)));
     }
 
-    // docs/ui-guide.md line 460
+    // docs/ui-guide.md line 462
     public static void Run18(UiTree ui, KitHost host, GuideGame game)
     {
         var sort = UiKit.Dropdown(
@@ -357,7 +357,7 @@ internal static class Snippets
         ui.Root.Add(Ui.Column(sort, Ui.Label("below")).Padding(20));
     }
 
-    // docs/ui-guide.md line 476
+    // docs/ui-guide.md line 478
     public static void Run19(UiTree ui, KitHost host, GuideGame game)
     {
         var confirm = UiKit.ConfirmDialog(
@@ -373,7 +373,7 @@ internal static class Snippets
         ui.Root.With(Ui.Column(open), confirm);  // add the dialog last: it paints over everything
     }
 
-    // docs/ui-guide.md line 496
+    // docs/ui-guide.md line 498
     public static void Run20(UiTree ui, KitHost host, GuideGame game)
     {
         var filter = UiKit.TextInput(
@@ -388,7 +388,7 @@ internal static class Snippets
         ui.Root.Add(Ui.Column(filter, password, digits).Gap(8).Padding(12));
     }
 
-    // docs/ui-guide.md line 524
+    // docs/ui-guide.md line 526
     public static void Run21(UiTree ui, KitHost host, GuideGame game)
     {
         var buy = host.Tooltip(UiKit.Button("Buy", () => game.Gold -= 5, "buy"), "Buy one unit at the market price");
@@ -396,7 +396,7 @@ internal static class Snippets
         ui.Root.Add(Ui.Row(buy, qty).Gap(8).Padding(40));
     }
 
-    // docs/ui-guide.md line 535
+    // docs/ui-guide.md line 537
     public static void Run22(UiTree ui, KitHost host, GuideGame game)
     {
         host.Glyphs.Bind("confirm", keyboard: "Enter", mouse: "left", gamepad: "a")
@@ -406,7 +406,7 @@ internal static class Snippets
         ui.Root.Add(prompt);
     }
 
-    // docs/ui-guide.md line 549
+    // docs/ui-guide.md line 551
     public static void Run23(UiTree ui, KitHost host, GuideGame game)
     {
         var row = FocusHelpers.FocusGroup(Ui.Row(UiKit.Button("A", () => { }, "a"), UiKit.Button("B", () => { }, "b"), UiKit.Button("C", () => { }, "c")), horizontal: true, wrap: true);
@@ -415,7 +415,7 @@ internal static class Snippets
         FocusHelpers.FocusDefault(ui, ui.Root);       // call when a screen opens, so a controller player never starts with nothing focused
     }
 
-    // docs/ui-guide.md line 623
+    // docs/ui-guide.md line 625
     public static void Run25(UiTree ui, KitHost host, GuideGame game)
     {
         // 1. Start from a ready-made theme with a few changes.
@@ -430,8 +430,21 @@ internal static class Snippets
             .Rule(".market .kit-row.selected", s => s.Var("background-color", "--kit-accent")));
     }
 
-    // docs/ui-guide.md line 688
-    public static void Run27(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 663
+    public static void Run26(UiTree ui, KitHost host, GuideGame game)
+    {
+        var report = ThemeLint.Check(ui);             // the tokens in effect on the root; ThemeLint.Check(KitTokens) checks a token set before you use it
+        if (!report.Passed)
+        {
+            foreach (var f in report.Failures)         // worst first, e.g. "primary button text on accent: --kit-accent-text #d9a441 on --kit-accent, 1.0:1, needs 4.5"
+            {
+                Console.WriteLine($"{f.Name}: {f.Foreground} {f.ForegroundColor} on {f.Background} {f.BackgroundColor} = {f.Ratio}:1, needs {f.Required}");
+            }
+        }
+    }
+
+    // docs/ui-guide.md line 724
+    public static void Run28(UiTree ui, KitHost host, GuideGame game)
     {
         var t = new ScreenTest();
         var state = new GuideGame();
@@ -474,6 +487,7 @@ internal static class Snippets
         ("Run22", Run22),
         ("Run23", Run23),
         ("Run25", Run25),
-        ("Run27", Run27),
+        ("Run26", Run26),
+        ("Run28", Run28),
     ];
 }

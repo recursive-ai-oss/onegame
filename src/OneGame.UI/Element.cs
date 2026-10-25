@@ -109,7 +109,7 @@ public partial class Element
         }
     }
 
-    /// <summary>False disables the element and its descendants: no pointer or focus input, and <c>:disabled</c> matches the element.</summary>
+    /// <summary>False disables the element and its descendants: no pointer or focus input, and <c>:disabled</c> matches the element and its descendants, as it matches the controls inside a disabled fieldset in CSS.</summary>
     public bool IsEnabled
     {
         get => _enabled;

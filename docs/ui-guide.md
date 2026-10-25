@@ -268,7 +268,7 @@ Selectors with combinators make state changes restyle subtrees, so prefer single
 | Box | `Width Height MinWidth MaxWidth MinHeight MaxHeight Margin Padding BorderWidth Border BoxSizing` (border-box by default) |
 | Flex | `Direction Wrap JustifyContent AlignItems AlignSelf AlignContent Grow Shrink Basis Flex Gap RowGap ColumnGap Order` |
 | Position | `Position(Relative/Absolute/Fixed) Left Top Right Bottom Inset Anchor ZIndex Overflow Translate Scale Rotate` |
-| Paint | `Background BackgroundImage BackgroundSlice BorderColor Radius Opacity Shadow Outline Visibility` |
+| Paint | `Background BackgroundImage BackgroundSlice BackgroundTint BorderColor Radius Opacity Shadow Outline Visibility` |
 | Text | `TextColor FontFamily FontSize FontWeight FontStyle LineHeight LetterSpacing TextAlign WhiteSpace` |
 | Input | `PointerEvents Cursor` |
 
@@ -345,6 +345,8 @@ ui.Root.Add(Ui.Row(save, danger, price).Gap(8));
 
 Kinds: `Normal`, `Primary` (accent), `Danger`, `Flat`. Disable with `button.IsEnabled = false` or `.BindEnabled(...)`; a disabled button never calls back.
 Click, Enter, Space and the confirm button all call the lambda.
+
+The states are told apart by more than color (section 11, "States and legibility"): hover and pressed change the fill, focus adds a ring outside the button, and a disabled button of any kind is flat and dim, with no accent or danger fill, so a disabled primary never looks like the main action.
 
 ### Checkbox, radio group, slider, stepper, progress bar
 
@@ -635,7 +637,41 @@ ui.AddStyleSheet(new StyleSheet()
 - `host.SetTheme(sheet)` swaps the kit's sheet in place, so the sheets you added after it still win.
 - Scope a different look to a screen by putting tokens on a class and giving that class to the screen's root: `new StyleSheet().Rule(".night", s => s.Token("--kit-panel", Color.Hex("#0b0c10")))`.
 - The structure of every component is stable: kind, role, classes and part ids are API. Style them through those, never through child positions.
-- SVG art (`KitArt`) has its colors baked in; replace it by registering your own SVG under the same ids.
+- SVG art (`KitArt`): the small icons (sort arrows, chevron, check) are white and take their color from the theme with `background-tint`, so they follow a light or dark theme. The frame, key caps and gamepad glyphs have their own colors (dark) baked in; replace them by registering your own SVG under the same ids when your theme is light.
+
+### States and legibility
+
+Every kit control looks different in each state, and the differences do not rely on color alone:
+
+| State | Look |
+|---|---|
+| hover | the fill goes lighter (accent and hover tokens), the pointer is a hand |
+| pressed | the fill goes darker (`--kit-active`, `--kit-accent-active`) |
+| focus | a ring of `--kit-focus-width` outside the control, 2 px away from it, so it reads against the surface behind and not against a primary fill; inside clipped parts (list rows, table headers, drop-down options, tabs) the ring is drawn inside |
+| selected | row and option: fill, text color and an accent frame inside the row; tab: accent underline; checkbox and radio: accent fill |
+| disabled | the fill is flat (`--kit-disabled-fill`), the outline dim (`--kit-disabled-border`), the text `--kit-disabled-text`; no hover or pressed change, no opacity fade, the same for every variant |
+
+`:disabled` matches a disabled element and everything inside it, so `card.IsEnabled = false` dims the whole card.
+
+The theme derives state colors from your tokens and makes the ones that carry text or an indicator legible by the WCAG 2.x AA ratios (text 4.5:1, focus ring, control outlines, accent fills and scroll thumbs 3:1,
+disabled text 3:1). `KitTheme.Create` moves a token that would fall short just far enough toward white or black: `Text` and `TextDim` on every surface, `AccentText` on the accent in all its states,
+`SelectionText`, `Focus`, `Border` for control outlines (`--kit-control-border`), `Scrollbar`. It never touches one that already passes. Colors that are not text, such as your `Accent` against the panel, are only checked.
+
+Check a theme, including any token your game overrides by hand after the kit's sheet (which skips the repair), from a test or from the command line:
+
+```csharp
+var report = ThemeLint.Check(ui);             // the tokens in effect on the root; ThemeLint.Check(KitTokens) checks a token set before you use it
+if (!report.Passed)
+{
+    foreach (var f in report.Failures)         // worst first, e.g. "primary button text on accent: --kit-accent-text #d9a441 on --kit-accent, 1.0:1, needs 4.5"
+    {
+        Console.WriteLine($"{f.Name}: {f.Foreground} {f.ForegroundColor} on {f.Background} {f.BackgroundColor} = {f.Ratio}:1, needs {f.Required}");
+    }
+}
+```
+
+`onegame lint-theme --json` runs the game headless and prints the same report (exit code 1 when a pair fails); the control operation `theme_lint` returns it from a running game over MCP.
+Put a `ThemeLint.Check` in your game's tests so a theme edit cannot silently break legibility.
 
 ## 12. Testing a screen
 
