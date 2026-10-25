@@ -8,9 +8,12 @@ namespace OneGame.Render2D;
 /// <param name="SpirV">The SPIR-V words as bytes. The renderer reads it while creating pipelines and does not keep it.</param>
 /// <param name="Msl">UTF-8 Metal Shading Language source, needed on Metal. Empty for shaders that only run on Vulkan.</param>
 /// <param name="MslFunctionName">The function to look up in <paramref name="Msl"/>; defaults to the entry point.</param>
+/// <param name="Wgsl">UTF-8 WGSL source, needed on browser WebGPU. Empty for shaders compiled without it.</param>
+/// <param name="WgslEntryPoint">The entry point name in the WGSL; defaults to the entry point.</param>
 /// <param name="Bindings">The resources of the shader file, with their Metal indices; needed on Metal.</param>
 public readonly record struct ShaderCode(ShaderStage Stage, string EntryPoint, ReadOnlyMemory<byte> SpirV,
-    ReadOnlyMemory<byte> Msl = default, string? MslFunctionName = null, OneShader.ResourceBinding[]? Bindings = null)
+    ReadOnlyMemory<byte> Msl = default, string? MslFunctionName = null, OneShader.ResourceBinding[]? Bindings = null,
+    ReadOnlyMemory<byte> Wgsl = default, string? WgslEntryPoint = null)
 {
     /// <summary>The form the graphics layer takes to create a shader on any backend.</summary>
     public ShaderSource ToSource() => new(Stage, EntryPoint)
@@ -19,6 +22,8 @@ public readonly record struct ShaderCode(ShaderStage Stage, string EntryPoint, R
         Msl = Msl.Span,
         MslFunctionName = MslFunctionName,
         Bindings = Bindings,
+        Wgsl = Wgsl.Span,
+        WgslEntryPoint = WgslEntryPoint,
     };
 }
 

@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using System.Diagnostics;
 using OneGame.Core;
 using OneGame.Gpu;
@@ -56,10 +57,25 @@ public sealed record GameOptions
     public PresentMode PresentMode { get; init; } = PresentMode.Vsync;
 
     /// <summary>
+    /// False runs frames (simulation, input, layout) without drawing them to the window; captures still render offscreen. A web page whose
+    /// browser cannot present WebGPU canvases (headless Chrome on a software adapter) runs this way under test.
+    /// </summary>
+    public bool PresentFrames { get; init; } = true;
+
+    /// <summary>
     /// Connect to a server instead of running a world of its own. The game's world is then a replica of the server's scope: the server
     /// runs the simulation, commands are forwarded to it, and state cannot be written locally.
     /// </summary>
     public ConnectOptions? Connect { get; init; }
+
+    /// <summary>
+    /// A graphics device the host already made. A browser creates its device asynchronously, before the game starts, and hands it in here;
+    /// the instance then uses it and leaves its disposal to the host.
+    /// </summary>
+    public GpuDevice? Device { get; init; }
+
+    /// <summary>The id of the canvas element a web page draws to. Only used in a browser.</summary>
+    public string? CanvasId { get; init; }
 
     /// <summary>Where the 2D renderer gets its compiled shaders. When null, the renderer's own shaders, compiled during the build, are used.</summary>
     public IShaderSource? Shaders { get; init; }
@@ -94,7 +110,7 @@ public sealed class GameInstance : IDisposable
     private GpuSwapchain? _swapchain;
     private readonly StickNavigator _stick = new();
     private bool _grabNext;
-    private CapturedFrame? _grab;
+    private Task<CapturedFrame>? _grab;
     private bool _disposed;
     private Cluster? _cluster;
     private AuthorityScope? _scope;
@@ -121,7 +137,7 @@ public sealed class GameInstance : IDisposable
         Platform = PlatformApp.Create(new PlatformOptions
         {
             Backend = options.Headless ? PlatformBackendKind.Headless : options.Backend,
-            DisplayName = options.Headless ? null : options.DisplayName,
+            DisplayName = options.Headless ? null : options.CanvasId ?? options.DisplayName,
             // Android hands gamepads over as input events; there are no device files to scan.
             EnableGamepadDevices = !options.Headless && !OperatingSystem.IsAndroid(),
         });
@@ -693,6 +709,41 @@ public sealed class GameInstance : IDisposable
         }
     }
 
+    private Stopwatch? _hostClock;
+    private long _hostOwed;
+    private long _hostLast;
+
+    /// <summary>True while a harness holds a hosted page still: frames still draw, but the simulation does not advance.</summary>
+    public bool HostPaused { get; set; }
+
+    /// <summary>
+    /// Runs one frame of a realtime run for a host that owns the loop (a browser's animation-frame callback): the ticks the clock owes since
+    /// the last call, then drawing. Passing <paramref name="paused"/> draws without advancing the simulation, which is how a harness holds a page still.
+    /// </summary>
+    public void RunHostedFrame(bool paused = false)
+    {
+        var step = Stopwatch.Frequency / TickRate;
+        _hostClock ??= Stopwatch.StartNew();
+        var now = _hostClock.ElapsedTicks;
+        _hostOwed = Math.Min(_hostOwed + (now - _hostLast), step * 5);
+        _hostLast = now;
+        var ticks = 0;
+        while (_hostOwed >= step)
+        {
+            _hostOwed -= step;
+            ticks++;
+        }
+
+        if (paused)
+        {
+            ticks = 0;
+            _hostOwed = 0;
+        }
+
+        FrameAlpha = Fixed.FromRatio(_hostOwed, step);
+        RunFrame(ticks);
+    }
+
     private void EnsureDevice()
     {
         if (_gpuTried || Options.Gpu == GpuMode.Off)
@@ -701,6 +752,11 @@ public sealed class GameInstance : IDisposable
         }
 
         _gpuTried = true;
+        if (Options.Device is { } given)
+        {
+            _device = given;
+            return;
+        }
         try
         {
             if (!GpuBackends.IsAvailable)
@@ -737,7 +793,7 @@ public sealed class GameInstance : IDisposable
     {
         EnsureDevice();
         var list = Ui.Frame();
-        if (_device is null || Window.NativeHandle.Kind == NativeWindowKind.None || Window.IsMinimized)
+        if (!Options.PresentFrames || _device is null || Window.NativeHandle.Kind == NativeWindowKind.None || Window.IsMinimized)
         {
             return;
         }
@@ -749,6 +805,8 @@ public sealed class GameInstance : IDisposable
             {
                 NativeWindowKind.X11 => SurfaceSource.X11(h.Display, h.Window),
                 NativeWindowKind.Wayland => SurfaceSource.Wayland(h.Display, h.Window),
+                NativeWindowKind.Browser => SurfaceSource.Canvas(Options.CanvasId ?? "onegame-canvas"),
+                NativeWindowKind.Cocoa => SurfaceSource.MetalLayer(h.Window),
                 NativeWindowKind.Android => SurfaceSource.Android(h.Window),
                 NativeWindowKind.MetalLayer => SurfaceSource.MetalLayer(h.Window),
                 _ => SurfaceSource.Win32(h.Display, h.Window),
@@ -763,8 +821,9 @@ public sealed class GameInstance : IDisposable
                 _stage.Render(_device, backbuffer, new FrameInfo(Window.Width, Window.Height, UiScale, World.Tick, list, World, FrameAlpha));
                 if (_grabNext)
                 {
+                    // The read starts now, while the image is still ours; a browser finishes it later.
                     _grabNext = false;
-                    _grab = ReadBackbuffer(backbuffer);
+                    _grab = ReadBackbufferAsync(backbuffer).AsTask();
                 }
 
                 _swapchain.Present();
@@ -778,12 +837,12 @@ public sealed class GameInstance : IDisposable
         }
     }
 
-    private CapturedFrame ReadBackbuffer(GpuTexture backbuffer)
+    private async ValueTask<CapturedFrame> ReadBackbufferAsync(GpuTexture backbuffer)
     {
         var w = (int)backbuffer.Width;
         var h = (int)backbuffer.Height;
         var pixels = new byte[checked(w * h * 4)];
-        _device!.ReadTexture(backbuffer, 0, 0, pixels);
+        await _device!.ReadTextureAsync(backbuffer, 0, 0, pixels);
         if (backbuffer.Format is GpuFormat.Bgra8Unorm or GpuFormat.Bgra8UnormSrgb)
         {
             for (var i = 0; i + 3 < pixels.Length; i += 4)
@@ -799,7 +858,10 @@ public sealed class GameInstance : IDisposable
     /// Draws the current state to the window once more and returns what was presented: the swapchain image itself, at the window's size and
     /// scale. Returns null for a headless instance, without a graphics device, or while the window is minimized.
     /// </summary>
-    public CapturedFrame? CapturePresented()
+    public CapturedFrame? CapturePresented() => CapturePresentedAsync().AsTask().GetAwaiter().GetResult();
+
+    /// <summary>Like <see cref="CapturePresented"/>, for platforms that cannot wait for the graphics device (a browser page).</summary>
+    public async ValueTask<CapturedFrame?> CapturePresentedAsync()
     {
         if (Options.Headless)
         {
@@ -811,7 +873,7 @@ public sealed class GameInstance : IDisposable
         _grabNext = true;
         Present();
         _grabNext = false;
-        return _grab;
+        return _grab is null ? null : await _grab;
     }
 
     /// <summary>
@@ -823,7 +885,11 @@ public sealed class GameInstance : IDisposable
     /// <param name="scale">UI scale.</param>
     /// <param name="shown">The world the render stage draws; the game's own when null. A test passes a replica's world to check what that node would show.</param>
     /// <exception cref="ArgumentOutOfRangeException">The size is not positive or larger than 16384.</exception>
-    public CapturedFrame Capture(int width, int height, float scale = 1f, World? shown = null)
+    public CapturedFrame Capture(int width, int height, float scale = 1f, World? shown = null) =>
+        CaptureAsync(width, height, scale, shown).AsTask().GetAwaiter().GetResult();
+
+    /// <summary>Like <see cref="Capture"/>, for platforms that cannot wait for the graphics device (a browser page).</summary>
+    public async ValueTask<CapturedFrame> CaptureAsync(int width, int height, float scale = 1f, World? shown = null)
     {
         if (width is < 1 or > 16384 || height is < 1 or > 16384 || scale <= 0)
         {
@@ -848,7 +914,7 @@ public sealed class GameInstance : IDisposable
             {
                 using var target = _device.CreateTexture(new TextureDesc((uint)width, (uint)height, _stage.RequiresSrgb ? GpuFormat.Rgba8UnormSrgb : GpuFormat.Rgba8Unorm, TextureUsage.RenderTarget | TextureUsage.CopySource) { Label = "capture" });
                 _stage.Render(_device, target, info);
-                _device.ReadTexture(target, 0, 0, pixels);
+                await _device.ReadTextureAsync(target, 0, 0, pixels);
                 _stage.ReleaseTargets(target);
                 _stage.PaintOver(pixels, info);
                 renderer = _device.Adapter.Name;
@@ -911,7 +977,11 @@ public sealed class GameInstance : IDisposable
         _device?.WaitIdle();
         _swapchain?.Dispose();
         (_stage as IDisposable)?.Dispose();
-        _device?.Dispose();
+        if (Options.Device is null)
+        {
+            _device?.Dispose();
+        }
+
         Platform.Dispose();
     }
 }

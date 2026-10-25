@@ -397,6 +397,12 @@ public readonly record struct SurfaceSource
     /// <summary>Second handle: the X11 Window id, wl_surface*, or HWND.</summary>
     public nint Window { get; init; }
 
+    /// <summary>The id of the canvas element for <see cref="SurfaceKind.Canvas"/>.</summary>
+    public string? CanvasId { get; init; }
+
+    /// <summary>A canvas element of a web page.</summary>
+    public static SurfaceSource Canvas(string canvasId) => new() { Kind = SurfaceKind.Canvas, CanvasId = canvasId };
+
     /// <summary>An X11 window.</summary>
     public static SurfaceSource X11(nint display, nint window) => new() { Kind = SurfaceKind.X11, Display = display, Window = window };
 

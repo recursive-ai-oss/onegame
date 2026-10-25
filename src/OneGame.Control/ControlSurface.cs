@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using OneGame.Audio;
 using OneGame.Core;
 using OneGame.Host;
@@ -42,7 +43,14 @@ public sealed partial class ControlSurface : IControlEndpoint
 
     /// <summary>Runs an operation. <paramref name="argsJson"/> is a JSON object (or null for none).</summary>
     /// <exception cref="ControlException">The operation is unknown, its arguments are wrong, or it failed.</exception>
-    public ControlResult Invoke(string op, string? argsJson = null)
+    public ControlResult Invoke(string op, string? argsJson = null) => InvokeAsync(op, argsJson).AsTask().GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Runs an operation like <see cref="Invoke"/>. Operations that read pixels back from the graphics device can take a while on a
+    /// platform that cannot block (a browser page), so they finish here; everything else completes before this returns.
+    /// </summary>
+    /// <exception cref="ControlException">The operation is unknown, its arguments are wrong, or it failed.</exception>
+    public async ValueTask<ControlResult> InvokeAsync(string op, string? argsJson = null)
     {
         ArgumentNullException.ThrowIfNull(op);
         JsonDocument doc;
@@ -65,7 +73,7 @@ public sealed partial class ControlSurface : IControlEndpoint
             var a = new Args(doc.RootElement);
             try
             {
-                return Dispatch(op, a);
+                return await DispatchAsync(op, a);
             }
             catch (KeyNotFoundException ex)
             {
@@ -112,8 +120,8 @@ public sealed partial class ControlSurface : IControlEndpoint
         "theme_lint" => Json(ThemeLintCheck(), ControlJson.Default.ThemeLintReport),
         "audio" => Json(AudioReport(a), ControlJson.Default.AudioStatus),
         "audio_capture" => Json(AudioCapture(a), ControlJson.Default.AudioCaptureResult),
-        "capture_frame" => CaptureFrame(a),
-        "capture_sequence" => Json(CaptureSequence(a), ControlJson.Default.SequenceResult),
+        "capture_frame" => CaptureFrameAsync(a).AsTask().GetAwaiter().GetResult(),
+        "capture_sequence" => Json(CaptureSequenceAsync(a).AsTask().GetAwaiter().GetResult(), ControlJson.Default.SequenceResult),
         "quality" => Json(Quality(a), ControlJson.Default.QualityResult),
         "camera" or "pick" or "project" => Dispatch3D(op, a),
         "input_touch" => Json(InputTouch(a), ControlJson.Default.InputResult),
@@ -271,24 +279,120 @@ public sealed partial class ControlSurface : IControlEndpoint
     private string StateQuery(Args a)
     {
         var spec = a.Str("entity");
-        if (spec is null)
+        var tableName = a.Str("table");
+        if (spec is null && tableName is null)
         {
             return Game.World.DumpJson();
         }
 
-        var e = ResolveEntity(spec);
-        var j = new JsonOut();
-        e.WriteJson(j);
-        var text = j.ToString();
-        if (a.Str("property") is not { } property)
+        string text;
+        string label;
+        if (tableName is not null)
         {
-            return text;
+            if (spec is not null)
+            {
+                throw new ControlException("bad_args", "Give entity or table, not both.");
+            }
+
+            var table = ResolveTable(tableName);
+            var j = new JsonOut();
+            table.WriteJson(j);
+            text = j.ToString();
+            label = "table " + table.Name;
+            if (a.Has("row"))
+            {
+                text = Select(text, "[" + a.Int("row", 0).ToString(CultureInfo.InvariantCulture) + "]", label);
+                label += " row " + a.Int("row", 0).ToString(CultureInfo.InvariantCulture);
+            }
+        }
+        else
+        {
+            var e = ResolveEntity(spec);
+            var j = new JsonOut();
+            e.WriteJson(j);
+            text = j.ToString();
+            label = e.TypeName;
         }
 
-        using var doc = JsonDocument.Parse(text);
-        return doc.RootElement.TryGetProperty(property, out var v)
-            ? v.GetRawText()
-            : throw new ControlException("not_found", $"{e.TypeName} has no property '{property}'. It has: {PropertyNames(e)}.");
+        return a.Str("property") is { } property ? Select(text, property, label) : text;
+    }
+
+    // A property is a path into the JSON of the thing queried: a name, an index into a list or table ([2]), and more names after that
+    // (Fitted[0].Kind). On a list, 'count' is its length.
+    private static string Select(string json, string path, string label)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var cur = doc.RootElement;
+        var i = 0;
+        while (i < path.Length)
+        {
+            if (path[i] == '.')
+            {
+                i++;
+                continue;
+            }
+
+            if (path[i] == '[')
+            {
+                var close = path.IndexOf(']', i);
+                if (close < 0 || !int.TryParse(path.AsSpan(i + 1, close - i - 1), NumberStyles.None, CultureInfo.InvariantCulture, out var index))
+                {
+                    throw new ControlException("bad_args", $"'{path}': after [ give a row or element number from 0 and close it with ].");
+                }
+
+                if (cur.ValueKind != JsonValueKind.Array)
+                {
+                    throw new ControlException("not_found", $"{label}: '{path[..close]}]' indexes something that is not a list or table.");
+                }
+
+                if (index >= cur.GetArrayLength())
+                {
+                    throw new ControlException("not_found", $"{label}: index {index} is out of range; it has {cur.GetArrayLength()} items.");
+                }
+
+                cur = cur[index];
+                i = close + 1;
+                continue;
+            }
+
+            var end = i;
+            while (end < path.Length && path[end] is not ('.' or '['))
+            {
+                end++;
+            }
+
+            var name = path[i..end];
+            if (cur.ValueKind == JsonValueKind.Array && name == "count")
+            {
+                cur = JsonDocument.Parse(cur.GetArrayLength().ToString(CultureInfo.InvariantCulture)).RootElement;
+            }
+            else if (cur.ValueKind == JsonValueKind.Object && cur.TryGetProperty(name, out var next))
+            {
+                cur = next;
+            }
+            else
+            {
+                var have = cur.ValueKind == JsonValueKind.Object ? string.Join(", ", cur.EnumerateObject().Select(p => p.Name)) : cur.ValueKind == JsonValueKind.Array ? "count and [index]" : "nothing below it";
+                throw new ControlException("not_found", $"{label} has no property '{name}'. It has: {have}.");
+            }
+
+            i = end;
+        }
+
+        return cur.GetRawText();
+    }
+
+    private IHotTable ResolveTable(string name)
+    {
+        foreach (var t in Game.World.Tables)
+        {
+            if (t.Name == name)
+            {
+                return t;
+            }
+        }
+
+        throw new ControlException("not_found", $"No table '{name}'. Tables: {(Game.World.Tables.Count == 0 ? "none" : string.Join(", ", Game.World.Tables.Select(t => t.Name)))}.");
     }
 
     private static string PropertyNames(Entity e)
@@ -304,9 +408,36 @@ public sealed partial class ControlSurface : IControlEndpoint
 
     private PatchResult StatePatch(Args a)
     {
-        var e = ResolveEntity(a.Str("entity"));
         var property = a.Required("property");
         var value = a.Required("value");
+        if (a.Str("table") is { } tableName)
+        {
+            var table = ResolveTable(tableName);
+            var row = a.Int("row", -1);
+            if (row < 0 || row >= table.Count)
+            {
+                throw new ControlException("not_found", $"Table {table.Name} has {table.Count} rows; row {row} does not exist. Give row from 0.");
+            }
+
+            bool done;
+            try
+            {
+                done = Game.EditWorld(() => table.TrySetFromText(row, property, value));
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new ControlException("rejected", ex.Message, ex);
+            }
+
+            if (!done)
+            {
+                throw new ControlException("rejected", $"{table.Name}[{row}].{property} cannot be set to '{value}': the column is unknown, not a scalar, or the text does not parse.");
+            }
+
+            return new PatchResult($"{table.Name}[{row}]", property, value, HashText());
+        }
+
+        var e = ResolveEntity(a.Str("entity"));
         bool set;
         try
         {
@@ -854,7 +985,14 @@ public sealed partial class ControlSurface : IControlEndpoint
         return new ShadersResult(Reloader.Status(), [.. changed]);
     }
 
-    private ControlResult CaptureFrame(Args a)
+    private async ValueTask<ControlResult> DispatchAsync(string op, Args a) => op switch
+    {
+        "capture_frame" => await CaptureFrameAsync(a),
+        "capture_sequence" => Json(await CaptureSequenceAsync(a), ControlJson.Default.SequenceResult),
+        _ => Dispatch(op, a),
+    };
+
+    private async ValueTask<ControlResult> CaptureFrameAsync(Args a)
     {
         // An edit made just before the capture shows in it.
         Reloader.Check();
@@ -863,13 +1001,13 @@ public sealed partial class ControlSurface : IControlEndpoint
         float scale;
         if (a.Bool("presented", false))
         {
-            frame = Game.CapturePresented() ?? throw new ControlException("rejected", "There is no presented frame: the game is headless or has no graphics device. Capture without 'presented' to render offscreen.");
+            frame = await Game.CapturePresentedAsync() ?? throw new ControlException("rejected", "There is no presented frame: the game is headless or has no graphics device. Capture without 'presented' to render offscreen.");
             (w, h, scale) = (frame.Width, frame.Height, Game.UiScale);
         }
         else
         {
             (w, h, scale) = CaptureSize(a);
-            frame = Game.Capture(w, h, scale);
+            frame = await Game.CaptureAsync(w, h, scale);
         }
 
         var png = Png.Encode(frame);
@@ -886,7 +1024,7 @@ public sealed partial class ControlSurface : IControlEndpoint
             png);
     }
 
-    private SequenceResult CaptureSequence(Args a)
+    private async ValueTask<SequenceResult> CaptureSequenceAsync(Args a)
     {
         var (w, h, scale) = CaptureSize(a);
         var count = a.Int("count", 1);
@@ -908,7 +1046,7 @@ public sealed partial class ControlSurface : IControlEndpoint
                 Game.Step(every);
             }
 
-            var frame = Game.Capture(w, h, scale);
+            var frame = await Game.CaptureAsync(w, h, scale);
             renderer = frame.Renderer;
             var png = Png.Encode(frame);
             var file = "frame-" + i.ToString("D4", CultureInfo.InvariantCulture) + ".png";

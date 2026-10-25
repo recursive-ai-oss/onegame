@@ -90,9 +90,20 @@ public sealed class RemoteSession
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(replicaWorld);
         Options = options;
-        (Transport, var endpoint) = Parse(options.Address);
-        _endpoint = endpoint;
-        Connection = Open(Transport, endpoint, options.Conditions);
+        if (OperatingSystem.IsBrowser())
+        {
+            // A page cannot resolve names or open sockets: the browser connects to the URL itself.
+            Transport = "ws";
+            _endpoint = new IPEndPoint(IPAddress.Loopback, 0);
+            Connection = OpenInBrowser(options.Address);
+        }
+        else
+        {
+            (Transport, var endpoint) = Parse(options.Address);
+            _endpoint = endpoint;
+            Connection = Open(Transport, endpoint, options.Conditions);
+        }
+
         Node = new Node(options.Name);
         var link = Node.ConnectVia(Connection);
         Link = link;
@@ -188,7 +199,7 @@ public sealed class RemoteSession
         {
             if (now >= _nextAttempt)
             {
-                _candidate = Open(Transport, _endpoint, Options.Conditions);
+                _candidate = OperatingSystem.IsBrowser() ? OpenInBrowser(Options.Address) : Open(Transport, _endpoint, Options.Conditions);
             }
 
             return;
@@ -297,6 +308,12 @@ public sealed class RemoteSession
 
         return ip is null ? throw new FormatException($"Cannot resolve the host '{uri.Host}' in '{address}'.") : (address[..scheme], new IPEndPoint(ip, uri.Port));
     }
+
+    [System.Runtime.Versioning.SupportedOSPlatform("browser")]
+    private static BrowserWebSocketConnection OpenInBrowser(string address) =>
+        address.StartsWith("ws://", StringComparison.Ordinal) || address.StartsWith("wss://", StringComparison.Ordinal)
+            ? new BrowserWebSocketConnection(address)
+            : throw new FormatException("A web build connects over WebSocket: use ws://host:port or wss://host:port.");
 
     private static INetConnection Open(string transport, IPEndPoint endpoint, NetworkConditions? conditions)
     {

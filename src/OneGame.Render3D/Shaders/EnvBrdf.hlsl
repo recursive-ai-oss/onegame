@@ -7,7 +7,7 @@
 {
     float4 A;   // x table size, y sample count
 };
-[[vk::binding(1, 0)]] [[vk::image_format("rg16f")]] RWTexture2D<float2> Out;
+[[vk::binding(1, 0)]] [[vk::image_format("rgba16f")]] RWTexture2D<float4> Out;   // rg16f is not a storage format everywhere (WebGPU); the table uses the first two channels
 
 [shader("compute")]
 [numthreads(8, 8, 1)]
@@ -49,5 +49,5 @@ void CSMain(uint3 id : SV_DispatchThreadID)
         }
     }
 
-    Out[id.xy] = float2(sa, sb) / (float)count;
+    Out[id.xy] = float4(sa, sb, 0.0, 0.0) / (float)count;
 }

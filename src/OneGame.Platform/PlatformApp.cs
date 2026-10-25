@@ -232,6 +232,11 @@ internal static class PlatformBackendFactory
 {
     public static PlatformBackendKind Detect()
     {
+        if (OperatingSystem.IsBrowser())
+        {
+            return PlatformBackendKind.Browser;
+        }
+
         if (OperatingSystem.IsAndroid() || AndroidActivityHost.Current is not null)
         {
             return PlatformBackendKind.Android;
@@ -245,6 +250,11 @@ internal static class PlatformBackendFactory
         if (OperatingSystem.IsWindows())
         {
             return PlatformBackendKind.Win32;
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return PlatformBackendKind.Cocoa;
         }
 
         if (OperatingSystem.IsLinux())
@@ -270,6 +280,8 @@ internal static class PlatformBackendFactory
         PlatformBackendKind.X11 when OperatingSystem.IsLinux() => new X11Backend(app),
         PlatformBackendKind.Wayland when OperatingSystem.IsLinux() => new WaylandBackend(app),
         PlatformBackendKind.Win32 when OperatingSystem.IsWindows() => new Win32Backend(app),
+        PlatformBackendKind.Browser when OperatingSystem.IsBrowser() => new BrowserBackend(app),
+        PlatformBackendKind.Cocoa when OperatingSystem.IsMacOS() => new Cocoa.CocoaBackend(app),
         PlatformBackendKind.Android when AndroidActivityHost.Current is not null => new AndroidBackend(app, AndroidActivityHost.Current),
         PlatformBackendKind.Ios when IosAppHost.Current is not null => new IosBackend(app, IosAppHost.Current),
         _ => throw new PlatformException($"The {kind} backend is not available on this operating system."),

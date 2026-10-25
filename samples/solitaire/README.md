@@ -8,6 +8,7 @@ onegame run                                # a window
 onegame run --headless --frames 60 --json  # no window; prints the state hash
 onegame test --json                        # 14 scenarios plus the C# tests
 onegame capture --out table.png --size 1080p --scale 1.5 --after 30
+onegame export --target osx               # on an Apple-silicon Mac: Solitaire.app, ad-hoc signed; `open` runs it
 ```
 
 Driving a game the way a person or an agent would is covered in [driving a game](../../docs/driving-a-game.md); the UI vocabulary is in the [UI guide](../../docs/ui-guide.md) and the [component kit](../../docs/interfaces/ui-kit.md).
@@ -94,3 +95,12 @@ onegame run -- --live                  # then attach an MCP client with: onegame
 ```
 
 A Release build or `onegame export` leaves the live-control listener out.
+
+## In a browser
+
+```
+onegame export --target web --json                 # a folder to host: index.html, _framework/, script modules
+onegame web test --json --tolerance 2 --max-diff 0.02   # the 13 scenarios, in headless Chrome
+```
+
+The game runs the same simulation in the page (the scripted win ends on the same hash as on the desktop). Captures differ from the lavapipe references only along card and glyph edges (up to about 1.5 % of pixels), so the web run allows 2 % of pixels to differ. There is no sound in a page yet and the profile is kept in memory.

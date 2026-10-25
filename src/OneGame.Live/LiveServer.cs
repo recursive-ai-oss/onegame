@@ -128,7 +128,13 @@ public sealed class LiveServer : IDisposable
             Socket client;
             try
             {
-                client = _listener!.Accept();
+                // Closing a listening socket does not wake a thread blocked in Accept on macOS, so wait in short slices and look at _stop.
+                if (!_listener!.Poll(100_000, SelectMode.SelectRead))
+                {
+                    continue;
+                }
+
+                client = _listener.Accept();
             }
             catch (Exception ex) when (ex is SocketException or ObjectDisposedException)
             {

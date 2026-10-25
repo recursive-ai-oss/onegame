@@ -105,7 +105,7 @@ public interface IDevTools
 /// <summary>The entry point of a game: parse the command line, create the instance, run it.</summary>
 public static class GameApp
 {
-    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "also-scopes", "name", "net", "realtime", "until-tick"];
+    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "also-scopes", "name", "net", "realtime", "until-tick", "no-present"];
 
     /// <summary>
     /// Set by development builds before <see cref="Run(GameDefinition, string[])"/> so the extra options work. A release build leaves it
@@ -115,7 +115,7 @@ public static class GameApp
 
     /// <summary>
     /// Runs a game. Options: <c>--headless</c>, <c>--frames N</c> (stop after N frames), <c>--size 1280x720</c>, <c>--scale 1.5</c>
-    /// (headless UI scale), <c>--seed N</c>, <c>--gpu auto|off|required</c>, <c>--backend wayland|x11</c> and <c>--display NAME</c> (which window system and display
+    /// (headless UI scale), <c>--seed N</c>, <c>--gpu auto|off|required</c>, <c>--backend wayland|x11|cocoa</c> and <c>--display NAME</c> (which window system and display
     /// a windowed run opens on; the environment decides without them), <c>--present vsync|lowlatency|immediate</c>, <c>--json</c> (print one result object),
     /// <c>--connect udp://host:port|ws://host:port</c> (play on a server: the world is a replica of its scope), with <c>--scope N</c>, <c>--name N</c> and
     /// <c>--net latency=100,loss=0.02</c> (network conditions on this client's traffic). <c>--realtime</c> makes a headless run follow the clock instead of
@@ -147,6 +147,13 @@ public static class GameApp
         {
             return Fail(json, output, error, ExitCodes.NoDevTools, "no_dev_tools",
                 $"{string.Join(", ", extra.Select(n => "--" + n))}: this build has no development tools. Build the Debug configuration (or set OneGameDev=true).");
+        }
+
+        if (OperatingSystem.IsBrowser())
+        {
+            // A browser cannot block: the page creates the GPU device asynchronously and drives the frames, so Main returns at once.
+            BrowserHost.Start(game, options, parsed, extra.Length > 0 ? DevTools : null, output);
+            return ExitCodes.Ok;
         }
 
         try
@@ -217,9 +224,15 @@ public static class GameApp
                 {
                     "wayland" => PlatformBackendKind.Wayland,
                     "x11" => PlatformBackendKind.X11,
-                    var other => throw new FormatException($"--backend is wayland or x11, got '{other}'."),
+                    "cocoa" => PlatformBackendKind.Cocoa,
+                    var other => throw new FormatException($"--backend is wayland, x11 or cocoa, got '{other}'."),
                 },
             };
+        }
+
+        if (a.Has("no-present"))
+        {
+            o = o with { PresentFrames = false };
         }
 
         if (a.Get("display") is { } display)

@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
 using OneGame.Control;
@@ -25,7 +26,8 @@ public sealed record StepResult(int Index, string Kind, int Line, bool Ok, strin
 /// <param name="Actual">What the game had.</param>
 /// <param name="Message">A sentence on a failure, or a note on a pass.</param>
 /// <param name="Node">The cluster node the expectation looked at, or null.</param>
-public sealed record ExpectationResult(int Index, string Kind, int Line, bool Passed, string? Target, string? Expected, string? Actual, string? Message, string? Node = null);
+/// <param name="ReferenceAction"><c>created</c> or <c>updated</c> when a capture check wrote its reference image (update mode), otherwise null.</param>
+public sealed record ExpectationResult(int Index, string Kind, int Line, bool Passed, string? Target, string? Expected, string? Actual, string? Message, string? Node = null, string? ReferenceAction = null);
 
 /// <summary>Outcome of a scenario.</summary>
 /// <param name="Name">The scenario's name.</param>
@@ -80,7 +82,13 @@ public sealed class ScenarioRunner
     }
 
     /// <summary>Runs one scenario. Steps stop at the first failure; expectations are checked only when every step ran.</summary>
-    public ScenarioResult Run(Scenario scenario)
+    public ScenarioResult Run(Scenario scenario) => RunAsync(scenario).AsTask().GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Runs one scenario like <see cref="Run"/>. Captures are the only steps that can take a while to finish (a browser reads pixels back
+    /// asynchronously), so this is the form a browser page uses; on other platforms it completes before returning.
+    /// </summary>
+    public async ValueTask<ScenarioResult> RunAsync(Scenario scenario)
     {
         ArgumentNullException.ThrowIfNull(scenario);
         var clock = Stopwatch.StartNew();
@@ -124,7 +132,7 @@ public sealed class ScenarioRunner
         {
             var step = scenario.Steps[i];
             var index = i;
-            var error = Guarded(() => Execute(step, index, ctx, scenario, results));
+            var error = await GuardedAsync(() => ExecuteAsync(step, index, ctx, scenario, results));
             steps.Add(new StepResult(i, step.Kind.ToString().ToLowerInvariant(), step.Line, error is null, error));
             failed = error is not null;
         }
@@ -133,7 +141,7 @@ public sealed class ScenarioRunner
         {
             for (var i = 0; i < scenario.Expect.Count; i++)
             {
-                results.Add(Check(scenario.Expect[i], i, scenario.Name, ctx, scenario));
+                results.Add(await CheckAsync(scenario.Expect[i], i, scenario.Name, ctx, scenario));
             }
         }
 
@@ -144,6 +152,23 @@ public sealed class ScenarioRunner
     }
 
     private sealed record Context(string BaseDir, bool Update);
+
+    private static async ValueTask<string?> GuardedAsync(Func<ValueTask> action)
+    {
+        try
+        {
+            await action();
+            return null;
+        }
+        catch (ControlException ex)
+        {
+            return $"{ex.Code}: {ex.Message}";
+        }
+        catch (Exception ex) when (ex is ArgumentException or UiStyleException or KeyNotFoundException or InvalidDataException or IOException)
+        {
+            return ex.Message;
+        }
+    }
 
     private static string? Guarded(Action action)
     {
@@ -204,7 +229,7 @@ public sealed class ScenarioRunner
         return sb.Append('}').ToString();
     }
 
-    private void Execute(ScenarioStep s, int index, Context ctx, Scenario scenario, List<ExpectationResult> inline)
+    private async ValueTask ExecuteAsync(ScenarioStep s, int index, Context ctx, Scenario scenario, List<ExpectationResult> inline)
     {
         if (s.Node is not null || s.Kind == StepKind.Wait)
         {
@@ -244,7 +269,7 @@ public sealed class ScenarioRunner
                 _surface.Call("command_send", Obj(("entity", s.Entity), ("command", s.Name), ("args", s.Args)));
                 break;
             case StepKind.Set:
-                _surface.Call("state_patch", Obj(("entity", s.Entity), ("property", s.Name), ("value", s.Args[0])));
+                _surface.Call("state_patch", Obj(("entity", s.Entity), ("table", s.Table), ("row", s.Row), ("property", s.Name), ("value", s.Args[0])));
                 break;
             case StepKind.Screen:
                 _surface.Call("screen_open", Obj(("name", s.Text)));
@@ -275,7 +300,7 @@ public sealed class ScenarioRunner
                     throw new ControlException("path_outside", $"'{s.Path}' is outside {root}.");
                 }
 
-                var result = _surface.Invoke("capture_frame", Obj(("size", s.Size), ("scale", s.Scale)));
+                var result = await _surface.InvokeAsync("capture_frame", Obj(("size", s.Size), ("scale", s.Scale)));
                 Directory.CreateDirectory(Path.GetDirectoryName(full)!);
                 File.WriteAllBytes(full, result.Png!);
                 break;
@@ -283,7 +308,7 @@ public sealed class ScenarioRunner
                 _surface.Call("camera", s.ControlArgs);
                 break;
             case StepKind.Expect:
-                var r = Check(s.Expect!, index, scenario.Name, ctx, scenario);
+                var r = await CheckAsync(s.Expect!, index, scenario.Name, ctx, scenario);
                 inline.Add(r);
                 if (!r.Passed)
                 {
@@ -296,7 +321,7 @@ public sealed class ScenarioRunner
         }
     }
 
-    private ExpectationResult Check(ScenarioExpectation e, int index, string scenarioName, Context ctx, Scenario scenario)
+    private async ValueTask<ExpectationResult> CheckAsync(ScenarioExpectation e, int index, string scenarioName, Context ctx, Scenario scenario)
     {
         try
         {
@@ -311,7 +336,7 @@ public sealed class ScenarioRunner
                 ExpectKind.Ui => CheckUi(e, index),
                 ExpectKind.Tick => Compare(e, index, "tick", "tick", _surface.Game.World.Tick.ToString(CultureInfo.InvariantCulture), e.EqualTo!),
                 ExpectKind.Hash => Compare(e, index, "hash", "hash", _surface.Game.World.ComputeHash().ToString("x16", CultureInfo.InvariantCulture), e.EqualTo!.ToLowerInvariant()),
-                ExpectKind.Capture => CheckCapture(e, index, scenarioName, ctx, scenario),
+                ExpectKind.Capture => await CheckCaptureAsync(e, index, scenarioName, ctx, scenario),
                 ExpectKind.Pick => CheckPick(e, index),
                 _ => throw new ControlException("bad_args", "Unknown expectation."),
             };
@@ -359,13 +384,16 @@ public sealed class ScenarioRunner
         return new ExpectationResult(index, "pick", e.Line, ok, target, expected, actual, ok ? null : $"{target} is {actual}, expected {expected}");
     }
 
+    internal static string StateTarget(ScenarioExpectation e) =>
+        e.Table is null ? $"{e.Entity}.{e.Property}" : e.Row is { } row ? $"{e.Table}[{row.ToString(CultureInfo.InvariantCulture)}].{e.Property}" : $"{e.Table}.{e.Property}";
+
     private ExpectationResult CheckState(ScenarioExpectation e, int index)
     {
-        var json = _surface.Call("state_query", Obj(("entity", e.Entity), ("property", e.Property)));
+        var json = _surface.Call("state_query", Obj(("entity", e.Entity), ("table", e.Table), ("row", e.Row), ("property", e.Property)));
         using var doc = JsonDocument.Parse(json);
         var el = doc.RootElement;
         var actual = el.ValueKind == JsonValueKind.String ? el.GetString()! : el.GetRawText();
-        var target = $"{e.Entity}.{e.Property}";
+        var target = StateTarget(e);
         if (e.EqualTo is not null)
         {
             return Compare(e, index, "state", target, actual, e.EqualTo);
@@ -486,24 +514,37 @@ public sealed class ScenarioRunner
         return states.ValueKind == JsonValueKind.Object && states.TryGetProperty(state, out var v) && v.ValueKind == JsonValueKind.True;
     }
 
-    private ExpectationResult CheckCapture(ScenarioExpectation e, int index, string scenarioName, Context ctx, Scenario scenario)
+    private async ValueTask<ExpectationResult> CheckCaptureAsync(ScenarioExpectation e, int index, string scenarioName, Context ctx, Scenario scenario)
     {
         var reference = Path.GetFullPath(e.Reference!, ctx.BaseDir);
-        var result = _surface.Invoke("capture_frame", Obj(("size", e.Size ?? scenario.Window), ("scale", e.Scale)));
-        var actual = Png.Decode(result.Png!, "capture");
+        var result = await _surface.InvokeAsync("capture_frame", Obj(("size", e.Size ?? scenario.Window), ("scale", e.Scale)));
         if (!File.Exists(reference))
         {
             if (ctx.Update)
             {
+                // Written from the captured bytes before anything decodes them, so a missing reference is created even for a frame the image reader cannot parse.
                 Directory.CreateDirectory(Path.GetDirectoryName(reference)!);
                 File.WriteAllBytes(reference, result.Png!);
-                return new ExpectationResult(index, "capture", e.Line, true, e.Reference, null, null, "reference written");
+                return new ExpectationResult(index, "capture", e.Line, true, e.Reference, null, null, $"reference created: {reference}", null, "created");
             }
 
-            return new ExpectationResult(index, "capture", e.Line, false, e.Reference, "a reference image", "none", $"No reference image at {reference}. Run with ONEGAME_UPDATE_REFERENCES=1 to create it from the current frame, then look at it.");
+            return new ExpectationResult(index, "capture", e.Line, false, e.Reference, "a reference image", "none", $"No reference image at {reference}. Run with --update-references (or ONEGAME_UPDATE_REFERENCES=1) to create it from the current frame, then look at it.");
         }
 
-        var expected = Png.Load(reference);
+        CapturedFrame actual;
+        CapturedFrame expected;
+        try
+        {
+            actual = Png.Decode(result.Png!, "capture");
+            expected = Png.Load(reference);
+        }
+        catch (InvalidDataException) when (ctx.Update)
+        {
+            // In update mode an image the reader cannot parse is replaced by the captured bytes rather than ending the run.
+            File.WriteAllBytes(reference, result.Png!);
+            return new ExpectationResult(index, "capture", e.Line, true, e.Reference, null, null, $"reference updated (a frame was unreadable): {reference}", null, "updated");
+        }
+
         var tolerance = Math.Max(e.Tolerance, _options.MinCaptureTolerance);
         var maxDiff = Math.Max(e.MaxDiff, _options.MinCaptureMaxDiff);
         var diff = ImageCompare.Compare(actual, expected, tolerance);
@@ -515,7 +556,7 @@ public sealed class ScenarioRunner
         if (ctx.Update)
         {
             File.WriteAllBytes(reference, result.Png!);
-            return new ExpectationResult(index, "capture", e.Line, true, e.Reference, null, null, "reference updated");
+            return new ExpectationResult(index, "capture", e.Line, true, e.Reference, null, null, $"reference updated: {reference}", null, "updated");
         }
 
         string? saved = null;

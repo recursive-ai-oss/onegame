@@ -393,6 +393,8 @@ public enum SurfaceKind
     Wayland,
     /// <summary>Win32: an HINSTANCE and an HWND.</summary>
     Win32,
+    /// <summary>A browser canvas element, named by its id.</summary>
+    Canvas,
     /// <summary>Android: an ANativeWindow pointer.</summary>
     Android,
     /// <summary>Metal: a CAMetalLayer pointer (macOS and iOS).</summary>
@@ -406,4 +408,6 @@ public enum GpuBackend
     Vulkan,
     /// <summary>Metal.</summary>
     Metal,
+    /// <summary>Browser WebGPU.</summary>
+    WebGpu,
 }

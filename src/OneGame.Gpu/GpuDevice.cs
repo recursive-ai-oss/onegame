@@ -1,3 +1,5 @@
+using System.Threading.Tasks;
+
 namespace OneGame.Gpu;
 
 /// <summary>
@@ -106,6 +108,24 @@ public abstract class GpuDevice : IDisposable
 
     /// <summary>Waits for all submitted work, then copies a texture mip level into <paramref name="destination"/> with tightly packed rows.</summary>
     public abstract void ReadTexture(GpuTexture texture, uint mipLevel, uint layer, Span<byte> destination);
+
+    /// <summary>
+    /// Like <see cref="ReadBuffer"/>, for backends that cannot block (the browser). Native backends complete before returning.
+    /// </summary>
+    public virtual ValueTask ReadBufferAsync(GpuBuffer buffer, ulong offset, Memory<byte> destination)
+    {
+        ReadBuffer(buffer, offset, destination.Span);
+        return ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// Like <see cref="ReadTexture"/>, for backends that cannot block (the browser). Native backends complete before returning.
+    /// </summary>
+    public virtual ValueTask ReadTextureAsync(GpuTexture texture, uint mipLevel, uint layer, Memory<byte> destination)
+    {
+        ReadTexture(texture, mipLevel, layer, destination.Span);
+        return ValueTask.CompletedTask;
+    }
 
     /// <summary>Blocks until the GPU has finished everything submitted.</summary>
     public abstract void WaitIdle();

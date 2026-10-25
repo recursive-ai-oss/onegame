@@ -28,7 +28,7 @@ public sealed class GameServices
     /// The default: files in memory for a headless run (a test never touches the player's save), otherwise the store's cloud or a folder
     /// (<c>SOLITAIRE_DATA</c> if set, else the user's local application data).
     /// </summary>
-    private static IDataStore DefaultStore(GameInstance game) => game.Options.Headless && Environment.GetEnvironmentVariable("SOLITAIRE_DATA") is not { Length: > 0 }
+    private static IDataStore DefaultStore(GameInstance game) => (game.Options.Headless || !game.Options.PresentFrames) && Environment.GetEnvironmentVariable("SOLITAIRE_DATA") is not { Length: > 0 }
         ? new MemoryStore()
         : DataStores.Choose(((SolitaireGame)game.Definition).Services.Store, Environment.GetEnvironmentVariable("SOLITAIRE_DATA") is { Length: > 0 } dir ? dir : LocalFileStore.DefaultDirectory());
 }

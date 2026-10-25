@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <!--
+    Runs the backend-neutral graphics tests of OneGame.Gpu.Vulkan.Tests in a browser on WebGPU. The test sources are shared
+    with that project; this one supplies the device, the golden images and a small runner. Test code only: nothing here ships.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>OneGame.Gpu.Vulkan.Tests</RootNamespace>
+    <AssemblyName>OneGame.Gpu.WebRunner</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DefineConstants>$(DefineConstants);WEB_BACKEND</DefineConstants>
+    <!-- The runner finds tests by reflection. -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <WasmEnableWebcil>false</WasmEnableWebcil>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <OneShaderNamespace>OneGame.Gpu.Vulkan.Tests.Shaders</OneShaderNamespace>
+    <EnableDefaultOneShaderItems>false</EnableDefaultOneShaderItems>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Shared>$(MSBuildThisFileDirectory)../OneGame.Gpu.Vulkan.Tests/</Shared>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <Compile Include="$(Shared)FeatureTests.cs;$(Shared)RenderTests.cs;$(Shared)GraphTests.cs;$(Shared)Png.cs;$(Shared)ReadHelpers.cs" />
+    <OneShader Include="$(Shared)Shaders/*.hlsl" Exclude="$(Shared)Shaders/TextureArray.hlsl" Targets="SpirV;Msl;Wgsl" />
+    <EmbeddedResource Include="../../testdata/gpu/*.png" LogicalName="golden/%(Filename)%(Extension)" />
+    <Content Include="../../src/OneGame.Gpu.WebGpu/js/onegame-gpu.js" Link="wwwroot/onegame-gpu.js" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="RecursiveAI.OneShader.Build" />
+    <Using Include="Xunit" />
+    <PackageReference Include="xunit.v3.assert" />
+    <PackageReference Include="xunit.v3.extensibility.core" />
+    <ProjectReference Include="../../src/OneGame.Gpu/OneGame.Gpu.csproj" />
+    <ProjectReference Include="../../src/OneGame.Gpu.WebGpu/OneGame.Gpu.WebGpu.csproj" />
+  </ItemGroup>
+
+</Project>

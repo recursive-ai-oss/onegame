@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>WebGPU backend of the graphics layer, for the browser.</Description>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Source-generated JavaScript interop (JSImport) is the browser's counterpart of LibraryImport and needs unsafe code in the generated stubs. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Gpu/OneGame.Gpu.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The browser half of the backend; a web export copies it next to the page. -->
+    <None Include="js/**" Pack="false" />
+  </ItemGroup>
+
+</Project>

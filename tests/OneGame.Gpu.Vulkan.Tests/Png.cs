@@ -34,9 +34,10 @@ internal static class Png
         Chunk(file, "IEND", []);
     }
 
-    public static (int Width, int Height, byte[] Rgba) Read(string path)
+    public static (int Width, int Height, byte[] Rgba) Read(string path) => Decode(File.ReadAllBytes(path));
+
+    public static (int Width, int Height, byte[] Rgba) Decode(byte[] data)
     {
-        var data = File.ReadAllBytes(path);
         var pos = 8;
         int w = 0, h = 0;
         using var idat = new MemoryStream();

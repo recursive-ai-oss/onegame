@@ -67,7 +67,7 @@ internal sealed class ClusterScenarioRunner(ProcessCluster cluster)
                 cluster.Call(RequireNode(s), "command_send", obj(("entity", s.Entity), ("command", s.Name), ("args", s.Args)));
                 break;
             case StepKind.Set:
-                cluster.Call(RequireNode(s), "state_patch", obj(("entity", s.Entity), ("property", s.Name), ("value", s.Args[0])));
+                cluster.Call(RequireNode(s), "state_patch", obj(("entity", s.Entity), ("table", s.Table), ("row", s.Row), ("property", s.Name), ("value", s.Args[0])));
                 break;
             case StepKind.Step:
                 if (s.Node is null)
@@ -209,11 +209,11 @@ internal sealed class ClusterScenarioRunner(ProcessCluster cluster)
 
     private ExpectationResult CheckState(ScenarioExpectation e, int index, string node)
     {
-        var json = cluster.Call(node, "state_query", ScenarioRunner.Obj(("entity", e.Entity), ("property", e.Property), ("scope", e.Scope ?? 1)));
+        var json = cluster.Call(node, "state_query", ScenarioRunner.Obj(("entity", e.Entity), ("table", e.Table), ("row", e.Row), ("property", e.Property), ("scope", e.Scope ?? 1)));
         using var doc = JsonDocument.Parse(json);
         var el = doc.RootElement;
         var actual = el.ValueKind == JsonValueKind.String ? el.GetString()! : el.GetRawText();
-        var target = $"{node}:{e.Entity}.{e.Property}";
+        var target = $"{node}:{ScenarioRunner.StateTarget(e)}";
         if (e.EqualTo is not null)
         {
             return ScenarioRunner.Compare(e, index, "state", target, actual, e.EqualTo) with { Node = node };

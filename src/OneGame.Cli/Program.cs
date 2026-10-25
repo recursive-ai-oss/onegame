@@ -10,7 +10,7 @@ internal static class Program
     /// <summary>Every verb the command knows. New verbs are listed here.</summary>
     internal static IVerb[] AllVerbs { get; } =
     [
-        new HelpVerb(), new NewVerb(), new BuildVerb(), new RunVerb(), new TestVerb(), new CaptureVerb(), new ReplayVerb(), new McpVerb(), new ExportVerb(), new ServerVerb(), new ClusterVerb(), new AssetVerb(), new LintThemeVerb(), new ViewVerb(), new AndroidVerb(), new IosVerb(),
+        new HelpVerb(), new NewVerb(), new BuildVerb(), new RunVerb(), new TestVerb(), new CaptureVerb(), new ReplayVerb(), new McpVerb(), new ExportVerb(), new WebVerb(), new ServerVerb(), new ClusterVerb(), new AssetVerb(), new LintThemeVerb(), new ViewVerb(), new AndroidVerb(), new IosVerb(),
     ];
 
     private static int Main(string[] args) => Run(args, Console.Out, Console.Error);
