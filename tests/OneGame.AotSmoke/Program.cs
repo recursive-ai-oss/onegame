@@ -99,7 +99,7 @@ using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true,
     audio.Play(audio.LoadSound(ReadAsset("tone44k.mp3")), new PlayOptions { Bus = AudioBus.Ui });
     audio.Advance(24_000);
     var status = audio.Describe();
-    if (audio.GetBusLoudness(AudioBus.Ui) is not { } busLoud || !(busLoud.IntegratedLufs > -60) || status.Buses[2].Loudness?.IntegratedLufs is null || audio.EnableBusMeter(new AudioBus(5)))
+    if (audio.GetBusLoudness(AudioBus.Ui) is not { } busLoud || !(busLoud.IntegratedLufs > -60) || status.Buses[2].Loudness?.IntegratedLufs is null || audio.TryEnableBusMeter(new AudioBus(5)) != BusMeterResult.NoFreeSlot || !audio.IsBusMetered(AudioBus.Ui))
     {
         Console.Error.WriteLine("audio bus loudness smoke failed");
         return 1;
@@ -325,15 +325,15 @@ if (scene3d is not null)
 
 Console.WriteLine("ok: entities in 3D: transform sync, camera, projection, picking, pinned label, camera/pick/project operations");
 
-// Graphics: create a device, clear an offscreen target and read it back. "--require-gpu" turns a missing Vulkan driver into a failure.
+// Graphics: create a device, clear an offscreen target and read it back. "--require-gpu" turns a missing graphics driver into a failure.
 var requireGpu = args.Contains("--require-gpu");
-if (!VulkanGpu.IsAvailable)
+if (!GpuBackends.IsAvailable)
 {
-    Console.WriteLine("gpu: no Vulkan loader on this machine");
+    Console.WriteLine("gpu: " + GpuBackends.UnavailableReason);
     return requireGpu ? 1 : 0;
 }
 
-using var device = VulkanGpu.CreateDevice();
+using var device = GpuBackends.CreateDevice();
 using var target = device.CreateTexture(new TextureDesc(8, 8, GpuFormat.Rgba8Unorm, TextureUsage.RenderTarget | TextureUsage.CopySource));
 var encoder = device.BeginCommands();
 encoder.BeginRenderPass(ColorAttachment.Clear(target, 1f, 0.5f, 0f, 1f)).EndPass();
@@ -397,7 +397,7 @@ if (render3dProblem is not null)
     return 1;
 }
 
-Console.WriteLine("render3d: skinned textured glTF model, sun and sky drawn through the PBR passes; read back 96x72");
+Console.WriteLine("render3d: skinned glTF model through the PBR passes, then shadow maps (cascaded and spot), ambient occlusion, an instance batch, toon outlines and all four quality levels");
 return 0;
 
 static byte[] ReadResource(string name)

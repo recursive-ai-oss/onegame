@@ -9,7 +9,7 @@ internal sealed class GpuFixture : IDisposable
 
     public GpuFixture()
     {
-        Device = VulkanGpu.CreateDevice(new GpuDeviceOptions { Validation = true, RequireValidation = true });
+        Device = GpuBackends.CreateDevice(new GpuDeviceOptions { Validation = true, RequireValidation = true });
     }
 
     public void Dispose()

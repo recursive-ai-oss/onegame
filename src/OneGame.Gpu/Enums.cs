@@ -380,7 +380,7 @@ public enum AcquireStatus
 {
     /// <summary>An image was acquired.</summary>
     Ready,
-    /// <summary>The surface has no drawable area right now (for example, minimized). Skip the frame.</summary>
+    /// <summary>The surface has no drawable area right now (minimized), or no image became free within <see cref="GpuSwapchain.AcquireTimeout"/>. Skip the frame.</summary>
     Skipped,
 }
 
@@ -395,4 +395,15 @@ public enum SurfaceKind
     Win32,
     /// <summary>Android: an ANativeWindow pointer.</summary>
     Android,
+    /// <summary>Metal: a CAMetalLayer pointer (macOS and iOS).</summary>
+    Metal,
+}
+
+/// <summary>The graphics API a <see cref="GpuDevice"/> runs on.</summary>
+public enum GpuBackend
+{
+    /// <summary>Vulkan 1.3.</summary>
+    Vulkan,
+    /// <summary>Metal.</summary>
+    Metal,
 }

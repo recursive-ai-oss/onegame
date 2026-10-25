@@ -11,6 +11,18 @@ public sealed class WestonFixture : IDisposable
     private readonly Process? _process;
     private readonly string? _runtimeDir;
 
+    /// <summary>Stops (true) or resumes (false) the compositor process, to see how a client behaves when its window system stops answering.</summary>
+    public void Freeze(bool frozen)
+    {
+        if (_process is null)
+        {
+            return;
+        }
+
+        using var kill = Process.Start(new ProcessStartInfo("/bin/kill", $"-{(frozen ? "STOP" : "CONT")} {_process.Id}") { UseShellExecute = false })!;
+        kill.WaitForExit();
+    }
+
     public WestonFixture()
     {
         if (!OperatingSystem.IsLinux())

@@ -703,12 +703,12 @@ public sealed class GameInstance : IDisposable
         _gpuTried = true;
         try
         {
-            if (!VulkanGpu.IsAvailable)
+            if (!GpuBackends.IsAvailable)
             {
-                throw new GpuUnsupportedException("No Vulkan loader library was found.");
+                throw new GpuUnsupportedException(GpuBackends.UnavailableReason);
             }
 
-            _device = VulkanGpu.CreateDevice(new GpuDeviceOptions
+            _device = GpuBackends.CreateDevice(new GpuDeviceOptions
             {
                 Validation = Environment.GetEnvironmentVariable("ONEGAME_GPU_VALIDATION") == "1",
                 ApplicationName = Definition.Name,

@@ -45,6 +45,13 @@ public sealed class SceneView3D : IDisposable
     /// </summary>
     public ViewCamera? CameraOverride { get; set; }
 
+    /// <summary>
+    /// Describes the scene from the world as a whole, after the <see cref="IView3D"/> entities have been asked. A game whose entities live in
+    /// a library that cannot reference the host (a shared rules assembly) draws them here, from view code. It is called with the world being
+    /// drawn; it may read any state and writes only into the <see cref="SceneWriter"/>.
+    /// </summary>
+    public Action<World, SceneWriter>? Describer { get; set; }
+
     /// <summary>The camera used when no entity offers one: back and up from the origin, looking at it.</summary>
     public static ViewCamera DefaultCamera { get; } = new(
         Matrix4x4.Invert(Matrix4x4.CreateLookAt(new Vector3(0f, 3f, 8f), Vector3.Zero, Vector3.UnitY), out var w) ? w : Matrix4x4.Identity,
@@ -70,6 +77,8 @@ public sealed class SceneView3D : IDisposable
             }
         }
 
+        _writer.Entity = default;
+        Describer?.Invoke(world, _writer);
         _writer.Entity = default;
     }
 
@@ -122,6 +131,30 @@ public sealed class SceneView3D : IDisposable
             instance.Visible = true;
         }
 
+        // Instanced copies: one pooled batch per model, refilled each frame. The batch joins the scene's list once; batches the game added itself are left alone.
+        for (var i = 0; i < Models.Count; i++)
+        {
+            Models.At(i).Batch?.Clear();
+        }
+
+        var instances = _writer.Instances;
+        for (var i = 0; i < instances.Count; i++)
+        {
+            var d = instances[i];
+            var entry = Models.At(d.Model);
+            entry.Gpu ??= renderer.Upload(entry.Source);
+            if (entry.Batch is null)
+            {
+                entry.Batch = scene.AddInstanced(entry.Gpu, 64);
+            }
+            else if (!scene.Batches.Contains(entry.Batch))
+            {
+                scene.Batches.Add(entry.Batch);
+            }
+
+            entry.Batch.Add(d.World, d.Tint);
+        }
+
         scene.Lights.Clear();
         var lights = _writer.Lights;
         for (var i = 0; i < lights.Count; i++)
@@ -139,6 +172,7 @@ public sealed class SceneView3D : IDisposable
             light.Color = l.Color;
             light.Intensity = l.Intensity;
             light.Range = l.Range;
+            light.CastShadows = l.Shadows;
             light.InnerConeAngle = l.Inner;
             light.OuterConeAngle = l.Outer > 0f ? l.Outer : light.OuterConeAngle;
             scene.Lights.Add(light);

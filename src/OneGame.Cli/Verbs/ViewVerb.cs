@@ -12,7 +12,7 @@ namespace OneGame.Cli.Verbs;
 /// <summary>Result of <c>onegame view</c>.</summary>
 internal sealed record ViewResult(
     bool Ok, string Model, string File, int Width, int Height, string Device, string Sha256, int Objects, int DrawCalls, long Triangles, int Lights,
-    string[] Passes, double Seconds);
+    string[] Passes, double Seconds, string Quality = "high");
 
 /// <summary>
 /// <c>onegame view &lt;model&gt;</c> renders a glTF model offscreen with the 3D renderer and saves a PNG, so a model can be looked at without a game around it.
@@ -20,7 +20,8 @@ internal sealed record ViewResult(
 internal sealed class ViewVerb : IVerb
 {
     private const string Usage = "onegame view <model.gltf|model.glb> [--out view.png] [--size 1280x720] [--yaw D] [--pitch D] [--camera N] [--env panorama.hdr] "
-        + "[--env-yaw D] [--exposure X] [--tonemap neutral|aces|none] [--bloom X] [--samples N] [--animation NAME|INDEX] [--time S] [--light-dir x,y,z --light-lux X] [--no-ibl] [--background env|#rrggbb]";
+        + "[--env-yaw D] [--exposure X] [--tonemap neutral|aces|none] [--bloom X] [--samples N] [--animation NAME|INDEX] [--time S] [--light-dir x,y,z --light-lux X] [--no-ibl] [--background env|#rrggbb] "
+        + "[--quality low|medium|high|ultra] [--shadows] [--ssao] [--ssao-radius R] [--style pbr|toon|flat] [--outline PIXELS]";
 
     public string Name => "view";
 
@@ -33,7 +34,7 @@ internal sealed class ViewVerb : IVerb
         var flags = new HashSet<string>();
         for (var i = 0; i < args.Length; i++)
         {
-            if (args[i] == "--no-ibl")
+            if (args[i] is "--no-ibl" or "--ssao" or "--shadows")
             {
                 flags.Add(args[i]);
             }
@@ -99,12 +100,12 @@ internal sealed class ViewVerb : IVerb
         GpuDevice device;
         try
         {
-            if (!VulkanGpu.IsAvailable)
+            if (!GpuBackends.IsAvailable)
             {
-                throw new GpuUnsupportedException("No Vulkan loader library was found.");
+                throw new GpuUnsupportedException(GpuBackends.UnavailableReason);
             }
 
-            device = VulkanGpu.CreateDevice(new GpuDeviceOptions { Validation = Environment.GetEnvironmentVariable("ONEGAME_GPU_VALIDATION") == "1", ApplicationName = "onegame view" });
+            device = GpuBackends.CreateDevice(new GpuDeviceOptions { Validation = Environment.GetEnvironmentVariable("ONEGAME_GPU_VALIDATION") == "1", ApplicationName = "onegame view" });
         }
         catch (GpuException ex)
         {
@@ -115,7 +116,38 @@ internal sealed class ViewVerb : IVerb
         {
             using var renderer = new Renderer3D(device);
             using var gpuModel = renderer.Upload(model);
-            var scene = new Scene3D { Samples = (int)Num("--samples", 4) };
+            var scene = new Scene3D { Samples = (int)Num("--samples", 0) };
+            if (options.TryGetValue("--quality", out var qualityName))
+            {
+                scene.Quality = QualitySettings.TryParse(qualityName, out var level) ? level : throw new CliException(ExitCodes.Usage, "bad_args", "--quality is low, medium, high or ultra.");
+            }
+
+            if (options.TryGetValue("--style", out var styleName))
+            {
+                gpuModel.SetStyle(styleName switch
+                {
+                    "pbr" => MaterialStyle3D.Pbr,
+                    "toon" => MaterialStyle3D.Toon,
+                    "flat" => MaterialStyle3D.Flat,
+                    _ => throw new CliException(ExitCodes.Usage, "bad_args", "--style is pbr, toon or flat."),
+                });
+            }
+
+            if (options.ContainsKey("--outline"))
+            {
+                foreach (var material in gpuModel.Materials)
+                {
+                    material.OutlineWidth = Num("--outline", 0f);
+                }
+            }
+
+            if (flags.Contains("--ssao"))
+            {
+                var diagonal = model.ComputeWorldBounds() is { } box ? Vector3.Distance(box.Min, box.Max) : 10f;
+                scene.Ssao.Enabled = true;
+                scene.Ssao.Radius = Num("--ssao-radius", diagonal * 0.05f);
+            }
+
             var instance = scene.Add(gpuModel);
             if (options.TryGetValue("--animation", out var anim))
             {
@@ -179,6 +211,13 @@ internal sealed class ViewVerb : IVerb
             }
 
             scene.AddModelLights(instance);
+            if (flags.Contains("--shadows"))
+            {
+                foreach (var l in scene.Lights)
+                {
+                    l.CastShadows = true;
+                }
+            }
 
             using var environment = panorama is null ? null : renderer.CreateEnvironment(panorama);
             scene.Environment.Map = environment;
@@ -188,7 +227,7 @@ internal sealed class ViewVerb : IVerb
             Png.Save(new CapturedFrame(width, height, pixels, device.Adapter.Name), outPath);
             var stats = renderer.LastStats;
             var result = new ViewResult(true, Path.GetFullPath(file), Path.GetFullPath(outPath), width, height, device.Adapter.Name, Convert.ToHexString(SHA256.HashData(pixels)).ToLowerInvariant(),
-                stats.Objects, stats.DrawCalls, stats.Triangles, stats.Lights, passes, clock.Elapsed.TotalSeconds);
+                stats.Objects, stats.DrawCalls, stats.Triangles, stats.Lights, passes, clock.Elapsed.TotalSeconds, scene.Quality.ToString().ToLowerInvariant());
             if (json)
             {
                 output.WriteLine(JsonSerializer.Serialize(result, CliJson.Default.ViewResult));

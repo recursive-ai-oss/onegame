@@ -22,6 +22,8 @@
 
   <ItemGroup>
     <EmbeddedResource Include="fonts/*.ttf" LogicalName="fonts/%(Filename)%(Extension)" />
+    <!-- The models are written by art/Program.cs and travel inside the program. -->
+    <EmbeddedResource Include="models/*.glb" LogicalName="models/%(Filename)%(Extension)" />
     <InternalsVisibleTo Include="Lanterns.Tests" />
   </ItemGroup>
 

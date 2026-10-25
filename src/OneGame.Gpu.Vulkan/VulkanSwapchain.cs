@@ -360,7 +360,15 @@ internal sealed unsafe class VulkanSwapchain : GpuSwapchain, IRetirable
 
             _acquireIndex = (_acquireIndex + 1) % AcquireRing;
             uint index;
-            var r = _dev.Fns.vkAcquireNextImageKHR(_dev.Handle, _swapchain, ulong.MaxValue, _acquire[_acquireIndex], default, &index);
+            var timeoutNs = (ulong)Math.Clamp(AcquireTimeout.TotalMilliseconds * 1_000_000.0, 0.0, 60_000_000_000.0);
+            var r = _dev.Fns.vkAcquireNextImageKHR(_dev.Handle, _swapchain, timeoutNs, _acquire[_acquireIndex], default, &index);
+            if (r is VkResult.Timeout or VkResult.NotReady)
+            {
+                // Vulkan 1.3 section 33.10: no image was available in time. Nothing was acquired, so the semaphore stays unsignalled and
+                // can be reused; the caller skips this frame.
+                return AcquireStatus.Skipped;
+            }
+
             if (r == VkResult.ErrorOutOfDate)
             {
                 _needsRebuild = true;

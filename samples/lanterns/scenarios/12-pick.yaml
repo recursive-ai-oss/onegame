@@ -1,0 +1,12 @@
+name: pick
+description: A click on a lantern finds that lantern, on a walker finds that walker, on bare ground finds nothing.
+fixture: meadow
+window: 1280x720
+steps:
+  - screen: main
+  - step: 20
+expect:
+  - pick: { x: 528, y: 356, entity: Lantern#1 }
+  - pick: { x: 468, y: 372, entity: Player#1 }
+  - pick: { x: 810, y: 330, entity: Player#2 }
+  - pick: { x: 700, y: 500, entity: none }

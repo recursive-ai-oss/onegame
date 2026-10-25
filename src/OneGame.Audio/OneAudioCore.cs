@@ -240,18 +240,10 @@ public sealed class OneAudioCore : IAudioCore
     public int FreeBusMeters => _mixer.FreeBusMeters;
 
     /// <inheritdoc/>
-    public bool EnableBusMeter(int bus)
-    {
-        try
-        {
-            return _mixer.EnableBusMeter(bus);
-        }
-        catch (InvalidOperationException)
-        {
-            // No free meter slot: reported as false, like a full reverb table.
-            return false;
-        }
-    }
+    public bool EnableBusMeter(int bus) => _mixer.TryEnableBusMeter(bus);
+
+    /// <inheritdoc/>
+    public bool IsBusMetered(int bus) => _mixer.IsBusMetered(bus);
 
     /// <inheritdoc/>
     public bool DisableBusMeter(int bus) => _mixer.DisableBusMeter(bus);

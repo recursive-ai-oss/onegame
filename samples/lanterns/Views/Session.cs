@@ -28,6 +28,7 @@ internal sealed class Session
     {
         Game = game;
         Kit = Kits.For(game.Ui);
+        (game.Definition as LanternsGame)?.Scene.Attach(this);
         if (game.Remote is { } remote && remote.Options.Name.StartsWith("bot", StringComparison.Ordinal))
         {
             _pilot = new Autopilot(this);
@@ -83,6 +84,29 @@ internal sealed class Session
 
     /// <summary>The world to draw for an island: the predicted one when there is one.</summary>
     public World WorldOf(ReplicaScope replica) => !Networked ? Game.World : _predictions.TryGetValue(replica.Id.Value, out var p) ? p.World : replica.World;
+
+    /// <summary>True when the player is the one this client plays.</summary>
+    public bool IsMine(Player p) => Networked ? p.Mine : p.Owner == 1;
+
+    /// <summary>The world to draw for an island scope (the predicted copy where there is one), or null when this client does not follow it. Allocates nothing.</summary>
+    public World? WorldFor(uint scope)
+    {
+        if (!Networked)
+        {
+            return scope == Rules.IslandA ? Game.World : null;
+        }
+
+        var replicas = Game.Replicas;
+        for (var i = 0; i < replicas.Count; i++)
+        {
+            if (replicas[i].Id.Value == scope)
+            {
+                return WorldOf(replicas[i]);
+            }
+        }
+
+        return null;
+    }
 
     public ReplicaScope? ReplicaOf(uint scope)
     {

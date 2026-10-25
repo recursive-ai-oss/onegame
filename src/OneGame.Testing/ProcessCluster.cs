@@ -800,7 +800,8 @@ public sealed class ProcessCluster : IDisposable
             var endpoint = target.Listen.First(e => e.Transport == node.Transport);
             connect = $"{node.Transport}://127.0.0.1:{endpoint.Port.ToString(CultureInfo.InvariantCulture)}";
             args.AddRange(node.Args.Select(a => Expand(a, ports, dir)));
-            args.AddRange(["--headless", "--gpu", "off", "--name", node.Name, "--connect", connect, "--scope", node.Scope.ToString(CultureInfo.InvariantCulture)]);
+            // A client draws on the CPU unless its own arguments ask for a graphics device (a game that shows a 3D scene needs one to capture it).
+            args.AddRange(["--headless", .. node.Args.Contains("--gpu") ? Array.Empty<string>() : ["--gpu", "off"], "--name", node.Name, "--connect", connect, "--scope", node.Scope.ToString(CultureInfo.InvariantCulture)]);
             if (node.Net is not null)
             {
                 args.AddRange(["--net", node.Net]);

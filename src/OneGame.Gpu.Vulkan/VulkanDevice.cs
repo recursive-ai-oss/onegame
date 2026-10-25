@@ -745,6 +745,9 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
     /// <inheritdoc />
     public override GpuCapabilities Capabilities => _caps;
 
+    /// <inheritdoc />
+    public override GpuBackend Backend => GpuBackend.Vulkan;
+
     internal bool MultiDraw => _multiDraw;
     internal float TimestampPeriod => _timestampPeriod;
     internal ulong TimestampMask => _timestampMask;

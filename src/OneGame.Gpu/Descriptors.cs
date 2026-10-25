@@ -408,6 +408,9 @@ public readonly record struct SurfaceSource
 
     /// <summary>A Win32 window.</summary>
     public static SurfaceSource Win32(nint hinstance, nint hwnd) => new() { Kind = SurfaceKind.Win32, Display = hinstance, Window = hwnd };
+
+    /// <summary>A Metal layer (<c>CAMetalLayer*</c>) the window system created for a view.</summary>
+    public static SurfaceSource MetalLayer(nint layer) => new() { Kind = SurfaceKind.Metal, Window = layer };
 }
 
 /// <summary>Describes a swapchain to create.</summary>
@@ -514,7 +517,11 @@ public readonly record struct GpuCapabilities(
     uint MaxTextureSize,
     uint MaxTextureSize3D,
     uint MaxArrayLayers,
-    uint MaxResourceArrayCount);
+    uint MaxResourceArrayCount)
+{
+    /// <summary>Whether <c>SetPushConstants</c> works. False on a backend whose shader compiler cannot yet produce push-constant blocks.</summary>
+    public bool PushConstants { get; init; } = true;
+}
 
 /// <summary>Where a texture region is: a mip level, a layer, a box inside it.</summary>
 /// <param name="MipLevel">Mip level.</param>

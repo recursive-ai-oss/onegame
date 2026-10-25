@@ -1,6 +1,8 @@
 using System.Runtime.CompilerServices;
 using OneGame.Atlas;
 using OneGame.Core;
+using OneGame.Gltf;
+using OneGame.Render3D;
 using OneGame.Sync;
 using OneGame.Host;
 using OneGame.UI;
@@ -30,6 +32,32 @@ internal static class Kits
 /// </summary>
 public sealed class LanternsGame : GameDefinition
 {
+    /// <summary>Creates the game and loads its models.</summary>
+    public LanternsGame()
+    {
+        View = new SceneView3D();
+        foreach (var name in ModelNames)
+        {
+            using var stream = typeof(LanternsGame).Assembly.GetManifestResourceStream("models/" + name + ".glb") ?? throw new InvalidOperationException("missing model " + name);
+            using var copy = new MemoryStream();
+            stream.CopyTo(copy);
+            View.Models.Add(name, GltfLoader.Load(copy.ToArray()));
+        }
+
+        View.Describer = Scene.Describe;
+    }
+
+    private static readonly string[] ModelNames =
+    [
+        "island-a", "island-b", "bridge", "bridge-stub", "water", "walker-me", "walker-other",
+        "lantern-red", "lantern-blue", "lantern-gold", "lantern-plain", "pine", "oak", "rock", "bush",
+    ];
+
+    /// <summary>Builds the 3D scene from the world; also answers where things are on screen (names, picking).</summary>
+    public SceneView3D View { get; }
+
+    internal IslandScene Scene { get; } = new();
+
     /// <inheritdoc />
     public override string Name => "Lanterns";
 
@@ -133,6 +161,27 @@ public sealed class LanternsGame : GameDefinition
         screens
             .Add("main", game => IslandView.Build(game, swap: false))
             .Add("swap", game => IslandView.Build(game, swap: true));
+
+    /// <inheritdoc />
+    public override IRenderStage CreateRenderStage(HostResources resources)
+    {
+        ArgumentNullException.ThrowIfNull(resources);
+        return resources.Fonts is not null && resources.Shaders is not null ? new Stage(resources, View) : new StubStage();
+    }
+
+    // Dusk: a dim sky so the lanterns are what lights the ground, and a little bloom to make them glow.
+    private sealed class Stage(HostResources resources, SceneView3D view) : Render3DStage(resources, view)
+    {
+        protected override void UpdateScene(Scene3D scene, in FrameInfo frame)
+        {
+            scene.Environment.Background = BackgroundMode.Color;
+            scene.Environment.BackgroundColor = new System.Numerics.Vector3(0.01f, 0.04f, 0.07f);
+            scene.Environment.Intensity = 0.45f;
+            scene.Post.BloomStrength = 0.09f;
+            scene.Samples = 4;
+            scene.Ssao.Enabled = true;
+        }
+    }
 
     /// <inheritdoc />
     public override void OnFrame(GameInstance game) => Session.For(game).Frame();

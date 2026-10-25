@@ -96,3 +96,32 @@ public partial class Lamp : Entity, IView3D
         scene.PointLight(Transform, new System.Numerics.Vector3(1f, 0.8f, 0.6f), 14f, 12f);
     }
 }
+
+/// <summary>A grid of small boxes drawn as instances; not part of the default setup.</summary>
+[Entity]
+public partial class Grove : Entity, IView3D
+{
+    [Synced] public partial FVec3 Origin { get; private set; }
+
+    [Synced] public partial int Side { get; private set; }
+
+    /// <summary>Sets the grove up before the first tick.</summary>
+    public void Init(FVec3 origin, int side)
+    {
+        Origin = origin;
+        Side = side;
+    }
+
+    [View]
+    public void Describe3D(SceneWriter scene)
+    {
+        for (var z = 0; z < Side; z++)
+        {
+            for (var x = 0; x < Side; x++)
+            {
+                var at = Origin + new FVec3(x, Fixed.Zero, z);
+                scene.Instance("box", new Transform3(at, FQuat.Identity, FVec3.One * Fixed.FromRatio(1, 4)), new System.Numerics.Vector4(0.2f, 0.9f, 0.3f, 1f));
+            }
+        }
+    }
+}

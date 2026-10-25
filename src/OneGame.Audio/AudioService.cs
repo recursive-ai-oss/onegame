@@ -169,7 +169,24 @@ public sealed record DuckingStatus(int WatchedBus, float ThresholdDb, float Redu
 /// <param name="Reverb">Its reverb, or null.</param>
 /// <param name="Ducking">What ducks it, or null.</param>
 /// <param name="Loudness">Its loudness (see <see cref="AudioService.GetBusLoudness"/>), or null when the bus is not metered.</param>
-public sealed record BusStatus(int Index, string? Name, float Volume, bool Muted, FilterStatus? LowPass, FilterStatus? HighPass, ReverbOptions? Reverb, DuckingStatus? Ducking, LoudnessStatus? Loudness = null);
+/// <param name="Metered">Whether a loudness meter is assigned to the bus (a reading follows at the next block).</param>
+public sealed record BusStatus(int Index, string? Name, float Volume, bool Muted, FilterStatus? LowPass, FilterStatus? HighPass, ReverbOptions? Reverb, DuckingStatus? Ducking, LoudnessStatus? Loudness = null, bool Metered = false);
+
+/// <summary>What asking for a bus meter came to. Nothing throws for any of these.</summary>
+public enum BusMeterResult
+{
+    /// <summary>The bus is metered, or its meter starts at the next block.</summary>
+    Metered,
+
+    /// <summary>Every meter slot is in use by other buses (<see cref="AudioService.FreeBusMeters"/> is 0). Disable one first.</summary>
+    NoFreeSlot,
+
+    /// <summary>A slot is free but the mixer's command queue was full. Nothing changed; try again.</summary>
+    QueueFull,
+
+    /// <summary>This service measures no buses: metering is off, the sample rate is too low, or <see cref="AudioServiceOptions.MaxBusMeters"/> is 0.</summary>
+    Unavailable,
+}
 
 /// <summary>The master limiter.</summary>
 /// <param name="Enabled">Whether it is switched on.</param>
@@ -203,8 +220,10 @@ public sealed record MusicStatus(double PositionSeconds, double? LengthSeconds);
 /// <param name="Limiter">The master limiter, or null when the service has none.</param>
 /// <param name="Loudness">The output loudness.</param>
 /// <param name="Music">The music track, or null when none plays.</param>
+/// <param name="FreeBusMeters">Loudness meter slots not in use.</param>
+/// <param name="MeterRequest">What a meter request in the same call came to (the <c>audio</c> operation's <c>enableMeter</c>/<c>disableMeter</c>): metered, no_free_slot, queue_full, unavailable or disabled; null otherwise.</param>
 public sealed record AudioStatus(
-    int SampleRate, int Channels, string Output, bool Capture, float MasterVolume, bool Muted, int ActiveVoices, BusStatus[] Buses, LimiterStatus? Limiter, LoudnessStatus Loudness, MusicStatus? Music);
+    int SampleRate, int Channels, string Output, bool Capture, float MasterVolume, bool Muted, int ActiveVoices, BusStatus[] Buses, LimiterStatus? Limiter, LoudnessStatus Loudness, MusicStatus? Music, int FreeBusMeters = 0, string? MeterRequest = null);
 
 /// <summary>
 /// The game-facing audio service: load clips, play sounds and music on buses, set volumes, crossfade, and pump events. Everything here is called from
@@ -263,6 +282,9 @@ public sealed class AudioService : IDisposable
     /// <summary>The recording, when created with <see cref="AudioServiceOptions.Capture"/>; otherwise <see langword="null"/>.</summary>
     public CaptureSink? Capture { get; }
 
+    /// <summary>How many buses this service can meter at once: <see cref="AudioServiceOptions.MaxBusMeters"/>, or 0 when metering is off or the rate is too low.</summary>
+    private int MaxMeters { get; init; }
+
     /// <summary>The format everything renders at: the device's own, or the requested one with no device.</summary>
     public AudioDeviceFormat Format => Output.Format;
 
@@ -301,7 +323,7 @@ public sealed class AudioService : IDisposable
         var core = (options.CoreFactory ?? new OneAudioCore.Factory(options.MaxClipSeconds)).Create(settings);
         try
         {
-            var service = new AudioService(options, output, core, capture);
+            var service = new AudioService(options, output, core, capture) { MaxMeters = settings.MaxBusMeters };
             if (options.MasterLimiter is { } limiter)
             {
                 core.SetLimiter(limiter);
@@ -623,7 +645,7 @@ public sealed class AudioService : IDisposable
         Output.ResetLoudness();
         for (var i = 0; i < _busState.Length; i++)
         {
-            if (_busState[i].Metered)
+            if (Core.IsBusMetered(i))
             {
                 Core.ResetBusMeter(i);
             }
@@ -633,29 +655,40 @@ public sealed class AudioService : IDisposable
     /// <summary>Meter slots not yet used by a bus (see <see cref="AudioServiceOptions.MaxBusMeters"/>).</summary>
     public int FreeBusMeters => Core.FreeBusMeters;
 
+    /// <summary>Whether a meter is assigned to a bus. A reading follows at the next block.</summary>
+    /// <param name="bus">The bus.</param>
+    /// <returns>True when the bus is metered or its meter is about to start.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The bus is out of range.</exception>
+    public bool IsBusMetered(AudioBus bus)
+    {
+        CheckBus(bus);
+        return Core.IsBusMetered(bus.Index);
+    }
+
     /// <summary>
     /// Starts measuring a bus's loudness (EBU R 128) so <see cref="GetBusLoudness"/> can read it. The music, sfx and ui buses are metered at startup; use this for others or after <see cref="DisableBusMeter"/>.
     /// A bus is measured as it leaves the bus: after its sounds, filters, reverb, volume and mute, but before ducking and before the master volume and limiter,
     /// so the reading is what the bus itself puts out.
     /// </summary>
     /// <param name="bus">The bus.</param>
-    /// <returns>True when the bus is metered or is about to be. False when no meter slot is free (see <see cref="FreeBusMeters"/>), metering is off or the sample rate is too low, or the command queue was full; nothing changed then. It never throws for a lack of slots.</returns>
+    /// <returns>True when the bus is metered or is about to be. False when no meter slot is free (see <see cref="FreeBusMeters"/>), metering is off or the sample rate is too low, or the command queue was full; nothing changed then. It never throws for a lack of slots. <see cref="TryEnableBusMeter"/> says which.</returns>
     /// <exception cref="ArgumentOutOfRangeException">The bus is out of range.</exception>
-    public bool EnableBusMeter(AudioBus bus)
+    public bool EnableBusMeter(AudioBus bus) => TryEnableBusMeter(bus) == BusMeterResult.Metered;
+
+    /// <summary>Like <see cref="EnableBusMeter"/>, and says why a meter did not start.</summary>
+    /// <param name="bus">The bus.</param>
+    /// <returns>The outcome; see <see cref="BusMeterResult"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The bus is out of range.</exception>
+    public BusMeterResult TryEnableBusMeter(AudioBus bus)
     {
         CheckBus(bus);
-        if (_busState[bus.Index].Metered)
+        if (Core.IsBusMetered(bus.Index) || Core.EnableBusMeter(bus.Index))
         {
-            return true;
+            return BusMeterResult.Metered;
         }
 
-        if (!Core.EnableBusMeter(bus.Index))
-        {
-            return false;
-        }
-
-        _busState[bus.Index].Metered = true;
-        return true;
+        // The mixer's own rule: no free slot means 0 free; any other failure left a slot free and was a full queue.
+        return Core.FreeBusMeters > 0 ? BusMeterResult.QueueFull : MaxMeters == 0 ? BusMeterResult.Unavailable : BusMeterResult.NoFreeSlot;
     }
 
     /// <summary>Stops measuring a bus and frees its meter slot.</summary>
@@ -665,18 +698,7 @@ public sealed class AudioService : IDisposable
     public bool DisableBusMeter(AudioBus bus)
     {
         CheckBus(bus);
-        if (!_busState[bus.Index].Metered)
-        {
-            return true;
-        }
-
-        if (!Core.DisableBusMeter(bus.Index))
-        {
-            return false;
-        }
-
-        _busState[bus.Index].Metered = false;
-        return true;
+        return !Core.IsBusMetered(bus.Index) || Core.DisableBusMeter(bus.Index);
     }
 
     /// <summary>
@@ -706,7 +728,7 @@ public sealed class AudioService : IDisposable
         for (var i = 0; i < buses.Length; i++)
         {
             var b = _busState[i];
-            buses[i] = new BusStatus(i, i switch { 0 => "music", 1 => "sfx", 2 => "ui", _ => null }, _busVolume[i], b.Muted, b.LowPass, b.HighPass, b.Reverb, b.Ducking, GetBusLoudness(new AudioBus(i)) is { } bl ? Status(bl) : null);
+            buses[i] = new BusStatus(i, i switch { 0 => "music", 1 => "sfx", 2 => "ui", _ => null }, _busVolume[i], b.Muted, b.LowPass, b.HighPass, b.Reverb, b.Ducking, GetBusLoudness(new AudioBus(i)) is { } bl ? Status(bl) : null, Core.IsBusMetered(i));
         }
 
         var l = Loudness;
@@ -715,7 +737,8 @@ public sealed class AudioService : IDisposable
         return new AudioStatus(
             Format.SampleRate, Format.Channels, Output.Status.ToString(), Capture is not null, _master, _muted, Core.ActiveVoices, buses, limiter,
             Status(l),
-            music is { } m ? new MusicStatus(m.PositionSeconds, m.LengthSeconds < 0 ? null : m.LengthSeconds) : null);
+            music is { } m ? new MusicStatus(m.PositionSeconds, m.LengthSeconds < 0 ? null : m.LengthSeconds) : null,
+            Core.FreeBusMeters);
 
         LoudnessStatus Status(LoudnessReading r) => new(Finite(r.MomentaryLufs), Finite(r.ShortTermLufs), Finite(r.IntegratedLufs), Finite(r.TruePeakDbtp), r.Frames / (double)Format.SampleRate);
 
@@ -880,7 +903,6 @@ public sealed class AudioService : IDisposable
         public FilterStatus? LowPass;
         public FilterStatus? HighPass;
         public ReverbOptions? Reverb;
-        public bool Metered;
         public DuckingStatus? Ducking;
     }
 

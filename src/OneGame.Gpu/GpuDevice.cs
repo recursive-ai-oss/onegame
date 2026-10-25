@@ -13,6 +13,9 @@ public abstract class GpuDevice : IDisposable
     /// <summary>The adapter this device runs on.</summary>
     public abstract GpuAdapterInfo Adapter { get; }
 
+    /// <summary>The graphics API this device runs on.</summary>
+    public abstract GpuBackend Backend { get; }
+
     /// <summary>Number of submissions allowed in flight before <see cref="Submit"/> waits.</summary>
     public const int MaxFramesInFlight = 2;
 
@@ -36,6 +39,21 @@ public abstract class GpuDevice : IDisposable
 
     /// <summary>Creates a shader from SPIR-V code (4-byte aligned words, little-endian).</summary>
     public abstract GpuShader CreateShader(ShaderStage stage, ReadOnlySpan<byte> spirv, string entryPoint);
+
+    /// <summary>
+    /// Creates a shader from a compiled entry point, using the form this backend needs (SPIR-V for Vulkan, Metal Shading Language for Metal).
+    /// Prefer this over the SPIR-V overload: it works on every backend.
+    /// </summary>
+    /// <exception cref="GpuUnsupportedException">The source has no code for this backend.</exception>
+    public virtual GpuShader CreateShader(in ShaderSource source)
+    {
+        if (source.SpirV.IsEmpty)
+        {
+            throw new GpuUnsupportedException($"shader {source.EntryPoint} has no SPIR-V code, which the {Backend} backend needs");
+        }
+
+        return CreateShader(source.Stage, source.SpirV, source.EntryPoint);
+    }
 
     /// <summary>Creates a pipeline layout from the resource bindings of the pipeline's shaders. Entries from several shaders may repeat; identical ones merge and their stages combine.</summary>
     public abstract GpuPipelineLayout CreatePipelineLayout(ReadOnlySpan<ResourceBinding> bindings);
