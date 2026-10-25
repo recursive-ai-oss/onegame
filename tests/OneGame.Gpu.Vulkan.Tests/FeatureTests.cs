@@ -546,7 +546,7 @@ public sealed class FeatureTests
         using var gpu = new GpuFixture();
         var d = gpu.Device;
         using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, PushFill.VSMain.EntryPoint) { SpirV = PushFill.VSMain.SpirV, Wgsl = PushFill.VSMain.Wgsl, WgslEntryPoint = PushFill.VSMain.WgslEntryPoint, Msl = PushFill.VSMain.Msl, MslFunctionName = PushFill.VSMain.MslFunctionName, Bindings = PushFill.Bindings.All });
-        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, PushFill.PSMain.EntryPoint) { SpirV = PushFill.PSMain.SpirV, Wgsl = PushFill.PSMain.Wgsl, WgslEntryPoint = PushFill.PSMain.WgslEntryPoint, Msl = PushFill.PSMain.Msl, MslFunctionName = PushFill.PSMain.MslFunctionName, Bindings = PushFill.Bindings.All, MslPushConstantIndex = (int)PushFill.Bindings.PushConstants.MslIndex });
+        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, PushFill.PSMain.EntryPoint) { SpirV = PushFill.PSMain.SpirV, Wgsl = PushFill.PSMain.Wgsl, WgslEntryPoint = PushFill.PSMain.WgslEntryPoint, Msl = PushFill.PSMain.Msl, MslFunctionName = PushFill.PSMain.MslFunctionName, Bindings = PushFill.Bindings.All, MslPushConstantIndex = (int)PushFill.Bindings.PushConstants.MslIndex, WgslPushGroup = (int)PushFill.Bindings.PushConstants.WgslGroup, WgslPushBinding = (int)PushFill.Bindings.PushConstants.WgslBinding });
         Assert.Equal(PushFill.Bindings.PushConstants.Size, (uint)Marshal.SizeOf<PushFill.PushConstants>());
         using var layout = d.CreatePipelineLayout([], new PushConstantRange(PushFill.Bindings.PushConstants.Size, ShaderStage.Pixel));
         using var pipeline = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);

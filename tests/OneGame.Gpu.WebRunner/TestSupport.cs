@@ -73,7 +73,6 @@ public static partial class Runner
     // Tests the browser backend cannot run, with the reason.
     private static readonly Dictionary<string, string> Skipped = new(StringComparer.Ordinal)
     {
-        ["PushConstantsReachTheShader"] = "push constants are emulated with uniform buffers only in the renderers",
         ["PassTimingWritesStartAndEndTimes"] = "timestamp queries cannot be read without blocking",
         ["SteadyStateFramesAllocateNothing"] = "allocation counts of the native backends",
         ["SteadyStateGraphOfTenPassesAllocatesNothing"] = "allocation counts of the native backends",

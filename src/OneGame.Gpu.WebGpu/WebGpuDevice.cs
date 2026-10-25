@@ -129,7 +129,7 @@ internal sealed class WebGpuDevice : GpuDevice
     {
         if (pushConstants.Size > MaxPushConstantBytes || pushConstants.Size % 4 != 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(pushConstants), $"push constants are a multiple of 4 bytes, at most {MaxPushConstantBytes}");
+            throw new ArgumentException($"push constants are a multiple of 4 bytes, at most {MaxPushConstantBytes}", nameof(pushConstants));
         }
 
         var id = NextId();
