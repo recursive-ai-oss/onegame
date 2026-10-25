@@ -55,7 +55,7 @@ public sealed class LanternsGame : GameDefinition
             Meadow(world);
             world.Add(new Lantern { X = 206, Y = 100, Color = 1 });
         });
-        fixtures.Add("traders", world =>
+        fixtures.Add("swappers", world =>
         {
             Meadow(world);
             var players = world.Entities.OfType<Player>().ToList();

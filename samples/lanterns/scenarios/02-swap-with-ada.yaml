@@ -1,6 +1,6 @@
 name: swap-with-ada
 description: A one-for-one swap changes both players' colours and creates no lantern.
-fixture: traders
+fixture: swappers
 steps:
   - command: { entity: Player, name: SwapLocal, args: [2, 0, 1] }
   - step: 1

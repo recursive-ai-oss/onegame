@@ -1,6 +1,6 @@
 name: swap-needs-the-colour
 description: A swap for a colour the other player does not hold is refused and changes nothing.
-fixture: traders
+fixture: swappers
 steps:
   - command: { entity: Player, name: SwapLocal, args: [2, 0, 2] }
   - step: 1
