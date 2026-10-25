@@ -354,12 +354,18 @@ public sealed class AudioService : IDisposable
     /// <summary>The backend for this operating system, or one that never opens a device.</summary>
     /// <returns>A backend.</returns>
     public static IAudioBackend DefaultBackend() =>
-        OperatingSystem.IsLinux() ? new AlsaBackend()
+        // Android is Linux underneath, so it is asked first.
+        IsAndroidProcess() ? new AAudioBackend()
+        : OperatingSystem.IsLinux() ? new AlsaBackend()
         : OperatingSystem.IsWindows() ? new WasapiBackend()
-        : OperatingSystem.IsAndroid() ? new AAudioBackend()
         : OperatingSystem.IsIOS() || OperatingSystem.IsMacOS() ? new AudioUnitBackend()
         : OperatingSystem.IsBrowser() ? new WebAudioBackend()
         : new NoDeviceBackend();
+
+    // A NativeAOT game built for linux-bionic runs on the Linux runtime, where OperatingSystem.IsAndroid() is false; every Android app process
+    // does have the ANDROID_ROOT variable the system exports to it.
+    private static bool IsAndroidProcess() =>
+        OperatingSystem.IsAndroid() || (OperatingSystem.IsLinux() && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ANDROID_ROOT")));
 
     /// <summary>The master volume, 0 and up; scales every bus.</summary>
     public float MasterVolume
