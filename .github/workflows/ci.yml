@@ -47,9 +47,20 @@ jobs:
           echo "ONEGAME_ARTIFACTS=$RUNNER_TEMP/artifacts" >> "$GITHUB_ENV"
           echo "OUT=$RUNNER_TEMP/out" >> "$GITHUB_ENV"
 
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          global-json-file: global.json
+      # The setup action's bundled installer still downloads from a feed that no longer allows public access;
+      # the current install script from dot.net uses builds.dotnet.microsoft.com.
+      - name: Install .NET
+        run: |
+          dir="$RUNNER_TEMP/dotnet"
+          if [ "$RUNNER_OS" = Windows ]; then
+            curl -fsSL --retry 3 https://dot.net/v1/dotnet-install.ps1 -o "$RUNNER_TEMP/dotnet-install.ps1"
+            pwsh -NoProfile -File "$RUNNER_TEMP/dotnet-install.ps1" -JsonFile global.json -InstallDir "$dir"
+          else
+            curl -fsSL --retry 3 https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+            bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile global.json --install-dir "$dir"
+          fi
+          echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+          echo "$dir" >> "$GITHUB_PATH"
 
       # The distro's Mesa gives a CPU Vulkan device (lavapipe); xvfb and weston give the X11 and Wayland tests a display
       # server; clang and zlib are what NativeAOT links with on Linux.
