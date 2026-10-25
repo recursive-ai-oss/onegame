@@ -1,6 +1,6 @@
 // glTF 2.0 metallic-roughness shading (specification Appendix B) with clustered forward lighting and image-based lighting.
 //
-//   set 0: frame constants, lights, light clusters, joint matrices, environment textures
+//   set 0: frame constants, lights, light clusters, joint matrices, environment textures, shadow atlas and records, ambient occlusion
 //   set 1: per-object constants (dynamic offset)
 //   set 2: material constants, five textures, five samplers
 
@@ -13,6 +13,22 @@
 [[vk::binding(5, 0)]] TextureCube<float4> Specular;         // GGX-prefiltered radiance, roughness = mip / highest mip
 [[vk::binding(6, 0)]] Texture2D<float2> BrdfLut;            // split-sum scale and bias by (n.v, roughness)
 [[vk::binding(7, 0)]] SamplerState EnvSampler;
+
+// One shadow-casting light. Matrices are stored as columns (four float4 per matrix) so clip = (dot(p, c0), dot(p, c1), dot(p, c2), dot(p, c3)).
+struct ShadowData
+{
+    float4 Col[24];     // up to six view-projection matrices: cascades, one spot face, or the six faces of a point light
+    float4 Rect[6];     // per tile: xy offset in the atlas (uv), zw size in the atlas (uv)
+    float4 Splits;      // directional: far view depth of each cascade
+    float4 Texels;      // directional: world size of one texel per cascade. spot and point: texel size per unit distance (x)
+    float4 P0;          // x kind (0 directional, 1 spot, 2 point), y cascades, z normal offset in texels, w depth bias
+    float4 P1;          // xy atlas texel size in uv, z filter radius in texels
+};
+
+[[vk::binding(8, 0)]] Texture2D<float> ShadowAtlas;
+[[vk::binding(9, 0)]] StructuredBuffer<ShadowData> Shadows;
+[[vk::binding(10, 0)]] Texture2D<float4> AoTex;
+[[vk::binding(11, 0)]] SamplerComparisonState ShadowSamp;
 
 [[vk::binding(0, 1)]] cbuffer Object
 {
@@ -29,6 +45,9 @@
     float4 P1;             // x alpha cutoff, y alpha mode (0 opaque, 1 mask, 2 blend), z unlit, w dielectric f0
     uint4 Flags;           // x has normal map
     float4 Xf[10];         // per texture: row 0 = (m11, m21, m31, uv set), row 1 = (m12, m22, m32, 0)
+    float4 StyleA;         // x style (0 pbr, 1 toon, 2 flat), y toon bands, z toon softness, w toon highlight
+    float4 StyleB;         // x outline width in pixels
+    float4 OutlineColor;
 };
 
 [[vk::binding(1, 2)]] Texture2D<float4> BaseTex;
@@ -71,8 +90,32 @@ float4x4 JointMatrix(uint index)
     return float4x4(Joints[b], Joints[b + 1u], Joints[b + 2u], Joints[b + 3u]);
 }
 
-[shader("vertex")]
-VOut VSMain(VIn i)
+// Per-instance data: the first three columns of the instance matrix as rows of a 3x4 (x' = dot((p, 1), Rx)), and a colour.
+struct InstIn
+{
+    [[vk::location(8)]] float4 Rx : INSTROW0;
+    [[vk::location(9)]] float4 Ry : INSTROW1;
+    [[vk::location(10)]] float4 Rz : INSTROW2;
+    [[vk::location(11)]] float4 Tint : INSTCOLOR;
+};
+
+float3 Inst(float3 v, float w, InstIn n)
+{
+    float4 h = float4(v, w);
+    return float3(dot(h, n.Rx), dot(h, n.Ry), dot(h, n.Rz));
+}
+
+InstIn NoInstance()
+{
+    InstIn n;
+    n.Rx = float4(1.0, 0.0, 0.0, 0.0);
+    n.Ry = float4(0.0, 1.0, 0.0, 0.0);
+    n.Rz = float4(0.0, 0.0, 1.0, 0.0);
+    n.Tint = float4(1.0, 1.0, 1.0, 1.0);
+    return n;
+}
+
+VOut Transform(VIn i, bool instanced, InstIn inst)
 {
     float3 p = i.Pos;
     float3 n = i.Normal;
@@ -91,15 +134,64 @@ VOut VSMain(VIn i)
     }
 
     float4 world = mul(float4(p, 1.0), Model);
+    float3 wn = mul(float4(n, 0.0), NormalMat).xyz;
+    float3 wt = mul(float4(t, 0.0), Model).xyz;
+    float4 color = i.Color;
+    if (instanced)
+    {
+        world = float4(Inst(world.xyz, 1.0, inst), 1.0);
+        wn = Inst(wn, 0.0, inst);
+        wt = Inst(wt, 0.0, inst);
+        color *= inst.Tint;
+    }
+
     VOut o;
     o.Pos = mul(world, ViewProj);
     o.WorldPos = world.xyz;
-    o.Normal = mul(float4(n, 0.0), NormalMat).xyz;
-    o.Tangent = float4(mul(float4(t, 0.0), Model).xyz, i.Tangent.w);
+    o.Normal = wn;
+    o.Tangent = float4(wt, i.Tangent.w);
     o.Uv0 = i.Uv0;
     o.Uv1 = i.Uv1;
-    o.Color = i.Color;
+    o.Color = color;
     return o;
+}
+
+[shader("vertex")]
+VOut VSMain(VIn i)
+{
+    InstIn none = NoInstance();
+    return Transform(i, false, none);
+}
+
+[shader("vertex")]
+VOut VSInst(VIn i, InstIn inst)
+{
+    return Transform(i, true, inst);
+}
+
+// Outline: the same mesh pushed out along its normal by a fixed number of pixels, drawn back faces only (the "inverted hull").
+VOut Outline(VOut o)
+{
+    float3 nw = normalize(o.Normal);
+    float2 nclip = mul(float4(nw, 0.0), ViewProj).xy;
+    float2 dir = nclip * ViewportInfo.xy;
+    float len = length(dir);
+    dir = len > 1e-6 ? dir / len : float2(0.0, 0.0);
+    o.Pos.xy += dir * (StyleB.x * 2.0) * ViewportInfo.zw * o.Pos.w;
+    return o;
+}
+
+[shader("vertex")]
+VOut VSOutline(VIn i)
+{
+    InstIn none = NoInstance();
+    return Outline(Transform(i, false, none));
+}
+
+[shader("vertex")]
+VOut VSOutlineInst(VIn i, InstIn inst)
+{
+    return Outline(Transform(i, true, inst));
 }
 
 float2 TexUv(uint slot, VOut i)
@@ -157,7 +249,89 @@ float Attenuation(LightData l, float3 toLight, float dist2)
     return att;
 }
 
-float3 Shade(LightData l, float3 pos, float3 n, float3 v, float ndotv, float3 diffuseColor, float3 f0, float f0Dielectric, float a2)
+// ---- shadows ----
+
+float4 ShadowClip(uint index, uint tile, float3 p)
+{
+    float4 h = float4(p, 1.0);
+    uint b = tile * 4u;
+    return float4(dot(h, Shadows[index].Col[b]), dot(h, Shadows[index].Col[b + 1u]), dot(h, Shadows[index].Col[b + 2u]), dot(h, Shadows[index].Col[b + 3u]));
+}
+
+// Fraction of light that reaches the surface point: percentage-closer filtering over one tile of the atlas. The point is first moved
+// along the normal by a few texels, which keeps a lit surface from shadowing itself.
+float ShadowTile(uint index, uint tile, float3 pos, float3 n, float texelWorld)
+{
+    float3 p = pos + n * (texelWorld * Shadows[index].P0.z);
+    float4 c = ShadowClip(index, tile, p);
+    if (c.w <= 0.0)
+    {
+        return 1.0;
+    }
+
+    float3 ndc = c.xyz / c.w;
+    if (any(abs(ndc.xy) > 1.0) || ndc.z < 0.0 || ndc.z > 1.0)
+    {
+        return 1.0;
+    }
+
+    float4 rect = Shadows[index].Rect[tile];
+    float2 uv = float2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
+    float2 a = rect.xy + uv * rect.zw;
+    float2 texel = Shadows[index].P1.xy;
+    int radius = (int)Shadows[index].P1.z;
+    float2 pad = texel * (float)(radius + 1);
+    a = clamp(a, rect.xy + pad, rect.xy + rect.zw - pad);
+    float depth = ndc.z - Shadows[index].P0.w;
+    float sum = 0.0;
+    float taps = 0.0;
+    [loop] for (int y = -radius; y <= radius; y++)
+    {
+        [loop] for (int x = -radius; x <= radius; x++)
+        {
+            sum += ShadowAtlas.SampleCmpLevelZero(ShadowSamp, a + float2(x, y) * texel, depth);
+            taps += 1.0;
+        }
+    }
+
+    return sum / taps;
+}
+
+float ShadowTerm(uint index, LightData l, float3 pos, float3 n, float viewZ)
+{
+    uint kind = (uint)Shadows[index].P0.x;
+    if (kind == 0u)
+    {
+        uint count = (uint)Shadows[index].P0.y;
+        float last = Shadows[index].Splits[count - 1u];
+        if (viewZ > last)
+        {
+            return 1.0;
+        }
+
+        uint tile = 0u;
+        [loop] while (tile + 1u < count && viewZ > Shadows[index].Splits[tile])
+        {
+            tile++;
+        }
+
+        float s = ShadowTile(index, tile, pos, n, Shadows[index].Texels[tile]);
+        return lerp(1.0, s, saturate((last - viewZ) / (0.1 * last)));
+    }
+
+    float3 d = pos - l.PosRange.xyz;
+    float texelWorld = Shadows[index].Texels.x * length(d);
+    uint face = 0u;
+    if (kind == 2u)
+    {
+        float3 a = abs(d);
+        face = (a.x >= a.y && a.x >= a.z) ? (d.x > 0.0 ? 0u : 1u) : ((a.y >= a.z) ? (d.y > 0.0 ? 2u : 3u) : (d.z > 0.0 ? 4u : 5u));
+    }
+
+    return ShadowTile(index, face, pos, n, texelWorld);
+}
+
+float3 Shade(LightData l, float3 pos, float3 n, float3 v, float ndotv, float3 diffuseColor, float3 f0, float f0Dielectric, float a2, float viewZ)
 {
     float3 toLight;
     float att;
@@ -180,6 +354,11 @@ float3 Shade(LightData l, float3 pos, float3 n, float3 v, float ndotv, float3 di
         return 0.0;
     }
 
+    if (l.Spot.w > 0.5)
+    {
+        att *= ShadowTerm((uint)(l.Spot.w - 0.5), l, pos, n, viewZ);
+    }
+
     float3 h = normalize(toLight + v);
     float ndoth = saturate(dot(n, h));
     float vdoth = saturate(dot(v, h));
@@ -195,6 +374,68 @@ float3 RotateEnv(float3 d)
     return float3(EnvA.z * d.x + EnvA.w * d.z, d.y, -EnvA.w * d.x + EnvA.z * d.z);
 }
 
+// ---- stylized lighting ----
+
+// Splits a 0..1 light amount into flat steps with a short smooth edge between them.
+float Band(float x, float bands, float soft)
+{
+    float q = saturate(x) * bands;
+    float f = floor(q);
+    float w = max(soft * 0.5, 1e-3);
+    return (f + smoothstep(0.5 - w, 0.5 + w, q - f)) / bands;
+}
+
+float Incident(LightData l, float3 pos, out float3 toLight)
+{
+    if (l.DirType.w < 0.5)
+    {
+        toLight = -l.DirType.xyz;
+        return 1.0;
+    }
+
+    float3 d = l.PosRange.xyz - pos;
+    float dist2 = dot(d, d);
+    toLight = d * rsqrt(max(dist2, 1e-8));
+    return Attenuation(l, toLight, dist2);
+}
+
+float3 ToonLight(LightData l, float3 pos, float3 n, float3 v, float3 baseColor, float viewZ)
+{
+    float3 toLight;
+    float att = Incident(l, pos, toLight);
+    float ndotl = dot(n, toLight);
+    if (att <= 0.0 || ndotl <= 0.0)
+    {
+        return 0.0;
+    }
+
+    if (l.Spot.w > 0.5)
+    {
+        att *= ShadowTerm((uint)(l.Spot.w - 0.5), l, pos, n, viewZ);
+    }
+
+    float lit = Band(ndotl, StyleA.y, StyleA.z);
+    float3 h = normalize(toLight + v);
+    float highlight = smoothstep(0.965, 0.975, dot(n, h)) * StyleA.w;
+    return l.Color.rgb * (att / PI) * (baseColor * lit + highlight);
+}
+
+float AmbientOcclusion(float4 fragCoord)
+{
+    if (AoInfo.x <= 0.0)
+    {
+        return 1.0;
+    }
+
+    float ao = AoTex.SampleLevel(EnvSampler, fragCoord.xy * ViewportInfo.zw, 0).r;
+    return lerp(1.0, ao, AoInfo.x);
+}
+
+bool AlphaMasked(float4 base)
+{
+    return P1.y > 0.5 && P1.y < 1.5 && base.a < P1.x;
+}
+
 [shader("pixel")]
 float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
 {
@@ -206,15 +447,15 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
     float3 emis = Emissive.rgb * EmisTex.Sample(EmisSamp, TexUv(4u, i)).rgb;
     float2 nuv = TexUv(2u, i);
 
-    if (P1.y > 0.5 && P1.y < 1.5 && base.a < P1.x)
+    if (AlphaMasked(base))
     {
         discard;
     }
 
     float alpha = P1.y > 1.5 ? base.a : 1.0;
-    if (P1.z > 0.5)
+    if (P1.z > 0.5 || StyleA.x > 1.5)
     {
-        // KHR_materials_unlit
+        // KHR_materials_unlit, or the flat style
         return float4(base.rgb, alpha);
     }
 
@@ -251,6 +492,35 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
         n = normalize(t * sn.x + b * sn.y + n * sn.z);
     }
 
+    // Clustered punctual lights: the slice comes from view depth, the tile from the pixel position.
+    float viewZ = max(-mul(float4(i.WorldPos, 1.0), View).z, 1e-4);
+    uint tile = (uint)Grid.w;
+    uint2 t2 = uint2(i.Pos.xy) / tile;
+    float sl = floor(log2(viewZ) * Slice.x + Slice.y);
+    uint slice = (uint)clamp(sl, 0.0, Grid.z - 1.0);
+    uint cluster = (slice * (uint)Grid.y + min(t2.y, (uint)Grid.y - 1u)) * (uint)Grid.x + min(t2.x, (uint)Grid.x - 1u);
+    uint at = cluster * Counts.z;
+    uint count = Clusters[at];
+    float aoScreen = AmbientOcclusion(i.Pos);
+
+    if (StyleA.x > 0.5)
+    {
+        // Cel shading: stepped light, a hard highlight, and the environment's average light as the shaded side.
+        float3 toon = 0.0;
+        for (uint d = 0u; d < Counts.x; d++)
+        {
+            toon += ToonLight(Lights[d], i.WorldPos, n, v, base.rgb, viewZ);
+        }
+
+        for (uint k = 0u; k < count; k++)
+        {
+            toon += ToonLight(Lights[Clusters[at + 1u + k]], i.WorldPos, n, v, base.rgb, viewZ);
+        }
+
+        float3 ambient = Irradiance.SampleLevel(EnvSampler, RotateEnv(n), 0).rgb * base.rgb * (EnvA.y * aoScreen);
+        return float4(toon + ambient + emis, alpha);
+    }
+
     float metallic = saturate(P0.x * mr.b);
     float roughness = clamp(P0.y * mr.g, 0.045, 1.0);
     float a2 = pow(roughness, 4.0);   // alpha = roughness^2, squared
@@ -262,25 +532,16 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
     float3 color = 0.0;
     for (uint d = 0u; d < Counts.x; d++)
     {
-        color += Shade(Lights[d], i.WorldPos, n, v, ndotv, diffuseColor, f0, f0d, a2);
+        color += Shade(Lights[d], i.WorldPos, n, v, ndotv, diffuseColor, f0, f0d, a2, viewZ);
     }
 
-    // Clustered punctual lights: the slice comes from view depth, the tile from the pixel position.
-    float viewZ = max(-mul(float4(i.WorldPos, 1.0), View).z, 1e-4);
-    uint tile = (uint)Grid.w;
-    uint2 t2 = uint2(i.Pos.xy) / tile;
-    float sl = floor(log2(viewZ) * Slice.x + Slice.y);
-    uint slice = (uint)clamp(sl, 0.0, Grid.z - 1.0);
-    uint cluster = (slice * (uint)Grid.y + min(t2.y, (uint)Grid.y - 1u)) * (uint)Grid.x + min(t2.x, (uint)Grid.x - 1u);
-    uint at = cluster * Counts.z;
-    uint count = Clusters[at];
     for (uint k = 0u; k < count; k++)
     {
-        color += Shade(Lights[Clusters[at + 1u + k]], i.WorldPos, n, v, ndotv, diffuseColor, f0, f0d, a2);
+        color += Shade(Lights[Clusters[at + 1u + k]], i.WorldPos, n, v, ndotv, diffuseColor, f0, f0d, a2, viewZ);
     }
 
     // Image-based lighting: split-sum specular and cosine-convolved diffuse. Occlusion only dims indirect light.
-    float ao = 1.0 + P0.w * (occ - 1.0);
+    float ao = (1.0 + P0.w * (occ - 1.0)) * aoScreen;
     float3 r = reflect(-v, n);
     float2 ab = BrdfLut.SampleLevel(EnvSampler, float2(ndotv, roughness), 0);
     float3 spec = Specular.SampleLevel(EnvSampler, RotateEnv(r), roughness * EnvA.x).rgb;
@@ -291,6 +552,47 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
     color += ibl;
     color += emis;
     return float4(color, alpha);
+}
+
+// ---- depth-only passes ----
+
+// Shadow maps for alpha-tested materials: only the cut-out matters. Opaque materials use a pipeline with no pixel shader.
+[shader("pixel")]
+void PSShadowMask(VOut i)
+{
+    float4 base = BaseColor * i.Color * BaseTex.Sample(BaseSamp, TexUv(0u, i));
+    if (AlphaMasked(base))
+    {
+        discard;
+    }
+}
+
+// View-space normal and distance along the view axis, for ambient occlusion. A distance of 0 means nothing was drawn.
+[shader("pixel")]
+float4 PSPrepass(VOut i, bool front : SV_IsFrontFace) : SV_Target
+{
+    float4 base = BaseColor * i.Color * BaseTex.Sample(BaseSamp, TexUv(0u, i));
+    if (AlphaMasked(base))
+    {
+        discard;
+    }
+
+    float3 n = normalize(i.Normal) * (front ? 1.0 : -1.0);
+    float3 vn = normalize(mul(float4(n, 0.0), View).xyz);
+    float dist = -mul(float4(i.WorldPos, 1.0), View).z;
+    return float4(vn, dist);
+}
+
+[shader("pixel")]
+float4 PSOutline(VOut i) : SV_Target
+{
+    float4 base = BaseColor * i.Color * BaseTex.Sample(BaseSamp, TexUv(0u, i));
+    if (AlphaMasked(base))
+    {
+        discard;
+    }
+
+    return float4(OutlineColor.rgb, 1.0);
 }
 
 // ---- environment backdrop ----

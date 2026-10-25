@@ -122,6 +122,30 @@ public sealed class SceneView3D : IDisposable
             instance.Visible = true;
         }
 
+        // Instanced copies: one pooled batch per model, refilled each frame. The batch joins the scene's list once; batches the game added itself are left alone.
+        for (var i = 0; i < Models.Count; i++)
+        {
+            Models.At(i).Batch?.Clear();
+        }
+
+        var instances = _writer.Instances;
+        for (var i = 0; i < instances.Count; i++)
+        {
+            var d = instances[i];
+            var entry = Models.At(d.Model);
+            entry.Gpu ??= renderer.Upload(entry.Source);
+            if (entry.Batch is null)
+            {
+                entry.Batch = scene.AddInstanced(entry.Gpu, 64);
+            }
+            else if (!scene.Batches.Contains(entry.Batch))
+            {
+                scene.Batches.Add(entry.Batch);
+            }
+
+            entry.Batch.Add(d.World, d.Tint);
+        }
+
         scene.Lights.Clear();
         var lights = _writer.Lights;
         for (var i = 0; i < lights.Count; i++)

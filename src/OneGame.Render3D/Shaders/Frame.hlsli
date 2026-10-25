@@ -25,4 +25,6 @@ struct LightData
     float4 ViewportInfo; // x width, y height
     uint4 Counts;       // x directional lights, y all lights, z uints per cluster, w unused
     float4 Sky;         // x background mip, y background intensity, z unused, w unused
+    float4 ShadowInfo;  // x shadow records, y unused
+    float4 AoInfo;      // x ambient occlusion strength (0 = none), y radius in world units
 };

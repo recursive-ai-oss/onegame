@@ -12,8 +12,9 @@ namespace OneGame.Render3D;
 /// </summary>
 public sealed class EnvironmentMap : IDisposable
 {
-    internal EnvironmentMap(GpuTexture equirect, GpuTexture source, GpuTexture specular, GpuTexture irradiance, int size)
+    internal EnvironmentMap(GpuTexture equirect, GpuTexture source, GpuTexture specular, GpuTexture irradiance, int size, bool followsQuality)
     {
+        FollowsQuality = followsQuality;
         Equirect = equirect;
         Source = source;
         Specular = specular;
@@ -23,13 +24,16 @@ public sealed class EnvironmentMap : IDisposable
     }
 
     /// <summary>Face size in texels of the specular cube's top mip.</summary>
-    public int Size { get; }
+    public int Size { get; internal set; }
+
+    /// <summary>True when the size was left to the renderer: the cube is rebuilt at <see cref="QualitySettings.EnvironmentSize"/> whenever the scene's quality level changes it.</summary>
+    public bool FollowsQuality { get; }
 
     /// <summary>Number of mip levels of the specular cube (roughness = mip / (count - 1)).</summary>
     public int SpecularMipCount => (int)Specular.MipLevels;
 
     /// <summary>The prefiltered specular cube (<c>Rgba16Float</c>, six faces, full mip chain).</summary>
-    public GpuTexture Specular { get; }
+    public GpuTexture Specular { get; internal set; }
 
     /// <summary>The diffuse cube: mean radiance over the cosine-weighted hemisphere, that is irradiance divided by pi (<c>Rgba16Float</c>).</summary>
     public GpuTexture Irradiance { get; }
@@ -39,7 +43,7 @@ public sealed class EnvironmentMap : IDisposable
 
     internal GpuTexture? Equirect { get; set; }
 
-    internal GpuTexture Source { get; }
+    internal GpuTexture Source { get; set; }
 
     internal bool Pending { get; set; }
 
@@ -140,11 +144,17 @@ public sealed partial class Renderer3D
     /// now and filled by compute passes the first time a frame uses the environment, or by <see cref="PrepareEnvironment"/>.
     /// </summary>
     /// <param name="image">The panorama, linear radiance.</param>
-    /// <param name="size">Face size of the specular cube; a power of two from 16 to 1024.</param>
+    /// <param name="size">Face size of the specular cube, a power of two from 16 to 1024; 0 (the default) follows the scene's quality level.</param>
     /// <returns>The environment. Dispose it before the renderer.</returns>
-    public EnvironmentMap CreateEnvironment(HdrImage image, int size = 256)
+    public EnvironmentMap CreateEnvironment(HdrImage image, int size = 0)
     {
         ArgumentNullException.ThrowIfNull(image);
+        var follows = size == 0;
+        if (follows)
+        {
+            size = QualitySettings.For(_quality).EnvironmentSize;
+        }
+
         if (size is < 16 or > 1024 || (size & (size - 1)) != 0)
         {
             throw new ArgumentOutOfRangeException(nameof(size), "The size must be a power of two from 16 to 1024.");
@@ -177,7 +187,7 @@ public sealed partial class Renderer3D
             Label = label,
         };
 
-        return new EnvironmentMap(equirect, Device.CreateTexture(Cube(size, mips, "environment source")), Device.CreateTexture(Cube(size, mips, "environment specular")), Device.CreateTexture(Cube(IrradianceSize, 1, "environment irradiance")), size);
+        return new EnvironmentMap(equirect, Device.CreateTexture(Cube(size, mips, "environment source")), Device.CreateTexture(Cube(size, mips, "environment specular")), Device.CreateTexture(Cube(IrradianceSize, 1, "environment irradiance")), size, follows);
     }
 
     /// <summary>Runs the filtering of an environment now, on its own graph, and waits for it. Frames do this by themselves; tests and tools use it to inspect the cubes.</summary>
@@ -210,11 +220,37 @@ public sealed partial class Renderer3D
             AddLutPass(graph);
         }
 
+        if (env.FollowsQuality && env.Size != QualitySettings.For(_quality).EnvironmentSize)
+        {
+            ResizeEnvironment(env, QualitySettings.For(_quality).EnvironmentSize);
+        }
+
         if (env.Pending)
         {
             env.Pending = false;
             AddEnvironmentPasses(graph, env);
         }
+    }
+
+    // Rebuilds the filtered cubes at another size from the kept panorama. The old cubes go with the frame's deferred disposal, so a
+    // frame still in flight is not hurt.
+    private void ResizeEnvironment(EnvironmentMap env, int size)
+    {
+        var mips = GpuTexture.FullMipCount((uint)size, (uint)size);
+        TextureDesc Cube(string label) => new((uint)size, (uint)size, GpuFormat.Rgba16Float, TextureUsage.Sampled | TextureUsage.Storage | TextureUsage.CopySource | TextureUsage.CopyDestination)
+        {
+            Dimension = TextureDimension.Cube,
+            ArrayLayers = 6,
+            MipLevels = mips,
+            Label = label,
+        };
+
+        _deferred.Add(env.Source);
+        _deferred.Add(env.Specular);
+        env.Source = Device.CreateTexture(Cube("environment source"));
+        env.Specular = Device.CreateTexture(Cube("environment specular"));
+        env.Size = size;
+        env.Pending = true;
     }
 
     private void AddLutPass(RenderGraph graph)

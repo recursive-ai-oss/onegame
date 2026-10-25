@@ -26,12 +26,13 @@ An entity that implements `IView3D` is asked once per drawn frame, in entity ord
 | Call | Meaning |
 |---|---|
 | `Model(name, transform, pickable = true)` / `Model(name, transform, extraScale)` | a model of the `ModelLibrary`; unknown names throw `UnknownModelException` listing the known ones |
+| `Instance(name, transform, tint = null)` | one copy among many of a static model: all copies of a model in a frame become one instanced batch (culled, shadowed, one draw per primitive); rest pose, uniform scale, not pickable |
 | `PointLight`, `SpotLight`, `DirectionalLight` | lights (a transform gives position and facing; `Light3D` units) |
 | `Camera(transform, fovDegrees, priority, near, far, orthoHeight)` | offers a camera; highest `priority` wins, first on a tie; with none the `SceneView3D.DefaultCamera` is used |
 
 `scene.Tick` and `scene.Alpha` (0..1 between ticks; realtime runs set it, captures show whole ticks) go to `Timed<T>.ValueAt(tick, alpha)`. Describing only collects; floats are fine here, state is read-only.
 
-`SceneView3D` (one per game, holds a `ModelLibrary`) does the work: `Prepare(world, tick, alpha)` collects; `Build(scene3d, renderer)` fills a `Scene3D` (camera, pooled `ModelInstance3D`s, lights; models upload on first use); `Camera`, `TryProject`, `Ray`, `Pick`, `Cast` answer from the last `Prepare` with no graphics device. `Render3DStage(resources, view)` does Prepare + Build every frame on the world it is given (`FrameInfo.World`, so a replica draws what it holds), then `UpdateScene` for environment and post settings. `GameDefinition.CreateRenderStage` returns it; without a `view` the stage keeps the old hand-filled behaviour. Steady frames allocate no managed memory (test).
+`SceneView3D` (one per game, holds a `ModelLibrary`) does the work: `Prepare(world, tick, alpha)` collects; `Build(scene3d, renderer)` fills a `Scene3D` (camera, pooled `ModelInstance3D`s, one pooled `InstanceBatch3D` per instanced model, lights; models upload on first use); `Camera`, `TryProject`, `Ray`, `Pick`, `Cast` answer from the last `Prepare` with no graphics device. `Render3DStage(resources, view)` does Prepare + Build every frame on the world it is given (`FrameInfo.World`, so a replica draws what it holds), then `UpdateScene` for environment and post settings. `GameDefinition.CreateRenderStage` returns it; without a `view` the stage keeps the old hand-filled behaviour. Steady frames allocate no managed memory (test).
 
 `SceneView3D.CameraOverride` replaces the entities' camera for tools; it is a view setting, not state, and not recorded.
 
@@ -55,4 +56,4 @@ They need a game whose stage is a `Render3DStage` with a view (`no_scene3d` othe
 
 ## Not built
 
-Shadows, instancing and the quality ladder (renderer); animated or skinned picking; physics; per-entity visibility culling (every model of the world is submitted).
+Animated or skinned picking; physics; per-entity visibility culling (every model of the world is submitted).

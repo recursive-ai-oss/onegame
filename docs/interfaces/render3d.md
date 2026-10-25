@@ -1,4 +1,4 @@
-# render3d — the 3D renderer (work in progress)
+# render3d — the 3D renderer
 
 `OneGame.Render3D` draws glTF models with metallic-roughness PBR on the render graph (`render-graph.md`). It uses only `gpu.md` and `gltf.md`;
 its shaders are HLSL compiled during the build (`src/OneGame.Render3D/Shaders`).
@@ -19,9 +19,38 @@ Offscreen capture: `new Offscreen3D(renderer, w, h).Capture(scene)` returns RGBA
 
 ## Passes (names as `render_graph` shows them)
 
-`brdf_lut` and `env_*` (once, compute) → `cluster_lights` (compute, only with punctual lights) → `forward` (opaque and masked sorted near to far,
-then the backdrop, then blended surfaces far to near; MSAA with resolve) → `bloom_down_i` / `bloom_up_i` → `tonemap` (writes the whole target).
+`brdf_lut` and `env_*` (once, compute) → `shadows` (only with shadow-casting lights) → `depth_normal_prepass`, `ssao`, `ssao_blur` (only with SSAO on) → `cluster_lights` (compute, only with punctual lights) → `forward` (opaque and masked sorted near to far, instanced opaque, outlines, backdrop, then blended surfaces far to near; MSAA with resolve) → `bloom_down_i` / `bloom_up_i` → `tonemap` (writes the whole target).
 A later 2D pass must declare `ReadWrite` on the target; `Render3DStage` (Host) does this.
+
+## Quality
+
+`Scene3D.Quality` (low, medium, high (default), ultra) is a **cap**; features stay opt-in. `Samples` 0 takes the level's count. `QualitySettings.For(level)`:
+
+| Level | Shadow tile | Cascades | PCF | SSAO | MSAA | Bloom | Env cube |
+|---|---|---|---|---|---|---|---|
+| low | 512 | 2 | 1 tap | off | 1 | off | 64 |
+| medium | 1024 | 3 | 1 tap | 8 samples, half res | 4 | on | 128 |
+| high | 2048 | 4 | 3x3 | 14 samples | 4 | on | 256 |
+| ultra | 4096 | 4 | 5x5 | 24 samples | 8 | on | 512 |
+
+MSAA is 1, 4 or 8 (a request for 2 uses 4: many formats lack it). `CreateEnvironment` with size 0 follows the level and is rebuilt when the level changes.
+Harness: control op `quality` (`level`, `ssao`, `ssaoRadius`; returns the settings, last-frame stats and live pass names); `onegame view --quality L --shadows --ssao --ssao-radius R --style pbr|toon|flat --outline PX`.
+
+## Shadows
+
+`Light3D.CastShadows = true` on directional (cascaded: practical split, `Shadows.SplitLambda` 0.75, `MaxDistance` 60, texel-snapped), spot (one tile) and point lights (six faces). All tiles share one depth atlas sampled with a comparison sampler; normal-offset (`Shadows.NormalOffset`) plus slope bias remove acne. Budget: 8 shadowed lights and 16 tiles per frame; extra lights are lit without shadows. Blended materials cast none.
+
+## SSAO
+
+`Scene3D.Ssao.Enabled` (also needs a level that allows it), `Radius`: depth and normal prepass, hemisphere samples, bilateral blur; half resolution at low and medium. It dims indirect light only.
+
+## Styles
+
+`Material3D` (`Model3D.Materials`; `Model3D.SetStyle(style)` sets all): `Style` pbr, toon (`ToonBands` 2..8, `ToonSoftness`, `ToonHighlight`) or flat (base colour unlit); `OutlineWidth` pixels and `OutlineColor` work with every style (inverted hull; needs smooth normals).
+
+## Instancing
+
+`scene.AddInstanced(model, capacity)` returns an `InstanceBatch3D` (`Add/Set/RemoveAt/Clear/Items/Touch`, `Visible`, `CastShadows`, per-copy tint). One instanced draw per primitive; copies are culled on the CPU against the camera and every shadow view, and only visible ones are uploaded (10,000 trees: 3 draws). Limits: rest pose only (no skin, animation, morphs), uniform unmirrored scale, not pickable. Entity views use `SceneWriter.Instance` (`scene3d.md`).
 
 ## Conventions
 
@@ -34,9 +63,9 @@ A later 2D pass must declare `ReadWrite` on the target; `Render3DStage` (Host) d
 - Skinning on the GPU (joint matrices from `GltfSkin.ComputeJointMatrices`); morph targets blended on the CPU into a per-instance vertex buffer (`ModelInstance3D` is `IDisposable` for that). Lines and points are not drawn.
 - Steady frames allocate zero managed bytes (test).
 
-## Not built (next)
+## Not built
 
-Shadows, SSAO, depth prepass, instancing at scale, quality ladder, frustum culling; KHR_materials clearcoat/transmission/sheen/specular/volume are parsed but not rendered.
+KHR_materials clearcoat/transmission/sheen/specular/volume are parsed but not rendered; no depth prepass without SSAO; barriers are whole-resource.
 
 ## Host
 

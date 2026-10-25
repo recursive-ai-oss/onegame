@@ -115,6 +115,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         "audio_capture" => Json(AudioCapture(a), ControlJson.Default.AudioCaptureResult),
         "capture_frame" => CaptureFrame(a),
         "capture_sequence" => Json(CaptureSequence(a), ControlJson.Default.SequenceResult),
+        "quality" => Json(Quality(a), ControlJson.Default.QualityResult),
         "camera" or "pick" or "project" => Dispatch3D(op, a),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", ControlOps.All.Select(o => o.Name))}."),
     };

@@ -38,6 +38,7 @@ public sealed class SceneWriter
     private readonly ModelLibrary _models;
     private readonly List<ModelDraw> _draws = [];
     private readonly List<LightDraw> _lights = [];
+    private readonly List<InstanceDraw> _instances = [];
     private ViewCamera _camera;
     private int _cameraPriority = int.MinValue;
     private bool _hasCamera;
@@ -60,6 +61,8 @@ public sealed class SceneWriter
 
     internal List<LightDraw> Lights => _lights;
 
+    internal List<InstanceDraw> Instances => _instances;
+
     internal bool HasCamera => _hasCamera;
 
     internal ViewCamera ChosenCamera => _camera;
@@ -68,6 +71,7 @@ public sealed class SceneWriter
     {
         _draws.Clear();
         _lights.Clear();
+        _instances.Clear();
         _hasCamera = false;
         _cameraPriority = int.MinValue;
     }
@@ -87,6 +91,18 @@ public sealed class SceneWriter
     /// <param name="pickable">Whether <c>pick</c> can hit it.</param>
     public void Model(string model, Transform3 transform, float extraScale, bool pickable = true)
         => _draws.Add(new ModelDraw(_models.IndexOf(model), Entity, Matrix4x4.CreateScale(extraScale) * ToMatrix(transform), pickable));
+
+    /// <summary>
+    /// Shows one copy of a static model among many: every copy of the same model in a frame is drawn with one instanced draw per primitive and
+    /// culled against the camera and the shadow maps, so thousands of trees or rocks are cheap. The model is drawn in its rest pose (no skin or
+    /// animation), cannot be picked, and should have a uniform, unmirrored scale.
+    /// </summary>
+    /// <param name="model">The name the model was added under.</param>
+    /// <param name="transform">Where it is.</param>
+    /// <param name="tint">Linear RGBA multiplied into the base colour; null leaves it unchanged.</param>
+    /// <exception cref="UnknownModelException">The library has no such model.</exception>
+    public void Instance(string model, Transform3 transform, Vector4? tint = null)
+        => _instances.Add(new InstanceDraw(_models.IndexOf(model), ToMatrix(transform), tint ?? Vector4.One));
 
     /// <summary>A light that shines in all directions from the transform's position.</summary>
     /// <param name="transform">Where it is.</param>
@@ -155,6 +171,8 @@ public sealed class SceneWriter
     }
 
     internal readonly record struct ModelDraw(int Model, EntityId Entity, Matrix4x4 World, bool Pickable);
+
+    internal readonly record struct InstanceDraw(int Model, Matrix4x4 World, Vector4 Tint);
 
     internal readonly record struct LightDraw(LightKind Kind, Vector3 Position, Vector3 Direction, Vector3 Color, float Intensity, float Range, float Inner, float Outer);
 }

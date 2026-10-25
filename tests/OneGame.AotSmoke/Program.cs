@@ -380,7 +380,7 @@ if (render3dProblem is not null)
     return 1;
 }
 
-Console.WriteLine("render3d: skinned textured glTF model, sun and sky drawn through the PBR passes; read back 96x72");
+Console.WriteLine("render3d: skinned glTF model through the PBR passes, then shadow maps (cascaded and spot), ambient occlusion, an instance batch, toon outlines and all four quality levels");
 return 0;
 
 static byte[] ReadResource(string name)

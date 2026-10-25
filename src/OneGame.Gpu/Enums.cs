@@ -380,7 +380,7 @@ public enum AcquireStatus
 {
     /// <summary>An image was acquired.</summary>
     Ready,
-    /// <summary>The surface has no drawable area right now (for example, minimized). Skip the frame.</summary>
+    /// <summary>The surface has no drawable area right now (minimized), or no image became free within <see cref="GpuSwapchain.AcquireTimeout"/>. Skip the frame.</summary>
     Skipped,
 }
 

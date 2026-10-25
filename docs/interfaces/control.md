@@ -41,7 +41,7 @@ Without `--headless` the game opens a window (Wayland when `WAYLAND_DISPLAY` is 
 | Theme | `theme_lint` (WCAG AA contrast of the kit theme in effect, as a report; `docs/interfaces/ui-kit.md`) |
 | Shaders | `shaders` (hot reload status; recompiles changed shader files first, see `docs/interfaces/render2d.md`) |
 | Rendering | `render_graph` (passes, resources and per-pass GPU time of the last frame; see `render-graph.md`) |
-| 3D | `camera` (read or override the camera), `pick` (entity under a pixel or along a ray), `project` (world point to pixel): `scene3d.md` |
+| 3D | `camera` (read or override the camera), `pick` (entity under a pixel or along a ray), `project` (world point to pixel): `scene3d.md`; `quality` (read or set the renderer's level, SSAO): `render3d.md` |
 | Audio | `audio` (buses, filters, reverb, limiter, loudness LUFS and dBTP, per-bus loudness, music position), `audio_capture` (render capture-mode audio, report peak, output and per-bus loudness, write a WAV; see `audio.md`) |
 | Lifecycle | `quit` |
 

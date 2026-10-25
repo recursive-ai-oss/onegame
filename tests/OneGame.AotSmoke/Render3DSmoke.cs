@@ -33,7 +33,48 @@ internal static class Render3DSmoke
             }
         }
 
+        if (different < 300)
+        {
+            return $"only {different} pixels differ from the background";
+        }
+
+        // Shadows, ambient occlusion, instancing, the quality ladder and stylized materials, all on the native publish.
+        scene.Models.Clear();
+        scene.Lights.Clear();
+        var batch = scene.AddInstanced(model, 64);
+        for (var i = 0; i < 25; i++)
+        {
+            var at = new Vector3(((i % 5) - 2) * 90f, 0, ((i / 5) - 2) * 90f);
+            batch.Add(Matrix4x4.CreateRotationY(i * 0.7f) * Matrix4x4.CreateTranslation(at), new Vector4(1f, 0.6f + (i % 3 * 0.2f), 0.6f, 1f));
+        }
+
+        scene.Lights.Add(new Light3D { Kind = LightKind.Directional, Direction = new Vector3(-1, -1.5f, -0.6f), Intensity = 3f, CastShadows = true });
+        var spot = Light3D.Spot(new Vector3(0, 300, 200), new Vector3(0, -1, -0.6f), Vector3.One, 2e5f, 0.3f, 0.7f);
+        spot.CastShadows = true;
+        scene.Lights.Add(spot);
+        scene.Ssao.Enabled = true;
+        scene.Ssao.Radius = 20f;
+        foreach (var m in model.Materials)
+        {
+            m.Style = MaterialStyle3D.Toon;
+            m.OutlineWidth = 2f;
+        }
+
+        scene.Camera = Camera3D.LookAt(new Vector3(0, 220, 380), new Vector3(0, 20, 0), Vector3.UnitY);
+        scene.Camera.Far = 2000f;
+        foreach (var level in new[] { QualityLevel.Low, QualityLevel.Medium, QualityLevel.High, QualityLevel.Ultra })
+        {
+            scene.Quality = level;
+            target.Capture(scene);
+        }
+
+        var stats = renderer.LastStats;
         device.WaitIdle();
-        return different < 300 ? $"only {different} pixels differ from the background" : null;
+        if (stats.Instances != 25 || stats.InstancesDrawn == 0 || stats.ShadowTiles < 5 || !stats.Ssao)
+        {
+            return $"instancing or shadows did not run: {stats}";
+        }
+
+        return null;
     }
 }
