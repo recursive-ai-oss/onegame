@@ -62,6 +62,7 @@ public class ThemeTests
     public void GameRulesAfterTheThemeWinAndSurviveAThemeSwap()
     {
         var s = Make(out _);
+        s.Click(s.Get("goods/row/2"));   // enables the buy button; a disabled button keeps the disabled look whatever a game sets on its variant
         s.Ui.AddStyleSheet(new StyleSheet().Rule(".kit-button.primary", st => st.Background(Color.Hex("#00aa00"))));
         s.Settle();
         Assert.Contains("#00aa00", s.Ui.DisplayList.ToText(), StringComparison.Ordinal);

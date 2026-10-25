@@ -41,6 +41,15 @@ Rows are recycled: `RealizedRowCount` is the number of row elements that exist, 
 
 colors `--kit-bg --kit-panel --kit-raised --kit-field --kit-text --kit-text-dim --kit-accent --kit-accent-hover --kit-accent-text --kit-danger --kit-border --kit-focus --kit-hover --kit-active --kit-select --kit-select-text --kit-scrim --kit-scrollbar`; sizes `--kit-font-size --kit-radius --kit-focus-width`.
 
+Derived by `KitTheme.Create` (not `KitTokens` members): `--kit-accent-active --kit-danger-hover --kit-danger-active --kit-danger-text --kit-control-border --kit-disabled-fill --kit-disabled-border --kit-disabled-text`.
+A token that carries text or an indicator and would miss WCAG 2.x AA against what it sits on is moved toward white or black just far enough (`KitContrast.Ensure`); passing tokens are untouched.
+The rules for each state of every component are in `KitTheme`; disabled never uses opacity.
+
+## Contrast lint
+
+`ThemeLint.Check(KitTokens | UiTree | Func<string, Color?>)` returns a `ThemeLintReport` (`Passed`, `Checked`, `Failures` worst first, `Checks`). Each `ContrastCheck` names the pair (`Foreground`/`Background` tokens, `ForegroundColor`/`BackgroundColor`, `Ratio`, `Required`, `Kind` = `text` | `disabled-text` | `indicator`). Text needs 4.5:1; disabled text and indicators (focus ring, control outline, accent fill, scroll thumb) 3:1. A token that is not defined is reported as `missing` with ratio 0.
+Faces: control operation `theme_lint` (MCP), dev option `--lint-theme` on a game, and `onegame lint-theme [--json]` (exit 1 when a pair fails). `KitContrast` has `Luminance`, `Ratio`, `Mix`, `Ensure`.
+
 A game restyles by passing its own `KitTokens`, by adding a sheet after the theme that overrides a token on `:root`, or by adding rules for the `kit-*` classes (`kit-button`, `kit-row`, …). Rules added by the game survive a theme swap.
 
 ## Hooks the kit added to `OneGame.UI`
@@ -50,6 +59,9 @@ A game restyles by passing its own `KitTokens`, by adding a sheet after the them
 - `UiTree.RequestFocus(el)`: focuses at the end of the current `Update`. Use it from bindings, where `Focus` would re-enter the update.
 - `UiTree.TextStyleOf(el)`: the resolved text style the engine measures with, for caret geometry.
 - `UiTree.ReplaceStyleSheet(old, new)`: swaps a sheet at its cascade position.
+- `UiTree.TryGetColorToken(name, out color)`: a color token as the cascade resolved it on the root (what `ThemeLint.Check(tree)` reads).
+- `background-tint` (`StyleBuilder.BackgroundTint`): multiplies the background image by a color; white single-color art follows a theme token.
+- `:disabled` matches an element that is disabled or inside a disabled ancestor (as CSS does for controls in a disabled fieldset).
 - `UiTree.Invoke` sends `Click` with `Button = -1` (an activation without a pointer); pointer clicks carry the real button.
 - Directional focus ignores candidates that overlap the source along the direction of travel when a wholly-ahead candidate exists, so Right from a wide table does not land on its own header cells.
 

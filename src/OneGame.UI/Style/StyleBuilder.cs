@@ -269,6 +269,9 @@ public sealed class StyleBuilder
     /// <summary>Sets the nine-slice inset of the background image, in pixels on every side; zero draws the image stretched.</summary>
     public StyleBuilder BackgroundSlice(Length v) => L(StyleProp.BackgroundSlice, v);
 
+    /// <summary>Sets the color the background image is multiplied by (white by default, which leaves it as drawn). White single-color art tinted with a theme token follows the theme.</summary>
+    public StyleBuilder BackgroundTint(Color v) => C(StyleProp.BackgroundTint, v);
+
     /// <summary>Sets all four corner radii.</summary>
     public StyleBuilder Radius(Length all) =>
         L(StyleProp.RadiusTopLeft, all).L(StyleProp.RadiusTopRight, all).L(StyleProp.RadiusBottomRight, all).L(StyleProp.RadiusBottomLeft, all);

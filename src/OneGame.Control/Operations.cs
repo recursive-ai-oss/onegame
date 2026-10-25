@@ -130,6 +130,7 @@ public sealed record SnapshotResult(string? Path, int Bytes, string? Base64, str
 [JsonSerializable(typeof(NetWaitResult))]
 [JsonSerializable(typeof(NetDivergeResult))]
 [JsonSerializable(typeof(ShadersResult))]
+[JsonSerializable(typeof(OneGame.UI.Kit.ThemeLintReport))]
 public sealed partial class ControlJson : JsonSerializerContext
 {
 }
@@ -200,6 +201,9 @@ public static class ControlOps
         new("shaders",
             "Hot-reload status of the game's registered shaders. Checks their files first: a changed one is recompiled and, when its interface still matches, swapped in; otherwise the old shader keeps running and the state says why (compile_error with file and line, or incompatible).",
             NoArgs, true),
+        new("theme_lint",
+            "Check the UI theme in effect for legibility: WCAG 2.x AA contrast of every text, state and indicator color pair the kit draws (text 4.5:1; disabled text and indicators such as the focus ring 3:1), using the tokens as the cascade resolved them, game overrides included. Returns passed, the number of pairs checked, the failing pairs (token names, colors, ratio, required) worst first, and every pair.",
+            NoArgs, false),
         new("capture_frame",
             "Render the current state offscreen to a PNG. size is WxH or a name (360p 720p 1080p 1440p 4k deck phone tablet); scale is the UI scale. With 'path' the file is written under the output folder. With presented=true, a windowed game instead returns the frame it presents to its window (the swapchain image, at the window's size; size and scale are ignored).",
             """{"type":"object","properties":{"size":{"type":"string"},"scale":{"type":"number"},"path":{"type":"string"},"presented":{"type":"boolean"}}}""", false),

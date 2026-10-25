@@ -18,7 +18,7 @@ internal sealed class DevTools : IDevTools
     private static readonly string[] Known =
     [
         "live", "realtime", "parent", "scenario", "artifacts", "update-references", "record", "capture", "sequence", "count", "every", "replay",
-        "fixture", "screen", "after",
+        "fixture", "screen", "after", "lint-theme",
     ];
 
     public int Run(GameInstance game, GameArgs args, TextWriter output)
@@ -49,6 +49,15 @@ internal sealed class DevTools : IDevTools
             if (args.Has("screen"))
             {
                 game.OpenScreen(args.Get("screen") ?? throw new FormatException("--screen needs a name."));
+            }
+
+            if (args.Has("lint-theme"))
+            {
+                game.Step(1);
+                var lint = surface.Call("theme_lint");
+                Print(output, json, lint);
+                using var doc = JsonDocument.Parse(lint);
+                return doc.RootElement.GetProperty("passed").GetBoolean() ? ExitCodes.Ok : ExitCodes.Failed;
             }
 
             if (args.Has("live"))

@@ -57,6 +57,17 @@ internal sealed class CaptureVerb : IVerb
     }
 }
 
+/// <summary>Checks the game's UI theme for legibility (WCAG AA contrast) and prints the failing token pairs.</summary>
+internal sealed class LintThemeVerb : IVerb
+{
+    public string Name => "lint-theme";
+
+    public string Summary => "Check the UI theme's contrast (WCAG 2.x AA) in a headless game: exits 1 and lists the failing token pairs, with --json a report object.";
+
+    public int Run(string[] args, bool json, TextWriter output, TextWriter error) =>
+        GameRunner.Run(new ProjectArgs(args), json, output, error, (_, _) => ["--headless", "--lint-theme"]);
+}
+
 /// <summary>Replays a recorded run and compares every tick's state hash.</summary>
 internal sealed class ReplayVerb : IVerb
 {

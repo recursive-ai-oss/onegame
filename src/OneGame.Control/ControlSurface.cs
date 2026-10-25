@@ -108,6 +108,7 @@ public sealed class ControlSurface : IControlEndpoint
         "ui_hit" => Json(UiHit(a), ControlJson.Default.HitResult),
         "snapshot_save" => Json(SnapshotSave(a), ControlJson.Default.SnapshotResult),
         "shaders" => Json(ShaderCheck(), ControlJson.Default.ShadersResult),
+        "theme_lint" => Json(ThemeLintCheck(), ControlJson.Default.ThemeLintReport),
         "capture_frame" => CaptureFrame(a),
         "capture_sequence" => Json(CaptureSequence(a), ControlJson.Default.SequenceResult),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", ControlOps.All.Select(o => o.Name))}."),
@@ -705,6 +706,13 @@ public sealed class ControlSurface : IControlEndpoint
     private ShaderReloader? _reloader;
 
     private ShaderReloader Reloader => _reloader ??= new ShaderReloader(Game.HotShaders);
+
+    private OneGame.UI.Kit.ThemeLintReport ThemeLintCheck()
+    {
+        // Styles resolve on update; the tokens read are the ones in effect on the root, with the game's own overrides.
+        Game.Ui.Update();
+        return OneGame.UI.Kit.ThemeLint.Check(Game.Ui);
+    }
 
     private ShadersResult ShaderCheck()
     {

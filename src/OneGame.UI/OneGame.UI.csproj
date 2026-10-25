@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="OneGame.UI.Tests" />
+    <InternalsVisibleTo Include="OneGame.UI.Kit.Tests" />
   </ItemGroup>
 
 </Project>
