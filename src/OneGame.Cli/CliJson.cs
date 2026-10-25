@@ -68,6 +68,7 @@ internal sealed record ClusterTestResult(int Passed, int Failed, ScenarioResult[
 [JsonSerializable(typeof(TestResult))]
 [JsonSerializable(typeof(ExportResult))]
 [JsonSerializable(typeof(AssetInspectResult))]
+[JsonSerializable(typeof(Verbs.ViewResult))]
 [JsonSerializable(typeof(JsonElement))]
 [JsonSerializable(typeof(ClusterResult<ClusterState>))]
 [JsonSerializable(typeof(ClusterResult<ClusterStatus>))]

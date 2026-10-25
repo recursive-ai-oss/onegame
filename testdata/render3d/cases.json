@@ -1,0 +1,305 @@
+{
+ "size": [
+  480,
+  360
+ ],
+ "background": {
+  "color": "#303542"
+ },
+ "cases": [
+  {
+   "name": "helmet",
+   "model": "DamagedHelmet/glTF/DamagedHelmet.gltf",
+   "camera": {
+    "eye": [
+     1.965,
+     0.8209,
+     4.0322
+    ],
+    "target": [
+     -0.0025,
+     0.0,
+     -0.1872
+    ],
+    "up": [
+     0,
+     1,
+     0
+    ],
+    "yfov": 0.785398,
+    "near": 3.083,
+    "far": 6.372
+   },
+   "env": "studio_small_03",
+   "ibl": true
+  },
+  {
+   "name": "spheres",
+   "model": "MetalRoughSpheres/glTF/MetalRoughSpheres.gltf",
+   "camera": {
+    "eye": [
+     -0.0624,
+     -0.2779,
+     18.5063
+    ],
+    "target": [
+     -0.0624,
+     -0.2779,
+     -1.6
+    ],
+    "up": [
+     0,
+     1,
+     0
+    ],
+    "yfov": 0.785398,
+    "near": 13.111,
+    "far": 27.101
+   },
+   "env": "studio_small_03",
+   "ibl": true
+  },
+  {
+   "name": "mirror",
+   "model": "NormalTangentMirrorTest/glTF/NormalTangentMirrorTest.gltf",
+   "camera": {
+    "eye": [
+     -0.0054,
+     -0.0766,
+     5.2397
+    ],
+    "target": [
+     -0.0054,
+     -0.0766,
+     0.0353
+    ],
+    "up": [
+     0,
+     1,
+     0
+    ],
+    "yfov": 0.785398,
+    "near": 3.394,
+    "far": 7.015
+   },
+   "env": "studio_small_03",
+   "ibl": true
+  },
+  {
+   "name": "transform",
+   "model": "TextureTransformTest/glTF/TextureTransformTest.gltf",
+   "camera": {
+    "eye": [
+     0.0,
+     -0.0456,
+     5.5791
+    ],
+    "target": [
+     0.0,
+     -0.0456,
+     0.005
+    ],
+    "up": [
+     0,
+     1,
+     0
+    ],
+    "yfov": 0.785398,
+    "near": 3.635,
+    "far": 7.513
+   },
+   "env": "studio_small_03",
+   "ibl": true
+  },
+  {
+   "name": "emissive",
+   "model": "EmissiveStrengthTest/glTF/EmissiveStrengthTest.gltf",
+   "camera": {
+    "eye": [
+     -0.0007,
+     -0.9958,
+     27.7315
+    ],
+    "target": [
+     -0.0007,
+     -0.9958,
+     -0.0005
+    ],
+    "up": [
+     0,
+     1,
+     0
+    ],
+    "yfov": 0.785398,
+    "near": 18.084,
+    "far": 37.38
+   },
+   "env": "studio_small_03",
+   "ibl": true
+  },
+  {
+   "name": "alpha",
+   "model": "AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf",
+   "camera": {
+    "eye": [
+     0.0,
+     3.7959,
+     12.5841
+    ],
+    "target": [
+     0.0,
+     1.0998,
+     -0.1
+    ],
+    "up": [
+     0,
+     1,
+     0
+    ],
+    "yfov": 0.785398,
+    "near": 8.456,
+    "far": 17.479
+   },
+   "env": "studio_small_03",
+   "ibl": true
+  },
+  {
+   "name": "fox",
+   "model": "Fox/glTF/Fox.gltf",
+   "camera": {
+    "eye": [
+     156.6525,
+     104.6941,
+     175.9561
+    ],
+    "target": [
+     0.0,
+     39.3927,
+     -10.7351
+    ],
+    "up": [
+     0,
+     1,
+     0
+    ],
+    "yfov": 0.785398,
+    "near": 164.53,
+    "far": 340.081
+   },
+   "env": "studio_small_03",
+   "ibl": true,
+   "pose": {
+    "animation": "Walk",
+    "time": 0.45
+   }
+  },
+  {
+   "name": "sponza",
+   "model": "Sponza/glTF/Sponza.gltf",
+   "camera": {
+    "eye": [
+     -11.0,
+     1.8,
+     0.3
+    ],
+    "target": [
+     4.0,
+     3.2,
+     -0.5
+    ],
+    "up": [
+     0,
+     1,
+     0
+    ],
+    "yfov": 1.0,
+    "near": 0.05,
+    "far": 100.0
+   },
+   "env": null,
+   "ibl": false,
+   "lights": [
+    {
+     "type": "directional",
+     "direction": [
+      -0.3,
+      -1.0,
+      -0.2
+     ],
+     "color": [
+      1.0,
+      0.95,
+      0.85
+     ],
+     "intensity": 3.0
+    },
+    {
+     "type": "point",
+     "position": [
+      -8.0,
+      2.5,
+      0.0
+     ],
+     "color": [
+      1.0,
+      0.75,
+      0.5
+     ],
+     "intensity": 60.0,
+     "range": 14.0
+    },
+    {
+     "type": "point",
+     "position": [
+      0.0,
+      2.5,
+      0.0
+     ],
+     "color": [
+      1.0,
+      0.75,
+      0.5
+     ],
+     "intensity": 60.0,
+     "range": 14.0
+    },
+    {
+     "type": "point",
+     "position": [
+      8.0,
+      2.5,
+      0.0
+     ],
+     "color": [
+      1.0,
+      0.75,
+      0.5
+     ],
+     "intensity": 60.0
+    },
+    {
+     "type": "spot",
+     "position": [
+      0.0,
+      9.0,
+      0.0
+     ],
+     "direction": [
+      0.0,
+      -1.0,
+      0.0
+     ],
+     "color": [
+      0.8,
+      0.9,
+      1.0
+     ],
+     "intensity": 500.0,
+     "inner": 0.25,
+     "outer": 0.6,
+     "range": 30.0
+    }
+   ]
+  }
+ ]
+}

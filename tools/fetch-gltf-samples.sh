@@ -27,7 +27,7 @@ MODELS=(
   Fox/glTF Fox/glTF-Binary
   AnimatedMorphCube/glTF AnimatedMorphCube/glTF-Binary AnimatedMorphCube/glTF-Quantized
   SimpleSparseAccessor/glTF SimpleSparseAccessor/glTF-Embedded
-  TextureTransformTest/glTF
+  TextureTransformTest/glTF AlphaBlendModeTest/glTF
   MetalRoughSpheres/glTF MetalRoughSpheres/glTF-Binary MetalRoughSpheres/glTF-Embedded
   NormalTangentTest/glTF NormalTangentMirrorTest/glTF
   EmissiveStrengthTest/glTF EmissiveStrengthTest/glTF-Binary

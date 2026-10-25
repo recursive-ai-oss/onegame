@@ -1,0 +1,461 @@
+using System.Runtime.InteropServices;
+using OneGame.Gltf;
+using OneGame.Gpu;
+using OneGame.Gpu.Graph;
+using OneGame.Render3D.Shaders;
+
+namespace OneGame.Render3D;
+
+/// <summary>What one frame of 3D drew.</summary>
+/// <param name="Objects">Mesh nodes drawn.</param>
+/// <param name="DrawCalls">Indexed draws recorded (sky and post excluded).</param>
+/// <param name="Triangles">Triangles submitted.</param>
+/// <param name="Lights">Punctual lights used.</param>
+/// <param name="Clusters">Light clusters in the grid.</param>
+public readonly record struct FrameStats3D(int Objects, int DrawCalls, long Triangles, int Lights, int Clusters);
+
+/// <summary>
+/// The physically based 3D renderer. It uploads glTF models (<see cref="Upload"/>) and adds a frame to a render graph
+/// (<see cref="Render"/>): cluster light assignment, one forward pass for opaque, masked and blended surfaces plus the backdrop, a bloom
+/// chain, and tone mapping into the target. See <c>docs/interfaces/render3d.md</c>.
+/// </summary>
+public sealed partial class Renderer3D : IDisposable
+{
+    /// <summary>Most punctual lights one frame uses; extra lights are ignored.</summary>
+    public const int MaxLights = 512;
+
+    /// <summary>Most lights one cluster can hold; the rest are dropped.</summary>
+    public const int MaxLightsPerCluster = 63;
+
+    /// <summary>Screen tile size of the light grid, in pixels.</summary>
+    public const int TileSize = 64;
+
+    /// <summary>Depth slices of the light grid.</summary>
+    public const int DepthSlices = 24;
+
+    /// <summary>Format of the HDR image the scene is lit into.</summary>
+    public const GpuFormat HdrFormat = GpuFormat.Rgba16Float;
+
+    /// <summary>Format of the depth buffer.</summary>
+    public const GpuFormat DepthFormat = GpuFormat.Depth32Float;
+
+    private const int ClusterStride = MaxLightsPerCluster + 1;
+
+    private readonly List<IDisposable> _owned = [];
+    private readonly GpuPipelineLayout _layout;
+    private readonly GpuShader _pbrVs;
+    private readonly GpuShader _pbrPs;
+    private readonly GpuShader _skyVs;
+    private readonly GpuShader _skyPs;
+    private readonly GpuSampler _envSampler;
+    private readonly GpuSampler _defaultSampler;
+    private readonly GpuTexture _white;
+    private readonly Dictionary<int, GpuGraphicsPipeline> _pipelines = [];
+    private readonly Dictionary<GltfSampler, GpuSampler> _samplers = [];
+    private readonly VertexBufferLayout _vertexLayout;
+    private readonly List<IDisposable> _deferred = [];
+
+    /// <summary>Creates a renderer on a device.</summary>
+    /// <param name="device">The graphics device. It must outlive the renderer.</param>
+    public Renderer3D(GpuDevice device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+        Device = device;
+
+        const ShaderStage vp = ShaderStage.Vertex | ShaderStage.Pixel;
+        ReadOnlySpan<ResourceBinding> bindings =
+        [
+            new(0, 0, 1, ResourceKind.ConstantBuffer, vp),
+            new(0, 1, 1, ResourceKind.ReadOnlyStorageBuffer, ShaderStage.Pixel),
+            new(0, 2, 1, ResourceKind.ReadOnlyStorageBuffer, ShaderStage.Pixel),
+            new(0, 3, 1, ResourceKind.ReadOnlyStorageBuffer, ShaderStage.Vertex),
+            new(0, 4, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
+            new(0, 5, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
+            new(0, 6, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
+            new(0, 7, 1, ResourceKind.Sampler, ShaderStage.Pixel),
+            new(1, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Vertex) { Dynamic = true },
+            new(2, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Pixel),
+            new(2, 1, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
+            new(2, 2, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
+            new(2, 3, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
+            new(2, 4, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
+            new(2, 5, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
+            new(2, 6, 1, ResourceKind.Sampler, ShaderStage.Pixel),
+            new(2, 7, 1, ResourceKind.Sampler, ShaderStage.Pixel),
+            new(2, 8, 1, ResourceKind.Sampler, ShaderStage.Pixel),
+            new(2, 9, 1, ResourceKind.Sampler, ShaderStage.Pixel),
+            new(2, 10, 1, ResourceKind.Sampler, ShaderStage.Pixel),
+        ];
+        _layout = Own(device.CreatePipelineLayout(bindings));
+        _pbrVs = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSMain.SpirV, Pbr.VSMain.EntryPoint));
+        _pbrPs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSMain.SpirV, Pbr.PSMain.EntryPoint));
+        _skyVs = Own(device.CreateShader(ShaderStage.Vertex, Pbr.VSSky.SpirV, Pbr.VSSky.EntryPoint));
+        _skyPs = Own(device.CreateShader(ShaderStage.Pixel, Pbr.PSSky.SpirV, Pbr.PSSky.EntryPoint));
+
+        // The packed glTF vertex (GltfPrimitive.PackVertices). Joint indices are two 32-bit words, each holding two 16-bit indices.
+        _vertexLayout = new VertexBufferLayout
+        {
+            Stride = GltfPrimitive.PackedVertexSize,
+            Attributes = new VertexElement[]
+            {
+                new(0, VertexFormat.Float3, 0),
+                new(1, VertexFormat.Float3, 12),
+                new(2, VertexFormat.Float4, 24),
+                new(3, VertexFormat.Float2, 40),
+                new(4, VertexFormat.Float2, 48),
+                new(5, VertexFormat.Float4, 56),
+                new(6, VertexFormat.UInt2, 72),
+                new(7, VertexFormat.Float4, 80),
+            },
+        };
+
+        _envSampler = Own(device.CreateSampler(SamplerDesc.Linear with { MaxLod = 32f }));
+        _defaultSampler = Own(device.CreateSampler(new SamplerDesc
+        {
+            MagFilter = FilterMode.Linear,
+            MinFilter = FilterMode.Linear,
+            MipFilter = FilterMode.Linear,
+            AddressU = AddressMode.Repeat,
+            AddressV = AddressMode.Repeat,
+            MaxAnisotropy = 8,
+        }));
+        _white = Own(device.CreateTexture(new TextureDesc(1, 1, GpuFormat.Rgba8Unorm, TextureUsage.Sampled | TextureUsage.CopyDestination) { Label = "white" }));
+        device.WriteTexture(_white, 0, 0, new byte[] { 255, 255, 255, 255 });
+
+        InitFrame();
+        InitPost();
+        InitIbl();
+    }
+
+    /// <summary>The device this renderer draws with.</summary>
+    public GpuDevice Device { get; }
+
+    /// <summary>What the last <see cref="Render"/> call prepared.</summary>
+    public FrameStats3D LastStats { get; private set; }
+
+    private T Own<T>(T resource)
+        where T : IDisposable
+    {
+        _owned.Add(resource);
+        return resource;
+    }
+
+    /// <summary>Uploads a glTF model: vertex and index buffers, materials, and textures with generated mip levels (colour textures as sRGB).</summary>
+    /// <param name="model">The imported model.</param>
+    /// <param name="scene">Scene to draw; -1 for the model's default scene.</param>
+    /// <returns>The GPU model. Dispose it before the renderer.</returns>
+    public Model3D Upload(GltfModel model, int scene = -1)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        if (scene < 0)
+        {
+            scene = model.DefaultScene;
+        }
+
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(scene, model.Scenes.Length);
+
+        var result = new Model3D(model, scene);
+        try
+        {
+            UploadInto(result);
+        }
+        catch
+        {
+            result.Dispose();
+            throw;
+        }
+
+        return result;
+    }
+
+    private void UploadInto(Model3D result)
+    {
+        var model = result.Source;
+        var device = Device;
+        var encoder = device.BeginCommands();
+        var textures = new Dictionary<(int Image, bool Srgb), GpuTexture>();
+
+        GpuTexture TextureFor(TextureRef? reference, bool srgb)
+        {
+            if (reference is null || (uint)reference.Texture >= (uint)model.Textures.Length)
+            {
+                return _white;
+            }
+
+            var source = model.Textures[reference.Texture].Source;
+            if (source < 0 || (uint)source >= (uint)model.Images.Length || model.Images[source].Pixels is not { } pixels)
+            {
+                return _white;
+            }
+
+            if (textures.TryGetValue((source, srgb), out var existing))
+            {
+                return existing;
+            }
+
+            var image = model.Images[source];
+            var mips = GpuTexture.FullMipCount((uint)image.Width, (uint)image.Height);
+            var texture = result.Own(device.CreateTexture(new TextureDesc((uint)image.Width, (uint)image.Height, srgb ? GpuFormat.Rgba8UnormSrgb : GpuFormat.Rgba8Unorm, TextureUsage.Sampled | TextureUsage.CopyDestination | TextureUsage.CopySource)
+            {
+                MipLevels = mips,
+                Label = string.IsNullOrEmpty(image.Name) ? $"image {source}" : image.Name,
+            }));
+            device.WriteTexture(texture, 0, 0, pixels);
+            encoder.GenerateMips(texture);
+            textures[(source, srgb)] = texture;
+            return texture;
+        }
+
+        GpuSampler SamplerFor(TextureRef? reference)
+        {
+            if (reference is null || (uint)reference.Texture >= (uint)model.Textures.Length)
+            {
+                return _defaultSampler;
+            }
+
+            var index = model.Textures[reference.Texture].Sampler;
+            if (index < 0 || (uint)index >= (uint)model.Samplers.Length)
+            {
+                return _defaultSampler;
+            }
+
+            var sampler = model.Samplers[index];
+            if (!_samplers.TryGetValue(sampler, out var made))
+            {
+                made = Own(device.CreateSampler(MapSampler(sampler)));
+                _samplers[sampler] = made;
+            }
+
+            return made;
+        }
+
+        var materials = new Material3D[model.Materials.Length + 1];
+        for (var i = 0; i < materials.Length; i++)
+        {
+            var m = i < model.Materials.Length ? model.Materials[i] : new GltfMaterial();
+            var constants = BuildMaterial(m);
+            var buffer = result.Own(device.CreateBuffer(new BufferDesc((ulong)Marshal.SizeOf<MaterialConstants>(), BufferUsage.Uniform | BufferUsage.CopyDestination) { Label = "material " + m.Name }));
+            device.WriteBuffer(buffer, 0, MemoryMarshal.AsBytes(new ReadOnlySpan<MaterialConstants>(in constants)));
+            var group = result.Own(device.CreateBindGroup(_layout, 2,
+            [
+                BindGroupEntry.ForBuffer(0, buffer),
+                BindGroupEntry.ForTexture(1, TextureFor(m.BaseColorTexture, srgb: true)),
+                BindGroupEntry.ForTexture(2, TextureFor(m.MetallicRoughnessTexture, srgb: false)),
+                BindGroupEntry.ForTexture(3, TextureFor(m.NormalTexture, srgb: false)),
+                BindGroupEntry.ForTexture(4, TextureFor(m.OcclusionTexture, srgb: false)),
+                BindGroupEntry.ForTexture(5, TextureFor(m.EmissiveTexture, srgb: true)),
+                BindGroupEntry.ForSampler(6, SamplerFor(m.BaseColorTexture)),
+                BindGroupEntry.ForSampler(7, SamplerFor(m.MetallicRoughnessTexture)),
+                BindGroupEntry.ForSampler(8, SamplerFor(m.NormalTexture)),
+                BindGroupEntry.ForSampler(9, SamplerFor(m.OcclusionTexture)),
+                BindGroupEntry.ForSampler(10, SamplerFor(m.EmissiveTexture)),
+            ]));
+            materials[i] = new Material3D { Constants = buffer, Group = group, Blend = m.AlphaMode == GltfAlphaMode.Blend, DoubleSided = m.DoubleSided };
+        }
+
+        var meshes = new Primitive3D[]?[model.Meshes.Length];
+        for (var mi = 0; mi < model.Meshes.Length; mi++)
+        {
+            var prims = new List<Primitive3D>();
+            foreach (var p in model.Meshes[mi].Primitives)
+            {
+                if (p.Topology != GltfTopology.Triangles || p.Indices.Length == 0)
+                {
+                    continue;   // Lines and points are not drawn by this renderer.
+                }
+
+                var vertexBytes = p.PackVertices();
+                var indexBytes = p.PackIndices(out var width);
+                var vb = result.Own(device.CreateBuffer(new BufferDesc((ulong)vertexBytes.Length, BufferUsage.Vertex | BufferUsage.CopyDestination) { Label = "vertices " + model.Meshes[mi].Name }));
+                var ib = result.Own(device.CreateBuffer(new BufferDesc((ulong)indexBytes.Length, BufferUsage.Index | BufferUsage.CopyDestination) { Label = "indices " + model.Meshes[mi].Name }));
+                device.WriteBuffer(vb, 0, vertexBytes);
+                device.WriteBuffer(ib, 0, indexBytes);
+                var material = materials[p.Material >= 0 && p.Material < model.Materials.Length ? p.Material : model.Materials.Length];
+                prims.Add(new Primitive3D(p, vb, ib, width == IndexWidth.U16 ? IndexFormat.Index16 : IndexFormat.Index32, material)
+                {
+                    BaseVertices = p.MorphTargets.Length > 0 ? vertexBytes : null,
+                });
+            }
+
+            meshes[mi] = [.. prims];
+        }
+
+        result.Meshes = meshes;
+        result.DrawNodes = SceneMeshNodes(model, result.Scene);
+        device.Submit(encoder);
+    }
+
+    private static int[] SceneMeshNodes(GltfModel model, int scene)
+    {
+        // Walk down from the scene roots with an explicit stack; the node graph is acyclic and depth-limited by the importer.
+        var result = new List<int>();
+        var stack = new Stack<int>();
+        if (scene >= 0)
+        {
+            var roots = model.Scenes[scene].Roots;
+            for (var i = roots.Length - 1; i >= 0; i--)
+            {
+                stack.Push(roots[i]);
+            }
+        }
+        else
+        {
+            for (var i = model.Nodes.Length - 1; i >= 0; i--)
+            {
+                if (model.Nodes[i].Parent < 0)
+                {
+                    stack.Push(i);
+                }
+            }
+        }
+
+        while (stack.Count > 0)
+        {
+            var n = stack.Pop();
+            if (model.Nodes[n].Mesh >= 0)
+            {
+                result.Add(n);
+            }
+
+            var children = model.Nodes[n].Children;
+            for (var i = children.Length - 1; i >= 0; i--)
+            {
+                stack.Push(children[i]);
+            }
+        }
+
+        return [.. result];
+    }
+
+    private static SamplerDesc MapSampler(GltfSampler s)
+    {
+        static AddressMode Wrap(GltfWrap w) => w switch
+        {
+            GltfWrap.ClampToEdge => AddressMode.ClampToEdge,
+            GltfWrap.MirroredRepeat => AddressMode.MirrorRepeat,
+            _ => AddressMode.Repeat,
+        };
+
+        var minNearest = s.MinFilter is GltfMinFilter.Nearest or GltfMinFilter.NearestMipmapNearest or GltfMinFilter.NearestMipmapLinear;
+        var hasMips = s.MinFilter is GltfMinFilter.Unspecified or GltfMinFilter.NearestMipmapNearest or GltfMinFilter.NearestMipmapLinear or GltfMinFilter.LinearMipmapNearest or GltfMinFilter.LinearMipmapLinear;
+        var mipNearest = s.MinFilter is GltfMinFilter.NearestMipmapNearest or GltfMinFilter.LinearMipmapNearest;
+        return new SamplerDesc
+        {
+            MagFilter = s.MagFilter == GltfMagFilter.Nearest ? FilterMode.Nearest : FilterMode.Linear,
+            MinFilter = minNearest ? FilterMode.Nearest : FilterMode.Linear,
+            MipFilter = mipNearest ? FilterMode.Nearest : FilterMode.Linear,
+            AddressU = Wrap(s.WrapS),
+            AddressV = Wrap(s.WrapT),
+            MaxLod = hasMips ? 1000f : 0f,
+            MaxAnisotropy = hasMips && !minNearest && s.MagFilter != GltfMagFilter.Nearest ? 8f : 1f,
+        };
+    }
+
+    private static MaterialConstants BuildMaterial(GltfMaterial m)
+    {
+        var f0 = (m.Ior - 1f) / (m.Ior + 1f);
+        var c = new MaterialConstants
+        {
+            BaseColor = m.BaseColorFactor,
+            Emissive = new Vector4(m.EmissiveFactor * m.EmissiveStrength, 0),
+            P0 = new Vector4(m.MetallicFactor, m.RoughnessFactor, m.NormalScale, m.OcclusionStrength),
+            P1 = new Vector4(m.AlphaCutoff, (float)(int)m.AlphaMode, m.Unlit ? 1f : 0f, f0 * f0),
+            Flags = new UInt4 { X = m.NormalTexture is null ? 0u : 1u },
+        };
+        SetTransform(ref c, 0, m.BaseColorTexture);
+        SetTransform(ref c, 1, m.MetallicRoughnessTexture);
+        SetTransform(ref c, 2, m.NormalTexture);
+        SetTransform(ref c, 3, m.OcclusionTexture);
+        SetTransform(ref c, 4, m.EmissiveTexture);
+        return c;
+    }
+
+    private static void SetTransform(ref MaterialConstants c, int slot, TextureRef? t)
+    {
+        var uv = t is null ? Matrix3x2.Identity : t.UvMatrix;
+
+        // KHR_texture_transform in row-vector form: u' = u*m11 + v*m21 + m31, v' = u*m12 + v*m22 + m32.
+        c.Xf[slot * 2] = new Vector4(uv.M11, uv.M21, uv.M31, t is { TexCoord: 1 } ? 1f : 0f);
+        c.Xf[(slot * 2) + 1] = new Vector4(uv.M12, uv.M22, uv.M32, 0f);
+    }
+
+    /// <summary>Releases everything the renderer created. Models and environments are disposed separately, before this.</summary>
+    public void Dispose()
+    {
+        Device.WaitIdle();
+        DisposeDeferred();
+        DisposeFrame();
+        DisposePost();
+        DisposeIbl();
+        foreach (var p in _pipelines.Values)
+        {
+            p.Dispose();
+        }
+
+        _pipelines.Clear();
+        for (var i = _owned.Count - 1; i >= 0; i--)
+        {
+            _owned[i].Dispose();
+        }
+
+        _owned.Clear();
+    }
+
+    private void DisposeDeferred()
+    {
+        foreach (var d in _deferred)
+        {
+            d.Dispose();
+        }
+
+        _deferred.Clear();
+    }
+
+    private GpuGraphicsPipeline ScenePipeline(bool blend, bool doubleSided, bool flipped, int samples)
+    {
+        var key = (blend ? 1 : 0) | (doubleSided ? 2 : 0) | (flipped ? 4 : 0) | (samples << 3);
+        if (!_pipelines.TryGetValue(key, out var pipeline))
+        {
+            pipeline = Device.CreateGraphicsPipeline(new GraphicsPipelineDesc
+            {
+                Layout = _layout,
+                Vertex = _pbrVs,
+                Pixel = _pbrPs,
+                VertexBuffers = [_vertexLayout],
+                Topology = PrimitiveTopology.TriangleList,
+                Cull = doubleSided ? CullMode.None : CullMode.Back,
+                Front = flipped ? FrontFace.Clockwise : FrontFace.CounterClockwise,
+                ColorTargets = [new ColorTargetState(HdrFormat) { Blend = blend ? BlendState.AlphaBlend : null }],
+                DepthStencil = new DepthStencilState(DepthFormat) { DepthWrite = !blend, DepthCompare = CompareFunction.Less },
+                SampleCount = (uint)samples,
+                Label = "pbr",
+            });
+            _pipelines[key] = pipeline;
+        }
+
+        return pipeline;
+    }
+
+    private GpuGraphicsPipeline SkyPipeline(int samples)
+    {
+        var key = -1 - samples;
+        if (!_pipelines.TryGetValue(key, out var pipeline))
+        {
+            pipeline = Device.CreateGraphicsPipeline(new GraphicsPipelineDesc
+            {
+                Layout = _layout,
+                Vertex = _skyVs,
+                Pixel = _skyPs,
+                Topology = PrimitiveTopology.TriangleList,
+                Cull = CullMode.None,
+                ColorTargets = [new ColorTargetState(HdrFormat)],
+                DepthStencil = new DepthStencilState(DepthFormat) { DepthWrite = false, DepthCompare = CompareFunction.LessEqual },
+                SampleCount = (uint)samples,
+                Label = "sky",
+            });
+            _pipelines[key] = pipeline;
+        }
+
+        return pipeline;
+    }
+}
