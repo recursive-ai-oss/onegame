@@ -949,11 +949,10 @@ public sealed class ProcessCluster : IDisposable
 
     // Every server gets its port before any node starts, so servers can be told where their peers will listen (a server that starts first
     // is given the address of one that starts later and connects when it is up). The same number serves udp and ws: they are different protocols.
-    // Candidates come from 20000-32767, below both the Windows (49152+) and Linux (32768+) ephemeral ranges, so the OS does not hand them
-    // to outgoing connections. Windows can also reserve ranges inside that (WinNAT/Hyper-V), so a candidate counts only if tcp and udp both
-    // bind on the address the servers will use. Numbers already given out in this process are skipped (the probe sockets are closed again).
+    // The OS picks the number, as it did before: UDP first (on Windows the allocator skips the ranges the system reserves, which a TCP-first
+    // pick does not), then the same number must also bind for TCP, both on the address the servers will use. Numbers already handed out
+    // in this process are skipped, because the probe sockets are closed again before the servers start.
     private static readonly HashSet<int> Issued = [];
-    private static readonly Random PortPick = new();
 
     private static System.Net.IPAddress ServerBindAddress()
         => System.Net.IPAddress.TryParse(Environment.GetEnvironmentVariable("ONEGAME_CLUSTER_BIND"), out var a) ? a : System.Net.IPAddress.Loopback;
@@ -963,27 +962,26 @@ public sealed class ProcessCluster : IDisposable
         var address = ServerBindAddress();
         lock (Issued)
         {
-            for (var attempt = 0; attempt < 500; attempt++)
+            for (var attempt = 0; attempt < 200; attempt++)
             {
-                var port = PortPick.Next(20000, 32768);
-                if (Issued.Contains(port))
-                {
-                    continue;
-                }
-
                 try
                 {
-                    using var udp = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(address, port));
+                    using var udp = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(address, 0));
+                    var port = ((System.Net.IPEndPoint)udp.Client.LocalEndPoint!).Port;
+                    if (Issued.Contains(port))
+                    {
+                        continue;
+                    }
+
                     using var tcp = new System.Net.Sockets.TcpListener(address, port);
                     tcp.Start();
+                    Issued.Add(port);
+                    return port;
                 }
                 catch (System.Net.Sockets.SocketException)
                 {
-                    continue; // in use, or inside a range the OS reserves
+                    // That number is taken for tcp; try another.
                 }
-
-                Issued.Add(port);
-                return port;
             }
         }
 
