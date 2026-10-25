@@ -8,23 +8,11 @@ using OneGame.UI;
 
 namespace OneGame.Render2D.Tests;
 
-/// <summary>
-/// Stands in for the shader build package: SPIR-V compiled by the Khronos reference compiler from the renderer's own HLSL (see Shaders/build.sh).
-/// Every fixture's entry point is "main".
-/// </summary>
-internal sealed class TestShaders : IShaderSource
-{
-    public ShaderCode Load(string program, string entryPoint) =>
-        new(entryPoint.StartsWith("VS", StringComparison.Ordinal) ? ShaderStage.Vertex : ShaderStage.Pixel, "main", Paths.Spirv(program + "." + entryPoint));
-}
-
 internal static class Paths
 {
     private static string SourceDir([CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
 
     public static string RepoRoot => Path.GetFullPath(Path.Combine(SourceDir(), "..", ".."));
-
-    public static byte[] Spirv(string name) => File.ReadAllBytes(Path.Combine(SourceDir(), "Shaders", name + ".spv"));
 
     public static string Golden(string name) => Path.Combine(RepoRoot, "testdata", "render2d", name + ".png");
 
@@ -41,7 +29,7 @@ internal sealed class Rig : IDisposable
         Width = width;
         Height = height;
         Device = VulkanGpu.CreateDevice(new GpuDeviceOptions { Validation = true, RequireValidation = true });
-        Renderer = Renderer2D.Create(Device, GpuFormat.Rgba8UnormSrgb, new TestShaders());
+        Renderer = Renderer2D.Create(Device, GpuFormat.Rgba8UnormSrgb, GeneratedShaders.Instance);
         Target = Device.CreateTexture(new TextureDesc((uint)width, (uint)height, GpuFormat.Rgba8UnormSrgb, TextureUsage.RenderTarget | TextureUsage.CopySource));
     }
 

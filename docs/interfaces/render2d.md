@@ -114,25 +114,16 @@ an `IShaderSource` for `(program, entry)` pairs (`ShaderNames`) and gets SPIR-V 
 in `Shaders.cs`: set 0 = frame constants + clip table, set 1 = texture + sampler, set 2 = parameters (tile programs: parameters + two pools). Sets
 0 and 1 are identical in every program so bind groups are shared.
 
-Until the shader build package ships, the tests compile these same files with the Khronos reference compiler
-(`tests/OneGame.Render2D.Tests/Shaders/build.sh`, glslang's HLSL front end plus `spirv-val`) and inject the result through `IShaderSource`. Nothing
-compiled that way is in `src/`. **Switching to the generated bindings is one step:** add the shader build package to `OneGame.Render2D.csproj`
-(it compiles every `*.hlsl` in the project) and add
+The shaders are compiled during `dotnet build` by the shader build package (`RecursiveAI.OneShader.Build`, referenced by `OneGame.Render2D.csproj`),
+which generates the C# bindings (`OneGame.Render2D.Shaders.Quad|Tile|Ui`). `GeneratedShaders` (`GeneratedShaders.Instance`) maps the nine
+`(program, entry)` pairs of `ShaderNames` onto the generated `Stage`/`EntryPoint`/`SpirV`; it is the default `IShaderSource` of the host, the test
+cluster and every test, and the SPIR-V is embedded in the assembly, so nothing is read from disk. A custom `IShaderSource` can still be passed to
+`Renderer2D.Create` or `GameOptions.Shaders`. A custom sprite material is HLSL in your own project compiled the same way (see
+`tests/OneGame.Render2D.Tests/Shaders/Ripple.hlsl`); pass its `PSMain.SpirV` and `EntryPoint` to `CreateMaterial`.
 
-```csharp
-internal sealed class GeneratedShaders : IShaderSource
-{
-    public ShaderCode Load(string program, string entry) => (program, entry) switch
-    {
-        ("Quad", "VSMain") => new(Quad.VSMain.Stage, Quad.VSMain.EntryPoint, Quad.VSMain.SpirV.ToArray()),
-        // … one line per pair in ShaderNames (Quad: VSMain PSSprite PSBlur PSGrade; Tile: VSMain PSIds PSFlat; Ui: VSMain PSMain)
-        _ => throw new ArgumentException($"no shader {program}.{entry}"),
-    };
-}
-```
-
-and pass it to `Renderer2D.Create`. The pipeline layouts come from the tables in `Shaders.cs`, not from `Bindings.All`, so used-only binding lists
-do not matter; a check that `Bindings.All` agrees with those tables per program is worth adding when the package is in.
+The pipeline layouts come from the tables in `Shaders.cs`, not from `Bindings.All`; `GeneratedShaderTests` checks that every binding and vertex
+input the HLSL declares agrees with those tables. The GPU layer keeps its own `ShaderStage`, `ResourceKind` and `VertexFormat` enums, and
+`GeneratedShaders` maps the stage.
 
 ## Plugging into the game host
 
