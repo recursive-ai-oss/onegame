@@ -87,7 +87,7 @@ public sealed class GuideGame
     public List<Good> Goods { get; } = [new("Grain", 12, 40), new("Iron", 30, 8), new("Silk", 95, 3), new("Salt", 7, 120)];
 }
 
-// docs/ui-guide.md line 591
+// docs/ui-guide.md line 593
 public static class MyComponents
 {
     /// <summary>A price tag: shows an amount, turns red when it exceeds the player's gold.</summary>
@@ -108,7 +108,7 @@ public static class MyComponents
     }
 }
 
-// docs/ui-guide.md line 643
+// docs/ui-guide.md line 645
 public sealed class ScreenTest
 {
     public UiTree Tree { get; } = new();
@@ -388,7 +388,7 @@ internal static class Snippets
         ui.Root.Add(Ui.Column(filter, password, digits).Gap(8).Padding(12));
     }
 
-    // docs/ui-guide.md line 522
+    // docs/ui-guide.md line 524
     public static void Run21(UiTree ui, KitHost host, GuideGame game)
     {
         var buy = host.Tooltip(UiKit.Button("Buy", () => game.Gold -= 5, "buy"), "Buy one unit at the market price");
@@ -396,7 +396,7 @@ internal static class Snippets
         ui.Root.Add(Ui.Row(buy, qty).Gap(8).Padding(40));
     }
 
-    // docs/ui-guide.md line 533
+    // docs/ui-guide.md line 535
     public static void Run22(UiTree ui, KitHost host, GuideGame game)
     {
         host.Glyphs.Bind("confirm", keyboard: "Enter", mouse: "left", gamepad: "a")
@@ -406,7 +406,7 @@ internal static class Snippets
         ui.Root.Add(prompt);
     }
 
-    // docs/ui-guide.md line 547
+    // docs/ui-guide.md line 549
     public static void Run23(UiTree ui, KitHost host, GuideGame game)
     {
         var row = FocusHelpers.FocusGroup(Ui.Row(UiKit.Button("A", () => { }, "a"), UiKit.Button("B", () => { }, "b"), UiKit.Button("C", () => { }, "c")), horizontal: true, wrap: true);
@@ -415,7 +415,7 @@ internal static class Snippets
         FocusHelpers.FocusDefault(ui, ui.Root);       // call when a screen opens, so a controller player never starts with nothing focused
     }
 
-    // docs/ui-guide.md line 621
+    // docs/ui-guide.md line 623
     public static void Run25(UiTree ui, KitHost host, GuideGame game)
     {
         // 1. Start from a ready-made theme with a few changes.
@@ -430,7 +430,7 @@ internal static class Snippets
             .Rule(".market .kit-row.selected", s => s.Var("background-color", "--kit-accent")));
     }
 
-    // docs/ui-guide.md line 686
+    // docs/ui-guide.md line 688
     public static void Run27(UiTree ui, KitHost host, GuideGame game)
     {
         var t = new ScreenTest();
