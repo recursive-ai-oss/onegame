@@ -135,8 +135,8 @@ public sealed class Cluster
         {
             foreach (var replica in node.ReplicaScopes)
             {
-                var authority = replica.Link.Server.FindAuthority(replica.Id);
-                if (authority is null || replica.State != ReplicaState.Live)
+                var authority = replica.Link.Server?.FindAuthority(replica.Id);
+                if (authority is null || replica.Link.IsRemote || replica.State != ReplicaState.Live)
                 {
                     continue;
                 }

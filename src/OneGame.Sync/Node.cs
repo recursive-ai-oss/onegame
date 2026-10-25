@@ -24,7 +24,7 @@ internal static class Msg
 /// <summary>The client end of a connection to another node: where a node sends subscriptions and commands, and receives snapshots and frames.</summary>
 public sealed class Link
 {
-    internal Link(Node owner, Node server, IMessageChannel channel)
+    internal Link(Node owner, Node? server, IMessageChannel channel)
     {
         Owner = owner;
         Server = server;
@@ -34,11 +34,14 @@ public sealed class Link
     /// <summary>The node that holds this end.</summary>
     public Node Owner { get; }
 
-    /// <summary>The node at the other end.</summary>
-    public Node Server { get; }
+    /// <summary>The node at the other end when it lives in this process; null for a link to a remote authority (<see cref="Node.ConnectVia"/>).</summary>
+    public Node? Server { get; }
 
-    /// <summary>The server's end of the same connection.</summary>
+    /// <summary>The server's end of the same connection. Only set when the server is in this process; check <see cref="IsRemote"/> first, it is null on a remote link.</summary>
     public Connection Connection { get; internal set; } = null!;
+
+    /// <summary>True when the authority is in another process, reached over a channel from <see cref="Node.ConnectVia"/>. Hashes are then compared in-band only.</summary>
+    public bool IsRemote => Server is null;
 
     /// <summary>The channel. Tests may send raw bytes through it to play a misbehaving peer.</summary>
     public IMessageChannel Channel { get; }
@@ -249,6 +252,33 @@ public sealed class Node
         _replicas.Add(replica);
         replica.RequestSnapshot();
         return replica;
+    }
+
+    /// <summary>
+    /// Client side of a connection to an authority in another process: this node talks to it over <paramref name="channel"/> (a network
+    /// transport's channel). Subscribe through the returned link as with <see cref="ConnectTo(Node, Trust, string)"/>. The trust is the
+    /// authority's decision, made when it accepts the channel; nothing is passed here.
+    /// </summary>
+    /// <param name="channel">A connected channel to the remote node.</param>
+    public Link ConnectVia(IMessageChannel channel)
+    {
+        var link = new Link(this, null, channel);
+        _links.Add(link);
+        return link;
+    }
+
+    /// <summary>
+    /// Server side: a channel accepted from a listener becomes a connection with the given trust. The remote node can then subscribe and
+    /// command as <paramref name="trust"/> allows; <see cref="Pump"/> reads its messages.
+    /// </summary>
+    /// <param name="channel">The accepted channel.</param>
+    /// <param name="trust">What the peer may read, command and own, and who it is.</param>
+    /// <param name="name">Name for reports.</param>
+    public Connection Accept(IMessageChannel channel, Trust trust, string? name = null)
+    {
+        var connection = new Connection(this, _nextConnection++, name ?? "peer" + _nextConnection.ToString(CultureInfo.InvariantCulture), trust, channel);
+        _connections.Add(connection);
+        return connection;
     }
 
     /// <summary>

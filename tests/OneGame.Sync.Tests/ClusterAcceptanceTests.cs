@@ -166,7 +166,7 @@ public class ClusterAcceptanceTests
             {
                 foreach (var p in new[] { seat.InGame, seat.InBank })
                 {
-                    var authority = p.Link.Server.FindAuthority(p.Replica.Id)!;
+                    var authority = p.Link.Server!.FindAuthority(p.Replica.Id)!;
                     if (p.Replica.State == ReplicaState.Live)
                     {
                         // The replica holds exactly the view the authority computes for this connection, every tick.

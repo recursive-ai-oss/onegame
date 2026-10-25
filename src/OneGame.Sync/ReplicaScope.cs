@@ -185,7 +185,7 @@ public sealed class ReplicaScope
                 var reason = r.ReadByte();
                 if (r.Ok && command <= uint.MaxValue && sequence <= uint.MaxValue)
                 {
-                    Node.FileRefusal(new CommandRefusal(Id, Link.Connection.Id, new EntityId(entity), (uint)command, (RefusalReason)reason));
+                    Node.FileRefusal(new CommandRefusal(Id, (Link.IsRemote ? 0 : Link.Connection.Id), new EntityId(entity), (uint)command, (RefusalReason)reason));
                     Answer((uint)sequence, new CommandResult(Id, (uint)sequence, new EntityId(entity), (uint)command, CommandVerdict.Refused, (RefusalReason)reason, null));
                 }
 
@@ -225,7 +225,7 @@ public sealed class ReplicaScope
                     State = ReplicaState.Revoked;
                     World.ClearReplica();
                     DropPending();
-                    Node.FileRefusal(new CommandRefusal(Id, Link.Connection.Id, EntityId.None, 0, (RefusalReason)reason));
+                    Node.FileRefusal(new CommandRefusal(Id, (Link.IsRemote ? 0 : Link.Connection.Id), EntityId.None, 0, (RefusalReason)reason));
                 }
 
                 break;
@@ -235,7 +235,7 @@ public sealed class ReplicaScope
             {
                 var reason = r.ReadByte();
                 State = ReplicaState.Refused;
-                Node.FileRefusal(new CommandRefusal(Id, Link.Connection.Id, EntityId.None, 0, (RefusalReason)reason));
+                Node.FileRefusal(new CommandRefusal(Id, (Link.IsRemote ? 0 : Link.Connection.Id), EntityId.None, 0, (RefusalReason)reason));
                 break;
             }
 

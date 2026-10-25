@@ -306,3 +306,48 @@ public class DigestTimeoutTests
         Assert.True(report.DetailAvailable);
     }
 }
+
+public class RemoteLinkTests
+{
+    [Fact]
+    public void AChannelAcceptedByTheServerAndOneConnectedViaTheClientWorkEndToEnd()
+    {
+        // Two ends of a pipe stand in for a network transport's channels: no Link.Server, no shared Connection object.
+        var options = new ClusterOptions { DriftCheckInterval = 1, FatalDrift = true };
+        var cluster = new Cluster(options);
+        var host = cluster.AddNode("host");
+        var client = cluster.AddNode("client");
+        var scope = cluster.AddScope(host, new ScopeId(1), Arena.Match());
+        var (clientEnd, serverEnd) = Loopback.CreatePair();
+        var connection = host.Accept(serverEnd, Trust.Owner(scope.Id).As(1, 10), "remote-ada");
+        var link = client.ConnectVia(clientEnd);
+        Assert.True(link.IsRemote);
+        Assert.Null(link.Server);
+        Assert.Null((object?)link.Connection);
+        var replica = client.Subscribe(link, scope.Id, Arena.Empty(WorldRole.Replica));
+        cluster.Step(20);
+
+        Assert.Equal(ReplicaState.Live, replica.State);
+        Assert.Equal(scope.ViewHashFor(connection), replica.ViewHash);
+        Assert.Equal("ruby-hoard-7731", Rig.HeroOf(replica, 1).Stash);
+        Assert.Equal(string.Empty, Rig.HeroOf(replica, 2).Stash);
+
+        Rig.HeroOf(replica, 1).Send.Spend(1_000_000);
+        var rejected = replica.LastSequence;
+        Rig.HeroOf(replica, 2).Send.Rename("nope");
+        var refused = replica.LastSequence;
+        cluster.Step(3);
+        Assert.Equal("not enough gold", replica.Results.Single(r => r.Sequence == rejected).Reason);
+        Assert.Equal(RefusalReason.NotOwner, replica.Results.Single(r => r.Sequence == refused).Refusal);
+        Assert.Contains(client.Refusals, r => r.Reason == RefusalReason.NotOwner && r.Connection == 0);
+
+        // A trust change on the accepted connection reaches the remote replica; the in-process drift check skips remote links.
+        connection.Trust = Trust.Owner(scope.Id).As(2, 20);
+        cluster.Step(5);
+        Assert.Equal("emerald-cache-2208", Rig.HeroOf(replica, 2).Stash);
+        Assert.Equal(string.Empty, Rig.HeroOf(replica, 1).Stash);
+        Assert.Empty(cluster.CheckReplicas());
+        Assert.Empty(cluster.DriftReports);
+        Assert.Equal(scope.ViewHashFor(connection), replica.ViewHash);
+    }
+}
