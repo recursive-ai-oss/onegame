@@ -15,7 +15,7 @@ public enum GltfAlphaMode
 
 /// <summary>A KHR_texture_transform: offset, rotation and scale of the texture coordinates.</summary>
 /// <param name="Offset">Offset in texture-size units.</param>
-/// <param name="Rotation">Counter-clockwise rotation of the coordinates, in radians.</param>
+/// <param name="Rotation">Rotation in radians; positive turns the image clockwise on screen (see <see cref="ToMatrix"/>).</param>
 /// <param name="Scale">Scale of the coordinates.</param>
 public readonly record struct TextureTransform(Vector2 Offset, float Rotation, Vector2 Scale)
 {
@@ -25,10 +25,12 @@ public readonly record struct TextureTransform(Vector2 Offset, float Rotation, V
     /// <summary>The matrix <c>T * R * S</c> of the extension, in row-vector convention: <c>uv' = uv * M</c>.</summary>
     public Matrix3x2 ToMatrix()
     {
-        // KHR_texture_transform: matrix = translation * rotation * scale applied to column vectors, with rotation = [cos -sin; sin cos].
+        // KHR_texture_transform: matrix = translation * rotation * scale. Texture space has v pointing down, so the extension's
+        // counter-clockwise rotation of the coordinates (the image turns clockwise on screen) is x' = c*x + s*y, y' = -s*x + c*y.
+        // The TextureTransformTest sample marks this direction: its arrow must point at the green marker.
         var c = MathF.Cos(Rotation);
         var s = MathF.Sin(Rotation);
-        return new Matrix3x2(c * Scale.X, s * Scale.X, -s * Scale.Y, c * Scale.Y, Offset.X, Offset.Y);
+        return new Matrix3x2(c * Scale.X, -s * Scale.X, s * Scale.Y, c * Scale.Y, Offset.X, Offset.Y);
     }
 }
 

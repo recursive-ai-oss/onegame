@@ -1,5 +1,5 @@
 // Resamples an equirectangular panorama into one mip of a cube map (faces are array layers).
-// Panorama convention: v = 0 is straight up, u = 0.5 is the -Z direction, u grows towards +X.
+// Panorama convention: v = 0 is straight up, u = 0.5 is the +Z direction, u grows towards +X.
 
 #include "Common.hlsli"
 
@@ -24,6 +24,6 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     float u = (id.x + 0.5) / size * 2.0 - 1.0;
     float v = (id.y + 0.5) / size * 2.0 - 1.0;
     float3 d = CubeDir(id.z, u, v);
-    float2 uv = float2(atan2(d.x, -d.z) / (2.0 * PI) + 0.5, acos(clamp(d.y, -1.0, 1.0)) / PI);
+    float2 uv = float2(atan2(d.x, -d.z) / (2.0 * PI) + 1.0, acos(clamp(d.y, -1.0, 1.0)) / PI);
     OutCube[id] = float4(Equirect.SampleLevel(Samp, uv, 0).rgb, 1.0);
 }

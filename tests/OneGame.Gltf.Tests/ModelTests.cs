@@ -91,14 +91,14 @@ public class ModelTests
         Assert.Null(m.Materials[1].Clearcoat);
         Assert.Equal(1.5f, m.Materials[1].Ior);
 
-        // The extension's texCoord replaces the one on the texture info; the matrix is T * R * S for column vectors.
+        // The extension's texCoord replaces the one on the texture info; the matrix is T * R * S for column vectors, with the rotation that turns the image clockwise on screen (v points down).
         var t = c.BaseColorTexture!;
         Assert.Equal(0, t.TexCoord);
         Assert.Equal(new Vector2(0.5f, 0.25f), t.Transform!.Value.Offset);
         var uv = Vector2.Transform(new Vector2(1, 0), t.UvMatrix);
-        // (1,0) scaled to (2,0), rotated a quarter turn counter-clockwise to (0,2), moved by the offset: (0.5, 2.25).
+        // (1,0) scaled to (2,0), rotated a quarter turn (v down) to (0,-2), moved by the offset: (0.5, -1.75).
         Assert.Equal(0.5f, uv.X, 4);
-        Assert.Equal(2.25f, uv.Y, 4);
+        Assert.Equal(-1.75f, uv.Y, 4);
 
         // Colour and data usage of the one image: base colour and specular colour are sRGB, the coat normal is data.
         Assert.True(m.Images[0].UsedAsColor);

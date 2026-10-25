@@ -31,7 +31,7 @@ public sealed class HdrException : Exception
 
 /// <summary>
 /// A floating-point panorama in linear RGB, rows from the top. Used as the source of an environment: the panorama maps direction
-/// <c>d</c> (+Y up) to <c>u = atan2(d.x, -d.z) / 2pi + 0.5</c> and <c>v = acos(d.y) / pi</c>, so the middle of the image looks down -Z.
+/// <c>d</c> (+Y up) to <c>u = atan2(d.x, -d.z) / 2pi + 1 (wrapping)</c> and <c>v = acos(d.y) / pi</c>, so the middle of the image looks down +Z (towards the front of a glTF model seen from the default camera).
 /// </summary>
 public sealed class HdrImage
 {
@@ -63,9 +63,11 @@ public sealed class HdrImage
     /// <summary>Linear red, green, blue per pixel, rows from the top.</summary>
     public float[] Rgb { get; }
 
+    private static float Wrap(float u) => u - MathF.Floor(u);
+
     /// <summary>The panorama coordinates of a direction (see the type remarks).</summary>
     public static Vector2 DirectionToUv(Vector3 d) =>
-        new(MathF.Atan2(d.X, -d.Z) / (2f * MathF.PI) + 0.5f, MathF.Acos(Math.Clamp(d.Y, -1f, 1f)) / MathF.PI);
+        new(Wrap(MathF.Atan2(d.X, -d.Z) / (2f * MathF.PI) + 1f), MathF.Acos(Math.Clamp(d.Y, -1f, 1f)) / MathF.PI);
 
     /// <summary>
     /// A procedural sky: a gradient from <paramref name="ground"/> below the horizon through <paramref name="horizon"/> to
@@ -91,7 +93,7 @@ public sealed class HdrImage
             for (var x = 0; x < width; x++)
             {
                 var phi = (((x + 0.5f) / width) - 0.5f) * 2f * MathF.PI;
-                var d = new Vector3(MathF.Sin(theta) * MathF.Sin(phi), MathF.Cos(theta), -MathF.Sin(theta) * MathF.Cos(phi));
+                var d = new Vector3(-MathF.Sin(theta) * MathF.Sin(phi), MathF.Cos(theta), MathF.Sin(theta) * MathF.Cos(phi));
                 var t = Math.Clamp(MathF.Abs(d.Y), 0f, 1f);
                 var c = d.Y >= 0 ? Vector3.Lerp(horizon, zenith, MathF.Sqrt(t)) : Vector3.Lerp(horizon, ground, MathF.Sqrt(t));
                 if (sunDirection is not null && Vector3.Dot(d, sun) > cosSun)
