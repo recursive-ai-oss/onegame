@@ -13,6 +13,9 @@
     <Compile Include="../OneGame.Sync.Tests/Scenario.cs" Link="Sync/Scenario.cs" />
     <Compile Include="../OneGame.Sync.Tests/Arena.cs" Link="Sync/Arena.cs" />
     <Compile Include="../OneGame.Sync.Tests/Rig.cs" Link="Sync/Rig.cs" />
+    <Compile Include="../OneGame.Sync.Tests/Realm.cs" Link="Sync/Realm.cs" />
+    <Compile Include="../OneGame.Sync.Tests/HandoffRig.cs" Link="Sync/HandoffRig.cs" />
+    <Compile Include="../OneGame.Sync.Tests/RelayRig.cs" Link="Sync/RelayRig.cs" />
     <Compile Include="../OneGame.Sync.Tests/Fuzz/SyncFuzzTargets.cs" Link="Sync/SyncFuzzTargets.cs" />
     <Compile Include="../OneGame.Net.Tests/Fuzz/NetFuzzTargets.cs" Link="Net/NetFuzzTargets.cs" />
     <ProjectReference Include="../../src/OneGame.Net/OneGame.Net.csproj" />
