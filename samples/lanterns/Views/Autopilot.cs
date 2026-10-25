@@ -10,17 +10,15 @@ namespace Lanterns.Views;
 internal sealed class Autopilot(Session session)
 {
     private const int GatherGoal = 3;
-    private const int ProposeEveryFrames = 900;
+    private const int ProposeEveryTicks = 300;
 
     private uint _island;
     private int _baseline;
-    private long _frames;
-    private long _lastPropose = -ProposeEveryFrames;
+    private long _lastPropose = -ProposeEveryTicks;
     private int _lastStatus;
 
     public void Step()
     {
-        _frames++;
         if (session.Me is not { } me)
         {
             return;
@@ -62,6 +60,9 @@ internal sealed class Autopilot(Session session)
         return best is null ? (bridgeX, bridgeY) : (best.X, best.Y);
     }
 
+    // Server ticks, so the pace does not depend on how fast frames are drawn.
+    private long Now => session.ReplicaOf(session.Scope)?.LastTick ?? 0;
+
     private void Swaps(Player me)
     {
         if (session.MyAccount is not { } account)
@@ -75,12 +76,12 @@ internal sealed class Autopilot(Session session)
         }
         else if (account.Status == SwapStatus.None || account.Status >= SwapStatus.Done)
         {
-            if (_frames - _lastPropose >= ProposeEveryFrames && me.Total >= 2 && Colors(me) is var (most, least))
+            if (Now - _lastPropose >= ProposeEveryTicks && me.Total >= 2 && Colors(me) is var (most, least))
             {
                 var other = session.Board().FirstOrDefault(b => b.Id != me.Owner && b.Island != 0 && b.Island != me.Island);
                 if (other.Id != 0)
                 {
-                    _lastPropose = _frames;
+                    _lastPropose = Now;
                     account.Send.Propose((int)other.Id, most, least);
                 }
             }

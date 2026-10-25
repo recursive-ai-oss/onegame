@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <None Include="../scenarios/**" CopyToOutputDirectory="PreserveNewest" LinkBase="scenarios" />
+    <None Include="../cluster/**" CopyToOutputDirectory="PreserveNewest" LinkBase="cluster" />
   </ItemGroup>
 
 </Project>
