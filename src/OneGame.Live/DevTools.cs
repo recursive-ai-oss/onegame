@@ -66,7 +66,7 @@ internal sealed class DevTools : IDevTools
                 return Scenarios(game, surface, args, output, json);
             }
 
-            var recorder = args.Has("record") ? game.StartRecording() : null;
+            var recorder = args.Has("record") ? game.StartSessionRecording() : null;
             game.Step((int)Math.Min(args.GetInt("after", args.GetInt("frames", 0)), int.MaxValue));
             string? message = null;
             double? scale = double.TryParse(args.Get("scale"), NumberStyles.Float, CultureInfo.InvariantCulture, out var sc) ? sc : null;
@@ -88,7 +88,7 @@ internal sealed class DevTools : IDevTools
                 var recording = recorder.Stop();
                 var recordPath = Path.GetFullPath(args.Get("record") ?? throw new FormatException("--record needs a file name."), surface.OutputDirectory);
                 RecordingFile.Save(recording, recordPath);
-                message = JsonSerializer.Serialize(new RecordSummary(recordPath, (int)(recording.EndTick - recording.StartTick), recording.Commands.Count), LiveJson.Default.RecordSummary);
+                message = JsonSerializer.Serialize(new RecordSummary(recordPath, (int)recording.Ticks, recording.Commands, recording.Segments.Count), LiveJson.Default.RecordSummary);
             }
 
             Print(output, json, message ?? surface.Call("hash"));
@@ -172,7 +172,7 @@ internal sealed class DevTools : IDevTools
         var width = game.Window.Width;
         var height = game.Window.Height;
         var results = new List<ScenarioResult>();
-        Recorder? recorder = null;
+        SessionRecorder? recorder = null;
         foreach (var file in files)
         {
             // Every scenario starts from the same place: a fresh world, the first screen, the original window size.
@@ -180,37 +180,20 @@ internal sealed class DevTools : IDevTools
             game.OpenScreen(main);
             game.Resize(width, height);
             var scenario = ScenarioParser.Load(file);
-            // A fixture, snapshot or reset in the scenario replaces the world and its scope, which orphans a recorder
-            // attached to the old one. Restart on every replacement so the recording starts from the state the steps begin in.
-            Action<World>? restart = null;
+            // A fixture, snapshot or reset in the scenario replaces the world; the session recorder follows it and keeps
+            // every world as a segment, so the whole run replays.
             if (args.Has("record") && files.Count == 1)
             {
-                recorder = game.StartRecording();
-                restart = _ =>
-                {
-                    recorder.Stop();
-                    recorder = game.StartRecording();
-                };
-                game.WorldReplaced += restart;
+                recorder = game.StartSessionRecording();
             }
 
-            try
-            {
-                results.Add(new ScenarioRunner(surface, options).Run(scenario));
-            }
-            finally
-            {
-                if (restart is not null)
-                {
-                    game.WorldReplaced -= restart;
-                }
-            }
+            results.Add(new ScenarioRunner(surface, options).Run(scenario));
         }
 
         if (recorder is not null)
         {
             var recording = recorder.Stop();
-            if (recording.EndTick == recording.StartTick && results.Exists(r => r.Tick > 0))
+            if (recording.Ticks == 0 && results.Exists(r => r.Tick > 0))
             {
                 throw new ControlException("record_empty", "The scenario ran ticks but the recording holds none.");
             }
@@ -267,14 +250,14 @@ internal sealed class DevTools : IDevTools
     private static int Replay(GameInstance game, GameArgs args, TextWriter output, bool json)
     {
         var path = args.Get("replay") ?? throw new FormatException("--replay needs a recording file.");
-        var recording = RecordingFile.Load(path);
+        var recording = RecordingFile.LoadSession(path);
         var result = game.Replay(recording);
-        var ticks = (int)(recording.EndTick - recording.StartTick);
-        if (ticks == 0 && recording.Commands.Count == 0)
+        var ticks = (int)recording.Ticks;
+        if (ticks == 0 && recording.Commands == 0)
         {
             // Nothing was compared, so "identical" would claim more than was checked.
             output.WriteLine(json
-                ? JsonSerializer.Serialize(new ReplaySummary(false, false, 0, 0, null, null, null, result.FinalHash.ToString("x16", CultureInfo.InvariantCulture)), LiveJson.Default.ReplaySummary)
+                ? JsonSerializer.Serialize(new ReplaySummary(false, false, 0, 0, null, null, null, result.FinalHash.ToString("x16", CultureInfo.InvariantCulture), recording.Segments.Count, null), LiveJson.Default.ReplaySummary)
                 : "replay EMPTY: the recording holds no ticks and no commands, so nothing was compared");
             return ExitCodes.Failed;
         }
@@ -282,13 +265,14 @@ internal sealed class DevTools : IDevTools
         var final = result.FinalHash.ToString("x16", CultureInfo.InvariantCulture);
         var d = result.Divergence;
         var summary = new ReplaySummary(
-            result.Ok, result.Ok, ticks, recording.Commands.Count, d?.Tick,
-            d?.ExpectedHash.ToString("x16", CultureInfo.InvariantCulture), d?.ActualHash.ToString("x16", CultureInfo.InvariantCulture), final);
+            result.Ok, result.Ok, ticks, recording.Commands, d?.Tick,
+            d?.ExpectedHash.ToString("x16", CultureInfo.InvariantCulture), d?.ActualHash.ToString("x16", CultureInfo.InvariantCulture), final,
+            recording.Segments.Count, d is null ? null : result.Segment);
         output.WriteLine(json
             ? JsonSerializer.Serialize(summary, LiveJson.Default.ReplaySummary)
             : result.Ok
-                ? $"replay identical: {ticks} ticks, {recording.Commands.Count} commands, final hash {final}"
-                : $"replay DIFFERS: {d}");
+                ? $"replay identical: {ticks} ticks, {recording.Commands} commands, final hash {final}"
+                : $"replay DIFFERS (segment {result.Segment} of {recording.Segments.Count}): {d}");
         return result.Ok ? ExitCodes.Ok : ExitCodes.Failed;
     }
 }
@@ -304,11 +288,11 @@ internal sealed record CaptureRequest(string Path, string? Size, double? Scale);
 
 internal sealed record SequenceRequest(string Dir, int Count, int TicksPerFrame, string? Size, double? Scale);
 
-internal sealed record RecordSummary(string Path, int Ticks, int Commands);
+internal sealed record RecordSummary(string Path, int Ticks, int Commands, int Segments);
 
 internal sealed record LiveHello(bool Live, string Socket, int Pid, string Game, string Protocol);
 
-internal sealed record ReplaySummary(bool Ok, bool Identical, int Ticks, int Commands, long? Tick, string? Expected, string? Actual, string FinalHash);
+internal sealed record ReplaySummary(bool Ok, bool Identical, int Ticks, int Commands, long? Tick, string? Expected, string? Actual, string FinalHash, int Segments, int? Segment);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(string))]

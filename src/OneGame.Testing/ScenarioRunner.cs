@@ -240,6 +240,12 @@ public sealed class ScenarioRunner
             case StepKind.Snapshot:
                 LoadSnapshot(s.Path!, ctx.BaseDir);
                 break;
+            case StepKind.Reset:
+                _surface.Call("reset", Obj(("seed", s.Text)));
+                break;
+            case StepKind.UiScale:
+                _surface.Call("ui_scale", s.Scale is { } scale ? Obj(("scale", scale)) : Obj(("reset", true)));
+                break;
             case StepKind.Step:
                 _surface.Call("step", Obj(("frames", s.Count)));
                 break;

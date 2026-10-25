@@ -26,6 +26,24 @@ public class GpuCaptureTests
     private static TestOptions Options() => new() { Width = 320, Height = 200, Gpu = GpuMode.Required };
 
     [Fact]
+    public void ARendererCaptureWithAUiScaleOverrideEqualsOneAtThatWindowScale()
+    {
+        Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
+        using var native = TestCluster.Start(new FontedShopGame(), Options() with { Scale = 1.5f });
+        using var overridden = TestCluster.Start(new FontedShopGame(), Options());
+        overridden.Client.Game.UiScaleOverride = 1.5f;
+
+        // Draw at the window scale first, so the glyph and art atlases hold entries for scale 1 and must not leak into 1.5.
+        overridden.Client.Capture("320x200", 1f);
+        var a = native.Client.Capture("320x200", native.Client.Game.UiScale);
+        var b = overridden.Client.Capture("320x200", overridden.Client.Game.UiScale);
+        Assert.Equal("render2d", overridden.Client.Game.Stage.Name);
+        Assert.Equal(0, ImageCompare.Compare(a, b).DifferingPixels);
+        Assert.NotEqual(0, ImageCompare.Compare(a, overridden.Client.Capture("320x200", 1f)).DifferingPixels);
+        Assert.Empty(overridden.Client.Game.TakeGpuValidationMessages());
+    }
+
+    [Fact]
     public void TheUiIsDrawnByTheRenderer()
     {
         Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");

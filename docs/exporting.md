@@ -70,6 +70,16 @@ tools/steamrt.sh run <unpacked-export-folder> /game/run.sh --headless --frames 6
 
 `run` is the check for the Steam Deck: the same runtime image, the game folder read-only at `/game`, no network. A passing run prints the same state hash as `onegame run --headless --frames 60 --json` on the development machine. It does not replace a run on the device (controller, display, Vulkan driver).
 
+A windowed run needs a display and a graphics driver, and the sandbox has neither by default (no network, no `/tmp/.X11-unix`, and the image holds a Vulkan loader but no driver; Steam supplies the driver on a real system). Both are opt-in:
+
+```
+tools/steamrt.sh run --x11 --nvidia <folder> /game/run.sh --seed 7 --frames 200 --json    # DISPLAY=:N must name a local X server, e.g. Xvfb
+```
+
+- `--x11` binds the socket named by `$DISPLAY` (and `$XAUTHORITY`) and the host's keyboard layout data (`/usr/share/X11/xkb`, which the image lacks and which opening any window needs). `--wayland` does the same for `$WAYLAND_DISPLAY` in `$XDG_RUNTIME_DIR`.
+- `--nvidia` binds the NVIDIA device nodes and driver libraries and points the Vulkan loader at them. Only this driver works: its libraries are built for an old glibc, while a Mesa (lavapipe, RADV) from a current host needs a newer glibc than the runtime's 2.31 and cannot load. Without `--nvidia` a windowed run opens its window but has no device, so it draws nothing.
+- Time-dependent state differs between a windowed run (paced by the clock) and a headless one, so compare the hash at the same tick with the same `--seed`: a windowed run that ends at tick N prints the hash `--headless --frames N` prints.
+
 ## Shaders
 
 The 2D renderer's shaders are HLSL compiled into the engine during its build, so they travel inside the program: an export draws with the real renderer (`"renderer":"2d"`) and needs no shader files. Shaders of your own game are not part of the export layout today; a `shaders/` folder in the project is listed in `skipped` like any other folder that is not content.

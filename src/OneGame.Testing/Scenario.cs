@@ -56,6 +56,12 @@ public enum StepKind
     /// <summary>Load a snapshot file.</summary>
     Snapshot,
 
+    /// <summary>Start a new game, optionally with another seed.</summary>
+    Reset,
+
+    /// <summary>Set the UI scale override, or clear it.</summary>
+    UiScale,
+
     /// <summary>Run frames.</summary>
     Step,
 
@@ -457,7 +463,7 @@ public static class ScenarioParser
 
         public ScenarioStep Step(YamlNode node)
         {
-            var (verb, target) = SplitVerb(node, "a step is a mapping with one key, the verb: click, invoke, press, type, nav, command, set, screen, fixture, snapshot, step, wheel, capture, wait or expect (plus node: for a cluster)");
+            var (verb, target) = SplitVerb(node, "a step is a mapping with one key, the verb: click, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, wait or expect (plus node: for a cluster)");
             var step = StepCore(verb);
             return target is null ? step : step with { Node = target };
         }
@@ -514,6 +520,17 @@ public static class ScenarioParser
                     return new ScenarioStep(StepKind.Fixture, line) { Text = Text(v, "fixture") };
                 case "snapshot":
                     return new ScenarioStep(StepKind.Snapshot, line) { Path = Text(v, "snapshot") };
+                case "reset":
+                    // reset: 77 or reset: {seed: 77}; reset: {} starts again with the current seed.
+                    var rseed = v.Kind == YamlNodeKind.Scalar ? Text(v, "reset") : Map(v, ["seed"], "reset").TryGetValue("seed", out var rs) ? Text(rs, "seed") : null;
+                    return rseed is null || ulong.TryParse(rseed, NumberStyles.None, CultureInfo.InvariantCulture, out _)
+                        ? new ScenarioStep(StepKind.Reset, line) { Text = rseed }
+                        : throw Error(v, "reset takes a whole number seed");
+                case "ui-scale":
+                    var usText = Text(v, "ui-scale");
+                    return usText == "auto"
+                        ? new ScenarioStep(StepKind.UiScale, line)
+                        : new ScenarioStep(StepKind.UiScale, line) { Scale = Number(v, "ui-scale") };
                 case "step":
                     return new ScenarioStep(StepKind.Step, line) { Count = Whole(v, "step") };
                 case "command":
@@ -560,7 +577,7 @@ public static class ScenarioParser
                         TimeoutMs = wt.TryGetValue("timeout", out var wo) ? Whole(wo, "timeout") : 30_000,
                     };
                 default:
-                    throw Error(entry.Key, $"unknown step '{verb}'; use click, invoke, press, type, nav, command, set, screen, fixture, snapshot, step, wheel, capture, wait or expect");
+                    throw Error(entry.Key, $"unknown step '{verb}'; use click, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, wait or expect");
             }
         }
 

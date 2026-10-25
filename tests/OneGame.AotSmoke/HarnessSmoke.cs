@@ -76,6 +76,25 @@ internal static class HarnessSmoke
         using var fresh = GameInstance.Create(new SmokeGame(), new GameOptions { Headless = true, Gpu = GpuMode.Off });
         var replay = fresh.Replay(recording!);
 
+        // A session across a reset and a state patch, saved and replayed; the UI scale override; every controller button by name.
+        using var session = GameInstance.Create(new SmokeGame(), new GameOptions { Headless = true, Gpu = GpuMode.Off });
+        var sessionControl = new ControlSurface(session);
+        var sessionRecorder = session.StartSessionRecording();
+        session.Step(3);
+        sessionControl.Call("reset", """{"seed":"9"}""");
+        session.Step(3);
+        sessionControl.Call("ui_scale", """{"scale":1.5}""");
+        sessionControl.Call("input_nav", """{"action":"start"}""");
+        var sessionPath = Path.Combine(Path.GetTempPath(), "aot-smoke-" + Environment.ProcessId + ".ogrp");
+        RecordingFile.Save(sessionRecorder.Stop(), sessionPath);
+        using var sessionFresh = GameInstance.Create(new SmokeGame(), new GameOptions { Headless = true, Gpu = GpuMode.Off });
+        var sessionReplay = sessionFresh.Replay(RecordingFile.LoadSession(sessionPath));
+        File.Delete(sessionPath);
+        if (!sessionReplay.Ok || session.UiScale != 1.5f)
+        {
+            throw new InvalidOperationException("The session did not replay.");
+        }
+
         // The MCP messages.
         var mcp = new McpProtocol(surface);
         var tools = mcp.Handle("""{"jsonrpc":"2.0","id":1,"method":"tools/list"}""");

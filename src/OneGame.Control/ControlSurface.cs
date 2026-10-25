@@ -100,6 +100,7 @@ public sealed class ControlSurface : IControlEndpoint
         "input_composition" => Json(InputComposition(a), ControlJson.Default.InputResult),
         "clipboard_get" => Json(ClipboardGet(a), ControlJson.Default.ClipboardResult),
         "clipboard_set" => Json(ClipboardSet(a), ControlJson.Default.ClipboardResult),
+        "ui_scale" => Json(UiScale(a), ControlJson.Default.UiScaleResult),
         "ui_tree" => new ControlResult(UiTree(a)),
         "ui_query" => new ControlResult(UiQuery(a)),
         "ui_invoke" => Json(UiInvoke(a), ControlJson.Default.InvokeResult),
@@ -165,7 +166,7 @@ public sealed class ControlSurface : IControlEndpoint
     private InfoResult Info() => new(
         Game.Definition.Name, Game.World.Tick, Game.Frame, HashText(), Game.Window.Width, Game.Window.Height, Game.UiScale,
         Game.Options.Headless, Game.CurrentScreen, Game.World.Entities.Count, [.. Game.ScreenNames], [.. Game.FixtureNames], Game.Stage.Name, Game.AdapterName, Game.DriftReports.Count,
-        Game.Platform.Backend.ToString().ToLowerInvariant(), Game.PresentedFrames);
+        Game.Platform.Backend.ToString().ToLowerInvariant(), Game.PresentedFrames, Game.UiScaleOverride);
 
     private StateResult Mutate(string op, Args a)
     {
@@ -296,7 +297,17 @@ public sealed class ControlSurface : IControlEndpoint
         var e = ResolveEntity(a.Str("entity"));
         var property = a.Required("property");
         var value = a.Required("value");
-        if (!e.TrySetFromText(property, value))
+        bool set;
+        try
+        {
+            set = Game.EditWorld(() => e.TrySetFromText(property, value));
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new ControlException("rejected", ex.Message, ex);
+        }
+
+        if (!set)
         {
             throw new ControlException("rejected", $"{e.TypeName}.{property} cannot be set to '{value}': the property is unknown, not a scalar, or the text does not parse. Properties: {PropertyNames(e)}.");
         }
@@ -493,24 +504,42 @@ public sealed class ControlSurface : IControlEndpoint
             _gamepad = inj.GamepadConnect("Harness Gamepad");
         }
 
-        var button = a.Required("action") switch
+        var action = a.Required("action");
+        if (!NavActions.TryParse(action, out var button))
         {
-            "up" => GamepadButton.DPadUp,
-            "down" => GamepadButton.DPadDown,
-            "left" => GamepadButton.DPadLeft,
-            "right" => GamepadButton.DPadRight,
-            "next" => GamepadButton.RightShoulder,
-            "previous" => GamepadButton.LeftShoulder,
-            "activate" => GamepadButton.South,
-            "cancel" => GamepadButton.East,
-            var other => throw new ControlException("bad_args", $"action is up, down, left, right, next, previous, activate or cancel, got '{other}'."),
-        };
+            throw new ControlException("bad_args", $"'{action}' is not a controller action. Use one of: {string.Join(", ", NavActions.Names)} (or a, b, x, y).");
+        }
+
         inj.GamepadButton(_gamepad, button, true);
         inj.GamepadButton(_gamepad, button, false);
         return Done();
     }
 
     // ---- ui ----
+
+    private UiScaleResult UiScale(Args a)
+    {
+        if (a.Bool("reset", false))
+        {
+            Game.UiScaleOverride = null;
+        }
+        else if (a.Has("scale"))
+        {
+            var scale = a.Double("scale", 0);
+            if (!(scale > 0 && scale <= 16))
+            {
+                throw new ControlException("bad_args", "scale must be above 0 and at most 16.");
+            }
+
+            Game.UiScaleOverride = (float)scale;
+        }
+        else if (a.IsNull("scale"))
+        {
+            Game.UiScaleOverride = null;
+        }
+
+        return new UiScaleResult(Game.UiScale, Game.UiScaleOverride, Game.WindowScale);
+    }
 
     private Element FindElement(Args a)
     {
@@ -775,6 +804,10 @@ internal readonly struct Args
             _ => throw new ControlException("bad_args", $"{name} must be a string."),
         };
     }
+
+    public bool Has(string name) => TryGet(name, out _);
+
+    public bool IsNull(string name) => _o.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Null;
 
     public string Required(string name) => Str(name) ?? throw new ControlException("bad_args", $"{name} is required.");
 

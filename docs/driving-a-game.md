@@ -28,7 +28,8 @@ steps:
   - step: 1                # frames
   - command: { entity: Counter, name: Increment, args: [5] }
   - set: { entity: Counter, property: Count, value: 40 }
-  - press: Tab             # keys, also: type: "text", nav: next, wheel, screen, fixture, snapshot, invoke
+  - press: Tab             # keys, also: type: "text", nav: next, wheel, screen, fixture, snapshot, reset: 77, ui-scale: 1.5, invoke
+  - nav: start             # a controller button: up down left right next previous activate cancel, or any button by name (start, back, west, north, x, y, left_stick...)
 expect:
   - state: { entity: Counter, property: Count, equals: 3 }
   - ui: { id: count, text: "Count: 3" }       # or selector + count/contains/visible/enabled/focused
@@ -65,7 +66,7 @@ onegame run --headless -- --scenario scenarios/click-button.yaml --record run.og
 onegame replay run.ogrp --json      # {"ok":true,"identical":true,"ticks":2,"commands":2,"finalHash":"..."}
 ```
 
-A replay that diverges exits 1 and names the first tick and the hashes. Recordings start from a snapshot, so a bug found in a live session can be replayed after the fix. With `--scenario ... --record`, the recording starts from the state the steps begin in: a scenario `fixture:`, `seed:` or `snapshot:` replaces the world, and the recording restarts on the new one. A replay of a recording with no ticks and no commands exits 1 (`identical:false`) because nothing was compared; `--record` itself fails with `record_empty` when a scenario ran ticks but the recording holds none.
+A replay that diverges exits 1 and names the first tick and the hashes. Recordings start from a snapshot, so a bug found in a live session can be replayed after the fix. A recording is a session: one segment per world the run used. A game that starts a new campaign (`Game.Reset(seed)`), a scenario `reset:`, `fixture:` or `snapshot:`, and a `set:` or `state_patch` (a change outside commands) each end a segment and start the next from the new state, seed included, so replay reproduces the run exactly; the replay summary reports `segments`, and a divergence names the `segment`. In code: `game.StartSessionRecording()`, `RecordingFile.Save(session, path)`, `game.Replay(session)`. A single-segment session is the plain recording file older tools read. A `set:` while commands are queued and a recording runs is rejected (step first). The scenario's own start state counts, so a scenario `fixture:`/`seed:`/`snapshot:` is recorded too. A replay of a recording with no ticks and no commands exits 1 (`identical:false`) because nothing was compared; `--record` itself fails with `record_empty` when a scenario ran ticks but the recording holds none.
 
 Ids may contain `/` (the kit makes ids like `qty/track`) and, in a selector, any other character escaped with a backslash (`#a\.b`). A selector that does not parse is a failed step or expectation with its line and reason (`bad_args: Bad selector ...`), never a crash.
 
