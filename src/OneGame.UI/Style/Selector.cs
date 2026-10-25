@@ -272,12 +272,35 @@ internal sealed class Selector
         return new Selector([.. parts], [.. child]);
     }
 
+    // Names may contain '/' (the kit generates ids like "qty/track") and any character
+    // escaped with a backslash, as in CSS identifiers (CSS Syntax 3 §4.3.7).
     private static string Ident(string s, ref int i, string whole)
     {
         var start = i;
-        while (i < s.Length && (char.IsLetterOrDigit(s[i]) || s[i] is '-' or '_'))
+        System.Text.StringBuilder? sb = null;
+        while (i < s.Length)
         {
-            i++;
+            var ch = s[i];
+            if (ch == '\\')
+            {
+                if (i + 1 >= s.Length)
+                {
+                    throw new UiStyleException($"Dangling '\\' at the end of selector '{whole}'.");
+                }
+
+                sb ??= new System.Text.StringBuilder(s[start..i]);
+                sb.Append(s[i + 1]);
+                i += 2;
+            }
+            else if (char.IsLetterOrDigit(ch) || ch is '-' or '_' or '/')
+            {
+                sb?.Append(ch);
+                i++;
+            }
+            else
+            {
+                break;
+            }
         }
 
         if (i == start)
@@ -285,7 +308,24 @@ internal sealed class Selector
             throw new UiStyleException($"Expected a name in selector '{whole}' at position {start}.");
         }
 
-        return s[start..i];
+        return sb?.ToString() ?? s[start..i];
+    }
+
+    /// <summary>Escapes an element id so it can follow '#' in a selector.</summary>
+    internal static string EscapeId(string id)
+    {
+        var sb = new System.Text.StringBuilder(id.Length + 4);
+        foreach (var ch in id)
+        {
+            if (!(char.IsLetterOrDigit(ch) || ch is '-' or '_' or '/'))
+            {
+                sb.Append('\\');
+            }
+
+            sb.Append(ch);
+        }
+
+        return sb.ToString();
     }
 
     private static void ParsePseudo(string s, ref int i, Compound c, string whole)

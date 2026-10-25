@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json.Serialization;
 using OneGame.Control;
 using OneGame.Host;
+using OneGame.UI;
 
 namespace OneGame.Testing;
 
@@ -147,7 +148,7 @@ public sealed class ScenarioRunner
         {
             return $"{ex.Code}: {ex.Message}";
         }
-        catch (Exception ex) when (ex is ArgumentException or KeyNotFoundException or InvalidDataException or IOException)
+        catch (Exception ex) when (ex is ArgumentException or UiStyleException or KeyNotFoundException or InvalidDataException or IOException)
         {
             return ex.Message;
         }
@@ -328,7 +329,7 @@ public sealed class ScenarioRunner
 
     private ExpectationResult CheckUi(ScenarioExpectation e, int index)
     {
-        var selector = e.Selector ?? "#" + e.Id;
+        var selector = e.Selector ?? UiTree.IdSelector(e.Id!);
         using var doc = JsonDocument.Parse(_surface.Call("ui_query", Obj(("selector", selector))));
         var items = doc.RootElement;
         var count = items.GetArrayLength();

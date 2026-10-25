@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Live control of a running game server over the same MCP surface as a development game: plugin and scope operations.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Server/OneGame.Server.csproj" />
+    <ProjectReference Include="../OneGame.Control/OneGame.Control.csproj" />
+    <ProjectReference Include="../OneGame.Live/OneGame.Live.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="System.Globalization" />
+    <Using Include="System.IO" />
+    <Using Include="System.Linq" />
+    <Using Include="System.Text.Json" />
+    <Using Include="OneGame.Core" />
+    <Using Include="OneGame.Sync" />
+    <Using Include="OneGame.Control" />
+    <InternalsVisibleTo Include="OneGame.Server.Tests" />
+  </ItemGroup>
+
+</Project>

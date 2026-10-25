@@ -31,6 +31,13 @@ public sealed partial class UiTree
         return null;
     }
 
+    /// <summary>Builds the selector that matches exactly the elements with this id, escaping characters a selector cannot hold bare. Ids containing a comma cannot be selected this way; use <see cref="Find"/>.</summary>
+    public static string IdSelector(string id)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        return "#" + Selector.EscapeId(id);
+    }
+
     /// <summary>Finds every element matching a selector (the same syntax as style rules), in document order.</summary>
     /// <exception cref="UiStyleException">The selector does not parse.</exception>
     public List<Element> Query(string selector)

@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Text.Json.Serialization;
 using OneGame.Control;
+using OneGame.Core;
 using OneGame.Host;
 using OneGame.Sync;
 using OneGame.Testing;
@@ -173,17 +174,42 @@ internal sealed class DevTools : IDevTools
             game.OpenScreen(main);
             game.Resize(width, height);
             var scenario = ScenarioParser.Load(file);
+            // A fixture, snapshot or reset in the scenario replaces the world and its scope, which orphans a recorder
+            // attached to the old one. Restart on every replacement so the recording starts from the state the steps begin in.
+            Action<World>? restart = null;
             if (args.Has("record") && files.Count == 1)
             {
                 recorder = game.StartRecording();
+                restart = _ =>
+                {
+                    recorder.Stop();
+                    recorder = game.StartRecording();
+                };
+                game.WorldReplaced += restart;
             }
 
-            results.Add(new ScenarioRunner(surface, options).Run(scenario));
+            try
+            {
+                results.Add(new ScenarioRunner(surface, options).Run(scenario));
+            }
+            finally
+            {
+                if (restart is not null)
+                {
+                    game.WorldReplaced -= restart;
+                }
+            }
         }
 
         if (recorder is not null)
         {
-            RecordingFile.Save(recorder.Stop(), Path.GetFullPath(args.Get("record") ?? throw new FormatException("--record needs a file name."), surface.OutputDirectory));
+            var recording = recorder.Stop();
+            if (recording.EndTick == recording.StartTick && results.Exists(r => r.Tick > 0))
+            {
+                throw new ControlException("record_empty", "The scenario ran ticks but the recording holds none.");
+            }
+
+            RecordingFile.Save(recording, Path.GetFullPath(args.Get("record") ?? throw new FormatException("--record needs a file name."), surface.OutputDirectory));
         }
 
         var failed = results.Count(r => !r.Passed);
@@ -238,6 +264,15 @@ internal sealed class DevTools : IDevTools
         var recording = RecordingFile.Load(path);
         var result = game.Replay(recording);
         var ticks = (int)(recording.EndTick - recording.StartTick);
+        if (ticks == 0 && recording.Commands.Count == 0)
+        {
+            // Nothing was compared, so "identical" would claim more than was checked.
+            output.WriteLine(json
+                ? JsonSerializer.Serialize(new ReplaySummary(false, false, 0, 0, null, null, null, result.FinalHash.ToString("x16", CultureInfo.InvariantCulture)), LiveJson.Default.ReplaySummary)
+                : "replay EMPTY: the recording holds no ticks and no commands, so nothing was compared");
+            return ExitCodes.Failed;
+        }
+
         var final = result.FinalHash.ToString("x16", CultureInfo.InvariantCulture);
         var d = result.Divergence;
         var summary = new ReplaySummary(

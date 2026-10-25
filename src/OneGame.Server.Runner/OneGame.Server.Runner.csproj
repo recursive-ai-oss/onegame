@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>onegame-server</AssemblyName>
+    <RootNamespace>OneGame.Server.Runner</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <Description>onegame-server: runs a game server from a YAML configuration and loads its plugins. CoreCLR, because plugins are loaded assemblies.</Description>
+    <!-- Loading plugins needs the CoreCLR loader, so this executable is framework-dependent and never NativeAOT. A game server without
+         plugins builds its own executable on OneGame.Server and publishes NativeAOT. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsTrimmable>false</IsTrimmable>
+    <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>false</EnableAotAnalyzer>
+    <EnableSingleFileAnalyzer>false</EnableSingleFileAnalyzer>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Server/OneGame.Server.csproj" />
+    <ProjectReference Include="../OneGame.Server.Plugins/OneGame.Server.Plugins.csproj" />
+    <ProjectReference Include="../OneGame.Server.Live/OneGame.Server.Live.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -65,7 +65,9 @@ onegame run --headless -- --scenario scenarios/click-button.yaml --record run.og
 onegame replay run.ogrp --json      # {"ok":true,"identical":true,"ticks":2,"commands":2,"finalHash":"..."}
 ```
 
-A replay that diverges exits 1 and names the first tick and the hashes. Recordings start from a snapshot, so a bug found in a live session can be replayed after the fix.
+A replay that diverges exits 1 and names the first tick and the hashes. Recordings start from a snapshot, so a bug found in a live session can be replayed after the fix. With `--scenario ... --record`, the recording starts from the state the steps begin in: a scenario `fixture:`, `seed:` or `snapshot:` replaces the world, and the recording restarts on the new one. A replay of a recording with no ticks and no commands exits 1 (`identical:false`) because nothing was compared; `--record` itself fails with `record_empty` when a scenario ran ticks but the recording holds none.
+
+Ids may contain `/` (the kit makes ids like `qty/track`) and, in a selector, any other character escaped with a backslash (`#a\.b`). A selector that does not parse is a failed step or expectation with its line and reason (`bad_args: Bad selector ...`), never a crash.
 
 ## 5. Drive a running game (MCP)
 
