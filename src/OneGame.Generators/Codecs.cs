@@ -170,10 +170,15 @@ internal static class Codecs
         return false;
     }
 
-    /// <summary>True if the type itself is float, double, decimal or Half.</summary>
+    /// <summary>True if the type itself is float, double, decimal, Half, or one of the float vector and matrix types of System.Numerics (which hold floats: their math differs between machines).</summary>
     public static bool IsFloatScalar(ITypeSymbol type)
         => type.SpecialType is SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Decimal
-            || type is INamedTypeSymbol { Name: "Half" } half && half.ContainingNamespace?.ToDisplayString() == "System";
+            || type is INamedTypeSymbol { Name: "Half" } half && half.ContainingNamespace?.ToDisplayString() == "System"
+            || IsNumericsFloatType(type);
+
+    private static bool IsNumericsFloatType(ITypeSymbol type)
+        => type is INamedTypeSymbol { Name: "Vector2" or "Vector3" or "Vector4" or "Quaternion" or "Plane" or "Matrix3x2" or "Matrix4x4" } n
+            && n.ContainingNamespace?.ToDisplayString() == "System.Numerics";
 
     /// <summary>True if the type is, or is built from, float, double, decimal or Half.</summary>
     public static bool IsFloating(ITypeSymbol type)
@@ -184,6 +189,11 @@ internal static class Codecs
             case SpecialType.System_Double:
             case SpecialType.System_Decimal:
                 return true;
+        }
+
+        if (IsNumericsFloatType(type))
+        {
+            return true;
         }
 
         if (type is IArrayTypeSymbol array)

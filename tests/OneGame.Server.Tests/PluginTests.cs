@@ -7,6 +7,14 @@ using Xunit.Sdk;
 
 namespace OneGame.Server.Tests;
 
+/// <summary>
+/// Runs on its own: the unload test measures the whole process's managed heap, so another class
+/// allocating at the same time (a plugin compile, a network test) would show up as growth.
+/// </summary>
+[CollectionDefinition(nameof(HeapMeasuring), DisableParallelization = true)]
+public sealed class HeapMeasuring;
+
+[Collection(nameof(HeapMeasuring))]
 public class PluginTests : IDisposable
 {
     private static readonly ScopeId Scope1 = new(1);

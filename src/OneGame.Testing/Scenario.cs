@@ -74,6 +74,9 @@ public enum StepKind
     /// <summary>Check an expectation now.</summary>
     Expect,
 
+    /// <summary>Move or reset the 3D camera (a view-only override).</summary>
+    Camera,
+
     /// <summary>Wait until a node of a process cluster reaches a tick (cluster scenarios only).</summary>
     Wait,
 
@@ -141,6 +144,9 @@ public sealed record ScenarioStep(StepKind Kind, int Line)
     /// <summary>The node of a process cluster the step is aimed at; null for a single game.</summary>
     public string? Node { get; init; }
 
+    /// <summary>The arguments of the <c>camera</c> operation, as JSON, for a <see cref="StepKind.Camera"/> step.</summary>
+    public string? ControlArgs { get; init; }
+
     /// <summary>The tick a <see cref="StepKind.Wait"/> step waits for.</summary>
     public long Tick { get; init; }
 
@@ -166,6 +172,9 @@ public enum ExpectKind
     /// <summary>A captured frame against a reference image.</summary>
     Capture,
 
+    /// <summary>The entity under a pixel of the 3D view: <see cref="ScenarioExpectation.Entity"/> is what must be there, or <c>none</c>.</summary>
+    Pick,
+
     /// <summary>Client replicas have the server's state hash at the replica's tick (cluster scenarios only).</summary>
     Agree,
 
@@ -178,6 +187,12 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
 {
     /// <summary>Entity spec (state).</summary>
     public string? Entity { get; init; }
+
+    /// <summary>Pixels from the left of the 3D view (pick).</summary>
+    public double PickX { get; init; }
+
+    /// <summary>Pixels from the top of the 3D view (pick).</summary>
+    public double PickY { get; init; }
 
     /// <summary>The scope to read on a server that hosts several (cluster scenarios; 1 when absent).</summary>
     public int? Scope { get; init; }
@@ -437,6 +452,11 @@ public static class ScenarioParser
         private int Whole(YamlNode node, string what) =>
             int.TryParse(Text(node, what), NumberStyles.None, CultureInfo.InvariantCulture, out var v) ? v : throw Error(node, $"{what} must be a whole number");
 
+        private string NumberText(YamlNode at, string text, string what) =>
+            double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var d) && double.IsFinite(d)
+                ? d.ToString("R", CultureInfo.InvariantCulture)
+                : throw Error(at, $"{what} must hold numbers");
+
         private bool Bool(YamlNode node, string what) => Text(node, what) switch
         {
             "true" => true,
@@ -578,6 +598,37 @@ public static class ScenarioParser
                         Size = OptText(v, "size"),
                         Scale = cp.TryGetValue("scale", out var sn) ? Number(sn, "scale") : null,
                     };
+                case "camera":
+                    if (v.Kind == YamlNodeKind.Scalar)
+                    {
+                        return Text(v, "camera") == "reset" ? new ScenarioStep(StepKind.Camera, line) { ControlArgs = "{\"reset\":true}" } : throw Error(v, "camera takes 'reset' or a mapping of position, target, fov, near, far, ortho-height");
+                    }
+
+                    var cam = Map(v, ["position", "target", "fov", "near", "far", "ortho-height"], "camera");
+                    var json = new List<string>();
+                    foreach (var key in new[] { "position", "target" })
+                    {
+                        if (cam.TryGetValue(key, out var list))
+                        {
+                            var parts = StringList(this, list, key);
+                            if (parts.Length != 3)
+                            {
+                                throw Error(list, $"{key} is three numbers: [x, y, z]");
+                            }
+
+                            json.Add($"\"{key}\":[{string.Join(",", parts.Select(p => NumberText(list, p, key)))}]");
+                        }
+                    }
+
+                    foreach (var (key, name) in new[] { ("fov", "fovDegrees"), ("near", "near"), ("far", "far"), ("ortho-height", "orthoHeight") })
+                    {
+                        if (cam.TryGetValue(key, out var n))
+                        {
+                            json.Add($"\"{name}\":{Number(n, key).ToString("R", CultureInfo.InvariantCulture)}");
+                        }
+                    }
+
+                    return json.Count > 0 ? new ScenarioStep(StepKind.Camera, line) { ControlArgs = "{" + string.Join(",", json) + "}" } : throw Error(v, "camera needs at least one of position, target, fov, near, far, ortho-height");
                 case "expect":
                     return new ScenarioStep(StepKind.Expect, line) { Expect = Expectation(v) };
                 case "wait":
@@ -595,7 +646,7 @@ public static class ScenarioParser
                 case "restart":
                     return new ScenarioStep(StepKind.Restart, line) { Node = Text(v, "restart") };
                 default:
-                    throw Error(entry.Key, $"unknown step '{verb}'; use click, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, wait, kill, start, restart or expect");
+                    throw Error(entry.Key, $"unknown step '{verb}'; use click, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, camera, wait, kill, start, restart or expect");
             }
         }
 
@@ -658,6 +709,15 @@ public static class ScenarioParser
                         Tolerance = c.TryGetValue("tolerance", out var t) ? Whole(t, "tolerance") : 0,
                         MaxDiff = c.TryGetValue("max-diff", out var md) ? Number(md, "max-diff") : 0,
                     };
+                case "pick":
+                    var pk = Map(v, ["x", "y", "size", "entity"], "pick");
+                    return new ScenarioExpectation(ExpectKind.Pick, line)
+                    {
+                        PickX = pk.TryGetValue("x", out var px) ? Number(px, "x") : throw Error(v, "pick needs x and y"),
+                        PickY = pk.TryGetValue("y", out var py) ? Number(py, "y") : throw Error(v, "pick needs x and y"),
+                        Size = OptText(v, "size"),
+                        Entity = pk.TryGetValue("entity", out var pe) ? Text(pe, "entity") : throw Error(v, "pick needs the entity expected there, or none"),
+                    };
                 case "agree":
                     var ag = Map(v, ["server", "clients"], "agree");
                     return new ScenarioExpectation(ExpectKind.Agree, line)
@@ -674,7 +734,7 @@ public static class ScenarioParser
 
                     return new ScenarioExpectation(ExpectKind.Drift, line) { Nodes = dr.TryGetValue("nodes", out var dn) ? StringList(this, dn, "nodes") : [] };
                 default:
-                    throw Error(entry.Key, $"unknown expectation '{kind}'; use state, ui, tick, hash, capture, agree or drift");
+                    throw Error(entry.Key, $"unknown expectation '{kind}'; use state, ui, tick, hash, capture, pick, agree or drift");
             }
         }
     }

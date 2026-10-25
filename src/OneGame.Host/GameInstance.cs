@@ -522,6 +522,9 @@ public sealed class GameInstance : IDisposable
         }
     }
 
+    /// <summary>How far a realtime run is between the last tick and the next, from 0 to just under 1. Stages draw between ticks with it; stepped runs and captures show whole ticks (0).</summary>
+    public Fixed FrameAlpha { get; private set; }
+
     private void RunFrame(int ticks)
     {
         DrainInput();
@@ -615,6 +618,7 @@ public sealed class GameInstance : IDisposable
 
             var presented = PresentedFrames;
             var frameStart = now;
+            FrameAlpha = Fixed.FromRatio(owed, step);
             RunFrame(ticks);
             if (Options.Headless)
             {
@@ -705,7 +709,7 @@ public sealed class GameInstance : IDisposable
 
         if (_swapchain.TryAcquire(out var backbuffer) == AcquireStatus.Ready)
         {
-            _stage.Render(_device, backbuffer, new FrameInfo(Window.Width, Window.Height, UiScale, World.Tick, list, World));
+            _stage.Render(_device, backbuffer, new FrameInfo(Window.Width, Window.Height, UiScale, World.Tick, list, World, FrameAlpha));
             if (_grabNext)
             {
                 _grabNext = false;
@@ -757,8 +761,12 @@ public sealed class GameInstance : IDisposable
     /// Renders the current state at a given size and UI scale into pixels. The UI is laid out for the capture size and put back
     /// afterwards. Uses the graphics device when there is one and the stage's CPU path otherwise.
     /// </summary>
+    /// <param name="width">Width in pixels.</param>
+    /// <param name="height">Height in pixels.</param>
+    /// <param name="scale">UI scale.</param>
+    /// <param name="shown">The world the render stage draws; the game's own when null. A test passes a replica's world to check what that node would show.</param>
     /// <exception cref="ArgumentOutOfRangeException">The size is not positive or larger than 16384.</exception>
-    public CapturedFrame Capture(int width, int height, float scale = 1f)
+    public CapturedFrame Capture(int width, int height, float scale = 1f, World? shown = null)
     {
         if (width is < 1 or > 16384 || height is < 1 or > 16384 || scale <= 0)
         {
@@ -771,7 +779,7 @@ public sealed class GameInstance : IDisposable
         try
         {
             var list = SettleUi();
-            var info = new FrameInfo(width, height, scale, World.Tick, list, World);
+            var info = new FrameInfo(width, height, scale, (shown ?? World).Tick, list, shown ?? World);
             EnsureDevice();
             string renderer;
             if (_device is null)

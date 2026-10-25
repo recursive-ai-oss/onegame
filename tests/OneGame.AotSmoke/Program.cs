@@ -298,6 +298,16 @@ if (gltfProblem is not null)
 
 Console.WriteLine("ok: gltf skinned model with PNG texture, animation pose, joint matrices, embedded model, truncated and escaping files refused");
 
+// Entities in 3D: transforms, camera, projection, picking, world-anchored UI and the 3D control operations.
+var scene3d = Scene3DSmoke.Run(ReadResource("font.ttf"), ReadResource("box.gltf"));
+if (scene3d is not null)
+{
+    Console.Error.WriteLine("scene3d smoke failed: " + scene3d);
+    return 1;
+}
+
+Console.WriteLine("ok: entities in 3D: transform sync, camera, projection, picking, pinned label, camera/pick/project operations");
+
 // Graphics: create a device, clear an offscreen target and read it back. "--require-gpu" turns a missing Vulkan driver into a failure.
 var requireGpu = args.Contains("--require-gpu");
 if (!VulkanGpu.IsAvailable)
