@@ -197,6 +197,81 @@ public class BackgroundTests
         Golden.Note($"raster tiling vs CPU tiling: max channel difference {worst}");
     }
 
+    [Theory]
+    [InlineData("repeat")]
+    [InlineData("sized")]
+    [InlineData("positioned")]
+    public void ElementOpacityAppliesToTiledBackgroundsAsToPlainOnes(string kind)
+    {
+        // A tile of one flat colour, tiled at half opacity, must match a plain background of that colour at half opacity.
+        var flat = new byte[8 * 8 * 4];
+        for (var i = 0; i < flat.Length; i += 4)
+        {
+            (flat[i], flat[i + 1], flat[i + 2], flat[i + 3]) = (0x3f, 0x6a, 0xa0, 255);
+        }
+
+        void FlatAssets(ArtAtlas art) => art.AddImage("flat", Png.Encode(8, 8, flat));
+        Action<StyleBuilder> tile = kind switch
+        {
+            "repeat" => st => st.BackgroundImage("flat").BackgroundRepeat(BackgroundRepeat.Repeat).BackgroundSize(BackgroundSizing.Auto),
+            "sized" => st => st.BackgroundImage("flat").BackgroundRepeat(BackgroundRepeat.Repeat).BackgroundSize(Length.Px(4), Length.Px(2)),
+            _ => st => st.BackgroundImage("flat").BackgroundRepeat(BackgroundRepeat.Repeat).BackgroundSize(BackgroundSizing.Auto).BackgroundPosition(3, 2),
+        };
+        byte[] Render(Action<StyleBuilder> paint, float opacity)
+        {
+            using var s = new Stage(40, 20, 1f, FlatAssets, () => Ui.Box().Style(st => { st.Size(40, 20).Opacity(opacity); paint(st); }));
+            using var rig = new Rig(40, 20);
+            return Draw(rig, s);
+        }
+
+        var plain = Render(st => st.Background(new Color(0x3f, 0x6a, 0xa0, 255)), 0.5f);
+        var tiled = Render(tile, 0.5f);
+        var tiledFull = Render(tile, 1f);
+        var worst = 0;
+        for (var y = 2; y < 18; y++)
+        {
+            for (var x = 2; x < 38; x++)
+            {
+                for (var c = 0; c < 3; c++)
+                {
+                    worst = Math.Max(worst, Math.Abs(plain[(((y * 40) + x) * 4) + c] - tiled[(((y * 40) + x) * 4) + c]));
+                }
+            }
+        }
+
+        Assert.True(Pixels.At(tiledFull, 40, 20, 10).B > 0x90, "the full-strength tile is drawn");
+        Assert.True(worst <= 2, $"{kind}: the tiled background at half opacity differs from a plain one by up to {worst}");
+    }
+
+    [Fact]
+    public void LowOpacityVectorTileAtUiScaleBlendsLikeAPlainFill()
+    {
+        const string scan = """<svg xmlns="http://www.w3.org/2000/svg" width="4" height="2" viewBox="0 0 4 2"><rect y="0" width="4" height="1" fill="#fff"/></svg>""";
+        void ScanAssets(ArtAtlas art) => art.AddSvg("scan", Encoding.UTF8.GetBytes(scan));
+        byte[] Render(float opacity)
+        {
+            using var s = new Stage(120, 90, 1.5f, ScanAssets, () => Ui.Box(Ui.Box().Style(st => st.Position(PositionMode.Absolute).Left(0).Top(0).Width(Length.Percent(100)).Height(Length.Percent(100))
+                .Opacity(opacity).BackgroundImage("scan").BackgroundRepeat(BackgroundRepeat.Repeat).BackgroundSize(Length.Px(4), Length.Px(2))))
+                .Style(st => st.Size(Length.Ui(80), Length.Ui(60))));
+            using var rig = new Rig(120, 90);
+            return Draw(rig, s);
+        }
+
+        var full = Render(1f);
+        var faint = Render(0.1f);
+        var fullMax = 0;
+        var faintMax = 0;
+        for (var i = 0; i < full.Length; i += 4)
+        {
+            fullMax = Math.Max(fullMax, full[i]);
+            faintMax = Math.Max(faintMax, faint[i]);
+        }
+
+        Assert.True(fullMax > 200, $"full strength lines are drawn ({fullMax})");
+        // Blending is in linear light: 10% of white over black is 0.1 linear, which encodes to about 89 (sRGB transfer function).
+        Assert.InRange(faintMax, 85, 93);
+    }
+
     [Fact]
     public void NoRepeatDrawsOneCopyAndLeavesTheRestOfTheBoxAlone()
     {

@@ -132,6 +132,12 @@ public sealed record ScenarioStep(StepKind Kind, int Line)
     /// <summary>Entity spec for commands and patches.</summary>
     public string? Entity { get; init; }
 
+    /// <summary>Hot table name, for a <c>set:</c> of a table cell (instead of <see cref="Entity"/>).</summary>
+    public string? Table { get; init; }
+
+    /// <summary>Row of <see cref="Table"/>, from 0.</summary>
+    public int? Row { get; init; }
+
     /// <summary>Command name or property name.</summary>
     public string? Name { get; init; }
 
@@ -199,6 +205,12 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
 {
     /// <summary>Entity spec (state).</summary>
     public string? Entity { get; init; }
+
+    /// <summary>Hot table name (state), instead of <see cref="Entity"/>.</summary>
+    public string? Table { get; init; }
+
+    /// <summary>Row of <see cref="Table"/>, from 0 (state). Without it the property is looked up in the whole table.</summary>
+    public int? Row { get; init; }
 
     /// <summary>Pixels from the left of the 3D view (pick).</summary>
     public double PickX { get; init; }
@@ -610,10 +622,22 @@ public static class ScenarioParser
                         Args = cm.TryGetValue("args", out var ca) ? StringList(this, ca, "args") : [],
                     };
                 case "set":
-                    var s = Map(v, ["entity", "property", "value"], "set");
+                    var s = Map(v, ["entity", "table", "row", "property", "value"], "set");
+                    if (s.ContainsKey("entity") == s.ContainsKey("table"))
+                    {
+                        throw Error(v, "set needs an entity, or a table with a row");
+                    }
+
+                    if (s.ContainsKey("table") && !s.ContainsKey("row"))
+                    {
+                        throw Error(v, "set on a table needs a row (from 0)");
+                    }
+
                     return new ScenarioStep(StepKind.Set, line)
                     {
-                        Entity = s.TryGetValue("entity", out var se) ? Text(se, "entity") : throw Error(v, "set needs an entity"),
+                        Entity = s.TryGetValue("entity", out var se) ? Text(se, "entity") : null,
+                        Table = s.TryGetValue("table", out var st) ? Text(st, "table") : null,
+                        Row = s.TryGetValue("row", out var sr) ? Whole(sr, "row") : null,
                         Name = s.TryGetValue("property", out var sp) ? Text(sp, "property") : throw Error(v, "set needs a property"),
                         Args = [s.TryGetValue("value", out var sv) ? Text(sv, "value") : throw Error(v, "set needs a value")],
                     };
@@ -701,10 +725,17 @@ public static class ScenarioParser
             switch (kind)
             {
                 case "state":
-                    var s = Map(v, ["entity", "property", "scope", "equals", "min", "max", "within"], "state");
+                    var s = Map(v, ["entity", "table", "row", "property", "scope", "equals", "min", "max", "within"], "state");
+                    if (s.ContainsKey("entity") == s.ContainsKey("table"))
+                    {
+                        throw Error(v, "state needs an entity, or a table");
+                    }
+
                     return new ScenarioExpectation(ExpectKind.State, line)
                     {
-                        Entity = s.TryGetValue("entity", out var e) ? Text(e, "entity") : throw Error(v, "state needs an entity"),
+                        Entity = s.TryGetValue("entity", out var e) ? Text(e, "entity") : null,
+                        Table = s.TryGetValue("table", out var stTable) ? Text(stTable, "table") : null,
+                        Row = s.TryGetValue("row", out var stRow) ? Whole(stRow, "row") : null,
                         Property = s.TryGetValue("property", out var p) ? Text(p, "property") : throw Error(v, "state needs a property"),
                         Scope = s.TryGetValue("scope", out var stScope) ? Whole(stScope, "scope") : null,
                         EqualTo = OptText(v, "equals"),
