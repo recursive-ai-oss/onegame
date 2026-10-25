@@ -29,6 +29,8 @@ public class HotReloadTests
     [Fact]
     public void EditedShaderIsSwappedInIncompatibleAndBrokenOnesAreRefused()
     {
+        // Reloading recompiles to SPIR-V; the Metal path would recompile to Metal Shading Language and is not built yet.
+        Assert.SkipUnless(GpuBackends.Selected == GpuBackend.Vulkan, "hot reload is wired to the Vulkan backend");
         var dir = Path.Combine(Path.GetTempPath(), "onegame-hot-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
@@ -39,7 +41,7 @@ public class HotReloadTests
 
             using var rig = new Rig(64, 64);
             var tex = rig.Own(rig.Renderer.CreateTexture(16, 16, Pixels.Solid(16, 16, new Color(200, 200, 200, 255)), TextureFilter.Linear));
-            var material = rig.Own(rig.Renderer.CreateMaterial(new ShaderCode(OneGame.Gpu.ShaderStage.Pixel, Ripple.PSMain.EntryPoint, Ripple.PSMain.SpirV.ToArray()), "ripple"));
+            var material = rig.Own(rig.Renderer.CreateMaterial(new ShaderCode(OneGame.Gpu.ShaderStage.Pixel, Ripple.PSMain.EntryPoint, Ripple.PSMain.SpirV.ToArray(), Ripple.PSMain.Msl.ToArray(), Ripple.PSMain.MslFunctionName, Ripple.Bindings.All.ToArray()), "ripple"));
             material.SetParameter(0, new Vector4(0, 1, 0, 0));
             material.SetParameter(1, new Vector4(0, 0, 0, 0));
 

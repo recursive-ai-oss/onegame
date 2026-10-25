@@ -1,13 +1,15 @@
-# gpu — graphics layer interface (v2)
+# gpu — graphics layer interface (v3)
 
-`OneGame.Gpu` is the backend-neutral API; `OneGame.Gpu.Vulkan` implements it. Renderers code against `OneGame.Gpu` only.
+`OneGame.Gpu` is the backend-neutral API; `OneGame.Gpu.Vulkan` and `OneGame.Gpu.Metal` implement it. Renderers code against `OneGame.Gpu` only.
 Everything in it maps onto Vulkan 1.3, Metal and WebGPU alike. Backend interop (`unsafe`, `LibraryImport`) lives only in the backend assemblies.
 
 ## Getting a device
 
 ```csharp
-GpuDevice device = VulkanGpu.CreateDevice(new GpuDeviceOptions { Validation = true });
+GpuDevice device = GpuBackends.CreateDevice(new GpuDeviceOptions { Validation = true });   // OneGame.Gpu.Backends
 ```
+
+`GpuBackends` picks Metal on macOS and iOS and Vulkan elsewhere; `ONEGAME_GPU_BACKEND=vulkan|metal` overrides it. `VulkanGpu.CreateDevice` and `MetalGpu.CreateDevice` create a specific backend. `device.Backend` says which one you got. `GpuBackends.IsAvailable` / `UnavailableReason` tell whether the selected one can run.
 
 - Adapter choice: discrete, then integrated, virtual, software. Override with `GpuDeviceOptions.Adapter` (name substring or kind: `software`, `discrete`, `integrated`) or `ONEGAME_GPU_ADAPTER`.
 - `ONEGAME_GPU_VALIDATION=1` turns on the Khronos validation layer (plus synchronization validation). `RequireValidation` fails creation when the layer is missing. `device.TakeValidationMessages()` returns warnings and errors since the last call; tests assert it is empty.
@@ -29,7 +31,7 @@ GpuDevice device = VulkanGpu.CreateDevice(new GpuDeviceOptions { Validation = tr
 | `CreateBuffer(new BufferDesc(size, usage))` | `BufferUsage`: Vertex, Index, Uniform, Storage, CopySource, CopyDestination. |
 | `CreateTexture(new TextureDesc(w, h, format, usage) { MipLevels, ArrayLayers, SampleCount, Dimension, Depth })` | 2D, 2D array, cube, cube array or 3D (see "Textures"). Formats: R8, Rg8, Rgba8(+Srgb), Bgra8(+Srgb), R16F, Rg16F, Rgba16F, R32F, Rg32F, Rgba32F, R32Uint, Rg11B10F, Rgb10A2, Depth16, Depth32F, Depth32F+Stencil8. `GpuTexture.FullMipCount(w, h[, depth])`. |
 | `CreateSampler(SamplerDesc.Linear / Nearest)` | Filters, address modes (U, V, W), anisotropy, LOD range, and `Compare` for shadow lookups. |
-| `CreateShader(stage, spirv, entryPoint)` | SPIR-V bytes. |
+| `CreateShader(new ShaderSource(stage, entry) { ... })` | One entry point in every form: `SpirV` (Vulkan), `Msl` + `MslFunctionName` (Metal), the file's `Bindings`. `CreateShader(stage, spirv, entryPoint)` takes bare SPIR-V and is Vulkan-only. |
 | `CreatePipelineLayout(bindings[, new PushConstantRange(size, stages)])` | Groups bindings by set; duplicates from several shaders merge. `ResourceBinding.Dynamic` makes a constant or storage buffer binding take a byte offset at bind time. |
 | `CreateBindGroup(layout, set, entries)` | One entry per binding of the set (`BindGroupEntry.ForBuffer/ForTexture/ForSampler`; `ForTextures/ForSamplers/ForBuffers` for a binding whose `Count` is above 1; `ForTexture(binding, texture, view)` for a mip or layer subset). |
 | `CreateGraphicsPipeline(GraphicsPipelineDesc)` | Vertex layouts (per-vertex and per-instance), topology, cull, blend per target (`BlendState.AlphaBlend/Premultiplied/Additive`), optional depth with bias, `DepthClamp`, sample count. Viewport and scissor are always dynamic. |
@@ -38,13 +40,20 @@ GpuDevice device = VulkanGpu.CreateDevice(new GpuDeviceOptions { Validation = tr
 
 ### Plugging in generated shader bindings
 
-The shader library's generated classes feed straight in. `ResourceBinding(Set, Binding, Count, Kind, Stages)`, `VertexAttribute`-shaped `VertexElement(Location, Format, Offset)`, `ShaderStage` and `ResourceKind` mirror its support types and are replaced by them when the package ships.
+The shader library's generated classes feed straight in. `ResourceBinding(Set, Binding, Count, Kind, Stages)` and `VertexElement(Location, Format, Offset)` mirror its support types.
 
 ```csharp
-using var vs = device.CreateShader(Sprite.VSMain.Stage, Sprite.VSMain.SpirV, Sprite.VSMain.EntryPoint);
+using var vs = device.CreateShader(new ShaderSource(ShaderStage.Vertex, Sprite.VSMain.EntryPoint)
+{
+    SpirV = Sprite.VSMain.SpirV,
+    Msl = Sprite.VSMain.Msl, MslFunctionName = Sprite.VSMain.MslFunctionName,
+    Bindings = Sprite.Bindings.All,                      // lets Metal place each (set, binding) at its argument index
+});
 using var layout = device.CreatePipelineLayout(Sprite.Bindings.All);
 var vertex = new VertexBufferLayout { Stride = (uint)Sprite.VSMain.Stride, Attributes = Sprite.VSMain.Inputs.ToArray() };
 ```
+
+Compute shaders also pass `ComputeGroupX/Y/Z` (the generated `ThreadGroupSize*`), and a shader with a `[[vk::push_constant]]` block passes `MslPushConstantIndex = (int)File.Bindings.PushConstants.MslIndex`. Build the project with `<OneShaderTargets>SpirV;Msl</OneShaderTargets>` (the repository default also adds Wgsl) so both forms exist.
 
 A pipeline is immutable. Replacing a shader means making a new pipeline and releasing the old one after `WaitIdle()`; `Renderer2D.ReplaceMaterialShader` does that for hot reload.
 
@@ -68,7 +77,7 @@ A pipeline is immutable. Replacing a shader means making a new pipeline and rele
 ## Pipelines, binding and draws (v2)
 
 - **Depth bias:** `DepthStencilState.DepthBias` (integer steps of the smallest depth difference), `DepthBiasSlopeScale`, `DepthBiasClamp`. **Depth clamp:** `GraphicsPipelineDesc.DepthClamp`, only when `Capabilities.DepthClamp`.
-- **Push constants:** declare a `PushConstantRange` (at most `GpuDevice.MaxPushConstantBytes` = 128, multiple of 4) on the layout and write with `pass.SetPushConstants(offset, bytes)` in render and compute passes. A backend without native push constants emulates them with a ring of constants.
+- **Push constants:** declare a `PushConstantRange` (at most `GpuDevice.MaxPushConstantBytes` = 128, multiple of 4) on the layout and write with `pass.SetPushConstants(offset, bytes)` in render and compute passes. Metal has no push constants of its own: the block is sent with `setBytes` at the index the shader build reports, so declare it in HLSL with `[[vk::push_constant]]` and give the shader its `MslPushConstantIndex`.
 - **Dynamic offsets:** `new ResourceBinding(...) { Dynamic = true }`; the bind group's entry gives the visible `Size` (required), and `SetBindGroup(set, group, offsets)` gives one offset per dynamic binding in binding order, each a multiple of `GpuDevice.DynamicOffsetAlignment` (256).
 - **Resource arrays:** a binding with `Count` N takes N textures, samplers or buffers; indexing by a value that differs between invocations needs `Capabilities.NonUniformArrayIndexing`. At most `Capabilities.MaxResourceArrayCount` (≤ 512) elements.
 - **Instancing:** a `VertexBufferLayout` with `StepMode = Instance`; `Draw(vertices, instances, ...)`.
@@ -122,3 +131,13 @@ Verified: X11 (Xlib window created by the test, under Xvfb), including resize. W
 - Run with `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json` for the software rasterizer (golden images come from it); `nvidia_icd.json` / `radeon_icd.json` for real GPUs.
 - The validation layer is found through `VK_ADD_LAYER_PATH` (and `LD_LIBRARY_PATH` for the layer library).
 - Shader fixtures in the tests are HLSL in `tests/OneGame.Gpu.Vulkan.Tests/Shaders`, compiled during the build by the shader build package; the Vulkan binding code is generated by `tools/OneGame.VkBindGen` from `vk.xml` (`tools/fetch-vkxml.sh`).
+
+## Metal backend (`OneGame.Gpu.Metal`)
+
+- Runs on Apple arm64 (macOS, iOS) through the Objective-C runtime (`objc_msgSend` with typed function pointers, source-generated `LibraryImport` for the runtime and framework entry points); no Objective-C code, no reflection.
+- `GpuDeviceOptions.Validation` turns on Metal API validation (the debug layer): it is read when the first Metal device of the process is created, so set `MTL_DEBUG_LAYER=1` in the environment of a test run. With it on a validation failure ends the process with Metal's message (`MTL_DEBUG_LAYER_ERROR_MODE=assert`, set by the backend unless already set). `RequireValidation` fails creation when the layer is not active. `TakeValidationMessages` returns failed command buffers.
+- Resources are `Private` (GPU-only); writes and reads go through staging buffers, ordered like the other backends. Metal tracks hazards between encoders itself, so the backend needs no barriers.
+- Clip space and the texture origin already match the API's conventions; nothing is flipped. `FrontFace.CounterClockwise` is `MTLWindingCounterClockwise`.
+- Vertex buffer slot `n` is bound at Metal buffer index `30 - n`; resources use the shader build's Metal indices, counted per class (buffer, texture, sampler) over a shader file. A bind group is applied lazily at the next draw or dispatch, so one layout can serve shaders of different files (the 2D materials).
+- Presenting: `SurfaceSource.MetalLayer(caMetalLayer)` (the layer a view owns, made by the window system layer). Backbuffers are readable. A layer that belongs to no view works too, for headless tests.
+- Not built yet: timestamps (`Capabilities.Timestamps` is false, so the render graph reports no pass times), shader hot reload (the reloader recompiles SPIR-V only), x86-64 Macs (struct-returning message sends need `objc_msgSend_stret` there).

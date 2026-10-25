@@ -100,12 +100,12 @@ internal sealed class ViewVerb : IVerb
         GpuDevice device;
         try
         {
-            if (!VulkanGpu.IsAvailable)
+            if (!GpuBackends.IsAvailable)
             {
-                throw new GpuUnsupportedException("No Vulkan loader library was found.");
+                throw new GpuUnsupportedException(GpuBackends.UnavailableReason);
             }
 
-            device = VulkanGpu.CreateDevice(new GpuDeviceOptions { Validation = Environment.GetEnvironmentVariable("ONEGAME_GPU_VALIDATION") == "1", ApplicationName = "onegame view" });
+            device = GpuBackends.CreateDevice(new GpuDeviceOptions { Validation = Environment.GetEnvironmentVariable("ONEGAME_GPU_VALIDATION") == "1", ApplicationName = "onegame view" });
         }
         catch (GpuException ex)
         {

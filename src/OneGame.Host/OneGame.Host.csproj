@@ -16,7 +16,7 @@
     <ProjectReference Include="../OneGame.Text/OneGame.Text.csproj" />
     <ProjectReference Include="../OneGame.Platform/OneGame.Platform.csproj" />
     <ProjectReference Include="../OneGame.Gpu/OneGame.Gpu.csproj" />
-    <ProjectReference Include="../OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan.csproj" />
+    <ProjectReference Include="../OneGame.Gpu.Backends/OneGame.Gpu.Backends.csproj" />
   </ItemGroup>
 
   <ItemGroup>

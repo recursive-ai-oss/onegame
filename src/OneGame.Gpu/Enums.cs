@@ -393,4 +393,15 @@ public enum SurfaceKind
     Wayland,
     /// <summary>Win32: an HINSTANCE and an HWND.</summary>
     Win32,
+    /// <summary>Metal: a CAMetalLayer pointer (macOS and iOS).</summary>
+    Metal,
+}
+
+/// <summary>The graphics API a <see cref="GpuDevice"/> runs on.</summary>
+public enum GpuBackend
+{
+    /// <summary>Vulkan 1.3.</summary>
+    Vulkan,
+    /// <summary>Metal.</summary>
+    Metal,
 }
