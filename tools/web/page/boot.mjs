@@ -3,11 +3,13 @@
 import { dotnet } from './_framework/dotnet.js';
 import * as gpu from './onegame-gpu.js';
 import * as platform from './onegame-platform.js';
+import * as audio from './onegame-audio.js';
 
 const status = document.getElementById('onegame-status');
 window.__onegame = { error: null, startedMs: performance.now() };
 window.__gpu = gpu;           // for tools: GPU validation messages (takeMessages)
 window.__platform = platform; // for tools: the gamepad test hook (injectGamepads)
+window.__audio = audio;       // for tools: the audio output's state and counters
 try {
   const query = new URLSearchParams(location.search);
   const args = (query.get('args') || '').split(' ').filter(Boolean);
@@ -15,6 +17,7 @@ try {
   const runtime = await dotnet.withApplicationArguments(...args).create();
   runtime.setModuleImports('onegame-gpu', gpu);
   runtime.setModuleImports('onegame-platform', platform);
+  runtime.setModuleImports('onegame-audio', audio);
   const exports = await runtime.getAssemblyExports('OneGame.Platform');
   window.__control = (message) => exports.OneGame.Platform.BrowserPage.Control(message);  // development builds: one MCP message in, the answer out
   await runtime.runMain();

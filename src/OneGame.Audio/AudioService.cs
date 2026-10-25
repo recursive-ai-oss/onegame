@@ -221,9 +221,10 @@ public sealed record MusicStatus(double PositionSeconds, double? LengthSeconds);
 /// <param name="Loudness">The output loudness.</param>
 /// <param name="Music">The music track, or null when none plays.</param>
 /// <param name="FreeBusMeters">Loudness meter slots not in use.</param>
+/// <param name="Device">The device side: backend, its state, underruns, and the frames and peak the device has taken.</param>
 /// <param name="MeterRequest">What a meter request in the same call came to (the <c>audio</c> operation's <c>enableMeter</c>/<c>disableMeter</c>): metered, no_free_slot, queue_full, unavailable or disabled; null otherwise.</param>
 public sealed record AudioStatus(
-    int SampleRate, int Channels, string Output, bool Capture, float MasterVolume, bool Muted, int ActiveVoices, BusStatus[] Buses, LimiterStatus? Limiter, LoudnessStatus Loudness, MusicStatus? Music, int FreeBusMeters = 0, string? MeterRequest = null);
+    int SampleRate, int Channels, string Output, bool Capture, float MasterVolume, bool Muted, int ActiveVoices, BusStatus[] Buses, LimiterStatus? Limiter, LoudnessStatus Loudness, MusicStatus? Music, int FreeBusMeters = 0, string? MeterRequest = null, AudioDeviceStatus? Device = null);
 
 /// <summary>
 /// The game-facing audio service: load clips, play sounds and music on buses, set volumes, crossfade, and pump events. Everything here is called from
@@ -260,7 +261,12 @@ public sealed class AudioService : IDisposable
         }
 
         output.Start(core);
-        if (capture is null)
+        if (capture is null && output.IsPumped)
+        {
+            // A web page has no threads: the page's timer calls the output, and the stream feeding rides along.
+            output.BeforePump = () => Core.Pump();
+        }
+        else if (capture is null)
         {
             _pump = new Thread(PumpLoop) { IsBackground = true, Name = "onegame-audio-pump" };
             _pump.Start();
@@ -300,12 +306,6 @@ public sealed class AudioService : IDisposable
         options ??= new AudioServiceOptions();
         ArgumentOutOfRangeException.ThrowIfLessThan(options.BusCount, 3);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxVoices, 1);
-
-        if (OperatingSystem.IsBrowser() && !options.Capture && options.Backend is null)
-        {
-            // The mixer runs on its own thread, which a browser page does not have; a game plays silent until a page backend exists.
-            throw new NotSupportedException("Audio output is not available in a web page yet.");
-        }
 
         CaptureAudioBackend? capture = options.Capture ? new CaptureAudioBackend() : null;
         var backend = capture ?? options.Backend ?? DefaultBackend();
@@ -354,9 +354,18 @@ public sealed class AudioService : IDisposable
     /// <summary>The backend for this operating system, or one that never opens a device.</summary>
     /// <returns>A backend.</returns>
     public static IAudioBackend DefaultBackend() =>
-        OperatingSystem.IsLinux() ? new AlsaBackend()
+        // Android is Linux underneath, so it is asked first.
+        IsAndroidProcess() ? new AAudioBackend()
+        : OperatingSystem.IsLinux() ? new AlsaBackend()
         : OperatingSystem.IsWindows() ? new WasapiBackend()
+        : OperatingSystem.IsIOS() || OperatingSystem.IsMacOS() ? new AudioUnitBackend()
+        : OperatingSystem.IsBrowser() ? new WebAudioBackend()
         : new NoDeviceBackend();
+
+    // A NativeAOT game built for linux-bionic runs on the Linux runtime, where OperatingSystem.IsAndroid() is false; every Android app process
+    // does have the ANDROID_ROOT variable the system exports to it.
+    private static bool IsAndroidProcess() =>
+        OperatingSystem.IsAndroid() || (OperatingSystem.IsLinux() && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ANDROID_ROOT")));
 
     /// <summary>The master volume, 0 and up; scales every bus.</summary>
     public float MasterVolume
@@ -390,6 +399,10 @@ public sealed class AudioService : IDisposable
             ApplyPause();
         }
     }
+
+    /// <summary>Tells the service the app left (<see langword="true"/>) or returned to the foreground. A suspended service renders nothing and stops the device, so a phone's audio hardware is released in the background; voices resume where they were. The host calls this on app lifecycle events.</summary>
+    /// <param name="suspended">Whether the app is in the background.</param>
+    public void SetSuspended(bool suspended) => Output.Suspended = suspended;
 
     /// <summary>Tells the service whether the game window has focus. When <see cref="AudioServiceOptions.PauseOnFocusLoss"/> is set, losing focus pauses audio.</summary>
     /// <param name="focused">Whether the window is focused.</param>
@@ -744,7 +757,7 @@ public sealed class AudioService : IDisposable
             Format.SampleRate, Format.Channels, Output.Status.ToString(), Capture is not null, _master, _muted, Core.ActiveVoices, buses, limiter,
             Status(l),
             music is { } m ? new MusicStatus(m.PositionSeconds, m.LengthSeconds < 0 ? null : m.LengthSeconds) : null,
-            Core.FreeBusMeters);
+            Core.FreeBusMeters, Device: Output.DeviceStatus());
 
         LoudnessStatus Status(LoudnessReading r) => new(Finite(r.MomentaryLufs), Finite(r.ShortTermLufs), Finite(r.IntegratedLufs), Finite(r.TruePeakDbtp), r.Frames / (double)Format.SampleRate);
 

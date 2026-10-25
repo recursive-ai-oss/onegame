@@ -105,6 +105,15 @@ using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true,
         return 1;
     }
 
+    // The device section and the lifecycle switch, which the phone and web backends are driven through.
+    audio.SetSuspended(true);
+    audio.SetSuspended(false);
+    if (status.Device is not { Backend: "capture", FramesPlayed: 0 } || audio.Output.Suspensions != 1 || audio.Output.IsPumped)
+    {
+        Console.Error.WriteLine("audio device report smoke failed");
+        return 1;
+    }
+
     if (!(audio.Capture!.Peak > 0.1f) || status.Loudness.IntegratedLufs is not { } lufs || lufs > 0 || lufs < -40 || status.Limiter is null)
     {
         Console.Error.WriteLine($"audio effects smoke failed: peak {audio.Capture.Peak}, loudness {status.Loudness.IntegratedLufs}");
