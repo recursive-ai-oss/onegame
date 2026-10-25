@@ -293,6 +293,9 @@ public sealed unsafe class AndroidActivityHost
         }
     }
 
+    // The keyboard attaches only to a focused view; see AndroidJni.MakeContentFocusable. Main thread only.
+    private void FocusContentView() => _mainJni.MakeContentFocusable(_activity->Clazz);
+
     private void PostInsets() => Post(Command.WithInsets(_mainJni.GetSystemInsets(_activity->Clazz)));
 
     private static string Utf8(byte* p) => p == null ? "" : Marshal.PtrToStringUTF8((nint)p) ?? "";
@@ -343,6 +346,7 @@ public sealed unsafe class AndroidActivityHost
         Host?.Post(new Command(CommandKind.WindowCreated) { Pointer = window });
         Host?._firstSurface.Set();
         Host?.PostInsets();
+        Host?.FocusContentView();
     }
 
     [UnmanagedCallersOnly]

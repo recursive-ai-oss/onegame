@@ -61,7 +61,7 @@ The game runs as a NativeAOT APK (see [android](../../docs/interfaces/android.md
 ```
 onegame export --target android --dev --abi x86_64 --json                  # debug-signed APK
 onegame android install export/Solitaire-*.apk
-onegame android test --package dev.onegame.solitaire --scenario scenarios --json   # scenarios on the device
+onegame android test --package dev.onegame.solitaire --scenario scenarios --capture-tolerance 48 --capture-max-diff 0.001 --json   # scenarios on the device; the references come from another GPU driver
 onegame android run --package dev.onegame.solitaire -- --headless --frames 5 --json
 ```
 

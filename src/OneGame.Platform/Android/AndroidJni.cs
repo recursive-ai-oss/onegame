@@ -14,7 +14,9 @@ internal sealed unsafe class AndroidJni
     private const int GetObjectClassIndex = 31;
     private const int GetMethodIdIndex = 33;
     private const int CallObjectMethodAIndex = 36;
+    private const int CallBooleanMethodAIndex = 39;
     private const int CallIntMethodAIndex = 51;
+    private const int CallVoidMethodAIndex = 63;
     private const int GetStaticMethodIdIndex = 113;
     private const int CallStaticObjectMethodAIndex = 116;
     private const int NewStringUtfIndex = 167;
@@ -94,6 +96,27 @@ internal sealed unsafe class AndroidJni
         }
     }
 
+    /// <summary>Calls an instance method returning nothing.</summary>
+    public void CallVoid(nint obj, nint method, params ReadOnlySpan<long> args)
+    {
+        fixed (long* a = args)
+        {
+            ((delegate* unmanaged<nint, nint, nint, long*, void>)Table[CallVoidMethodAIndex])(_env, obj, method, a);
+            Clear();
+        }
+    }
+
+    /// <summary>Calls an instance method returning a boolean.</summary>
+    public bool CallBool(nint obj, nint method, params ReadOnlySpan<long> args)
+    {
+        fixed (long* a = args)
+        {
+            var r = ((delegate* unmanaged<nint, nint, nint, long*, byte>)Table[CallBooleanMethodAIndex])(_env, obj, method, a);
+            Clear();
+            return r != 0;
+        }
+    }
+
     /// <summary>Calls a static method returning an object.</summary>
     public nint CallStaticObject(nint cls, nint method, params ReadOnlySpan<long> args)
     {
@@ -170,6 +193,55 @@ internal sealed unsafe class AndroidJni
         DeleteLocal(intent);
         DeleteLocal(activityClass);
         return text;
+    }
+
+    /// <summary>
+    /// Lets the activity's content view take focus. The system keyboard only attaches to a view that has focus (it logs "view is not served"
+    /// and ignores the request otherwise), and the platform's native content view is not focusable on its own. Call on the main thread once
+    /// the window exists. Returns whether the view ended up focused.
+    /// </summary>
+    public bool MakeContentFocusable(nint activity)
+    {
+        nint activityClass = 0, content = 0, contentClass = 0, view = 0, viewClass = 0;
+        try
+        {
+            activityClass = GetObjectClass(activity);
+            var find = GetMethodId(activityClass, "findViewById", "(I)Landroid/view/View;");
+            content = find == 0 ? 0 : CallObject(activity, find, 0x01020002); // android.R.id.content
+            if (content == 0)
+            {
+                return false;
+            }
+
+            contentClass = GetObjectClass(content);
+            var childAt = GetMethodId(contentClass, "getChildAt", "(I)Landroid/view/View;");
+            view = childAt == 0 ? 0 : CallObject(content, childAt, 0);
+            if (view == 0)
+            {
+                return false;
+            }
+
+            viewClass = GetObjectClass(view);
+            var setFocusable = GetMethodId(viewClass, "setFocusable", "(Z)V");
+            var setTouchFocusable = GetMethodId(viewClass, "setFocusableInTouchMode", "(Z)V");
+            var request = GetMethodId(viewClass, "requestFocus", "()Z");
+            if (setFocusable == 0 || setTouchFocusable == 0 || request == 0)
+            {
+                return false;
+            }
+
+            CallVoid(view, setFocusable, 1);
+            CallVoid(view, setTouchFocusable, 1);
+            return CallBool(view, request);
+        }
+        finally
+        {
+            DeleteLocal(viewClass);
+            DeleteLocal(view);
+            DeleteLocal(contentClass);
+            DeleteLocal(content);
+            DeleteLocal(activityClass);
+        }
     }
 
     /// <summary>

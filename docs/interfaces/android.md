@@ -16,10 +16,10 @@ A game is a NativeAOT **shared library** that the platform's own `android.app.Na
 
 ```
 onegame export --target android --json                      # arm64-v8a and x86_64, Release, no development tools
-onegame export --target android --abi x86_64 --dev --json   # an emulator build agents can drive
+onegame export --target android --abi x86_64 --dev --json   # a build for an emulator, with live control
 ```
 
-Options: `--abi arm64-v8a,x86_64`, `--dev`, `--package com.example.game` (default `dev.onegame.<assembly>`), `--label`, `--orientation` (an `android:screenOrientation` value, default `unspecified`), `--sdk <dir>`, `--keystore <file>`, `--out`, `--project`. The result (`AndroidExportResult`) has the APK path, size, SHA-256, package, ABIs and each library's hash.
+Options: `--abi arm64-v8a,x86_64`, `--dev`, `--package com.example.game` (default `dev.onegame.<assembly>`), `--label`, `--orientation` (an `android:screenOrientation` value, default `unspecified`), `--sdk <dir>`, `--keystore <file>`, `--symbols <dir>` (keep the debug files for crash analysis), `--out`, `--project`. The result (`AndroidExportResult`) has the APK path, size, SHA-256, package, ABIs and each library's hash.
 
 - **Needs** a Linux x86-64 host (the NDK's clang links the library), the Android SDK (`ANDROID_HOME`: build-tools, a platform, platform-tools) and an NDK (`ANDROID_NDK` or `$ANDROID_HOME/ndk/<newest>`), plus a JDK for `apksigner` and `keytool`. All of these are build-time tools; none ships.
 - The .NET SDK does not list `linux-bionic` as a NativeAOT target, so `build/Android.targets` (imported by `build/Game.targets`) downloads the host compiler and the `Microsoft.NETCore.App.Runtime.NativeAOT.linux-bionic-*` pack at restore and points the compiler at them and at the NDK's clang and sysroot. A plain `dotnet publish -r linux-bionic-arm64` of a game that imports `Game.targets` does the same.
@@ -47,4 +47,12 @@ The live listener on a phone is a loopback TCP port in a debuggable app. Any app
 
 ## What is verified where
 
-Emulator runs (x86_64, API 35, SwiftShader Vulkan) are in the unit's report. Not yet verified: arm64 on a device or emulator (built, not run), a real GPU driver on a phone, gamepads, a hardware keyboard, composed text, devices with a display cut-out, and Play-style 16 KiB-page devices.
+On an x86_64 emulator (API 35, Google APIs image, SwiftShader Vulkan, 1080x2400 at 420 dpi), with Solitaire and `tests/AndroidTextGame`:
+
+- **Scenarios:** `onegame android test --package dev.onegame.solitaire --scenario scenarios --capture-tolerance 48 --capture-max-diff 0.001 --json` passes 14 of 14, with the same state hashes as a desktop headless run. The references were drawn by lavapipe; SwiftShader places anti-aliased edge pixels differently (without the override, 4 captures differ by at most 41 per channel in 0.2 to 1 % of pixels, all on card, text and glyph edges, nothing else). The override keeps the stricter 0.1 % pixel budget and loosens only the channel tolerance. `--windowed` runs the scenarios with a real window, but the display's own size replaces the scenario's `window:` size, so scenarios that tap by layout fail there: use it to check presenting, not to run suites.
+- **Touch:** `adb shell input tap` on the stock pile draws a card (`Waste` goes from empty to one card, `Moves` 0 to 1); scenario `06-touch-only` passes on the device.
+- **Lifecycle:** after `KEYCODE_HOME` the process lives, the tick and the presented-frame counter stop, and after `am start` the table state is equal to before and frames present again. Rotation (`adb emu rotate`, `fullSensor`): the window flips between 1080x2400 and 2400x1080, frames keep presenting on each new surface, state and text field contents are kept.
+- **Keyboard:** tapping a kit text field shows the system keyboard (`mInputShown=true`); `adb shell input text` characters arrive as key events plus `TextInput` and reach the field. The platform's content view is made focusable when the window is created: without that the system logs `showSoftInput() ... is not served` and shows nothing.
+- **Crash reports:** `onegame export --symbols <dir>` keeps the `.dbg` file; `llvm-symbolizer -e <dir>/<abi>/<Game>.so.dbg <pc>` names the frames from a tombstone.
+
+Not verified: arm64 on a device or emulator (built, not run), a real GPU driver on a phone, gamepads, a hardware keyboard, composed text (needs a Java input connection), devices with a display cut-out, Play-style 16 KiB-page devices, audio output on a device. The runtime's hash and random providers need a system crypto library the app does not have, so `System.Security.Cryptography` must not be used in a game or in the engine's runtime paths that run on a phone (the control layer has its own SHA-256; `OneGame.Net` still uses the platform's random and HMAC and is not yet checked on Android).
