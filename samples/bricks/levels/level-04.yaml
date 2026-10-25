@@ -1,0 +1,12 @@
+# Level 4. Glyphs: . empty, 1-6 one-hit brick (colour), T two hits, H three hits, # unbreakable.
+name: Pillars
+speed: 4
+capsules: 18
+rows:
+  - "1.2.3..3.2.1"
+  - "1.2.3..3.2.1"
+  - "1.2.3..3.2.1"
+  - "1.2.3..3.2.1"
+  - "#.#.#..#.#.#"
+  - "............"
+  - "TTTTTTTTTTTT"

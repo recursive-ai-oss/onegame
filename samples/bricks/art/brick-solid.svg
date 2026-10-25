@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="16" viewBox="0 0 40 16">
+  <!-- The brick nothing breaks: a plate with rivets and a diagonal hatch. -->
+  <rect x="0.5" y="0.5" width="39" height="15" rx="2" fill="#cfcfcf"/>
+  <rect x="2" y="2" width="36" height="12" rx="1" fill="#9c9c9c"/>
+  <path d="M8 14 L16 2 M16 14 L24 2 M24 14 L32 2 M32 14 L40 2" stroke="#bdbdbd" stroke-width="2" fill="none"/>
+  <circle cx="4.5" cy="4.5" r="1.2" fill="#ffffff"/>
+  <circle cx="35.5" cy="4.5" r="1.2" fill="#ffffff"/>
+  <circle cx="4.5" cy="11.5" r="1.2" fill="#ffffff"/>
+  <circle cx="35.5" cy="11.5" r="1.2" fill="#ffffff"/>
+</svg>

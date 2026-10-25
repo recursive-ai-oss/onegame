@@ -1,0 +1,13 @@
+name: power-ups
+description: Two capsules fall onto the paddle. The wide one makes it wider for ten seconds; the multi-ball one splits the ball into three.
+steps:
+  - fixture: capsules
+  - screen: play
+  - step: 40
+expect:
+  - state: { entity: Court, property: Catches, equals: 2 }
+  - state: { entity: Court, property: Balls.count, equals: 3 }
+  - state: { entity: Court, property: Capsules.count, equals: 0 }
+  - state: { entity: Court, property: WideLeft, equals: 568 }
+  - state: { entity: Court, property: Score, equals: 100 }
+  - sound: { name: Catch, count: 2 }

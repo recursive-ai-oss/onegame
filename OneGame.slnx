@@ -31,6 +31,8 @@
     <Project Path="src/OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
   </Folder>
   <Folder Name="/samples/">
+    <Project Path="samples/bricks/Bricks.csproj" />
+    <Project Path="samples/bricks/tests/Bricks.Tests.csproj" />
     <Project Path="samples/lanterns/Lanterns.csproj" />
     <Project Path="samples/lanterns/Server/Lanterns.Server.csproj" />
     <Project Path="samples/lanterns/Sim/Lanterns.Sim.csproj" />

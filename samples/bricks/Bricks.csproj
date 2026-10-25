@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- The onegame checkout this game builds against: two folders up from here. -->
+    <OneGameRoot>$(MSBuildThisFileDirectory)../../</OneGameRoot>
+    <AssemblyName>Bricks</AssemblyName>
+    <RootNamespace>Bricks</RootNamespace>
+    <Description>Bricks: a brick-breaker, the third onegame sample and its first real-time action game.</Description>
+    <!-- The sample's own tests and scenario files are not part of the game. -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+    <!-- The court is taller than it is wide. -->
+    <AndroidOrientation>sensorPortrait</AndroidOrientation>
+    <IosOrientation>portrait</IosOrientation>
+  </PropertyGroup>
+
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+
+  <ItemGroup>
+    <Compile Include="**/*.cs" Exclude="tests/**;obj/**;bin/**" />
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
+    <!-- Levels are YAML, read through OneYaml's generated metadata. -->
+    <PackageReference Include="OneYaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Art, levels and the default fonts travel inside the program, so the game runs from any folder. -->
+    <EmbeddedResource Include="art/*.svg" LogicalName="art/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="levels/*.yaml" LogicalName="levels/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="fonts/*.ttf" LogicalName="fonts/%(Filename)%(Extension)" />
+    <InternalsVisibleTo Include="Bricks.Tests" />
+  </ItemGroup>
+
+</Project>

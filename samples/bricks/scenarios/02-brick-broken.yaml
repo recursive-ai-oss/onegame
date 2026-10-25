@@ -1,0 +1,12 @@
+name: brick-broken
+description: The first launch (seed 1) flies up and breaks one brick of the top row, scoring ten points and playing the brick sound.
+steps:
+  - click: play
+  - step: 2
+  - press: Space
+  - step: 110
+  - expect: { state: { entity: Court, property: Breaks, equals: 1 } }
+  - expect: { state: { entity: Court, property: Score, equals: 10 } }
+  - expect: { state: { entity: Court, property: BricksLeft, equals: 47 } }
+  - expect: { sound: { name: Brick, count: 1 } }
+  - expect: { sound: { name: Launch, count: 1 } }

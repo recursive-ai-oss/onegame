@@ -1,0 +1,8 @@
+name: capture-title
+description: The title screen at 1280x720 and, at a UI scale of 1.5, at 1920x1080.
+steps:
+  - step: 3
+  - expect:
+      capture: { reference: refs/title-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }
+  - expect:
+      capture: { reference: refs/title-1080p.png, size: 1920x1080, scale: 1.5, tolerance: 2, max-diff: 0.001 }

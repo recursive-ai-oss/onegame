@@ -1,0 +1,17 @@
+name: start
+description: From the title, Play serves level 1 with the ball on the paddle; Space launches it and it flies up.
+steps:
+  - click: play
+  - step: 2
+  - expect: { ui: { id: play-screen, visible: true } }
+  - expect: { state: { entity: Court, property: Phase, equals: 1 } }
+  - expect: { state: { entity: Court, property: Level, equals: 1 } }
+  - expect: { state: { entity: Court, property: Lives, equals: 3 } }
+  - expect: { state: { entity: Court, property: BricksLeft, equals: 48 } }
+  - expect: { state: { entity: Court, property: Balls.count, equals: 1 } }
+  - expect: { ui: { id: banner, text: "Level 1: First Light" } }
+  - press: Space
+  - step: 20
+  - expect: { state: { entity: Court, property: Phase, equals: 2 } }
+  - expect: { state: { entity: Court, property: "Balls[0].Y", equals: 497.123592378 } }
+  - expect: { sound: { name: Launch, count: 1 } }

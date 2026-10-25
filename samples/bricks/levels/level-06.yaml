@@ -1,0 +1,12 @@
+# Level 6. Glyphs: . empty, 1-6 one-hit brick (colour), T two hits, H three hits, # unbreakable.
+name: Waves
+speed: 8
+capsules: 15
+rows:
+  - "1....1....1."
+  - ".2..2.2..2.2"
+  - "..3.3...3.3."
+  - "...4.....4.."
+  - "4....4....4."
+  - ".5..5.5..5.5"
+  - "..6.6...6.6."

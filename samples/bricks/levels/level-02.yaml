@@ -1,0 +1,11 @@
+# Level 2. Glyphs: . empty, 1-6 one-hit brick (colour), T two hits, H three hits, # unbreakable.
+name: Stairs
+speed: 0
+capsules: 22
+rows:
+  - "1111........"
+  - "22221111...."
+  - "333322221111"
+  - "444433332222"
+  - "............"
+  - "555555555555"

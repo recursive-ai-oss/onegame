@@ -1,0 +1,16 @@
+name: level-cleared
+description: The last brick of level 1 breaks, the cleared banner shows, and level 2 is served.
+steps:
+  - fixture: last-brick
+  - screen: play
+  - step: 100
+  - expect: { state: { entity: Court, property: Phase, equals: 3 } }
+  - expect: { ui: { id: banner, text: "Level cleared!" } }
+  - expect: { state: { entity: Court, property: Clears, equals: 1 } }
+  - step: 100
+expect:
+  - state: { entity: Court, property: Phase, equals: 1 }
+  - state: { entity: Court, property: Level, equals: 2 }
+  - state: { entity: Court, property: BricksLeft, equals: 48 }
+  - ui: { id: banner, text: "Level 2: Stairs" }
+  - sound: { name: Clear, count: 1 }
