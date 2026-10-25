@@ -54,6 +54,7 @@ public sealed class ModelLibrary : IDisposable
             }
 
             e.Pool.Clear();
+            e.Batch = null;
             e.Gpu?.Dispose();
             e.Gpu = null;
         }
@@ -98,6 +99,8 @@ public sealed class ModelLibrary : IDisposable
         public List<ModelInstance3D> Pool { get; } = [];
 
         public int Used { get; set; }
+
+        public InstanceBatch3D? Batch { get; set; }
 
         private Matrix4x4[]? _nodeInverse;
 

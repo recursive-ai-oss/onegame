@@ -113,7 +113,7 @@ SurfaceSource.Win32(hinstance, hwnd)
 using var sc = device.CreateSwapchain(surface, new SwapchainDesc(width, height) { Srgb = false, PresentMode = PresentMode.Vsync });
 ```
 
-Per frame: `sc.TryAcquire(out var backbuffer)` (returns `Skipped` while the window has no area), render into `backbuffer` and submit, then `sc.Present()`. The swapchain rebuilds itself when the window size changes (polled from the surface on X11 and Win32; call `sc.Resize(w, h)` where the window system does not report a size, as on Wayland). Backbuffers are `RenderTarget | CopySource`, so a presented frame can be captured too.
+Per frame: `sc.TryAcquire(out var backbuffer)` (returns `Skipped` while the window has no area), render into `backbuffer` and submit, then `sc.Present()`. `sc.AcquireTimeout` (default 2 s) bounds the wait for a free image; on timeout `TryAcquire` returns `Skipped`, so a window system that stops answering cannot hang the frame loop. The swapchain rebuilds itself when the window size changes (polled from the surface on X11 and Win32; call `sc.Resize(w, h)` where the window system does not report a size, as on Wayland). Backbuffers are `RenderTarget | CopySource`, so a presented frame can be captured too.
 
 Verified: X11 (Xlib window created by the test, under Xvfb), including resize. Wayland and Win32 surface creation is implemented but not exercised yet.
 
