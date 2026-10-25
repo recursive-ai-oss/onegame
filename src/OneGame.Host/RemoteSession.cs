@@ -22,6 +22,15 @@ public sealed record ConnectOptions
 
     /// <summary>Network conditions to apply to this client's traffic (latency, loss, ...), or null for the real network as it is.</summary>
     public NetworkConditions? Conditions { get; init; }
+
+    /// <summary>
+    /// When the connection closes for any reason but a refusal or a version mismatch (the server died, restarted or timed out), keep trying to
+    /// connect again and resubscribe to every followed scope; the replicas are rebuilt from fresh snapshots. On by default.
+    /// </summary>
+    public bool Reconnect { get; init; } = true;
+
+    /// <summary>How long to keep trying after the connection was lost before the session counts as closed for good. Attempts back off from 250 ms to 2 s.</summary>
+    public int ReconnectWindowMs { get; init; } = 60_000;
 }
 
 /// <summary>One drift report: a replica whose state differed from the server's at the same tick.</summary>
@@ -60,9 +69,11 @@ public sealed record FollowedScope(uint Scope, string Replica, long Tick, string
 /// <param name="MessagesReceived">Messages received from the server.</param>
 /// <param name="Reports">The latest drift reports (at most 8), oldest first.</param>
 /// <param name="Followed">The other scopes the client follows through its server, in subscription order.</param>
+/// <param name="Reconnects">How many times the session connected again after losing the server.</param>
+/// <param name="Reconnecting">True while the connection is lost and the session is trying to get it back.</param>
 public sealed record NetStatus(
     string Address, string Transport, string Connection, string? CloseReason, uint Scope, string Replica, long Tick, string Hash,
-    long FramesApplied, int Resyncs, int Drift, double RttMs, long Retransmits, double InboundLoss, double OutboundLoss, long MessagesSent, long MessagesReceived, DriftInfo[] Reports, FollowedScope[] Followed);
+    long FramesApplied, int Resyncs, int Drift, double RttMs, long Retransmits, double InboundLoss, double OutboundLoss, long MessagesSent, long MessagesReceived, DriftInfo[] Reports, FollowedScope[] Followed, int Reconnects = 0, bool Reconnecting = false);
 
 /// <summary>
 /// A game's connection to a server: a node holding one replica scope, reached through a transport connection
@@ -80,6 +91,7 @@ public sealed class RemoteSession
         ArgumentNullException.ThrowIfNull(replicaWorld);
         Options = options;
         (Transport, var endpoint) = Parse(options.Address);
+        _endpoint = endpoint;
         Connection = Open(Transport, endpoint, options.Conditions);
         Node = new Node(options.Name);
         var link = Node.ConnectVia(Connection);
@@ -107,10 +119,18 @@ public sealed class RemoteSession
     public string Transport { get; }
 
     /// <summary>The transport connection.</summary>
-    public INetConnection Connection { get; }
+    public INetConnection Connection { get; private set; }
 
-    /// <summary>True once the transport connection has closed (the server left, timed out or refused).</summary>
-    public bool IsClosed => Connection.State == ConnectionState.Closed;
+    /// <summary>How many times the session connected again after losing the server.</summary>
+    public int Reconnects { get; private set; }
+
+    /// <summary>True while the connection is lost and the session is trying to get it back (<see cref="ConnectOptions.Reconnect"/>).</summary>
+    public bool IsReconnecting => Connection.State == ConnectionState.Closed && _lostAt >= 0 && !GaveUp;
+
+    /// <summary>True once the transport connection has closed and the session will not try again (the server refused it, the window ran out, or reconnecting is off).</summary>
+    public bool IsClosed => Connection.State == ConnectionState.Closed && (!Options.Reconnect || _permanent || GaveUp);
+
+    private bool GaveUp => _lostAt >= 0 && Environment.TickCount64 - _lostAt > Options.ReconnectWindowMs;
 
     /// <summary>The client's node.</summary>
     public Node Node { get; }
@@ -124,10 +144,88 @@ public sealed class RemoteSession
     /// <summary>Moves messages both ways and applies what arrived. Cheap when nothing did.</summary>
     public void Pump()
     {
+        if (Connection.State == ConnectionState.Closed)
+        {
+            Node.Pump(); // whatever arrived before the close is still applied
+            TryReconnect();
+            return;
+        }
+
         Connection.Pump();
         Node.Pump();
         Connection.Pump();
     }
+
+    // The old connection is closed. Open a new one with growing pauses; only once it is connected is it swapped in, because messages sent
+    // into a connection that never completes its handshake are lost with it, and the swap is what resubscribes.
+    private void TryReconnect()
+    {
+        if (!Options.Reconnect || _permanent)
+        {
+            return;
+        }
+
+        var now = Environment.TickCount64;
+        if (_lostAt < 0)
+        {
+            _lostAt = now;
+            _nextAttempt = now;
+            _backoffMs = 250;
+            var reason = Connection.CloseInfo.Reason;
+            if (_closedByUs || reason is DisconnectReason.Rejected or DisconnectReason.VersionMismatch or DisconnectReason.Kicked)
+            {
+                _permanent = true;
+                return;
+            }
+        }
+
+        if (GaveUp)
+        {
+            return;
+        }
+
+        if (_candidate is null)
+        {
+            if (now >= _nextAttempt)
+            {
+                _candidate = Open(Transport, _endpoint, Options.Conditions);
+            }
+
+            return;
+        }
+
+        _candidate.Pump();
+        if (_candidate.State == ConnectionState.Connected)
+        {
+            var fresh = _candidate;
+            _candidate = null;
+            Connection = fresh;
+            Reconnects++;
+            _lostAt = -1;
+            Node.Reconnect(Link, fresh);
+        }
+        else if (_candidate.State == ConnectionState.Closed)
+        {
+            var reason = _candidate.CloseInfo.Reason;
+            _candidate = null;
+            if (reason is DisconnectReason.Rejected or DisconnectReason.VersionMismatch or DisconnectReason.Kicked)
+            {
+                _permanent = true;
+                return;
+            }
+
+            _backoffMs = Math.Min(_backoffMs * 2, 2000);
+            _nextAttempt = now + _backoffMs;
+        }
+    }
+
+    private readonly IPEndPoint _endpoint;
+    private INetConnection? _candidate;
+    private long _lostAt = -1;
+    private long _nextAttempt;
+    private int _backoffMs = 250;
+    private bool _permanent;
+    private bool _closedByUs;
 
     /// <summary>Describes the connection and the replica now.</summary>
     public NetStatus Status()
@@ -139,7 +237,8 @@ public sealed class RemoteSession
             Replica.State.ToString().ToLowerInvariant(), Replica.World.Tick, Replica.ViewHash.ToString("x16", CultureInfo.InvariantCulture),
             Replica.FramesApplied, Replica.Resyncs, Node.DriftCount, Math.Round(s.RttMs, 1), s.Retransmits, Math.Round(s.InboundLoss, 4), Math.Round(s.OutboundLoss, 4),
             s.MessagesSent, s.MessagesReceived, DriftInfos(),
-            [.. Replicas.Skip(1).Select(r => new FollowedScope(r.Id.Value, r.State.ToString().ToLowerInvariant(), r.World.Tick, r.ViewHash.ToString("x16", CultureInfo.InvariantCulture)))]);
+            [.. Replicas.Skip(1).Select(r => new FollowedScope(r.Id.Value, r.State.ToString().ToLowerInvariant(), r.World.Tick, r.ViewHash.ToString("x16", CultureInfo.InvariantCulture)))],
+            Reconnects, IsReconnecting);
     }
 
     private DriftInfo[] DriftInfos()
@@ -167,7 +266,13 @@ public sealed class RemoteSession
     }
 
     /// <summary>Closes the connection, telling the server.</summary>
-    internal void Close() => Connection.Disconnect(DisconnectReason.Normal, flush: true);
+    internal void Close()
+    {
+        _closedByUs = true;
+        _permanent = true;
+        _candidate?.Disconnect(DisconnectReason.Normal);
+        Connection.Disconnect(DisconnectReason.Normal, flush: true);
+    }
 
     private static (string Transport, IPEndPoint Endpoint) Parse(string address)
     {

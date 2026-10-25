@@ -19,6 +19,8 @@ namespace Lanterns.Server;
 public sealed class Realm
 {
     private const int SaveEveryTicks = 2;
+    private const int LeaveEveryTicks = 10;
+    private const int GiveUpTicks = 240;
 
     private readonly Dictionary<uint, Peer> _peers = [];
     private readonly List<PeerConnection> _accepted = [];
@@ -30,6 +32,7 @@ public sealed class Realm
     private EscrowDriver? _driver;
     private uint _scopeNo;
     private uint _issued;
+    private readonly List<Leaver> _leaving = [];
 
     /// <summary>The setup a server program (or a test) passes to the server host. Each call makes an independent server.</summary>
     public static ServerSetup Setup() => new Realm().Create();
@@ -119,6 +122,16 @@ public sealed class Realm
         {
             _issued = Island.Of(_scope.World)?.NextPlayer ?? 0;
             host.Authenticate = AdmitPlayer;
+            host.ClientLeft += OnClientLeft;
+
+            // Players this island let in before it stopped have no connection any more, wherever their entity is now.
+            foreach (var e in _scope.World.Entities)
+            {
+                if (e is Player p && p.Owner / 100_000 == _scopeNo)
+                {
+                    _leaving.Add(new Leaver(p.Owner, host.Tick));
+                }
+            }
         }
     }
 
@@ -167,14 +180,14 @@ public sealed class Realm
             {
                 var peer = new PeerConnection(connection);
                 _accepted.Add(peer);
-                _host.Node.Accept(peer, PeerTrust, "peer " + connection.RemoteName);
+                peer.Accepted = _host.Node.Accept(peer, PeerTrust, "peer " + connection.RemoteName);
             }
 
             for (var i = _accepted.Count - 1; i >= 0; i--)
             {
                 if (_accepted[i].IsClosed)
                 {
-                    _accepted[i].Inject(_host.Node.AuthorityScopes.Select(s => s.Id));
+                    _host.Node.Detach(_accepted[i].Accepted!);
                     _accepted.RemoveAt(i);
                 }
             }
@@ -196,6 +209,10 @@ public sealed class Realm
         else
         {
             HandOver();
+            if (host.Tick % LeaveEveryTicks == 0)
+            {
+                RemoveLeavers();
+            }
         }
 
         if (host.Tick % SaveEveryTicks == 0)
@@ -225,6 +242,68 @@ public sealed class Realm
             _scope.BeginTransfer(peer.Link, new ScopeId(dest), _ids);
         }
     }
+
+    private void OnClientLeft(Connection connection)
+    {
+        if (connection.Trust.Who.Player is var player and not 0)
+        {
+            _leaving.Add(new Leaver(player, _host.Tick));
+        }
+    }
+
+    // A player who left is removed where their entity is now: here, or on the other island (asked through the replica of it). The ask is
+    // repeated until the player is nowhere to be seen, because the entity may be on the bridge, in a swap, or between servers.
+    private void RemoveLeavers()
+    {
+        for (var i = _leaving.Count - 1; i >= 0; i--)
+        {
+            var leaver = _leaving[i];
+            var found = false;
+            if (FindPlayer(_scope.World, leaver.Player) is not null)
+            {
+                found = true;
+                if (Island.Of(_scope.World) is { } island)
+                {
+                    _host.SendCommand(_scope.Id, island.Id, "Leave", leaver.Player.ToString(CultureInfo.InvariantCulture));
+                }
+            }
+            else
+            {
+                foreach (var peer in _peers.Values)
+                {
+                    if (peer.Replica.State == ReplicaState.Live && FindPlayer(peer.Replica.World, leaver.Player) is not null && Island.Of(peer.Replica.World) is { } there)
+                    {
+                        found = true;
+                        there.Send.Leave((int)leaver.Player);
+                    }
+                }
+            }
+
+            if (found)
+            {
+                _leaving[i] = leaver with { LastSeen = _host.Tick };
+            }
+            else if (_host.Tick - leaver.LastSeen > GiveUpTicks)
+            {
+                _leaving.RemoveAt(i);
+            }
+        }
+    }
+
+    private static Player? FindPlayer(World world, uint owner)
+    {
+        foreach (var e in world.Entities)
+        {
+            if (e is Player p && p.Owner == owner)
+            {
+                return p;
+            }
+        }
+
+        return null;
+    }
+
+    private readonly record struct Leaver(uint Player, long LastSeen);
 
     private bool InTransfer(EntityId id)
     {
@@ -293,41 +372,15 @@ public sealed class Realm
 
     private sealed record Peer(PeerChannel Channel, Link Link, ReplicaScope Replica);
 
-    // A connection another server opened to us. When it closes we tell the node, as a polite client would have, so it stops publishing to it.
+    // A connection another server opened to us. When it closes the node is told, so it stops publishing to it.
     private sealed class PeerConnection(INetConnection inner) : IMessageChannel
     {
-        private readonly Queue<byte[]> _injected = [];
-        private byte[] _current = [];
+        public Connection? Accepted { get; set; }
 
         public bool IsClosed => inner.State == ConnectionState.Closed;
 
         public void Send(ReadOnlySpan<byte> message) => inner.Send(message);
 
-        public bool TryReceive(out ReadOnlySpan<byte> message)
-        {
-            if (inner.TryReceive(out message))
-            {
-                return true;
-            }
-
-            if (_injected.TryDequeue(out var next))
-            {
-                _current = next;
-                message = _current;
-                return true;
-            }
-
-            message = default;
-            return false;
-        }
-
-        public void Inject(IEnumerable<ScopeId> scopes)
-        {
-            foreach (var scope in scopes)
-            {
-                // Unsubscribe is message type 2 followed by the scope id as a varint; ours are all below 128.
-                _injected.Enqueue([2, (byte)scope.Value]);
-            }
-        }
+        public bool TryReceive(out ReadOnlySpan<byte> message) => inner.TryReceive(out message);
     }
 }

@@ -1,0 +1,11 @@
+name: island-restart-reconnect
+description: Island A is killed while bot1 plays on it and started again from its save. Nobody restarts bot1; it notices, connects again, resubscribes to every scope it follows and agrees with the island again.
+steps:
+  - wait: { node: bot1, tick: 300, timeout: 90000 }
+  - kill: islandA
+  - start: islandA
+  - wait: { node: islandA, tick: 1200, timeout: 120000 }
+expect:
+  - agree: { server: islandA, clients: [bot1] }
+  - agree: { server: islandB, clients: [bot2] }
+  - drift: { nodes: [islandA, islandB, master, bot1, bot2], equals: 0 }

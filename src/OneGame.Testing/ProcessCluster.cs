@@ -237,11 +237,11 @@ public sealed class ProcessCluster : IDisposable
     /// the cluster, not running, until <see cref="Start"/>.
     /// </summary>
     /// <param name="node">The node's name.</param>
-    /// <exception cref="ClusterException">No such node, or this object did not start the cluster.</exception>
+    /// <exception cref="ClusterException">No such node.</exception>
     public void Kill(string node)
     {
+        // Works on an attached cluster too: it needs only the process id. Starting the node again needs the spec, so that stays with the owner.
         var n = Node(node);
-        RequireOwner();
         if (_clients.Remove(n.Name, out var live))
         {
             live.Dispose();

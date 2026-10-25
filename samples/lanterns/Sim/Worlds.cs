@@ -41,7 +41,7 @@ public static class Worlds
             return;
         }
 
-        world.Add(new Island { Keeper = Rules.ServerPlayer, ScopeNo = scope.Value, Linked = true });
+        world.Add(new Island { Keeper = Escrow.CoordinatorPlayer, ScopeNo = scope.Value, Linked = true });
         var rng = world.Rng["spawn"];
         for (var i = 0; i < Rules.GroundTarget / 2; i++)
         {

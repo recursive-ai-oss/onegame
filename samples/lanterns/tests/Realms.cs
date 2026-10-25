@@ -13,6 +13,7 @@ namespace Lanterns.Tests;
 internal sealed class Realms : IDisposable
 {
     private readonly int[] _peerPorts = [Free(), Free(), Free()];
+    private readonly int[] _listenPorts = [Free(), Free(), Free()]; // fixed per scope, so a restarted server is found where it was
     private readonly string? _data;
     private readonly Dictionary<uint, (ServerHost Host, Realm Realm)> _servers = [];
     private readonly List<GameInstance> _clients = [];
@@ -53,7 +54,7 @@ internal sealed class Realms : IDisposable
         {
             Name = scope == Rules.Master ? "master" : scope == Rules.IslandA ? "islandA" : "islandB",
             Scopes = [new ScopeConfig(scope, scope * 11)],
-            Listen = scope == Rules.Master ? [] : [new ListenConfig("udp", 0, "127.0.0.1")],
+            Listen = scope == Rules.Master ? [] : [new ListenConfig("udp", _listenPorts[scope - 1], "127.0.0.1")],
             Options = options,
             HashHistory = 64,
         };
@@ -120,8 +121,8 @@ internal sealed class Realms : IDisposable
     /// <summary>All players on both islands.</summary>
     public IEnumerable<Player> Players() => new[] { Rules.IslandA, Rules.IslandB }.Where(_servers.ContainsKey).SelectMany(s => Host(s).Scopes[0].World.Entities.OfType<Player>());
 
-    /// <summary>Lanterns held by players plus those taken out by a swap and not yet delivered.</summary>
-    public long Held() => Players().Sum(p => (long)p.Total) + InFlight();
+    /// <summary>Lanterns held by players, taken out by a swap and not yet delivered, or gone with a player who disconnected.</summary>
+    public long Held() => Players().Sum(p => (long)p.Total) + InFlight() + Departed();
 
     public long InFlight()
     {
@@ -130,6 +131,15 @@ internal sealed class Realms : IDisposable
     }
 
     public long Collected() => new[] { Rules.IslandA, Rules.IslandB }.Where(_servers.ContainsKey).Sum(s => Island.Of(Host(s).Scopes[0].World)!.Collected);
+
+    public long Departed() => new[] { Rules.IslandA, Rules.IslandB }.Where(_servers.ContainsKey).Sum(s => Island.Of(Host(s).Scopes[0].World)!.Departed);
+
+    /// <summary>A player closes the game: the connection ends and the client is no longer run.</summary>
+    public void Leave(GameInstance client)
+    {
+        client.Dispose();
+        _clients.Remove(client);
+    }
 
     public void Dispose()
     {

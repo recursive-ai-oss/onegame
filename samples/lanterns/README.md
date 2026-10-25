@@ -15,6 +15,7 @@ It is also the example for multiplayer: `docs/interfaces/sync.md` (views, predic
 | `scenarios/` | Single-player scenarios, picks and captures (3D frames against lavapipe references, 4 of 255 per channel on at most 0.1% of pixels), run by `onegame test`. |
 | `cluster.yaml`, `cluster/play.yaml`, `cluster/crash.yaml` | The five-process cluster, the scenario that plays 2000 ticks on it, and the one that kills the master (while a swap is open) and then island B and starts them again. |
 | `cluster-3d.yaml` | The same cluster with graphics devices on the bots, for capturing what a bot sees. |
+| `cluster/reconnect.yaml`, `cluster/leave.yaml` | Island A is killed and started again with bot1 playing on it (nobody restarts the bot); a bot is killed and its player leaves the game. |
 | `cluster-release.yaml`, `cluster/play-release.yaml` | The same cluster made of exported builds, whose clients have no live control. |
 | `tests/` | In-process network tests, privacy at the byte level, determinism, and the process cluster. |
 
@@ -66,7 +67,9 @@ onegame cluster down --dir run
 
 `bot1` reaches its island over UDP with 100 ms latency and 2% loss, `bot2` over a WebSocket. A client whose name starts with `bot` plays itself (`Autopilot`).
 
-`cluster/crash.yaml` uses the `kill:`, `start:` and `restart:` steps (SIGKILL, then the same arguments, data folder and ports). After island B is back, `restart: bot2` joins a new player to it, because a client does not reconnect. `ClusterTests` then checks that lanterns held by players equal lanterns collected and that every client agrees with its server.
+`cluster/crash.yaml` uses the `kill:`, `start:` and `restart:` steps (SIGKILL, then the same arguments, data folder and ports). After island B is back, `restart: bot2` joins a new player to it. `ClusterTests` then checks that lanterns held by players, plus those that left with disconnected players (`Island.Departed`), equal lanterns collected and that every client agrees with its server.
+
+A client that loses its island connects again by itself (`ConnectOptions.Reconnect`) and, to the island, is a new player. A player whose connection is gone is removed (`Island.Leave`) from the island they are on, even when that is the other island; after a restart from a save, the players the island let in before are removed the same way.
 
 Exports: `onegame export --project Lanterns.csproj --out export` and `onegame export --server --project Server --out export`. The exported clients are release builds with no live control, so the release cluster runs them with `release: true` and `--until-tick`: each plays headless in real time until its replica reaches that tick, prints one JSON line (tick, `viewHash`, followed scopes, drift count), and `cluster/play-release.yaml` waits for them to stop and compares what they printed with their servers:
 
@@ -79,6 +82,5 @@ A windowed client on a machine with `WAYLAND_DISPLAY` set opens on that composit
 ## Limits
 
 - Player ids come from a counter on the island that was joined; nothing authenticates a player, so a returning client is a new player.
-- A player whose client leaves stays on the island.
-- A client does not reconnect when its own island is killed; it has to start again (as a new player).
+- A reconnecting client is a new player: the transport has no authentication, so nothing proves it is the same person.
 - No Windows run, no real-network run.
