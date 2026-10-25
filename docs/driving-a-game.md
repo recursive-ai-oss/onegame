@@ -83,7 +83,7 @@ Debug builds listen on a local socket: `onegame run -- --live` (add `--realtime`
 
 ## 6. Run it in a window
 
-`onegame run` without `--headless` opens a real window on Wayland or X11 (`--backend wayland|x11`, `--display NAME`, `--present vsync|lowlatency|immediate`). Add `--live` and an agent can drive it exactly like a headless one while it presents:
+`onegame run` without `--headless` opens a real window on Wayland or X11, or Cocoa on a Mac (`--backend wayland|x11|cocoa`, `--display NAME`, `--present vsync|lowlatency|immediate`). Add `--live` and an agent can drive it exactly like a headless one while it presents:
 
 ```
 onegame run -- --live /tmp/shop.sock --realtime --backend x11 --display :88
@@ -139,6 +139,7 @@ In C#: `TestCluster.Launch(spec)` returns a `ProcessCluster` (`Call`, `WaitForTi
 ```
 onegame export --target linux-x64 --steam --json     # a folder and a .tar.gz under ./export, nothing else in them
 onegame export --target win-x64 --json              # a folder and a .zip
+onegame export --target osx --json                  # Game.app (ad-hoc signed) and a .tar.gz, on an Apple-silicon Mac
 ```
 
 The JSON lists every file with its size and hash, and the warnings worth acting on. Release builds only; see `docs/exporting.md`.

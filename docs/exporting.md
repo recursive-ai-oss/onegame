@@ -5,9 +5,10 @@
 ```
 onegame export --target linux-x64 --json              # ./export/<game>-<version>-linux-x64/ and .tar.gz
 onegame export --target win-x64 --steam --json        # ./export/<game>-<version>-win-x64/ and .zip, with steam_api64.dll
+onegame export --target osx --json                   # ./export/<game>-<version>-osx-arm64/<Game>.app and .tar.gz (on an Apple-silicon Mac)
 ```
 
-Options: `--target linux-x64|win-x64` (default: the host's), `--steam`, `--steam-redist <dir>`, `--out <dir>` (default `<project>/export`), `--project <dir|csproj>`, `--no-archive`, `--no-aot`. The version in the names is the project's `<Version>` (1.0.0 when unset). The JSON result is in `docs/interfaces/control.md`; read its `warnings`.
+Options: `--target linux-x64|win-x64|osx` (default: the host's), `--steam`, `--steam-redist <dir>`, `--out <dir>` (default `<project>/export`), `--project <dir|csproj>`, `--no-archive`, `--no-aot`. The version in the names is the project's `<Version>` (1.0.0 when unset). The JSON result is in `docs/interfaces/control.md`; read its `warnings`.
 
 ## What the build is
 
@@ -96,3 +97,7 @@ Not run from the Linux host that builds the Windows export, so still open:
 2. The folder runs on a machine without .NET installed.
 3. With `--steam`: the game started from Steam loads `steam_api64.dll`; started directly it relaunches through Steam.
 4. The NativeAOT export (`onegame export --target win-x64` on Windows) builds without warnings, starts, and opens a window.
+
+## macOS
+
+`--target osx` makes `<Game>.app` for Apple silicon (`osx-arm64`): `Contents/MacOS/<Game>` is the NativeAOT program (about 7.5 MB for Solitaire), `Contents/Resources` holds `fonts/`, `art/`, `data/` and the notices file (`fonts/` is found there by `GameDefinition.DefineFonts`), and `Contents/Info.plist` names the bundle. NativeAOT needs a Mac with Apple silicon as the host; anywhere else the bundle is a self-contained CoreCLR build and carries a `not_signed` warning. The bundle is signed **ad hoc** (`codesign --force --sign -`), which lets it run on the Mac that made it (`open Game.app`); the result carries an `ad_hoc_signature` warning. Giving it to other people needs a Developer ID signature and notarization from your Apple developer account, which the tool does not do. `--bundle-id` sets `CFBundleIdentifier` (default `com.example.<name>`). `--steam` is not available for osx. The archive is a `.tar.gz` that keeps the program's executable bit.
