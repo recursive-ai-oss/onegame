@@ -167,7 +167,7 @@ internal sealed partial class ExportVerb
         }
 
         var manifest = Path.Combine(work, "AndroidManifest.xml");
-        File.WriteAllText(manifest, AndroidManifest(package, label, props.Version, props.AssemblyName, dev, a.Get("--orientation") ?? settings.GetValueOrDefault("AndroidOrientation") ?? "unspecified"), new UTF8Encoding(false));
+        File.WriteAllText(manifest, AndroidManifest(package, label, props.Version, props.AssemblyName, dev, a.Get("--orientation") ?? settings.GetValueOrDefault("AndroidOrientation") ?? "unspecified", string.Equals(settings.GetValueOrDefault("AndroidInternet"), "true", StringComparison.OrdinalIgnoreCase)), new UTF8Encoding(false));
 
         var versionCode = VersionCode(props.Version);
         var baseApk = Path.Combine(work, "base.apk");
@@ -223,11 +223,11 @@ internal sealed partial class ExportVerb
         return ExitCodes.Ok;
     }
 
-    // The project can set AndroidPackage, AndroidLabel and AndroidOrientation; the command line wins.
+    // The project can set AndroidPackage, AndroidLabel, AndroidOrientation and AndroidInternet (true for a game that connects to servers); the command line wins.
     private static Dictionary<string, string> ReadAndroidSettings(ProjectRef project)
     {
         var settings = new Dictionary<string, string>(StringComparer.Ordinal);
-        var run = Proc.Run(Proc.Dotnet, ["msbuild", project.File, "-getProperty:AndroidPackage", "-getProperty:AndroidLabel", "-getProperty:AndroidOrientation", "-nologo"], project.Directory);
+        var run = Proc.Run(Proc.Dotnet, ["msbuild", project.File, "-getProperty:AndroidPackage", "-getProperty:AndroidLabel", "-getProperty:AndroidOrientation", "-getProperty:AndroidInternet", "-nologo"], project.Directory);
         if (run.ExitCode == 0)
         {
             using var doc = JsonDocument.Parse(run.Output);
@@ -268,14 +268,14 @@ internal sealed partial class ExportVerb
         }
     }
 
-    internal static string AndroidManifest(string package, string label, string version, string library, bool dev, string orientation)
+    internal static string AndroidManifest(string package, string label, string version, string library, bool dev, string orientation, bool internet = false)
     {
         static string X(string s) => System.Security.SecurityElement.Escape(s) ?? "";
         _ = version;
         var debuggable = dev ? "true" : "false";
 
         // The game is native code only. The activity is the platform's own NativeActivity, which loads the library named below, so the app
-        // has no Java or Kotlin of its own (hasCode=false). The live-control listener of a dev build is a loopback socket, which needs INTERNET.
+        // has no Java or Kotlin of its own (hasCode=false). The live-control listener of a dev build is a loopback socket, and a game that connects to servers talks over the network; both need INTERNET.
         var lines = new List<string>
         {
             "<?xml version='1.0' encoding='utf-8'?>",
@@ -285,7 +285,7 @@ internal sealed partial class ExportVerb
             "  <uses-feature android:name='android.hardware.touchscreen' android:required='false'/>",
             "  <uses-feature android:name='android.hardware.gamepad' android:required='false'/>",
         };
-        if (dev)
+        if (dev || internet)
         {
             lines.Add("  <uses-permission android:name='android.permission.INTERNET'/>");
         }

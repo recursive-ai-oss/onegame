@@ -1,0 +1,40 @@
+# The same cluster with bot1 running on an Android device or emulator: the servers and bot2 run on this computer, and the phone reaches
+# them through 10.0.2.2 (see cluster/android-client.sh). Build both programs into bin/ and install the Android build first (README.md).
+name: lanterns-android
+startupTimeout: 60000
+nodes:
+  - name: master
+    role: server
+    exe: bin/LanternsServer
+    listen: udp
+    scopes: [{ id: 3, seed: 3 }]
+    args: [--option, "peers={port:master.peer}", --option, "peer.1=udp://127.0.0.1:{port:islandA.peer}", --option, "peer.2=udp://127.0.0.1:{port:islandB.peer}", --option, "data={dir}/data"]
+  - name: islandA
+    role: server
+    exe: bin/LanternsServer
+    listen: udp+ws
+    scopes: [{ id: 1, seed: 1 }]
+    args: [--option, "peers={port:islandA.peer}", --option, "peer.2=udp://127.0.0.1:{port:islandB.peer}", --option, "peer.3=udp://127.0.0.1:{port:master.peer}", --option, "data={dir}/data"]
+  - name: islandB
+    role: server
+    exe: bin/LanternsServer
+    listen: udp+ws
+    scopes: [{ id: 2, seed: 2 }]
+    args: [--option, "peers={port:islandB.peer}", --option, "peer.1=udp://127.0.0.1:{port:islandA.peer}", --option, "peer.3=udp://127.0.0.1:{port:master.peer}", --option, "data={dir}/data"]
+  # The Android client plays until its replica reaches a tick and prints its result, like an exported release build.
+  - name: bot1
+    role: client
+    exe: cluster/android-client.sh
+    release: true
+    connect: islandA
+    transport: udp
+    scope: 1
+    args: [--also-scopes, "2,3", --until-tick, "2400"]
+  # This one is a desktop client over a WebSocket.
+  - name: bot2
+    role: client
+    exe: bin/Lanterns
+    connect: islandB
+    transport: ws
+    scope: 2
+    args: [--also-scopes, "1,3"]

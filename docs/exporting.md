@@ -10,7 +10,7 @@ onegame export --target osx --json                   # ./export/<game>-<version>
 
 Options: `--target linux-x64|win-x64|osx` (default: the host's), `--steam`, `--steam-redist <dir>`, `--out <dir>` (default `<project>/export`), `--project <dir|csproj>`, `--no-archive`, `--no-aot`. The version in the names is the project's `<Version>` (1.0.0 when unset). The JSON result is in `docs/interfaces/control.md`; read its `warnings`.
 
-Android: `onegame export --target android [--abi arm64-v8a,x86_64] [--dev]` makes a debug-signed APK (NativeAOT shared library, no Java). Setup, device commands and what is verified are in [android](interfaces/android.md).
+Android: `onegame export --target android [--abi arm64-v8a,x86_64] [--dev]` makes a debug-signed APK (NativeAOT shared library, no Java). A game that connects to servers sets `<AndroidInternet>true</AndroidInternet>` in its project file to get the INTERNET permission in release builds too. Setup, device commands and what is verified are in [android](interfaces/android.md).
 
 ## What the build is
 
