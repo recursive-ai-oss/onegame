@@ -18,6 +18,11 @@ internal sealed partial class ExportVerb : IVerb
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
         var a = new ProjectArgs(args, "--target", "--out", "--steam-redist");
+        if (a.Get("--target") == "web")
+        {
+            return RunWebExport(a, a.Game.Remove("--no-archive"), json, output);
+        }
+
         var steam = a.Game.Remove("--steam");
         var noArchive = a.Game.Remove("--no-archive");
         var noAot = a.Game.Remove("--no-aot");
@@ -39,11 +44,6 @@ internal sealed partial class ExportVerb : IVerb
         }
 
         var target = a.Get("--target") ?? (OperatingSystem.IsWindows() ? "win-x64" : "linux-x64");
-        if (target == "web")
-        {
-            return RunWebExport(a, noArchive, json, output);
-        }
-
         if (target is not ("linux-x64" or "win-x64"))
         {
             throw new CliException(ExitCodes.Usage, "bad_target", $"Unknown target '{target}'. Targets: linux-x64, win-x64, web.");

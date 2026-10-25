@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Runtime.Versioning;
 using OneGame.Net;
 using OneGame.Platform;
@@ -15,6 +16,7 @@ public sealed class BrowserWebSocketConnection : INetConnection
     private readonly BrowserWebSocket _socket;
     private ConnectionState _state = ConnectionState.Connecting;
     private NetStats _stats;
+    private readonly Queue<byte[]> _early = new();   // messages sent while the socket is still opening, like the native transports queue them
 
     /// <summary>Starts connecting to a <c>ws://</c> or <c>wss://</c> address.</summary>
     public BrowserWebSocketConnection(string url)
@@ -44,14 +46,24 @@ public sealed class BrowserWebSocketConnection : INetConnection
     /// <inheritdoc />
     public void Send(ReadOnlySpan<byte> message)
     {
-        if (_state != ConnectionState.Connected)
-        {
-            return;
-        }
-
         if (message.Length > Loopback.MaxMessageBytes)
         {
             throw new ArgumentException($"A message of {message.Length} bytes exceeds the {Loopback.MaxMessageBytes} byte limit.", nameof(message));
+        }
+
+        if (_state == ConnectionState.Connecting)
+        {
+            if (_early.Count < 1024)
+            {
+                _early.Enqueue(message.ToArray());
+            }
+
+            return;
+        }
+
+        if (_state != ConnectionState.Connected)
+        {
+            return;
         }
 
         _socket.Send(message);
@@ -85,6 +97,10 @@ public sealed class BrowserWebSocketConnection : INetConnection
         {
             _state = ConnectionState.Connected;
             Connected?.Invoke(this);
+            while (_early.Count > 0)
+            {
+                Send(_early.Dequeue());
+            }
         }
         else if (_state != ConnectionState.Closed && s == 3)
         {
