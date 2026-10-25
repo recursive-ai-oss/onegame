@@ -268,6 +268,11 @@ if (pixels[0] != 255 || pixels[1] is < 127 or > 128 || pixels[2] != 0 || pixels[
 
 Console.WriteLine($"gpu: {device.Adapter.Name} ({device.Adapter.Kind}) cleared and read back 8x8");
 
+if (!GraphSmoke.Run(device))
+{
+    return 1;
+}
+
 // The 2D renderer: sprites, a rounded rectangle and a line of text through the atlases, offscreen, read back.
 using var renderer = Renderer2D.Create(device, GpuFormat.Rgba8UnormSrgb, GeneratedShaders.Instance);
 using var frameTarget = device.CreateTexture(new TextureDesc(96, 64, GpuFormat.Rgba8UnormSrgb, TextureUsage.RenderTarget | TextureUsage.CopySource));

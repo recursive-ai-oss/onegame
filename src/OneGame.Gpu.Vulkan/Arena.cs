@@ -64,6 +64,10 @@ internal static class VkMap
         GpuFormat.R32Uint => VkFormat.R32Uint,
         GpuFormat.Depth32Float => VkFormat.D32Sfloat,
         GpuFormat.Depth32FloatStencil8 => VkFormat.D32SfloatS8Uint,
+        GpuFormat.Rg16Float => VkFormat.R16G16Sfloat,
+        GpuFormat.Rg11B10Float => VkFormat.B10G11R11UfloatPack32,
+        GpuFormat.Rgb10A2Unorm => VkFormat.A2B10G10R10UnormPack32,
+        GpuFormat.Depth16Unorm => VkFormat.D16Unorm,
         _ => throw new ArgumentOutOfRangeException(nameof(f), f, "unsupported format"),
     };
 
@@ -76,11 +80,11 @@ internal static class VkMap
         _ => GpuFormat.Undefined,
     };
 
-    public static bool IsDepth(GpuFormat f) => f is GpuFormat.Depth32Float or GpuFormat.Depth32FloatStencil8;
+    public static bool IsDepth(GpuFormat f) => f is GpuFormat.Depth32Float or GpuFormat.Depth32FloatStencil8 or GpuFormat.Depth16Unorm;
 
     public static VkImageAspectFlagBits Aspect(GpuFormat f) => f switch
     {
-        GpuFormat.Depth32Float => VkImageAspectFlagBits.Depth,
+        GpuFormat.Depth32Float or GpuFormat.Depth16Unorm => VkImageAspectFlagBits.Depth,
         GpuFormat.Depth32FloatStencil8 => VkImageAspectFlagBits.Depth | VkImageAspectFlagBits.Stencil,
         _ => VkImageAspectFlagBits.Color,
     };
@@ -126,10 +130,10 @@ internal static class VkMap
         return r;
     }
 
-    public static VkDescriptorType Descriptor(ResourceKind k) => k switch
+    public static VkDescriptorType Descriptor(ResourceKind k, bool dynamic = false) => k switch
     {
-        ResourceKind.ConstantBuffer => VkDescriptorType.UniformBuffer,
-        ResourceKind.StorageBuffer or ResourceKind.ReadOnlyStorageBuffer => VkDescriptorType.StorageBuffer,
+        ResourceKind.ConstantBuffer => dynamic ? VkDescriptorType.UniformBufferDynamic : VkDescriptorType.UniformBuffer,
+        ResourceKind.StorageBuffer or ResourceKind.ReadOnlyStorageBuffer => dynamic ? VkDescriptorType.StorageBufferDynamic : VkDescriptorType.StorageBuffer,
         ResourceKind.SampledTexture => VkDescriptorType.SampledImage,
         ResourceKind.Sampler => VkDescriptorType.Sampler,
         ResourceKind.StorageTexture => VkDescriptorType.StorageImage,
@@ -182,6 +186,16 @@ internal static class VkMap
         _ => throw new ArgumentOutOfRangeException(nameof(a)),
     };
 
+    public static VkImageViewType ViewType(TextureViewKind k) => k switch
+    {
+        TextureViewKind.D2 => VkImageViewType._2D,
+        TextureViewKind.D2Array => VkImageViewType._2DArray,
+        TextureViewKind.Cube => VkImageViewType.Cube,
+        TextureViewKind.CubeArray => VkImageViewType.CubeArray,
+        TextureViewKind.D3 => VkImageViewType._3D,
+        _ => throw new ArgumentOutOfRangeException(nameof(k)),
+    };
+
     public static VkFilter Filter(FilterMode f) => f == FilterMode.Linear ? VkFilter.Linear : VkFilter.Nearest;
 
     public static VkSampleCountFlagBits Samples(uint n) => n switch
@@ -224,6 +238,11 @@ internal static class VkMap
         if ((u & Gpu.BufferUsage.CopyDestination) != 0)
         {
             r |= VkBufferUsageFlagBits.TransferDst;
+        }
+
+        if ((u & Gpu.BufferUsage.Indirect) != 0)
+        {
+            r |= VkBufferUsageFlagBits.IndirectBuffer;
         }
 
         return r;

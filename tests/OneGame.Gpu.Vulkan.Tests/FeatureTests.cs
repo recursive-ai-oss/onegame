@@ -1,0 +1,846 @@
+using System.Buffers.Binary;
+using System.Runtime.InteropServices;
+using OneGame.Gpu.Vulkan.Tests.Shaders;
+
+namespace OneGame.Gpu.Vulkan.Tests;
+
+/// <summary>Each feature of the 3D-capable GPU layer, rendered or computed and read back, with the validation layer required to stay silent.</summary>
+public sealed class FeatureTests
+{
+    static GpuShader Vertex(GpuDevice d, ReadOnlySpan<byte> spirv, string entry) => d.CreateShader(ShaderStage.Vertex, spirv.ToArray(), entry);
+
+    static GpuShader Pixel(GpuDevice d, ReadOnlySpan<byte> spirv, string entry) => d.CreateShader(ShaderStage.Pixel, spirv.ToArray(), entry);
+
+    static GpuShader Compute(GpuDevice d, ReadOnlySpan<byte> spirv, string entry) => d.CreateShader(ShaderStage.Compute, spirv.ToArray(), entry);
+
+    static GpuGraphicsPipeline Fullscreen(GpuDevice d, GpuShader vs, GpuShader ps, GpuPipelineLayout layout, GpuFormat format, uint samples = 1) =>
+        d.CreateGraphicsPipeline(new GraphicsPipelineDesc
+        {
+            Layout = layout,
+            Vertex = vs,
+            Pixel = ps,
+            ColorTargets = [new ColorTargetState(format)],
+            SampleCount = samples,
+        });
+
+    static GpuTexture Target(GpuDevice d, uint w, uint h, GpuFormat format = GpuFormat.Rgba8Unorm) =>
+        d.CreateTexture(new TextureDesc(w, h, format, TextureUsage.RenderTarget | TextureUsage.CopySource));
+
+    static byte[] Read(GpuDevice d, GpuTexture t, uint mip = 0, uint layer = 0)
+    {
+        var bytes = new byte[GpuDevice.LevelByteSize(t.Format, t.Width, t.Height, t.Depth, mip)];
+        d.ReadTexture(t, mip, layer, bytes);
+        return bytes;
+    }
+
+    static void DrawFullscreen(GpuDevice d, GpuTexture target, GpuGraphicsPipeline pipeline, params (uint Set, GpuBindGroup Group)[] groups)
+    {
+        var enc = d.BeginCommands();
+        var pass = enc.BeginRenderPass(ColorAttachment.Clear(target, 0, 0, 0, 1));
+        pass.SetPipeline(pipeline);
+        foreach (var (set, group) in groups)
+        {
+            pass.SetBindGroup(set, group);
+        }
+
+        pass.Draw(3);
+        pass.EndPass();
+        d.Submit(enc);
+    }
+
+    static void AssertPixel(byte[] pixels, int index, int r, int g, int b, int a = 255, int tolerance = 0)
+    {
+        var o = index * 4;
+        Assert.InRange(pixels[o], Math.Max(r - tolerance, 0), Math.Min(r + tolerance, 255));
+        Assert.InRange(pixels[o + 1], Math.Max(g - tolerance, 0), Math.Min(g + tolerance, 255));
+        Assert.InRange(pixels[o + 2], Math.Max(b - tolerance, 0), Math.Min(b + tolerance, 255));
+        Assert.InRange(pixels[o + 3], Math.Max(a - tolerance, 0), Math.Min(a + tolerance, 255));
+    }
+
+    static readonly ResourceBinding SampledAt0 = new(0, 0, 1, ResourceKind.SampledTexture, ShaderStage.Pixel);
+    static readonly ResourceBinding SamplerAt1 = new(0, 1, 1, ResourceKind.Sampler, ShaderStage.Pixel);
+
+    [Fact]
+    public void CapabilitiesAreReported()
+    {
+        using var gpu = new GpuFixture();
+        var caps = gpu.Device.Capabilities;
+        Assert.True(caps.MaxSampleCount >= 1);
+        Assert.True(caps.MaxTextureSize >= 4096);
+        Assert.True(caps.MaxTextureSize3D >= 256);
+        Assert.True(caps.MaxResourceArrayCount >= 16);
+    }
+
+    [Fact]
+    public void CubeMapIsRenderedFaceByFaceWithDynamicOffsetsThenSampled()
+    {
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        byte[][] colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [0, 255, 255], [255, 0, 255]];
+        using var cube = d.CreateTexture(new TextureDesc(8, 8, GpuFormat.Rgba8Unorm, TextureUsage.RenderTarget | TextureUsage.Sampled) { Dimension = TextureDimension.Cube, ArrayLayers = 6 });
+
+        // One constant buffer holds all six colors; a dynamic offset picks the face's.
+        using var ub = d.CreateBuffer(new BufferDesc(6 * GpuDevice.DynamicOffsetAlignment, BufferUsage.Uniform | BufferUsage.CopyDestination));
+        for (var i = 0; i < 6; i++)
+        {
+            float[] c = [colors[i][0] / 255f, colors[i][1] / 255f, colors[i][2] / 255f, 1f];
+            d.WriteBuffer(ub, (ulong)i * GpuDevice.DynamicOffsetAlignment, MemoryMarshal.AsBytes<float>(c));
+        }
+
+        using var vs = Vertex(d, FaceFill.VSMain.SpirV, FaceFill.VSMain.EntryPoint);
+        using var ps = Pixel(d, FaceFill.PSMain.SpirV, FaceFill.PSMain.EntryPoint);
+        using var fillLayout = d.CreatePipelineLayout([new ResourceBinding(0, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Pixel) { Dynamic = true }]);
+        using var fillGroup = d.CreateBindGroup(fillLayout, 0, [BindGroupEntry.ForBuffer(0, ub, 0, 16)]);
+        using var fillPipeline = Fullscreen(d, vs, ps, fillLayout, GpuFormat.Rgba8Unorm);
+
+        var enc = d.BeginCommands();
+        for (uint face = 0; face < 6; face++)
+        {
+            var pass = enc.BeginRenderPass(new ColorAttachment { Target = cube, Layer = face, Load = LoadOp.DontCare, Store = StoreOp.Store });
+            pass.SetPipeline(fillPipeline);
+            pass.SetBindGroup(0, fillGroup, [face * GpuDevice.DynamicOffsetAlignment]);
+            pass.Draw(3);
+            pass.EndPass();
+        }
+
+        d.Submit(enc);
+
+        using var svs = Vertex(d, CubeSample.VSMain.SpirV, CubeSample.VSMain.EntryPoint);
+        using var sps = Pixel(d, CubeSample.PSMain.SpirV, CubeSample.PSMain.EntryPoint);
+        using var layout = d.CreatePipelineLayout([SampledAt0, SamplerAt1]);
+        using var sampler = d.CreateSampler(SamplerDesc.Nearest);
+        using var group = d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTexture(0, cube), BindGroupEntry.ForSampler(1, sampler)]);
+        using var pipeline = Fullscreen(d, svs, sps, layout, GpuFormat.Rgba8Unorm);
+        using var target = Target(d, 6, 1);
+        DrawFullscreen(d, target, pipeline, (0, group));
+
+        var pixels = Read(d, target);
+        for (var i = 0; i < 6; i++)
+        {
+            AssertPixel(pixels, i, colors[i][0], colors[i][1], colors[i][2]);
+        }
+
+        // Dynamic offsets are checked.
+        var bad = d.BeginCommands();
+        var p = bad.BeginRenderPass(ColorAttachment.Clear(target, 0, 0, 0, 1));
+        p.SetPipeline(fillPipeline);
+        Assert.Throws<ArgumentException>(() => p.SetBindGroup(0, fillGroup));
+        Assert.Throws<ArgumentException>(() => p.SetBindGroup(0, fillGroup, [12]));
+        p.EndPass();
+        d.Submit(bad);
+    }
+
+    [Fact]
+    public void TextureViewsSelectMipLevels()
+    {
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        using var tex = d.CreateTexture(new TextureDesc(4, 4, GpuFormat.Rgba8Unorm, TextureUsage.Sampled | TextureUsage.CopyDestination) { MipLevels = 3 });
+        byte[][] colors = [[255, 0, 0, 255], [0, 255, 0, 255], [0, 0, 255, 255]];
+        for (uint m = 0; m < 3; m++)
+        {
+            var n = (int)(Math.Max(4u >> (int)m, 1) * Math.Max(4u >> (int)m, 1));
+            var data = new byte[n * 4];
+            for (var i = 0; i < n; i++)
+            {
+                colors[m].CopyTo(data, i * 4);
+            }
+
+            d.WriteTexture(tex, m, 0, data);
+        }
+
+        using var vs = Vertex(d, Sample2D.VSMain.SpirV, Sample2D.VSMain.EntryPoint);
+        using var ps = Pixel(d, Sample2D.PSMain.SpirV, Sample2D.PSMain.EntryPoint);
+        using var layout = d.CreatePipelineLayout([SampledAt0, SamplerAt1]);
+        using var sampler = d.CreateSampler(SamplerDesc.Nearest);
+        using var pipeline = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
+        using var target = Target(d, 1, 1);
+        for (uint m = 0; m < 3; m++)
+        {
+            using var group = d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTexture(0, tex, TextureViewDesc.Mip(m)), BindGroupEntry.ForSampler(1, sampler)]);
+            DrawFullscreen(d, target, pipeline, (0, group));
+            var px = Read(d, target);
+            AssertPixel(px, 0, colors[m][0], colors[m][1], colors[m][2]);
+        }
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTexture(0, tex, TextureViewDesc.Mip(3)), BindGroupEntry.ForSampler(1, sampler)]));
+    }
+
+    [Fact]
+    public void ArrayLayersAreRenderTargetsAndSampledAsAnArray()
+    {
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        using var arr = d.CreateTexture(new TextureDesc(2, 2, GpuFormat.Rgba8Unorm, TextureUsage.RenderTarget | TextureUsage.Sampled) { ArrayLayers = 4 });
+        var enc = d.BeginCommands();
+        for (uint i = 0; i < 4; i++)
+        {
+            enc.BeginRenderPass(ColorAttachment.Clear(arr, i / 3f, 1 - i / 3f, 0.5f, 1) with { Layer = i }).EndPass();
+        }
+
+        d.Submit(enc);
+
+        using var vs = Vertex(d, Layers.VSMain.SpirV, Layers.VSMain.EntryPoint);
+        using var ps = Pixel(d, Layers.PSMain.SpirV, Layers.PSMain.EntryPoint);
+        using var layout = d.CreatePipelineLayout([SampledAt0, SamplerAt1]);
+        using var sampler = d.CreateSampler(SamplerDesc.Nearest);
+        using var group = d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTexture(0, arr), BindGroupEntry.ForSampler(1, sampler)]);
+        using var pipeline = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
+        using var target = Target(d, 4, 1);
+        DrawFullscreen(d, target, pipeline, (0, group));
+        var px = Read(d, target);
+        for (var i = 0; i < 4; i++)
+        {
+            AssertPixel(px, i, (int)MathF.Round(i / 3f * 255), (int)MathF.Round((1 - i / 3f) * 255), 128, tolerance: 1);
+        }
+    }
+
+    [Fact]
+    public void VolumeTextureIsWrittenSampledAndMipped()
+    {
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        using var vol = d.CreateTexture(new TextureDesc(4, 4, GpuFormat.Rgba8Unorm, TextureUsage.Sampled | TextureUsage.CopyDestination | TextureUsage.CopySource)
+        {
+            Dimension = TextureDimension.D3,
+            Depth = 4,
+            MipLevels = GpuTexture.FullMipCount(4, 4, 4),
+        });
+        Assert.Equal(3u, vol.MipLevels);
+        var data = new byte[4 * 4 * 4 * 4];
+        for (var z = 0; z < 4; z++)
+        {
+            for (var i = 0; i < 16; i++)
+            {
+                var o = (z * 16 + i) * 4;
+                data[o] = (byte)(z * 60);
+                data[o + 1] = (byte)(255 - z * 60);
+                data[o + 3] = 255;
+            }
+        }
+
+        d.WriteTexture(vol, 0, 0, data);
+
+        // A sub-box of slices can be rewritten on its own.
+        var redo = new byte[4 * 4 * 1 * 4];
+        for (var i = 0; i < 16; i++)
+        {
+            redo[i * 4] = 200;
+            redo[i * 4 + 1] = 10;
+            redo[i * 4 + 3] = 255;
+        }
+
+        d.WriteTexture(vol, new TextureRegion(0, 0, 0, 0, 3, 4, 4, 1), redo);
+
+        var enc = d.BeginCommands();
+        enc.GenerateMips(vol);
+        d.Submit(enc);
+
+        using var vs = Vertex(d, Volume.VSMain.SpirV, Volume.VSMain.EntryPoint);
+        using var ps = Pixel(d, Volume.PSMain.SpirV, Volume.PSMain.EntryPoint);
+        using var layout = d.CreatePipelineLayout([SampledAt0, SamplerAt1]);
+        using var sampler = d.CreateSampler(SamplerDesc.Nearest);
+        using var group = d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTexture(0, vol), BindGroupEntry.ForSampler(1, sampler)]);
+        using var pipeline = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
+        using var target = Target(d, 4, 1);
+        DrawFullscreen(d, target, pipeline, (0, group));
+        var px = Read(d, target);
+        AssertPixel(px, 0, 0, 255, 0);
+        AssertPixel(px, 1, 60, 195, 0);
+        AssertPixel(px, 2, 120, 135, 0);
+        AssertPixel(px, 3, 200, 10, 0);
+
+        // The 1x1x1 top level averages all four slices: red (0 + 60 + 120 + 200) / 4, green (255 + 195 + 135 + 10) / 4.
+        var top = Read(d, vol, 2);
+        Assert.InRange(top[0], 95, 97);
+        Assert.InRange(top[1], 147, 150);
+    }
+
+    [Fact]
+    public void MultisampledTargetResolves()
+    {
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        if (gpu.Device.Capabilities.MaxSampleCount < 4)
+        {
+            return;
+        }
+
+        const uint S = 64;
+        using var vs = Vertex(d, Triangle.VSMain.SpirV, Triangle.VSMain.EntryPoint);
+        using var ps = Pixel(d, Triangle.PSMain.SpirV, Triangle.PSMain.EntryPoint);
+        using var layout = d.CreatePipelineLayout([]);
+        using var single = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
+        using var multi = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm, 4);
+        using var plain = Target(d, S, S);
+        using var ms = d.CreateTexture(new TextureDesc(S, S, GpuFormat.Rgba8Unorm, TextureUsage.RenderTarget) { SampleCount = 4 });
+        using var resolved = Target(d, S, S);
+
+        var enc = d.BeginCommands();
+        var pass = enc.BeginRenderPass(ColorAttachment.Clear(plain, 0.1f, 0.2f, 0.3f, 1f));
+        pass.SetPipeline(single);
+        pass.Draw(3);
+        pass.EndPass();
+        pass = enc.BeginRenderPass(new ColorAttachment
+        {
+            Target = ms,
+            Resolve = resolved,
+            Load = LoadOp.Clear,
+            Store = StoreOp.Discard,
+            ClearR = 0.1f,
+            ClearG = 0.2f,
+            ClearB = 0.3f,
+            ClearA = 1f,
+        });
+        pass.SetPipeline(multi);
+        pass.Draw(3);
+        pass.EndPass();
+        d.Submit(enc);
+
+        var a = Read(d, plain);
+        var b = Read(d, resolved);
+        var edges = 0;
+        var interior = 0;
+        for (var i = 0; i < S * S; i++)
+        {
+            var worst = 0;
+            for (var c = 0; c < 4; c++)
+            {
+                worst = Math.Max(worst, Math.Abs(a[i * 4 + c] - b[i * 4 + c]));
+            }
+
+            if (worst > 8)
+            {
+                edges++;
+            }
+            else if (worst <= 3)
+            {
+                interior++;
+            }
+        }
+
+        // Edge pixels get partial coverage; everything else is the same image.
+        Assert.InRange(edges, 20, 400);
+        Assert.True(interior > S * S * 8 / 10, $"only {interior} pixels match");
+        AssertPixel(b, 40 * (int)S + 32, a[(40 * (int)S + 32) * 4], a[(40 * (int)S + 32) * 4 + 1], a[(40 * (int)S + 32) * 4 + 2], tolerance: 3);
+    }
+
+    [Fact]
+    public void ShadowComparisonSamplesDepth()
+    {
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        using var depth = d.CreateTexture(new TextureDesc(4, 4, GpuFormat.Depth32Float, TextureUsage.RenderTarget | TextureUsage.Sampled));
+        using var depthVs = Vertex(d, Shadow.VSDepth.SpirV, Shadow.VSDepth.EntryPoint);
+        using var farVs = Vertex(d, Shadow.VSFar.SpirV, Shadow.VSFar.EntryPoint);
+        using var vs = Vertex(d, Shadow.VSMain.SpirV, Shadow.VSMain.EntryPoint);
+        using var ps = Pixel(d, Shadow.PSMain.SpirV, Shadow.PSMain.EntryPoint);
+        using var emptyLayout = d.CreatePipelineLayout([]);
+        using var layout = d.CreatePipelineLayout([SampledAt0, SamplerAt1]);
+        using var cmp = d.CreateSampler(SamplerDesc.Nearest with { Compare = CompareFunction.LessEqual });
+        using var lookup = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
+        using var target = Target(d, 2, 1);
+        using var group = d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTexture(0, depth), BindGroupEntry.ForSampler(1, cmp)]);
+
+        void Case(GpuShader depthShader, DepthStencilState state, bool clamp, float clear, bool expectLow, bool expectHigh)
+        {
+            using var writer = d.CreateGraphicsPipeline(new GraphicsPipelineDesc { Layout = emptyLayout, Vertex = depthShader, DepthStencil = state, DepthClamp = clamp });
+            var enc = d.BeginCommands();
+            var pass = enc.BeginRenderPass([], new DepthAttachment { Target = depth, Load = LoadOp.Clear, Store = StoreOp.Store, ClearDepth = clear });
+            pass.SetPipeline(writer);
+            pass.Draw(3);
+            pass.EndPass();
+            d.Submit(enc);
+            DrawFullscreen(d, target, lookup, (0, group));
+            var px = Read(d, target);
+
+            // The lookup compares 0.4 and 0.6 against the stored depth with "reference <= stored".
+            Assert.Equal(expectLow ? 255 : 0, px[0]);
+            Assert.Equal(expectHigh ? 255 : 0, px[4]);
+        }
+
+        // Stored depth 0.5: 0.4 <= 0.5 passes, 0.6 <= 0.5 fails.
+        Case(depthVs, new DepthStencilState(GpuFormat.Depth32Float), false, 1f, true, false);
+
+        // A constant bias of 2^22 steps moves 0.5 by 0.25 (float depth steps at 0.5 are 2^-24), so 0.6 now passes.
+        Case(depthVs, new DepthStencilState(GpuFormat.Depth32Float) { DepthBias = 1 << 22 }, false, 1f, true, true);
+
+        if (d.Capabilities.DepthClamp)
+        {
+            // Depth 1.5 is clipped away without clamping, so the cleared 0 stays; with clamping 1.0 is written.
+            var always = new DepthStencilState(GpuFormat.Depth32Float) { DepthCompare = CompareFunction.Always };
+            Case(farVs, always, false, 0f, false, false);
+            Case(farVs, always, true, 0f, true, true);
+        }
+    }
+
+    [Fact]
+    public void ComputeWritesStorageTextureThenDrawReadsIt()
+    {
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        using var tex = d.CreateTexture(new TextureDesc(16, 16, GpuFormat.Rgba8Unorm, TextureUsage.Storage | TextureUsage.Sampled));
+        using var cs = Compute(d, StorageImage.CSMain.SpirV, StorageImage.CSMain.EntryPoint);
+        using var vs = Vertex(d, StorageImage.VSMain.SpirV, StorageImage.VSMain.EntryPoint);
+        using var ps = Pixel(d, StorageImage.PSMain.SpirV, StorageImage.PSMain.EntryPoint);
+        using var computeLayout = d.CreatePipelineLayout([new ResourceBinding(0, 0, 1, ResourceKind.StorageTexture, ShaderStage.Compute)]);
+        using var drawLayout = d.CreatePipelineLayout([new ResourceBinding(1, 0, 1, ResourceKind.SampledTexture, ShaderStage.Pixel)]);
+        using var computeGroup = d.CreateBindGroup(computeLayout, 0, [BindGroupEntry.ForTexture(0, tex)]);
+        using var drawGroup = d.CreateBindGroup(drawLayout, 1, [BindGroupEntry.ForTexture(0, tex)]);
+        using var computePipeline = d.CreateComputePipeline(new ComputePipelineDesc { Layout = computeLayout, Compute = cs });
+        using var pipeline = Fullscreen(d, vs, ps, drawLayout, GpuFormat.Rgba8Unorm);
+        using var target = Target(d, 16, 16);
+
+        var enc = d.BeginCommands();
+        var cp = enc.BeginComputePass();
+        cp.SetPipeline(computePipeline);
+        cp.SetBindGroup(0, computeGroup);
+        cp.Dispatch(2, 2);
+        cp.EndPass();
+        var pass = enc.BeginRenderPass(ColorAttachment.Clear(target, 0, 0, 0, 1));
+        pass.SetPipeline(pipeline);
+        pass.SetBindGroup(1, drawGroup);
+        pass.Draw(3);
+        pass.EndPass();
+        d.Submit(enc);
+
+        var px = Read(d, target);
+        for (var y = 0; y < 16; y++)
+        {
+            for (var x = 0; x < 16; x++)
+            {
+                AssertPixel(px, y * 16 + x, (int)MathF.Round(x / 15f * 255), (int)MathF.Round(y / 15f * 255), 128, tolerance: 1);
+            }
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct Pos
+    {
+        public float X, Y;
+    }
+
+    [Fact]
+    public void IndirectDrawsAndDispatchesMatchDirectOnes()
+    {
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        Pos[] verts =
+        [
+            new() { X = -0.9f, Y = -0.9f }, new() { X = -0.1f, Y = -0.9f }, new() { X = -0.5f, Y = 0.9f },
+            new() { X = 0.1f, Y = -0.9f }, new() { X = 0.9f, Y = -0.9f }, new() { X = 0.5f, Y = 0.9f },
+        ];
+        using var vb = d.CreateBuffer(new BufferDesc(48, BufferUsage.Vertex | BufferUsage.CopyDestination));
+        d.WriteBuffer(vb, 0, MemoryMarshal.AsBytes<Pos>(verts));
+        using var ib = d.CreateBuffer(new BufferDesc(12, BufferUsage.Index | BufferUsage.CopyDestination));
+        d.WriteBuffer(ib, 0, MemoryMarshal.AsBytes<ushort>([0, 1, 2, 3, 4, 5]));
+        using var args = d.CreateBuffer(new BufferDesc(2 * DrawIndirectArgs.Size, BufferUsage.Indirect | BufferUsage.CopyDestination));
+        d.WriteBuffer(args, 0, MemoryMarshal.AsBytes<DrawIndirectArgs>([new(3, 1, 0, 0), new(3, 1, 3, 0)]));
+        using var iargs = d.CreateBuffer(new BufferDesc(2 * DrawIndexedIndirectArgs.Size, BufferUsage.Indirect | BufferUsage.CopyDestination));
+        d.WriteBuffer(iargs, 0, MemoryMarshal.AsBytes<DrawIndexedIndirectArgs>([new(3, 1, 0, 0, 0), new(3, 1, 3, 0, 0)]));
+
+        using var vs = Vertex(d, Indirect.VSMain.SpirV, Indirect.VSMain.EntryPoint);
+        using var ps = Pixel(d, Indirect.PSMain.SpirV, Indirect.PSMain.EntryPoint);
+        using var layout = d.CreatePipelineLayout([]);
+        using var pipeline = d.CreateGraphicsPipeline(new GraphicsPipelineDesc
+        {
+            Layout = layout,
+            Vertex = vs,
+            Pixel = ps,
+            VertexBuffers = [new VertexBufferLayout { Stride = 8, Attributes = new[] { new VertexElement(0, VertexFormat.Float2, 0) } }],
+            ColorTargets = [new ColorTargetState(GpuFormat.Rgba8Unorm)],
+        });
+        using var direct = Target(d, 32, 32);
+        using var indirect = Target(d, 32, 32);
+        using var indexed = Target(d, 32, 32);
+        using var single = Target(d, 32, 32);
+
+        var enc = d.BeginCommands();
+        var pass = enc.BeginRenderPass(ColorAttachment.Clear(direct, 0, 0, 0, 1));
+        pass.SetPipeline(pipeline);
+        pass.SetVertexBuffer(0, vb);
+        pass.Draw(3);
+        pass.Draw(3, 1, 3);
+        pass.EndPass();
+
+        pass = enc.BeginRenderPass(ColorAttachment.Clear(indirect, 0, 0, 0, 1));
+        pass.SetPipeline(pipeline);
+        pass.SetVertexBuffer(0, vb);
+        pass.DrawIndirect(args, 0, 2);
+        pass.EndPass();
+
+        pass = enc.BeginRenderPass(ColorAttachment.Clear(indexed, 0, 0, 0, 1));
+        pass.SetPipeline(pipeline);
+        pass.SetVertexBuffer(0, vb);
+        pass.SetIndexBuffer(ib, IndexFormat.Index16);
+        pass.DrawIndexedIndirect(iargs, 0, 2);
+        pass.EndPass();
+
+        pass = enc.BeginRenderPass(ColorAttachment.Clear(single, 0, 0, 0, 1));
+        pass.SetPipeline(pipeline);
+        pass.SetVertexBuffer(0, vb);
+        pass.DrawIndirect(args, DrawIndirectArgs.Size);
+        pass.EndPass();
+        d.Submit(enc);
+
+        var reference = Read(d, direct);
+        var red = Enumerable.Range(0, 32 * 32).Count(i => reference[i * 4] == 255);
+        Assert.True(red > 200, $"expected two red triangles, found {red} red pixels");
+        Assert.Equal(reference, Read(d, indirect));
+        Assert.Equal(reference, Read(d, indexed));
+
+        // Only the second record: the right-hand triangle, so the left half stays black.
+        var one = Read(d, single);
+        Assert.Equal(0, one[(16 * 32 + 8) * 4]);
+        Assert.Equal(255, one[(16 * 32 + 24) * 4]);
+
+        // A compute pass writes the dispatch size; a second pass uses it.
+        using var argBuf = d.CreateBuffer(new BufferDesc(DispatchIndirectArgs.Size, BufferUsage.Storage | BufferUsage.Indirect | BufferUsage.CopyDestination));
+        using var result = d.CreateBuffer(new BufferDesc(64, BufferUsage.Storage | BufferUsage.CopySource | BufferUsage.CopyDestination));
+        d.WriteBuffer(argBuf, 0, new byte[DispatchIndirectArgs.Size]);
+        d.WriteBuffer(result, 0, new byte[64]);
+        using var csArgs = Compute(d, Indirect.CSArgs.SpirV, Indirect.CSArgs.EntryPoint);
+        using var csFill = Compute(d, Indirect.CSFill.SpirV, Indirect.CSFill.EntryPoint);
+        using var argsLayout = d.CreatePipelineLayout([new ResourceBinding(0, 0, 1, ResourceKind.StorageBuffer, ShaderStage.Compute)]);
+        using var fillLayout = d.CreatePipelineLayout([new ResourceBinding(0, 1, 1, ResourceKind.StorageBuffer, ShaderStage.Compute)]);
+        using var argsGroup = d.CreateBindGroup(argsLayout, 0, [BindGroupEntry.ForBuffer(0, argBuf)]);
+        using var fillGroup = d.CreateBindGroup(fillLayout, 0, [BindGroupEntry.ForBuffer(1, result)]);
+        using var argsPipe = d.CreateComputePipeline(new ComputePipelineDesc { Layout = argsLayout, Compute = csArgs });
+        using var fillPipe = d.CreateComputePipeline(new ComputePipelineDesc { Layout = fillLayout, Compute = csFill });
+        enc = d.BeginCommands();
+        var cp = enc.BeginComputePass();
+        cp.SetPipeline(argsPipe);
+        cp.SetBindGroup(0, argsGroup);
+        cp.Dispatch(1);
+        cp.SetPipeline(fillPipe);
+        cp.SetBindGroup(0, fillGroup);
+        cp.DispatchIndirect(argBuf, 0);
+        cp.EndPass();
+        d.Submit(enc);
+        var values = new uint[16];
+        d.ReadBuffer(result, 0, MemoryMarshal.AsBytes(values.AsSpan()));
+        for (uint i = 0; i < 16; i++)
+        {
+            Assert.Equal(i < 12 ? i + 1 : 0u, values[i]);
+        }
+
+        Assert.Throws<ArgumentException>(() =>
+        {
+            var e = d.BeginCommands();
+            var p = e.BeginRenderPass(ColorAttachment.Clear(direct, 0, 0, 0, 1));
+            try
+            {
+                p.SetPipeline(pipeline);
+                p.DrawIndirect(vb, 0);
+            }
+            finally
+            {
+                p.EndPass();
+                d.Submit(e);
+            }
+        });
+    }
+
+    [Fact]
+    public void PushConstantsReachTheShader()
+    {
+        // The shader compiler has no push-constant support yet, so the test turns the fill shader's constant buffer into a push block.
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        using var vs = Vertex(d, FaceFill.VSMain.SpirV, FaceFill.VSMain.EntryPoint);
+        using var ps = d.CreateShader(ShaderStage.Pixel, SpirvPatch.UniformToPushConstant(FaceFill.PSMain.SpirV), FaceFill.PSMain.EntryPoint);
+        using var layout = d.CreatePipelineLayout([], new PushConstantRange(16, ShaderStage.Pixel));
+        using var pipeline = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
+        using var target = Target(d, 2, 1);
+
+        var enc = d.BeginCommands();
+        var pass = enc.BeginRenderPass(ColorAttachment.Clear(target, 0, 0, 0, 1));
+        pass.SetPipeline(pipeline);
+        foreach (var (x, color) in new[] { (0, new[] { 1f, 0f, 0.5f, 1f }), (1, new[] { 0f, 1f, 0f, 1f }) })
+        {
+            // Each draw covers one pixel; the constants change between them.
+            pass.SetViewport(x, 0, 1, 1);
+            pass.SetScissor(x, 0, 1, 1);
+            pass.SetPushConstants(0, MemoryMarshal.AsBytes<float>(color));
+            pass.Draw(3);
+        }
+
+        pass.EndPass();
+        d.Submit(enc);
+        var px = Read(d, target);
+        AssertPixel(px, 0, 255, 0, 128, tolerance: 1);
+        AssertPixel(px, 1, 0, 255, 0);
+
+        // Pushed data must fit the declared range.
+        enc = d.BeginCommands();
+        var p = enc.BeginRenderPass(ColorAttachment.Clear(target, 0, 0, 0, 1));
+        p.SetPipeline(pipeline);
+        Assert.Throws<ArgumentOutOfRangeException>(() => p.SetPushConstants(8, new byte[16]));
+        Assert.Throws<ArgumentOutOfRangeException>(() => p.SetPushConstants(1, new byte[4]));
+        p.EndPass();
+        d.Submit(enc);
+        Assert.Throws<ArgumentException>(() => d.CreatePipelineLayout([], new PushConstantRange(GpuDevice.MaxPushConstantBytes + 4, ShaderStage.Pixel)));
+    }
+
+    [Fact]
+    public void ResourceArrayIsIndexedNonUniformly()
+    {
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        Assert.True(d.Capabilities.NonUniformArrayIndexing);
+        byte[][] colors = [[255, 0, 0, 255], [0, 255, 0, 255], [0, 0, 255, 255], [255, 255, 255, 255]];
+        var textures = new List<GpuTexture>();
+        foreach (var c in colors)
+        {
+            var t = d.CreateTexture(new TextureDesc(1, 1, GpuFormat.Rgba8Unorm, TextureUsage.Sampled | TextureUsage.CopyDestination));
+            d.WriteTexture(t, 0, 0, c);
+            textures.Add(t);
+        }
+
+        using var vs = Vertex(d, TextureArray.VSMain.SpirV, TextureArray.VSMain.EntryPoint);
+        using var ps = Pixel(d, TextureArray.PSMain.SpirV, TextureArray.PSMain.EntryPoint);
+        using var layout = d.CreatePipelineLayout([new ResourceBinding(0, 0, 4, ResourceKind.SampledTexture, ShaderStage.Pixel), SamplerAt1]);
+        using var sampler = d.CreateSampler(SamplerDesc.Nearest);
+        using var group = d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTextures(0, textures), BindGroupEntry.ForSampler(1, sampler)]);
+        using var pipeline = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
+        using var target = Target(d, 4, 1);
+        DrawFullscreen(d, target, pipeline, (0, group));
+        var px = Read(d, target);
+        for (var i = 0; i < 4; i++)
+        {
+            AssertPixel(px, i, colors[i][0], colors[i][1], colors[i][2]);
+        }
+
+        Assert.Throws<ArgumentException>(() => d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTextures(0, textures.Take(3).ToList()), BindGroupEntry.ForSampler(1, sampler)]));
+        foreach (var t in textures)
+        {
+            t.Dispose();
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct Instance
+    {
+        public float X, Y;
+        public byte R, G, B, A;
+    }
+
+    [Fact]
+    public void TenThousandInstancesDrawInOneCall()
+    {
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        var inst = new Instance[10_000];
+        for (var y = 0; y < 100; y++)
+        {
+            for (var x = 0; x < 100; x++)
+            {
+                inst[y * 100 + x] = new Instance { X = x, Y = y, R = (byte)(x * 255 / 99), G = (byte)(y * 255 / 99), B = (byte)(((x + y) & 1) * 255), A = 255 };
+            }
+        }
+
+        using var corners = d.CreateBuffer(new BufferDesc(32, BufferUsage.Vertex | BufferUsage.CopyDestination));
+        d.WriteBuffer(corners, 0, MemoryMarshal.AsBytes<float>([0, 0, 1, 0, 0, 1, 1, 1]));
+        using var instances = d.CreateBuffer(new BufferDesc((ulong)(inst.Length * 12), BufferUsage.Vertex | BufferUsage.CopyDestination));
+        d.WriteBuffer(instances, 0, MemoryMarshal.AsBytes<Instance>(inst));
+
+        using var vs = Vertex(d, Instanced.VSMain.SpirV, Instanced.VSMain.EntryPoint);
+        using var ps = Pixel(d, Instanced.PSMain.SpirV, Instanced.PSMain.EntryPoint);
+        using var layout = d.CreatePipelineLayout([]);
+        using var pipeline = d.CreateGraphicsPipeline(new GraphicsPipelineDesc
+        {
+            Layout = layout,
+            Vertex = vs,
+            Pixel = ps,
+            Topology = PrimitiveTopology.TriangleStrip,
+            VertexBuffers =
+            [
+                new VertexBufferLayout { Stride = 8, Attributes = new[] { new VertexElement(0, VertexFormat.Float2, 0) } },
+                new VertexBufferLayout
+                {
+                    Stride = 12,
+                    StepMode = VertexStepMode.Instance,
+                    Attributes = new[] { new VertexElement(1, VertexFormat.Float2, 0), new VertexElement(2, VertexFormat.UNorm8x4, 8) },
+                },
+            ],
+            ColorTargets = [new ColorTargetState(GpuFormat.Rgba8Unorm)],
+        });
+        using var target = Target(d, 100, 100);
+        var enc = d.BeginCommands();
+        var pass = enc.BeginRenderPass(ColorAttachment.Clear(target, 0, 0, 0, 1));
+        pass.SetPipeline(pipeline);
+        pass.SetVertexBuffer(0, corners);
+        pass.SetVertexBuffer(1, instances);
+        pass.Draw(4, 10_000);
+        pass.EndPass();
+        d.Submit(enc);
+
+        var px = Read(d, target);
+        var wrong = 0;
+        for (var row = 0; row < 100; row++)
+        {
+            for (var col = 0; col < 100; col++)
+            {
+                var y = 99 - row;
+                var o = (row * 100 + col) * 4;
+                if (px[o] != col * 255 / 99 || px[o + 1] != y * 255 / 99 || px[o + 2] != ((col + y) & 1) * 255 || px[o + 3] != 255)
+                {
+                    wrong++;
+                }
+            }
+        }
+
+        Assert.Equal(0, wrong);
+    }
+
+    [Fact]
+    public void PartialTextureWriteTouchesOnlyItsRectangle()
+    {
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        using var tex = d.CreateTexture(new TextureDesc(8, 8, GpuFormat.Rgba8Unorm, TextureUsage.CopyDestination | TextureUsage.CopySource));
+        d.WriteTexture(tex, 0, 0, new byte[8 * 8 * 4]);
+        var patch = new byte[3 * 2 * 4];
+        for (var i = 0; i < patch.Length; i++)
+        {
+            patch[i] = (byte)(100 + i);
+        }
+
+        d.WriteTexture(tex, TextureRegion.Rect(0, 0, 2, 3, 3, 2), patch);
+        var px = Read(d, tex);
+        for (var y = 0; y < 8; y++)
+        {
+            for (var x = 0; x < 8; x++)
+            {
+                var inside = x is >= 2 and < 5 && y is >= 3 and < 5;
+                for (var c = 0; c < 4; c++)
+                {
+                    var expected = inside ? patch[((y - 3) * 3 + (x - 2)) * 4 + c] : 0;
+                    Assert.Equal(expected, px[(y * 8 + x) * 4 + c]);
+                }
+            }
+        }
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => d.WriteTexture(tex, TextureRegion.Rect(0, 0, 6, 0, 3, 1), new byte[12]));
+        Assert.Throws<ArgumentException>(() => d.WriteTexture(tex, TextureRegion.Rect(0, 0, 0, 0, 2, 2), new byte[12]));
+    }
+
+    [Fact]
+    public void WholeTexturesAreCopiedWithTheirMips()
+    {
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        var usage = TextureUsage.CopySource | TextureUsage.CopyDestination;
+        using var a = d.CreateTexture(new TextureDesc(4, 4, GpuFormat.Rgba8Unorm, usage) { MipLevels = 3, ArrayLayers = 2 });
+        using var b = d.CreateTexture(new TextureDesc(4, 4, GpuFormat.Rgba8Unorm, usage) { MipLevels = 3, ArrayLayers = 2 });
+        for (uint layer = 0; layer < 2; layer++)
+        {
+            for (uint mip = 0; mip < 3; mip++)
+            {
+                var n = (int)(Math.Max(4u >> (int)mip, 1) * Math.Max(4u >> (int)mip, 1)) * 4;
+                d.WriteTexture(a, mip, layer, Enumerable.Repeat((byte)(layer * 40 + mip * 10 + 5), n).ToArray());
+            }
+        }
+
+        var enc = d.BeginCommands();
+        enc.CopyTexture(a, b);
+        d.Submit(enc);
+        Assert.All(Read(d, b, 2, 1), v => Assert.Equal(65, v));
+        Assert.All(Read(d, b, 0, 0), v => Assert.Equal(5, v));
+        using var other = d.CreateTexture(new TextureDesc(8, 4, GpuFormat.Rgba8Unorm, usage) { MipLevels = 3, ArrayLayers = 2 });
+        Assert.Throws<ArgumentException>(() => d.BeginCommands().CopyTexture(a, other));
+    }
+
+    [Fact]
+    public void PassTimingWritesStartAndEndTimes()
+    {
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        if (!d.Capabilities.Timestamps)
+        {
+            return;
+        }
+
+        using var set = d.CreateTimestampSet(8);
+        using var target = Target(d, 64, 64);
+        var enc = d.BeginCommands();
+        enc.BeginPassTiming(new PassTiming(set, 0, 3));
+        enc.BeginRenderPass(ColorAttachment.Clear(target, 0, 0, 0, 1)).EndPass();
+        enc.BeginRenderPass(ColorAttachment.Clear(target, 1, 0, 0, 1)).EndPass();
+        enc.BeginComputePass().EndPass();
+        Assert.Equal(3u, enc.EndPassTiming());
+        enc.BeginRenderPass(ColorAttachment.Clear(target, 1, 1, 0, 1)).EndPass();
+        d.Submit(enc);
+        d.WaitIdle();
+
+        var t = new ulong[6];
+        Assert.True(d.TryReadTimestamps(set, 0, t));
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.True(t[i * 2 + 1] >= t[i * 2], $"pass {i} ended before it began");
+        }
+
+        Assert.True(t[2] >= t[1] && t[4] >= t[3], "passes run in order");
+    }
+
+    [Fact]
+    public void CubeAndVolumeValidation()
+    {
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        Assert.Throws<ArgumentException>(() => d.CreateTexture(new TextureDesc(8, 8, GpuFormat.Rgba8Unorm, TextureUsage.Sampled) { Dimension = TextureDimension.Cube, ArrayLayers = 5 }));
+        Assert.Throws<ArgumentException>(() => d.CreateTexture(new TextureDesc(8, 4, GpuFormat.Rgba8Unorm, TextureUsage.Sampled) { Dimension = TextureDimension.Cube, ArrayLayers = 6 }));
+        Assert.Throws<ArgumentException>(() => d.CreateTexture(new TextureDesc(8, 8, GpuFormat.Rgba8Unorm, TextureUsage.RenderTarget) { Dimension = TextureDimension.D3, Depth = 4 }));
+        Assert.Throws<ArgumentException>(() => d.CreateTexture(new TextureDesc(8, 8, GpuFormat.Rgba8Unorm, TextureUsage.Sampled) { Depth = 4 }));
+        Assert.Throws<ArgumentException>(() => d.CreateTexture(new TextureDesc(8, 8, GpuFormat.Rgba8Unorm, TextureUsage.Sampled) { MipLevels = 5 }));
+        var enc = d.BeginCommands();
+        d.Submit(enc);
+    }
+}
+
+/// <summary>Rewrites a compiled shader so its uniform block becomes the push-constant block (test support: the shader compiler does not emit push constants yet).</summary>
+internal static class SpirvPatch
+{
+    public static byte[] UniformToPushConstant(ReadOnlySpan<byte> spirv)
+    {
+        const uint Uniform = 2, PushConstant = 9;
+        var words = new uint[spirv.Length / 4];
+        for (var i = 0; i < words.Length; i++)
+        {
+            words[i] = BinaryPrimitives.ReadUInt32LittleEndian(spirv[(i * 4)..]);
+        }
+
+        var output = new List<uint>(words[..5]);
+        for (var i = 5; i < words.Length;)
+        {
+            var op = words[i] & 0xFFFF;
+            var count = (int)(words[i] >> 16);
+            // OpDecorate Binding / DescriptorSet: push constants have neither, so those instructions are dropped.
+            var drop = op == 71 && words[i + 2] is 33 or 34;
+            if (op == 32 && words[i + 2] == Uniform)
+            {
+                words[i + 2] = PushConstant; // OpTypePointer
+            }
+            else if (op == 59 && words[i + 3] == Uniform)
+            {
+                words[i + 3] = PushConstant; // OpVariable
+            }
+
+            if (!drop)
+            {
+                output.AddRange(words.AsSpan(i, count).ToArray());
+            }
+
+            i += count;
+        }
+
+        words = output.ToArray();
+        var bytes = new byte[words.Length * 4];
+        for (var i = 0; i < words.Length; i++)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(i * 4), words[i]);
+        }
+
+        return bytes;
+    }
+}

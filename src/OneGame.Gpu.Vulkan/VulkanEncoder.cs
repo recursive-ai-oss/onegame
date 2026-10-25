@@ -19,6 +19,10 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
     readonly VulkanRenderPass _render;
     readonly VulkanComputePass _compute;
     internal bool InPass;
+    VulkanTimestampSet? _timingSet;
+    uint _timingFirst, _timingMax, _timingUsed;
+    int _endQuery = -1;
+    VulkanTimestampSet? _endSet;
 
     /// <summary>Command buffers to submit, in order.</summary>
     internal readonly List<VkCommandBuffer> Done = [];
@@ -132,7 +136,54 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
         _curOpen = false;
         _finished = false;
         InPass = false;
+        _timingSet = null;
+        _endSet = null;
+        _endQuery = -1;
     }
+
+    // ---- pass timing ----
+
+    public override void BeginPassTiming(in PassTiming timing)
+    {
+        EnsureNoPass();
+        var set = (VulkanTimestampSet)timing.Set;
+        if ((ulong)timing.First + (ulong)timing.MaxPasses * 2 > set.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(timing), "timing range extends past the end of the timestamp set");
+        }
+
+        _timingSet = set;
+        _timingFirst = timing.First;
+        _timingMax = timing.MaxPasses;
+        _timingUsed = 0;
+    }
+
+    public override uint EndPassTiming()
+    {
+        EnsureNoPass();
+        var n = _timingUsed;
+        _timingSet = null;
+        _timingUsed = 0;
+        return n;
+    }
+
+    /// <summary>Takes the next pair of queries for a pass about to begin and resets them (outside any render pass). Returns -1 when passes are not being timed.</summary>
+    int TakeTiming(out VulkanTimestampSet? set)
+    {
+        set = _timingSet;
+        if (set is null || _timingUsed >= _timingMax)
+        {
+            set = null;
+            return -1;
+        }
+
+        var q = _timingFirst + 2 * _timingUsed++;
+        _dev.Fns.vkCmdResetQueryPool(Current, set.Handle, q, 2);
+        return (int)q;
+    }
+
+    void WriteTimestamp(VkCommandBuffer cb, VulkanTimestampSet set, uint query) =>
+        _dev.Fns.vkCmdWriteTimestamp2(cb, VkPipelineStageFlagBits2.AllCommands, set.Handle, query);
 
     internal void Destroy()
     {
@@ -140,6 +191,45 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
         {
             _dev.Fns.vkDestroyCommandPool(_dev.Handle, _pool, null);
             _pool = default;
+        }
+    }
+
+    internal static void CheckOffsets(VulkanBindGroup g, ReadOnlySpan<uint> offsets)
+    {
+        if (offsets.Length != g.DynamicCount)
+        {
+            throw new ArgumentException($"the bind group has {g.DynamicCount} dynamic bindings but {offsets.Length} offsets were given");
+        }
+
+        foreach (var o in offsets)
+        {
+            if (o % GpuDevice.DynamicOffsetAlignment != 0)
+            {
+                throw new ArgumentException($"dynamic offset {o} is not a multiple of {GpuDevice.DynamicOffsetAlignment}");
+            }
+        }
+    }
+
+    internal static void PushConstants(VulkanDevice dev, VkCommandBuffer cb, VulkanPipelineLayout? layout, uint offset, ReadOnlySpan<byte> data)
+    {
+        if (layout is null)
+        {
+            throw new InvalidOperationException("set a pipeline before pushing constants");
+        }
+
+        if (offset % 4 != 0 || data.Length % 4 != 0 || (ulong)offset + (ulong)data.Length > layout.Push.Size)
+        {
+            throw new ArgumentOutOfRangeException(nameof(data), $"push constants must be 4-byte aligned and inside the {layout.Push.Size} bytes the pipeline layout declared");
+        }
+
+        if (data.IsEmpty)
+        {
+            return;
+        }
+
+        fixed (byte* p = data)
+        {
+            dev.Fns.vkCmdPushConstants(cb, layout.Handle, VkMap.Stages(layout.Push.Stages), offset, (uint)data.Length, p);
         }
     }
 
@@ -218,7 +308,7 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
         new() { aspectMask = t.Aspect, mipLevel = mip, baseArrayLayer = layer, layerCount = 1 };
 
     static VkExtent3D LevelExtent(VulkanTexture t, uint mip) =>
-        new() { width = Math.Max(t.Width >> (int)mip, 1), height = Math.Max(t.Height >> (int)mip, 1), depth = 1 };
+        new() { width = Math.Max(t.Width >> (int)mip, 1), height = Math.Max(t.Height >> (int)mip, 1), depth = Math.Max(t.Depth >> (int)mip, 1) };
 
     public override void CopyBuffer(GpuBuffer source, ulong sourceOffset, GpuBuffer destination, ulong destinationOffset, ulong size)
     {
@@ -255,10 +345,16 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
         _dev.Fns.vkCmdCopyBuffer(Current, src.Handle, staging, 1, &region);
     }
 
-    internal void CopyRawToTexture(VkBuffer staging, VulkanTexture dst, uint mip, uint layer)
+    internal void CopyRawToTexture(VkBuffer staging, VulkanTexture dst, in TextureRegion r)
     {
         Barrier(dst, Use.CopyDestination);
-        var region = new VkBufferImageCopy { bufferOffset = 0, imageSubresource = Layers(dst, mip, layer), imageExtent = LevelExtent(dst, mip) };
+        var region = new VkBufferImageCopy
+        {
+            bufferOffset = 0,
+            imageSubresource = Layers(dst, r.MipLevel, r.Layer),
+            imageOffset = new VkOffset3D { x = (int)r.X, y = (int)r.Y, z = (int)r.Z },
+            imageExtent = new VkExtent3D { width = r.Width, height = r.Height, depth = r.Depth },
+        };
         _dev.Fns.vkCmdCopyBufferToImage(Current, staging, dst.Handle, VkImageLayout.TransferDstOptimal, 1, &region);
     }
 
@@ -301,6 +397,38 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
         _dev.Fns.vkCmdCopyBufferToImage(Current, s.Handle, t.Handle, VkImageLayout.TransferDstOptimal, 1, &region);
     }
 
+    public override void CopyTexture(GpuTexture source, GpuTexture destination)
+    {
+        EnsureNoPass();
+        var s = (VulkanTexture)source;
+        var d = (VulkanTexture)destination;
+        if ((s.Usage & TextureUsage.CopySource) == 0 || (d.Usage & TextureUsage.CopyDestination) == 0)
+        {
+            throw new ArgumentException("copy needs CopySource on the source and CopyDestination on the destination texture");
+        }
+
+        if (s.Width != d.Width || s.Height != d.Height || s.Depth != d.Depth || s.Format != d.Format || s.Dimension != d.Dimension
+            || s.MipLevels != d.MipLevels || s.ArrayLayers != d.ArrayLayers || s.SampleCount != 1 || d.SampleCount != 1)
+        {
+            throw new ArgumentException("textures must match in size, format, dimension, mip levels and layers, and not be multisampled", nameof(destination));
+        }
+
+        var regions = stackalloc VkImageCopy[(int)s.MipLevels];
+        for (var level = 0u; level < s.MipLevels; level++)
+        {
+            regions[level] = new VkImageCopy
+            {
+                srcSubresource = new VkImageSubresourceLayers { aspectMask = s.Aspect, mipLevel = level, baseArrayLayer = 0, layerCount = s.ArrayLayers },
+                dstSubresource = new VkImageSubresourceLayers { aspectMask = d.Aspect, mipLevel = level, baseArrayLayer = 0, layerCount = d.ArrayLayers },
+                extent = LevelExtent(s, level),
+            };
+        }
+
+        Barrier(s, Use.CopySource);
+        Barrier(d, Use.CopyDestination);
+        _dev.Fns.vkCmdCopyImage(Current, s.Handle, VkImageLayout.TransferSrcOptimal, d.Handle, VkImageLayout.TransferDstOptimal, s.MipLevels, regions);
+    }
+
     public override void GenerateMips(GpuTexture texture)
     {
         EnsureNoPass();
@@ -328,8 +456,8 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
             };
             var se = LevelExtent(t, level - 1);
             var de = LevelExtent(t, level);
-            blit.srcOffsets[1] = new VkOffset3D { x = (int)se.width, y = (int)se.height, z = 1 };
-            blit.dstOffsets[1] = new VkOffset3D { x = (int)de.width, y = (int)de.height, z = 1 };
+            blit.srcOffsets[1] = new VkOffset3D { x = (int)se.width, y = (int)se.height, z = (int)se.depth };
+            blit.dstOffsets[1] = new VkOffset3D { x = (int)de.width, y = (int)de.height, z = (int)de.depth };
             _dev.Fns.vkCmdBlitImage(cb, t.Handle, VkImageLayout.TransferSrcOptimal, t.Handle, VkImageLayout.TransferDstOptimal, 1, &blit, VkFilter.Linear);
         }
 
@@ -384,11 +512,23 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
             throw new ArgumentException("at most 8 color attachments", nameof(colors));
         }
 
+        var timed = TakeTiming(out var timingSet);
         CloseCurrent();
         var pre = NextBuffer();
         var pass = NextBuffer();
         _render.Begin(pre, pass);
         InPass = true;
+        if (timed >= 0)
+        {
+            WriteTimestamp(pass, timingSet!, (uint)timed);
+            _endSet = timingSet;
+            _endQuery = timed + 1;
+        }
+        else
+        {
+            _endSet = null;
+            _endQuery = -1;
+        }
 
         VulkanTexture? first = null;
         uint mip0 = 0;
@@ -416,6 +556,11 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
             info.clearValue.color.float32[3] = c.ClearA;
             if (c.Resolve is VulkanTexture r)
             {
+                if (t.SampleCount == 1 || r.SampleCount != 1)
+                {
+                    throw new ArgumentException("Resolve needs a multisampled Target and a single-sample Resolve texture");
+                }
+
                 Barrier(r, Use.ColorAttachment, pre);
                 info.resolveMode = VkResolveModeFlagBits.Average;
                 info.resolveImageView = r.AttachmentView(c.MipLevel, c.Layer);
@@ -444,7 +589,7 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
             Barrier(t, Use.DepthAttachment, pre);
             depthInfo = new VkRenderingAttachmentInfo
             {
-                imageView = t.AttachmentView(0, 0),
+                imageView = t.AttachmentView(d.MipLevel, d.Layer),
                 imageLayout = VkImageLayout.DepthStencilAttachmentOptimal,
                 loadOp = LoadOpOf(d.Load),
                 storeOp = d.Store == StoreOp.Store ? VkAttachmentStoreOp.Store : VkAttachmentStoreOp.DontCare,
@@ -452,7 +597,11 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
             depthInfo.clearValue.depthStencil.depth = d.ClearDepth;
             hasDepth = true;
             stencil = t.Format == GpuFormat.Depth32FloatStencil8;
-            first ??= t;
+            if (first is null)
+            {
+                first = t;
+                mip0 = d.MipLevel;
+            }
         }
 
         var target = first!;
@@ -482,6 +631,12 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
     internal void EndRender(VkCommandBuffer pre, VkCommandBuffer pass)
     {
         _dev.Fns.vkCmdEndRendering(pass);
+        if (_endSet is not null)
+        {
+            WriteTimestamp(pass, _endSet, (uint)_endQuery);
+            _endSet = null;
+        }
+
         End(pre);
         End(pass);
         Done.Add(pre);
@@ -492,12 +647,34 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
     public override GpuComputePass BeginComputePass()
     {
         EnsureNoPass();
-        _compute.Begin(Current);
+        var timed = TakeTiming(out var timingSet);
+        var cb = Current;
+        if (timed >= 0)
+        {
+            WriteTimestamp(cb, timingSet!, (uint)timed);
+            _endSet = timingSet;
+            _endQuery = timed + 1;
+        }
+        else
+        {
+            _endSet = null;
+        }
+
+        _compute.Begin(cb);
         InPass = true;
         return _compute;
     }
 
-    internal void EndCompute() => InPass = false;
+    internal void EndCompute()
+    {
+        if (_endSet is not null)
+        {
+            WriteTimestamp(Current, _endSet, (uint)_endQuery);
+            _endSet = null;
+        }
+
+        InPass = false;
+    }
 }
 
 internal sealed unsafe class VulkanRenderPass : GpuRenderPass
@@ -505,6 +682,7 @@ internal sealed unsafe class VulkanRenderPass : GpuRenderPass
     readonly VulkanEncoder _enc;
     VkCommandBuffer _pre, _pass;
     bool _open;
+    VulkanPipelineLayout? _layout;
 
     public VulkanRenderPass(VulkanEncoder enc) => _enc = enc;
 
@@ -513,6 +691,7 @@ internal sealed unsafe class VulkanRenderPass : GpuRenderPass
         _pre = pre;
         _pass = pass;
         _open = true;
+        _layout = null;
     }
 
     void Check()
@@ -528,10 +707,12 @@ internal sealed unsafe class VulkanRenderPass : GpuRenderPass
     public override void SetPipeline(GpuGraphicsPipeline pipeline)
     {
         Check();
-        Dev.Fns.vkCmdBindPipeline(_pass, VkPipelineBindPoint.Graphics, ((VulkanGraphicsPipeline)pipeline).Handle);
+        var p = (VulkanGraphicsPipeline)pipeline;
+        _layout = p.Layout;
+        Dev.Fns.vkCmdBindPipeline(_pass, VkPipelineBindPoint.Graphics, p.Handle);
     }
 
-    public override void SetBindGroup(uint setIndex, GpuBindGroup group)
+    public override void SetBindGroup(uint setIndex, GpuBindGroup group, ReadOnlySpan<uint> dynamicOffsets)
     {
         Check();
         var g = (VulkanBindGroup)group;
@@ -540,9 +721,61 @@ internal sealed unsafe class VulkanRenderPass : GpuRenderPass
             throw new ArgumentException($"bind group was created for set {g.Set}, not {setIndex}", nameof(group));
         }
 
+        VulkanEncoder.CheckOffsets(g, dynamicOffsets);
         _enc.SyncGroup(g, _pre);
         var h = g.Handle;
-        Dev.Fns.vkCmdBindDescriptorSets(_pass, VkPipelineBindPoint.Graphics, g.Layout.Handle, setIndex, 1, &h, 0, null);
+        fixed (uint* offsets = dynamicOffsets)
+        {
+            Dev.Fns.vkCmdBindDescriptorSets(_pass, VkPipelineBindPoint.Graphics, g.Layout.Handle, setIndex, 1, &h, (uint)dynamicOffsets.Length, offsets);
+        }
+    }
+
+    public override void SetPushConstants(uint offset, ReadOnlySpan<byte> data)
+    {
+        Check();
+        VulkanEncoder.PushConstants(Dev, _pass, _layout, offset, data);
+    }
+
+    public override void DrawIndirect(GpuBuffer arguments, ulong offset, uint drawCount = 1) => Indirect(arguments, offset, drawCount, indexed: false);
+
+    public override void DrawIndexedIndirect(GpuBuffer arguments, ulong offset, uint drawCount = 1) => Indirect(arguments, offset, drawCount, indexed: true);
+
+    void Indirect(GpuBuffer arguments, ulong offset, uint count, bool indexed)
+    {
+        Check();
+        var b = (VulkanBuffer)arguments;
+        var stride = (uint)(indexed ? DrawIndexedIndirectArgs.Size : DrawIndirectArgs.Size);
+        if ((b.Usage & BufferUsage.Indirect) == 0)
+        {
+            throw new ArgumentException("buffer lacks BufferUsage.Indirect", nameof(arguments));
+        }
+
+        if (offset % 4 != 0 || offset + (ulong)count * stride > b.Size)
+        {
+            throw new ArgumentOutOfRangeException(nameof(offset), "indirect arguments must be 4-byte aligned and lie inside the buffer");
+        }
+
+        _enc.Barrier(b, Use.IndirectBuffer, _pre);
+        var f = Dev.Fns;
+        if (count == 0)
+        {
+            return;
+        }
+
+        // Without the multi-draw feature, the same records are issued one by one; the result is identical.
+        var batch = Dev.MultiDraw ? count : 1;
+        for (uint i = 0; i < count; i += batch)
+        {
+            var o = offset + (ulong)i * stride;
+            if (indexed)
+            {
+                f.vkCmdDrawIndexedIndirect(_pass, b.Handle, o, batch, stride);
+            }
+            else
+            {
+                f.vkCmdDrawIndirect(_pass, b.Handle, o, batch, stride);
+            }
+        }
     }
 
     public override void SetVertexBuffer(uint slot, GpuBuffer buffer, ulong offset = 0)
@@ -613,6 +846,7 @@ internal sealed unsafe class VulkanComputePass : GpuComputePass
     VkCommandBuffer _cb;
     bool _open;
     readonly VulkanBindGroup?[] _bound = new VulkanBindGroup?[8];
+    VulkanPipelineLayout? _layout;
 
     public VulkanComputePass(VulkanEncoder enc) => _enc = enc;
 
@@ -620,6 +854,7 @@ internal sealed unsafe class VulkanComputePass : GpuComputePass
     {
         _cb = cb;
         _open = true;
+        _layout = null;
         Array.Clear(_bound);
     }
 
@@ -634,10 +869,44 @@ internal sealed unsafe class VulkanComputePass : GpuComputePass
     public override void SetPipeline(GpuComputePipeline pipeline)
     {
         Check();
-        _enc.Device.Fns.vkCmdBindPipeline(_cb, VkPipelineBindPoint.Compute, ((VulkanComputePipeline)pipeline).Handle);
+        var p = (VulkanComputePipeline)pipeline;
+        _layout = p.Layout;
+        _enc.Device.Fns.vkCmdBindPipeline(_cb, VkPipelineBindPoint.Compute, p.Handle);
     }
 
-    public override void SetBindGroup(uint setIndex, GpuBindGroup group)
+    public override void SetPushConstants(uint offset, ReadOnlySpan<byte> data)
+    {
+        Check();
+        VulkanEncoder.PushConstants(_enc.Device, _cb, _layout, offset, data);
+    }
+
+    public override void DispatchIndirect(GpuBuffer arguments, ulong offset)
+    {
+        Check();
+        var b = (VulkanBuffer)arguments;
+        if ((b.Usage & BufferUsage.Indirect) == 0)
+        {
+            throw new ArgumentException("buffer lacks BufferUsage.Indirect", nameof(arguments));
+        }
+
+        if (offset % 4 != 0 || offset + DispatchIndirectArgs.Size > b.Size)
+        {
+            throw new ArgumentOutOfRangeException(nameof(offset), "indirect arguments must be 4-byte aligned and lie inside the buffer");
+        }
+
+        foreach (var g in _bound)
+        {
+            if (g is not null)
+            {
+                _enc.SyncGroup(g, _cb);
+            }
+        }
+
+        _enc.Barrier(b, Use.IndirectBuffer, _cb);
+        _enc.Device.Fns.vkCmdDispatchIndirect(_cb, b.Handle, offset);
+    }
+
+    public override void SetBindGroup(uint setIndex, GpuBindGroup group, ReadOnlySpan<uint> dynamicOffsets)
     {
         Check();
         var g = (VulkanBindGroup)group;
@@ -646,9 +915,13 @@ internal sealed unsafe class VulkanComputePass : GpuComputePass
             throw new ArgumentException($"bind group was created for set {g.Set}, not {setIndex} (or the set index is above 7)", nameof(group));
         }
 
+        VulkanEncoder.CheckOffsets(g, dynamicOffsets);
         _bound[setIndex] = g;
         var h = g.Handle;
-        _enc.Device.Fns.vkCmdBindDescriptorSets(_cb, VkPipelineBindPoint.Compute, g.Layout.Handle, setIndex, 1, &h, 0, null);
+        fixed (uint* offsets = dynamicOffsets)
+        {
+            _enc.Device.Fns.vkCmdBindDescriptorSets(_cb, VkPipelineBindPoint.Compute, g.Layout.Handle, setIndex, 1, &h, (uint)dynamicOffsets.Length, offsets);
+        }
     }
 
     public override void Dispatch(uint x, uint y = 1, uint z = 1)

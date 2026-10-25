@@ -26,6 +26,7 @@ internal readonly struct VkPhysicalDevice(nint value) { public readonly nint Val
 internal readonly struct VkPipeline(ulong value) { public readonly ulong Value = value; public bool IsNull => Value == 0; }
 internal readonly struct VkPipelineCache(ulong value) { public readonly ulong Value = value; public bool IsNull => Value == 0; }
 internal readonly struct VkPipelineLayout(ulong value) { public readonly ulong Value = value; public bool IsNull => Value == 0; }
+internal readonly struct VkQueryPool(ulong value) { public readonly ulong Value = value; public bool IsNull => Value == 0; }
 internal readonly struct VkQueue(nint value) { public readonly nint Value = value; public bool IsNull => Value == 0; }
 internal readonly struct VkRenderPass(ulong value) { public readonly ulong Value = value; public bool IsNull => Value == 0; }
 internal readonly struct VkSampler(ulong value) { public readonly ulong Value = value; public bool IsNull => Value == 0; }
@@ -1319,6 +1320,43 @@ internal enum VkQueryPipelineStatisticFlagBits : uint
     TaskShaderInvocations = 2048,
     MeshShaderInvocations = 4096,
     ClusterCullingShaderInvocationsBitHuawei = 8192,
+}
+
+[Flags]
+internal enum VkQueryPoolCreateFlagBits : uint
+{
+    Reset = 1,
+}
+
+[Flags]
+internal enum VkQueryResultFlagBits : uint
+{
+    _64 = 1,
+    Wait = 2,
+    WithAvailability = 4,
+    Partial = 8,
+    WithStatus = 16,
+}
+
+internal enum VkQueryType : int
+{
+    Occlusion = 0,
+    PipelineStatistics = 1,
+    Timestamp = 2,
+    ResultStatusOnly = 1000023000,
+    TransformFeedbackStream = 1000028004,
+    PerformanceQuery = 1000116000,
+    AccelerationStructureCompactedSize = 1000150000,
+    AccelerationStructureSerializationSize = 1000150001,
+    AccelerationStructureCompactedSizeNv = 1000165000,
+    PerformanceQueryIntel = 1000210000,
+    VideoEncodeFeedback = 1000299000,
+    MeshPrimitivesGenerated = 1000328000,
+    PrimitivesGenerated = 1000382000,
+    AccelerationStructureSerializationBottomLevelPointers = 1000386000,
+    AccelerationStructureSize = 1000386001,
+    MicromapSerializationSize = 1000396000,
+    MicromapCompactedSize = 1000396001,
 }
 
 [Flags]
@@ -3207,6 +3245,16 @@ internal unsafe struct VkImageBlit
 }
 
 [StructLayout(LayoutKind.Sequential)]
+internal unsafe struct VkImageCopy
+{
+    public VkImageSubresourceLayers srcSubresource;
+    public VkOffset3D srcOffset;
+    public VkImageSubresourceLayers dstSubresource;
+    public VkOffset3D dstOffset;
+    public VkExtent3D extent;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal unsafe struct VkImageCreateInfo
 {
     public VkStructureType sType;
@@ -3950,6 +3998,18 @@ internal unsafe struct VkPushConstantRange
 }
 
 [StructLayout(LayoutKind.Sequential)]
+internal unsafe struct VkQueryPoolCreateInfo
+{
+    public VkStructureType sType;
+    public void* pNext;
+    public VkQueryPoolCreateFlagBits flags;
+    public VkQueryType queryType;
+    public uint queryCount;
+    public VkQueryPipelineStatisticFlagBits pipelineStatistics;
+    public VkQueryPoolCreateInfo() { sType = VkStructureType.QueryPoolCreateInfo; }
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal unsafe struct VkQueueFamilyProperties
 {
     public VkQueueFlagBits queueFlags;
@@ -4337,16 +4397,23 @@ internal sealed unsafe class VkDeviceFns
     public delegate* unmanaged<VkCommandBuffer, VkImage, VkImageLayout, VkImage, VkImageLayout, uint, VkImageBlit*, VkFilter, void> vkCmdBlitImage;
     public delegate* unmanaged<VkCommandBuffer, VkBuffer, VkBuffer, uint, VkBufferCopy*, void> vkCmdCopyBuffer;
     public delegate* unmanaged<VkCommandBuffer, VkBuffer, VkImage, VkImageLayout, uint, VkBufferImageCopy*, void> vkCmdCopyBufferToImage;
+    public delegate* unmanaged<VkCommandBuffer, VkImage, VkImageLayout, VkImage, VkImageLayout, uint, VkImageCopy*, void> vkCmdCopyImage;
     public delegate* unmanaged<VkCommandBuffer, VkImage, VkImageLayout, VkBuffer, uint, VkBufferImageCopy*, void> vkCmdCopyImageToBuffer;
     public delegate* unmanaged<VkCommandBuffer, uint, uint, uint, void> vkCmdDispatch;
+    public delegate* unmanaged<VkCommandBuffer, VkBuffer, ulong, void> vkCmdDispatchIndirect;
     public delegate* unmanaged<VkCommandBuffer, uint, uint, uint, uint, void> vkCmdDraw;
     public delegate* unmanaged<VkCommandBuffer, uint, uint, uint, int, uint, void> vkCmdDrawIndexed;
+    public delegate* unmanaged<VkCommandBuffer, VkBuffer, ulong, uint, uint, void> vkCmdDrawIndexedIndirect;
+    public delegate* unmanaged<VkCommandBuffer, VkBuffer, ulong, uint, uint, void> vkCmdDrawIndirect;
     public delegate* unmanaged<VkCommandBuffer, void> vkCmdEndDebugUtilsLabelEXT;
     public delegate* unmanaged<VkCommandBuffer, void> vkCmdEndRendering;
     public delegate* unmanaged<VkCommandBuffer, VkBuffer, ulong, ulong, uint, void> vkCmdFillBuffer;
     public delegate* unmanaged<VkCommandBuffer, VkDependencyInfo*, void> vkCmdPipelineBarrier2;
+    public delegate* unmanaged<VkCommandBuffer, VkPipelineLayout, VkShaderStageFlagBits, uint, uint, void*, void> vkCmdPushConstants;
+    public delegate* unmanaged<VkCommandBuffer, VkQueryPool, uint, uint, void> vkCmdResetQueryPool;
     public delegate* unmanaged<VkCommandBuffer, uint, uint, VkRect2D*, void> vkCmdSetScissor;
     public delegate* unmanaged<VkCommandBuffer, uint, uint, VkViewport*, void> vkCmdSetViewport;
+    public delegate* unmanaged<VkCommandBuffer, VkPipelineStageFlagBits2, VkQueryPool, uint, void> vkCmdWriteTimestamp2;
     public delegate* unmanaged<VkDevice, VkBufferCreateInfo*, VkAllocationCallbacks*, VkBuffer*, VkResult> vkCreateBuffer;
     public delegate* unmanaged<VkDevice, VkCommandPoolCreateInfo*, VkAllocationCallbacks*, VkCommandPool*, VkResult> vkCreateCommandPool;
     public delegate* unmanaged<VkDevice, VkPipelineCache, uint, VkComputePipelineCreateInfo*, VkAllocationCallbacks*, VkPipeline*, VkResult> vkCreateComputePipelines;
@@ -4356,6 +4423,7 @@ internal sealed unsafe class VkDeviceFns
     public delegate* unmanaged<VkDevice, VkImageCreateInfo*, VkAllocationCallbacks*, VkImage*, VkResult> vkCreateImage;
     public delegate* unmanaged<VkDevice, VkImageViewCreateInfo*, VkAllocationCallbacks*, VkImageView*, VkResult> vkCreateImageView;
     public delegate* unmanaged<VkDevice, VkPipelineLayoutCreateInfo*, VkAllocationCallbacks*, VkPipelineLayout*, VkResult> vkCreatePipelineLayout;
+    public delegate* unmanaged<VkDevice, VkQueryPoolCreateInfo*, VkAllocationCallbacks*, VkQueryPool*, VkResult> vkCreateQueryPool;
     public delegate* unmanaged<VkDevice, VkSamplerCreateInfo*, VkAllocationCallbacks*, VkSampler*, VkResult> vkCreateSampler;
     public delegate* unmanaged<VkDevice, VkSemaphoreCreateInfo*, VkAllocationCallbacks*, VkSemaphore*, VkResult> vkCreateSemaphore;
     public delegate* unmanaged<VkDevice, VkShaderModuleCreateInfo*, VkAllocationCallbacks*, VkShaderModule*, VkResult> vkCreateShaderModule;
@@ -4369,6 +4437,7 @@ internal sealed unsafe class VkDeviceFns
     public delegate* unmanaged<VkDevice, VkImageView, VkAllocationCallbacks*, void> vkDestroyImageView;
     public delegate* unmanaged<VkDevice, VkPipeline, VkAllocationCallbacks*, void> vkDestroyPipeline;
     public delegate* unmanaged<VkDevice, VkPipelineLayout, VkAllocationCallbacks*, void> vkDestroyPipelineLayout;
+    public delegate* unmanaged<VkDevice, VkQueryPool, VkAllocationCallbacks*, void> vkDestroyQueryPool;
     public delegate* unmanaged<VkDevice, VkSampler, VkAllocationCallbacks*, void> vkDestroySampler;
     public delegate* unmanaged<VkDevice, VkSemaphore, VkAllocationCallbacks*, void> vkDestroySemaphore;
     public delegate* unmanaged<VkDevice, VkShaderModule, VkAllocationCallbacks*, void> vkDestroyShaderModule;
@@ -4381,6 +4450,7 @@ internal sealed unsafe class VkDeviceFns
     public delegate* unmanaged<VkDevice, VkBuffer, VkMemoryRequirements*, void> vkGetBufferMemoryRequirements;
     public delegate* unmanaged<VkDevice, uint, uint, VkQueue*, void> vkGetDeviceQueue;
     public delegate* unmanaged<VkDevice, VkImage, VkMemoryRequirements*, void> vkGetImageMemoryRequirements;
+    public delegate* unmanaged<VkDevice, VkQueryPool, uint, uint, nuint, void*, ulong, VkQueryResultFlagBits, VkResult> vkGetQueryPoolResults;
     public delegate* unmanaged<VkDevice, VkSemaphore, ulong*, VkResult> vkGetSemaphoreCounterValue;
     public delegate* unmanaged<VkDevice, VkSwapchainKHR, uint*, VkImage*, VkResult> vkGetSwapchainImagesKHR;
     public delegate* unmanaged<VkDevice, uint, VkMappedMemoryRange*, VkResult> vkInvalidateMappedMemoryRanges;
@@ -4389,6 +4459,7 @@ internal sealed unsafe class VkDeviceFns
     public delegate* unmanaged<VkQueue, uint, VkSubmitInfo2*, VkFence, VkResult> vkQueueSubmit2;
     public delegate* unmanaged<VkQueue, VkResult> vkQueueWaitIdle;
     public delegate* unmanaged<VkDevice, VkCommandPool, VkCommandPoolResetFlagBits, VkResult> vkResetCommandPool;
+    public delegate* unmanaged<VkDevice, VkQueryPool, uint, uint, void> vkResetQueryPool;
     public delegate* unmanaged<VkDevice, VkDeviceMemory, void> vkUnmapMemory;
     public delegate* unmanaged<VkDevice, uint, VkWriteDescriptorSet*, uint, VkCopyDescriptorSet*, void> vkUpdateDescriptorSets;
     public delegate* unmanaged<VkDevice, VkSemaphoreWaitInfo*, ulong, VkResult> vkWaitSemaphores;
@@ -4410,16 +4481,23 @@ internal sealed unsafe class VkDeviceFns
         vkCmdBlitImage = (delegate* unmanaged<VkCommandBuffer, VkImage, VkImageLayout, VkImage, VkImageLayout, uint, VkImageBlit*, VkFilter, void>)get(handle, "vkCmdBlitImage\0"u8.GetPointer());
         vkCmdCopyBuffer = (delegate* unmanaged<VkCommandBuffer, VkBuffer, VkBuffer, uint, VkBufferCopy*, void>)get(handle, "vkCmdCopyBuffer\0"u8.GetPointer());
         vkCmdCopyBufferToImage = (delegate* unmanaged<VkCommandBuffer, VkBuffer, VkImage, VkImageLayout, uint, VkBufferImageCopy*, void>)get(handle, "vkCmdCopyBufferToImage\0"u8.GetPointer());
+        vkCmdCopyImage = (delegate* unmanaged<VkCommandBuffer, VkImage, VkImageLayout, VkImage, VkImageLayout, uint, VkImageCopy*, void>)get(handle, "vkCmdCopyImage\0"u8.GetPointer());
         vkCmdCopyImageToBuffer = (delegate* unmanaged<VkCommandBuffer, VkImage, VkImageLayout, VkBuffer, uint, VkBufferImageCopy*, void>)get(handle, "vkCmdCopyImageToBuffer\0"u8.GetPointer());
         vkCmdDispatch = (delegate* unmanaged<VkCommandBuffer, uint, uint, uint, void>)get(handle, "vkCmdDispatch\0"u8.GetPointer());
+        vkCmdDispatchIndirect = (delegate* unmanaged<VkCommandBuffer, VkBuffer, ulong, void>)get(handle, "vkCmdDispatchIndirect\0"u8.GetPointer());
         vkCmdDraw = (delegate* unmanaged<VkCommandBuffer, uint, uint, uint, uint, void>)get(handle, "vkCmdDraw\0"u8.GetPointer());
         vkCmdDrawIndexed = (delegate* unmanaged<VkCommandBuffer, uint, uint, uint, int, uint, void>)get(handle, "vkCmdDrawIndexed\0"u8.GetPointer());
+        vkCmdDrawIndexedIndirect = (delegate* unmanaged<VkCommandBuffer, VkBuffer, ulong, uint, uint, void>)get(handle, "vkCmdDrawIndexedIndirect\0"u8.GetPointer());
+        vkCmdDrawIndirect = (delegate* unmanaged<VkCommandBuffer, VkBuffer, ulong, uint, uint, void>)get(handle, "vkCmdDrawIndirect\0"u8.GetPointer());
         vkCmdEndDebugUtilsLabelEXT = (delegate* unmanaged<VkCommandBuffer, void>)get(handle, "vkCmdEndDebugUtilsLabelEXT\0"u8.GetPointer());
         vkCmdEndRendering = (delegate* unmanaged<VkCommandBuffer, void>)get(handle, "vkCmdEndRendering\0"u8.GetPointer());
         vkCmdFillBuffer = (delegate* unmanaged<VkCommandBuffer, VkBuffer, ulong, ulong, uint, void>)get(handle, "vkCmdFillBuffer\0"u8.GetPointer());
         vkCmdPipelineBarrier2 = (delegate* unmanaged<VkCommandBuffer, VkDependencyInfo*, void>)get(handle, "vkCmdPipelineBarrier2\0"u8.GetPointer());
+        vkCmdPushConstants = (delegate* unmanaged<VkCommandBuffer, VkPipelineLayout, VkShaderStageFlagBits, uint, uint, void*, void>)get(handle, "vkCmdPushConstants\0"u8.GetPointer());
+        vkCmdResetQueryPool = (delegate* unmanaged<VkCommandBuffer, VkQueryPool, uint, uint, void>)get(handle, "vkCmdResetQueryPool\0"u8.GetPointer());
         vkCmdSetScissor = (delegate* unmanaged<VkCommandBuffer, uint, uint, VkRect2D*, void>)get(handle, "vkCmdSetScissor\0"u8.GetPointer());
         vkCmdSetViewport = (delegate* unmanaged<VkCommandBuffer, uint, uint, VkViewport*, void>)get(handle, "vkCmdSetViewport\0"u8.GetPointer());
+        vkCmdWriteTimestamp2 = (delegate* unmanaged<VkCommandBuffer, VkPipelineStageFlagBits2, VkQueryPool, uint, void>)get(handle, "vkCmdWriteTimestamp2\0"u8.GetPointer());
         vkCreateBuffer = (delegate* unmanaged<VkDevice, VkBufferCreateInfo*, VkAllocationCallbacks*, VkBuffer*, VkResult>)get(handle, "vkCreateBuffer\0"u8.GetPointer());
         vkCreateCommandPool = (delegate* unmanaged<VkDevice, VkCommandPoolCreateInfo*, VkAllocationCallbacks*, VkCommandPool*, VkResult>)get(handle, "vkCreateCommandPool\0"u8.GetPointer());
         vkCreateComputePipelines = (delegate* unmanaged<VkDevice, VkPipelineCache, uint, VkComputePipelineCreateInfo*, VkAllocationCallbacks*, VkPipeline*, VkResult>)get(handle, "vkCreateComputePipelines\0"u8.GetPointer());
@@ -4429,6 +4507,7 @@ internal sealed unsafe class VkDeviceFns
         vkCreateImage = (delegate* unmanaged<VkDevice, VkImageCreateInfo*, VkAllocationCallbacks*, VkImage*, VkResult>)get(handle, "vkCreateImage\0"u8.GetPointer());
         vkCreateImageView = (delegate* unmanaged<VkDevice, VkImageViewCreateInfo*, VkAllocationCallbacks*, VkImageView*, VkResult>)get(handle, "vkCreateImageView\0"u8.GetPointer());
         vkCreatePipelineLayout = (delegate* unmanaged<VkDevice, VkPipelineLayoutCreateInfo*, VkAllocationCallbacks*, VkPipelineLayout*, VkResult>)get(handle, "vkCreatePipelineLayout\0"u8.GetPointer());
+        vkCreateQueryPool = (delegate* unmanaged<VkDevice, VkQueryPoolCreateInfo*, VkAllocationCallbacks*, VkQueryPool*, VkResult>)get(handle, "vkCreateQueryPool\0"u8.GetPointer());
         vkCreateSampler = (delegate* unmanaged<VkDevice, VkSamplerCreateInfo*, VkAllocationCallbacks*, VkSampler*, VkResult>)get(handle, "vkCreateSampler\0"u8.GetPointer());
         vkCreateSemaphore = (delegate* unmanaged<VkDevice, VkSemaphoreCreateInfo*, VkAllocationCallbacks*, VkSemaphore*, VkResult>)get(handle, "vkCreateSemaphore\0"u8.GetPointer());
         vkCreateShaderModule = (delegate* unmanaged<VkDevice, VkShaderModuleCreateInfo*, VkAllocationCallbacks*, VkShaderModule*, VkResult>)get(handle, "vkCreateShaderModule\0"u8.GetPointer());
@@ -4442,6 +4521,7 @@ internal sealed unsafe class VkDeviceFns
         vkDestroyImageView = (delegate* unmanaged<VkDevice, VkImageView, VkAllocationCallbacks*, void>)get(handle, "vkDestroyImageView\0"u8.GetPointer());
         vkDestroyPipeline = (delegate* unmanaged<VkDevice, VkPipeline, VkAllocationCallbacks*, void>)get(handle, "vkDestroyPipeline\0"u8.GetPointer());
         vkDestroyPipelineLayout = (delegate* unmanaged<VkDevice, VkPipelineLayout, VkAllocationCallbacks*, void>)get(handle, "vkDestroyPipelineLayout\0"u8.GetPointer());
+        vkDestroyQueryPool = (delegate* unmanaged<VkDevice, VkQueryPool, VkAllocationCallbacks*, void>)get(handle, "vkDestroyQueryPool\0"u8.GetPointer());
         vkDestroySampler = (delegate* unmanaged<VkDevice, VkSampler, VkAllocationCallbacks*, void>)get(handle, "vkDestroySampler\0"u8.GetPointer());
         vkDestroySemaphore = (delegate* unmanaged<VkDevice, VkSemaphore, VkAllocationCallbacks*, void>)get(handle, "vkDestroySemaphore\0"u8.GetPointer());
         vkDestroyShaderModule = (delegate* unmanaged<VkDevice, VkShaderModule, VkAllocationCallbacks*, void>)get(handle, "vkDestroyShaderModule\0"u8.GetPointer());
@@ -4454,6 +4534,7 @@ internal sealed unsafe class VkDeviceFns
         vkGetBufferMemoryRequirements = (delegate* unmanaged<VkDevice, VkBuffer, VkMemoryRequirements*, void>)get(handle, "vkGetBufferMemoryRequirements\0"u8.GetPointer());
         vkGetDeviceQueue = (delegate* unmanaged<VkDevice, uint, uint, VkQueue*, void>)get(handle, "vkGetDeviceQueue\0"u8.GetPointer());
         vkGetImageMemoryRequirements = (delegate* unmanaged<VkDevice, VkImage, VkMemoryRequirements*, void>)get(handle, "vkGetImageMemoryRequirements\0"u8.GetPointer());
+        vkGetQueryPoolResults = (delegate* unmanaged<VkDevice, VkQueryPool, uint, uint, nuint, void*, ulong, VkQueryResultFlagBits, VkResult>)get(handle, "vkGetQueryPoolResults\0"u8.GetPointer());
         vkGetSemaphoreCounterValue = (delegate* unmanaged<VkDevice, VkSemaphore, ulong*, VkResult>)get(handle, "vkGetSemaphoreCounterValue\0"u8.GetPointer());
         vkGetSwapchainImagesKHR = (delegate* unmanaged<VkDevice, VkSwapchainKHR, uint*, VkImage*, VkResult>)get(handle, "vkGetSwapchainImagesKHR\0"u8.GetPointer());
         vkInvalidateMappedMemoryRanges = (delegate* unmanaged<VkDevice, uint, VkMappedMemoryRange*, VkResult>)get(handle, "vkInvalidateMappedMemoryRanges\0"u8.GetPointer());
@@ -4462,6 +4543,7 @@ internal sealed unsafe class VkDeviceFns
         vkQueueSubmit2 = (delegate* unmanaged<VkQueue, uint, VkSubmitInfo2*, VkFence, VkResult>)get(handle, "vkQueueSubmit2\0"u8.GetPointer());
         vkQueueWaitIdle = (delegate* unmanaged<VkQueue, VkResult>)get(handle, "vkQueueWaitIdle\0"u8.GetPointer());
         vkResetCommandPool = (delegate* unmanaged<VkDevice, VkCommandPool, VkCommandPoolResetFlagBits, VkResult>)get(handle, "vkResetCommandPool\0"u8.GetPointer());
+        vkResetQueryPool = (delegate* unmanaged<VkDevice, VkQueryPool, uint, uint, void>)get(handle, "vkResetQueryPool\0"u8.GetPointer());
         vkUnmapMemory = (delegate* unmanaged<VkDevice, VkDeviceMemory, void>)get(handle, "vkUnmapMemory\0"u8.GetPointer());
         vkUpdateDescriptorSets = (delegate* unmanaged<VkDevice, uint, VkWriteDescriptorSet*, uint, VkCopyDescriptorSet*, void>)get(handle, "vkUpdateDescriptorSets\0"u8.GetPointer());
         vkWaitSemaphores = (delegate* unmanaged<VkDevice, VkSemaphoreWaitInfo*, ulong, VkResult>)get(handle, "vkWaitSemaphores\0"u8.GetPointer());

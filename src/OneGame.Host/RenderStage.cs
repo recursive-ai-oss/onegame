@@ -1,5 +1,6 @@
 using OneGame.Core;
 using OneGame.Gpu;
+using OneGame.Gpu.Graph;
 using OneGame.UI;
 
 namespace OneGame.Host;
@@ -42,6 +43,9 @@ public interface IRenderStage
 
     /// <summary>True when the stage draws into sRGB targets (the host then makes its swapchain and capture textures sRGB).</summary>
     bool RequiresSrgb => false;
+
+    /// <summary>The render graph the stage draws with, once it has drawn a frame; null for stages that do not use one.</summary>
+    RenderGraph? Graph => null;
 }
 
 /// <summary>

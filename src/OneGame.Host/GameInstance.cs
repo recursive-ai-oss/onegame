@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using OneGame.Core;
 using OneGame.Gpu;
+using OneGame.Gpu.Graph;
 using OneGame.Atlas;
 using OneGame.Gpu.Vulkan;
 using OneGame.Render2D;
@@ -813,6 +814,20 @@ public sealed class GameInstance : IDisposable
         }
 
         return list;
+    }
+
+    /// <summary>
+    /// Describes the render graph of the last frame the render stage drew (passes, resources, GPU time). When nothing has been drawn yet, draws
+    /// one frame offscreen at the window's size first. Returns null without a graphics device or when the stage does not use a render graph.
+    /// </summary>
+    public RenderGraphReport? DescribeRenderGraph()
+    {
+        if (_stage.Graph is not { Frame: > 0 })
+        {
+            Capture(Math.Max(Window.Width, 1), Math.Max(Window.Height, 1), UiScale);
+        }
+
+        return _stage.Graph?.Describe();
     }
 
     /// <summary>Validation messages the graphics layer collected since the last call; empty when validation is off or nothing was reported.</summary>

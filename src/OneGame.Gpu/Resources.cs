@@ -20,7 +20,7 @@ public abstract class GpuBuffer : GpuObject
     public BufferUsage Usage { get; protected init; }
 }
 
-/// <summary>A 2D image or 2D image array.</summary>
+/// <summary>A 2D image, 2D array, cube map, cube array or 3D volume.</summary>
 public abstract class GpuTexture : GpuObject
 {
     /// <summary>Width in texels.</summary>
@@ -38,14 +38,30 @@ public abstract class GpuTexture : GpuObject
     /// <summary>Number of mip levels.</summary>
     public uint MipLevels { get; protected init; }
 
-    /// <summary>Number of array layers.</summary>
+    /// <summary>Number of array layers (6 per cube for cube textures).</summary>
     public uint ArrayLayers { get; protected init; }
+
+    /// <summary>Shape of the texture.</summary>
+    public TextureDimension Dimension { get; protected init; }
+
+    /// <summary>Depth in texels of a 3D texture; 1 otherwise.</summary>
+    public uint Depth { get; protected init; } = 1;
 
     /// <summary>Samples per texel.</summary>
     public uint SampleCount { get; protected init; }
 
     /// <summary>Number of levels in a full mip chain for the given size.</summary>
     public static uint FullMipCount(uint width, uint height) => (uint)(32 - int.LeadingZeroCount((int)Math.Max(Math.Max(width, height), 1u)));
+
+    /// <summary>Number of levels in a full mip chain for a volume of the given size.</summary>
+    public static uint FullMipCount(uint width, uint height, uint depth) => FullMipCount(Math.Max(width, height), depth);
+}
+
+/// <summary>A set of GPU timestamp queries. Passes write their start and end times into it; read them back once the work has finished.</summary>
+public abstract class GpuTimestampSet : GpuObject
+{
+    /// <summary>Number of queries.</summary>
+    public uint Count { get; protected init; }
 }
 
 /// <summary>Sampler state.</summary>
@@ -141,8 +157,23 @@ public abstract class GpuCommandEncoder
     /// <summary>Copies tightly packed rows from a buffer into a texture mip level.</summary>
     public abstract void CopyBufferToTexture(GpuBuffer source, ulong sourceOffset, GpuTexture destination, uint mipLevel, uint layer);
 
-    /// <summary>Fills mip levels 1 and up of every layer by repeatedly halving level 0 with linear filtering.</summary>
+    /// <summary>
+    /// Copies every mip level and layer of one texture into another of the same size, format, dimension, mip count and layer count. Neither
+    /// may be multisampled. The source needs <see cref="TextureUsage.CopySource"/> and the destination <see cref="TextureUsage.CopyDestination"/>.
+    /// </summary>
+    public abstract void CopyTexture(GpuTexture source, GpuTexture destination);
+
+    /// <summary>Fills mip levels 1 and up of every layer (and every slice of a volume) by repeatedly halving level 0 with linear filtering. Not for depth textures.</summary>
     public abstract void GenerateMips(GpuTexture texture);
+
+    /// <summary>
+    /// Times the render and compute passes begun after this call: pass <c>k</c> (counting from 0) writes its start and end to queries
+    /// <c>First + 2k</c> and <c>First + 2k + 1</c>, up to <see cref="PassTiming.MaxPasses"/> passes. Call <see cref="EndPassTiming"/> to stop.
+    /// </summary>
+    public abstract void BeginPassTiming(in PassTiming timing);
+
+    /// <summary>Stops timing passes and returns how many were timed since <see cref="BeginPassTiming"/>.</summary>
+    public abstract uint EndPassTiming();
 }
 
 /// <summary>Records draws inside a render pass.</summary>
@@ -152,7 +183,16 @@ public abstract class GpuRenderPass
     public abstract void SetPipeline(GpuGraphicsPipeline pipeline);
 
     /// <summary>Binds a bind group at a set index of the current pipeline layout.</summary>
-    public abstract void SetBindGroup(uint setIndex, GpuBindGroup group);
+    public void SetBindGroup(uint setIndex, GpuBindGroup group) => SetBindGroup(setIndex, group, default);
+
+    /// <summary>
+    /// Binds a bind group whose layout has dynamic bindings. <paramref name="dynamicOffsets"/> holds one byte offset per dynamic binding, in
+    /// binding order, each a multiple of <see cref="GpuDevice.DynamicOffsetAlignment"/>.
+    /// </summary>
+    public abstract void SetBindGroup(uint setIndex, GpuBindGroup group, ReadOnlySpan<uint> dynamicOffsets);
+
+    /// <summary>Writes push constants (up to the size the pipeline layout declared) visible to the following draws.</summary>
+    public abstract void SetPushConstants(uint offset, ReadOnlySpan<byte> data);
 
     /// <summary>Binds a vertex buffer to a vertex buffer slot.</summary>
     public abstract void SetVertexBuffer(uint slot, GpuBuffer buffer, ulong offset = 0);
@@ -172,6 +212,15 @@ public abstract class GpuRenderPass
     /// <summary>Draws indexed vertices.</summary>
     public abstract void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int baseVertex = 0, uint firstInstance = 0);
 
+    /// <summary>
+    /// Draws with arguments read from a buffer (<see cref="DrawIndirectArgs"/>, 16 bytes each, packed). The buffer needs <see cref="BufferUsage.Indirect"/>.
+    /// With <paramref name="drawCount"/> above 1, that many consecutive records are drawn.
+    /// </summary>
+    public abstract void DrawIndirect(GpuBuffer arguments, ulong offset, uint drawCount = 1);
+
+    /// <summary>Draws indexed with arguments read from a buffer (<see cref="DrawIndexedIndirectArgs"/>, 20 bytes each, packed). See <see cref="DrawIndirect"/>.</summary>
+    public abstract void DrawIndexedIndirect(GpuBuffer arguments, ulong offset, uint drawCount = 1);
+
     /// <summary>Ends the pass.</summary>
     public abstract void EndPass();
 }
@@ -183,10 +232,19 @@ public abstract class GpuComputePass
     public abstract void SetPipeline(GpuComputePipeline pipeline);
 
     /// <summary>Binds a bind group at a set index of the current pipeline layout.</summary>
-    public abstract void SetBindGroup(uint setIndex, GpuBindGroup group);
+    public void SetBindGroup(uint setIndex, GpuBindGroup group) => SetBindGroup(setIndex, group, default);
+
+    /// <summary>Binds a bind group whose layout has dynamic bindings; see <see cref="GpuRenderPass.SetBindGroup(uint, GpuBindGroup, ReadOnlySpan{uint})"/>.</summary>
+    public abstract void SetBindGroup(uint setIndex, GpuBindGroup group, ReadOnlySpan<uint> dynamicOffsets);
+
+    /// <summary>Writes push constants visible to the following dispatches.</summary>
+    public abstract void SetPushConstants(uint offset, ReadOnlySpan<byte> data);
 
     /// <summary>Runs the compute shader over a grid of workgroups.</summary>
     public abstract void Dispatch(uint x, uint y = 1, uint z = 1);
+
+    /// <summary>Runs the compute shader over a grid of workgroups read from a buffer (<see cref="DispatchIndirectArgs"/>). The buffer needs <see cref="BufferUsage.Indirect"/>.</summary>
+    public abstract void DispatchIndirect(GpuBuffer arguments, ulong offset);
 
     /// <summary>Ends the pass.</summary>
     public abstract void EndPass();

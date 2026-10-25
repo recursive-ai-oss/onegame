@@ -33,6 +33,42 @@ public enum GpuFormat
     Depth32Float,
     /// <summary>32-bit float depth with 8-bit stencil.</summary>
     Depth32FloatStencil8,
+    /// <summary>16-bit float, two channels.</summary>
+    Rg16Float,
+    /// <summary>Packed 11/11/10-bit unsigned float RGB: a compact HDR color format. Not usable as a storage texture.</summary>
+    Rg11B10Float,
+    /// <summary>Packed 10/10/10-bit RGB with 2-bit alpha, normalized.</summary>
+    Rgb10A2Unorm,
+    /// <summary>16-bit normalized depth.</summary>
+    Depth16Unorm,
+}
+
+/// <summary>The shape of a texture as shaders see it.</summary>
+public enum TextureDimension
+{
+    /// <summary>A 2D image, or a 2D array when it has more than one layer.</summary>
+    D2,
+    /// <summary>A cube map (6 layers) or cube array (a multiple of 6 layers). Layer order is +X, -X, +Y, -Y, +Z, -Z.</summary>
+    Cube,
+    /// <summary>A volume texture.</summary>
+    D3,
+}
+
+/// <summary>How a view of a texture presents it to a shader.</summary>
+public enum TextureViewKind
+{
+    /// <summary>Derived from the texture: 2D, 2D array, cube, cube array or 3D; a view of exactly one layer of a 2D or cube texture is 2D.</summary>
+    Auto,
+    /// <summary>One 2D image.</summary>
+    D2,
+    /// <summary>A 2D array.</summary>
+    D2Array,
+    /// <summary>One cube map (6 layers).</summary>
+    Cube,
+    /// <summary>A cube array.</summary>
+    CubeArray,
+    /// <summary>A volume.</summary>
+    D3,
 }
 
 /// <summary>How a texture may be used. Combine flags; a texture can only be used in the ways it was created for.</summary>
@@ -71,6 +107,8 @@ public enum BufferUsage
     CopySource = 16,
     /// <summary>Destination of copies and uploads.</summary>
     CopyDestination = 32,
+    /// <summary>Holds indirect draw or dispatch arguments.</summary>
+    Indirect = 64,
 }
 
 /// <summary>Shader stage of a module or a resource's visibility.</summary>

@@ -108,6 +108,7 @@ public sealed class ControlSurface : IControlEndpoint
         "ui_hit" => Json(UiHit(a), ControlJson.Default.HitResult),
         "snapshot_save" => Json(SnapshotSave(a), ControlJson.Default.SnapshotResult),
         "shaders" => Json(ShaderCheck(), ControlJson.Default.ShadersResult),
+        "render_graph" => Json(RenderGraphReport(), ControlJson.Default.RenderGraphReport),
         "capture_frame" => CaptureFrame(a),
         "capture_sequence" => Json(CaptureSequence(a), ControlJson.Default.SequenceResult),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", ControlOps.All.Select(o => o.Name))}."),
@@ -705,6 +706,9 @@ public sealed class ControlSurface : IControlEndpoint
     private ShaderReloader? _reloader;
 
     private ShaderReloader Reloader => _reloader ??= new ShaderReloader(Game.HotShaders);
+
+    private OneGame.Gpu.Graph.RenderGraphReport RenderGraphReport() =>
+        Game.DescribeRenderGraph() ?? throw new ControlException("no_graph", "This game has no graphics device, or its render stage does not draw with a render graph.");
 
     private ShadersResult ShaderCheck()
     {

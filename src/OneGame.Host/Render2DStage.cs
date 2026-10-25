@@ -1,5 +1,6 @@
 using OneGame.Atlas;
 using OneGame.Gpu;
+using OneGame.Gpu.Graph;
 using OneGame.Render2D;
 using OneGame.Text;
 using OneGame.UI;
@@ -30,6 +31,8 @@ public class Render2DStage : IRenderStage, IDisposable
     private readonly TextQuadBuilder _text;
     private readonly Dictionary<GpuFormat, Renderer2D> _renderers = [];
     private readonly HashSet<GpuTexture> _seen = [];
+    private readonly Render2DPass _pass = new();
+    private RenderGraph? _graph;
 
     /// <summary>Creates the stage over the game's fonts, art and shaders.</summary>
     /// <exception cref="ArgumentException">The resources have no fonts or no shaders.</exception>
@@ -71,6 +74,9 @@ public class Render2DStage : IRenderStage, IDisposable
     public bool RequiresSrgb => true;
 
     /// <inheritdoc />
+    public RenderGraph? Graph => _graph;
+
+    /// <inheritdoc />
     public void Render(GpuDevice device, GpuTexture target, in FrameInfo frame)
     {
         ArgumentNullException.ThrowIfNull(device);
@@ -86,9 +92,27 @@ public class Render2DStage : IRenderStage, IDisposable
         renderer.BeginFrame(target, new FrameOptions { Clear = ClearColor });
         renderer.Ui.Draw(frame.List, _text, _glyphs, _resources.Art);
         DrawOverUi(renderer, frame);
-        var enc = device.BeginCommands();
-        renderer.EndFrame(enc);
-        device.Submit(enc);
+        _graph ??= new RenderGraph(device);
+        _graph.BeginFrame();
+        _pass.Renderer = renderer;
+        _pass.Target = _graph.ImportTexture("target", target);
+        _graph.AddPass(_pass);
+        _graph.Execute();
+        _pass.Renderer = null;
+    }
+
+    /// <summary>The 2D renderer's frame as one graph pass: it writes the whole target, and records its own render passes.</summary>
+    private sealed class Render2DPass : IGraphPass
+    {
+        public Renderer2D? Renderer { get; set; }
+
+        public GraphTexture Target { get; set; }
+
+        public string Name => "render2d";
+
+        public void Setup(PassBuilder builder) => builder.Write(Target);
+
+        public void Execute(PassContext context) => Renderer!.EndFrame(context.Encoder);
     }
 
     /// <inheritdoc />
@@ -134,6 +158,8 @@ public class Render2DStage : IRenderStage, IDisposable
         }
 
         _renderers.Clear();
+        _graph?.Dispose();
+        _graph = null;
         GC.SuppressFinalize(this);
     }
 }

@@ -39,6 +39,7 @@ Without `--headless` the game opens a window (Wayland when `WAYLAND_DISPLAY` is 
 | UI | `ui_tree`, `ui_query`, `ui_hit`, `screen_open`, `ui_scale` (override the UI scale; `scale: null` or `reset: true` follows the window) |
 | Output | `snapshot_save`, `capture_frame`, `capture_sequence` |
 | Shaders | `shaders` (hot reload status; recompiles changed shader files first, see `docs/interfaces/render2d.md`) |
+| Rendering | `render_graph` (passes, resources and per-pass GPU time of the last frame; see `render-graph.md`) |
 | Lifecycle | `quit` |
 
 `tools/list` over MCP returns exactly this table (name, description, JSON schema). Entity addressing everywhere: numeric id, `Type` (first of that type) or `Type#n`.
