@@ -13,14 +13,15 @@ internal sealed partial class ExportVerb : IVerb
 {
     public string Name => "export";
 
-    public string Summary => "Package the game: onegame export --target linux-x64|win-x64 [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins].";
+    public string Summary => "Package the game: onegame export --target linux-x64|win-x64 [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins]; or a debug-signed APK: export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id].";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
-        var a = new ProjectArgs(args, "--target", "--out", "--steam-redist");
+        var a = new ProjectArgs(args, "--target", "--out", "--steam-redist", "--abi", "--package", "--label", "--orientation", "--sdk", "--keystore", "--symbols");
         var steam = a.Game.Remove("--steam");
         var noArchive = a.Game.Remove("--no-archive");
         var noAot = a.Game.Remove("--no-aot");
+        var dev = a.Game.Remove("--dev");
         var server = a.Game.Remove("--server");
         var plugins = a.Game.Remove("--plugins");
         if (plugins && !server)
@@ -33,15 +34,25 @@ internal sealed partial class ExportVerb : IVerb
             return RunServerExport(a, steam, plugins, noArchive, noAot, json, output);
         }
 
-        if (a.Game.Count > 0)
+        if (a.Get("--target") == "android")
         {
-            throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {a.Game[0]}. Usage: onegame export --target linux-x64|win-x64 [--steam] [--steam-redist <dir>] [--out <dir>] [--no-archive] [--no-aot].");
+            if (a.Game.Count > 0 || steam)
+            {
+                throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {(steam ? "--steam" : a.Game[0])}. Usage: onegame export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id] [--label name] [--orientation unspecified|sensorLandscape|...] [--sdk <dir>] [--keystore <file>] [--symbols <dir>] [--out <dir>].");
+            }
+
+            return RunAndroidExport(a, dev, noAot, json, output);
+        }
+
+        if (dev || a.Game.Count > 0)
+        {
+            throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {(dev ? "--dev (Android only)" : a.Game[0])}. Usage: onegame export --target linux-x64|win-x64 [--steam] [--steam-redist <dir>] [--out <dir>] [--no-archive] [--no-aot].");
         }
 
         var target = a.Get("--target") ?? (OperatingSystem.IsWindows() ? "win-x64" : "linux-x64");
         if (target is not ("linux-x64" or "win-x64"))
         {
-            throw new CliException(ExitCodes.Usage, "bad_target", $"Unknown target '{target}'. Targets: linux-x64, win-x64.");
+            throw new CliException(ExitCodes.Usage, "bad_target", $"Unknown target '{target}'. Targets: linux-x64, win-x64, android.");
         }
 
         var project = Projects.Find(a.Get("--project"));

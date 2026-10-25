@@ -3,7 +3,7 @@ namespace OneGame.Platform;
 /// <summary>Which windowing system a <see cref="PlatformApp"/> talks to.</summary>
 public enum PlatformBackendKind : byte
 {
-    /// <summary>Pick the best one available: Wayland, then X11, then headless.</summary>
+    /// <summary>Pick the best one available: Android on a phone, otherwise Wayland, then X11, then headless.</summary>
     Auto,
 
     /// <summary>Windows are plain in-memory objects with no operating-system window. Events come only from injection.</summary>
@@ -17,6 +17,9 @@ public enum PlatformBackendKind : byte
 
     /// <summary>Win32.</summary>
     Win32,
+
+    /// <summary>Android through the NDK: a native activity with touch, lifecycle and a Vulkan surface.</summary>
+    Android,
 }
 
 /// <summary>The kind of native window system handles in a <see cref="NativeWindowHandle"/>.</summary>
@@ -33,6 +36,9 @@ public enum NativeWindowKind : byte
 
     /// <summary>Win32: <see cref="NativeWindowHandle.Display"/> is the HINSTANCE, <see cref="NativeWindowHandle.Window"/> the HWND.</summary>
     Win32,
+
+    /// <summary>Android: <see cref="NativeWindowHandle.Display"/> is 0, <see cref="NativeWindowHandle.Window"/> the ANativeWindow*. The pointer is valid until a <see cref="PlatformEventKind.SurfaceLost"/> event has been handled.</summary>
+    Android,
 }
 
 /// <summary>The raw handles a graphics API needs to create a presentable surface for a window.</summary>
@@ -61,6 +67,12 @@ public sealed record PlatformOptions
 
     /// <summary>Whether to look for real gamepad devices. Tests that only want injected pads turn this off.</summary>
     public bool EnableGamepadDevices { get; init; } = true;
+
+    /// <summary>
+    /// Whether the first finger on the screen also drives the pointer (move, left button down and up), so games written for a mouse work
+    /// with a finger. Touch events are posted either way. Turn it off for a game that handles touch itself.
+    /// </summary>
+    public bool TouchEmulatesPointer { get; init; } = true;
 }
 
 /// <summary>Options for <see cref="PlatformApp.CreateWindow"/>.</summary>

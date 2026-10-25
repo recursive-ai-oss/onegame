@@ -8,6 +8,8 @@
     <Description>Klondike solitaire: the first onegame sample.</Description>
     <!-- The sample's own tests and scenario files are not part of the game. -->
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- On a phone the seven columns want the wide way round. -->
+    <AndroidOrientation>sensorLandscape</AndroidOrientation>
   </PropertyGroup>
 
   <Import Project="$(OneGameRoot)build/Game.targets" />

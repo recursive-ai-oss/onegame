@@ -393,6 +393,8 @@ public enum SurfaceKind
     Wayland,
     /// <summary>Win32: an HINSTANCE and an HWND.</summary>
     Win32,
+    /// <summary>Android: an ANativeWindow pointer.</summary>
+    Android,
     /// <summary>Metal: a CAMetalLayer pointer (macOS and iOS).</summary>
     Metal,
 }
