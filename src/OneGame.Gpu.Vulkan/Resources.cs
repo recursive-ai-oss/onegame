@@ -135,7 +135,9 @@ internal sealed unsafe class VulkanTexture : GpuTexture, IRetirable
     /// <summary>A view of a single mip level and layer, for rendering into.</summary>
     public VkImageView AttachmentView(uint mip, uint layer)
     {
-        if (mip == 0 && layer == 0 && ArrayLayers == 1 && Dimension == TextureDimension.D2)
+        // The whole-image view can stand in only when it covers a single mip: an attachment view must have levelCount 1
+        // (VUID-VkRenderingAttachmentInfo-imageView-12486), so a texture with a mip chain gets its own view of mip 0.
+        if (mip == 0 && layer == 0 && ArrayLayers == 1 && MipLevels == 1 && Dimension == TextureDimension.D2)
         {
             return View;
         }

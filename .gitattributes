@@ -1,0 +1,3 @@
+# Text files are checked out with LF on every system: scripts must run in a POSIX shell, and scenario and fixture
+# files are compared and hashed byte for byte.
+* text=auto eol=lf

@@ -85,6 +85,14 @@ public class TradeTests
         Assert.Equal(0, t.Realms.InFlight());
     }
 
+    // A player who reconnects after a restart gets a fresh idle account (status None) next to the swap's two; only the accounts that
+    // took part in a swap say whether it is over.
+    private static bool SwapAccountsFinal(List<Account> accounts)
+    {
+        var inSwap = accounts.Where(a => a.Status != SwapStatus.None).ToList();
+        return accounts.Count >= 2 && inSwap.Count > 0 && inSwap.All(a => a.Status is SwapStatus.Done or SwapStatus.Failed);
+    }
+
     [Theory]
     [InlineData(Rules.IslandB)]
     [InlineData(Rules.Master)]
@@ -108,7 +116,7 @@ public class TradeTests
             // The ledger on the master is the truth about the swap; a client behind a relay may need a moment after the master comes back.
             var accounts = () => t.Realms.M.Scopes[0].World.Entities.OfType<Account>().ToList();
             t.Realms.RunUntil(
-                () => t.Realms.Held() == t.Total && t.Realms.InFlight() == 0 && accounts().Count == 2 && accounts().All(a => a.Status is SwapStatus.Done or SwapStatus.Failed),
+                () => t.Realms.Held() == t.Total && t.Realms.InFlight() == 0 && SwapAccountsFinal(accounts()),
                 90_000,
                 "the swap to finish after the restart",
                 why: () => $"held {t.Realms.Held()}/{t.Total} inflight {t.Realms.InFlight()} accounts {string.Join(",", accounts().Select(a => a.Status))}");

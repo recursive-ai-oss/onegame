@@ -4,6 +4,13 @@
     <Description>Entity runtime: fixed-point numbers, random streams and the attributes that declare entities.</Description>
   </PropertyGroup>
 
+  <!-- The generator and analyzers travel inside the package that declares the entity attributes, so a game that references
+       it gets the rules as compile errors. The generator project is built first through the analyzer reference every shipping
+       project has (Directory.Build.targets). -->
+  <ItemGroup>
+    <None Include="$(ArtifactsPath)/bin/OneGame.Generators/$(Configuration.ToLowerInvariant())/OneGame.Generators.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+  </ItemGroup>
+
   <ItemGroup>
     <Using Include="System" />
     <Using Include="System.Collections.Generic" />

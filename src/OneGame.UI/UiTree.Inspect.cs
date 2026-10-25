@@ -78,7 +78,7 @@ public sealed partial class UiTree
     {
         Update();
         var buffer = new ArrayBufferWriter<byte>(4096);
-        using (var w = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = true }))
+        using (var w = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = true, NewLine = "\n" }))
         {
             if (from is null)
             {

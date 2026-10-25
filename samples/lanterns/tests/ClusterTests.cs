@@ -11,7 +11,7 @@ public class ClusterTests
     {
         // <artifacts>/bin/<this test app>/<configuration>/ sits next to <artifacts>/bin/<project>/<configuration>/
         var config = new DirectoryInfo(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar)).Name;
-        var path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", project, config, exe));
+        var path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", project, config, exe + (OperatingSystem.IsWindows() ? ".exe" : "")));
         return File.Exists(path) ? path : throw new FileNotFoundException(path + " is not built; build the test project first.");
     }
 

@@ -1,5 +1,11 @@
 <Project>
 
+  <!-- The folders whose projects ship. Normalised like the project directory is, so the comparison holds with Windows separators too. -->
+  <PropertyGroup Label="Roots">
+    <_SrcRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'src'))</_SrcRoot>
+    <_SamplesRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'samples'))</_SamplesRoot>
+  </PropertyGroup>
+
   <PropertyGroup Label="Name">
     <!-- NuGet package IDs are this prefix plus the project name without its "OneGame" part. This is the only place the prefix is written. -->
     <PackagePrefix>RecursiveAI.OneGame</PackagePrefix>
@@ -40,7 +46,25 @@
     <PackageLicenseExpression>MIT OR Apache-2.0</PackageLicenseExpression>
     <PackageId Condition="$(MSBuildProjectName.StartsWith('OneGame.'))">$(PackagePrefix)$(MSBuildProjectName.Substring(7))</PackageId>
     <PackageId Condition="'$(PackageId)' == ''">$(PackagePrefix).$(MSBuildProjectName)</PackageId>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/recursive-ai-oss/onegame</RepositoryUrl>
+    <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>gamedev;game-engine;nativeaot;trimmable;source-generators;deterministic</PackageTags>
+    <!-- Symbols ship as .snupkg files; SourceLink comes with the SDK. The release workflow sets ContinuousIntegrationBuild for
+         deterministic source paths; ordinary builds keep real paths because tests find their data files through them. -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
   </PropertyGroup>
+
+  <!-- Only the engine libraries under src/ are packages. The sample games and the tools are built, not published to nuget.org. -->
+  <PropertyGroup Condition="!$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)').StartsWith('$(_SrcRoot)'))">
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
 
   <!-- "Ships" means the code goes into a player's game: everything under src/ and samples/. Those projects get the package
        guard (build/PackageGuard.targets) and the AOT and trim analyzers. Tests, tools and validation are free to use any package. -->
@@ -51,7 +75,7 @@
 
   <PropertyGroup Label="Shipping code">
     <_ProjectDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))</_ProjectDir>
-    <OneGameShips Condition="'$(OneGameShips)' == '' and ($(_ProjectDir.StartsWith('$(MSBuildThisFileDirectory)src/')) or $(_ProjectDir.StartsWith('$(MSBuildThisFileDirectory)samples/')))">true</OneGameShips>
+    <OneGameShips Condition="'$(OneGameShips)' == '' and ($(_ProjectDir.StartsWith('$(_SrcRoot)')) or $(_ProjectDir.StartsWith('$(_SamplesRoot)')))">true</OneGameShips>
   </PropertyGroup>
   <PropertyGroup Condition="'$(OneGameShips)' == 'true'">
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
