@@ -1,0 +1,9 @@
+name: capture-settings
+description: The settings screen at 1280x720 and at 1920x1080 with a UI scale of 1.5.
+steps:
+  - screen: settings
+  - step: 3
+  - expect:
+      capture: { reference: refs/settings-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }
+  - expect:
+      capture: { reference: refs/settings-1080p.png, size: 1920x1080, scale: 1.5, tolerance: 2, max-diff: 0.001 }

@@ -1,0 +1,12 @@
+# Level 3. Glyphs: . empty, 1-6 one-hit brick (colour), T two hits, H three hits, # unbreakable.
+name: Diamond
+speed: 2
+capsules: 20
+rows:
+  - ".....11....."
+  - "....2222...."
+  - "...333333..."
+  - "..44TTTT44.."
+  - "...555555..."
+  - "....6666...."
+  - ".....11....."

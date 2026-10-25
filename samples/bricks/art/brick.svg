@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="16" viewBox="0 0 40 16">
+  <!-- Grey and white on purpose: the game multiplies it by a colour, so one drawing serves every brick. -->
+  <rect x="0.5" y="0.5" width="39" height="15" rx="3" fill="#d6d6d6"/>
+  <rect x="1.5" y="1.5" width="37" height="4" rx="2" fill="#ffffff"/>
+  <rect x="1.5" y="11.5" width="37" height="3" rx="1.5" fill="#a8a8a8"/>
+</svg>

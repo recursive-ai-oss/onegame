@@ -1,0 +1,16 @@
+name: touch
+description: "A finger on the court steers the paddle. It slides to the finger at its top speed, a touch launches the ball, and lifting the finger leaves the paddle where it is."
+window: 360x640
+steps:
+  - click: play
+  - step: 2
+  - touch: { action: down, x: 270, y: 500 }
+  - step: 12
+  - expect: { state: { entity: Court, property: Phase, equals: 2 } }
+  - expect: { state: { entity: Court, property: PaddleX, equals: 367.058837891 } }
+  - touch: { action: move, x: 90, y: 500 }
+  - step: 30
+  - expect: { state: { entity: Court, property: PaddleX, equals: 112.941177368 } }
+  - touch: { action: up, x: 90, y: 500 }
+  - step: 10
+  - expect: { state: { entity: Court, property: PaddleX, equals: 112.941177368 } }

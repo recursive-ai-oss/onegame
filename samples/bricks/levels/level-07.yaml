@@ -1,0 +1,13 @@
+# Level 7. Glyphs: . empty, 1-6 one-hit brick (colour), T two hits, H three hits, # unbreakable.
+name: The Gate
+speed: 10
+capsules: 14
+rows:
+  - "############"
+  - "#HHHHHHHHHH#"
+  - "#H........H#"
+  - "#H.666666.H#"
+  - "#H........H#"
+  - "#H.1.11.1.H#"
+  - "#H........H#"
+  - "..........#."

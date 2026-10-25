@@ -1,0 +1,11 @@
+name: capture-game-over
+description: The game-over dialog with the name field, after the last ball is lost with a score that makes the table.
+steps:
+  - fixture: last-life
+  - screen: play
+  - step: 80
+  - click: name
+  - type: Ada
+  - step: 3
+  - expect:
+      capture: { reference: refs/game-over-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }
