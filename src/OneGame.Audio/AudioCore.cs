@@ -224,8 +224,13 @@ public interface IAudioCore : IAudioRenderSource, IDisposable
 
     /// <summary>Starts measuring a bus's loudness, after its effects and gain and before ducking.</summary>
     /// <param name="bus">The bus index.</param>
-    /// <returns>True when the bus is metered or the start was queued. False when no meter slot is free, the command queue was full, or the core has no bus meters; nothing changed then.</returns>
+    /// <returns>True when the bus is metered or the start was queued. False when no meter slot is free (<see cref="FreeBusMeters"/> is 0), the command queue was full (it is more than 0), or the core has no bus meters (it is 0); nothing changed then.</returns>
     bool EnableBusMeter(int bus) => false;
+
+    /// <summary>Whether a meter is assigned to the bus (it may take until the next block to produce readings).</summary>
+    /// <param name="bus">The bus index.</param>
+    /// <returns>True when the bus is metered or its meter start is queued.</returns>
+    bool IsBusMetered(int bus) => false;
 
     /// <summary>Stops measuring a bus and frees its slot.</summary>
     /// <param name="bus">The bus index.</param>

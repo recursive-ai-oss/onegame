@@ -12,7 +12,7 @@
     <PackageVersion Include="RecursiveAI.OneImage" Version="1.10.0" />
     <PackageVersion Include="RecursiveAI.OneImage.Svg" Version="1.10.0" />
     <PackageVersion Include="OneYaml" Version="1.2.1" />
-    <PackageVersion Include="RecursiveAI.OneAudio" Version="0.1.0-alpha.3" />
+    <PackageVersion Include="RecursiveAI.OneAudio" Version="0.1.0-alpha.4" />
     <PackageVersion Include="RecursiveAI.OneShader" Version="0.2.0-preview.1" />
     <PackageVersion Include="RecursiveAI.OneShader.Build" Version="0.2.0-preview.1" />
   </ItemGroup>

@@ -58,6 +58,13 @@ internal sealed class TestCore : IAudioCore
 
     public static IAudioCoreFactory Factory { get; } = new F();
 
+    /// <summary>What <see cref="FreeBusMeters"/> reports. This core never starts a meter, so a service sees "no slot" at 0 and "queue full" above it.</summary>
+    public int MeterSlotsFree { get; set; }
+
+    public int FreeBusMeters => MeterSlotsFree;
+
+    public bool EnableBusMeter(int bus) => false;
+
     public int SampleRate { get; }
 
     public int Channels { get; }
