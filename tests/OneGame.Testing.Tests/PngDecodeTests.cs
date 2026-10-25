@@ -9,8 +9,8 @@ public sealed class PngDecodeTests
 {
     private static byte[] Fixture() => File.ReadAllBytes(Path.Combine(GpuPaths.RepoRoot, "testdata", "png", "inflate-input-boundary.png"));
 
-    /// <summary>A valid stream from OneImage's own encoder that its inflater decodes wrongly (see testdata/png/README.md).</summary>
-    [Fact(Skip = "OneImage 1.10.0's inflater corrupts this valid stream; waiting for the fixed release.")]
+    /// <summary>A valid stream from OneImage's own encoder that its inflater decoded wrongly before 1.10.1 (see testdata/png/README.md).</summary>
+    [Fact]
     public void ValidEncoderOutputDecodesLikeAnIndependentInflater()
     {
         var bytes = Fixture();
