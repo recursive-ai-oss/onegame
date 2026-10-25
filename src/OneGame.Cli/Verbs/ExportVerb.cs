@@ -17,7 +17,7 @@ internal sealed partial class ExportVerb : IVerb
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
-        var a = new ProjectArgs(args, "--target", "--out", "--steam-redist", "--abi", "--package", "--label", "--orientation", "--sdk", "--keystore");
+        var a = new ProjectArgs(args, "--target", "--out", "--steam-redist", "--abi", "--package", "--label", "--orientation", "--sdk", "--keystore", "--symbols");
         var steam = a.Game.Remove("--steam");
         var noArchive = a.Game.Remove("--no-archive");
         var noAot = a.Game.Remove("--no-aot");
@@ -38,7 +38,7 @@ internal sealed partial class ExportVerb : IVerb
         {
             if (a.Game.Count > 0 || steam)
             {
-                throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {(steam ? "--steam" : a.Game[0])}. Usage: onegame export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id] [--label name] [--orientation unspecified|sensorLandscape|...] [--sdk <dir>] [--keystore <file>] [--out <dir>].");
+                throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {(steam ? "--steam" : a.Game[0])}. Usage: onegame export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id] [--label name] [--orientation unspecified|sensorLandscape|...] [--sdk <dir>] [--keystore <file>] [--symbols <dir>] [--out <dir>].");
             }
 
             return RunAndroidExport(a, dev, noAot, json, output);

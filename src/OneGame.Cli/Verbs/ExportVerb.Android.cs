@@ -145,11 +145,22 @@ internal sealed partial class ExportVerb
         {
             var rid = AndroidAbis.First(x => x.Abi == abi).Rid;
             var folder = Path.Combine(work, abi);
-            PublishAndroid(project, rid, folder, dev, sdk);
+            var symbols = a.Get("--symbols");
+            PublishAndroid(project, rid, folder, dev, sdk, symbols is not null);
             var so = Path.Combine(folder, props.AssemblyName + ".so");
             if (!File.Exists(so))
             {
                 throw new CliException(ExitCodes.BuildFailed, "no_library", $"The publish for {rid} did not produce {props.AssemblyName}.so.");
+            }
+
+            if (symbols is not null)
+            {
+                // The debug files let a crash address in the device log be turned into method names (llvm-symbolizer -e <file>.dbg).
+                var target = Directory.CreateDirectory(Path.Combine(Path.GetFullPath(symbols), abi)).FullName;
+                foreach (var dbg in Directory.GetFiles(folder, "*.dbg"))
+                {
+                    File.Copy(dbg, Path.Combine(target, Path.GetFileName(dbg)), true);
+                }
             }
 
             libraries.Add((abi, so));
@@ -232,11 +243,16 @@ internal sealed partial class ExportVerb
         return settings;
     }
 
-    private static void PublishAndroid(ProjectRef project, string rid, string folder, bool dev, AndroidSdk sdk)
+    private static void PublishAndroid(ProjectRef project, string rid, string folder, bool dev, AndroidSdk sdk, bool keepSymbols)
     {
         // A Release build either way: the development tools are chosen by OneGameDev, not by the configuration.
         List<string> args = ["publish", project.File, "-c", "Release", "-r", rid, "--self-contained", "true", "-o", folder, "--nologo", "-v", "q", "-clp:NoSummary",
-            $"-p:OneGameDev={(dev ? "true" : "false")}", "-p:DebugType=none", "-p:DebugSymbols=false", "-p:GenerateFullPaths=true", "-p:AndroidNdkPath=" + sdk.Ndk];
+            $"-p:OneGameDev={(dev ? "true" : "false")}", "-p:GenerateFullPaths=true", "-p:AndroidNdkPath=" + sdk.Ndk];
+        if (!keepSymbols)
+        {
+            args.AddRange(["-p:DebugType=none", "-p:DebugSymbols=false"]);
+        }
+
         var run = Proc.Run(Proc.Dotnet, args, project.Directory);
         if (run.ExitCode != 0)
         {
