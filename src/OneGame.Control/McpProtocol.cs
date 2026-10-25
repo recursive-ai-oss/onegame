@@ -14,12 +14,18 @@ public sealed class McpProtocol
     private static readonly string[] Supported = ["2025-06-18", "2025-03-26", "2024-11-05"];
     private const int MaxInlineImageBytes = 4 * 1024 * 1024;
 
-    private readonly ControlSurface _surface;
+    private readonly IControlEndpoint _surface;
 
-    /// <summary>Creates the protocol handler.</summary>
+    /// <summary>Creates the protocol handler for a game's control surface.</summary>
     public McpProtocol(ControlSurface surface)
+        : this((IControlEndpoint)surface)
     {
-        _surface = surface ?? throw new ArgumentNullException(nameof(surface));
+    }
+
+    /// <summary>Creates the protocol handler for any control endpoint, such as a server's.</summary>
+    public McpProtocol(IControlEndpoint endpoint)
+    {
+        _surface = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
     }
 
     /// <summary>
@@ -76,7 +82,7 @@ public sealed class McpProtocol
         }
     }
 
-    private static string Initialize(JsonElement id, JsonElement parameters)
+    private string Initialize(JsonElement id, JsonElement parameters)
     {
         var version = LatestVersion;
         if (parameters.ValueKind == JsonValueKind.Object
@@ -100,16 +106,16 @@ public sealed class McpProtocol
             w.WriteString("name", "onegame");
             w.WriteString("version", "0.1.0");
             w.WriteEndObject();
-            w.WriteString("instructions", "Controls one running onegame game. Call info first. Mutating tools (command_send, input_*, step) act on the live game; step advances time. State reads are JSON.");
+            w.WriteString("instructions", _surface.Instructions);
             w.WriteEndObject();
         });
     }
 
-    private static string ListTools(JsonElement id) => Result(id, w =>
+    private string ListTools(JsonElement id) => Result(id, w =>
     {
         w.WriteStartObject();
         w.WriteStartArray("tools");
-        foreach (var op in ControlOps.All)
+        foreach (var op in _surface.Operations)
         {
             w.WriteStartObject();
             w.WriteString("name", op.Name);
@@ -138,7 +144,7 @@ public sealed class McpProtocol
         }
 
         var name = nameElement.GetString()!;
-        if (!ControlOps.All.Any(o => o.Name == name))
+        if (!_surface.Operations.Any(o => o.Name == name))
         {
             return Error(id, -32602, $"Unknown tool: {name}.");
         }

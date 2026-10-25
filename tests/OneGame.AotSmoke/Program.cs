@@ -131,6 +131,15 @@ if (netProblem is not null)
     return 1;
 }
 
+var serverProblem = ServerSmoke.Run();
+if (serverProblem is not null)
+{
+    Console.Error.WriteLine("server smoke failed: " + serverProblem);
+    return 1;
+}
+
+Console.WriteLine("ok: headless server host with a loopback client, zero drift, control surface; plugins refused without a loader");
+
 var angle = Fixed.Sin(Fixed.One);
 Console.WriteLine($"ok: {names.Length} assemblies; hash {world.ComputeHash():x16}; sin(1)={angle}; json {world.DumpJson().Length} chars");
 

@@ -30,6 +30,20 @@ public sealed class ControlException : Exception
 /// <param name="ChangesState">True when the operation can change the simulation (as opposed to only reading it).</param>
 public sealed record ControlOp(string Name, string Description, string InputSchema, bool ChangesState);
 
+/// <summary>Anything the MCP face can drive: a list of operations and a way to run one. A game's <see cref="ControlSurface"/> is one; a server's is another.</summary>
+public interface IControlEndpoint
+{
+    /// <summary>The operations, each of which is an MCP tool.</summary>
+    IReadOnlyList<ControlOp> Operations { get; }
+
+    /// <summary>A sentence or two for an agent that connects: where to start and what changes state.</summary>
+    string Instructions { get; }
+
+    /// <summary>Runs an operation; <paramref name="argsJson"/> is a JSON object or null.</summary>
+    /// <exception cref="ControlException">The operation is unknown, its arguments are wrong, or it failed.</exception>
+    ControlResult Invoke(string op, string? argsJson = null);
+}
+
 /// <summary>What an operation returns: a JSON text and, for captures, the PNG bytes.</summary>
 /// <param name="Json">The result object as JSON text.</param>
 /// <param name="Png">PNG bytes of a captured frame, when the operation made one.</param>

@@ -10,7 +10,7 @@ namespace OneGame.Control;
 /// The control layer: every operation of <see cref="ControlOps"/> run against one <see cref="GameInstance"/>. The command line, the test
 /// API and live control (MCP) all call <see cref="Invoke"/>; none of them reaches into the game any other way.
 /// </summary>
-public sealed class ControlSurface
+public sealed class ControlSurface : IControlEndpoint
 {
     private const int MaxSnapshotBytes = 64 * 1024 * 1024;
     private int _gamepad = -1;
@@ -23,6 +23,12 @@ public sealed class ControlSurface
         Game = game ?? throw new ArgumentNullException(nameof(game));
         OutputDirectory = Path.GetFullPath(outputDirectory ?? Directory.GetCurrentDirectory());
     }
+
+    /// <inheritdoc />
+    public IReadOnlyList<ControlOp> Operations => ControlOps.All;
+
+    /// <inheritdoc />
+    public string Instructions => "Controls one running onegame game. Call info first. Mutating tools (command_send, input_*, step) act on the live game; step advances time. State reads are JSON.";
 
     /// <summary>The controlled game.</summary>
     public GameInstance Game { get; }

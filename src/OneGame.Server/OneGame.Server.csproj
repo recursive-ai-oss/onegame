@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>The headless server host: fixed-step scopes, YAML configuration, logging, and the plugin API.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Core/OneGame.Core.csproj" />
+    <ProjectReference Include="../OneGame.Sync/OneGame.Sync.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The server configuration is YAML. -->
+    <PackageReference Include="OneYaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="System.Globalization" />
+    <Using Include="System.IO" />
+    <Using Include="System.Linq" />
+    <Using Include="System.Threading" />
+    <Using Include="OneGame.Core" />
+    <Using Include="OneGame.Sync" />
+    <InternalsVisibleTo Include="OneGame.Server.Tests" />
+  </ItemGroup>
+
+</Project>
