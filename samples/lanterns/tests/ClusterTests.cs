@@ -67,7 +67,7 @@ public class ClusterTests
             Assert.True(result.Passed, JsonSerializer.Serialize(result, ScenarioJson.Default.ScenarioResult));
             Assert.All(cluster.State.Nodes, n => Assert.True(ProcessCluster.IsAlive(n.Pid), n.Name + " should be running"));
 
-            // Every lantern ever picked up is held by a player or in a swap that has not settled. The islands are read one after the other while
+            // Every lantern ever picked up is held by a player, left with one who disconnected, or is in a swap that has not settled. The islands are read one after the other while
             // the bots keep playing, so a read that catches a hand-over or a swap half way is skipped; a loss or a copy would show in every read.
             string last = "";
             var balanced = false;
@@ -89,6 +89,7 @@ public class ClusterTests
                                 break;
                             case "Island":
                                 collected += e.GetProperty("Collected").GetInt64();
+                                held += e.GetProperty("Departed").GetInt64(); // lanterns that left in the pockets of players who disconnected
                                 break;
                         }
                     }
@@ -114,6 +115,58 @@ public class ClusterTests
         }
 
         Assert.All(pids, pid => Assert.False(ProcessCluster.IsAlive(pid), $"process {pid} is still running"));
+    }
+
+    [Fact]
+    public void ABotReconnectsOnItsOwnWhenItsIslandIsKilledAndStartedAgain()
+    {
+        int[] pids;
+        using (var cluster = TestCluster.Launch(Spec("lanterns-reconnect")))
+        {
+            pids = [.. cluster.Pids];
+            var result = cluster.Run(Path.Combine(AppContext.BaseDirectory, "cluster", "reconnect.yaml"));
+            Assert.True(result.Passed, JsonSerializer.Serialize(result, ScenarioJson.Default.ScenarioResult));
+
+            // The bot process is the one that was running before: it reconnected, it was not started again.
+            using var status = JsonDocument.Parse(cluster.Call("bot1", "net_status"));
+            Assert.True(status.RootElement.GetProperty("reconnects").GetInt32() >= 1, status.RootElement.ToString());
+            Assert.Equal("live", status.RootElement.GetProperty("replica").GetString());
+            Assert.All(status.RootElement.GetProperty("followed").EnumerateArray(), f => Assert.Equal("live", f.GetProperty("replica").GetString()));
+            var report = cluster.Hashes();
+            Assert.True(report.Ok, string.Join("; ", report.Problems));
+            pids = [.. pids, .. cluster.Pids];
+        }
+
+        Assert.All(pids, pid => Assert.False(ProcessCluster.IsAlive(pid), $"process {pid} is still running"));
+    }
+
+    [Fact]
+    public void APlayerWhoseClientIsKilledIsRemovedFromTheIslands()
+    {
+        using var cluster = TestCluster.Launch(Spec("lanterns-leave"));
+        var result = cluster.Run(Path.Combine(AppContext.BaseDirectory, "cluster", "leave.yaml"));
+        Assert.True(result.Passed, JsonSerializer.Serialize(result, ScenarioJson.Default.ScenarioResult));
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var players = -1;
+        while (clock.ElapsedMilliseconds < 20_000)
+        {
+            players = 0;
+            foreach (var (node, scope) in new[] { ("islandA", 1), ("islandB", 2) })
+            {
+                using var doc = JsonDocument.Parse(cluster.Call(node, "state_query", $"{{\"scope\":{scope}}}"));
+                players += doc.RootElement.GetProperty("entities").EnumerateArray().Count(e => e.GetProperty("type").GetString() == "Player");
+            }
+
+            if (players == 1)
+            {
+                break;
+            }
+
+            Thread.Sleep(250);
+        }
+
+        Assert.Equal(1, players);
     }
 
     [Fact]

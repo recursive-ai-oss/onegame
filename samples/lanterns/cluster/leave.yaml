@@ -1,0 +1,9 @@
+name: player-leaves
+description: bot2 is killed (its connection drops) while playing. Its player is removed from the island; bot1 and the servers carry on without drift.
+steps:
+  - wait: { node: bot2, tick: 300, timeout: 90000 }
+  - kill: bot2
+  - wait: { node: islandB, tick: 1500, timeout: 120000 }
+expect:
+  - agree: { server: islandA, clients: [bot1] }
+  - drift: { nodes: [islandA, islandB, master, bot1], equals: 0 }

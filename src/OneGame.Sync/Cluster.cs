@@ -43,6 +43,7 @@ public sealed class Cluster
     public Node AddNode(string name)
     {
         var node = new Node(name, Options);
+        node.Clock = Options.Clock ?? (() => Tick * 1000 / 60);
         _nodes.Add(node);
         _seenDrift.Add(0);
         return node;

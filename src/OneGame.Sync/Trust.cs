@@ -146,6 +146,9 @@ public enum CommandVerdict : byte
 
     /// <summary>The authority never ran the command (its state was replaced by a load, or the replica stopped waiting).</summary>
     Dropped,
+
+    /// <summary>No answer came in time (<see cref="ClusterOptions.CommandTimeoutMs"/>), or the authority went silent (<see cref="ClusterOptions.SilenceTimeoutMs"/>). The command may or may not have run; a late answer is ignored.</summary>
+    TimedOut,
 }
 
 /// <summary>The answer to one command a replica sent, matched to the send by <see cref="Sequence"/>.</summary>
@@ -199,4 +202,22 @@ public sealed class ClusterOptions
 
     /// <summary>Most entities a drift digest lists; above it the digest holds the scope hash only.</summary>
     public int DigestEntityLimit { get; init; } = 100_000;
+
+    /// <summary>Milliseconds a replica waits for the answer to a forwarded command before it gives up and completes it as <see cref="CommandVerdict.TimedOut"/>. 0 turns the timeout off.</summary>
+    public int CommandTimeoutMs { get; init; } = 10_000;
+
+    /// <summary>
+    /// Milliseconds without any message from an authority after which its replica is <see cref="ReplicaScope.IsSilent"/> and its pending commands time out.
+    /// A live authority sends a frame every tick, so silence this long means it stopped ticking, crashed or lost the link. 0 turns the check off.
+    /// </summary>
+    public int SilenceTimeoutMs { get; init; } = 5_000;
+
+    /// <summary>Messages from an authority longer than this are sent in pieces (transports cap one message at 1 MiB by default, so keep this well below).</summary>
+    public int PieceBytes { get; init; } = 256 * 1024;
+
+    /// <summary>Largest message a node reassembles from pieces. A longer one is refused from its first piece, before anything is allocated.</summary>
+    public int MaxAssembledBytes { get; init; } = 32 * 1024 * 1024;
+
+    /// <summary>Milliseconds clock for the two timeouts. Null uses the system's monotonic clock, except in a <see cref="Cluster"/>, which counts 60 ticks per second so runs stay repeatable.</summary>
+    public Func<long>? Clock { get; init; }
 }

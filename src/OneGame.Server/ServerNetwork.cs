@@ -59,6 +59,9 @@ internal sealed class ServerNetwork
 
     public IReadOnlyList<ListenEndpoint> Endpoints => _endpoints;
 
+    /// <summary>Called for a client whose connection closed, after its pending messages were handled and before the node forgets it.</summary>
+    public Action<Connection>? Left { get; set; }
+
     public int Count => _remotes.Count;
 
     public void Listen(ListenConfig config)
@@ -160,9 +163,8 @@ internal sealed class ServerNetwork
             return;
         }
 
-        var channel = new InjectableChannel(connection);
-        var accepted = _server.Accept(channel, trust.Value, request.Name);
-        _remotes.Add(new Remote(request.Name, transport, connection, channel, accepted));
+        var accepted = _server.Accept(connection, trust.Value, request.Name);
+        _remotes.Add(new Remote(request.Name, transport, connection, accepted));
         _log($"client {request.Name} connected");
     }
 
@@ -173,62 +175,19 @@ internal sealed class ServerNetwork
         var info = r.Connection.CloseInfo;
         _log($"client {r.Name} left ({info.Reason}{(info.ByRemote ? ", by the client" : "")})");
 
-        // Unsubscribe by the wire message (type 2, scope id), as a client that left politely would, so the authority stops publishing to a dead connection.
-        foreach (var scope in _server.AuthorityScopes)
-        {
-            var message = new byte[6];
-            message[0] = 2;
-            var n = 1;
-            var v = scope.Id.Value;
-            while (v >= 0x80)
-            {
-                message[n++] = (byte)(v | 0x80);
-                v >>= 7;
-            }
-
-            message[n++] = (byte)v;
-            r.Channel.Inject(message.AsSpan(0, n));
-        }
+        // Messages that arrived before the close are handled first, then the node stops publishing to the dead connection and forgets it.
+        _server.Pump();
+        Left?.Invoke(r.Accepted);
+        _server.Detach(r.Accepted);
     }
 
-    // The connection, plus messages the server makes up on the client's behalf (the unsubscribe of a client that vanished).
-    private sealed class InjectableChannel(INetConnection inner) : IMessageChannel
-    {
-        private readonly Queue<byte[]> _injected = new();
-        private byte[] _current = [];
-
-        public void Send(ReadOnlySpan<byte> message) => inner.Send(message);
-
-        public bool TryReceive(out ReadOnlySpan<byte> message)
-        {
-            if (inner.TryReceive(out message))
-            {
-                return true;
-            }
-
-            if (_injected.TryDequeue(out var next))
-            {
-                _current = next;
-                message = _current;
-                return true;
-            }
-
-            message = default;
-            return false;
-        }
-
-        public void Inject(ReadOnlySpan<byte> message) => _injected.Enqueue(message.ToArray());
-    }
-
-    private sealed class Remote(string name, string transport, INetConnection connection, InjectableChannel channel, Connection accepted)
+    private sealed class Remote(string name, string transport, INetConnection connection, Connection accepted)
     {
         public string Name { get; } = name;
 
         public string Transport { get; } = transport;
 
         public INetConnection Connection { get; } = connection;
-
-        public InjectableChannel Channel { get; } = channel;
 
         public Connection Accepted { get; } = accepted;
     }

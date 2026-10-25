@@ -163,6 +163,117 @@ public class NetworkTests : IDisposable
         host.Stop();
     }
 
+    [Theory]
+    [InlineData("udp")]
+    [InlineData("ws")]
+    public void AClientReconnectsToARestartedServerResubscribesAndAgreesAgain(string transport)
+    {
+        var port = FreePort(transport);
+        ServerHost Start() =>
+            new(ServerConfig.Parse($"name: net\nhashHistory: 512\nscopes: [{{ id: 1, seed: 7 }}]\nlisten:\n  - {{ transport: {transport}, port: {port}, address: 127.0.0.1 }}\n"));
+
+        var first = Start();
+        first.Start();
+        var (client, _) = Connect(first, transport, "back");
+        for (var i = 0; i < 60; i++)
+        {
+            Round(first, client);
+        }
+
+        Assert.Equal(ReplicaState.Live, client.Replica.State);
+        var tickBefore = client.Replica.World.Tick;
+        first.Stop();
+
+        // The client sees the connection go and keeps trying; the session is not closed for good.
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (!client.IsReconnecting && clock.ElapsedMilliseconds < 15_000)
+        {
+            client.Pump();
+            Thread.Sleep(2);
+        }
+
+        Assert.True(client.IsReconnecting, "the client never noticed the server was gone");
+        Assert.False(client.IsClosed);
+
+        var second = Start();
+        second.Start();
+        clock.Restart();
+        while ((client.Reconnects == 0 || client.Replica.State != ReplicaState.Live || !Matches(second, client)) && clock.ElapsedMilliseconds < 20_000)
+        {
+            Round(second, client);
+        }
+
+        Assert.Equal(1, client.Reconnects);
+        Assert.False(client.IsReconnecting);
+        Assert.Equal(ReplicaState.Live, client.Replica.State);
+        Assert.True(Matches(second, client), "the client differs from the restarted server");
+        Assert.Equal(0, client.Node.DriftCount);
+        Assert.Single(second.Clients());
+        Assert.Single(second.Node.Connections);
+        Assert.True(client.Replica.World.Tick <= second.Scopes[0].World.Tick, $"before {tickBefore}");
+        Assert.Equal(1, client.Status().Reconnects);
+        second.Stop();
+    }
+
+    [Fact]
+    public void AClientTheServerRefusedDoesNotKeepTryingAndAClosedSessionStaysClosed()
+    {
+        var host = new ServerHost(Config()) { Authenticate = _ => null };
+        host.Start();
+        var (udp, _) = Connect(host, "udp", "refused");
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (!udp.IsClosed && clock.ElapsedMilliseconds < 5000)
+        {
+            Round(host, udp);
+        }
+
+        Assert.True(udp.IsClosed);
+        Assert.Equal(0, udp.Reconnects);
+        host.Stop();
+    }
+
+    [Fact]
+    public void DisconnectedClientsLeaveNoStaleConnectionsOnTheServerNode()
+    {
+        var host = new ServerHost(Config());
+        host.Start();
+        for (var n = 0; n < 5; n++)
+        {
+            var (udp, _) = Connect(host, "udp", "c" + n);
+            for (var i = 0; i < 20; i++)
+            {
+                Round(host, udp);
+            }
+
+            Assert.Single(host.Node.Connections);
+            udp.Connection.Disconnect(DisconnectReason.Normal, flush: true);
+            for (var i = 0; i < 40 && host.Node.Connections.Count > 0; i++)
+            {
+                Round(host);
+            }
+
+            Assert.Empty(host.Node.Connections);
+        }
+
+        Assert.Empty(host.Scopes[0].Authority.Subscribers);
+        host.Stop();
+    }
+
+    private static int FreePort(string transport)
+    {
+        if (transport == "udp")
+        {
+            using var udp = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 0));
+            return ((System.Net.IPEndPoint)udp.Client.LocalEndPoint!).Port;
+        }
+
+        var tcp = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        tcp.Start();
+        var port = ((System.Net.IPEndPoint)tcp.LocalEndpoint).Port;
+        tcp.Stop();
+        return port;
+    }
+
     [Fact]
     public void ListenAndTrustAreCheckedWhenTheConfigurationIsRead()
     {

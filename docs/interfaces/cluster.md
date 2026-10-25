@@ -1,6 +1,6 @@
 # Dedicated servers and process clusters
 
-Header: v1. Source: `src/OneGame.Server` (listening, remote clients), `src/OneGame.Server.Live` (`ServerApp`, server control), `src/OneGame.Host` (`RemoteSession`, `--connect`), `src/OneGame.Testing` (`ProcessCluster`, `ClusterSpec`, cluster scenarios), `src/OneGame.Cli` (`cluster`, `export --server`, `mcp --cluster`). Builds on `transport.md` (`INetListener`, `INetConnection`), `server-host.md` and `control.md`.
+Header: v2 (clients reconnect, `cluster kill`, large snapshots in pieces). Source: `src/OneGame.Server` (listening, remote clients), `src/OneGame.Server.Live` (`ServerApp`, server control), `src/OneGame.Host` (`RemoteSession`, `--connect`), `src/OneGame.Testing` (`ProcessCluster`, `ClusterSpec`, cluster scenarios), `src/OneGame.Cli` (`cluster`, `export --server`, `mcp --cluster`). Builds on `transport.md` (`INetListener`, `INetConnection`), `server-host.md` and `control.md`.
 
 ## Roles
 
@@ -20,7 +20,7 @@ trust:                        # what every client may do; default: read and comm
 hashHistory: 256              # ticks of hashes kept (the scope, and what each client holds) for cross-node comparison; default 0 = off, the cluster harness turns it on
 ```
 
-`ServerHost` accepts connections (`Node.Accept`) inside `StepOnce` and `PumpNetwork()` (the runner calls it between ticks). Each accepted connection gets the `Trust` returned by `ServerHost.Authenticate` (`Func<ClientRequest, Trust?>`; null refuses and closes it; the default applies the config's `trust`). The transport is unauthenticated today (see `transport.md`), so the hook sees only the remote address. A closed connection is unsubscribed from every scope. `ServerHost.Clients()` lists them (name, transport, address, state, RTT, loss, retransmits).
+`ServerHost` accepts connections (`Node.Accept`) inside `StepOnce` and `PumpNetwork()` (the runner calls it between ticks). Each accepted connection gets the `Trust` returned by `ServerHost.Authenticate` (`Func<ClientRequest, Trust?>`; null refuses and closes it; the default applies the config's `trust`). The transport is unauthenticated today (see `transport.md`), so the hook sees only the remote address. A closed connection is detached from the node (`Node.Detach`) after `ServerHost.ClientLeft` is raised for it. `ServerHost.Clients()` lists them (name, transport, address, state, RTT, loss, retransmits).
 
 `ServerApp.Run(setup, args)`: `--config f.yaml` and/or `--name N --scope ID[:SEED] --listen udp:PORT|ws:PORT --tick-rate N --hash-history N`, `--live [path]`, `--manual` (tick only on `step`), `--ticks N`, `--parent PID` (exit when that process is gone). One JSON line goes to stdout when listening: `{"ready":true,"pid":123,"live":"/path.sock","listen":[{"transport":"udp","port":41000}]}`; `{"stopped":true,...}` follows at the end.
 
@@ -28,9 +28,9 @@ Control ops added to the server surface: `clients`, `hash_at {tick}` (the scope 
 
 ## Client
 
-`GameApp` options: `--connect udp://host:port|ws://host:port`, `--scope N` (default 1), `--name N`, `--net latency=100,jitter=10,loss=0.02,duplicate=0.01,reorder=0.05,seed=7` (the network conditioner on this client's outgoing traffic, so the server sees the latency and loss; UDP is conditioned per datagram, WebSocket per message), `--parent PID`. `GameOptions.Connect` is the API form. The game's world is then the **replica** (`GameInstance.World.Role == Replica`): `Step` pumps the connection instead of running a tick, commands (from views, `command_send`, scenarios) are forwarded to the server, and state writes (`state_patch`, `reset`, fixtures, snapshots) fail with `replica`. Each frame the network is pumped; so is every `DrainInput`, which keeps a paused live client connected.
+`GameApp` options: `--connect udp://host:port|ws://host:port`, `--scope N` (default 1), `--name N`, `--net latency=100,jitter=10,loss=0.02,duplicate=0.01,reorder=0.05,seed=7` (the network conditioner on this client's outgoing traffic, so the server sees the latency and loss; UDP is conditioned per datagram, WebSocket per message), `--parent PID`. `GameOptions.Connect` is the API form. The game's world is then the **replica** (`GameInstance.World.Role == Replica`): `Step` pumps the connection instead of running a tick, commands (from views, `command_send`, scenarios) are forwarded to the server, and state writes (`state_patch`, `reset`, fixtures, snapshots) fail with `replica`. If the connection closes (the server died, restarted or timed out) the client keeps trying to connect again for `ReconnectWindowMs` (60 s) and resubscribes to every scope it followed, rebuilding their replicas from fresh snapshots; to the game that is the same server with a new connection, so a server that identifies players by connection (Lanterns) sees a new player. `IsClosed` is true only for a refusal, a version mismatch, a kick or an expired window. Each frame the network is pumped; so is every `DrainInput`, which keeps a paused live client connected.
 
-Client control ops: `net_status` (state, address, transport, replica state, tick, hash, resyncs, drift reports with node/scope/tick/differences, transport stats), `net_wait {tick|serverTick, timeoutMs}` (pump until the replica reaches a tick), `net_diverge {entity?}` (corrupts replica state locally, to prove drift detection; development builds only like all live ops).
+Client control ops: `net_status` (state, `reconnects`, `reconnecting`, address, transport, replica state, tick, hash, resyncs, drift reports with node/scope/tick/differences, transport stats), `net_wait {tick|serverTick, timeoutMs}` (pump until the replica reaches a tick), `net_diverge {entity?}` (corrupts replica state locally, to prove drift detection; development builds only like all live ops).
 
 ## Process clusters (`OneGame.Testing`)
 
@@ -81,7 +81,7 @@ Without `node:` a `step` goes to every node, `state`/`tick`/`hash` expectations 
 
 ## CLI
 
-`onegame cluster up --spec f.yaml [--dir d]` (starts, prints the state JSON, leaves nodes running), `status`, `hashes` (exit 1 on mismatch or drift), `down`, `call <node> <op> [json]`, `test <scenario.yaml> --spec f.yaml` (up, run, down). The state file is found by `--dir` or `--cluster file`, else `./.onegame-cluster/cluster.json`. `onegame mcp --cluster file` is one MCP server for all nodes: every tool takes an extra `node` argument. `onegame export --server [--plugins]` publishes the server project NativeAOT (or `onegame-server` framework-dependent with `--plugins`) with the export report of `exporting.md`.
+`onegame cluster up --spec f.yaml [--dir d]` (starts, prints the state JSON, leaves nodes running), `status`, `hashes` (exit 1 on mismatch or drift), `down`, `kill <node>...` (SIGKILL the named nodes of a running cluster, including one started by another process; JSON `{ok, result:{nodes:[{name,pid,alive}]}}`; starting one again needs the spec and stays with the process that started the cluster), `call <node> <op> [json]`, `test <scenario.yaml> --spec f.yaml` (up, run, down). The state file is found by `--dir` or `--cluster file`, else `./.onegame-cluster/cluster.json`. `onegame mcp --cluster file` is one MCP server for all nodes: every tool takes an extra `node` argument. `onegame export --server [--plugins]` publishes the server project NativeAOT (or `onegame-server` framework-dependent with `--plugins`) with the export report of `exporting.md`.
 
 ## Servers that talk to each other
 
@@ -89,4 +89,4 @@ Every server of a cluster is given its port before any node starts. A server's `
 
 ## Limits
 
-One server connection per client process. Servers do not connect to each other yet. A snapshot larger than the transport's `MaxMessageBytes` (1 MiB default) closes that client's connection. Cluster launching uses `/bin/sh` and Unix sockets (Linux, macOS).
+One server connection per client process. A snapshot or frame over the transport's `MaxMessageBytes` is split by the sync layer (`sync.md`, "Links that go away"), up to 32 MiB; a bundle in an entity transfer is still capped at 48 KiB. A client that reconnects is a new connection: identity continuity (the same player after a reconnect) needs authentication, which the transport does not have yet. Cluster launching uses `/bin/sh` and Unix sockets (Linux, macOS).

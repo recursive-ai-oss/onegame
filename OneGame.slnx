@@ -26,6 +26,14 @@
     <Project Path="src/OneGame.UI/OneGame.UI.csproj" />
     <Project Path="src/OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
   </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/lanterns/Lanterns.csproj" />
+    <Project Path="samples/lanterns/Server/Lanterns.Server.csproj" />
+    <Project Path="samples/lanterns/Sim/Lanterns.Sim.csproj" />
+    <Project Path="samples/lanterns/tests/Lanterns.Tests.csproj" />
+    <Project Path="samples/solitaire/Solitaire.csproj" />
+    <Project Path="samples/solitaire/tests/Solitaire.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/OneGame.AotSmoke/OneGame.AotSmoke.csproj" />
     <Project Path="tests/OneGame.Atlas.Tests/OneGame.Atlas.Tests.csproj" />

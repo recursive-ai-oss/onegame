@@ -169,9 +169,12 @@ public class ClusterTests
             Assert.Equal(port, cluster.Node("srv").Listen[0].Port);
             Assert.True(cluster.Hashes().Ok);
 
-            // Someone else's cluster cannot be steered.
+            // Someone else's cluster can have a node killed (that needs only its pid) but cannot start one again (that needs the spec).
             var attached = ProcessCluster.Attach(cluster.Dir);
-            Assert.Equal("not_owner", Assert.Throws<ClusterException>(() => attached.Kill("srv")).Code);
+            var victim = attached.Node("p1").Pid;
+            attached.Kill("p1");
+            Assert.False(ProcessCluster.IsAlive(victim));
+            Assert.Equal("not_owner", Assert.Throws<ClusterException>(() => attached.Start("p1")).Code);
             pids = [.. first, .. second];
         }
 

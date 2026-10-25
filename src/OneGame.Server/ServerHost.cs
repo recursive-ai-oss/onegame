@@ -38,7 +38,14 @@ public sealed class ServerHost
         _driver = new FixedStepDriver(config.TickRate, config.MaxCatchUp);
         Node = new Node(config.Name);
         _network = new ServerNetwork(Node, request => Authenticate is { } hook ? hook(request) : DefaultTrust(), m => Log.Info(m));
+        _network.Left = c => ClientLeft?.Invoke(c);
     }
+
+    /// <summary>
+    /// Raised when a network client's connection closed (it left, timed out or was dropped), after the messages it sent before that were handled.
+    /// <see cref="Connection.Trust"/> still says who it was, so a game can remove that player's entities.
+    /// </summary>
+    public event Action<Connection>? ClientLeft;
 
     /// <summary>
     /// Decides what a newly connected network client may do, or refuses it by returning null. The default gives every client the configured
