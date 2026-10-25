@@ -29,6 +29,23 @@ public class AndroidExportTests
         Assert.Contains("android:debuggable='true'", xml, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PlayBillingAddsCodePermissionQueriesAndPurchaseActivities()
+    {
+        var xml = ExportVerb.AndroidManifest("com.example.game", "G", "1.0.0", "G", dev: false, "unspecified", playBilling: true);
+        var doc = System.Xml.Linq.XDocument.Parse(xml);
+        var ns = System.Xml.Linq.XNamespace.Get("http://schemas.android.com/apk/res/android");
+        var app = doc.Root!.Element("application")!;
+        Assert.Equal("true", (string?)app.Attribute(ns + "hasCode"));
+        Assert.Contains(doc.Root.Elements("uses-permission"), e => (string?)e.Attribute(ns + "name") == "com.android.vending.BILLING");
+        Assert.Contains(doc.Root.Element("queries")!.Elements("intent").Select(i => (string?)i.Element("action")!.Attribute(ns + "name")), n => n == "com.android.vending.billing.InAppBillingService.BIND");
+        var names = app.Elements("activity").Select(a => (string?)a.Attribute(ns + "name")).ToArray();
+        Assert.Contains("android.app.NativeActivity", names);
+        Assert.Contains("com.android.billingclient.api.ProxyBillingActivity", names);
+        Assert.Contains("com.android.billingclient.api.ProxyBillingActivityV2", names);
+        Assert.DoesNotContain("BILLING", ExportVerb.AndroidManifest("com.example.game", "G", "1.0.0", "G", dev: false, "unspecified"), StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("0.1.0", 100)]
     [InlineData("1.2.3", 10203)]

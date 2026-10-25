@@ -4,7 +4,7 @@ Owner: `src/OneGame.Platform/Android` (the backend), `build/Android.targets` and
 
 ## What runs
 
-A game is a NativeAOT **shared library** that the platform's own `android.app.NativeActivity` loads. The app has no Java or Kotlin (`hasCode="false"`), and nothing in it but our code, the one* libraries and what NativeAOT emits (the Solitaire dev build is about 12 MB per ABI, 6 MB zipped; no runtime files travel with it).
+A game is a NativeAOT **shared library** that the platform's own `android.app.NativeActivity` loads. The app has no Java or Kotlin (`hasCode="false"`) unless the game sells through Google Play (`AndroidPlayBilling`, see `store.md`), and nothing in it but our code, the one* libraries and what NativeAOT emits (the Solitaire dev build is about 12 MB per ABI, 6 MB zipped; no runtime files travel with it).
 
 - The library exports `ANativeActivity_onCreate` (`build/AndroidEntry.cs`, compiled into the game). It calls `AndroidActivityHost.Start(activity, args => Program.Main(args))`. **A game therefore needs a class `Program` with a `Main(string[])` returning `int`** (`onegame new` makes one; top-level statements cannot be called).
 - The activity's callbacks run on the system's main thread and only queue commands. `Main` runs on its own thread, which owns the `PlatformApp`, reads the input queue (`AInputQueue` attached to that thread's `ALooper`) and applies the commands in `PumpEvents`. The one place the main thread waits is `onNativeWindowDestroyed`: it blocks (at most 1 s) until the game thread has handled `SurfaceLost`, so the swapchain is gone before the window is.

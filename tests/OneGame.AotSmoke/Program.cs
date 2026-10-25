@@ -182,6 +182,15 @@ if (netProblem is not null)
     return 1;
 }
 
+var purchasesProblem = PurchasesSmoke.Run();
+if (purchasesProblem is not null)
+{
+    Console.Error.WriteLine("purchases smoke failed: " + purchasesProblem);
+    return 1;
+}
+
+Console.WriteLine("ok: purchases over the fake store, and the platform without a store");
+
 var serverProblem = ServerSmoke.Run();
 if (serverProblem is not null)
 {
