@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
+using OneGame.Core;
 
 namespace OneGame.Net;
 
@@ -35,7 +35,7 @@ public sealed class UdpListener : INetListener
         _o = options;
         _clock = clock;
         _from = new SocketAddress(socket.LocalAddress.Family, socket.LocalAddress.Size);
-        RandomNumberGenerator.Fill(_secret);
+        Entropy.Fill(_secret);
     }
 
     /// <inheritdoc />
@@ -209,7 +209,7 @@ public sealed class UdpListener : INetListener
         for (var e = epoch; e >= epoch - 1 && !valid; e--)
         {
             Wire.Cookie(_secret, _from, nonce, e, expected);
-            valid = CryptographicOperations.FixedTimeEquals(presented, expected);
+            valid = HmacSha256.FixedTimeEquals(presented, expected);
         }
 
         if (!valid)
@@ -234,7 +234,7 @@ public sealed class UdpListener : INetListener
         Span<byte> r = stackalloc byte[4];
         do
         {
-            RandomNumberGenerator.Fill(r);
+            Entropy.Fill(r);
             id = BinaryPrimitives.ReadUInt32LittleEndian(r);
         }
         while (id == 0 || _byId.ContainsKey(id));

@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
+using OneGame.Core;
 
 namespace OneGame.Net;
 
@@ -47,7 +47,7 @@ public sealed class UdpConnection : INetConnection
         _rx = new byte[2048];
         _from = new SocketAddress(remote.Family, remote.Size);
         Span<byte> n = stackalloc byte[8];
-        RandomNumberGenerator.Fill(n);
+        Entropy.Fill(n);
         _nonce = BinaryPrimitives.ReadUInt64LittleEndian(n);
         RemoteName = Wire.Describe(remote);
         State = ConnectionState.Connecting;
