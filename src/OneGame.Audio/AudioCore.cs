@@ -172,6 +172,73 @@ public interface IAudioCore : IAudioRenderSource, IDisposable
     /// <summary>Feeds streaming sources from their decoders. Called off the audio thread, repeatedly, by the service.</summary>
     void Pump();
 
+    /// <summary>Turns on or retunes a low-pass or high-pass filter on a bus (12 dB per octave).</summary>
+    /// <param name="bus">The bus index.</param>
+    /// <param name="kind">Which filter.</param>
+    /// <param name="cutoffHz">The corner frequency.</param>
+    /// <param name="q">Resonance; 0 or less picks a flat (Butterworth) response.</param>
+    /// <param name="glideFrames">Frames over which the change glides.</param>
+    /// <returns>Whether the command was queued. Cores without filters return false.</returns>
+    bool SetBusFilter(int bus, AudioFilterKind kind, float cutoffHz, float q, int glideFrames) => false;
+
+    /// <summary>Turns a bus filter off.</summary>
+    /// <param name="bus">The bus index.</param>
+    /// <param name="kind">Which filter.</param>
+    /// <param name="glideFrames">Frames to glide to transparent first.</param>
+    /// <returns>Whether the command was queued. Cores without filters return false.</returns>
+    bool ClearBusFilter(int bus, AudioFilterKind kind, int glideFrames) => false;
+
+    /// <summary>Like <see cref="SetBusFilter"/> for one voice.</summary>
+    /// <param name="voice">The voice.</param>
+    /// <param name="kind">Which filter.</param>
+    /// <param name="cutoffHz">The corner frequency.</param>
+    /// <param name="q">Resonance; 0 or less picks a flat response.</param>
+    /// <param name="glideFrames">Frames over which the change glides.</param>
+    /// <returns>Whether the command was queued. Cores without filters return false.</returns>
+    bool SetVoiceFilter(VoiceId voice, AudioFilterKind kind, float cutoffHz, float q, int glideFrames) => false;
+
+    /// <summary>Turns a voice filter off.</summary>
+    /// <param name="voice">The voice.</param>
+    /// <param name="kind">Which filter.</param>
+    /// <param name="glideFrames">Frames to glide to transparent first.</param>
+    /// <returns>Whether the command was queued. Cores without filters return false.</returns>
+    bool ClearVoiceFilter(VoiceId voice, AudioFilterKind kind, int glideFrames) => false;
+
+    /// <summary>Puts a reverb insert on a bus, or retunes the one there.</summary>
+    /// <param name="bus">The bus index.</param>
+    /// <param name="options">The reverb.</param>
+    /// <param name="glideFrames">Frames over which changes glide.</param>
+    /// <returns>Whether the command was queued. Cores without reverb return false.</returns>
+    bool SetBusReverb(int bus, ReverbOptions options, int glideFrames) => false;
+
+    /// <summary>Removes a bus's reverb; its tail stops at once.</summary>
+    /// <param name="bus">The bus index.</param>
+    /// <returns>Whether the command was queued. Cores without reverb return false.</returns>
+    bool ClearBusReverb(int bus) => false;
+
+    /// <summary>Switches the master limiter on, retunes it, or (with <see langword="null"/>) off.</summary>
+    /// <param name="options">Ceiling and release, or null for off.</param>
+    /// <returns>Whether the command was queued. False when the core was built without a limiter.</returns>
+    bool SetLimiter(LimiterOptions? options) => false;
+
+    /// <summary>Whether the core was built with a master limiter (a lookahead above zero).</summary>
+    bool HasLimiter => false;
+
+    /// <summary>Gain reduction of the master limiter in the last render pass, in dB (0 or negative).</summary>
+    double LimiterGainReductionDb => 0;
+
+    /// <summary>Reads where a streaming voice is. Positions are in source time, ahead of the speakers by the mixer's and device's buffering.</summary>
+    /// <param name="voice">A voice started from a stream.</param>
+    /// <param name="positionSeconds">Seconds into the stream; wraps with a loop.</param>
+    /// <param name="lengthSeconds">The stream's length, or a negative number when unknown.</param>
+    /// <returns>Whether the voice is a live stream.</returns>
+    bool TryGetStreamPosition(VoiceId voice, out double positionSeconds, out double lengthSeconds)
+    {
+        positionSeconds = 0;
+        lengthSeconds = -1;
+        return false;
+    }
+
     /// <summary>How many voices are playing now.</summary>
     int ActiveVoices { get; }
 
@@ -189,9 +256,84 @@ public interface IAudioCoreFactory
     /// <param name="buses">The number of buses.</param>
     /// <returns>The core.</returns>
     IAudioCore Create(int sampleRate, int channels, int maxVoices, int buses);
+
+    /// <summary>Builds a core with the full settings. The default ignores the effect settings and calls the four-number overload.</summary>
+    /// <param name="settings">The format, sizes and effect capacity.</param>
+    /// <returns>The core.</returns>
+    IAudioCore Create(AudioCoreSettings settings) => Create(settings.SampleRate, settings.Channels, settings.MaxVoices, settings.Buses);
 }
 
-/// <summary>How one bus is turned down by the level of another, for example music under spoken lines.</summary>
+/// <summary>What a core is built with.</summary>
+/// <param name="SampleRate">Frames per second.</param>
+/// <param name="Channels">Samples per frame.</param>
+/// <param name="MaxVoices">The most simultaneous voices.</param>
+/// <param name="Buses">The number of buses.</param>
+public sealed record AudioCoreSettings(int SampleRate, int Channels, int MaxVoices, int Buses)
+{
+    /// <summary>Reverbs that can be active at once, 0 to 16. Each costs about 0.3 MB up front. Default 2.</summary>
+    public int MaxReverbs { get; init; } = 2;
+
+    /// <summary>Lookahead of the master limiter in milliseconds, 0 to 100. 0 builds no limiter. The whole output is delayed by this much. Default 0.</summary>
+    public int LimiterLookaheadMilliseconds { get; init; }
+}
+
+/// <summary>Which side of the spectrum a filter lets through.</summary>
+public enum AudioFilterKind
+{
+    /// <summary>Passes frequencies below the cutoff.</summary>
+    LowPass,
+
+    /// <summary>Passes frequencies above the cutoff.</summary>
+    HighPass,
+}
+
+/// <summary>A reverb insert on a bus: the bus signal becomes <c>Dry * signal + Wet * reverb</c>.</summary>
+public readonly record struct ReverbOptions
+{
+    /// <summary>Creates a medium room: 1.5 s decay, wet 0.25.</summary>
+    public ReverbOptions()
+    {
+    }
+
+    /// <summary>Apparent room size, 0 to 1. Default 0.5.</summary>
+    public float RoomSize { get; init; } = 0.5f;
+
+    /// <summary>Time for the tail to fall 60 dB at low frequencies, in seconds (0.1 to 20). Default 1.5.</summary>
+    public float DecaySeconds { get; init; } = 1.5f;
+
+    /// <summary>High-frequency absorption, 0 to 1. Default 0.4.</summary>
+    public float Damping { get; init; } = 0.4f;
+
+    /// <summary>Delay before the tail starts, in milliseconds. Default 0.</summary>
+    public float PreDelayMilliseconds { get; init; }
+
+    /// <summary>Linear gain of the reverberated signal, 0 to 4. Default 0.25.</summary>
+    public float Wet { get; init; } = 0.25f;
+
+    /// <summary>Linear gain of the unprocessed signal, 0 to 4. Default 1.</summary>
+    public float Dry { get; init; } = 1f;
+}
+
+/// <summary>The master limiter's settings.</summary>
+public readonly record struct LimiterOptions
+{
+    /// <summary>Creates a -1 dBFS ceiling with a 100 ms release.</summary>
+    public LimiterOptions()
+    {
+    }
+
+    /// <summary>The highest sample magnitude allowed, in dBFS (-60 to 0). Default -1.</summary>
+    public float CeilingDb { get; init; } = -1f;
+
+    /// <summary>Time constant of the gain recovering after a peak, in milliseconds (1 to 10000). Default 100.</summary>
+    public float ReleaseMilliseconds { get; init; } = 100f;
+}
+
+/// <summary>
+/// How one bus is turned down by the level of another, for example music under spoken lines. The bus gain moves exponentially toward its goal, so the
+/// attack and release times are time constants: after one release time 63% of the way back is done, after four times 98%, and it never quite arrives.
+/// The watched level is taken after the watched bus's own gain and mute, so muting or fading it also stops the ducking.
+/// </summary>
 public readonly record struct DuckingOptions
 {
     /// <summary>Creates the defaults: duck 12 dB when the watched bus passes -30 dBFS, 10 ms attack, 250 ms release.</summary>
@@ -199,15 +341,21 @@ public readonly record struct DuckingOptions
     {
     }
 
+    /// <summary>Settings that mean no ducking; <see cref="AudioService.SetDucking"/> with them removes the link.</summary>
+    public static DuckingOptions None => new() { Enabled = false };
+
+    /// <summary>False for <see cref="None"/>; the other values are then ignored. Default true.</summary>
+    public bool Enabled { get; init; } = true;
+
     /// <summary>Level of the watched bus, in dBFS, above which ducking starts.</summary>
     public float ThresholdDb { get; init; } = -30f;
 
     /// <summary>How far the target is turned down, in dB (positive).</summary>
     public float ReductionDb { get; init; } = 12f;
 
-    /// <summary>Milliseconds to reach full reduction.</summary>
+    /// <summary>Time constant, in milliseconds, of the gain falling to the ducked level.</summary>
     public float AttackMs { get; init; } = 10f;
 
-    /// <summary>Milliseconds to recover once the watched bus is quiet.</summary>
+    /// <summary>Time constant, in milliseconds, of the gain recovering once the watched bus is quiet.</summary>
     public float ReleaseMs { get; init; } = 250f;
 }

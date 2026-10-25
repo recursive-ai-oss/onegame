@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using OneGame.Audio;
 using OneGame.Core;
 using OneGame.Host;
 using OneGame.Platform;
@@ -110,6 +111,8 @@ public sealed class ControlSurface : IControlEndpoint
         "shaders" => Json(ShaderCheck(), ControlJson.Default.ShadersResult),
         "render_graph" => Json(RenderGraphReport(), ControlJson.Default.RenderGraphReport),
         "theme_lint" => Json(ThemeLintCheck(), ControlJson.Default.ThemeLintReport),
+        "audio" => Json(AudioReport(a), ControlJson.Default.AudioStatus),
+        "audio_capture" => Json(AudioCapture(a), ControlJson.Default.AudioCaptureResult),
         "capture_frame" => CaptureFrame(a),
         "capture_sequence" => Json(CaptureSequence(a), ControlJson.Default.SequenceResult),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", ControlOps.All.Select(o => o.Name))}."),
@@ -707,6 +710,60 @@ public sealed class ControlSurface : IControlEndpoint
     private ShaderReloader? _reloader;
 
     private ShaderReloader Reloader => _reloader ??= new ShaderReloader(Game.HotShaders);
+
+    /// <summary>The game's audio, for the <c>audio</c> operations. Defaults to the most recently created <see cref="AudioService"/>, so a game needs to do nothing; set it to point at another.</summary>
+    public AudioService? Audio { get; set; }
+
+    private AudioService AudioOrThrow() =>
+        Audio ?? AudioService.Active ?? throw new ControlException("no_audio", "This game has no audio service running.");
+
+    private AudioStatus AudioReport(Args a)
+    {
+        var audio = AudioOrThrow();
+        if (a.Bool("reset", false))
+        {
+            audio.ResetLoudness();
+        }
+
+        return audio.Describe();
+    }
+
+    private AudioCaptureResult AudioCapture(Args a)
+    {
+        var audio = AudioOrThrow();
+        var sink = audio.Capture ?? throw new ControlException("rejected", "Audio is not in capture mode (AudioServiceOptions.Capture). A playing device can't be recorded this way.");
+        var seconds = a.Double("seconds", 1);
+        if (!(seconds >= 0 && seconds <= 600))
+        {
+            throw new ControlException("bad_args", "seconds must be between 0 and 600.");
+        }
+
+        if (a.Bool("clear", false))
+        {
+            sink.Clear();
+        }
+
+        if (a.Bool("reset", false))
+        {
+            audio.ResetLoudness();
+        }
+
+        audio.Advance((int)Math.Round(seconds * audio.Format.SampleRate));
+        string? path = null;
+        string? sha = null;
+        var target = a.Str("path");
+        if (target is not null)
+        {
+            path = ResolveOutput(target);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            using var ms = new MemoryStream();
+            sink.WriteWav(ms);
+            File.WriteAllBytes(path, ms.ToArray());
+            sha = Sha256(ms.ToArray());
+        }
+
+        return new AudioCaptureResult(target, sink.FramesCaptured, sink.FramesCaptured / (double)audio.Format.SampleRate, sink.Peak, sha, audio.Describe().Loudness);
+    }
 
     private OneGame.Gpu.Graph.RenderGraphReport RenderGraphReport() =>
         Game.DescribeRenderGraph() ?? throw new ControlException("no_graph", "This game has no graphics device, or its render stage does not draw with a render graph.");

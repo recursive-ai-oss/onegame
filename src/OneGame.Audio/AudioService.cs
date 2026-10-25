@@ -99,7 +99,7 @@ public sealed record AudioServiceOptions
     /// <summary>Records instead of playing: no device, no thread, and time moves only with <see cref="AudioService.Advance"/>. See <see cref="AudioService.Capture"/>. Overrides <see cref="Backend"/>.</summary>
     public bool Capture { get; init; }
 
-    /// <summary>The mixer. <see langword="null"/> uses <see cref="OneAudioCore"/>: oneaudio's mixer with WAV, Ogg Vorbis and Opus decoding.</summary>
+    /// <summary>The mixer. <see langword="null"/> uses <see cref="OneAudioCore"/>: oneaudio's mixer with WAV, Ogg Vorbis, Opus, FLAC and MP3 decoding.</summary>
     public IAudioCoreFactory? CoreFactory { get; init; }
 
     /// <summary>The longest file <see cref="AudioService.LoadSound"/> decodes into memory, in seconds; longer files must be streamed as music. Default 120.</summary>
@@ -114,9 +114,88 @@ public sealed record AudioServiceOptions
     /// <summary>How the output keeps samples in range. Default soft knee.</summary>
     public OutputLimiterMode Limiter { get; init; } = OutputLimiterMode.SoftKnee;
 
+    /// <summary>Reverbs that can be active at once across all buses, 0 to 16. Each is built at startup and costs about 0.3 MB. Default 2.</summary>
+    public int MaxReverbs { get; init; } = 2;
+
+    /// <summary>
+    /// A lookahead limiter on the master output: no sample passes the ceiling, and it reduces gain gently before a peak instead of clipping it. <see langword="null"/> (the default) builds none.
+    /// A limiter delays all audio by <see cref="LimiterLookaheadMilliseconds"/> for the life of the service, and can be retuned or switched off with <see cref="AudioService.SetMasterLimiter"/> but not added later.
+    /// </summary>
+    public LimiterOptions? MasterLimiter { get; init; }
+
+    /// <summary>The master limiter's lookahead in milliseconds, 1 to 100; only used when <see cref="MasterLimiter"/> is set. Default 5.</summary>
+    public int LimiterLookaheadMilliseconds { get; init; } = 5;
+
+    /// <summary>Whether the output measures loudness (EBU R 128), readable as <see cref="AudioService.Loudness"/>. The cost is small. Default true.</summary>
+    public bool Metering { get; init; } = true;
+
     /// <summary>Whether <see cref="AudioService.SetFocused"/> with false silences the game. Default true.</summary>
     public bool PauseOnFocusLoss { get; init; } = true;
 }
+
+/// <summary>Where a streamed track is.</summary>
+/// <param name="PositionSeconds">Seconds into the track; wraps with a loop.</param>
+/// <param name="LengthSeconds">The track's length, or a negative number when the format can't say.</param>
+public readonly record struct StreamPosition(double PositionSeconds, double LengthSeconds);
+
+/// <summary>A bus filter's setting.</summary>
+/// <param name="CutoffHz">The corner frequency.</param>
+/// <param name="Q">The resonance; 0 means flat.</param>
+public sealed record FilterStatus(float CutoffHz, float Q);
+
+/// <summary>A bus's ducking link.</summary>
+/// <param name="WatchedBus">The bus whose level triggers it.</param>
+/// <param name="ThresholdDb">Trigger level in dBFS.</param>
+/// <param name="ReductionDb">Depth in dB.</param>
+/// <param name="AttackMs">Attack time constant.</param>
+/// <param name="ReleaseMs">Release time constant.</param>
+public sealed record DuckingStatus(int WatchedBus, float ThresholdDb, float ReductionDb, float AttackMs, float ReleaseMs);
+
+/// <summary>One bus as the service set it up.</summary>
+/// <param name="Index">The bus index.</param>
+/// <param name="Name"><c>music</c>, <c>sfx</c> or <c>ui</c> for the named buses, otherwise null.</param>
+/// <param name="Volume">The bus volume (before the master volume).</param>
+/// <param name="Muted">Whether it is muted.</param>
+/// <param name="LowPass">Its low-pass, or null.</param>
+/// <param name="HighPass">Its high-pass, or null.</param>
+/// <param name="Reverb">Its reverb, or null.</param>
+/// <param name="Ducking">What ducks it, or null.</param>
+public sealed record BusStatus(int Index, string? Name, float Volume, bool Muted, FilterStatus? LowPass, FilterStatus? HighPass, ReverbOptions? Reverb, DuckingStatus? Ducking);
+
+/// <summary>The master limiter.</summary>
+/// <param name="Enabled">Whether it is switched on.</param>
+/// <param name="CeilingDb">Its ceiling, when on.</param>
+/// <param name="ReleaseMs">Its release, when on.</param>
+/// <param name="GainReductionDb">The reduction in the last block (0 or negative).</param>
+public sealed record LimiterStatus(bool Enabled, float? CeilingDb, float? ReleaseMs, double GainReductionDb);
+
+/// <summary>Loudness at the output. A value is null while it is silent or unmeasured.</summary>
+/// <param name="MomentaryLufs">Over the last 400 ms.</param>
+/// <param name="ShortTermLufs">Over the last 3 s.</param>
+/// <param name="IntegratedLufs">Gated, since the last reset.</param>
+/// <param name="TruePeakDbtp">Highest true peak since the last reset.</param>
+/// <param name="MeasuredSeconds">Audio measured since the last reset.</param>
+public sealed record LoudnessStatus(double? MomentaryLufs, double? ShortTermLufs, double? IntegratedLufs, double? TruePeakDbtp, double MeasuredSeconds);
+
+/// <summary>The playing music track.</summary>
+/// <param name="PositionSeconds">Seconds into the track.</param>
+/// <param name="LengthSeconds">Its length, or null when unknown.</param>
+public sealed record MusicStatus(double PositionSeconds, double? LengthSeconds);
+
+/// <summary>The mixing state, from <see cref="AudioService.Describe"/>.</summary>
+/// <param name="SampleRate">Output frames per second.</param>
+/// <param name="Channels">Output channels.</param>
+/// <param name="Output">The output's status (<c>Running</c>, <c>NoDevice</c>, ...).</param>
+/// <param name="Capture">Whether the service records instead of playing.</param>
+/// <param name="MasterVolume">The master volume.</param>
+/// <param name="Muted">Whether everything is muted.</param>
+/// <param name="ActiveVoices">Voices playing now.</param>
+/// <param name="Buses">Every bus.</param>
+/// <param name="Limiter">The master limiter, or null when the service has none.</param>
+/// <param name="Loudness">The output loudness.</param>
+/// <param name="Music">The music track, or null when none plays.</param>
+public sealed record AudioStatus(
+    int SampleRate, int Channels, string Output, bool Capture, float MasterVolume, bool Muted, int ActiveVoices, BusStatus[] Buses, LimiterStatus? Limiter, LoudnessStatus Loudness, MusicStatus? Music);
 
 /// <summary>
 /// The game-facing audio service: load clips, play sounds and music on buses, set volumes, crossfade, and pump events. Everything here is called from
@@ -124,6 +203,7 @@ public sealed record AudioServiceOptions
 /// </summary>
 public sealed class AudioService : IDisposable
 {
+    private static AudioService? s_active;
     private readonly AudioServiceOptions _options;
     private readonly float[] _busVolume;
     private readonly Thread? _pump;
@@ -133,6 +213,8 @@ public sealed class AudioService : IDisposable
     private bool _userPaused;
     private int _stopPump;
     private VoiceId _music;
+    private readonly BusSettings[] _busState;
+    private LimiterOptions? _limiterState;
 
     private AudioService(AudioServiceOptions options, AudioOutput output, IAudioCore core, CaptureAudioBackend? capture)
     {
@@ -141,6 +223,8 @@ public sealed class AudioService : IDisposable
         Core = core;
         _busVolume = new float[options.BusCount];
         Array.Fill(_busVolume, 1f);
+        _busState = new BusSettings[options.BusCount];
+        _limiterState = options.MasterLimiter;
         Capture = capture?.Sink;
         if (!output.Format.Equals(new AudioDeviceFormat(core.SampleRate, core.Channels)))
         {
@@ -154,6 +238,9 @@ public sealed class AudioService : IDisposable
             _pump.Start();
         }
     }
+
+    /// <summary>The most recently created service that is still alive, so the harness can reach a game's audio without the game handing it over. <see langword="null"/> when none.</summary>
+    public static AudioService? Active => Volatile.Read(ref s_active);
 
     /// <summary>Raised from <see cref="Update"/> for each event the audio thread produced.</summary>
     public event Action<AudioEvent>? EventRaised;
@@ -185,11 +272,30 @@ public sealed class AudioService : IDisposable
 
         CaptureAudioBackend? capture = options.Capture ? new CaptureAudioBackend() : null;
         var backend = capture ?? options.Backend ?? DefaultBackend();
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxReverbs, 0);
+        if (options.MasterLimiter is not null)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(options.LimiterLookaheadMilliseconds, 1);
+        }
+
         var output = AudioOutput.Create(backend, options.Device, options.Limiter);
-        var core = (options.CoreFactory ?? new OneAudioCore.Factory(options.MaxClipSeconds)).Create(output.Format.SampleRate, output.Format.Channels, options.MaxVoices, options.BusCount);
+        output.Metering = options.Metering;
+        var settings = new AudioCoreSettings(output.Format.SampleRate, output.Format.Channels, options.MaxVoices, options.BusCount)
+        {
+            MaxReverbs = options.MaxReverbs,
+            LimiterLookaheadMilliseconds = options.MasterLimiter is null ? 0 : options.LimiterLookaheadMilliseconds,
+        };
+        var core = (options.CoreFactory ?? new OneAudioCore.Factory(options.MaxClipSeconds)).Create(settings);
         try
         {
-            return new AudioService(options, output, core, capture);
+            var service = new AudioService(options, output, core, capture);
+            if (options.MasterLimiter is { } limiter)
+            {
+                core.SetLimiter(limiter);
+            }
+
+            Volatile.Write(ref s_active, service);
+            return service;
         }
         catch
         {
@@ -341,6 +447,7 @@ public sealed class AudioService : IDisposable
         ArgumentOutOfRangeException.ThrowIfNegative(bus.Index);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(bus.Index, _busVolume.Length);
         Core.SetBusMute(bus.Index, muted);
+        _busState[bus.Index].Muted = muted;
     }
 
     /// <summary>Turns <paramref name="target"/> down while <paramref name="watched"/> is loud, for example music under speech.</summary>
@@ -360,12 +467,185 @@ public sealed class AudioService : IDisposable
             settings = new DuckingOptions();
         }
 
+        if (!settings.Enabled)
+        {
+            ClearDucking(target);
+            return;
+        }
+
         Core.SetDucking(target.Index, watched.Index, settings);
+        _busState[target.Index].Ducking = new DuckingStatus(watched.Index, settings.ThresholdDb, settings.ReductionDb, settings.AttackMs, settings.ReleaseMs);
     }
 
     /// <summary>Removes the ducking of a bus.</summary>
     /// <param name="target">The bus.</param>
-    public void ClearDucking(AudioBus target) => Core.ClearDucking(target.Index);
+    public void ClearDucking(AudioBus target)
+    {
+        CheckBus(target);
+        Core.ClearDucking(target.Index);
+        _busState[target.Index].Ducking = null;
+    }
+
+    /// <summary>Turns on or retunes a low-pass or high-pass filter (12 dB per octave) on a bus. A low-pass and a high-pass together make a band-pass. Changes glide, so sweeps make no clicks.</summary>
+    /// <param name="bus">The bus.</param>
+    /// <param name="kind">Which filter.</param>
+    /// <param name="cutoffHz">The corner frequency, where the level is 3 dB down with the default <paramref name="q"/>.</param>
+    /// <param name="q">Resonance; 0 (default) is flat. Values above 0.71 add a peak at the corner.</param>
+    /// <param name="glideSeconds">Time to glide to the new setting. Default 0.02.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The bus is out of range, the cutoff is not above 0, or Q is negative.</exception>
+    public void SetBusFilter(AudioBus bus, AudioFilterKind kind, float cutoffHz, float q = 0f, double glideSeconds = 0.02)
+    {
+        CheckBus(bus);
+        CheckFilter(cutoffHz, q);
+        Core.SetBusFilter(bus.Index, kind, cutoffHz, q, Frames(glideSeconds));
+        var f = new FilterStatus(cutoffHz, q);
+        if (kind == AudioFilterKind.LowPass)
+        {
+            _busState[bus.Index].LowPass = f;
+        }
+        else
+        {
+            _busState[bus.Index].HighPass = f;
+        }
+    }
+
+    /// <summary>Turns a bus filter off.</summary>
+    /// <param name="bus">The bus.</param>
+    /// <param name="kind">Which filter.</param>
+    /// <param name="glideSeconds">Time to glide to transparent first. Default 0.02.</param>
+    public void ClearBusFilter(AudioBus bus, AudioFilterKind kind, double glideSeconds = 0.02)
+    {
+        CheckBus(bus);
+        Core.ClearBusFilter(bus.Index, kind, Frames(glideSeconds));
+        if (kind == AudioFilterKind.LowPass)
+        {
+            _busState[bus.Index].LowPass = null;
+        }
+        else
+        {
+            _busState[bus.Index].HighPass = null;
+        }
+    }
+
+    /// <summary>Filters one voice before its volume and pan, for example a muffling low-pass on a sound behind a wall. A stale voice is ignored.</summary>
+    /// <param name="voice">The voice.</param>
+    /// <param name="kind">Which filter.</param>
+    /// <param name="cutoffHz">The corner frequency.</param>
+    /// <param name="q">Resonance; 0 (default) is flat.</param>
+    /// <param name="glideSeconds">Time to glide to the new setting. Default 0.02.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The cutoff is not above 0 or Q is negative.</exception>
+    public void SetVoiceFilter(VoiceId voice, AudioFilterKind kind, float cutoffHz, float q = 0f, double glideSeconds = 0.02)
+    {
+        CheckFilter(cutoffHz, q);
+        Core.SetVoiceFilter(voice, kind, cutoffHz, q, Frames(glideSeconds));
+    }
+
+    /// <summary>Turns a voice filter off.</summary>
+    /// <param name="voice">The voice.</param>
+    /// <param name="kind">Which filter.</param>
+    /// <param name="glideSeconds">Time to glide to transparent first. Default 0.02.</param>
+    public void ClearVoiceFilter(VoiceId voice, AudioFilterKind kind, double glideSeconds = 0.02) => Core.ClearVoiceFilter(voice, kind, Frames(glideSeconds));
+
+    /// <summary>Puts a reverb on a bus, or retunes the one there. The tail keeps ringing after the bus's sounds stop. At most <see cref="AudioServiceOptions.MaxReverbs"/> buses can have one at once.</summary>
+    /// <param name="bus">The bus.</param>
+    /// <param name="options">Room size, decay, damping, pre-delay and the wet/dry mix.</param>
+    /// <param name="glideSeconds">Time changes take. Default 0.05.</param>
+    /// <returns><see langword="false"/> when every reverb is already in use by other buses (see <see cref="AudioServiceOptions.MaxReverbs"/>) or the command queue was full; nothing changed then.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The bus is out of range.</exception>
+    /// <exception cref="ArgumentException">A reverb setting is out of range.</exception>
+    public bool SetBusReverb(AudioBus bus, ReverbOptions options, double glideSeconds = 0.05)
+    {
+        CheckBus(bus);
+        if (options.Equals(default(ReverbOptions)))
+        {
+            options = new ReverbOptions();
+        }
+
+        if (!Core.SetBusReverb(bus.Index, options, Frames(glideSeconds)))
+        {
+            return false;
+        }
+
+        _busState[bus.Index].Reverb = options;
+        return true;
+    }
+
+    /// <summary>Removes a bus's reverb. The tail stops at once; to fade it, lower <see cref="ReverbOptions.Wet"/> first.</summary>
+    /// <param name="bus">The bus.</param>
+    public void ClearBusReverb(AudioBus bus)
+    {
+        CheckBus(bus);
+        Core.ClearBusReverb(bus.Index);
+        _busState[bus.Index].Reverb = null;
+    }
+
+    /// <summary>Retunes the master limiter, or switches it off with <see langword="null"/>. Needs <see cref="AudioServiceOptions.MasterLimiter"/> at creation, which builds the lookahead.</summary>
+    /// <param name="options">Ceiling and release, or null for off.</param>
+    /// <exception cref="InvalidOperationException">The service was created without a master limiter.</exception>
+    public void SetMasterLimiter(LimiterOptions? options)
+    {
+        if (!Core.HasLimiter)
+        {
+            throw new InvalidOperationException("The service was created without a master limiter. Set AudioServiceOptions.MasterLimiter.");
+        }
+
+        Core.SetLimiter(options);
+        _limiterState = options;
+    }
+
+    /// <summary>The loudness at the output after the limiter, as the speakers get it: momentary, short-term, gated integrated (EBU R 128) and true peak. All -infinity until sound has rendered, and always so when <see cref="AudioServiceOptions.Metering"/> is off.</summary>
+    public LoudnessReading Loudness => Output.Loudness;
+
+    /// <summary>Starts the integrated loudness and true peak over, for measuring a scene from its beginning.</summary>
+    public void ResetLoudness() => Output.ResetLoudness();
+
+    /// <summary>Where a streamed track is. Positions are source time, ahead of the speakers by the mixer's and device's buffering.</summary>
+    /// <param name="voice">A voice from <see cref="PlayMusic"/>.</param>
+    /// <returns>The position and length, or <see langword="null"/> when the voice is not a live stream.</returns>
+    public StreamPosition? GetStreamPosition(VoiceId voice) =>
+        Core.TryGetStreamPosition(voice, out var position, out var length) ? new StreamPosition(position, length) : null;
+
+    /// <summary>Describes the mixing state: every bus (volume, mute, filters, reverb, ducking), the master limiter, the loudness and the music track. This is what the harness reports.</summary>
+    /// <returns>A snapshot.</returns>
+    public AudioStatus Describe()
+    {
+        var buses = new BusStatus[_busVolume.Length];
+        for (var i = 0; i < buses.Length; i++)
+        {
+            var b = _busState[i];
+            buses[i] = new BusStatus(i, i switch { 0 => "music", 1 => "sfx", 2 => "ui", _ => null }, _busVolume[i], b.Muted, b.LowPass, b.HighPass, b.Reverb, b.Ducking);
+        }
+
+        var l = Loudness;
+        var limiter = Core.HasLimiter ? new LimiterStatus(_limiterState is not null, _limiterState?.CeilingDb, _limiterState?.ReleaseMilliseconds, Core.LimiterGainReductionDb) : null;
+        var music = GetStreamPosition(_music);
+        return new AudioStatus(
+            Format.SampleRate, Format.Channels, Output.Status.ToString(), Capture is not null, _master, _muted, Core.ActiveVoices, buses, limiter,
+            new LoudnessStatus(Finite(l.MomentaryLufs), Finite(l.ShortTermLufs), Finite(l.IntegratedLufs), Finite(l.TruePeakDbtp), l.Frames / (double)Format.SampleRate),
+            music is { } m ? new MusicStatus(m.PositionSeconds, m.LengthSeconds < 0 ? null : m.LengthSeconds) : null);
+
+        // JSON has no infinity: silence is reported as null.
+        static double? Finite(double v) => double.IsFinite(v) ? v : null;
+    }
+
+    private void CheckBus(AudioBus bus)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(bus.Index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(bus.Index, _busVolume.Length);
+    }
+
+    private static void CheckFilter(float cutoffHz, float q)
+    {
+        if (!(cutoffHz > 0f) || !float.IsFinite(cutoffHz))
+        {
+            throw new ArgumentOutOfRangeException(nameof(cutoffHz), cutoffHz, "The cutoff must be above 0 Hz.");
+        }
+
+        if (!float.IsFinite(q) || q < 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(q), q, "Q must be 0 (flat) or above.");
+        }
+    }
 
     /// <summary>Starts a streamed music track on the music bus. If music is already playing it is replaced, with a crossfade when asked for.</summary>
     /// <param name="data">The encoded file; the stream is owned by the track and closed when it ends.</param>
@@ -449,6 +729,7 @@ public sealed class AudioService : IDisposable
     /// <summary>Stops audio, the pump thread and the device.</summary>
     public void Dispose()
     {
+        Interlocked.CompareExchange(ref s_active, null, this);
         Volatile.Write(ref _stopPump, 1);
         _pump?.Join(TimeSpan.FromSeconds(2));
         Output.Dispose();
@@ -496,6 +777,15 @@ public sealed class AudioService : IDisposable
 
             Thread.Sleep(5);
         }
+    }
+
+    private struct BusSettings
+    {
+        public bool Muted;
+        public FilterStatus? LowPass;
+        public FilterStatus? HighPass;
+        public ReverbOptions? Reverb;
+        public DuckingStatus? Ducking;
     }
 
     private sealed class NoDeviceBackend : IAudioBackend
