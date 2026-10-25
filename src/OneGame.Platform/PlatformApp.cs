@@ -195,6 +195,11 @@ internal static class PlatformBackendFactory
 {
     public static PlatformBackendKind Detect()
     {
+        if (OperatingSystem.IsBrowser())
+        {
+            return PlatformBackendKind.Browser;
+        }
+
         if (OperatingSystem.IsWindows())
         {
             return PlatformBackendKind.Win32;
@@ -223,6 +228,7 @@ internal static class PlatformBackendFactory
         PlatformBackendKind.X11 when OperatingSystem.IsLinux() => new X11Backend(app),
         PlatformBackendKind.Wayland when OperatingSystem.IsLinux() => new WaylandBackend(app),
         PlatformBackendKind.Win32 when OperatingSystem.IsWindows() => new Win32Backend(app),
+        PlatformBackendKind.Browser when OperatingSystem.IsBrowser() => new BrowserBackend(app),
         _ => throw new PlatformException($"The {kind} backend is not available on this operating system."),
     };
 }

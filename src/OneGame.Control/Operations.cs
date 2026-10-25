@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using System.Text.Json.Serialization;
 
 namespace OneGame.Control;
@@ -42,6 +43,9 @@ public interface IControlEndpoint
     /// <summary>Runs an operation; <paramref name="argsJson"/> is a JSON object or null.</summary>
     /// <exception cref="ControlException">The operation is unknown, its arguments are wrong, or it failed.</exception>
     ControlResult Invoke(string op, string? argsJson = null);
+
+    /// <summary>Runs an operation; operations that wait for the graphics device finish here without blocking the caller.</summary>
+    ValueTask<ControlResult> InvokeAsync(string op, string? argsJson = null) => ValueTask.FromResult(Invoke(op, argsJson));
 }
 
 /// <summary>What an operation returns: a JSON text and, for captures, the PNG bytes.</summary>

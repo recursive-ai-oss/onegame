@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using System.Security.Cryptography;
 using OneGame.Audio;
 using OneGame.Core;
@@ -43,7 +44,14 @@ public sealed partial class ControlSurface : IControlEndpoint
 
     /// <summary>Runs an operation. <paramref name="argsJson"/> is a JSON object (or null for none).</summary>
     /// <exception cref="ControlException">The operation is unknown, its arguments are wrong, or it failed.</exception>
-    public ControlResult Invoke(string op, string? argsJson = null)
+    public ControlResult Invoke(string op, string? argsJson = null) => InvokeAsync(op, argsJson).AsTask().GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Runs an operation like <see cref="Invoke"/>. Operations that read pixels back from the graphics device can take a while on a
+    /// platform that cannot block (a browser page), so they finish here; everything else completes before this returns.
+    /// </summary>
+    /// <exception cref="ControlException">The operation is unknown, its arguments are wrong, or it failed.</exception>
+    public async ValueTask<ControlResult> InvokeAsync(string op, string? argsJson = null)
     {
         ArgumentNullException.ThrowIfNull(op);
         JsonDocument doc;
@@ -66,7 +74,7 @@ public sealed partial class ControlSurface : IControlEndpoint
             var a = new Args(doc.RootElement);
             try
             {
-                return Dispatch(op, a);
+                return await DispatchAsync(op, a);
             }
             catch (KeyNotFoundException ex)
             {
@@ -113,8 +121,8 @@ public sealed partial class ControlSurface : IControlEndpoint
         "theme_lint" => Json(ThemeLintCheck(), ControlJson.Default.ThemeLintReport),
         "audio" => Json(AudioReport(a), ControlJson.Default.AudioStatus),
         "audio_capture" => Json(AudioCapture(a), ControlJson.Default.AudioCaptureResult),
-        "capture_frame" => CaptureFrame(a),
-        "capture_sequence" => Json(CaptureSequence(a), ControlJson.Default.SequenceResult),
+        "capture_frame" => CaptureFrameAsync(a).AsTask().GetAwaiter().GetResult(),
+        "capture_sequence" => Json(CaptureSequenceAsync(a).AsTask().GetAwaiter().GetResult(), ControlJson.Default.SequenceResult),
         "quality" => Json(Quality(a), ControlJson.Default.QualityResult),
         "camera" or "pick" or "project" => Dispatch3D(op, a),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", ControlOps.All.Select(o => o.Name))}."),
@@ -851,7 +859,14 @@ public sealed partial class ControlSurface : IControlEndpoint
         return new ShadersResult(Reloader.Status(), [.. changed]);
     }
 
-    private ControlResult CaptureFrame(Args a)
+    private async ValueTask<ControlResult> DispatchAsync(string op, Args a) => op switch
+    {
+        "capture_frame" => await CaptureFrameAsync(a),
+        "capture_sequence" => Json(await CaptureSequenceAsync(a), ControlJson.Default.SequenceResult),
+        _ => Dispatch(op, a),
+    };
+
+    private async ValueTask<ControlResult> CaptureFrameAsync(Args a)
     {
         // An edit made just before the capture shows in it.
         Reloader.Check();
@@ -860,13 +875,13 @@ public sealed partial class ControlSurface : IControlEndpoint
         float scale;
         if (a.Bool("presented", false))
         {
-            frame = Game.CapturePresented() ?? throw new ControlException("rejected", "There is no presented frame: the game is headless or has no graphics device. Capture without 'presented' to render offscreen.");
+            frame = await Game.CapturePresentedAsync() ?? throw new ControlException("rejected", "There is no presented frame: the game is headless or has no graphics device. Capture without 'presented' to render offscreen.");
             (w, h, scale) = (frame.Width, frame.Height, Game.UiScale);
         }
         else
         {
             (w, h, scale) = CaptureSize(a);
-            frame = Game.Capture(w, h, scale);
+            frame = await Game.CaptureAsync(w, h, scale);
         }
 
         var png = Png.Encode(frame);
@@ -883,7 +898,7 @@ public sealed partial class ControlSurface : IControlEndpoint
             png);
     }
 
-    private SequenceResult CaptureSequence(Args a)
+    private async ValueTask<SequenceResult> CaptureSequenceAsync(Args a)
     {
         var (w, h, scale) = CaptureSize(a);
         var count = a.Int("count", 1);
@@ -905,7 +920,7 @@ public sealed partial class ControlSurface : IControlEndpoint
                 Game.Step(every);
             }
 
-            var frame = Game.Capture(w, h, scale);
+            var frame = await Game.CaptureAsync(w, h, scale);
             renderer = frame.Renderer;
             var png = Png.Encode(frame);
             var file = "frame-" + i.ToString("D4", CultureInfo.InvariantCulture) + ".png";

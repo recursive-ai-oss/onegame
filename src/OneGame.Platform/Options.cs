@@ -17,6 +17,9 @@ public enum PlatformBackendKind : byte
 
     /// <summary>Win32.</summary>
     Win32,
+
+    /// <summary>A web page: the window is a canvas element and the platform is the browser.</summary>
+    Browser,
 }
 
 /// <summary>The kind of native window system handles in a <see cref="NativeWindowHandle"/>.</summary>
@@ -33,6 +36,9 @@ public enum NativeWindowKind : byte
 
     /// <summary>Win32: <see cref="NativeWindowHandle.Display"/> is the HINSTANCE, <see cref="NativeWindowHandle.Window"/> the HWND.</summary>
     Win32,
+
+    /// <summary>A canvas element of a web page; the swapchain finds it by id.</summary>
+    Browser,
 }
 
 /// <summary>The raw handles a graphics API needs to create a presentable surface for a window.</summary>
