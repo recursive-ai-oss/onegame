@@ -25,17 +25,20 @@ public sealed class AudioSounds : ISoundSink, IDisposable
     }
 
     /// <summary>Opens the audio service. Returns null when it cannot be started, and the game then makes no sound.</summary>
-    public static AudioSounds? TryCreate()
+    public static AudioSounds? TryCreate(AudioServiceOptions? options = null)
     {
         try
         {
-            return new AudioSounds(AudioService.Create());
+            return new AudioSounds(AudioService.Create(options));
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or NotSupportedException or InvalidDataException or DllNotFoundException)
         {
             return null;
         }
     }
+
+    /// <summary>The service the sounds play through.</summary>
+    internal AudioService Service => _audio;
 
     /// <inheritdoc />
     public void Play(SoundEvent sound, float volume)
