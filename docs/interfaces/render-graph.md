@@ -67,6 +67,10 @@ Resources with the same `slot` share memory. `transientBytes` against `unaliased
 - Shadow cascades, SSAO, bloom chains: create transients per frame; the graph shares memory between those whose lifetimes do not overlap and keeps the rest pooled.
 - Mip chains and cascades inside one texture: render each mip or layer in its own pass with `mip`/`layer`; do not sample the texture you render into in the same pass.
 
+## Backends
+
+The graph is backend-neutral. On Metal every pass is its own encoder and hazards between passes are tracked by Metal, so the graph's dependency order is all that matters; pass timing is unavailable there until timestamps land (`GpuCapabilities.Timestamps`).
+
 ## Not built yet
 
 Reordering passes for overlap or memory (only declaration order), async compute, per-subresource state tracking, cross-frame (history) resources other than imports, heap-level aliasing of different shapes.
