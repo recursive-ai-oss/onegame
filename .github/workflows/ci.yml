@@ -57,11 +57,19 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang zlib1g-dev mesa-vulkan-drivers libvulkan1 vulkan-validationlayers \
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev mesa-vulkan-drivers libvulkan1 \
             xvfb xauth weston libxkbcommon0 libasound2t64
           icd=$(find /usr/share/vulkan/icd.d -name "lvp_icd*.json" | head -1)
           echo "VK_ICD_FILENAMES=$icd" >> "$GITHUB_ENV"
           echo "lavapipe: $icd"
+          # The distro's validation layer is older than the one the tests were written against and reports synchronization
+          # hazards in swapchain presentation that newer releases do not. Use a pinned newer build, checked by SHA-256.
+          deb=vulkan-validationlayers_1.4.341.0-1_amd64.deb
+          curl -fsSL -o "$RUNNER_TEMP/$deb" "http://archive.ubuntu.com/ubuntu/pool/universe/v/vulkan-validationlayers/$deb"
+          echo "2c17a34dd97c72ce819f4c8684fa5fea5a8ef1c689d6a8700f40fcf49d898df3  $RUNNER_TEMP/$deb" | sha256sum -c -
+          dpkg-deb -x "$RUNNER_TEMP/$deb" "$RUNNER_TEMP/vvl"
+          echo "VK_ADD_LAYER_PATH=$RUNNER_TEMP/vvl/usr/share/vulkan/explicit_layer.d" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$RUNNER_TEMP/vvl/usr/lib/x86_64-linux-gnu" >> "$GITHUB_ENV"
 
       # A hosted Windows machine has no GPU driver, so no Vulkan loader and no device: add the loader and a CPU driver.
       - name: Windows Vulkan loader and lavapipe
@@ -72,12 +80,6 @@ jobs:
       # Debug is the configuration with the development tools (live control, scenarios) that the tests and clusters use.
       - name: Build (warnings are errors)
         run: dotnet build OneGame.slnx
-
-      - name: Why did the build fail? (generator inputs of one project)
-        if: ${{ failure() && runner.os == 'Windows' }}
-        continue-on-error: true
-        run: |
-          dotnet build src/OneGame.Sync -v:d -nologo 2>&1 | grep -iE 'OneGame.Generators.dll|EscrowDesk|CS8785|analyzer' | cut -c1-300 | head -40
 
       - name: Test
         run: bash tools/ci/run-tests.sh Debug

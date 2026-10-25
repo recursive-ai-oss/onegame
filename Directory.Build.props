@@ -1,5 +1,11 @@
 <Project>
 
+  <!-- The folders whose projects ship. Normalised like the project directory is, so the comparison holds with Windows separators too. -->
+  <PropertyGroup Label="Roots">
+    <_SrcRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'src'))</_SrcRoot>
+    <_SamplesRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'samples'))</_SamplesRoot>
+  </PropertyGroup>
+
   <PropertyGroup Label="Name">
     <!-- NuGet package IDs are this prefix plus the project name without its "OneGame" part. This is the only place the prefix is written. -->
     <PackagePrefix>RecursiveAI.OneGame</PackagePrefix>
@@ -52,7 +58,7 @@
   </PropertyGroup>
 
   <!-- Only the engine libraries under src/ are packages. The sample games and the tools are built, not published to nuget.org. -->
-  <PropertyGroup Condition="!$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)').StartsWith('$(MSBuildThisFileDirectory)src/'))">
+  <PropertyGroup Condition="!$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)').StartsWith('$(_SrcRoot)'))">
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup Condition="'$(IsPackable)' != 'false'">
@@ -68,7 +74,7 @@
 
   <PropertyGroup Label="Shipping code">
     <_ProjectDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))</_ProjectDir>
-    <OneGameShips Condition="'$(OneGameShips)' == '' and ($(_ProjectDir.StartsWith('$(MSBuildThisFileDirectory)src/')) or $(_ProjectDir.StartsWith('$(MSBuildThisFileDirectory)samples/')))">true</OneGameShips>
+    <OneGameShips Condition="'$(OneGameShips)' == '' and ($(_ProjectDir.StartsWith('$(_SrcRoot)')) or $(_ProjectDir.StartsWith('$(_SamplesRoot)')))">true</OneGameShips>
   </PropertyGroup>
   <PropertyGroup Condition="'$(OneGameShips)' == 'true'">
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
