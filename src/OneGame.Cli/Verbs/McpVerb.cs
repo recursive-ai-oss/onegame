@@ -198,13 +198,14 @@ internal sealed class McpVerb : IVerb
 
     private static Socket Connect(string path)
     {
-        var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+        var tcp = path.StartsWith("tcp:", StringComparison.Ordinal);
+        var socket = new Socket(tcp ? AddressFamily.InterNetwork : AddressFamily.Unix, SocketType.Stream, tcp ? ProtocolType.Tcp : ProtocolType.Unspecified);
         try
         {
-            socket.Connect(new UnixDomainSocketEndPoint(path));
+            socket.Connect(tcp ? OneGame.Testing.LiveClient.TcpEndPoint(path) : new UnixDomainSocketEndPoint(path));
             return socket;
         }
-        catch (SocketException ex)
+        catch (Exception ex) when (ex is SocketException or FormatException)
         {
             socket.Dispose();
             throw new CliException(ExitCodes.RuntimeError, "connect_failed", $"Cannot connect to {path}: {ex.Message}");

@@ -222,7 +222,11 @@ internal static class Templates
         using {{id}};
         using OneGame.Host;
 
-        return GameApp.Run(new {{cls}}Game(), args);
+        // A named class rather than top-level statements, so the Android entry point (onegame export --target android) can call Main.
+        internal static class Program
+        {
+            internal static int Main(string[] args) => GameApp.Run(new {{cls}}Game(), args);
+        }
 
         """;
 

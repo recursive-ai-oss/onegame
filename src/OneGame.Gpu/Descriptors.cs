@@ -403,6 +403,9 @@ public readonly record struct SurfaceSource
     /// <summary>A Wayland surface.</summary>
     public static SurfaceSource Wayland(nint display, nint surface) => new() { Kind = SurfaceKind.Wayland, Display = display, Window = surface };
 
+    /// <summary>An Android window (an <c>ANativeWindow*</c>). The window must outlive the swapchain: dispose the swapchain when the platform reports the surface lost.</summary>
+    public static SurfaceSource Android(nint nativeWindow) => new() { Kind = SurfaceKind.Android, Window = nativeWindow };
+
     /// <summary>A Win32 window.</summary>
     public static SurfaceSource Win32(nint hinstance, nint hwnd) => new() { Kind = SurfaceKind.Win32, Display = hinstance, Window = hwnd };
 }

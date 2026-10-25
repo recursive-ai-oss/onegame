@@ -203,7 +203,54 @@ public enum PlatformEventKind : byte
 
     /// <summary>A gamepad axis changed.</summary>
     GamepadAxisMoved,
+
+    /// <summary>A finger touched the window. <see cref="PlatformEvent.TouchId"/> names the finger until it lifts; <see cref="PlatformEvent.X"/>/<see cref="PlatformEvent.Y"/> are in window pixels.</summary>
+    TouchDown,
+
+    /// <summary>A finger that is down moved.</summary>
+    TouchMove,
+
+    /// <summary>A finger lifted.</summary>
+    TouchUp,
+
+    /// <summary>The system took a finger away (a gesture of its own, or the window lost the surface). Treat it as a lift that must not activate anything.</summary>
+    TouchCancel,
+
+    /// <summary>The app moved between foreground and background, or the system is short of memory; see <see cref="PlatformEvent.Lifecycle"/>.</summary>
+    AppLifecycle,
+
+    /// <summary>The area of the window that is free of cut-outs and system bars changed; see <see cref="PlatformEvent.Insets"/>.</summary>
+    SafeAreaChanged,
+
+    /// <summary>The window's drawing surface is gone (the app went to the background, or the system is rebuilding the window). Release every swapchain made on it before the next frame.</summary>
+    SurfaceLost,
+
+    /// <summary>The window has a drawing surface again; <see cref="Window.NativeHandle"/> names the new one. Make a new swapchain.</summary>
+    SurfaceCreated,
+
+    /// <summary>The user pressed the system's back gesture or button. If the game leaves it unhandled it should ask to quit.</summary>
+    BackRequested,
 }
+
+/// <summary>What <see cref="PlatformEventKind.AppLifecycle"/> reports.</summary>
+public enum AppLifecycleState : byte
+{
+    /// <summary>The app is in the foreground and interactive.</summary>
+    Resumed,
+
+    /// <summary>The app left the foreground. Stop simulating and playing sound; state stays in memory.</summary>
+    Paused,
+
+    /// <summary>The system wants memory back: drop caches that can be rebuilt.</summary>
+    LowMemory,
+}
+
+/// <summary>Distances in pixels from each edge of a window.</summary>
+/// <param name="Left">From the left edge.</param>
+/// <param name="Top">From the top edge.</param>
+/// <param name="Right">From the right edge.</param>
+/// <param name="Bottom">From the bottom edge.</param>
+public readonly record struct EdgeInsets(int Left, int Top, int Right, int Bottom);
 
 /// <summary>
 /// One input or lifecycle event. Every source (OS, gamepad devices, synthetic injection) produces the same shape, and only the fields
@@ -273,4 +320,16 @@ public readonly record struct PlatformEvent
 
     /// <summary>The new axis value for <see cref="PlatformEventKind.GamepadAxisMoved"/>.</summary>
     public float Value { get; init; }
+
+    /// <summary>The finger for touch events. Ids are small integers that are reused once a finger lifts.</summary>
+    public int TouchId { get; init; }
+
+    /// <summary>How hard the finger presses, 0 to 1, for touch events; 1 where the screen cannot tell.</summary>
+    public float Pressure { get; init; }
+
+    /// <summary>What happened for <see cref="PlatformEventKind.AppLifecycle"/>.</summary>
+    public AppLifecycleState Lifecycle { get; init; }
+
+    /// <summary>The safe area for <see cref="PlatformEventKind.SafeAreaChanged"/>: how far content must stay from each edge.</summary>
+    public EdgeInsets Insets { get; init; }
 }

@@ -18,7 +18,7 @@ internal sealed unsafe class VulkanInstance
     public ValidationSink? Sink;
     public GCHandle SinkHandle;
     public VkDebugUtilsMessengerEXT Messenger;
-    public bool SurfaceKhr, XlibKhr, WaylandKhr, Win32Khr;
+    public bool SurfaceKhr, XlibKhr, WaylandKhr, Win32Khr, AndroidKhr;
     public readonly List<AdapterEntry> Adapters = [];
     int _refs = 1;
 
@@ -162,6 +162,12 @@ internal sealed unsafe class VulkanInstance
             {
                 Want("VK_KHR_win32_surface");
                 Win32Khr = true;
+            }
+
+            if (available.Contains("VK_KHR_android_surface"))
+            {
+                Want("VK_KHR_android_surface");
+                AndroidKhr = true;
             }
         }
 

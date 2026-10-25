@@ -57,7 +57,7 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
     float _maxAnisotropy;
     internal bool HasSwapchainExtension;
     internal uint QueueFamily;
-    internal bool SurfaceKhr, XlibKhr, WaylandKhr, Win32Khr;
+    internal bool SurfaceKhr, XlibKhr, WaylandKhr, Win32Khr, AndroidKhr;
 
     ulong _serial;
     readonly List<(ulong Serial, IRetirable Item)> _retired = [];
@@ -125,6 +125,7 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
         XlibKhr = inst.XlibKhr;
         WaylandKhr = inst.WaylandKhr;
         Win32Khr = inst.Win32Khr;
+        AndroidKhr = inst.AndroidKhr;
     }
 
     void CreateLogicalDevice(VulkanInstance.AdapterEntry info)

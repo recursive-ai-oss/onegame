@@ -127,6 +127,16 @@ public abstract class GpuDevice : IDisposable
     };
 }
 
+/// <summary>The window's drawing surface is gone, as when an app is sent to the background or the system rebuilds its window. Dispose the swapchain; make a new one once the window has a surface again.</summary>
+public sealed class GpuSurfaceLostException : GpuException
+{
+    /// <summary>Creates the exception.</summary>
+    public GpuSurfaceLostException()
+        : base("the window surface was lost")
+    {
+    }
+}
+
 /// <summary>An error from the graphics layer.</summary>
 public class GpuException : Exception
 {

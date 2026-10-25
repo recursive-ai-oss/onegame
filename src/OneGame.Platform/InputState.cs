@@ -50,6 +50,7 @@ public sealed class InputState
     private readonly bool[] _keys = new bool[(int)Key.KeypadEnter + 1];
     private readonly bool[] _buttons = new bool[5];
     private readonly Dictionary<int, GamepadState> _gamepads = [];
+    private readonly Dictionary<int, (float X, float Y)> _touches = [];
 
     internal InputState()
     {
@@ -97,6 +98,22 @@ public sealed class InputState
         }
     }
 
+    /// <summary>How many fingers are on the screen.</summary>
+    public int TouchCount => _touches.Count;
+
+    /// <summary>Where a finger is, in window pixels. False when that finger is not down.</summary>
+    public bool TryGetTouch(int touchId, out float x, out float y)
+    {
+        if (_touches.TryGetValue(touchId, out var p))
+        {
+            (x, y) = p;
+            return true;
+        }
+
+        x = y = 0;
+        return false;
+    }
+
     /// <summary>The state of a connected gamepad, or null when the id is unknown.</summary>
     public GamepadState? GetGamepad(int id) => _gamepads.GetValueOrDefault(id);
 
@@ -135,6 +152,18 @@ public sealed class InputState
                 // Key-up events never arrive for a window that lost focus, so release everything to avoid stuck keys.
                 Array.Clear(_keys);
                 Array.Clear(_buttons);
+                break;
+            case PlatformEventKind.TouchDown:
+            case PlatformEventKind.TouchMove:
+                _touches[e.TouchId] = (e.X, e.Y);
+                break;
+            case PlatformEventKind.TouchUp:
+            case PlatformEventKind.TouchCancel:
+                _touches.Remove(e.TouchId);
+                break;
+            case PlatformEventKind.SurfaceLost:
+                // Fingers that were down when the window went away never report a lift.
+                _touches.Clear();
                 break;
             case PlatformEventKind.GamepadButtonDown:
             case PlatformEventKind.GamepadButtonUp:

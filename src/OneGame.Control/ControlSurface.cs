@@ -116,6 +116,9 @@ public sealed partial class ControlSurface : IControlEndpoint
         "capture_frame" => CaptureFrame(a),
         "capture_sequence" => Json(CaptureSequence(a), ControlJson.Default.SequenceResult),
         "camera" or "pick" or "project" => Dispatch3D(op, a),
+        "input_touch" => Json(InputTouch(a), ControlJson.Default.InputResult),
+        "ui_tap" => Json(UiTap(a), ControlJson.Default.InputResult),
+        "app_lifecycle" => Json(AppLifecycle(a), ControlJson.Default.InputResult),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", ControlOps.All.Select(o => o.Name))}."),
     };
 

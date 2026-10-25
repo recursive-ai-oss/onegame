@@ -213,6 +213,15 @@ public sealed class ScenarioRunner
             case StepKind.ClickAt:
                 _surface.Call("input_pointer", Obj(("action", "click"), ("x", s.X), ("y", s.Y)));
                 break;
+            case StepKind.Tap:
+                _surface.Call("ui_tap", s.Id is not null ? Obj(("id", s.Id)) : Obj(("selector", s.Selector)));
+                break;
+            case StepKind.TapAt:
+                _surface.Call("input_touch", Obj(("action", "tap"), ("x", s.X), ("y", s.Y)));
+                break;
+            case StepKind.Touch:
+                _surface.Call("input_touch", Obj(("action", s.Text), ("id", s.Finger), ("x", s.X), ("y", s.Y)));
+                break;
             case StepKind.Invoke:
                 _surface.Call("ui_invoke", s.Id is not null ? Obj(("id", s.Id)) : Obj(("selector", s.Selector)));
                 break;

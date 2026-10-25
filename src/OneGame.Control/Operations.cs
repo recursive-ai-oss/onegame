@@ -243,6 +243,7 @@ public static partial class ControlOps
             "For a game whose audio runs on the capture sink (no device): render 'seconds' of audio (default 1) and report the frames, peak and loudness. With 'path' the whole recording is written as a WAV under the output folder, with its SHA-256. clear=true empties the recording first; reset=true restarts the loudness measurement. Fails with 'rejected' when audio plays on a device.",
             """{"type":"object","properties":{"seconds":{"type":"number","minimum":0,"maximum":600},"path":{"type":"string"},"clear":{"type":"boolean"},"reset":{"type":"boolean"}}}""", true),
         ..Scene3DOps,
+        ..TouchOps,
         new("quit", "Ask the game to exit.", NoArgs, false),
     ];
 }
