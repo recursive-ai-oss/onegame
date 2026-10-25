@@ -20,7 +20,7 @@ public sealed partial class AudioService
     private readonly object _eventLock = new();
     private long _eventSequence;
 
-    /// <summary>Tells the log which game frame it is, so a test can ask for sounds played within a window of frames. The control layer sets it to the running game's frame counter the first time it reads the log; a game never needs to. Sounds played before that are stamped -1.</summary>
+    /// <summary>Tells the log which game frame it is, so a test can ask for sounds played within a window of frames. The control layer binds it to the game's frame counter when the game's control surface is created or given the service (<c>ControlSurface.Audio</c>); a game never needs to. Sounds played while no clock is bound are stamped -1.</summary>
     public Func<long>? FrameClock { get; set; }
 
     /// <summary>The sounds played so far, oldest first, up to the last 4096. Works with every backend, with or without a device, so tests can check what a game played without listening.</summary>

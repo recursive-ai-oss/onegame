@@ -23,6 +23,11 @@ public sealed partial class ControlSurface : IControlEndpoint
     {
         Game = game ?? throw new ArgumentNullException(nameof(game));
         OutputDirectory = Path.GetFullPath(outputDirectory ?? Directory.GetCurrentDirectory());
+        // Stamp plays from the first one on, not from the first read of the log. A service named later through Audio takes over the clock.
+        if (AudioService.Active is { FrameClock: null } newest)
+        {
+            newest.FrameClock = () => Game.Frame;
+        }
     }
 
     /// <inheritdoc />
@@ -895,21 +900,25 @@ public sealed partial class ControlSurface : IControlEndpoint
     private ShaderReloader Reloader => _reloader ??= new ShaderReloader(Game.HotShaders);
 
     /// <summary>The game's audio, for the <c>audio</c> operations. Defaults to the most recently created <see cref="AudioService"/>, so a game needs to do nothing; set it to point at another.</summary>
-    public AudioService? Audio { get; set; }
+    public AudioService? Audio
+    {
+        get;
+        set
+        {
+            field = value;
+            if (value is not null)
+            {
+                // Bound now, so every later play carries this game's frame whatever other services exist.
+                value.FrameClock = () => Game.Frame;
+            }
+        }
+    }
 
     private AudioService AudioOrThrow()
     {
         var audio = Audio ?? AudioService.Active ?? throw new ControlException("no_audio", "This game has no audio service running.");
-        // The play log stamps each sound with the frame it was asked for in, so scenarios can ask for a window of frames. A service named by
-        // this surface follows this game; the process-wide newest service follows whichever game asked first (there is one game per process).
-        if (Audio is not null)
-        {
-            audio.FrameClock = () => Game.Frame;
-        }
-        else
-        {
-            audio.FrameClock ??= () => Game.Frame;
-        }
+        // The process-wide newest service (a game that never set Audio) follows this game if nothing bound it yet.
+        audio.FrameClock ??= () => Game.Frame;
 
         return audio;
     }
