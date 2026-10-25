@@ -54,6 +54,18 @@ public sealed record InfoResult(
     string Game, long Tick, long Frame, string Hash, int Width, int Height, float Scale, bool Headless, string? Screen,
     int Entities, string[] Screens, string[] Fixtures, string Stage, string? Adapter, int Drift, string Backend, long Presented);
 
+/// <summary>Result of <c>net_wait</c>: whether the tick was reached before the timeout, and where the replica is.</summary>
+/// <param name="Reached">True when the replica reached the tick.</param>
+/// <param name="Tick">The replica's tick now.</param>
+/// <param name="Hash">Its state hash now.</param>
+public sealed record NetWaitResult(bool Reached, long Tick, string Hash);
+
+/// <summary>Result of <c>net_diverge</c>: which entity was corrupted in the local replica.</summary>
+/// <param name="Entity">The entity, as <c>Type#id</c>.</param>
+/// <param name="Tick">The replica's tick.</param>
+/// <param name="Hash">The replica's hash after the change.</param>
+public sealed record NetDivergeResult(string Entity, long Tick, string Hash);
+
 /// <summary>Result of <c>clipboard_get</c> and <c>clipboard_set</c>. <c>Text</c> is null when the clipboard holds no text.</summary>
 public sealed record ClipboardResult(string? Text, bool Ok);
 
@@ -110,6 +122,9 @@ public sealed record SnapshotResult(string? Path, int Bytes, string? Base64, str
 [JsonSerializable(typeof(SequenceManifest))]
 [JsonSerializable(typeof(SequenceResult))]
 [JsonSerializable(typeof(SnapshotResult))]
+[JsonSerializable(typeof(OneGame.Host.NetStatus))]
+[JsonSerializable(typeof(NetWaitResult))]
+[JsonSerializable(typeof(NetDivergeResult))]
 public sealed partial class ControlJson : JsonSerializerContext
 {
 }
@@ -135,6 +150,11 @@ public static class ControlOps
         new("command_send",
             "Send a command to an entity as a player would. It is queued and runs on the next tick (use step). 'args' are the parameters as strings, in order.",
             """{"type":"object","properties":{"entity":{"type":"string"},"command":{"type":"string"},"args":{"type":"array","items":{"type":"string"}}},"required":["entity","command"]}""", true),
+        new("net_status", "The connection of a game started with --connect: transport state, the replica's state, tick and hash, resyncs, drift count, and round-trip time, loss and retransmits. Fails with 'not_connected' for a game that runs its own world.", NoArgs, false),
+        new("net_wait", "Pump the connection until the replica reaches 'tick' (a server tick number), or for 'timeoutMs' (default 10000, at most 120000). Returns whether it got there, and the tick and hash.",
+            """{"type":"object","properties":{"tick":{"type":"integer","minimum":0},"timeoutMs":{"type":"integer","minimum":0,"maximum":120000}},"required":["tick"]}""", false),
+        new("net_diverge", "Test hook: corrupt a replica entity locally (flip a bit of its serialized state) so that drift detection can be exercised. 'entity' defaults to the first entity. The replica reports drift at the server's next hash check.",
+            """{"type":"object","properties":{"entity":{"type":"string"}}}""", true),
         new("input_pointer",
             "Inject pointer input through the platform event queue. action: move, down, up, click, wheel. Positions are window pixels.",
             """{"type":"object","properties":{"action":{"type":"string","enum":["move","down","up","click","wheel"]},"x":{"type":"number"},"y":{"type":"number"},"button":{"type":"string","enum":["left","right","middle"]},"dx":{"type":"number"},"dy":{"type":"number"}},"required":["action"]}""", true),

@@ -1,0 +1,20 @@
+name: three-process
+description: A client commands the server it is connected to; the master, a separate process, is unaffected.
+steps:
+  - command: { entity: Arena, name: Hit, args: ["2", "p1"] }
+    node: p1
+  - command: { entity: Fighter#1, name: AddScore, args: ["5"] }
+    node: p1
+  - wait: { node: p1, tick: 30 }
+  - expect:
+      state: { entity: Arena, property: Hits, equals: 2, within: 5000 }
+      node: srv
+expect:
+  - state: { entity: Fighter#1, property: Score, equals: 5, within: 5000 }
+    node: srv
+  - state: { entity: Arena, property: Hits, equals: 2, within: 5000 }
+    node: p1
+  - agree: { server: srv, clients: [p1] }
+  - drift: { nodes: [p1] }
+  - state: { entity: Arena, property: Hits, equals: 0 }
+    node: master

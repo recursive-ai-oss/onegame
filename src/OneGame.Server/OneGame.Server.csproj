@@ -7,6 +7,7 @@
   <ItemGroup>
     <ProjectReference Include="../OneGame.Core/OneGame.Core.csproj" />
     <ProjectReference Include="../OneGame.Sync/OneGame.Sync.csproj" />
+    <ProjectReference Include="../OneGame.Net/OneGame.Net.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -12,7 +12,8 @@ namespace OneGame.Testing;
 /// <param name="Line">Line in the scenario file.</param>
 /// <param name="Ok">False when the step failed; the scenario stops there.</param>
 /// <param name="Error">What went wrong, with the control error code.</param>
-public sealed record StepResult(int Index, string Kind, int Line, bool Ok, string? Error);
+/// <param name="Node">The cluster node the step was aimed at, or null.</param>
+public sealed record StepResult(int Index, string Kind, int Line, bool Ok, string? Error, string? Node = null);
 
 /// <summary>Outcome of one expectation. On failure <see cref="Expected"/> and <see cref="Actual"/> are the diff.</summary>
 /// <param name="Index">Position among the final expectations, or the step index for inline ones.</param>
@@ -23,7 +24,8 @@ public sealed record StepResult(int Index, string Kind, int Line, bool Ok, strin
 /// <param name="Expected">What the scenario said.</param>
 /// <param name="Actual">What the game had.</param>
 /// <param name="Message">A sentence on a failure, or a note on a pass.</param>
-public sealed record ExpectationResult(int Index, string Kind, int Line, bool Passed, string? Target, string? Expected, string? Actual, string? Message);
+/// <param name="Node">The cluster node the expectation looked at, or null.</param>
+public sealed record ExpectationResult(int Index, string Kind, int Line, bool Passed, string? Target, string? Expected, string? Actual, string? Message, string? Node = null);
 
 /// <summary>Outcome of a scenario.</summary>
 /// <param name="Name">The scenario's name.</param>
@@ -165,7 +167,7 @@ public sealed class ScenarioRunner
         _surface.Call("snapshot_load", Obj(("base64", Convert.ToBase64String(File.ReadAllBytes(full)))));
     }
 
-    private static string Obj(params (string Key, object? Value)[] fields)
+    internal static string Obj(params (string Key, object? Value)[] fields)
     {
         var sb = new StringBuilder("{");
         for (var i = 0; i < fields.Length; i++)
@@ -198,6 +200,11 @@ public sealed class ScenarioRunner
 
     private void Execute(ScenarioStep s, int index, Context ctx, Scenario scenario, List<ExpectationResult> inline)
     {
+        if (s.Node is not null || s.Kind == StepKind.Wait)
+        {
+            throw new ControlException("bad_args", $"Line {s.Line}: this step is aimed at a cluster node ('{s.Node}'). Run it against a process cluster (onegame cluster test), not a single game.");
+        }
+
         switch (s.Kind)
         {
             case StepKind.Click:
@@ -269,6 +276,11 @@ public sealed class ScenarioRunner
     {
         try
         {
+            if (e.Node is not null || e.WithinMs > 0 || e.Kind is ExpectKind.Agree or ExpectKind.Drift)
+            {
+                throw new ControlException("bad_args", $"Line {e.Line}: this expectation looks at a cluster ('{e.Node ?? e.Kind.ToString().ToLowerInvariant()}'). Run it against a process cluster (onegame cluster test), not a single game.");
+            }
+
             return e.Kind switch
             {
                 ExpectKind.State => CheckState(e, index),
@@ -285,7 +297,7 @@ public sealed class ScenarioRunner
         }
     }
 
-    private static ExpectationResult Compare(ScenarioExpectation e, int index, string kind, string target, string actual, string expected)
+    internal static ExpectationResult Compare(ScenarioExpectation e, int index, string kind, string target, string actual, string expected)
     {
         var ok = SameValue(actual, expected);
         return new ExpectationResult(index, kind, e.Line, ok, target, expected, actual, ok ? null : $"{target} is {actual}, expected {expected}");

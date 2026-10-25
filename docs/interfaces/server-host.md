@@ -12,6 +12,10 @@ Header: v1. Source: `src/OneGame.Server` (host, configuration, plugin API; Nativ
 - Config (`ServerConfig.Load/Parse`, YAML via oneyaml): `name`, `tickRate`, `maxCatchUp`, `live`, `scopes: [{id, seed}]`, `plugins: [{name, path, scopes, settings}]`. Unknown keys, duplicates, and plugin scopes that are not declared are errors with file and line. Relative plugin paths resolve against the file.
 - Log: `ServerLog` writes to a `TextWriter` (stderr in the runner) and keeps the last 512 lines as text.
 
+## Clients on the network
+
+The host listens when the configuration has `listen:` entries (reliable UDP and/or WebSocket), accepts each connection with `Node.Accept` under the trust `ServerHost.Authenticate` returns (the configured `trust` by default), and unsubscribes clients that leave. `PumpNetwork()` moves messages between ticks; `Run` calls it every loop. `ServerApp.Run(setup, args)` is the whole `Main` of a dedicated server; `ServerSetup.SeedWorld` creates a scope's starting entities. Control ops `clients` and `hash_at` report connections and the per-tick view hashes clients must match. See `cluster.md`.
+
 ## Plugin API (version 1)
 
 A plugin is a class library referencing `OneGame.Server` and the generator, with `[assembly: ServerPlugin(typeof(MyPlugin))]` (the compiler bakes the API version in as a default argument). `MyPlugin : ServerPlugin`:

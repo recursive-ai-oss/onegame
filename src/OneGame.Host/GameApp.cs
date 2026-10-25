@@ -105,7 +105,7 @@ public interface IDevTools
 /// <summary>The entry point of a game: parse the command line, create the instance, run it.</summary>
 public static class GameApp
 {
-    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present"];
+    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "name", "net"];
 
     /// <summary>
     /// Set by development builds before <see cref="Run(GameDefinition, string[])"/> so the extra options work. A release build leaves it
@@ -116,7 +116,9 @@ public static class GameApp
     /// <summary>
     /// Runs a game. Options: <c>--headless</c>, <c>--frames N</c> (stop after N frames), <c>--size 1280x720</c>, <c>--scale 1.5</c>
     /// (headless UI scale), <c>--seed N</c>, <c>--gpu auto|off|required</c>, <c>--backend wayland|x11</c> and <c>--display NAME</c> (which window system and display
-    /// a windowed run opens on; the environment decides without them), <c>--present vsync|lowlatency|immediate</c>, <c>--json</c> (print one result object).
+    /// a windowed run opens on; the environment decides without them), <c>--present vsync|lowlatency|immediate</c>, <c>--json</c> (print one result object),
+    /// <c>--connect udp://host:port|ws://host:port</c> (play on a server: the world is a replica of its scope), with <c>--scope N</c>, <c>--name N</c> and
+    /// <c>--net latency=100,loss=0.02</c> (network conditions on this client's traffic).
     /// </summary>
     public static int Run(GameDefinition game, string[] args) => Run(game, args, Console.Out, Console.Error);
 
@@ -221,6 +223,24 @@ public static class GameApp
                     var other => throw new FormatException($"--present is vsync, lowlatency or immediate, got '{other}'."),
                 },
             };
+        }
+
+        if (a.Get("connect") is { } address)
+        {
+            o = o with
+            {
+                Connect = new ConnectOptions
+                {
+                    Address = address,
+                    Scope = (uint)a.GetInt("scope", 1),
+                    Name = a.Get("name") ?? "client",
+                    Conditions = a.Get("net") is { } net ? RemoteSession.ParseConditions(net) : null,
+                },
+            };
+        }
+        else if (a.Has("scope") || a.Has("net") || a.Has("name"))
+        {
+            throw new FormatException("--scope, --name and --net only apply with --connect <address>.");
         }
 
         return a.Get("gpu") switch

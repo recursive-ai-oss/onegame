@@ -169,6 +169,14 @@ public sealed class TestCluster : IDisposable
         return cluster;
     }
 
+    /// <summary>
+    /// Starts a cluster of real processes (dedicated servers and headless game clients) on this machine, talking over the real transport.
+    /// Dispose it to stop them; see <see cref="ProcessCluster"/>.
+    /// </summary>
+    /// <param name="spec">The nodes.</param>
+    /// <param name="parentPid">The process the nodes watch, so they stop if it dies; this process when null.</param>
+    public static ProcessCluster Launch(ClusterSpec spec, int? parentPid = null) => ProcessCluster.Up(spec, parentPid);
+
     internal static TestClient NewNode(GameDefinition game, TestOptions options, string output) =>
         new(GameInstance.Create(game, new GameOptions { Headless = true, Width = options.Width, Height = options.Height, Scale = options.Scale, Seed = options.Seed, Gpu = options.Gpu, Shaders = options.Shaders }), output);
 

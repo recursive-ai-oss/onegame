@@ -90,6 +90,9 @@ public sealed class ControlSurface : IControlEndpoint
         "state_patch" => Json(StatePatch(a), ControlJson.Default.PatchResult),
         "commands_list" => Json(CommandsList(a), ControlJson.Default.CommandsResultArray),
         "command_send" => Json(CommandSend(a), ControlJson.Default.SendResult),
+        "net_status" => Json(Remote().Status(), ControlJson.Default.NetStatus),
+        "net_wait" => Json(NetWait(a), ControlJson.Default.NetWaitResult),
+        "net_diverge" => Json(NetDiverge(a), ControlJson.Default.NetDivergeResult),
         "input_pointer" => Json(InputPointer(a), ControlJson.Default.InputResult),
         "input_key" => Json(InputKey(a), ControlJson.Default.InputResult),
         "input_text" => Json(InputText(a), ControlJson.Default.InputResult),
@@ -111,7 +114,50 @@ public sealed class ControlSurface : IControlEndpoint
     private static ControlResult Json<T>(T value, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> info) =>
         new(JsonSerializer.Serialize(value, info));
 
-    private string HashText() => Game.World.ComputeHash().ToString("x16", CultureInfo.InvariantCulture);
+    private OneGame.Host.RemoteSession Remote() =>
+        Game.Remote ?? throw new ControlException("not_connected", "This game runs its own world. Start it with --connect <address> to play on a server.");
+
+    private NetWaitResult NetWait(Args a)
+    {
+        var remote = Remote();
+        var tick = a.Int("tick", -1);
+        if (tick < 0)
+        {
+            throw new ControlException("bad_args", "tick is required.");
+        }
+
+        var timeout = Math.Clamp(a.Int("timeoutMs", 10_000), 0, 120_000);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (Game.World.Tick < tick && clock.ElapsedMilliseconds < timeout && !remote.IsClosed)
+        {
+            Game.DrainInput();
+            if (Game.World.Tick < tick)
+            {
+                Thread.Sleep(1);
+            }
+        }
+
+        Game.Step(1);
+        return new NetWaitResult(Game.World.Tick >= tick, Game.World.Tick, HashText());
+    }
+
+    private NetDivergeResult NetDiverge(Args a)
+    {
+        Remote();
+        var e = a.Str("entity") is { } spec
+            ? ResolveEntity(spec)
+            : Game.World.Entities.Count > 0 ? Game.World.Entities[0] : throw new ControlException("not_found", "The replica has no entities yet; wait for the first snapshot.");
+        var w = new OneGame.Core.SyncWriter(256);
+        e.WriteState(w);
+        var bytes = w.Written.ToArray();
+        bytes[^1] ^= 0x01;
+        var r = new OneGame.Core.SyncReader(bytes);
+        e.ReadState(ref r);
+        return new NetDivergeResult(Label(e), Game.World.Tick, HashText());
+    }
+
+    // A replica holds only what its server shows it, so its hash is the hash of that view.
+    private string HashText() => (Game.Remote is { } remote ? remote.Replica.ViewHash : Game.World.ComputeHash()).ToString("x16", CultureInfo.InvariantCulture);
 
     private StateResult State() => new(Game.Frame, Game.World.Tick, HashText());
 

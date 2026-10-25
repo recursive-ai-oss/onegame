@@ -67,6 +67,9 @@ public enum StepKind
 
     /// <summary>Check an expectation now.</summary>
     Expect,
+
+    /// <summary>Wait until a node of a process cluster reaches a tick (cluster scenarios only).</summary>
+    Wait,
 }
 
 /// <summary>One step of a scenario. Only the fields its <see cref="Kind"/> uses are set.</summary>
@@ -119,6 +122,15 @@ public sealed record ScenarioStep(StepKind Kind, int Line)
 
     /// <summary>The expectation of an <see cref="StepKind.Expect"/> step.</summary>
     public ScenarioExpectation? Expect { get; init; }
+
+    /// <summary>The node of a process cluster the step is aimed at; null for a single game.</summary>
+    public string? Node { get; init; }
+
+    /// <summary>The tick a <see cref="StepKind.Wait"/> step waits for.</summary>
+    public long Tick { get; init; }
+
+    /// <summary>How long a <see cref="StepKind.Wait"/> step may take, in milliseconds.</summary>
+    public int TimeoutMs { get; init; } = 30_000;
 }
 
 /// <summary>What an expectation looks at.</summary>
@@ -138,6 +150,12 @@ public enum ExpectKind
 
     /// <summary>A captured frame against a reference image.</summary>
     Capture,
+
+    /// <summary>Client replicas have the server's state hash at the replica's tick (cluster scenarios only).</summary>
+    Agree,
+
+    /// <summary>Nodes have filed no drift reports (cluster scenarios only).</summary>
+    Drift,
 }
 
 /// <summary>A check on the game's state. Unset fields are not checked.</summary>
@@ -196,6 +214,18 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
 
     /// <summary>Fraction (0-1) of pixels that may differ by more than the tolerance.</summary>
     public double MaxDiff { get; init; }
+
+    /// <summary>The node of a process cluster the expectation looks at; null for a single game.</summary>
+    public string? Node { get; init; }
+
+    /// <summary>Cluster state expectations: keep checking for up to this many milliseconds before failing, since a command takes real time to reach the server.</summary>
+    public int WithinMs { get; init; }
+
+    /// <summary>The server whose recorded hashes <see cref="ExpectKind.Agree"/> compares against.</summary>
+    public string? Server { get; init; }
+
+    /// <summary>The nodes <see cref="ExpectKind.Agree"/> and <see cref="ExpectKind.Drift"/> look at; empty means all that apply.</summary>
+    public string[] Nodes { get; init; } = [];
 }
 
 /// <summary>A scenario: where to start, what to do, and what must hold afterwards.</summary>
@@ -393,14 +423,44 @@ public static class ScenarioParser
             _ => throw Error(node, $"{what} must be true or false"),
         };
 
-        public ScenarioStep Step(YamlNode node)
+        // A step or expectation is one verb key; a cluster scenario may add a 'node' key beside it to aim it at a node.
+        private ((YamlNode Key, YamlNode Value) Verb, string? Node) SplitVerb(YamlNode node, string what)
         {
-            if (node.Kind != YamlNodeKind.Mapping || node.Count != 1)
+            if (node.Kind != YamlNodeKind.Mapping || node.Count is not (1 or 2))
             {
-                throw Error(node, "a step is a mapping with one key, the verb: click, invoke, press, type, nav, command, set, screen, fixture, snapshot, step, wheel, capture or expect");
+                throw Error(node, what);
             }
 
-            var entry = node.Entries.First();
+            (YamlNode Key, YamlNode Value)? verb = null;
+            string? target = null;
+            foreach (var e in node.Entries)
+            {
+                if (node.Count == 2 && e.Key.GetValue<string>() == "node")
+                {
+                    target = Text(e.Value, "node");
+                }
+                else if (verb is null)
+                {
+                    verb = (e.Key, e.Value);
+                }
+                else
+                {
+                    throw Error(node, what);
+                }
+            }
+
+            return verb is null ? throw Error(node, what) : (verb.Value, target);
+        }
+
+        public ScenarioStep Step(YamlNode node)
+        {
+            var (verb, target) = SplitVerb(node, "a step is a mapping with one key, the verb: click, invoke, press, type, nav, command, set, screen, fixture, snapshot, step, wheel, capture, wait or expect (plus node: for a cluster)");
+            var step = StepCore(verb);
+            return target is null ? step : step with { Node = target };
+        }
+
+        private ScenarioStep StepCore((YamlNode Key, YamlNode Value) entry)
+        {
             var verb = entry.Key.GetValue<string>();
             var v = entry.Value;
             var line = entry.Key.Position.Line;
@@ -488,26 +548,35 @@ public static class ScenarioParser
                     };
                 case "expect":
                     return new ScenarioStep(StepKind.Expect, line) { Expect = Expectation(v) };
+                case "wait":
+                    var wt = Map(v, ["node", "tick", "timeout"], "wait");
+                    return new ScenarioStep(StepKind.Wait, line)
+                    {
+                        Node = wt.TryGetValue("node", out var wn) ? Text(wn, "node") : throw Error(v, "wait needs a node"),
+                        Tick = wt.TryGetValue("tick", out var wk) ? Whole(wk, "tick") : throw Error(v, "wait needs a tick"),
+                        TimeoutMs = wt.TryGetValue("timeout", out var wo) ? Whole(wo, "timeout") : 30_000,
+                    };
                 default:
-                    throw Error(entry.Key, $"unknown step '{verb}'; use click, invoke, press, type, nav, command, set, screen, fixture, snapshot, step, wheel, capture or expect");
+                    throw Error(entry.Key, $"unknown step '{verb}'; use click, invoke, press, type, nav, command, set, screen, fixture, snapshot, step, wheel, capture, wait or expect");
             }
         }
 
         public ScenarioExpectation Expectation(YamlNode node)
         {
-            if (node.Kind != YamlNodeKind.Mapping || node.Count != 1)
-            {
-                throw Error(node, "an expectation is a mapping with one key: state, ui, tick, hash or capture");
-            }
+            var (verb, target) = SplitVerb(node, "an expectation is a mapping with one key: state, ui, tick, hash, capture, agree or drift (plus node: for a cluster)");
+            var e = ExpectationCore(verb);
+            return target is null ? e : e with { Node = target };
+        }
 
-            var entry = node.Entries.First();
+        private ScenarioExpectation ExpectationCore((YamlNode Key, YamlNode Value) entry)
+        {
             var kind = entry.Key.GetValue<string>();
             var v = entry.Value;
             var line = entry.Key.Position.Line;
             switch (kind)
             {
                 case "state":
-                    var s = Map(v, ["entity", "property", "equals", "min", "max"], "state");
+                    var s = Map(v, ["entity", "property", "equals", "min", "max", "within"], "state");
                     return new ScenarioExpectation(ExpectKind.State, line)
                     {
                         Entity = s.TryGetValue("entity", out var e) ? Text(e, "entity") : throw Error(v, "state needs an entity"),
@@ -515,6 +584,7 @@ public static class ScenarioParser
                         EqualTo = OptText(v, "equals"),
                         Min = s.TryGetValue("min", out var mn) ? Number(mn, "min") : null,
                         Max = s.TryGetValue("max", out var mx) ? Number(mx, "max") : null,
+                        WithinMs = s.TryGetValue("within", out var wi) ? Whole(wi, "within") : 0,
                     };
                 case "ui":
                     var u = Map(v, ["id", "selector", "count", "text", "contains", "visible", "enabled", "focused"], "ui");
@@ -548,8 +618,23 @@ public static class ScenarioParser
                         Tolerance = c.TryGetValue("tolerance", out var t) ? Whole(t, "tolerance") : 0,
                         MaxDiff = c.TryGetValue("max-diff", out var md) ? Number(md, "max-diff") : 0,
                     };
+                case "agree":
+                    var ag = Map(v, ["server", "clients"], "agree");
+                    return new ScenarioExpectation(ExpectKind.Agree, line)
+                    {
+                        Server = ag.TryGetValue("server", out var asv) ? Text(asv, "server") : throw Error(v, "agree needs a server"),
+                        Nodes = ag.TryGetValue("clients", out var acl) ? StringList(this, acl, "clients") : [],
+                    };
+                case "drift":
+                    var dr = Map(v, ["nodes", "equals"], "drift");
+                    if (dr.TryGetValue("equals", out var deq) && Whole(deq, "equals") != 0)
+                    {
+                        throw Error(deq, "drift can only be expected to equal 0");
+                    }
+
+                    return new ScenarioExpectation(ExpectKind.Drift, line) { Nodes = dr.TryGetValue("nodes", out var dn) ? StringList(this, dn, "nodes") : [] };
                 default:
-                    throw Error(entry.Key, $"unknown expectation '{kind}'; use state, ui, tick, hash or capture");
+                    throw Error(entry.Key, $"unknown expectation '{kind}'; use state, ui, tick, hash, capture, agree or drift");
             }
         }
     }

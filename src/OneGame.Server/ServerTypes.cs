@@ -84,13 +84,17 @@ public sealed class ServerSetup
 
     /// <summary>Called for every authority world the server creates, and for every replica world it creates for tests, so tables and systems are the same on both.</summary>
     public Action<World, ScopeId>? BuildWorld { get; init; }
+
+    /// <summary>Creates the starting entities of a hosted scope. Called once per authority world, after <see cref="BuildWorld"/>, and never for replica worlds (which fill in from the server's snapshot).</summary>
+    public Action<World, ScopeId>? SeedWorld { get; init; }
 }
 
 /// <summary>One hosted scope.</summary>
 public sealed class ServerScope
 {
-    internal ServerScope(ScopeId id, AuthorityScope authority, EntityRegistry registry, PluginSystems systems)
+    internal ServerScope(ScopeId id, AuthorityScope authority, EntityRegistry registry, PluginSystems systems, HashRing history)
     {
+        History = history;
         Id = id;
         Authority = authority;
         Registry = registry;
@@ -109,6 +113,72 @@ public sealed class ServerScope
     internal EntityRegistry Registry { get; }
 
     internal PluginSystems Systems { get; }
+
+    internal HashRing History { get; }
+}
+
+/// <summary>The last few ticks' state hashes of one scope, so another node's hash can be compared at the same tick.</summary>
+internal sealed class HashRing
+{
+    private readonly long[] _ticks;
+    private readonly ulong[] _hashes;
+    private readonly ulong[][] _views;
+    private readonly int[] _viewCounts;
+    private int _next;
+
+    public HashRing(int capacity)
+    {
+        _ticks = new long[capacity];
+        _hashes = new ulong[capacity];
+        _views = new ulong[capacity][];
+        _viewCounts = new int[capacity];
+        Array.Fill(_views, Array.Empty<ulong>());
+        Array.Fill(_ticks, -1);
+    }
+
+    public void Add(long tick, AuthorityScope scope)
+    {
+        if (_ticks.Length == 0)
+        {
+            return;
+        }
+
+        _ticks[_next] = tick;
+        _hashes[_next] = scope.World.ComputeHash();
+
+        // What each subscriber's replica must hold at this tick (its audience's view). The arrays are reused, so a steady state allocates nothing.
+        var subscribers = scope.Subscribers;
+        var views = _views[_next];
+        if (views.Length < subscribers.Count)
+        {
+            views = _views[_next] = new ulong[Math.Max(subscribers.Count, 4)];
+        }
+
+        _viewCounts[_next] = subscribers.Count;
+        for (var i = 0; i < subscribers.Count; i++)
+        {
+            views[i] = scope.ViewHashFor(subscribers[i]);
+        }
+
+        _next = (_next + 1) % _ticks.Length;
+    }
+
+    public bool TryGet(long tick, out ulong hash, out ulong[] views)
+    {
+        for (var i = 0; i < _ticks.Length; i++)
+        {
+            if (_ticks[i] == tick)
+            {
+                hash = _hashes[i];
+                views = _views[i].AsSpan(0, _viewCounts[i]).ToArray();
+                return true;
+            }
+        }
+
+        hash = 0;
+        views = [];
+        return false;
+    }
 }
 
 /// <summary>

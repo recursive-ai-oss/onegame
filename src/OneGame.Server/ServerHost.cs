@@ -21,6 +21,7 @@ public sealed class ServerHost
     private readonly List<EntityRegistry> _replicaRegistries = [];
     private readonly Dictionary<uint, Func<Entity>> _factories = [];
     private readonly Dictionary<uint, string> _typeOwners = [];
+    private readonly ServerNetwork _network;
     private int _localQueued;
 
     /// <summary>Creates a server. Nothing runs until <see cref="Start"/>.</summary>
@@ -36,6 +37,51 @@ public sealed class ServerHost
         Log = log ?? new ServerLog();
         _driver = new FixedStepDriver(config.TickRate, config.MaxCatchUp);
         Node = new Node(config.Name);
+        _network = new ServerNetwork(Node, request => Authenticate is { } hook ? hook(request) : DefaultTrust(), m => Log.Info(m));
+    }
+
+    /// <summary>
+    /// Decides what a newly connected network client may do, or refuses it by returning null. The default gives every client the configured
+    /// <c>trust</c> (read and command every hosted scope unless the configuration says otherwise). The transport does not authenticate yet, so the
+    /// request carries only the remote address. Set it before <see cref="Start"/>.
+    /// </summary>
+    public Func<ClientRequest, Trust?>? Authenticate { get; set; }
+
+    /// <summary>The addresses the server listens on, with the ports the system picked for configured port 0. Filled by <see cref="Start"/>.</summary>
+    public IReadOnlyList<ListenEndpoint> Endpoints => _network.Endpoints;
+
+    /// <summary>The network clients that are connected now.</summary>
+    public ClientInfo[] Clients() => _network.Clients();
+
+    /// <summary>
+    /// Moves messages between the node and its network clients without ticking: accepts connections, reads what arrived (it is handled at
+    /// the next tick) and sends what the last tick published. <see cref="Run"/> calls it every loop; a caller that drives <see cref="StepOnce"/> itself
+    /// should call it between ticks so the transports keep acknowledging and the clients stay connected.
+    /// </summary>
+    public void PumpNetwork()
+    {
+        _network.PumpOutbound();
+        _network.PumpInbound();
+    }
+
+    /// <summary>The recorded hash of every scope at <paramref name="tick"/>; the hash is null for a tick that is not recorded (see <c>hashHistory</c> in the configuration).</summary>
+    /// <param name="tick">The scope tick.</param>
+    public ScopeHashAt[] HashesAt(long tick)
+    {
+        var list = new ScopeHashAt[_scopes.Count];
+        for (var i = 0; i < list.Length; i++)
+        {
+            var found = _scopes[i].History.TryGet(tick, out var h, out var views);
+            list[i] = new ScopeHashAt(_scopes[i].Id.Value, tick, found ? h.ToString("x16", CultureInfo.InvariantCulture) : null, [.. views.Select(v => v.ToString("x16", CultureInfo.InvariantCulture))]);
+        }
+
+        return list;
+    }
+
+    private Trust DefaultTrust()
+    {
+        ScopeSet Set(uint[]? ids) => ids is null ? ScopeSet.All : ScopeSet.Of([.. ids.Select(i => new ScopeId(i))]);
+        return new Trust(Set(Config.ClientTrust.Read), Set(Config.ClientTrust.Command), ScopeSet.None);
     }
 
     /// <summary>The configuration.</summary>
@@ -93,10 +139,16 @@ public sealed class ServerHost
             _setup.RegisterEntities?.Invoke(registry);
             var world = new World(sc.Seed, registry);
             _setup.BuildWorld?.Invoke(world, new ScopeId(sc.Id));
+            _setup.SeedWorld?.Invoke(world, new ScopeId(sc.Id));
             var systems = new PluginSystems(OnSystemFault);
             world.AddSystem(systems);
             var id = new ScopeId(sc.Id);
-            _scopes.Add(new ServerScope(id, Node.AddScope(id, world), registry, systems));
+            _scopes.Add(new ServerScope(id, Node.AddScope(id, world), registry, systems, new HashRing(Config.HashHistory)));
+        }
+
+        foreach (var listen in Config.Listen)
+        {
+            _network.Listen(listen);
         }
 
         State = ServerState.Running;
@@ -124,6 +176,7 @@ public sealed class ServerHost
             throw new InvalidOperationException($"The server is {State}; start it before stepping.");
         }
 
+        _network.PumpInbound();
         Node.Pump();
         _localQueued = 0;
         foreach (var scope in _scopes)
@@ -136,10 +189,13 @@ public sealed class ServerHost
             {
                 Quarantine(Blame(ex)!, "tick", ex);
             }
+
+            scope.History.Add(scope.World.Tick, scope.Authority);
         }
 
         Tick++;
         Log.Tick = Tick;
+        _network.PumpOutbound();
     }
 
     /// <summary>Runs <paramref name="ticks"/> ticks.</summary>
@@ -175,6 +231,7 @@ public sealed class ServerHost
         while (!StopRequested && (keepRunning?.Invoke() ?? true))
         {
             var now = clock.Elapsed;
+            PumpNetwork();
             Advance(now - last);
             last = now;
             if (between is null)
@@ -199,6 +256,7 @@ public sealed class ServerHost
         State = ServerState.Draining;
         Log.Info("server draining");
         Node.Pump();
+        _network.Shutdown();
         for (var i = _plugins.Count - 1; i >= 0; i--)
         {
             var rec = _plugins[i];

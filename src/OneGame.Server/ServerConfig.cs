@@ -14,6 +14,17 @@ public sealed record ScopeConfig(uint Id, ulong Seed);
 /// <param name="Settings">Free-form text settings the plugin reads through <see cref="PluginContext.Setting"/>.</param>
 public sealed record PluginConfig(string Name, string Path, uint[] Scopes, KeyValuePair<string, string>[] Settings);
 
+/// <summary>One address the server listens on for clients.</summary>
+/// <param name="Transport"><c>udp</c> (reliable UDP) or <c>ws</c> (WebSocket).</param>
+/// <param name="Port">The port; 0 lets the system pick one (the bound port is reported by the host).</param>
+/// <param name="Address">The local address to bind; <c>0.0.0.0</c> by default.</param>
+public sealed record ListenConfig(string Transport, int Port, string Address);
+
+/// <summary>What clients may do on this server. A null list means every scope the server hosts.</summary>
+/// <param name="Read">Scopes clients may subscribe to.</param>
+/// <param name="Command">Scopes clients may send commands to.</param>
+public sealed record ClientTrustConfig(uint[]? Read, uint[]? Command);
+
 /// <summary>The server configuration file is not valid: the message names the file, the line and what to change.</summary>
 public sealed class ServerConfigException : Exception
 {
@@ -48,7 +59,9 @@ public sealed class ServerConfigException : Exception
 /// </summary>
 public sealed class ServerConfig
 {
-    private static readonly string[] TopKeys = ["name", "tickRate", "maxCatchUp", "scopes", "plugins", "live"];
+    private static readonly string[] TopKeys = ["name", "tickRate", "maxCatchUp", "scopes", "plugins", "live", "listen", "trust", "hashHistory"];
+    private static readonly string[] ListenKeys = ["transport", "port", "address"];
+    private static readonly string[] TrustKeys = ["read", "command"];
     private static readonly string[] ScopeKeys = ["id", "seed"];
     private static readonly string[] PluginKeys = ["name", "path", "scopes", "settings"];
 
@@ -69,6 +82,15 @@ public sealed class ServerConfig
 
     /// <summary>The plugins to load, in order.</summary>
     public IReadOnlyList<PluginConfig> Plugins { get; init; } = [];
+
+    /// <summary>The addresses to listen on for clients; none means a server that only ticks.</summary>
+    public IReadOnlyList<ListenConfig> Listen { get; init; } = [];
+
+    /// <summary>What every accepted client may do, unless <see cref="ServerHost.Authenticate"/> decides otherwise.</summary>
+    public ClientTrustConfig ClientTrust { get; init; } = new(null, null);
+
+    /// <summary>How many recent ticks of per-scope state hashes to keep so another node's hash can be compared at the same tick; 0 turns it off.</summary>
+    public int HashHistory { get; init; }
 
     /// <summary>A socket path for live control, or null for none (the runner may supply its own).</summary>
     public string? Live { get; init; }
@@ -200,6 +222,42 @@ public sealed class ServerConfig
                 }
             }
 
+            var listen = new List<ListenConfig>();
+            if (root.TryGetValue("listen", out var listenNode) && !listenNode.IsNull)
+            {
+                foreach (var item in r.Seq(listenNode, "listen"))
+                {
+                    r.Check(item, ListenKeys, "a listen entry");
+                    var transport = r.Text(item, "transport") ?? throw r.Error(item, "a listen entry needs a transport (udp or ws)");
+                    if (transport is not ("udp" or "ws"))
+                    {
+                        throw r.Error(item["transport"], "transport must be udp or ws");
+                    }
+
+                    var port = r.UInt(item, "port") ?? 0;
+                    if (port > 65535)
+                    {
+                        throw r.Error(item["port"], "port must be between 0 and 65535");
+                    }
+
+                    listen.Add(new ListenConfig(transport, (int)port, r.Text(item, "address") ?? "0.0.0.0"));
+                    r.Bound(listen.Count, item, "listen");
+                }
+            }
+
+            ClientTrustConfig clientTrust = new(null, null);
+            if (root.TryGetValue("trust", out var trustNode) && !trustNode.IsNull)
+            {
+                r.Check(trustNode, TrustKeys, "trust");
+                clientTrust = new ClientTrustConfig(r.ScopeList(trustNode, "read", scopes), r.ScopeList(trustNode, "command", scopes));
+            }
+
+            var history = (int?)r.UInt(root, "hashHistory") ?? 256;
+            if (history > 100_000)
+            {
+                throw r.Error(root["hashHistory"], "hashHistory must be at most 100000");
+            }
+
             var tickRate = (int?)r.UInt(root, "tickRate") ?? 60;
             if (tickRate is < 1 or > 1000)
             {
@@ -220,6 +278,9 @@ public sealed class ServerConfig
                 Scopes = scopes,
                 Plugins = plugins,
                 Live = r.Text(root, "live"),
+                Listen = listen,
+                ClientTrust = clientTrust,
+                HashHistory = history,
             };
         }
     }
@@ -287,6 +348,28 @@ public sealed class ServerConfig
             }
 
             return required ? throw Error(map, $"'{key}' is required") : null;
+        }
+
+        public uint[]? ScopeList(YamlNode map, string key, List<ScopeConfig> scopes)
+        {
+            if (!map.TryGetValue(key, out var node) || node.IsNull)
+            {
+                return null;
+            }
+
+            var ids = new List<uint>();
+            foreach (var s in Seq(node, key))
+            {
+                var id = UIntValue(s, "a scope id");
+                if (!scopes.Exists(c => c.Id == id))
+                {
+                    throw Error(s, $"scope {id} is not declared");
+                }
+
+                ids.Add(id);
+            }
+
+            return [.. ids];
         }
 
         public ulong? ULong(YamlNode map, string key)
