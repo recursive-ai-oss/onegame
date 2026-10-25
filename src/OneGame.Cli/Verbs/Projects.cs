@@ -89,6 +89,34 @@ internal static class Projects
         };
     }
 
+    /// <summary>Finds a game's dedicated-server project: a project file that imports <c>build/Server.targets</c>, in the folder, its <c>server</c> folder or a folder one level down.</summary>
+    public static ProjectRef FindServer(string? arg)
+    {
+        var path = Path.GetFullPath(arg ?? Directory.GetCurrentDirectory());
+        if (File.Exists(path) && path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ProjectRef(Path.GetDirectoryName(path)!, path, Path.GetFileNameWithoutExtension(path));
+        }
+
+        if (!Directory.Exists(path))
+        {
+            throw new CliException(ExitCodes.RuntimeError, "no_project", $"'{path}' is not a folder or a project file.");
+        }
+
+        var folders = new List<string> { path, Path.Combine(path, "server") };
+        folders.AddRange(Directory.EnumerateDirectories(path).Where(d => !Path.GetFileName(d).StartsWith('.')).Order(StringComparer.Ordinal));
+        var found = folders.Where(Directory.Exists).Distinct()
+            .SelectMany(d => Directory.GetFiles(d, "*.csproj", SearchOption.TopDirectoryOnly))
+            .Where(f => File.ReadAllText(f).Contains("Server.targets", StringComparison.Ordinal))
+            .ToArray();
+        return found.Length switch
+        {
+            1 => new ProjectRef(Path.GetDirectoryName(found[0])!, found[0], Path.GetFileNameWithoutExtension(found[0])),
+            0 => throw new CliException(ExitCodes.RuntimeError, "no_server_project", $"No server project in {path}: a project file that imports build/Server.targets. Create one with 'onegame new <name> --server', or pass --project <file>."),
+            _ => throw new CliException(ExitCodes.RuntimeError, "ambiguous_project", $"{path} has {found.Length} server projects; pass --project <file>."),
+        };
+    }
+
     public static BuildResult Build(ProjectRef project, string configuration)
     {
         var clock = Stopwatch.StartNew();

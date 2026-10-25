@@ -4,7 +4,8 @@ using OneGame.Server;
 namespace OneGame.Server.Live;
 
 /// <summary>Result of <c>server_info</c>.</summary>
-public sealed record ServerInfoResult(string Name, string State, long Tick, int TickRate, ScopeInfo[] Scopes, PluginInfo[] Plugins, PluginLoadFailure[] LoadFailures);
+/// <remarks><c>Listen</c> is where the server accepts clients (ports resolved) and <c>Clients</c> how many are connected.</remarks>
+public sealed record ServerInfoResult(string Name, string State, long Tick, int TickRate, ScopeInfo[] Scopes, PluginInfo[] Plugins, PluginLoadFailure[] LoadFailures, ListenEndpoint[] Listen, int Clients);
 
 /// <summary>Result of <c>hash</c> and <c>step</c>.</summary>
 public sealed record ServerStateResult(long Tick, ScopeInfo[] Scopes);
@@ -26,6 +27,8 @@ public sealed record ShutdownResult(bool Stopping, long Tick);
 [JsonSerializable(typeof(ServerSendResult))]
 [JsonSerializable(typeof(ShutdownResult))]
 [JsonSerializable(typeof(LogEntry[]))]
+[JsonSerializable(typeof(ClientInfo[]))]
+[JsonSerializable(typeof(ScopeHashAt[]))]
 public sealed partial class ServerJson : JsonSerializerContext
 {
 }
@@ -53,8 +56,11 @@ public sealed class ServerControl : IControlEndpoint
             """{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}""", true),
         new("command_send", "Send a command to an entity as trusted server input; it runs on the next tick. 'args' are the parameters as text.",
             """{"type":"object","properties":{"scope":{"type":"integer"},"entity":{"type":"integer"},"command":{"type":"string"},"args":{"type":"array","items":{"type":"string"}}},"required":["entity","command"]}""", true),
-        new("state_query", "Read a scope's synced state as JSON, or one entity's with 'entity' (a numeric id).",
-            """{"type":"object","properties":{"scope":{"type":"integer"},"entity":{"type":"integer"}}}""", false),
+        new("state_query", "Read a scope's synced state as JSON, or one entity's with 'entity' (a numeric id, a type name for the first of that type, or 'Type#n'), or one value with 'property' too.",
+            """{"type":"object","properties":{"scope":{"type":"integer"},"entity":{"type":["string","integer"]},"property":{"type":"string"}}}""", false),
+        new("clients", "The connected network clients: name, transport, address, state, round-trip time, loss and retransmits.", NoArgs, false),
+        new("hash_at", "The recorded state hash of every scope at one tick (null when not recorded; see hashHistory). Compare it with a client's hash at the same tick.",
+            """{"type":"object","properties":{"tick":{"type":"integer","minimum":0}},"required":["tick"]}""", false),
         new("log_tail", "The last N server log lines (default 50).", """{"type":"object","properties":{"max":{"type":"integer"}}}""", false),
         new("shutdown", "Ask the server to finish its tick, run plugin unload hooks and stop.", NoArgs, true),
     ];
@@ -127,6 +133,8 @@ public sealed class ServerControl : IControlEndpoint
         "plugin_unload" => Serialize(_host.UnloadPlugin(Required(a, "name")), ServerJson.Default.UnloadResult),
         "command_send" => Send(a),
         "state_query" => Query(a),
+        "clients" => Serialize(_host.Clients(), ServerJson.Default.ClientInfoArray),
+        "hash_at" => Serialize(_host.HashesAt(Long(a, "tick") ?? throw new ControlException("bad_args", "tick is required.")), ServerJson.Default.ScopeHashAtArray),
         "log_tail" => Serialize([.. _host.Log.Tail(Math.Clamp(Int(a, "max") ?? 50, 1, 512))], ServerJson.Default.LogEntryArray),
         "shutdown" => Shutdown(),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", All.Select(o => o.Name))}."),
@@ -134,7 +142,7 @@ public sealed class ServerControl : IControlEndpoint
 
     private static string Serialize<T>(T value, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> info) => JsonSerializer.Serialize(value, info);
 
-    private ServerInfoResult Info() => new(_host.Config.Name, _host.State.ToString().ToLowerInvariant(), _host.Tick, _host.Config.TickRate, [.. _host.ScopeInfos()], [.. _host.Plugins()], [.. _host.LoadFailures]);
+    private ServerInfoResult Info() => new(_host.Config.Name, _host.State.ToString().ToLowerInvariant(), _host.Tick, _host.Config.TickRate, [.. _host.ScopeInfos()], [.. _host.Plugins()], [.. _host.LoadFailures], [.. _host.Endpoints], _host.Clients().Length);
 
     private ServerStateResult State() => new(_host.Tick, [.. _host.ScopeInfos()]);
 
@@ -177,15 +185,51 @@ public sealed class ServerControl : IControlEndpoint
     {
         var id = new ScopeId((uint)(Int(a, "scope") ?? 1));
         var scope = _host.FindScope(id) ?? throw new ControlException("not_found", $"There is no {id}.");
-        if (Int(a, "entity") is not { } entity)
+        if (!a.TryGetProperty("entity", out var spec) || spec.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
         {
             return scope.World.DumpJson();
         }
 
-        var e = scope.World.Find(new EntityId((ulong)entity)) ?? throw new ControlException("not_found", $"{id} has no entity {entity}.");
+        var e = Resolve(scope.World, id, spec.ValueKind == JsonValueKind.String ? spec.GetString()! : spec.GetRawText());
         var json = new JsonOut();
         e.WriteJson(json);
-        return json.ToString();
+        var text = json.ToString();
+        if (Str(a, "property") is not { } property)
+        {
+            return text;
+        }
+
+        using var doc = JsonDocument.Parse(text);
+        return doc.RootElement.TryGetProperty(property, out var v)
+            ? v.GetRawText()
+            : throw new ControlException("not_found", $"{e.TypeName} has no property '{property}'.");
+    }
+
+    // An id, a type name (the first entity of that type) or Type#n (the nth, from 1), as the game control surface accepts them.
+    private static Entity Resolve(World world, ScopeId scope, string spec)
+    {
+        if (ulong.TryParse(spec, NumberStyles.None, CultureInfo.InvariantCulture, out var number))
+        {
+            return world.Find(new EntityId(number)) ?? throw new ControlException("not_found", $"{scope} has no entity {spec}.");
+        }
+
+        var hash = spec.IndexOf('#', StringComparison.Ordinal);
+        var type = hash < 0 ? spec : spec[..hash];
+        var nth = 1;
+        if (hash >= 0 && !int.TryParse(spec[(hash + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out nth))
+        {
+            throw new ControlException("bad_args", $"'{spec}' is not an entity: use an id, a type name or Type#n.");
+        }
+
+        foreach (var e in world.Entities)
+        {
+            if ((e.TypeName == type || e.TypeName.EndsWith("." + type, StringComparison.Ordinal)) && --nth == 0)
+            {
+                return e;
+            }
+        }
+
+        throw new ControlException("not_found", $"{scope} has no entity '{spec}'.");
     }
 
     private string Shutdown()
@@ -228,6 +272,9 @@ public sealed class ServerControl : IControlEndpoint
 
     private static string? Str(JsonElement a, string key) =>
         a.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+    private static long? Long(JsonElement a, string key) =>
+        a.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var n) ? n : null;
 
     private static int? Int(JsonElement a, string key) =>
         a.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n) ? n : null;

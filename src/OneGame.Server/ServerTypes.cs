@@ -84,13 +84,17 @@ public sealed class ServerSetup
 
     /// <summary>Called for every authority world the server creates, and for every replica world it creates for tests, so tables and systems are the same on both.</summary>
     public Action<World, ScopeId>? BuildWorld { get; init; }
+
+    /// <summary>Creates the starting entities of a hosted scope. Called once per authority world, after <see cref="BuildWorld"/>, and never for replica worlds (which fill in from the server's snapshot).</summary>
+    public Action<World, ScopeId>? SeedWorld { get; init; }
 }
 
 /// <summary>One hosted scope.</summary>
 public sealed class ServerScope
 {
-    internal ServerScope(ScopeId id, AuthorityScope authority, EntityRegistry registry, PluginSystems systems)
+    internal ServerScope(ScopeId id, AuthorityScope authority, EntityRegistry registry, PluginSystems systems, HashRing history)
     {
+        History = history;
         Id = id;
         Authority = authority;
         Registry = registry;
@@ -109,6 +113,50 @@ public sealed class ServerScope
     internal EntityRegistry Registry { get; }
 
     internal PluginSystems Systems { get; }
+
+    internal HashRing History { get; }
+}
+
+/// <summary>The last few ticks' state hashes of one scope, so another node's hash can be compared at the same tick.</summary>
+internal sealed class HashRing
+{
+    private readonly long[] _ticks;
+    private readonly ulong[] _hashes;
+    private int _next;
+
+    public HashRing(int capacity)
+    {
+        _ticks = new long[capacity];
+        _hashes = new ulong[capacity];
+        Array.Fill(_ticks, -1);
+    }
+
+    public void Add(long tick, World world)
+    {
+        if (_ticks.Length == 0)
+        {
+            return;
+        }
+
+        _ticks[_next] = tick;
+        _hashes[_next] = world.ComputeHash();
+        _next = (_next + 1) % _ticks.Length;
+    }
+
+    public bool TryGet(long tick, out ulong hash)
+    {
+        for (var i = 0; i < _ticks.Length; i++)
+        {
+            if (_ticks[i] == tick)
+            {
+                hash = _hashes[i];
+                return true;
+            }
+        }
+
+        hash = 0;
+        return false;
+    }
 }
 
 /// <summary>

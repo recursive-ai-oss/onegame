@@ -1,0 +1,35 @@
+<Project>
+
+  <!-- Imported by a game server's project file (see onegame new with the server option). A dedicated server is its own small program: it compiles the
+       game's simulation code, references the server host and its live control, and publishes NativeAOT. Set OneGameRoot to the engine
+       checkout before importing. The server has no window, GPU or audio; keep the game's view code out of the files it compiles. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Deterministic>true</Deterministic>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <IsAotCompatible>true</IsAotCompatible>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <!-- onegame export with the server option publishes with -p:OneGameAot=true (set here rather than on the command line so it does not reach the generator project). -->
+    <PublishAot Condition="'$(OneGameAot)' == 'true'">true</PublishAot>
+    <PublishTrimmed Condition="'$(OneGameTrim)' == 'true'">true</PublishTrimmed>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(OneGameRoot)/src/OneGame.Server/OneGame.Server.csproj" />
+    <ProjectReference Include="$(OneGameRoot)/src/OneGame.Server.Live/OneGame.Server.Live.csproj" />
+    <ProjectReference Include="$(OneGameRoot)/src/OneGame.Core/OneGame.Core.csproj" />
+    <!-- The generator and analyzers: entity code, and the rules for simulation code. -->
+    <ProjectReference Include="$(OneGameRoot)/src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>
