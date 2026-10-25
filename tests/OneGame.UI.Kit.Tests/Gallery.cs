@@ -89,6 +89,11 @@ internal static class Gallery
             ("primary", id => UiKit.Button("Continue", () => { }, id, ButtonKind.Primary)),
             ("danger", id => UiKit.Button("Delete", () => { }, id, ButtonKind.Danger)),
             ("flat", id => UiKit.Button("Skip", () => { }, id, ButtonKind.Flat)),
+            // Toggle buttons (aria-pressed): off looks like a normal button, on has the tinted fill and accent outline in every variant.
+            ("toggle-off", id => UiKit.ToggleButton("Fast", () => false, _ => { }, id)),
+            ("toggle-on", id => UiKit.ToggleButton("Fast", () => true, _ => { }, id)),
+            ("toggle-on-primary", id => UiKit.ToggleButton("Fast", () => true, _ => { }, id, ButtonKind.Primary)),
+            ("toggle-on-flat", id => UiKit.ToggleButton("Fast", () => true, _ => { }, id, ButtonKind.Flat)),
         };
         var page = Page(Matrix("Buttons", rows, [.. Columns, State.FocusedDisabled]));
         host.Tree.Root.Add(page);

@@ -7,6 +7,21 @@ internal static class Png
 {
     static readonly byte[] Signature = [137, 80, 78, 71, 13, 10, 26, 10];
 
+    /// <summary>Encodes 8-bit RGBA pixels as PNG bytes (an asset for the atlas to decode).</summary>
+    public static byte[] Encode(int width, int height, ReadOnlySpan<byte> rgba)
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            Write(path, width, height, rgba);
+            return File.ReadAllBytes(path);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     public static void Write(string path, int width, int height, ReadOnlySpan<byte> rgba)
     {
         using var raw = new MemoryStream();

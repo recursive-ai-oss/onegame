@@ -269,6 +269,18 @@ public sealed class StyleBuilder
     /// <summary>Sets the nine-slice inset of the background image, in pixels on every side; zero draws the image stretched.</summary>
     public StyleBuilder BackgroundSlice(Length v) => L(StyleProp.BackgroundSlice, v);
 
+    /// <summary>Sets <c>background-repeat</c>: whether the background image tiles across, down, both or neither.</summary>
+    public StyleBuilder BackgroundRepeat(BackgroundRepeat v) => E(StyleProp.BackgroundRepeat, (int)v);
+
+    /// <summary>Sets <c>background-size</c> to a keyword (<see cref="BackgroundSizing.Fill"/> stretches to the box, <see cref="BackgroundSizing.Auto"/> uses the natural size times the UI scale) and clears <c>background-width</c>/<c>-height</c>.</summary>
+    public StyleBuilder BackgroundSize(BackgroundSizing v) => E(StyleProp.BackgroundSize, (int)v).L(StyleProp.BackgroundWidth, Length.Auto).L(StyleProp.BackgroundHeight, Length.Auto);
+
+    /// <summary>Sets an explicit tile or image size. Percentages are of the box; an <c>auto</c> side keeps the image's aspect ratio.</summary>
+    public StyleBuilder BackgroundSize(Length width, Length height) => E(StyleProp.BackgroundSize, (int)BackgroundSizing.Auto).L(StyleProp.BackgroundWidth, width).L(StyleProp.BackgroundHeight, height);
+
+    /// <summary>Sets <c>background-position-x</c> and <c>-y</c>. A percentage aligns that fraction of the image with the same fraction of the box, as in CSS; other lengths move the image from the box's top-left corner.</summary>
+    public StyleBuilder BackgroundPosition(Length x, Length y) => L(StyleProp.BackgroundPositionX, x).L(StyleProp.BackgroundPositionY, y);
+
     /// <summary>Sets the color the background image is multiplied by (white by default, which leaves it as drawn). White single-color art tinted with a theme token follows the theme.</summary>
     public StyleBuilder BackgroundTint(Color v) => C(StyleProp.BackgroundTint, v);
 

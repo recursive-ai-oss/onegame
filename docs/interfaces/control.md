@@ -28,7 +28,7 @@ Without `--headless` the game opens a window (Wayland when `WAYLAND_DISPLAY` is 
 
 ## Operations
 
-`ControlOps.All` is the table; `ControlSurface.Invoke(op, argsJson)` runs one and returns `ControlResult(Json, Png?)`; `Call(op, argsJson)` returns the JSON text. Failures are `ControlException(code, message)`; codes are stable (`unknown_op`, `bad_args`, `not_found`, `rejected`, `path_outside`, `too_large`, ...). Names use underscores so they are valid MCP tool names. Paths are relative to the output folder and cannot leave it.
+`ControlOps.All` is the table; `ControlSurface.Invoke(op, argsJson)` runs one and returns `ControlResult(Json, Png?)`; `Call(op, argsJson)` returns the JSON text. Failures are `ControlException(code, message)`; codes are stable (`unknown_op`, `bad_args`, `not_found`, `rejected`, `path_outside`, `too_large`, ...). Names use underscores so they are valid MCP tool names. Every operation that reads or writes a file (`snapshot_save`, `snapshot_load`, `capture_frame`, `capture_sequence`, `audio_capture`) takes a path relative to the output folder: the game's `--artifacts` folder, or `artifacts/` in the working directory when the option is not given (`ControlSurface`'s own default is the working directory; the runner passes the folder). Relative paths may have subfolders (`shots/a.png`) and are created as needed. Anything that would leave the folder is refused with `path_outside`: `..`, an absolute path (even one inside the folder), or a link inside the folder that points out of it. An empty path or one with a NUL is `bad_args`. The result's `path` is the full path written.
 
 | Group | Operations |
 |---|---|

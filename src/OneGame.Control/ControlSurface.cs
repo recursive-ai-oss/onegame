@@ -18,7 +18,7 @@ public sealed class ControlSurface : IControlEndpoint
 
     /// <summary>Creates a control surface over a game.</summary>
     /// <param name="game">The game to control.</param>
-    /// <param name="outputDirectory">Where captures and snapshots are written and read. Relative paths in operations resolve here and may not leave it. Defaults to the current directory.</param>
+    /// <param name="outputDirectory">Where captures and snapshots are written and read. Relative paths in operations resolve here and may not leave it. Defaults to the current directory; the game runner passes its <c>--artifacts</c> folder.</param>
     public ControlSurface(GameInstance game, string? outputDirectory = null)
     {
         Game = game ?? throw new ArgumentNullException(nameof(game));
@@ -633,16 +633,60 @@ public sealed class ControlSurface : IControlEndpoint
 
     // ---- snapshots ----
 
+    // Every operation that reads or writes a file goes through here. A path is relative to the output folder and has to stay inside it,
+    // whether it climbs out with "..", is absolute, or goes through a symbolic link that points elsewhere.
     private string ResolveOutput(string path)
     {
+        if (string.IsNullOrWhiteSpace(path) || path.Contains('\0', StringComparison.Ordinal))
+        {
+            throw new ControlException("bad_args", "path is empty or contains a NUL character. Give a path relative to the output folder, such as shots/a.png.");
+        }
+
+        if (Path.IsPathRooted(path))
+        {
+            throw new ControlException("path_outside", $"'{path}' is an absolute path. Paths are relative to the output folder {OutputDirectory}, for example shots/a.png.");
+        }
+
         var full = Path.GetFullPath(path, OutputDirectory);
         var root = OutputDirectory.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         if (!full.StartsWith(root, StringComparison.Ordinal))
         {
-            throw new ControlException("path_outside", $"'{path}' is outside the output folder {OutputDirectory}. Use a relative path.");
+            throw new ControlException("path_outside", $"'{path}' leaves the output folder {OutputDirectory}. Paths are relative to it and may not use '..'.");
+        }
+
+        // A link inside the folder that points out of it would let a lexically clean path write elsewhere: follow each existing component.
+        var real = RealPath(OutputDirectory);
+        var realRoot = real.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var current = OutputDirectory;
+        foreach (var part in full[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, part);
+            if (!Directory.Exists(current) && !File.Exists(current))
+            {
+                break;
+            }
+
+            var resolved = RealPath(current);
+            if (!resolved.StartsWith(realRoot, StringComparison.Ordinal) && !resolved.StartsWith(root, StringComparison.Ordinal))
+            {
+                throw new ControlException("path_outside", $"'{path}' goes through a link that leaves the output folder {OutputDirectory}.");
+            }
         }
 
         return full;
+    }
+
+    private static string RealPath(string path)
+    {
+        var info = new FileInfo(path);
+        try
+        {
+            return info.ResolveLinkTarget(true)?.FullName ?? path;
+        }
+        catch (IOException)
+        {
+            return path;
+        }
     }
 
     private SnapshotResult SnapshotSave(Args a)

@@ -123,6 +123,89 @@ internal sealed class Painter(UiTree ui)
         }
     }
 
+    // CSS Backgrounds 3 §3.3-§3.10: size, position and repeat of a background image inside the box. Returns false when the plain stretched
+    // (or nine-sliced) image is right: the default style, or an image whose natural size the host did not report.
+    private bool TryPlaceImage(ComputedStyle s, string id, Rect box, out Vector2 tile, out Vector2 origin, out TileAxes axes)
+    {
+        tile = origin = default;
+        var repeat = (BackgroundRepeat)s.E(P.BackgroundRepeat);
+        axes = repeat switch { BackgroundRepeat.Repeat => TileAxes.X | TileAxes.Y, BackgroundRepeat.RepeatX => TileAxes.X, BackgroundRepeat.RepeatY => TileAxes.Y, _ => TileAxes.None };
+        var mode = (BackgroundSizing)s.E(P.BackgroundSize);
+        var wl = s.L(P.BackgroundWidth);
+        var hl = s.L(P.BackgroundHeight);
+        var posX = s.L(P.BackgroundPositionX);
+        var posY = s.L(P.BackgroundPositionY);
+        var explicitSize = !wl.IsAuto || !hl.IsAuto;
+        var moved = posX.Value != 0 || posY.Value != 0;
+        if (mode == BackgroundSizing.Fill && !explicitSize && axes == TileAxes.None && !moved)
+        {
+            return false;
+        }
+
+        float tw, th;
+        float nw = 0, nh = 0;
+        var sized = ui.ArtSizes is { } sizes && sizes.TryGetNaturalSize(id, out nw, out nh) && nw > 0 && nh > 0;
+        if (sized)
+        {
+            nw *= ui.Scale;
+            nh *= ui.Scale;
+        }
+
+        if (explicitSize)
+        {
+            float? ew = wl.IsAuto ? null : ui.Resolve(wl, box.Width);
+            float? eh = hl.IsAuto ? null : ui.Resolve(hl, box.Height);
+            if (ew is { } a && eh is { } b)
+            {
+                (tw, th) = (a, b);
+            }
+            else if (!sized)
+            {
+                (tw, th) = (ew ?? box.Width, eh ?? box.Height);
+            }
+            else if (ew is { } only)
+            {
+                (tw, th) = (only, only * nh / nw);
+            }
+            else
+            {
+                (tw, th) = (eh!.Value * nw / nh, eh.Value);
+            }
+        }
+        else if (mode == BackgroundSizing.Fill || !sized)
+        {
+            (tw, th) = (box.Width, box.Height);
+        }
+        else if (mode == BackgroundSizing.Auto)
+        {
+            (tw, th) = (nw, nh);
+        }
+        else
+        {
+            var k = mode == BackgroundSizing.Cover ? MathF.Max(box.Width / nw, box.Height / nh) : MathF.Min(box.Width / nw, box.Height / nh);
+            (tw, th) = (nw * k, nh * k);
+        }
+
+        if (axes != TileAxes.None)
+        {
+            // Whole-pixel tiles keep the pattern crisp and seamless; a tile never collapses to nothing.
+            tw = MathF.Max(1f, MathF.Round(tw));
+            th = MathF.Max(1f, MathF.Round(th));
+        }
+
+        if (!float.IsFinite(tw) || !float.IsFinite(th))
+        {
+            return false;
+        }
+
+        // A percentage position lines up that fraction of the tile with the same fraction of the box (§3.6); other lengths are offsets.
+        var ox = posX.Unit == LengthUnit.Percent ? (box.Width - tw) * posX.Value / 100f : ui.Px(posX);
+        var oy = posY.Unit == LengthUnit.Percent ? (box.Height - th) * posY.Value / 100f : ui.Px(posY);
+        tile = new Vector2(tw, th);
+        origin = new Vector2(box.X + ox, box.Y + oy);
+        return true;
+    }
+
     private void PaintBox(Element e, ComputedStyle s, Rect box, CornerRadii radii)
     {
         var shadow = s.C(P.ShadowColor);
@@ -150,8 +233,15 @@ internal sealed class Painter(UiTree ui)
         var img = s.T(P.BackgroundImage);
         if (img.Length > 0)
         {
-            var sl = ui.Px(s.L(P.BackgroundSlice));
-            _list.Add(new DrawCommand { Kind = DrawKind.Image, Bounds = box, Resource = img, Color = s.C(P.BackgroundTint), Radii = radii, Slice = new Edges(sl, sl, sl, sl), Source = e });
+            if (!TryPlaceImage(s, img, box, out var tile, out var origin, out var axes))
+            {
+                var sl = ui.Px(s.L(P.BackgroundSlice));
+                _list.Add(new DrawCommand { Kind = DrawKind.Image, Bounds = box, Resource = img, Color = s.C(P.BackgroundTint), Radii = radii, Slice = new Edges(sl, sl, sl, sl), Source = e });
+            }
+            else if (tile.X > 0 && tile.Y > 0)
+            {
+                _list.Add(new DrawCommand { Kind = DrawKind.Image, Bounds = box, Resource = img, Color = s.C(P.BackgroundTint), Radii = radii, TileSize = tile, TileOrigin = origin, Repeat = axes, Source = e });
+            }
         }
 
         var bl = ui.Px(s.L(P.BorderLeftWidth));

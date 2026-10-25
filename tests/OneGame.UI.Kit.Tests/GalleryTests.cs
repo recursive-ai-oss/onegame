@@ -219,7 +219,8 @@ public class GalleryTests
     public void ButtonStatesAreDistinctForEveryVariant(string theme)
     {
         var s = NewScreen(ContrastTests.Tokens(theme));
-        var (_, rows) = Gallery.Buttons(s.Host);
+        var (_, allRows) = Gallery.Buttons(s.Host);
+        var rows = allRows.Where(r => !r.StartsWith("toggle", StringComparison.Ordinal)).ToArray();
         s.Settle();
         foreach (var row in rows)
         {
@@ -270,6 +271,82 @@ public class GalleryTests
                 Assert.True(ratio >= 4.5, $"{tag}: label is {ratio:F2}:1");
             }
         }
+    }
+
+    private static string Stroke(Element e) => e.Computed.C(StyleProp.BorderColor).ToString();
+
+    [Theory]
+    [MemberData(nameof(ContrastTests.Themes), MemberType = typeof(ContrastTests))]
+    public void SwitchedOnToggleButtonsReadApartFromEveryOtherState(string theme)
+    {
+        var s = NewScreen(ContrastTests.Tokens(theme));
+        var (_, rows) = Gallery.Buttons(s.Host);
+        s.Settle();
+        foreach (var row in rows)
+        {
+            foreach (var st in Gallery.Columns.Append(Gallery.State.FocusedDisabled))
+            {
+                Gallery.Force(s, row, st);
+            }
+        }
+
+        s.Settle();
+        Element Cell(string row, Gallery.State st) => s.Get(Gallery.Id(row, st));
+        var pressedFill = PaletteColor(theme, "--kit-pressed-fill");
+
+        foreach (var row in new[] { "toggle-on", "toggle-on-primary", "toggle-on-flat" })
+        {
+            var tag = $"{theme}/{row}";
+            var on = Cell(row, Gallery.State.Enabled);
+            var hover = Cell(row, Gallery.State.Hover);
+            var down = Cell(row, Gallery.State.Pressed);
+            var focused = Cell(row, Gallery.State.Focused);
+            var disabled = Cell(row, Gallery.State.Disabled);
+
+            // On: the one tint and the one outline, whatever the variant.
+            Assert.Equal(pressedFill, Fill(on));
+            Assert.Equal(PaletteColor(theme, "--kit-pressed-border"), on.Computed.C(StyleProp.BorderColor));
+            Assert.Equal(PaletteColor(theme, "--kit-pressed-hover"), Fill(hover));
+            Assert.Equal(PaletteColor(theme, "--kit-pressed-active"), Fill(down));
+            Assert.Equal(3, new[] { Fill(on), Fill(hover), Fill(down) }.Distinct().Count());
+
+            // Focus is still only the ring, and it does not change the tint.
+            Assert.True(Ring(focused) > 0, tag + ": focus has no ring");
+            Assert.Equal(Fill(on), Fill(focused));
+            Assert.All(new[] { on, hover, down, disabled }, e => Assert.Equal(0, Ring(e)));
+
+            // Disabled and on keeps the tint and the outline in the muted colors, apart from disabled and off and from enabled and on.
+            Assert.Equal(PaletteColor(theme, "--kit-disabled-pressed-fill"), Fill(disabled));
+            Assert.Equal(PaletteColor(theme, "--kit-disabled-text"), disabled.Computed.C(StyleProp.BorderColor));
+            Assert.Equal(PaletteColor(theme, "--kit-disabled-text"), disabled.Computed.C(StyleProp.Color));
+            Assert.NotEqual(Fill(on), Fill(disabled));
+            Assert.NotEqual(Fill(Cell("normal", Gallery.State.Disabled)), Fill(disabled));
+            Assert.Equal(1f, disabled.Computed.N(StyleProp.Opacity));
+
+            // Every label that is meant to be read passes AA on the fill beneath it.
+            foreach (var e in new[] { on, hover, down, focused })
+            {
+                var ratio = KitContrast.Ratio(e.Computed.C(StyleProp.Color), Fill(e));
+                Assert.True(ratio >= 4.5, $"{tag}: label is {ratio:F2}:1");
+            }
+
+            var disabledRatio = KitContrast.Ratio(disabled.Computed.C(StyleProp.Color), Fill(disabled));
+            Assert.True(disabledRatio >= 3, $"{tag}: disabled label is {disabledRatio:F2}:1");
+        }
+
+        // Against a toggle that is off: a different fill and a different outline, in every state a pointer can produce.
+        var off = Cell("toggle-off", Gallery.State.Enabled);
+        var onNormal = Cell("toggle-on", Gallery.State.Enabled);
+        Assert.NotEqual(Fill(off), Fill(onNormal));
+        Assert.NotEqual(Stroke(off), Stroke(onNormal));
+        Assert.NotEqual(Fill(Cell("toggle-off", Gallery.State.Hover)), Fill(Cell("toggle-on", Gallery.State.Hover)));
+        Assert.NotEqual(Fill(onNormal), Fill(Cell("normal", Gallery.State.Hover)));
+        Assert.Equal(Fill(Cell("normal", Gallery.State.Enabled)), Fill(off));
+
+        // The outline stands out from the tint inside it and the panel around it (3:1, WCAG 1.4.11).
+        var border = PaletteColor(theme, "--kit-pressed-border");
+        Assert.True(KitContrast.Ratio(border, pressedFill) >= 3, $"{theme}: outline vs tint {KitContrast.Ratio(border, pressedFill):F2}:1");
+        Assert.True(KitContrast.Ratio(border, PaletteColor(theme, "--kit-panel")) >= 3, $"{theme}: outline vs panel");
     }
 
     [Fact]

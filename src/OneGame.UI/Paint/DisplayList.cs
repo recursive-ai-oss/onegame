@@ -13,7 +13,7 @@ public enum DrawKind
     Border,
     /// <summary>A blurred shadow of the rounded box <see cref="DrawCommand.Bounds"/>, moved by <see cref="DrawCommand.Offset"/>, grown by <see cref="DrawCommand.Spread"/>, blurred by <see cref="DrawCommand.Value"/>. It is not drawn inside the box itself.</summary>
     Shadow,
-    /// <summary>Draw the image or SVG named <see cref="DrawCommand.Resource"/> into <see cref="DrawCommand.Bounds"/>, multiplied by <see cref="DrawCommand.Color"/>; <see cref="DrawCommand.Slice"/> gives nine-slice insets in pixels (zero: stretch).</summary>
+    /// <summary>Draw the image or SVG named <see cref="DrawCommand.Resource"/> into <see cref="DrawCommand.Bounds"/>, multiplied by <see cref="DrawCommand.Color"/>; <see cref="DrawCommand.Slice"/> gives nine-slice insets in pixels (zero: stretch). When <see cref="DrawCommand.TileSize"/> is set the image is placed or tiled instead.</summary>
     Image,
     /// <summary>Draw text run number <see cref="DrawCommand.TextRun"/>.</summary>
     Text,
@@ -51,6 +51,15 @@ public struct DrawCommand
 
     /// <summary>Nine-slice insets of an image.</summary>
     public Edges Slice { get; init; }
+
+    /// <summary>For an image: the size in pixels of one tile (or of the single placed image). Zero means the image fills <see cref="Bounds"/> (stretched or nine-sliced).</summary>
+    public Vector2 TileSize { get; init; }
+
+    /// <summary>For an image with a <see cref="TileSize"/>: the top-left corner in pixels of the tile at index (0, 0). Repeating axes continue the pattern in both directions from it.</summary>
+    public Vector2 TileOrigin { get; init; }
+
+    /// <summary>For an image with a <see cref="TileSize"/>: the axes along which the tile repeats. Where it does not repeat, nothing is drawn outside the one tile.</summary>
+    public TileAxes Repeat { get; init; }
 
     /// <summary>The asset id of an image or SVG.</summary>
     public string? Resource { get; init; }
@@ -198,6 +207,12 @@ public sealed class DisplayList
                     if (!c.Slice.IsZero)
                     {
                         sb.Append(" slice=").Append(N(c.Slice.Left));
+                    }
+
+                    if (c.TileSize != default)
+                    {
+                        sb.Append(" tile=").Append(N(c.TileSize.X)).Append('x').Append(N(c.TileSize.Y)).Append('@').Append(N(c.TileOrigin.X)).Append(',').Append(N(c.TileOrigin.Y))
+                          .Append(" repeat=").Append(c.Repeat == TileAxes.None ? "none" : c.Repeat.ToString().Replace(", ", "+", StringComparison.Ordinal));
                     }
 
                     break;

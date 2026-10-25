@@ -87,7 +87,48 @@ public enum AtlasStatus
 /// <param name="U1">Right texture coordinate.</param>
 /// <param name="V1">Bottom texture coordinate.</param>
 /// <param name="Slice">Nine-slice insets in pixels of this raster (the registered insets scaled to this size); zero when not sliced.</param>
-public readonly record struct ArtRegion(int Page, int X, int Y, int Width, int Height, float U0, float V0, float U1, float V1, NineSlice Slice);
+/// <param name="Standalone">Zero when the raster sits on page <paramref name="Page"/>. Otherwise the handle of a standalone texture (see <see cref="ArtAtlas.TryGetStandalone"/>): <paramref name="Page"/> is -1, the rectangle is the whole texture and the texture coordinates run 0 to 1.</param>
+public readonly record struct ArtRegion(int Page, int X, int Y, int Width, int Height, float U0, float V0, float U1, float V1, NineSlice Slice, int Standalone = 0);
+
+/// <summary>
+/// A raster too big for the shared pages: it has a texture of its own, at full resolution. The renderer uploads <see cref="Pixels"/> once,
+/// calls <see cref="MarkUploaded"/>, and drops the texture when the atlas reports the handle as released.
+/// </summary>
+public sealed class StandaloneArt
+{
+    internal StandaloneArt(int handle, int width, int height, byte[] pixels)
+    {
+        Handle = handle;
+        Width = width;
+        Height = height;
+        _pixels = pixels;
+    }
+
+    private byte[]? _pixels;
+
+    /// <summary>Gets the handle carried by <see cref="ArtRegion.Standalone"/>.</summary>
+    public int Handle { get; }
+
+    /// <summary>Gets the width in pixels.</summary>
+    public int Width { get; }
+
+    /// <summary>Gets the height in pixels.</summary>
+    public int Height { get; }
+
+    /// <summary>Gets the premultiplied RGBA rows, tightly packed, until <see cref="MarkUploaded"/>; empty afterwards.</summary>
+    public ReadOnlySpan<byte> Pixels => _pixels;
+
+    /// <summary>Gets whether the pixels still wait for the upload.</summary>
+    public bool NeedsUpload => _pixels is not null;
+
+    /// <summary>Gets the bytes this texture takes on the GPU.</summary>
+    public long Bytes => (long)Width * Height * 4;
+
+    internal long LastUsedFrame { get; set; }
+
+    /// <summary>Drops the CPU copy once it is on the GPU, so each large raster is held in memory once.</summary>
+    public void MarkUploaded() => _pixels = null;
+}
 
 /// <summary>A registered asset was refused: it is damaged or breaks a size budget.</summary>
 public class AtlasAssetException : Exception
@@ -113,11 +154,20 @@ public sealed class ArtLimits
     /// <summary>Gets how many resources may be registered. Default 4096.</summary>
     public int MaxResources { get; init; } = 4096;
 
-    /// <summary>Gets the largest width or height of one raster in pixels, and so the largest natural size of a raster image. Default 2048.</summary>
-    public int MaxRasterDimension { get; init; } = 2048;
+    /// <summary>Gets the largest width or height of one raster in pixels, and so the largest natural size of a raster image. Default 8192.</summary>
+    public int MaxRasterDimension { get; init; } = 8192;
 
-    /// <summary>Gets the largest pixel count of one raster. Default 4,194,304 (2048 × 2048).</summary>
-    public long MaxRasterPixels { get; init; } = 2048L * 2048;
+    /// <summary>Gets the largest pixel count of one raster. Default 16,777,216 (4096 × 4096, 64 MiB of texels).</summary>
+    public long MaxRasterPixels { get; init; } = 4096L * 4096;
+
+    /// <summary>Gets the width or height above which a raster gets a texture of its own instead of a place on a shared page. Default 512; never more than a page can hold.</summary>
+    public int StandaloneThreshold { get; init; } = 512;
+
+    /// <summary>
+    /// Gets the most texel memory in bytes that standalone textures may hold at once. When a new one would not fit, the least recently used ones that were not drawn
+    /// this frame are released first; if the frame itself needs more, the lookup returns <see cref="AtlasStatus.Full"/>. Default 256 MiB.
+    /// </summary>
+    public long MaxStandaloneBytes { get; init; } = 256L * 1024 * 1024;
 
     /// <summary>Gets the natural size limit of a registered SVG per side. The natural size only seeds the scale; the raster limit applies when drawing. Default 16384.</summary>
     public int MaxSvgNaturalDimension { get; init; } = 16384;
@@ -150,6 +200,9 @@ public sealed class ArtAtlas
     private readonly Dictionary<string, Source> _sources = new(StringComparer.Ordinal);
     private readonly Dictionary<Key, Entry> _entries = [];
     private readonly List<Key> _scratchKeys = [];
+    private readonly Dictionary<int, StandaloneArt> _standalones = [];
+    private readonly List<int> _released = [];
+    private int _nextHandle = 1;
 
     /// <summary>Creates an empty atlas.</summary>
     /// <param name="options">Page sizes; the defaults when <see langword="null"/>.</param>
@@ -162,6 +215,27 @@ public sealed class ArtAtlas
 
     /// <summary>Gets the pages. The renderer uploads <see cref="AtlasPage.TakeDirty"/> of each and keeps one texture per page.</summary>
     public AtlasPages Pages => _pages;
+
+    /// <summary>Gets how many standalone textures exist.</summary>
+    public int StandaloneCount => _standalones.Count;
+
+    /// <summary>Gets the GPU bytes the standalone textures take; never above <see cref="ArtLimits.MaxStandaloneBytes"/>.</summary>
+    public long StandaloneBytes { get; private set; }
+
+    /// <summary>Returns the standalone texture behind <see cref="ArtRegion.Standalone"/>.</summary>
+    /// <param name="handle">The handle from a region.</param>
+    /// <param name="art">The texture's pixels and size.</param>
+    /// <returns>False when the handle is unknown or was released.</returns>
+    public bool TryGetStandalone(int handle, out StandaloneArt art) => _standalones.TryGetValue(handle, out art!);
+
+    /// <summary>Moves the handles released since the last call into <paramref name="handles"/> so the renderer can free their textures.</summary>
+    /// <param name="handles">Receives the handles.</param>
+    public void TakeReleased(List<int> handles)
+    {
+        ArgumentNullException.ThrowIfNull(handles);
+        handles.AddRange(_released);
+        _released.Clear();
+    }
 
     /// <summary>Starts a frame; see <see cref="AtlasPages.BeginFrame"/>.</summary>
     /// <param name="frame">A number that grows with every frame.</param>
@@ -225,6 +299,40 @@ public sealed class ArtAtlas
         return TryGet(id, Math.Max(1, (int)MathF.Round(s.Width * scale)), Math.Max(1, (int)MathF.Round(s.Height * scale)), out region);
     }
 
+    /// <summary>
+    /// Looks up the resource for drawing into a box of the given pixel size. An SVG whose box is larger than <see cref="ArtLimits.StandaloneThreshold"/> on a side is rasterized at the box's
+    /// own size when that differs from its natural size times <paramref name="scale"/> by more than a pixel, so a backdrop stretched over a panel stays sharp. Smaller boxes (icons, cards)
+    /// and raster images use <see cref="TryGetScaled"/>, which keeps the shared pages from filling with one raster per layout size.
+    /// When the exact size is refused for size or memory, the scaled lookup is the fallback.
+    /// </summary>
+    /// <param name="id">The resource id.</param>
+    /// <param name="width">Box width in pixels.</param>
+    /// <param name="height">Box height in pixels.</param>
+    /// <param name="scale">The display list's UI scale.</param>
+    /// <param name="region">The entry when the result is <see cref="AtlasStatus.Ok"/>.</param>
+    /// <returns>The status.</returns>
+    public AtlasStatus TryGetFitted(string id, float width, float height, float scale, out ArtRegion region)
+    {
+        region = default;
+        if (!_sources.TryGetValue(id, out var s))
+        {
+            return AtlasStatus.UnknownResource;
+        }
+
+        if (s.Svg && float.IsFinite(width) && float.IsFinite(height) && width >= 1 && height >= 1 && width <= int.MaxValue && height <= int.MaxValue
+            && MathF.Max(width, height) > Math.Min(_limits.StandaloneThreshold, _pages.MaxEntrySize)
+            && (MathF.Abs(width - (s.Width * scale)) > 1f || MathF.Abs(height - (s.Height * scale)) > 1f))
+        {
+            var status = TryGet(id, (int)MathF.Round(width), (int)MathF.Round(height), out region);
+            if (status is not (AtlasStatus.TooLarge or AtlasStatus.Full))
+            {
+                return status;
+            }
+        }
+
+        return TryGetScaled(id, scale, out region);
+    }
+
     /// <summary>Looks up (rasterizing on first use) the resource at an exact pixel size. A raster image is always stored at its own size.</summary>
     /// <param name="id">The resource id.</param>
     /// <param name="width">Width in pixels.</param>
@@ -245,7 +353,7 @@ public sealed class ArtAtlas
         }
 
         if (width <= 0 || height <= 0 || width > _limits.MaxRasterDimension || height > _limits.MaxRasterDimension
-            || (long)width * height > _limits.MaxRasterPixels || width > _pages.MaxEntrySize || height > _pages.MaxEntrySize)
+            || (long)width * height > _limits.MaxRasterPixels || (long)width * height * 4 > _limits.MaxStandaloneBytes)
         {
             return AtlasStatus.TooLarge;
         }
@@ -258,9 +366,24 @@ public sealed class ArtAtlas
                 return AtlasStatus.Invalid;
             }
 
-            _pages.Touch(e.Region.Page);
+            if (e.Region.Standalone != 0)
+            {
+                _standalones[e.Region.Standalone].LastUsedFrame = _pages.Frame;
+            }
+            else
+            {
+                _pages.Touch(e.Region.Page);
+            }
+
             region = e.Region;
             return AtlasStatus.Ok;
+        }
+
+        var limit = Math.Min(_limits.StandaloneThreshold, _pages.MaxEntrySize);
+        var standalone = width > limit || height > limit;
+        if (standalone && !MakeRoom((long)width * height * 4))
+        {
+            return AtlasStatus.Full;
         }
 
         byte[] pixels;
@@ -272,6 +395,17 @@ public sealed class ArtAtlas
         {
             _entries[key] = new Entry(default, true);
             return AtlasStatus.Invalid;
+        }
+
+        var scaled = s.Slice.Scaled((float)width / s.Width, (float)height / s.Height);
+        if (standalone)
+        {
+            var art = new StandaloneArt(_nextHandle++, width, height, pixels) { LastUsedFrame = _pages.Frame };
+            _standalones[art.Handle] = art;
+            StandaloneBytes += art.Bytes;
+            region = new ArtRegion(-1, 0, 0, width, height, 0, 0, 1, 1, scaled, art.Handle);
+            _entries[key] = new Entry(region, false);
+            return AtlasStatus.Ok;
         }
 
         if (!_pages.TryAllocate(width, height, out var slot, out var cleared))
@@ -286,10 +420,55 @@ public sealed class ArtAtlas
 
         _pages.Upload(slot, width, height, pixels, width * 4);
         var ps = (float)_pages.PageSize;
-        region = new ArtRegion(slot.Page, slot.X, slot.Y, width, height, slot.X / ps, slot.Y / ps, (slot.X + width) / ps, (slot.Y + height) / ps,
-            s.Slice.Scaled((float)width / s.Width, (float)height / s.Height));
+        region = new ArtRegion(slot.Page, slot.X, slot.Y, width, height, slot.X / ps, slot.Y / ps, (slot.X + width) / ps, (slot.Y + height) / ps, scaled);
         _entries[key] = new Entry(region, false);
         return AtlasStatus.Ok;
+    }
+
+    // Releases the least recently used standalone textures that were not drawn this frame until `need` more bytes fit the budget.
+    private bool MakeRoom(long need)
+    {
+        while (StandaloneBytes + need > _limits.MaxStandaloneBytes)
+        {
+            StandaloneArt? victim = null;
+            foreach (var a in _standalones.Values)
+            {
+                if (a.LastUsedFrame < _pages.Frame && (victim is null || a.LastUsedFrame < victim.LastUsedFrame))
+                {
+                    victim = a;
+                }
+            }
+
+            if (victim is null)
+            {
+                return false;
+            }
+
+            Release(victim);
+        }
+
+        return true;
+    }
+
+    private void Release(StandaloneArt art)
+    {
+        _standalones.Remove(art.Handle);
+        StandaloneBytes -= art.Bytes;
+        _released.Add(art.Handle);
+        foreach (var kv in _entries)
+        {
+            if (kv.Value.Region.Standalone == art.Handle)
+            {
+                _scratchKeys.Add(kv.Key);
+            }
+        }
+
+        foreach (var k in _scratchKeys)
+        {
+            _entries.Remove(k);
+        }
+
+        _scratchKeys.Clear();
     }
 
     private void Add(string id, ReadOnlyMemory<byte> data, NineSlice slice, bool svg)
@@ -330,11 +509,16 @@ public sealed class ArtAtlas
         }
 
         _sources[id] = new Source(svg, copy, w, h, slice);
-        foreach (var k in _entries.Keys)
+        List<StandaloneArt>? stale = null;
+        foreach (var kv in _entries)
         {
-            if (k.Id == id)
+            if (kv.Key.Id == id)
             {
-                _scratchKeys.Add(k);
+                _scratchKeys.Add(kv.Key);
+                if (kv.Value.Region.Standalone != 0)
+                {
+                    (stale ??= []).Add(_standalones[kv.Value.Region.Standalone]);
+                }
             }
         }
 
@@ -344,6 +528,13 @@ public sealed class ArtAtlas
         }
 
         _scratchKeys.Clear();
+        if (stale is not null)
+        {
+            foreach (var a in stale)
+            {
+                Release(a);
+            }
+        }
     }
 
     private LoadOptions LoadOptionsFor(bool svg) => new()

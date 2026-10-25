@@ -32,7 +32,7 @@ steps:
   - nav: start             # a controller button: up down left right next previous activate cancel, or any button by name (start, back, west, north, x, y, left_stick...)
 expect:
   - state: { entity: Counter, property: Count, equals: 3 }
-  - ui: { id: count, text: "Count: 3" }       # or selector + count/contains/visible/enabled/focused
+  - ui: { id: count, text: "Count: 3" }       # or selector + count/contains/visible/enabled/focused/pressed
   - tick: 3
   - capture: { reference: refs/main.png, size: 320x200, tolerance: 2, max-diff: 0.001 }
 ```

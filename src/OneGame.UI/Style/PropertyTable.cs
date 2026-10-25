@@ -12,7 +12,7 @@ internal enum StyleProp : byte
     FlexDirection, FlexWrap, JustifyContent, AlignItems, AlignSelf, AlignContent,
     FlexGrow, FlexShrink, FlexBasis, RowGap, ColumnGap, Order,
     OverflowX, OverflowY,
-    BackgroundColor, BackgroundImage, BackgroundSlice, BackgroundTint, BorderColor,
+    BackgroundColor, BackgroundImage, BackgroundSlice, BackgroundTint, BackgroundRepeat, BackgroundSize, BackgroundWidth, BackgroundHeight, BackgroundPositionX, BackgroundPositionY, BorderColor,
     RadiusTopLeft, RadiusTopRight, RadiusBottomRight, RadiusBottomLeft,
     Opacity, Visibility, ZIndex, PointerEvents, Cursor,
     OutlineWidth, OutlineColor, OutlineOffset,
@@ -91,6 +91,12 @@ internal static class PropertyTable
         Txt(StyleProp.BackgroundImage, "background-image", false, true, "");
         Len(StyleProp.BackgroundSlice, "background-slice", false, zero, paintOnly: true);
         Col(StyleProp.BackgroundTint, "background-tint", false, Color.White);
+        Enum(StyleProp.BackgroundRepeat, "background-repeat", false, true, UI.BackgroundRepeat.NoRepeat, "no-repeat", "repeat", "repeat-x", "repeat-y");
+        Enum(StyleProp.BackgroundSize, "background-size", false, true, BackgroundSizing.Fill, "fill", "auto", "cover", "contain");
+        Len(StyleProp.BackgroundWidth, "background-width", false, auto, paintOnly: true);
+        Len(StyleProp.BackgroundHeight, "background-height", false, auto, paintOnly: true);
+        Len(StyleProp.BackgroundPositionX, "background-position-x", false, zero, paintOnly: true);
+        Len(StyleProp.BackgroundPositionY, "background-position-y", false, zero, paintOnly: true);
         Col(StyleProp.BorderColor, "border-color", false, Color.Black);
         Len(StyleProp.RadiusTopLeft, "border-top-left-radius", false, zero, paintOnly: true);
         Len(StyleProp.RadiusTopRight, "border-top-right-radius", false, zero, paintOnly: true);

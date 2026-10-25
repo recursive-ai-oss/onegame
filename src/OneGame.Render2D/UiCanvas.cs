@@ -73,6 +73,8 @@ public sealed class UiCanvas : IDisposable
     private readonly List<GroupState> _groups = [];
     private readonly List<GlyphQuad> _glyphs = [];
     private readonly List<PageTexture?>[] _pages = [[], []];
+    private readonly Dictionary<int, PageTexture> _standalone = [];
+    private readonly List<int> _released = [];
     private Matrix3x2 _m = Matrix3x2.Identity;
     private int _skip;
     private int _width;
@@ -373,6 +375,7 @@ public sealed class UiCanvas : IDisposable
 
         SyncPages(glyphs.Pages, AtlasKind.Glyphs);
         SyncPages(art.Pages, AtlasKind.Art);
+        DropReleased(art);
     }
 
     private void DrawArt(in DrawCommand c, ArtAtlas art, float scale)
@@ -382,14 +385,49 @@ public sealed class UiCanvas : IDisposable
             return;
         }
 
-        if (c.Resource is null || art.TryGetScaled(c.Resource, scale, out var region) != AtlasStatus.Ok)
+        var tiled = c.TileSize != default;
+        ArtRegion region;
+        AtlasStatus status;
+        if (c.Resource is null)
+        {
+            region = default;
+            status = AtlasStatus.UnknownResource;
+        }
+        else if (tiled)
+        {
+            // A vector tile is rasterized at the tile's own whole-pixel size, so the pattern is crisp at every UI scale.
+            status = art.TryGet(c.Resource, (int)Math.Clamp(MathF.Round(c.TileSize.X), 1, int.MaxValue), (int)Math.Clamp(MathF.Round(c.TileSize.Y), 1, int.MaxValue), out region);
+            if (status is AtlasStatus.TooLarge or AtlasStatus.Full)
+            {
+                status = art.TryGetScaled(c.Resource, scale, out region);
+            }
+        }
+        else if (c.Slice.IsZero)
+        {
+            status = art.TryGetFitted(c.Resource, c.Bounds.Width, c.Bounds.Height, scale, out region);
+        }
+        else
+        {
+            status = art.TryGetScaled(c.Resource, scale, out region);
+        }
+
+        if (status != AtlasStatus.Ok)
         {
             MissingArt++;
             Fill(c.Bounds, new Color(255, 0, 255, 255), c.Radii);
             return;
         }
 
-        var group = _r.GroupOf(Page(art.Pages, AtlasKind.Art, region.Page).Texture);
+        var group = _r.GroupOf(ArtTexture(art, region).Texture);
+        if (tiled)
+        {
+            // Kind 5 wraps inside the region in the shader, so the whole pattern is one instance however many tiles it has.
+            var grad = new Vector4((c.Repeat & TileAxes.X) != 0 ? 1 : 0, (c.Repeat & TileAxes.Y) != 0 ? 1 : 0, region.Width, region.Height);
+            var span = new Vector4(c.TileOrigin.X, c.TileOrigin.Y, c.TileSize.X, c.TileSize.Y);
+            Emit(5, c.Bounds, c.Radii, span, c.Color, c.Color, 0, grad, new Vector4(region.U0, region.V0, region.U1 - region.U0, region.V1 - region.V0), group, true);
+            return;
+        }
+
         if (c.Slice.IsZero)
         {
             Emit(3, c.Bounds, c.Radii, default, c.Color, c.Color, 0, default, new Vector4(region.U0, region.V0, region.U1 - region.U0, region.V1 - region.V0), group, true);
@@ -446,6 +484,48 @@ public sealed class UiCanvas : IDisposable
             var uv = new Vector4(g.U0, g.V0, g.U1 - g.U0, g.V1 - g.V0);
             EmitRaw(4, new Rect(g.X0, g.Y0, g.X1 - g.X0, g.Y1 - g.Y0), default, default, g.Color, g.Color, 0, default, uv, _r.GroupOf(page.Texture), 0);
         }
+    }
+
+    // The texture a region lives in: its shared page, or the texture of its own that a large raster gets (created and filled on first use).
+    private PageTexture ArtTexture(ArtAtlas art, in ArtRegion region)
+    {
+        if (region.Standalone == 0)
+        {
+            return Page(art.Pages, AtlasKind.Art, region.Page);
+        }
+
+        if (!art.TryGetStandalone(region.Standalone, out var data))
+        {
+            throw new InvalidOperationException("A standalone art texture was released while the frame still draws it.");
+        }
+
+        if (!_standalone.TryGetValue(region.Standalone, out var tex))
+        {
+            tex = new PageTexture { Texture = _r.CreateRaw(data.Width, data.Height, GpuFormat.Rgba8UnormSrgb, TextureFilter.Linear), Width = data.Width, Height = data.Height, Version = 0 };
+            _standalone[region.Standalone] = tex;
+        }
+
+        if (data.NeedsUpload)
+        {
+            _r.Device.WriteTexture(tex.Texture.Texture, 0, 0, data.Pixels);
+            data.MarkUploaded();
+        }
+
+        return tex;
+    }
+
+    private void DropReleased(ArtAtlas art)
+    {
+        art.TakeReleased(_released);
+        foreach (var handle in _released)
+        {
+            if (_standalone.Remove(handle, out var tex))
+            {
+                tex.Texture.Dispose();
+            }
+        }
+
+        _released.Clear();
     }
 
     private PageTexture Page(AtlasPages pages, AtlasKind kind, int index)
@@ -538,6 +618,12 @@ public sealed class UiCanvas : IDisposable
     /// <summary>Releases the atlas page textures.</summary>
     public void Dispose()
     {
+        foreach (var t in _standalone.Values)
+        {
+            t.Texture.Dispose();
+        }
+
+        _standalone.Clear();
         foreach (var list in _pages)
         {
             foreach (var p in list)

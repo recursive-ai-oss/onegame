@@ -54,6 +54,34 @@ public static partial class UiKit
         return b;
     }
 
+    /// <summary>
+    /// A toggle button (kind <c>Button</c>, role <c>button</c>) that is switched on or off, like a button with <c>aria-pressed</c>: a "FAST" speed switch, a bold-text toggle, a filter chip.
+    /// While on it has the class <c>pressed</c> (the kit draws an accent-tinted fill and outline), <see cref="Element.Pressed"/> is <see langword="true"/>, and the JSON dump shows <c>"pressed": true</c>.
+    /// </summary>
+    /// <param name="text">The label.</param>
+    /// <param name="get">Reads the state, every frame.</param>
+    /// <param name="set">Called with the new state when the player activates the button.</param>
+    /// <param name="id">The id, or null.</param>
+    /// <param name="kind">The look; the switched-on tint replaces the variant's fill.</param>
+    public static Element ToggleButton(string text, Func<bool> get, Action<bool> set, string? id = null, ButtonKind kind = ButtonKind.Normal)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(get);
+        ArgumentNullException.ThrowIfNull(set);
+        var b = ButtonShell(() => set(!get()), id, kind);
+        b.Value = text;
+        b.Add(Ui.Label(text).Class("kit-button-label"));
+        b.OnUpdate(e =>
+        {
+            var on = get();
+            e.Pressed = on;
+            e.SetClass("pressed", on);
+        });
+        b.Pressed = get();
+        b.SetClass("pressed", b.Pressed.Value);
+        return b;
+    }
+
     private static Element ButtonShell(Action onClick, string? id, ButtonKind kind)
     {
         ArgumentNullException.ThrowIfNull(onClick);
