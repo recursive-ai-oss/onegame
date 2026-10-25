@@ -1,0 +1,11 @@
+# Level 5. Glyphs: . empty, 1-6 one-hit brick (colour), T two hits, H three hits, # unbreakable.
+name: Steel Rain
+speed: 6
+capsules: 16
+rows:
+  - "T.T.T.T.T.T."
+  - ".1.1.1.1.1.1"
+  - "T.T.T.T.T.T."
+  - ".2.2.2.2.2.2"
+  - "T.T.T.T.T.T."
+  - ".3.3.3.3.3.3"

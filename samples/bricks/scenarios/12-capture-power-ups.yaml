@@ -1,0 +1,11 @@
+name: capture-power-ups
+description: Two capsules on their way down to the paddle, and a moment after the multi-ball one is caught, with three balls.
+steps:
+  - fixture: capsules
+  - screen: play
+  - step: 3
+  - expect:
+      capture: { reference: refs/capsules-falling-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }
+  - step: 20
+  - expect:
+      capture: { reference: refs/capsules-caught-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }

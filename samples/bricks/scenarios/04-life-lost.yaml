@@ -1,0 +1,12 @@
+name: life-lost
+description: A ball that falls past the paddle costs a life, plays the lost sound and serves a new ball on the paddle.
+steps:
+  - fixture: falling
+  - screen: play
+  - step: 60
+expect:
+  - state: { entity: Court, property: Lives, equals: 2 }
+  - state: { entity: Court, property: Phase, equals: 1 }
+  - state: { entity: Court, property: Drops, equals: 1 }
+  - state: { entity: Court, property: Balls.count, equals: 1 }
+  - sound: { name: Lost, count: 1 }

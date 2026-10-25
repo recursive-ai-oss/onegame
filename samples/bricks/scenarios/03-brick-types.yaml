@@ -1,0 +1,14 @@
+name: brick-types
+description: A two-hit brick shows the dent sound the first time and breaks the second; the plate above it only rings.
+steps:
+  - fixture: types
+  - screen: play
+  - step: 520
+expect:
+  - state: { entity: Court, property: Hits, equals: 2 }
+  - state: { entity: Court, property: Breaks, equals: 1 }
+  - state: { entity: Court, property: BricksLeft, equals: 1 }
+  - state: { entity: Court, property: Clinks, equals: 1 }
+  - sound: { name: Tough, count: 1 }
+  - sound: { name: Brick, count: 1 }
+  - sound: { name: Clink, min: 1 }

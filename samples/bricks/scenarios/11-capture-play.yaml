@@ -1,0 +1,15 @@
+name: capture-play
+description: Level 1 a moment after a brick broke (its debris still fading), and the steel and plate bricks of level 7 waiting to be served, at 1280x720; the serve again as a phone portrait.
+steps:
+  - click: play
+  - step: 2
+  - press: Space
+  - step: 104
+  - expect:
+      capture: { reference: refs/play-break-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }
+  - command: { entity: Court, name: NewGame, args: [7] }
+  - step: 3
+  - expect:
+      capture: { reference: refs/play-level7-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }
+  - expect:
+      capture: { reference: refs/play-level7-phone.png, size: 540x960, scale: 1.5, tolerance: 2, max-diff: 0.001 }

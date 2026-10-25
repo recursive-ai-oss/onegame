@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="28" viewBox="0 0 128 28">
+  <!-- Stretched in the middle and kept round at the ends (nine-slice, 16 px). -->
+  <rect x="0" y="0" width="128" height="28" rx="14" fill="#dfe5ef"/>
+  <rect x="6" y="3" width="116" height="7" rx="3.5" fill="#ffffff"/>
+  <rect x="0" y="16" width="128" height="12" rx="6" fill="#aab5c6"/>
+  <circle cx="14" cy="14" r="7" fill="#f2c14e"/>
+  <circle cx="114" cy="14" r="7" fill="#f2c14e"/>
+</svg>
