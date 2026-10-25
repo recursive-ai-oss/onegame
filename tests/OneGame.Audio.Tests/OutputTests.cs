@@ -172,8 +172,8 @@ public class OutputTests
         var tone = TestCore.Sine(48_000, 440, 0.2f, 4800);
         var clip = core.LoadClip(new MemoryStream(tone));
         core.Play(new VoiceRequest { Source = clip, Loop = true, Gain = 0.5f });
-        Thread.Sleep(1500);
-        Assert.True(backend.TotalFrames > 48_000);
+        // A loaded machine with coarse timers feeds the fake device slower than real time, so wait for the frames instead of the clock.
+        Assert.True(WaitFor(() => backend.TotalFrames > 48_000, 15_000), $"only {backend.TotalFrames} frames reached the device");
         Assert.True(output.AudioThreadAllocatedBytes == 0, $"the audio thread allocated {output.AudioThreadAllocatedBytes} bytes");
         Assert.Equal(0, output.Underruns);
     }

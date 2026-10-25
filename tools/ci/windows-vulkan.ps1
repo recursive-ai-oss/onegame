@@ -55,6 +55,20 @@ try {
 }
 if ($layerDir) { Write-Host "validation layer: $layerDir" } else { Write-Host 'validation layer: none; tests run without it' }
 
+# The loader ignores VK_DRIVER_FILES and VK_ADD_LAYER_PATH when the process is elevated, and the runner is an administrator.
+# Windows drivers announce themselves in the registry, so announce the software driver and the layer the same way:
+# a REG_DWORD value 0 named with the manifest's full path (the Vulkan loader's documented Windows discovery).
+function Register-Manifest($key, $path) {
+    $full = (Resolve-Path $path).Path
+    New-Item -Path $key -Force | Out-Null
+    New-ItemProperty -Path $key -Name $full -PropertyType DWord -Value 0 -Force | Out-Null
+    Write-Host "registered $full under $key"
+}
+Register-Manifest 'HKLM:\SOFTWARE\Khronos\Vulkan\Drivers' $icd
+if ($layerDir) {
+    Register-Manifest 'HKLM:\SOFTWARE\Khronos\Vulkan\ExplicitLayers' (Join-Path $layerDir 'VkLayer_khronos_validation.json')
+}
+
 $env:VK_DRIVER_FILES = $icd
 $env:VK_LOADER_DEBUG = 'error,warn,driver'
 Write-Host "Vulkan loader: $bin\vulkan-1.dll"
