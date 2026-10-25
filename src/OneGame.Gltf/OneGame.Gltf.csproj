@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>glTF 2.0 import: scenes, meshes, materials, skins and animations, safe on untrusted input.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="RecursiveAI.OneImage" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="System.IO" />
+    <Using Include="System.Numerics" />
+    <InternalsVisibleTo Include="OneGame.Gltf.Tests" />
+    <InternalsVisibleTo Include="OneGame.Core.Fuzz" />
+  </ItemGroup>
+
+</Project>

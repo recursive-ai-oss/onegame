@@ -245,6 +245,16 @@ if (kitProblem is not null)
 
 Console.WriteLine("ok: ui kit table, filter, sort, dialog and theme swap");
 
+// glTF import: a skinned, animated binary model with a PNG texture, an embedded text model, and two hostile files.
+var gltfProblem = GltfSmoke.Run(ReadResource("fox.glb"), ReadResource("box.gltf"));
+if (gltfProblem is not null)
+{
+    Console.Error.WriteLine("gltf smoke failed: " + gltfProblem);
+    return 1;
+}
+
+Console.WriteLine("ok: gltf skinned model with PNG texture, animation pose, joint matrices, embedded model, truncated and escaping files refused");
+
 // Graphics: create a device, clear an offscreen target and read it back. "--require-gpu" turns a missing Vulkan driver into a failure.
 var requireGpu = args.Contains("--require-gpu");
 if (!VulkanGpu.IsAvailable)
