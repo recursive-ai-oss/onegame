@@ -899,8 +899,17 @@ public sealed partial class ControlSurface : IControlEndpoint
     private AudioService AudioOrThrow()
     {
         var audio = Audio ?? AudioService.Active ?? throw new ControlException("no_audio", "This game has no audio service running.");
-        // The play log stamps each sound with the frame it was asked for in, so scenarios can ask for a window of frames.
-        audio.FrameClock ??= () => Game.Frame;
+        // The play log stamps each sound with the frame it was asked for in, so scenarios can ask for a window of frames. A service named by
+        // this surface follows this game; the process-wide newest service follows whichever game asked first (there is one game per process).
+        if (Audio is not null)
+        {
+            audio.FrameClock = () => Game.Frame;
+        }
+        else
+        {
+            audio.FrameClock ??= () => Game.Frame;
+        }
+
         return audio;
     }
 

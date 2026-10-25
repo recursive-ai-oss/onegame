@@ -60,6 +60,7 @@ public class SoundScenarioTests
             """;
         using var audio = Audio();
         using var cluster = TestCluster.Start(new ClickGame(audio), new TestOptions { Width = 320, Height = 200, Gpu = GpuMode.Off });
+        cluster.Client.Control.Audio = audio; // other tests in this process also look for the newest service; this one is ours
         var result = cluster.Run(ScenarioParser.Parse(yaml));
         var json = JsonSerializer.Serialize(result, ScenarioJson.Default.ScenarioResult);
         Assert.True(result.Passed, json);
@@ -85,6 +86,7 @@ public class SoundScenarioTests
             """;
         using var audio = Audio();
         using var cluster = TestCluster.Start(new ClickGame(audio), new TestOptions { Width = 320, Height = 200, Gpu = GpuMode.Off });
+        cluster.Client.Control.Audio = audio;
         var result = cluster.Run(ScenarioParser.Parse(yaml));
         Assert.False(result.Passed);
         var json = JsonSerializer.Serialize(result, ScenarioJson.Default.ScenarioResult);
@@ -97,6 +99,7 @@ public class SoundScenarioTests
     {
         using var audio = Audio();
         using var cluster = TestCluster.Start(new ClickGame(audio), new TestOptions { Width = 320, Height = 200, Gpu = GpuMode.Off });
+        cluster.Client.Control.Audio = audio;
         cluster.Client.Call("input_key", """{"key":"Space"}""");
         cluster.Client.Step(1);
         var result = cluster.Run(ScenarioParser.Parse("name: later\nsteps:\n  - step: 1\nexpect:\n  - sound: { name: click, count: 0 }\n"));
