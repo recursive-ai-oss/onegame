@@ -771,7 +771,30 @@ public sealed partial class ControlSurface : IControlEndpoint
             audio.ResetLoudness();
         }
 
-        return audio.Describe();
+        string? request = null;
+        if (a.Has("enableMeter") || a.Has("disableMeter"))
+        {
+            var enable = a.Has("enableMeter");
+            var index = a.Int(enable ? "enableMeter" : "disableMeter", -1);
+            if (index < 0 || index >= audio.Describe().Buses.Length)
+            {
+                throw new ControlException("bad_args", "enableMeter and disableMeter take a bus index from 0 to " + (audio.Describe().Buses.Length - 1).ToString(CultureInfo.InvariantCulture) + ".");
+            }
+
+            // Out of slots and a full queue are different answers: the first needs a meter freed, the second a retry. Neither throws.
+            request = enable
+                ? audio.TryEnableBusMeter(new AudioBus(index)) switch
+                {
+                    BusMeterResult.Metered => "metered",
+                    BusMeterResult.NoFreeSlot => "no_free_slot",
+                    BusMeterResult.QueueFull => "queue_full",
+                    _ => "unavailable",
+                }
+                : audio.DisableBusMeter(new AudioBus(index)) ? "disabled" : "queue_full";
+        }
+
+        var status = audio.Describe();
+        return request is null ? status : status with { MeterRequest = request };
     }
 
     private AudioCaptureResult AudioCapture(Args a)

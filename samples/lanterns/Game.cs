@@ -49,7 +49,7 @@ public sealed class LanternsGame : GameDefinition
 
     private static readonly string[] ModelNames =
     [
-        "island-a", "island-b", "bridge", "bridge-stub", "water", "walker-me", "walker-other", "blob",
+        "island-a", "island-b", "bridge", "bridge-stub", "water", "walker-me", "walker-other",
         "lantern-red", "lantern-blue", "lantern-gold", "lantern-plain", "pine", "oak", "rock", "bush",
     ];
 
@@ -179,6 +179,7 @@ public sealed class LanternsGame : GameDefinition
             scene.Environment.Intensity = 0.45f;
             scene.Post.BloomStrength = 0.09f;
             scene.Samples = 4;
+            scene.Ssao.Enabled = true;
         }
     }
 

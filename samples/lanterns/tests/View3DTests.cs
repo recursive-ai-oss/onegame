@@ -256,6 +256,7 @@ public class View3DTests
         var renderer = new Renderer3D(device);
         var target = new Offscreen3D(renderer, 320, 180);
         var scene = new Scene { Samples = 1 };
+        scene.Ssao.Enabled = true; // and the moon casts shadows: the allocation claim covers the shadow and ambient occlusion passes too
         var view = game.View;
 
         long prepared = 0, built = 0;
@@ -307,7 +308,9 @@ public class View3DTests
 
         device.WaitIdle();
         Assert.True(frames == 0, $"{frames} bytes over 120 frames (describing {prepared}, building {built}): {string.Join(", ", where.Take(6))}");
-        Assert.True(scene.Models.Count > 60, $"{scene.Models.Count} models drawn");
+        var props = scene.Batches.Sum(b => b.Count);
+        Assert.True(scene.Models.Count > 20 && props > 40, $"{scene.Models.Count} models and {props} instanced props drawn");
+        Assert.True(scene.Lights.Any(l => l.CastShadows), "the moon should cast shadows");
         Assert.True(scene.Lights.Count >= 5, $"{scene.Lights.Count} lights");
     }
 }

@@ -85,6 +85,29 @@ public class AudioOpTests
                 Assert.Equal(1, r.GetProperty("activeVoices").GetInt32());
             }
 
+            // The service has the default three meters, all taken: asking for a fourth is "no slot", never an error.
+            using (var doc = JsonDocument.Parse(surface.Call("audio", """{"enableMeter":3}""")))
+            {
+                Assert.Equal("no_free_slot", doc.RootElement.GetProperty("meterRequest").GetString());
+                Assert.Equal(0, doc.RootElement.GetProperty("freeBusMeters").GetInt32());
+                Assert.True(doc.RootElement.GetProperty("buses")[0].GetProperty("metered").GetBoolean());
+                Assert.False(doc.RootElement.GetProperty("buses")[3].GetProperty("metered").GetBoolean());
+            }
+
+            using (var doc = JsonDocument.Parse(surface.Call("audio", """{"disableMeter":2}""")))
+            {
+                Assert.Equal("disabled", doc.RootElement.GetProperty("meterRequest").GetString());
+                Assert.Equal(1, doc.RootElement.GetProperty("freeBusMeters").GetInt32());
+            }
+
+            using (var doc = JsonDocument.Parse(surface.Call("audio", """{"enableMeter":3}""")))
+            {
+                Assert.Equal("metered", doc.RootElement.GetProperty("meterRequest").GetString());
+                Assert.True(doc.RootElement.GetProperty("buses")[3].GetProperty("metered").GetBoolean());
+            }
+
+            Assert.Equal("bad_args", Assert.Throws<ControlException>(() => surface.Call("audio", """{"enableMeter":99}""")).Code);
+
             using (var doc = JsonDocument.Parse(surface.Call("audio", """{"reset":true}""")))
             {
                 // Silence is left out of the JSON rather than written as a number.

@@ -174,5 +174,5 @@ public sealed partial class SceneWriter
 
     internal readonly record struct InstanceDraw(int Model, Matrix4x4 World, Vector4 Tint);
 
-    internal readonly record struct LightDraw(LightKind Kind, Vector3 Position, Vector3 Direction, Vector3 Color, float Intensity, float Range, float Inner, float Outer);
+    internal readonly record struct LightDraw(LightKind Kind, Vector3 Position, Vector3 Direction, Vector3 Color, float Intensity, float Range, float Inner, float Outer, bool Shadows = false);
 }

@@ -82,7 +82,7 @@ using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true,
     audio.Play(audio.LoadSound(ReadAsset("tone44k.mp3")), new PlayOptions { Bus = AudioBus.Ui });
     audio.Advance(24_000);
     var status = audio.Describe();
-    if (audio.GetBusLoudness(AudioBus.Ui) is not { } busLoud || !(busLoud.IntegratedLufs > -60) || status.Buses[2].Loudness?.IntegratedLufs is null || audio.EnableBusMeter(new AudioBus(5)))
+    if (audio.GetBusLoudness(AudioBus.Ui) is not { } busLoud || !(busLoud.IntegratedLufs > -60) || status.Buses[2].Loudness?.IntegratedLufs is null || audio.TryEnableBusMeter(new AudioBus(5)) != BusMeterResult.NoFreeSlot || !audio.IsBusMetered(AudioBus.Ui))
     {
         Console.Error.WriteLine("audio bus loudness smoke failed");
         return 1;
