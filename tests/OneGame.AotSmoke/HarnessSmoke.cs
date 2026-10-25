@@ -38,6 +38,19 @@ internal static class HarnessSmoke
         var state = surface.Call("state_query", """{"entity":"Purse","property":"Coins"}""");
         var tree = surface.Call("ui_tree");
 
+        // Shader hot reload: compile a file, register it, edit it, and let the control layer recompile and swap it.
+        var hlsl = Path.Combine(Path.GetTempPath(), "aot-smoke-" + Environment.ProcessId + ".hlsl");
+        const string Body = "[shader(\"pixel\")] float4 PSMain() : SV_Target { return float4(@V@, 0, 0, 1); }";
+        File.WriteAllText(hlsl, Body.Replace("@V@", "1", StringComparison.Ordinal));
+        var baseline = OneShader.ShaderCompiler.CompileFile(hlsl).Reflection!;
+        var applied = 0;
+        var registration = game.HotShaders.Register(new HotShader("smoke", hlsl, "PSMain", baseline, _ => applied++));
+        File.WriteAllText(hlsl, Body.Replace("@V@", "0.5", StringComparison.Ordinal));
+        File.SetLastWriteTimeUtc(hlsl, DateTime.UtcNow.AddSeconds(5));
+        var shaders = surface.Call("shaders");
+        game.HotShaders.Unregister(registration);
+        File.Delete(hlsl);
+
         // A scenario in YAML, run through the control layer.
         var scenario = ScenarioParser.Parse("""
             name: smoke
@@ -86,7 +99,7 @@ internal static class HarnessSmoke
         }
 
         if (!result.Passed || back.Width != 160 || back.Height != 100 || !replay.Ok || tools is null || !tools.Contains("capture_frame", StringComparison.Ordinal)
-            || state.Length == 0 || tree.Length == 0)
+            || state.Length == 0 || tree.Length == 0 || applied != 1 || !shaders.Contains("\"changed\":[\"smoke\"]", StringComparison.Ordinal))
         {
             Console.Error.WriteLine($"harness smoke failed: scenario={result.Passed} image={back.Width}x{back.Height} replay={replay.Ok}");
             return 1;

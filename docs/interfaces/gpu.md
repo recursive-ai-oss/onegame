@@ -45,6 +45,8 @@ using var layout = device.CreatePipelineLayout(Sprite.Bindings.All);
 var vertex = new VertexBufferLayout { Stride = (uint)Sprite.VSMain.Stride, Attributes = Sprite.VSMain.Inputs.ToArray() };
 ```
 
+A pipeline is immutable. Replacing a shader means making a new pipeline and releasing the old one after `WaitIdle()`; `Renderer2D.ReplaceMaterialShader` does that for hot reload.
+
 ## Uploading and reading back
 
 - `WriteBuffer` / `WriteTexture` copy through a pooled staging buffer and run before the next submitted commands. The destination needs `CopyDestination`.

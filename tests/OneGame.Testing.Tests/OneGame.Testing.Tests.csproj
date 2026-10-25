@@ -3,6 +3,8 @@
   <ItemGroup>
     <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
     <ProjectReference Include="../../src/OneGame.Live/OneGame.Live.csproj" />
+    <!-- The test material in Shaders/Glow.hlsl is compiled by the same build step the renderer uses. -->
+    <PackageReference Include="RecursiveAI.OneShader.Build" />
     <!-- The sample entities in this project run through the generator and analyzers like a game's would. -->
     <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>

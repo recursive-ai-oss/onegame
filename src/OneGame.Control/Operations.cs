@@ -125,6 +125,7 @@ public sealed record SnapshotResult(string? Path, int Bytes, string? Base64, str
 [JsonSerializable(typeof(OneGame.Host.NetStatus))]
 [JsonSerializable(typeof(NetWaitResult))]
 [JsonSerializable(typeof(NetDivergeResult))]
+[JsonSerializable(typeof(ShadersResult))]
 public sealed partial class ControlJson : JsonSerializerContext
 {
 }
@@ -188,6 +189,9 @@ public static class ControlOps
             """{"type":"object","properties":{"path":{"type":"string"}}}""", false),
         new("snapshot_load", "Replace the world with a snapshot, from 'path' or 'base64'.",
             """{"type":"object","properties":{"path":{"type":"string"},"base64":{"type":"string"}}}""", true),
+        new("shaders",
+            "Hot-reload status of the game's registered shaders. Checks their files first: a changed one is recompiled and, when its interface still matches, swapped in; otherwise the old shader keeps running and the state says why (compile_error with file and line, or incompatible).",
+            NoArgs, true),
         new("capture_frame",
             "Render the current state offscreen to a PNG. size is WxH or a name (360p 720p 1080p 1440p 4k deck phone tablet); scale is the UI scale. With 'path' the file is written under the output folder. With presented=true, a windowed game instead returns the frame it presents to its window (the swapchain image, at the window's size; size and scale are ignored).",
             """{"type":"object","properties":{"size":{"type":"string"},"scale":{"type":"number"},"path":{"type":"string"},"presented":{"type":"boolean"}}}""", false),

@@ -309,10 +309,11 @@ internal sealed partial class ExportVerb : IVerb
         return newest;
     }
 
-    /// <summary>Whether any program file in the export mentions the live-control assembly.</summary>
+    /// <summary>Whether any program file in the export mentions the live-control assembly or the shader hot-reload watcher.</summary>
     private static bool DevToolsPresent(string folder)
     {
         var needle = "OneGame.Live"u8.ToArray();
+        var reloader = "ShaderReloader"u8.ToArray();
         foreach (var f in Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly))
         {
             if (f.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) && Path.GetFileName(f).StartsWith("OneGame.Live", StringComparison.Ordinal))
@@ -326,7 +327,8 @@ internal sealed partial class ExportVerb : IVerb
                 continue;
             }
 
-            if (File.ReadAllBytes(f).AsSpan().IndexOf(needle) >= 0)
+            var bytes = File.ReadAllBytes(f);
+            if (bytes.AsSpan().IndexOf(needle) >= 0 || bytes.AsSpan().IndexOf(reloader) >= 0)
             {
                 return true;
             }

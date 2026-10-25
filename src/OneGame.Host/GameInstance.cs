@@ -115,7 +115,8 @@ public sealed class GameInstance : IDisposable
         var art = new ArtAtlas();
         definition.DefineArt(art);
         var shaders = options.Shaders ?? GeneratedShaders.Instance;
-        _stage = definition.CreateRenderStage(new HostResources(haveFonts ? fonts : null, measurer, art, shaders));
+        HotShaders = new HotShaders();
+        _stage = definition.CreateRenderStage(new HostResources(haveFonts ? fonts : null, measurer, art, shaders) { HotShaders = HotShaders });
         Platform = PlatformApp.Create(new PlatformOptions
         {
             Backend = options.Headless ? PlatformBackendKind.Headless : options.Backend,
@@ -201,6 +202,9 @@ public sealed class GameInstance : IDisposable
 
     /// <summary>Frames run so far.</summary>
     public long Frame { get; private set; }
+
+    /// <summary>The shaders the game's render stage registered for hot reload. A development build recompiles them when their files change.</summary>
+    public HotShaders HotShaders { get; }
 
     /// <summary>True once the window was closed or a quit was requested.</summary>
     public bool QuitRequested => Platform.QuitRequested || Window.IsClosed;

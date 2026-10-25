@@ -21,6 +21,7 @@
   <ItemGroup>
     <!-- PNG encoding for captures. -->
     <PackageReference Include="RecursiveAI.OneImage" />
+    <PackageReference Include="RecursiveAI.OneShader" />
   </ItemGroup>
 
 
