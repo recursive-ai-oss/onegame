@@ -174,7 +174,7 @@ public class OutputTests
         core.Play(new VoiceRequest { Source = clip, Loop = true, Gain = 0.5f });
         Thread.Sleep(1500);
         Assert.True(backend.TotalFrames > 48_000);
-        Assert.Equal(0, output.AudioThreadAllocatedBytes);
+        Assert.True(output.AudioThreadAllocatedBytes == 0, $"the audio thread allocated {output.AudioThreadAllocatedBytes} bytes");
         Assert.Equal(0, output.Underruns);
     }
 

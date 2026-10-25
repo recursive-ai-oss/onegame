@@ -83,7 +83,7 @@ public sealed class ExportTests : IDisposable
     public void SteamLibraryIsFoundInTheSuppliedFolderOnly()
     {
         var file = Make("redist/linux-x64/libsteam_api.so");
-        Assert.Equal(file, ExportVerb.FindSteamLibrary("linux-x64", Path.Combine(_root, "redist")));
+        Assert.Equal(Path.GetFullPath(file), ExportVerb.FindSteamLibrary("linux-x64", Path.Combine(_root, "redist")));
         var saved = Environment.GetEnvironmentVariable("ONEGAME_STEAM_REDIST");
         Environment.SetEnvironmentVariable("ONEGAME_STEAM_REDIST", null);
         try

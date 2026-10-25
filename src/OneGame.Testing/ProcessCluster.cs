@@ -320,7 +320,7 @@ public sealed class ProcessCluster : IDisposable
     public string LogTail(string node, int lines = 40)
     {
         var file = Node(node).Log;
-        return File.Exists(file) ? string.Join('\n', File.ReadAllLines(file).TakeLast(lines)) : "";
+        return File.Exists(file) ? string.Join('\n', ReadLines(file).TakeLast(lines)) : "";
     }
 
     /// <summary>The tick of the node's scope (a server's first scope, or a client's replica).</summary>
@@ -519,7 +519,7 @@ public sealed class ProcessCluster : IDisposable
             return null;
         }
 
-        var lines = File.ReadAllLines(n.Log);
+        var lines = ReadLines(n.Log);
         for (var i = lines.Length - 1; i >= 0; i--)
         {
             if (lines[i].StartsWith('{'))
@@ -980,7 +980,21 @@ public sealed class ProcessCluster : IDisposable
         return text;
     }
 
-    private static string Tail(string log) => File.Exists(log) ? string.Join('\n', File.ReadAllLines(log).TakeLast(15)) : "(no output)";
+    private static string Tail(string log) => File.Exists(log) ? string.Join('\n', ReadLines(log).TakeLast(15)) : "(no output)";
+
+    // A node on Windows keeps its log open while it runs, so reading it has to allow the writer.
+    private static string[] ReadLines(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream);
+        var lines = new List<string>();
+        while (reader.ReadLine() is { } line)
+        {
+            lines.Add(line);
+        }
+
+        return [.. lines];
+    }
 
     private static void PumpToFile(Process process, string log)
     {

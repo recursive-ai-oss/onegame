@@ -31,10 +31,15 @@ internal static unsafe partial class VulkanLoader
         return false;
     }
 
-    static string[] CandidateNames() =>
-        OperatingSystem.IsWindows() ? ["vulkan-1.dll"]
-        : OperatingSystem.IsMacOS() ? ["libvulkan.1.dylib", "libMoltenVK.dylib"]
-        : ["libvulkan.so.1", "libvulkan.so"];
+    // ONEGAME_VULKAN_LIBRARY names a loader to use before the system's: a machine can have several (an old one in the system folder,
+    // a newer one from an SDK), and the first found would otherwise win.
+    static string[] CandidateNames()
+    {
+        string[] system = OperatingSystem.IsWindows() ? ["vulkan-1.dll"]
+            : OperatingSystem.IsMacOS() ? ["libvulkan.1.dylib", "libMoltenVK.dylib"]
+            : ["libvulkan.so.1", "libvulkan.so"];
+        return Environment.GetEnvironmentVariable("ONEGAME_VULKAN_LIBRARY") is { Length: > 0 } custom ? [custom, .. system] : system;
+    }
 
     static nint Resolve(string name, Assembly assembly, DllImportSearchPath? path)
     {

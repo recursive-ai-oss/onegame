@@ -140,7 +140,11 @@ public class HeadlessAppTests
     [Fact]
     public void AutoFallsBackToHeadlessWithoutADisplayAndMissingBackendsThrowTyped()
     {
-        Assert.Throws<PlatformException>(() => PlatformApp.Create(new PlatformOptions { Backend = PlatformBackendKind.Win32, EnableGamepadDevices = false }));
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Throws<PlatformException>(() => PlatformApp.Create(new PlatformOptions { Backend = PlatformBackendKind.Win32, EnableGamepadDevices = false }));
+        }
+
         Assert.Throws<PlatformException>(() => PlatformApp.Create(new PlatformOptions { Backend = PlatformBackendKind.X11, DisplayName = ":99999", EnableGamepadDevices = false }));
         Assert.Throws<PlatformException>(() => PlatformApp.Create(new PlatformOptions { Backend = PlatformBackendKind.Wayland, DisplayName = "/nonexistent/socket", EnableGamepadDevices = false }));
     }

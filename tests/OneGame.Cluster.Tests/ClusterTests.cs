@@ -109,7 +109,7 @@ public class ClusterTests
     public void ACrashedTestLeavesNoProcessesBehind()
     {
         // The nodes watch the process that started them. Stand in for a test host that dies: a process we kill.
-        using var sleeper = Process.Start(new ProcessStartInfo("/bin/sleep", "120") { UseShellExecute = false })!;
+        using var sleeper = Process.Start(OperatingSystem.IsWindows() ? new ProcessStartInfo("ping", "-n 120 127.0.0.1") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true } : new ProcessStartInfo("/bin/sleep", "120") { UseShellExecute = false })!;
         var spec = Spec("orphans", Fixture.ServerNode("srv"), Fixture.ClientNode("p1", "srv"));
         var cluster = ProcessCluster.Up(spec, sleeper.Id);
         int[] pids = [.. cluster.Pids];
