@@ -19,6 +19,7 @@
 !/testdata
 !/tools
 !/tests
+!/samples
 
 bin/
 obj/

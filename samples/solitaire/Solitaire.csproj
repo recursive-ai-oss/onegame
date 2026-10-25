@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- The onegame checkout this game builds against: two folders up from here. -->
+    <OneGameRoot>$(MSBuildThisFileDirectory)../../</OneGameRoot>
+    <AssemblyName>Solitaire</AssemblyName>
+    <RootNamespace>Solitaire</RootNamespace>
+    <Description>Klondike solitaire: the first onegame sample.</Description>
+    <!-- The sample's own tests and scenario files are not part of the game. -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+
+  <ItemGroup>
+    <Compile Include="**/*.cs" Exclude="tests/**;obj/**;bin/**" />
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.Steam/OneGame.Steam.csproj" />
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.Audio/OneGame.Audio.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Card art and the default fonts travel inside the program, so the game runs from any folder. -->
+    <EmbeddedResource Include="art/*.svg" LogicalName="art/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="fonts/*.ttf" LogicalName="fonts/%(Filename)%(Extension)" />
+    <InternalsVisibleTo Include="Solitaire.Tests" />
+  </ItemGroup>
+
+</Project>

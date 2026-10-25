@@ -1,0 +1,15 @@
+name: undo-restores-hash
+description: A draw and two foundation moves (which also turn cards over) are taken back one by one; the state hash is exactly the baseline's.
+steps:
+  - screen: table
+  - command: { entity: Table, name: Draw }
+  - command: { entity: Table, name: Move, args: [9, 3, 1] }
+  - command: { entity: Table, name: Move, args: [10, 3, 1] }
+  - command: { entity: Table, name: Undo }
+  - command: { entity: Table, name: Undo }
+  - command: { entity: Table, name: Undo }
+  - step: 1
+expect:
+  - state: { entity: Table, property: Moves, equals: 0 }
+  - state: { entity: Table, property: Score, equals: 0 }
+  - hash: 56e93945a2fe2fad

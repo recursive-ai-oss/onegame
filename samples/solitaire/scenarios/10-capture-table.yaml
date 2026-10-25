@@ -1,0 +1,9 @@
+name: capture-table
+description: "The dealt table (seed 1) at 720p and at 1080p with a 1.5 UI scale."
+steps:
+  - screen: table
+  - step: 45
+  - expect:
+      capture: { reference: refs/table-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }
+  - expect:
+      capture: { reference: refs/table-1080p.png, size: 1920x1080, scale: 1.5, tolerance: 2, max-diff: 0.001 }

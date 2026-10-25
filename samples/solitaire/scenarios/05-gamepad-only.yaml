@@ -1,0 +1,66 @@
+name: gamepad-only
+description: >-
+  With the d-pad and the confirm button alone: start a game from the menu, draw a card, play it, move a card between columns,
+  open the pause dialog and reach the statistics screen.
+steps:
+  - screen: main
+  - nav: down                      # nothing has focus yet: the first button takes it
+  - expect:
+      ui: { id: new-draw1, focused: true }
+  - nav: activate                  # new game, draw 1
+  - step: 2
+  - expect:
+      ui: { id: stock, focused: true }
+  - nav: activate                  # draw: the two of hearts turns up
+  - step: 2
+  - nav: right
+  - expect:
+      ui: { id: waste, focused: true }
+  - nav: activate                  # pick it up
+  - nav: down
+  - nav: right
+  - expect:
+      ui: { id: col3, focused: true }
+  - nav: activate                  # and put it on the black three
+  - step: 2
+  - expect:
+      state: { entity: Table, property: Moves, equals: 2 }
+  - nav: right
+  - nav: right
+  - nav: right
+  - nav: right
+  - expect:
+      ui: { id: col7, focused: true }
+  - nav: activate                  # the black eight from the last column
+  - nav: left
+  - nav: left
+  - nav: left
+  - nav: left
+  - nav: left
+  - nav: left
+  - expect:
+      ui: { id: col1, focused: true }
+  - nav: activate                  # onto the red nine
+  - step: 2
+  - nav: down
+  - expect:
+      ui: { id: undo, focused: true }
+  - nav: right
+  - expect:
+      ui: { id: menu, focused: true }
+  - nav: activate                  # the pause dialog
+  - step: 2
+  - expect:
+      ui: { id: resume, focused: true }
+  - nav: down
+  - nav: down
+  - expect:
+      ui: { id: pause-stats, focused: true }
+  - nav: activate
+  - step: 1
+expect:
+  - state: { entity: Table, property: Moves, equals: 3 }
+  - state: { entity: Table, property: Paused, equals: true }
+  - ui: { id: stat-games, text: "1" }
+  - ui: { id: stat-wins, text: "0" }
+  - ui: { id: back, visible: true }

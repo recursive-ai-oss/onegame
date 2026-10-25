@@ -1,0 +1,19 @@
+name: illegal-move
+description: Moves the rules forbid are refused and counted, and change nothing; tapping a pile that cannot take the selected cards says so.
+steps:
+  - screen: table
+  - command: { entity: Table, name: Move, args: [1, 6, 1] }       # the waste is empty
+  - step: 1
+  - command: { entity: Table, name: Move, args: [6, 7, 1] }       # a nine on a four
+  - step: 1
+  - command: { entity: Table, name: Move, args: [12, 3, 1] }      # a card to the wrong foundation
+  - step: 1
+  - command: { entity: Table, name: Move, args: [0, 1, 1] }       # the stock only draws
+  - step: 1
+  - command: { entity: Table, name: NewGame, args: [2] }          # there is no draw-2 game
+  - step: 1
+expect:
+  - state: { entity: Table, property: Refused, equals: 5 }
+  - state: { entity: Table, property: Moves, equals: 0 }
+  - state: { entity: Table, property: Score, equals: 0 }
+  - state: { entity: Table, property: Deal, equals: 1 }

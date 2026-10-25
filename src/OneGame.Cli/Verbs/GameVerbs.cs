@@ -209,7 +209,7 @@ internal sealed class TestVerb : IVerb
         var tail = new List<string>();
         foreach (var p in projects)
         {
-            var result = Proc.Run(Proc.Dotnet, ["test", p, "-c", configuration, "--nologo", "-v", "q"], project.Directory, line => stream?.WriteLine(line));
+            var result = Proc.Run(Proc.Dotnet, ["test", "--project", p, "-c", configuration, "-v", "q"], project.Directory, line => stream?.WriteLine(line));
             ok &= result.ExitCode == 0;
             foreach (var raw in (result.Output + "\n" + result.Error).Split('\n'))
             {

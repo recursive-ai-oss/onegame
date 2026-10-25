@@ -1,0 +1,11 @@
+name: capture-menu
+description: "The main menu with the first button focused, as a controller player first sees it."
+steps:
+  - screen: main
+  - step: 3
+  - nav: down
+  - step: 3
+  - expect:
+      capture: { reference: refs/menu-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }
+  - expect:
+      capture: { reference: refs/menu-1080p.png, size: 1920x1080, scale: 1.5, tolerance: 2, max-diff: 0.001 }

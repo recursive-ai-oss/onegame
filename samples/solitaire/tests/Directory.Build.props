@@ -1,0 +1,10 @@
+<Project>
+
+  <!-- The sample's tests are test code, not part of the shipped game: they take the repository's test rules. -->
+  <PropertyGroup>
+    <OneGameShips>false</OneGameShips>
+  </PropertyGroup>
+
+  <Import Project="$(MSBuildThisFileDirectory)../../../tests/Directory.Build.props" />
+
+</Project>
