@@ -1,3 +1,4 @@
+using OneGame.Platform;
 namespace OneGame.Purchases;
 
 /// <summary>
@@ -54,7 +55,8 @@ public static class PurchaseBackends
     {
         try
         {
-            if (OperatingSystem.IsAndroid())
+            // NativeAOT apps run on the linux-bionic runtime, where OperatingSystem.IsAndroid() is false; the activity host is the reliable sign.
+            if (OperatingSystem.IsAndroid() || AndroidActivityHost.Current is not null)
             {
                 return new PlayBillingBackend();
             }

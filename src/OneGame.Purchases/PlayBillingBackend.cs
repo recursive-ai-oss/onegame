@@ -27,7 +27,7 @@ public sealed class PlayBillingBackend : IPurchaseBackend
     /// <exception cref="PlatformNotSupportedException">Not running as an Android app.</exception>
     public PlayBillingBackend()
     {
-        if (!OperatingSystem.IsAndroid() || AndroidActivityHost.Current is not { GameJni: { } jni } host)
+        if (AndroidActivityHost.Current is not { GameJni: { } jni } host)
         {
             throw new PlatformNotSupportedException("Play Billing needs an Android app started through the platform layer.");
         }

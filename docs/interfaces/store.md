@@ -31,7 +31,7 @@ Requests return a `StoreError` at once when they cannot even be sent (not connec
 
 | Backend | Where | Notes |
 |---|---|---|
-| `FakeStore` | everywhere | deterministic and scriptable, see below. `ONEGAME_STORE=fake` makes `CreateService` use it. |
+| `FakeStore` | everywhere | deterministic and scriptable, see below. `ONEGAME_STORE=fake` makes `CreateService` use it (a game can map a command-line flag to it, as `tests/StoreGame` does with `--fake-store`, for phones where the environment cannot be set). |
 | `StoreKitBackend` | iOS, macOS | StoreKit's original Objective-C API through the runtime (`IosObjc`), observer class registered at run time, all requests on the main thread. |
 | `PlayBillingBackend` | Android | Google Play Billing Library 9.1.0 through one Java class of ours and JNI. |
 | `UnavailableStore` | other platforms, or when a real backend cannot start | every call fails `Unavailable` with the reason. |
@@ -54,6 +54,8 @@ Requests return a `StoreError` at once when they cannot even be sent (not connec
 Control operation `store` (needs a `PurchaseService`; the most recent one is used unless `ControlSurface.Purchases` is set). Actions: `describe` (connection, products, owned, unfinished, pending and the latest events as text), `connect`, `load`, `buy`, `finish`, `restore`, and for the fake store `script`, `resolve`, `revoke`, `disconnect`, `fail-connect`. Each action delivers the store's answers before it returns and returns the same status as `describe`. A request that cannot be sent fails with `store_<kind>` (`store_productnotfound`, `store_alreadyowned`, …). Scripting a real store fails with `rejected`.
 
 Scenario step `store: {action: buy, product: remove_ads}` (a bare `store: connect` works for actions without arguments; keys `action`, `product`, `outcome`, `error`, `approve`) and expectation `expect: {store: {owned: remove_ads, not-owned: x, pending: id|none, connection: connected, unfinished: "0", products: "2", recent: "transaction coins.100 purchased"}}`. A game must call `Pump()` itself; a single-player game hears about time through `GameInstance.TickCompleted` (see `tests/StoreGame/ShopGame.cs`). `tests/StoreGame/scenarios/01-buy-cancel-pend-restore-refund.yaml` buys, cancels, waits for approval, restores, refunds and fails a purchase, on desktop and on the iOS simulator with the same final state hash.
+
+**What has been run.** On an x86_64 Android 35 emulator image with the Play Store, signed out: the exported game connects the native binding through JNI to Play's billing service and reports `Unavailable: Billing service unavailable on device` through the `store` op (a clean failed connection; `buy` and `restore` answer `store_unavailable`). With `--fake-store` the same APK passes the store scenario with the same state hash as a desktop run. Product queries and purchases need a signed-in account and the Play Console setup below. NativeAOT apps run on the linux-bionic runtime, where `OperatingSystem.IsAndroid()` is false, so the backend is chosen by the presence of the activity host instead.
 
 ## Trying real purchases (owner steps)
 
