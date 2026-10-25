@@ -147,13 +147,21 @@ public sealed class UdpListener : INetListener
                 break;
             case Wire.KindData when d.Length >= ReliableCore.HeaderSize:
             case Wire.KindDisconnect when d.Length >= Wire.DisconnectSize:
-                if (_byId.TryGetValue(BinaryPrimitives.ReadUInt32LittleEndian(d[1..]), out var c) && c.Remote.Equals(_from))
+                var id = BinaryPrimitives.ReadUInt32LittleEndian(d[1..]);
+                if (_byId.TryGetValue(id, out var c) && c.Remote.Equals(_from))
                 {
                     c.HandleDatagram(d, now);
                 }
                 else
                 {
                     DatagramsIgnored++;
+                    if (kind == Wire.KindData && c is null)
+                    {
+                        // Nobody here has this connection: this server started again since the sender connected. Say so, or the sender
+                        // keeps a dead connection open until its timeout. The reply is smaller than what triggered it, and a disconnect
+                        // is never answered, so two peers cannot bounce it back and forth.
+                        SendUnknownConnection(id);
+                    }
                 }
 
                 break;
@@ -170,6 +178,16 @@ public sealed class UdpListener : INetListener
         Wire.Cookie(_secret, _from, nonce, now / CookieEpochMs, _reply.AsSpan(9, Wire.CookieSize));
         _socket.Send(_reply, _from);
         ChallengesSent++;
+    }
+
+    private void SendUnknownConnection(uint connectionId)
+    {
+        Span<byte> r = stackalloc byte[Wire.DisconnectSize];
+        r[0] = Wire.Header(Wire.KindDisconnect);
+        BinaryPrimitives.WriteUInt32LittleEndian(r[1..], connectionId);
+        r[5] = (byte)DisconnectReason.Shutdown;
+        r[6] = 0;
+        _socket.Send(r, _from);
     }
 
     private void SendReject(ulong nonce, DisconnectReason reason)

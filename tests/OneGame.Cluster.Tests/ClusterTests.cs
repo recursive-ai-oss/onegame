@@ -149,6 +149,61 @@ public class ClusterTests
     }
 
     [Fact]
+    public void KillingAndStartingNodesReplacesTheirProcessesAndKeepsThePorts()
+    {
+        var spec = Spec("restart", Fixture.ServerNode("master", tickRate: 120), Fixture.ServerNode("srv", tickRate: 120), Fixture.ClientNode("p1", "srv"));
+        int[] pids;
+        using (var cluster = TestCluster.Launch(spec))
+        {
+            var first = cluster.Pids.ToArray();
+            var port = cluster.Node("srv").Listen[0].Port;
+            Assert.Throws<ClusterException>(() => cluster.Start("srv")); // still running
+            var result = cluster.Run(Fixture.Scenario("restart.yaml"));
+            Assert.True(result.Passed, JsonSerializer.Serialize(result, ScenarioJson.Default.ScenarioResult));
+            Assert.Contains(result.Steps, s => s.Kind == "kill" && s.Node == "master");
+            Assert.Contains(result.Steps, s => s.Kind == "restart" && s.Node == "srv");
+            var second = cluster.Pids.ToArray();
+            Assert.All(second, pid => Assert.True(ProcessCluster.IsAlive(pid)));
+            Assert.All(first, pid => Assert.DoesNotContain(pid, second));
+            Assert.All(first, pid => Assert.False(ProcessCluster.IsAlive(pid), $"the old process {pid} is still running"));
+            Assert.Equal(port, cluster.Node("srv").Listen[0].Port);
+            Assert.True(cluster.Hashes().Ok);
+
+            // Someone else's cluster cannot be steered.
+            var attached = ProcessCluster.Attach(cluster.Dir);
+            Assert.Equal("not_owner", Assert.Throws<ClusterException>(() => attached.Kill("srv")).Code);
+            pids = [.. first, .. second];
+        }
+
+        AssertGone(pids);
+    }
+
+    [Fact]
+    public void AReleaseClientRunsToATickOnItsOwnAndItsPrintedResultIsComparedWithItsServer()
+    {
+        var release = Fixture.ClientNode("p1", "srv") with { Release = true, Args = ["--until-tick", "300"] };
+        var spec = Spec("release", Fixture.ServerNode("srv", tickRate: 120), release);
+        int[] pids;
+        using (var cluster = TestCluster.Launch(spec))
+        {
+            pids = [.. cluster.Pids];
+            Assert.True(cluster.Node("p1").Release);
+            Assert.Equal("no_live", Assert.Throws<ClusterException>(() => cluster.Call("p1", "net_status")).Code);
+            Assert.Contains("still running", string.Join("; ", cluster.Hashes().Problems));
+            Assert.True(cluster.WaitForTick("p1", 300, 30_000), "the release client should stop at its tick");
+            var report = cluster.Hashes();
+            Assert.True(report.Ok, string.Join("; ", report.Problems));
+            var check = Assert.Single(report.Checks);
+            Assert.True(check.Match);
+            Assert.True(check.Tick >= 300);
+            Assert.Empty(report.Drift);
+        }
+
+        AssertGone(pids);
+        Assert.Throws<ScenarioException>(() => ClusterSpec.Parse("nodes:\n  - { name: a, role: server, exe: x }\n  - { name: b, role: client, exe: x, connect: a, release: true }\n"));
+    }
+
+    [Fact]
     public void ASingleGameRefusesStepsAimedAtNodes()
     {
         var scenario = ScenarioParser.Parse("steps:\n  - step: 1\n    node: srv\n");

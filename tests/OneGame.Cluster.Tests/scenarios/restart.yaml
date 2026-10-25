@@ -1,0 +1,14 @@
+name: restart
+description: A server is killed, started again from nothing, and the client that stayed up is still a client of the other one; restart does both at once.
+steps:
+  - command: { entity: Arena, name: Hit, args: ["2", "p1"] }
+    node: p1
+  - wait: { node: p1, tick: 30 }
+  - kill: master
+  - start: master
+  - restart: srv
+  - restart: p1
+  - wait: { node: p1, tick: 30 }
+expect:
+  - agree: { server: srv, clients: [p1] }
+  - drift: { nodes: [p1], equals: 0 }

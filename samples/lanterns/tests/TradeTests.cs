@@ -116,6 +116,21 @@ public class TradeTests
             Assert.Equal(t.Total, t.Realms.Held());
             Assert.Equal(0, t.Realms.InFlight());
             Assert.Equal(0, t.P1.Pending + t.P2.Pending);
+
+            // Players follow the master through their island's relay: once it is back they must see the settled swap too, with no drift.
+            // A player whose own island was killed lost the connection itself, so only the other player is checked then.
+            var settled = (Account? a) => a?.Status is SwapStatus.Done or SwapStatus.Failed;
+            t.Realms.RunUntil(
+                () => settled(t.S1.MyAccount) && (victim == Rules.IslandB || settled(t.S2.MyAccount)),
+                30_000,
+                "the players to see the settled swap",
+                why: () => $"p1 {t.S1.MyAccount?.Status} p2 {t.S2.MyAccount?.Status}; master tick {t.Realms.M.Scopes[0].World.Tick}");
+            t.Realms.Run(120);
+            var followed = t.S1.ReplicaOf(Rules.Master)!;
+            Assert.True(
+                Math.Abs(t.Realms.M.Scopes[0].World.Tick - followed.LastTick) <= 10,
+                $"the client follows the master at tick {followed.LastTick}, the master is at {t.Realms.M.Scopes[0].World.Tick} ({followed.State})");
+            Assert.Empty(t.G1.DriftReports);
         }
         finally
         {

@@ -1,0 +1,17 @@
+name: crash-and-restart
+description: The master's process is killed while a swap is open and started again from its save, then island B's; lanterns are neither lost nor made, and every client agrees with its server afterwards.
+steps:
+  - expect: { state: { entity: Market, property: NextTx, min: 2, scope: 3, within: 120000 }, node: master }
+  - kill: master
+  - start: master
+  - wait: { node: islandA, tick: 1500, timeout: 120000 }
+  - expect: { state: { entity: Market, property: NextTx, min: 4, scope: 3, within: 120000 }, node: master }
+  - kill: islandB
+  - start: islandB
+  - restart: bot2
+  - wait: { node: islandB, tick: 3000, timeout: 120000 }
+  - expect: { state: { entity: Market, property: Settled, min: 2, scope: 3, within: 120000 }, node: master }
+expect:
+  - agree: { server: islandA, clients: [bot1] }
+  - agree: { server: islandB, clients: [bot2] }
+  - drift: { nodes: [islandA, islandB, master, bot1, bot2], equals: 0 }
