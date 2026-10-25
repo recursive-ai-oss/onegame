@@ -771,9 +771,11 @@ public sealed class ProcessCluster : IDisposable
         {
             args.AddRange(node.Args.Select(a => Expand(a, ports, dir)));
             args.AddRange(["--name", node.Name]);
+            // Servers bind the loopback address unless ONEGAME_CLUSTER_BIND names another (0.0.0.0 lets a phone on the network join).
+            var bind = Environment.GetEnvironmentVariable("ONEGAME_CLUSTER_BIND") is { Length: > 0 } b ? b : "127.0.0.1";
             foreach (var l in node.Listen.Split('+'))
             {
-                args.AddRange(["--listen", l + ":" + ports[node.Name].ToString(CultureInfo.InvariantCulture) + "@127.0.0.1"]);
+                args.AddRange(["--listen", l + ":" + ports[node.Name].ToString(CultureInfo.InvariantCulture) + "@" + bind]);
             }
 
             foreach (var s in node.Scopes)

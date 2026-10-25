@@ -2,6 +2,21 @@
 
 The two samples run on the Android emulator, the iOS Simulator and in Chrome with the same state hashes as on a computer. This page is what to do on real hardware, and which commands repeat the simulator checks. Interfaces: [android](interfaces/android.md), [ios](interfaces/ios.md), [audio](interfaces/audio.md), [exporting](exporting.md).
 
+## One command per device
+
+`tools/devices/` holds a script per kind of device. Each finds the device, builds what it needs, installs and runs the samples (Bricks too, once it is in the tree), compares every scenario's state hash with a run on the computer, takes a frame, checks sound through the `audio` operation, exercises touch or pad input where a script can, prints one verdict line and cleans up. Details of each step are in the script's header; per-step JSON lands in `$ONEGAME_ARTIFACTS/device-<kind>/`.
+
+| Device | Command | Needs |
+|---|---|---|
+| Android phone | `tools/devices/android.sh [--serial S]` | USB debugging on, `adb`, the Android SDK and NDK the export uses; the phone on the same network as the computer for Lanterns (`--lan-host` if the guess is wrong) |
+| iPhone or iPad | `python3 tools/devices/ios.py` on the Mac the device is plugged into | the device trusted and in Developer Mode, unlocked; an App Store Connect API key in `ASC_KEY_FILE`, `ASC_KEY_ID`, `ASC_ISSUER_ID` (the script registers the device and makes the profile; `asc.py` needs `pip install cryptography`), or ready profiles in `IOS_PROFILE_DIR` |
+| Steam Deck | `tools/devices/deck.sh [--host H]` | ssh on, this computer's key in the Deck's `authorized_keys`; the Deck found by `steamdeck.local` or a scan of the network (`find-host.py`); desktop mode logged in for the windowed run |
+| Gamepad | `tools/devices/pad.sh [--expect NAME] [--rumble]` | the pad plugged in and `/dev/input/event*` readable; `--virtual xbox\|dualsense` runs the same check against a `/dev/uinput` stand-in |
+
+The community controller mapping database is test data: `tools/devices/fetch-gamecontrollerdb.sh <file>` downloads a pinned copy and `pad.sh` does it on first use. What the pad check reports (device id, database entry, whether the layout was mapped, rumble, which buttons and axes moved) needs a person pressing things to cover the buttons; unattended it reports what the idle device says.
+
+For a cluster whose servers run on the computer and whose client runs on a phone, set `ONEGAME_CLUSTER_BIND=0.0.0.0` ([cluster](interfaces/cluster.md)); the scripts do. A game's live control on a device the computer can reach only over the network is `--live tcp:*:PORT` ([control](interfaces/control.md)).
+
 ## A real Android phone
 
 1. On the phone: Settings → About → tap *Build number* seven times; Developer options → *USB debugging*. Plug it in and accept the computer's key. `adb devices` lists it (`ANDROID_SERIAL` picks one when several are attached).
