@@ -943,8 +943,42 @@ public sealed partial class ControlSurface : IControlEndpoint
                 : audio.DisableBusMeter(new AudioBus(index)) ? "disabled" : "queue_full";
         }
 
+        var deviceRequest = DeviceRequest(audio, a);
         var status = audio.Describe();
+        if (deviceRequest is not null && status.Device is not null)
+        {
+            status = status with { Device = status.Device with { Request = deviceRequest } };
+        }
+
         return request is null ? status : status with { MeterRequest = request };
+    }
+
+    // The device-level requests of the audio operation: start audio in a page, post an iOS interruption, stop or start the device like the lifecycle does.
+    private static string? DeviceRequest(AudioService audio, Args a)
+    {
+        string? request = null;
+        if (a.Bool("unlock", false))
+        {
+            request = OperatingSystem.IsBrowser() ? "unlock:" + WebAudioBackend.Unlock() : "unlock:not_a_web_page";
+        }
+
+        if (a.Str("interrupt") is { } phase)
+        {
+            if (phase is not ("begin" or "end"))
+            {
+                throw new ControlException("bad_args", "interrupt is 'begin' or 'end'.");
+            }
+
+            request = AudioUnitBackend.SimulateInterruption(phase == "begin") ? "interrupt:" + phase : "interrupt:not_ios";
+        }
+
+        if (a.Has("suspend"))
+        {
+            audio.SetSuspended(a.Bool("suspend", false));
+            request = "suspend:" + (a.Bool("suspend", false) ? "true" : "false");
+        }
+
+        return request;
     }
 
     private AudioCaptureResult AudioCapture(Args a)
