@@ -116,7 +116,7 @@ internal sealed class IslandScene
             linked = IsLinked(world);
         }
 
-        w.DirectionalLight(new Vector3(-0.35f, -0.8f, -0.45f), new Vector3(0.62f, 0.72f, 1f), 1.1f);
+        w.DirectionalLight(new Vector3(-0.6f, -0.75f, 0.2f), new Vector3(0.62f, 0.72f, 1f), 1.6f, castShadows: true);
         w.Model("water", Matrix4x4.CreateTranslation(Layout.OriginB / 2f + 8f, Layout.WaterY, 4f), pickable: false);
         w.Model("island-a", Matrix4x4.CreateTranslation(Layout.X(Rules.IslandA, Rules.Width / 2f), 0f, Layout.Z(Rules.Height / 2f)), pickable: false);
         if (linked)
@@ -132,7 +132,7 @@ internal sealed class IslandScene
         var shown = linked ? _props.Length : _props.Length / 2;
         for (var i = 0; i < shown; i++)
         {
-            w.Model(PropModels[_props[i].Model], _props[i].World, pickable: false);
+            w.Instance(PropModels[_props[i].Model], _props[i].World);
         }
 
         Lamps(w, Rules.IslandA);
@@ -245,7 +245,6 @@ internal sealed class IslandScene
         w.Entity = p.Id;
         w.Model(mineNow ? "walker-me" : "walker-other", m);
         w.Entity = default;
-        w.Model("blob", Matrix4x4.CreateScale(WalkerSize) * Matrix4x4.CreateTranslation(at.X, 0.025f, at.Y), pickable: false);
         Carried(p, mineNow, w, at, bob, tick: w.Tick + alpha);
         if (_labelCount < MaxLabels)
         {

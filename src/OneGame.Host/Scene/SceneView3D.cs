@@ -172,6 +172,7 @@ public sealed class SceneView3D : IDisposable
             light.Color = l.Color;
             light.Intensity = l.Intensity;
             light.Range = l.Range;
+            light.CastShadows = l.Shadows;
             light.InnerConeAngle = l.Inner;
             light.OuterConeAngle = l.Outer > 0f ? l.Outer : light.OuterConeAngle;
             scene.Lights.Add(light);

@@ -33,6 +33,7 @@ It is also the example for multiplayer: `docs/interfaces/sync.md` (views, predic
 The rules live in a library that servers share and cannot reference the host, so no entity draws itself. `IslandScene` is the scene view's `Describer`: each frame it reads the island worlds (for the one I walk on, the predicted copy) and writes models, lights and the camera. The two islands sit side by side along X with the bridge between, so the camera follows my player over the hand-over without a cut; a walker waiting for the other server glides across at a fixed speed.
 
 - **Motion is view state.** `Motion` moves the drawn position towards the state's position a little each tick, so a prediction correction bends the path instead of popping. It counts ticks, never the clock, so a capture after N ticks always looks the same.
+- **Light and depth:** the scenery (trees, rocks, bushes) is drawn with `Instance`, and the moon casts cascaded shadows from walkers, lanterns, scenery and the bridge. The stage turns SSAO on; quality levels cap it (`quality` op).
 - **Names** are UI labels pinned to a point above each walker (`PinToWorld`). Lanterns circling a walker are its count; only your own copy knows their colours.
 - **Picking:** `scenarios/12-pick.yaml` clicks a lantern, a walker and the ground. Models of lanterns and walkers are pickable, scenery is not.
 - **Looking at it:** `onegame view models/island-a.glb` renders one model; `onegame capture --out a.png --size 720p --fixture crowded --screen main --after 45` renders the game.
