@@ -8,6 +8,7 @@
     <Compile Include="../OneGame.Core.Tests/Samples/*.cs" LinkBase="Samples" />
     <Compile Include="../OneGame.Core.Tests/Fuzz/FuzzTargets.cs" Link="Fuzz/FuzzTargets.cs" />
     <Compile Include="../OneGame.Sync.Tests/Scenario.cs" Link="Scenario.cs" />
+    <Compile Include="../OneGame.Sync.Tests/Realm.cs" Link="Realm.cs" />
   </ItemGroup>
 
   <ItemGroup>

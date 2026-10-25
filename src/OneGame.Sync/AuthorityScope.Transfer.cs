@@ -116,6 +116,12 @@ public sealed partial class AuthorityScope
     /// <summary>Raised on the receiving scope when a transfer was installed, with the transfer id and the ids the entities got here. A repeated commit does not raise it again.</summary>
     public event Action<ulong, IReadOnlyList<EntityId>>? TransferInstalled;
 
+    /// <summary>Commands held while their entity was in transit, over the scope's life.</summary>
+    public int CommandsHeld { get; private set; }
+
+    /// <summary>Commands passed on to the node an entity moved to, over the scope's life.</summary>
+    public int CommandsForwarded { get; private set; }
+
     /// <summary>Transfers that have not finished.</summary>
     public IReadOnlyList<Transfer> Transfers => _transfers;
 
@@ -538,6 +544,7 @@ public sealed partial class AuthorityScope
             }
 
             t.Held.Add(new Held(from, sequence, entity, commandId, payload.ToArray()));
+            CommandsHeld++;
             return true;
         }
 
@@ -563,6 +570,7 @@ public sealed partial class AuthorityScope
             return;
         }
 
+        CommandsForwarded++;
         var w = Node.Scratch;
         w.Reset();
         w.WriteByte(Msg.Forward);
