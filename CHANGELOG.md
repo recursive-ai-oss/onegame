@@ -4,6 +4,22 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-26
+
+A game builds from nuget.org alone, with no engine checkout.
+
+### Added
+
+- `RecursiveAI.OneGame.Cli`: the `onegame` command as a framework-dependent dotnet tool (`dotnet tool install -g RecursiveAI.OneGame.Cli`).
+- `RecursiveAI.OneGame.Sdk`: an MSBuild SDK for games. It sets the target framework and the rules, references the engine libraries at its own version, adds the development tools in Debug builds, and carries the export targets and entry files. `onegame new` writes a project on it (`<Project Sdk="RecursiveAI.OneGame.Sdk/1.1.0">`), and with `--server` a dedicated-server project (`<OneGameKind>Server</OneGameKind>`).
+- `onegame export --target linux|win` as short names for `linux-x64` and `win-x64`.
+- `tools/ci/package-smoke.sh` and a CI job that pack the engine into a local feed, install the tool from it and run new, run, test and a NativeAOT export on Linux and Windows.
+
+### Changed
+
+- Games inside an engine checkout (`--engine`, `ONEGAME_ROOT`, the samples) build against project references as before.
+- Not yet from packages: the web export, Play Billing in Android builds and plugin servers need a game created with `--engine`.
+
 ## [1.0.0] - 2026-10-25
 
 The first release: a C# game engine with no editor, driven from a terminal.

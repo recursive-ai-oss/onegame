@@ -171,7 +171,7 @@ internal sealed partial class ExportVerb
         string? dex = null;
         if (playBilling)
         {
-            var root = settings.GetValueOrDefault("OneGameRoot") ?? throw new CliException(ExitCodes.RuntimeError, "play_billing_sources", "The project does not say where the engine is (OneGameRoot), so the Java wrapper for Play Billing cannot be found.");
+            var root = settings.GetValueOrDefault("OneGameRoot") ?? throw new CliException(ExitCodes.RuntimeError, "play_billing_sources", "The Java wrapper for Play Billing comes from the engine sources, so a game that uses it needs OneGameRoot set to an engine checkout (onegame new --engine <checkout>).");
             var buildWork = Directory.CreateDirectory(Path.Combine(work, "play-billing")).FullName;
             dex = PlayBillingKit.BuildDex(sdk, Path.Combine(Path.GetFullPath(root), "src", "OneGame.Purchases", "Java"), buildWork);
         }

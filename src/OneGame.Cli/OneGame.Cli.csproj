@@ -4,8 +4,12 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>onegame</AssemblyName>
     <RootNamespace>OneGame.Cli</RootNamespace>
-    <IsPackable>false</IsPackable>
-    <PublishAot>true</PublishAot>
+    <!-- Published NativeAOT for the repository's own scripts; packed as a framework-dependent dotnet tool
+         (dotnet tool install RecursiveAI.OneGame.Cli), because a tool package carries no native binary. -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>onegame</ToolCommandName>
+    <PackageId>RecursiveAI.OneGame.Cli</PackageId>
+    <PublishAot Condition="'$(_IsPacking)' != 'true'">true</PublishAot>
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
     <Description>The onegame command: create, build, run, test, capture and replay games.</Description>
     <!-- No reflection-based JSON: all serialization goes through the source-generated context. -->
@@ -21,8 +25,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Where this build of the tool came from, so 'onegame new' can find the engine sources when it is not run from inside them. -->
-    <AssemblyMetadata Include="OneGameRoot" Value="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))" />
+    <!-- Where this build of the tool came from, so 'onegame new' can find the engine sources when it is not run from inside them. The installed tool package carries none: a game it creates uses the SDK package. -->
+    <AssemblyMetadata Include="OneGameRoot" Value="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))" Condition="'$(ContinuousIntegrationBuild)' != 'true' and '$(_IsPacking)' != 'true'" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,6 +1,6 @@
 # Dedicated servers and process clusters
 
-Header: v2 (clients reconnect, `cluster kill`, large snapshots in pieces). Source: `src/OneGame.Server` (listening, remote clients), `src/OneGame.Server.Live` (`ServerApp`, server control), `src/OneGame.Host` (`RemoteSession`, `--connect`), `src/OneGame.Testing` (`ProcessCluster`, `ClusterSpec`, cluster scenarios), `src/OneGame.Cli` (`cluster`, `export --server`, `mcp --cluster`). Builds on `transport.md` (`INetListener`, `INetConnection`), `server-host.md` and `control.md`.
+Source: `src/OneGame.Server` (listening, remote clients), `src/OneGame.Server.Live` (`ServerApp`, server control), `src/OneGame.Host` (`RemoteSession`, `--connect`), `src/OneGame.Testing` (`ProcessCluster`, `ClusterSpec`, cluster scenarios), `src/OneGame.Cli` (`cluster`, `export --server`, `mcp --cluster`). Builds on `transport.md` (`INetListener`, `INetConnection`), `server-host.md` and `control.md`.
 
 ## Roles
 

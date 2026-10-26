@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- An MSBuild SDK package: a game's project file says Sdk="RecursiveAI.OneGame.Sdk/<version>" and gets the target framework, the
+       rules that make an invalid game a compile error, the engine libraries from nuget.org, the development tools in Debug builds,
+       and the export targets. It holds build files only, no assembly. The files in build/ at the repository root (packed here as targets/) are the single
+       source: the same ones a game inside an engine checkout imports. -->
+  <PropertyGroup>
+    <OneGameAnalyzers>false</OneGameAnalyzers>
+    <PackageType>MSBuildSdk</PackageType>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IncludeSymbols>false</IncludeSymbols>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <Description>MSBuild SDK for onegame games: references, rules and export targets, so a game builds from nuget.org without an engine checkout.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="Sdk/Sdk.props;Sdk/Sdk.targets" Pack="true" PackagePath="Sdk" />
+    <None Include="../../build/Game.targets;../../build/Server.targets;../../build/Android.targets;../../build/iOS.targets" Pack="true" PackagePath="targets" />
+    <None Include="../../build/DevBoot.cs;../../build/AndroidEntry.cs;../../build/IosEntry.cs" Pack="true" PackagePath="targets" />
+  </ItemGroup>
+
+  <!-- The version of the engine libraries a game references is the version of this package. -->
+  <Target Name="OneGameWriteVersionProps" BeforeTargets="_GetPackageFiles;GenerateNuspec">
+    <PropertyGroup>
+      <_OgVersionProps>$(IntermediateOutputPath)Version.props</_OgVersionProps>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_OgVersionProps)" Overwrite="true" Lines="&lt;Project&gt;&lt;PropertyGroup&gt;&lt;OneGameVersion&gt;$(PackageVersion)&lt;/OneGameVersion&gt;&lt;/PropertyGroup&gt;&lt;/Project&gt;" />
+    <ItemGroup>
+      <None Include="$(_OgVersionProps)" Pack="true" PackagePath="targets" />
+    </ItemGroup>
+  </Target>
+
+</Project>

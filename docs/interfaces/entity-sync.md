@@ -1,7 +1,5 @@
 # Entity model and generated sync surface
 
-Header: v3. Adds prediction support: `[Command(Predicted, UsesRandom)]`, `WorldRole.Predicted`, `Entity.IsPredictedCommand` / `PredictedCommandUsesRandom`, generated in-place state copy, `IHotTable.CopyFrom`, `SyncList.CopyFrom`, `Timed<T>.ValueAt(tick, fraction)`, diagnostics OG0020–OG0022. Nothing removed. v2 added visibility (`Visibility`, `[OwnerKey]`, `[TeamKey]`, `[Command(OwnerOnly)]`, `[HotData(Visibility)]`, `Audience`), `CommandReply` (handler rejections with a reason), `Entity.WriteMaskedDelta` / `ComputeViewHash` / `TryGetVisibleMask`, `World.WriteViewSnapshot` / `ComputeViewHash` / `ComputeAudienceHash`, diagnostics OG0017–OG0019. Snapshot format 2 (view snapshot) is read by the same `ReadSnapshot`; saves stay format 1. `IHotTable` gained `Visibility` and `Clear()`. Nothing removed.
-
 What the sync stack (snapshots, command log, replay, drift hashes, filtered views) and the harness (state query/patch, JSON dumps) build on. Source: `src/OneGame.Core` (runtime) and `src/OneGame.Generators` (generator and analyzers).
 
 ## Declaring things

@@ -1,4 +1,4 @@
-# gpu — graphics layer interface (v3)
+# gpu — graphics layer interface
 
 `OneGame.Gpu` is the backend-neutral API; `OneGame.Gpu.Vulkan` and `OneGame.Gpu.Metal` implement it. Renderers code against `OneGame.Gpu` only.
 Everything in it maps onto Vulkan 1.3, Metal and WebGPU alike. Backend interop (`unsafe`, `LibraryImport`) lives only in the backend assemblies.
@@ -64,7 +64,7 @@ A pipeline is immutable. Replacing a shader means making a new pipeline and rele
 - `WriteTexture(texture, new TextureRegion(mip, layer, x, y, z, w, h, depth), data)` writes a box (a sub-rectangle for atlas updates, slices of a volume). `WriteTexture(texture, mip, layer, data)` is the whole-level shorthand (all slices of a volume).
 - `encoder.GenerateMips(texture)` fills levels 1.. from level 0 (linear blit; 2D, array, cube and 3D). `encoder.CopyTexture(source, destination)` copies every mip and layer between textures of the same shape.
 
-## Textures (v2)
+## Textures
 
 - **Cube:** `Dimension = Cube`, square, `ArrayLayers` a multiple of 6 (6 = one cube, more = a cube array). Layer order +X, -X, +Y, -Y, +Z, -Z. Render into a face with `ColorAttachment.Layer`; shaders sample the whole thing as `TextureCube` / `TextureCubeArray`.
 - **3D:** `Dimension = D3`, `Depth`, one layer. Sampled, storage and copy use; not a render target.
@@ -74,7 +74,7 @@ A pipeline is immutable. Replacing a shader means making a new pipeline and rele
 - **MSAA:** `SampleCount` 2, 4 or 8 (`Capabilities.MaxSampleCount`) on a 2D single-mip texture; `ColorAttachment.Resolve` names the single-sample target. Multisampled textures cannot be sampled.
 - **Tracking granularity:** the backend tracks one state per texture, not per mip or layer. In one pass do not sample a texture you also render into, even different mips or layers of it; use two textures (or two passes).
 
-## Pipelines, binding and draws (v2)
+## Pipelines, binding and draws
 
 - **Depth bias:** `DepthStencilState.DepthBias` (integer steps of the smallest depth difference), `DepthBiasSlopeScale`, `DepthBiasClamp`. **Depth clamp:** `GraphicsPipelineDesc.DepthClamp`, only when `Capabilities.DepthClamp`.
 - **Push constants:** declare a `PushConstantRange` (at most `GpuDevice.MaxPushConstantBytes` = 128, multiple of 4) on the layout and write with `pass.SetPushConstants(offset, bytes)` in render and compute passes. Metal has no push constants of its own: the block is sent with `setBytes` at the index the shader build reports, so declare it in HLSL with `[[vk::push_constant]]` and give the shader its `MslPushConstantIndex`.
@@ -84,7 +84,7 @@ A pipeline is immutable. Replacing a shader means making a new pipeline and rele
 - **Compute:** `BeginComputePass`, `SetPipeline`, `SetBindGroup`, `Dispatch`, `DispatchIndirect(buffer, offset)`. Storage textures need `TextureUsage.Storage`; a texture written by a dispatch and read by a draw (or the other way round) needs no barrier code, the backend adds it.
 - **Indirect:** buffers created with `BufferUsage.Indirect` hold `DrawIndirectArgs` (16 bytes), `DrawIndexedIndirectArgs` (20) or `DispatchIndirectArgs` (12), packed. `DrawIndirect(buffer, offset, drawCount)` and `DrawIndexedIndirect` draw `drawCount` consecutive records (one GPU command with `Capabilities.MultiDrawIndirect`, a loop otherwise, same result). A non-zero `FirstInstance` needs `Capabilities.IndirectFirstInstance`.
 
-## Timing and capabilities (v2)
+## Timing and capabilities
 
 `device.Capabilities` (`GpuCapabilities`) lists what is optional: `Timestamps`, `MultiDrawIndirect`, `IndirectFirstInstance`, `DepthClamp`, `DepthBiasClamp`, `NonUniformArrayIndexing`, `MaxSampleCount`, `MaxTextureSize`, `MaxTextureSize3D`, `MaxArrayLayers`, `MaxResourceArrayCount`.
 

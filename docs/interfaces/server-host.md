@@ -1,6 +1,6 @@
 # Server host and plugins
 
-Header: v1. Source: `src/OneGame.Server` (host, configuration, plugin API; NativeAOT-clean), `src/OneGame.Server.Plugins` (the CoreCLR plugin loader), `src/OneGame.Server.Live` (control surface), `src/OneGame.Server.Runner` (`onegame-server`), `src/OneGame.Testing/TestServer.cs`. Builds on `sync.md` (`Node`, `AuthorityScope`, `FixedStepDriver`, `SaveFile`) and `control.md` (`IControlEndpoint`, MCP listener). Nothing in Sync or the generators changed.
+Source: `src/OneGame.Server` (host, configuration, plugin API; NativeAOT-clean), `src/OneGame.Server.Plugins` (the CoreCLR plugin loader), `src/OneGame.Server.Live` (control surface), `src/OneGame.Server.Runner` (`onegame-server`), `src/OneGame.Testing/TestServer.cs`. Builds on `sync.md` (`Node`, `AuthorityScope`, `FixedStepDriver`, `SaveFile`) and `control.md` (`IControlEndpoint`, MCP listener). Nothing in Sync or the generators changed.
 
 ## Host
 
@@ -23,7 +23,7 @@ A plugin is a class library referencing `OneGame.Server` and the generator, with
 - `Load(PluginContext)` runs on every load and reload and only registers: `AddEntity<T>()` (a generated entity), `AddSystem(ISimSystem)`, `Setting(key)`, `Log(text)`. Entity commands are the plugin's command handlers. It must not touch worlds; throwing here refuses the plugin and changes nothing.
 - `Seed(PluginScope)` runs once per bound scope on the **first** load only, to create initial entities.
 - `Unload()` runs before the plugin is replaced or removed; throwing is logged and does not stop the unload.
-- Not in v1: hot tables (`IHotTable`) from plugins (the world cannot forget one), plugin-defined scopes.
+- Not supported: hot tables (`IHotTable`) from plugins (the world cannot forget one), plugin-defined scopes.
 - The API version is read from assembly metadata before any plugin code runs. A version outside `PluginApi.MinimumVersion..Version` is refused with `api_mismatch`.
 
 ## Operations on a running host

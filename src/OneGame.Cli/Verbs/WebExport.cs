@@ -37,7 +37,7 @@ internal static class WebExport
         var root = props.GetProperty("OneGameRoot").GetString();
         if (string.IsNullOrEmpty(root))
         {
-            throw new CliException(ExitCodes.BuildFailed, "no_engine_root", "The project does not set OneGameRoot, so the web export cannot find the engine. Import build/Game.targets as 'onegame new' does.");
+            throw new CliException(ExitCodes.BuildFailed, "no_engine_root", "The web export needs the engine sources (its page and script files), so it runs for a game that sets OneGameRoot to an engine checkout (onegame new --engine <checkout>). A game on the RecursiveAI.OneGame.Sdk package cannot export for the web yet.");
         }
 
         root = Path.GetFullPath(root, project.Directory);

@@ -111,7 +111,7 @@ jobs:
         run: dotnet build OneGame.slnx -c Release --no-restore
 
       - name: Pack
-        # Every packable project under src/ (the libraries), from the binaries just built. They share one version.
+        # Every packable project under src/ (the libraries, the onegame tool and the SDK package), from the binaries just built. They share one version.
         # Symbols come out as .snupkg files. NuGet refuses a stable package that depends on a prerelease one.
         run: |
           dotnet pack OneGame.slnx -c Release --no-build -o "$RUNNER_TEMP/packages"

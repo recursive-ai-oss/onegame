@@ -1,0 +1,13 @@
+<Project>
+
+  <!-- A game project is a game unless it says <OneGameKind>Server</OneGameKind>, which makes it a dedicated server. -->
+  <PropertyGroup>
+    <OneGameKind Condition="'$(OneGameKind)' == ''">Game</OneGameKind>
+  </PropertyGroup>
+
+  <Import Project="$(MSBuildThisFileDirectory)../targets/Game.targets" Condition="'$(OneGameKind)' != 'Server'" />
+  <Import Project="$(MSBuildThisFileDirectory)../targets/Server.targets" Condition="'$(OneGameKind)' == 'Server'" />
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+
+</Project>

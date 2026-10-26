@@ -13,7 +13,7 @@ internal sealed partial class ExportVerb : IVerb
 {
     public string Name => "export";
 
-    public string Summary => "Package the game: onegame export --target linux-x64|win-x64|osx|web [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins]; or a debug-signed APK: export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id]; or an iOS app bundle (on a Mac): export --target ios-simulator|ios [--dev] [--bundle-id id] [--orientation all|landscape|portrait].";
+    public string Summary => "Package the game: onegame export --target linux|win|osx|web [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins]; or a debug-signed APK: export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id]; or an iOS app bundle (on a Mac): export --target ios-simulator|ios [--dev] [--bundle-id id] [--orientation all|landscape|portrait].";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
@@ -65,14 +65,17 @@ internal sealed partial class ExportVerb : IVerb
         }
 
         var target = a.Get("--target") ?? (OperatingSystem.IsWindows() ? "win-x64" : OperatingSystem.IsMacOS() ? "osx-arm64" : "linux-x64");
-        if (target == "osx")
+        target = target switch
         {
-            target = "osx-arm64";
-        }
+            "osx" or "mac" => "osx-arm64",
+            "linux" => "linux-x64",
+            "win" or "windows" => "win-x64",
+            _ => target,
+        };
 
         if (target is not ("linux-x64" or "win-x64" or "osx-arm64"))
         {
-            throw new CliException(ExitCodes.Usage, "bad_target", $"Unknown target '{target}'. Targets: linux-x64, win-x64, osx (Apple silicon), android, ios-simulator, ios, web.");
+            throw new CliException(ExitCodes.Usage, "bad_target", $"Unknown target '{target}'. Targets: linux (linux-x64), win (win-x64), osx (Apple silicon), android, ios-simulator, ios, web.");
         }
 
         var mac = target == "osx-arm64";

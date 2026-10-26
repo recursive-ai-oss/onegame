@@ -2,7 +2,7 @@
 
   <!-- Imported by a game's project file (see 'onegame new'). Sets up everything a game needs: the target framework, the rules that make
        an invalid game a compile error, the engine references, and, in Debug builds only, the development tools. Set OneGameRoot to the
-       engine checkout before importing. -->
+       engine checkout before importing, or use the RecursiveAI.OneGame.Sdk package, which imports this file itself. -->
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -41,22 +41,42 @@
   <Import Project="$(MSBuildThisFileDirectory)Android.targets" />
   <Import Project="$(MSBuildThisFileDirectory)iOS.targets" />
 
-  <ItemGroup>
+  <!-- With OneGameRoot set (a game inside an engine checkout) the engine comes from its projects. Without it (a game on the
+       RecursiveAI.OneGame.Sdk package) the same libraries come from nuget.org at the SDK's version. The generator and analyzers
+       travel inside the Core package. -->
+  <Target Name="OneGameCheckEngineSource" BeforeTargets="CollectPackageReferences;ResolveProjectReferences" Condition="'$(OneGameRoot)' == '' and '$(OneGameVersion)' == ''">
+    <Error Code="OGBUILD002" Text="Neither OneGameRoot (an engine checkout) nor OneGameVersion (set by the RecursiveAI.OneGame.Sdk package) is set. Create the game with 'onegame new', which writes a project on the SDK." />
+  </Target>
+
+  <ItemGroup Condition="'$(OneGameRoot)' != ''">
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Host/OneGame.Host.csproj" />
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Core/OneGame.Core.csproj" />
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.UI/OneGame.UI.csproj" />
     <!-- The generator and analyzers: entity code, and the rules for simulation and view code. -->
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
+  <ItemGroup Condition="'$(OneGameRoot)' == '' and '$(OneGameVersion)' != ''">
+    <PackageReference Include="RecursiveAI.OneGame.Host" Version="$(OneGameVersion)" />
+    <PackageReference Include="RecursiveAI.OneGame.Core" Version="$(OneGameVersion)" />
+    <PackageReference Include="RecursiveAI.OneGame.UI" Version="$(OneGameVersion)" />
+  </ItemGroup>
 
   <!-- Sound is part of a game, so a game gets the audio service through the same reference chain as everything else and an export builds without the game naming it.
        A game that plays no sound can leave it out with -p:OneGameAudio=false (an unused library is trimmed from a NativeAOT build either way). -->
-  <ItemGroup Condition="'$(OneGameAudio)' != 'false'">
+  <ItemGroup Condition="'$(OneGameAudio)' != 'false' and '$(OneGameRoot)' != ''">
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Audio/OneGame.Audio.csproj" />
   </ItemGroup>
+  <ItemGroup Condition="'$(OneGameAudio)' != 'false' and '$(OneGameRoot)' == '' and '$(OneGameVersion)' != ''">
+    <PackageReference Include="RecursiveAI.OneGame.Audio" Version="$(OneGameVersion)" />
+  </ItemGroup>
 
-  <ItemGroup Condition="'$(OneGameDev)' == 'true'">
+  <ItemGroup Condition="'$(OneGameDev)' == 'true' and '$(OneGameRoot)' != ''">
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Live/OneGame.Live.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(OneGameDev)' == 'true' and '$(OneGameRoot)' == '' and '$(OneGameVersion)' != ''">
+    <PackageReference Include="RecursiveAI.OneGame.Live" Version="$(OneGameVersion)" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(OneGameDev)' == 'true'">
     <!-- A shared library (Android) has no application code to run a module initializer from, and an iOS app starts its game late; AndroidEntry.cs and IosEntry.cs enable the tools themselves. -->
     <Compile Include="$(MSBuildThisFileDirectory)DevBoot.cs" Visible="false" Condition="'$(OneGameAndroid)' != 'true' and '$(OneGameIos)' != 'true'" />
   </ItemGroup>
