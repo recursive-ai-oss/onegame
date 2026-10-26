@@ -28,3 +28,4 @@ obj/
 TestResults/
 *.binlog
 !/tools
+__pycache__/

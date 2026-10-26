@@ -14,5 +14,6 @@ for a in "$@"; do
 done
 log=$(mktemp)
 perl -e "alarm shift; exec @ARGV" "${LANTERNS_TIMEOUT:-300}" xcrun devicectl device process launch --device "$device" --terminate-existing --console "${LANTERNS_BUNDLE:-dev.onegame.lanterns}" -- "$@" > "$log" 2>&1
-grep '^{"ok"' "$log" | tail -n 1 || { printf '{"ok":false,"error":%s}\n' "$(tail -c 300 "$log" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')"; }
+# the console prefixes each line with a date and the process name; the result is the JSON from the first brace
+tr -d '\r' < "$log" | sed -n 's/^.*\({"ok".*}\)$/\1/p' | tail -n 1 | grep . || { printf '{"ok":false,"error":%s}\n' "$(tail -c 300 "$log" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')"; }
 rm -f "$log"

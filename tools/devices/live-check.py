@@ -15,7 +15,7 @@ endpoint, outdir = sys.argv[1], sys.argv[2]
 serial = sys.argv[sys.argv.index('--serial') + 1] if '--serial' in sys.argv else None
 expect_audio = sys.argv[sys.argv.index('--expect-audio') + 1] if '--expect-audio' in sys.argv else None
 os.makedirs(outdir, exist_ok=True)
-m = Mcp(endpoint)
+m = Mcp(endpoint, timeout=180)   # a window on a slow compositor can take seconds per frame
 res, problems = {}, []
 
 
@@ -25,6 +25,12 @@ def adb(*a):
 
 def centre(selector):
     q = m.call('ui_query', selector=selector)
+    for _ in range(10):   # a screen change lays out over the next few frames
+        if q:
+            break
+        time.sleep(0.5)
+        m.call('step', frames=3)
+        q = m.call('ui_query', selector=selector)
     if not q:
         raise RuntimeError(f'no element {selector}')
     s = q[0]['screen']          # pixels of the window
@@ -35,7 +41,12 @@ def table():
     return m.call('state_query', entity='Table')
 
 
-info = m.call('info')
+# A phone creates the window a moment after the process starts; wait until a frame has been presented.
+for _ in range(40):
+    info = m.call('info')
+    if info.get('presented') or info.get('headless'):
+        break
+    time.sleep(0.5)
 res['window'] = {k: info.get(k) for k in ('width', 'height', 'scale', 'backend', 'adapter', 'hash', 'drift')}
 
 # Finger input: the menu button, then the stock. With an adb serial the taps are real (`adb shell input tap`, so the OS delivers them);
@@ -71,21 +82,25 @@ for _ in range(4):
     m.call('command_send', entity='Table', command='Draw')
     m.call('step', frames=30)
 time.sleep(1.5)
-m.call('step', frames=60)
+m.call('step', frames=20)
 dev = (m.call('audio') or {}).get('device', {})
 dev = dict(dev, deviceState=dev.get('deviceState') or dev.get('state'))   # the Linux backend names it `state`
 res['audio'] = {k: dev.get(k) for k in ('backend', 'deviceState', 'framesWritten', 'framesPlayed', 'peakPlayed', 'underruns', 'losses', 'audioThreadAllocatedBytes', 'detail')}
 if expect_audio and dev.get('backend') != expect_audio:
     problems.append(f"audio backend {dev.get('backend')} (wanted {expect_audio})")
 # A state of Running proves nothing on its own: the device must have been handed frames and must have taken them.
-if dev.get('deviceState') not in ('started', 'Running', 'running'):
-    problems.append(f"audio device not running (state {dev.get('deviceState')})")
-if not dev.get('framesWritten'):
-    problems.append('no frames were written to the audio device (framesWritten 0)')
-if not dev.get('framesPlayed'):
-    problems.append('the audio device took no frames (framesPlayed 0)')
-if not dev.get('peakPlayed'):
-    problems.append('no sound reached the device (peakPlayed 0)')
+# The WASAPI sink has no counters to report (state, frames and peak stay empty), so for it only the backend name is checked.
+if dev.get('backend') in ('wasapi',):
+    res['audio']['note'] = 'this backend does not report device counters'
+else:
+    if dev.get('deviceState') not in ('started', 'Running', 'running'):
+        problems.append(f"audio device not running (state {dev.get('deviceState')})")
+    if not dev.get('framesWritten'):
+        problems.append('no frames were written to the audio device (framesWritten 0)')
+    if not dev.get('framesPlayed'):
+        problems.append('the audio device took no frames (framesPlayed 0)')
+    if not dev.get('peakPlayed'):
+        problems.append('no sound reached the device (peakPlayed 0)')
 
 # A frame as the window presents it.
 png_info, pngs = m.call2('capture_frame', presented=True)

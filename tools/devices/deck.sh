@@ -67,8 +67,18 @@ for S in ${SAMPLES//,/ }; do
   [ -d "$D" ] || { NOTES+=("$S not in this tree"); continue; }
   W=$OUT/$S; mkdir -p "$W"
   say "$S: build linux-x64 NativeAOT with development tools"
-  # `onegame export` makes release builds, which leave the development tools out; the same publish in Debug keeps them.
-  (cd "$D" && dotnet publish -c Debug -r linux-x64 -p:OneGameAot=true -o "$W/publish" -v quiet -clp:NoSummary) > "$W/publish.log" 2>&1 || { fail "$S build"; tail -c 300 "$W/publish.log" >&2; continue; }
+  # `onegame export` makes release builds, which leave the development tools out; the same publish in Debug keeps them. SteamOS has an
+  # old glibc, so the program is linked inside Valve's SDK image (tools/steamrt.sh) when STEAMRT (default ~/.cache/onegame/steamrt) has one.
+  if [ -d "${STEAMRT:-$HOME/.cache/onegame/steamrt}/sdk" ]; then
+    rm -rf "$W/work"; mkdir -p "$W/work/art"; cp "$ROOT"/Directory.Packages.props "$ROOT"/Directory.Build.props "$W/work/"; cp -r "$D" "$W/work/$S"; rm -rf "$W/work/$S/bin" "$W/work/$S/obj"
+    # the project's OneGameRoot must be /engine inside the image
+    (cd "$ROOT" && env DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}" ONEGAME_ARTIFACTS=/work/art RestoreAdditionalProjectSources=/engine/feed \
+       tools/steamrt.sh build "$W/work" env DOTNET_gcServer=0 DOTNET_GCHeapCount=1 DOTNET_TieredPGO=0 MSBUILDNODECOUNT=1 DOTNET_GCgen0size=4000000 dotnet publish "/work/$S" -c Debug -r linux-x64 -p:OneGameAot=true -p:OneGameRoot=/engine/ -o /work/publish -m:1 -v quiet -clp:NoSummary) > "$W/publish.log" 2>&1 \
+      && { rm -rf "$W/publish"; mv "$W/work/publish" "$W/publish"; } || { fail "$S build in the Steam SDK image"; tail -c 300 "$W/publish.log" >&2; continue; }
+  else
+    NOTES+=("no Steam SDK image (tools/steamrt.sh fetch): built against this computer's glibc, which a Deck may not have")
+    (cd "$D" && dotnet publish -c Debug -r linux-x64 -p:OneGameAot=true -o "$W/publish" -v quiet -clp:NoSummary) > "$W/publish.log" 2>&1 || { fail "$S build"; tail -c 300 "$W/publish.log" >&2; continue; }
+  fi
   FOLDER=$W/publish; EXE=$(basename "$(ls "$D"/*.csproj | head -1)" .csproj)
   [ -x "$FOLDER/$EXE" ] || EXE=$(find "$FOLDER" -maxdepth 1 -type f -perm -u+x ! -name '*.so' ! -name '*.sh' | head -1 | xargs -r basename)
   R "rm -rf $REMOTE/$S; mkdir -p $REMOTE/$S"
@@ -89,10 +99,16 @@ for S in ${SAMPLES//,/ }; do
       NOTES+=("solitaire windowed run skipped: no display session on the Deck (log in to desktop mode)")
     else
       say "solitaire: windowed run in the Deck's session, live control through a tunnel"
-      BACKEND=x11; ENVS="DISPLAY=:${XSOCK#X} XDG_RUNTIME_DIR=/run/user/$UID_R"
+      # Desktop mode runs X through Xwayland with an authority file in the runtime folder (X refuses clients without it).
+      XAUTH=$(R "ls /run/user/$UID_R/xauth_* ~/.Xauthority 2>/dev/null | head -1")
+      BACKEND=x11; ENVS="DISPLAY=:${XSOCK#X} XDG_RUNTIME_DIR=/run/user/$UID_R ${XAUTH:+XAUTHORITY=$XAUTH}"
       [ -n "$XSOCK" ] || { BACKEND=wayland; ENVS="WAYLAND_DISPLAY=$WSOCK XDG_RUNTIME_DIR=/run/user/$UID_R"; }
-      R "cd $REMOTE/$S && { env $ENVS $RENV nohup ./$EXE --live tcp:7878 --realtime --backend $BACKEND --seed 1 > live.log 2>&1 & echo \$! > live.pid; }"
-      sleep 5
+      # A transient user unit: a process started from an ssh session is killed when the session closes, a unit is not.
+      R "systemctl --user stop onegame-check 2>/dev/null; systemctl --user reset-failed onegame-check 2>/dev/null; true"
+      R "cd $REMOTE/$S && systemd-run --user --unit=onegame-check --collect -q -p WorkingDirectory=\$PWD -p StandardOutput=file:\$PWD/live.log -p StandardError=file:\$PWD/live.log $(for kv in $ENVS $RENV; do printf -- '--setenv=%s ' "$kv"; done) \$PWD/$EXE --live tcp:7878 --realtime --backend $BACKEND --seed 1"
+      for _ in $(seq 1 30); do R "ss -ltn 2>/dev/null | grep -q ':7878 '" && break; sleep 2; done
+      sleep 5   # the window and first frames come up after the listener
+      R "tail -c 300 $REMOTE/$S/live.log" > "$W/live-start.log" 2>&1
       ssh "${SSHO[@]}" -f -N -o ExitOnForwardFailure=yes -L 17878:127.0.0.1:7878 "$USERN@$HOST"
       TUN=$(pgrep -n -f "17878:127.0.0.1:7878 $USERN@$HOST")
       python3 "$HERE/live-check.py" 127.0.0.1:17878 "$W/live" --expect-audio alsa > "$W/live.json" 2> "$W/live.err" || fail "solitaire live: $(jget "$W/live.json" problems 2>/dev/null | cut -c1-200) $(tail -c 200 "$W/live.err" | tr '\n' ' ')"
@@ -106,7 +122,7 @@ except Exception as e:
 PY
 )"
       [ -n "${TUN:-}" ] && kill "$TUN" 2>/dev/null
-      R "kill \$(cat $REMOTE/$S/live.pid) 2>/dev/null; sleep 1; kill -9 \$(cat $REMOTE/$S/live.pid) 2>/dev/null; true"
+      R "systemctl --user stop onegame-check 2>/dev/null; true"
     fi
     # Steam's own Linux runtime, when the Deck has it (Steam installs it for games that ask).
     RT=$(R 'ls -d $HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_sniper 2>/dev/null | head -1')
