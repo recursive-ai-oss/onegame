@@ -3,12 +3,14 @@
 `onegame export` turns a game project into what ships: a folder and an archive holding the program, its content, the platform libraries it needs and a licence-notices file. Nothing else goes in.
 
 ```
-onegame export --target linux-x64 --json              # ./export/<game>-<version>-linux-x64/ and .tar.gz
-onegame export --target win-x64 --steam --json        # ./export/<game>-<version>-win-x64/ and .zip, with steam_api64.dll
+onegame export --target linux --json                 # ./export/<game>-<version>-linux-x64/ and .tar.gz
+onegame export --target win --steam --json        # ./export/<game>-<version>-win-x64/ and .zip, with steam_api64.dll
 onegame export --target osx --json                   # ./export/<game>-<version>-osx-arm64/<Game>.app and .tar.gz (on an Apple-silicon Mac)
 ```
 
-Options: `--target linux-x64|win-x64|osx` (default: the host's), `--steam`, `--steam-redist <dir>`, `--out <dir>` (default `<project>/export`), `--project <dir|csproj>`, `--no-archive`, `--no-aot`. The version in the names is the project's `<Version>` (1.0.0 when unset). The JSON result is in `docs/interfaces/control.md`; read its `warnings`.
+Options: `--target linux|win|osx` (default: the host's; `linux-x64` and `win-x64` also work), `--steam`, `--steam-redist <dir>`, `--out <dir>` (default `<project>/export`), `--project <dir|csproj>`, `--no-archive`, `--no-aot`. The version in the names is the project's `<Version>` (1.0.0 when unset). The JSON result is in `docs/interfaces/control.md`; read its `warnings`.
+
+Desktop exports work for a game created with `onegame new` from the installed tool, with no engine checkout: the `RecursiveAI.OneGame.Sdk` package carries the export targets. The web export, Play Billing in an Android build and `--server --plugins` read engine sources and still need a game created with `--engine <checkout>`; the Android and iOS entry files ship in the SDK package, but those two exports have only been run from a checkout.
 
 Android: `onegame export --target android [--abi arm64-v8a,x86_64] [--dev]` makes a debug-signed APK (NativeAOT shared library, no Java). A game that connects to servers sets `<AndroidInternet>true</AndroidInternet>` in its project file to get the INTERNET permission in release builds too. Setup, device commands and what is verified are in [android](interfaces/android.md).
 

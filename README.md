@@ -6,18 +6,20 @@ It runs on Windows, Linux (X11 and Wayland, the Steam Deck), macOS, Android, iOS
 
 ## Getting started
 
-Games are built against a checkout of this repository. The `RecursiveAI.OneGame.*` packages on nuget.org carry the engine libraries and analyzers, but a game's build (`build/Game.targets`, the `onegame` command, exports) currently comes from the checkout, so start there:
+You need the .NET 10 SDK and nothing else (a NativeAOT export also needs the platform's C++ linker: `clang` and `zlib1g-dev` on Linux, the Visual Studio C++ tools on Windows).
 
 ```
-git clone https://github.com/recursive-ai-oss/onegame
-cd onegame
-dotnet build OneGame.slnx
-dotnet run --project src/OneGame.Cli -- new mygame --dir ../mygame --engine .
-cd ../mygame
-dotnet run --project ../onegame/src/OneGame.Cli -- run --headless --frames 60 --json
+dotnet tool install -g RecursiveAI.OneGame.Cli     # the onegame command
+onegame new mygame
+cd mygame
+onegame run --headless --frames 60 --json         # build and run; drop --headless for a window
+onegame test --json                                # the scenarios in scenarios/
+onegame export --target linux                      # or win, osx: a NativeAOT build in ./export
 ```
 
-Publishing the command once (`dotnet publish src/OneGame.Cli -c Release -r linux-x64`, or `win-x64`/`osx-arm64`) and putting it on your `PATH` lets you type `onegame new`, `onegame test`, `onegame export` and so on; set `ONEGAME_ROOT` to the checkout when the command lives elsewhere.
+`onegame new` writes a project on the `RecursiveAI.OneGame.Sdk` MSBuild SDK, which brings the engine libraries, the analyzers, the development tools of Debug builds and the export targets from nuget.org, at the same version as the tool. Add `--server` for a dedicated-server project beside the game. Web, Android and iOS exports and plugin servers still need an engine checkout (see below).
+
+**Working on the engine:** clone this repository, `dotnet build OneGame.slnx`, and create games against it with `dotnet run --project src/OneGame.Cli -- new mygame --dir ../mygame --engine .` (or set `ONEGAME_ROOT` to the checkout). Such a game references the engine's projects instead of packages.
 
 Then read, in order:
 

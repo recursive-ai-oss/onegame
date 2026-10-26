@@ -24,12 +24,18 @@
     <PublishTrimmed Condition="'$(OneGameTrim)' == 'true'">true</PublishTrimmed>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(OneGameRoot)' != ''">
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Server/OneGame.Server.csproj" />
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Server.Live/OneGame.Server.Live.csproj" />
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Core/OneGame.Core.csproj" />
     <!-- The generator and analyzers: entity code, and the rules for simulation code. -->
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <!-- Without a checkout (a server on the RecursiveAI.OneGame.Sdk package) the libraries come from nuget.org; the Core package carries the generator. -->
+  <ItemGroup Condition="'$(OneGameRoot)' == '' and '$(OneGameVersion)' != ''">
+    <PackageReference Include="RecursiveAI.OneGame.Server" Version="$(OneGameVersion)" />
+    <PackageReference Include="RecursiveAI.OneGame.Server.Live" Version="$(OneGameVersion)" />
+    <PackageReference Include="RecursiveAI.OneGame.Core" Version="$(OneGameVersion)" />
   </ItemGroup>
 
 </Project>

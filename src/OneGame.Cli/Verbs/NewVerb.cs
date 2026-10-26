@@ -9,7 +9,7 @@ internal sealed class NewVerb : IVerb
 {
     public string Name => "new";
 
-    public string Summary => "Create a game: onegame new <name> [--server] [--dir <folder>] [--engine <checkout>]; --server adds a dedicated-server project.";
+    public string Summary => "Create a game: onegame new <name> [--server] [--dir <folder>] [--engine <checkout>]; --server adds a dedicated-server project. Without --engine or ONEGAME_ROOT the game builds from the RecursiveAI.OneGame.Sdk package.";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
@@ -42,6 +42,7 @@ internal sealed class NewVerb : IVerb
         }
 
         var root = FindEngine(engine);
+        var sdkVersion = Program.GetVersion();
         var target = Path.GetFullPath(dir ?? name);
         if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any())
         {
@@ -52,7 +53,7 @@ internal sealed class NewVerb : IVerb
         var cls = string.Concat(name.Split('-', '_').Where(p => p.Length > 0).Select(p => char.ToUpperInvariant(p[0]) + p[1..]));
         var files = new Dictionary<string, string>
         {
-            [name + ".csproj"] = Templates.Csproj(root, cls, withServer),
+            [name + ".csproj"] = Templates.Csproj(root, sdkVersion, cls, withServer),
             ["Program.cs"] = Templates.Program(cls, cls),
             ["Game.cs"] = Templates.Game(cls, cls, name, withServer),
             ["scenarios/click-button.yaml"] = Templates.Scenario,
@@ -63,7 +64,7 @@ internal sealed class NewVerb : IVerb
         {
             // The simulation lives in its own file so the server project can compile it without the game's screens.
             files["Sim.cs"] = Templates.Sim(cls);
-            files[$"server/{name}-server.csproj"] = Templates.ServerCsproj(root, cls);
+            files[$"server/{name}-server.csproj"] = Templates.ServerCsproj(root, sdkVersion, cls);
             files["server/Program.cs"] = Templates.ServerProgram(cls);
             files["server/server.yaml"] = Templates.ServerConfig(name);
         }
@@ -80,7 +81,7 @@ internal sealed class NewVerb : IVerb
         string[] next = [$"cd {target}", "onegame build", "onegame run --headless --frames 60", "onegame test"];
         if (json)
         {
-            output.WriteLine(JsonSerializer.Serialize(new NewResult(true, name, target, [.. created.Order(StringComparer.Ordinal)], root, next), CliJson.Default.NewResult));
+            output.WriteLine(JsonSerializer.Serialize(new NewResult(true, name, target, [.. created.Order(StringComparer.Ordinal)], root ?? "", next), CliJson.Default.NewResult));
         }
         else
         {
@@ -97,8 +98,9 @@ internal sealed class NewVerb : IVerb
     private static bool IsName(string name) =>
         name.Length is > 0 and <= 60 && char.IsAsciiLetter(name[0]) && name.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_');
 
-    /// <summary>Where the engine sources are: the option, the environment, the tool's own checkout, or where this build came from.</summary>
-    private static string FindEngine(string? option)
+    /// <summary>Where the engine sources are: the option, the environment, the tool's own checkout, or where this build came from.
+    /// Null when there are none: the game then builds from the RecursiveAI.OneGame.Sdk package on nuget.org.</summary>
+    private static string? FindEngine(string? option)
     {
         foreach (var candidate in new[] { option, Environment.GetEnvironmentVariable("ONEGAME_ROOT") })
         {
@@ -120,50 +122,48 @@ internal sealed class NewVerb : IVerb
         }
 
         var baked = typeof(NewVerb).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().FirstOrDefault(m => m.Key == "OneGameRoot")?.Value;
-        return baked is not null && File.Exists(Path.Combine(baked, "OneGame.slnx"))
-            ? Path.GetFullPath(baked)
-            : throw new CliException(ExitCodes.Usage, "no_engine", "Cannot find the onegame checkout. Pass --engine <folder> or set ONEGAME_ROOT.");
+        return baked is not null && File.Exists(Path.Combine(baked, "OneGame.slnx")) ? Path.GetFullPath(baked) : null;
     }
 }
 
 /// <summary>The files of a new game.</summary>
 internal static class Templates
 {
-    public static string Csproj(string engine, string id, bool withServer = false) => $"""
-        <Project Sdk="Microsoft.NET.Sdk">
+    public static string Csproj(string? engine, string sdkVersion, string id, bool withServer = false) => $"""
+        <Project Sdk="{Sdk(engine, sdkVersion)}">
 
           <PropertyGroup>
-            <!-- The onegame checkout this game builds against. -->
-            <OneGameRoot>{engine}</OneGameRoot>
-            <AssemblyName>{id}</AssemblyName>
+        {Root(engine)}    <AssemblyName>{id}</AssemblyName>
             <RootNamespace>{id}</RootNamespace>
           </PropertyGroup>
-
-          <!-- Target framework, analyzers, references, and (in Debug builds only) the development tools: live control, scenarios, capture. -->
-          <Import Project="$(OneGameRoot)/build/Game.targets" />
-        {ServerExclusion(withServer)}
+        {Import(engine, "Game")}{ServerExclusion(withServer)}
         </Project>
 
         """;
+
+    // A game inside an engine checkout builds against its projects; any other game uses the SDK package, which brings the same
+    // target framework, rules, references and (in Debug builds only) development tools from nuget.org.
+    private static string Sdk(string? engine, string sdkVersion) => engine is null ? $"RecursiveAI.OneGame.Sdk/{sdkVersion}" : "Microsoft.NET.Sdk";
+
+    private static string Root(string? engine) => engine is null ? "" : $"    <!-- The onegame checkout this project builds against. -->\n    <OneGameRoot>{engine}</OneGameRoot>\n";
+
+    private static string Import(string? engine, string kind) => engine is null
+        ? kind == "Server" ? "\n  <!-- A dedicated server: the SDK imports the server settings instead of the game's. -->\n  <PropertyGroup>\n    <OneGameKind>Server</OneGameKind>\n  </PropertyGroup>\n" : ""
+        : $"\n  <!-- Target framework, analyzers, references, and (in Debug builds only) the development tools: live control, scenarios, capture. -->\n  <Import Project=\"$(OneGameRoot)/build/{kind}.targets\" />\n";
 
     private static string ServerExclusion(bool withServer) => withServer
         ? "\n<!-- The server project in server/ has its own Program. -->\n<ItemGroup>\n  <Compile Remove=\"server/**\" />\n</ItemGroup>\n"
         : "";
 
-    public static string ServerCsproj(string engine, string id) => $"""
-        <Project Sdk="Microsoft.NET.Sdk">
+    public static string ServerCsproj(string? engine, string sdkVersion, string id) => $"""
+        <Project Sdk="{Sdk(engine, sdkVersion)}">
 
           <PropertyGroup>
-            <!-- The onegame checkout this server builds against. -->
-            <OneGameRoot>{engine}</OneGameRoot>
-            <AssemblyName>{id}Server</AssemblyName>
+        {Root(engine)}    <AssemblyName>{id}Server</AssemblyName>
             <RootNamespace>{id}</RootNamespace>
             <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
           </PropertyGroup>
-
-          <!-- A dedicated server: no window, GPU or audio. Publish it with: onegame export (server option) -->
-          <Import Project="$(OneGameRoot)/build/Server.targets" />
-
+        {Import(engine, "Server")}
           <ItemGroup>
             <Compile Include="Program.cs" />
             <!-- The simulation the game and the server share. Keep view code out of these files. -->

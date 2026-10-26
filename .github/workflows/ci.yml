@@ -154,6 +154,49 @@ jobs:
             ${{ runner.temp }}/out/hashes/*.txt
           if-no-files-found: warn
 
+  # A game built from packages alone: pack the engine into a local folder, install the onegame tool from it, then new, run, test
+  # and export without an engine checkout. The folder stands in for nuget.org; the one* siblings come from the real one.
+  packages:
+    name: packages ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: linux }
+          - { os: windows-latest, target: win }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build output goes outside the checkout
+        run: echo "ONEGAME_ARTIFACTS=$RUNNER_TEMP/artifacts" >> "$GITHUB_ENV"
+
+      - name: Install .NET
+        run: |
+          dir="$RUNNER_TEMP/dotnet"
+          if [ "$RUNNER_OS" = Windows ]; then
+            curl -fsSL --retry 3 https://dot.net/v1/dotnet-install.ps1 -o "$RUNNER_TEMP/dotnet-install.ps1"
+            pwsh -NoProfile -File "$RUNNER_TEMP/dotnet-install.ps1" -JsonFile global.json -InstallDir "$dir"
+          else
+            curl -fsSL --retry 3 https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+            bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile global.json --install-dir "$dir"
+          fi
+          echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+          echo "$dir" >> "$GITHUB_PATH"
+
+      # NativeAOT links with clang and zlib on Linux.
+      - name: Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+
+      - name: Pack, install the tool, create, run, test and export a game
+        run: bash tools/ci/package-smoke.sh ${{ matrix.target }} "$RUNNER_TEMP/package-smoke"
+
   # The same scenarios and the same exported game must end in the same world hash on every system.
   same-hashes:
     needs: check

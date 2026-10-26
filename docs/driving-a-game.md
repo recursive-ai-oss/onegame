@@ -4,6 +4,8 @@ onegame has no editor. You build a game, run it, look at it, poke it and replay 
 
 ## 1. Make and run a game
 
+Install the command once with `dotnet tool install -g RecursiveAI.OneGame.Cli`; a game it creates builds from nuget.org (`Sdk="RecursiveAI.OneGame.Sdk/<version>"` in its project file). Inside an engine checkout, `onegame new shop --engine <checkout>` makes a game that builds against the checkout's projects instead.
+
 ```
 onegame new shop            # shop/: shop.csproj, Program.cs, Game.cs, scenarios/, README.md
 cd shop

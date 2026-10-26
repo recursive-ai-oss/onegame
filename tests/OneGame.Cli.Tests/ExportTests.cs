@@ -111,6 +111,29 @@ public sealed class ExportTests : IDisposable
     }
 
     [Fact]
+    public void NewGameWithoutAnEngineCheckoutUsesTheSdkPackage()
+    {
+        var sdk = Templates.Csproj(null, "1.2.3", "Demo");
+        Assert.Contains("Sdk=\"RecursiveAI.OneGame.Sdk/1.2.3\"", sdk, StringComparison.Ordinal);
+        Assert.DoesNotContain("OneGameRoot", sdk, StringComparison.Ordinal);
+        var server = Templates.ServerCsproj(null, "1.2.3", "Demo");
+        Assert.Contains("<OneGameKind>Server</OneGameKind>", server, StringComparison.Ordinal);
+
+        var checkout = Templates.Csproj("/engine", "1.2.3", "Demo");
+        Assert.Contains("<OneGameRoot>/engine</OneGameRoot>", checkout, StringComparison.Ordinal);
+        Assert.Contains("build/Game.targets", checkout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ShortTargetNamesAreAccepted()
+    {
+        // "linux" and "win" reach the same checks as the full runtime identifiers; an unknown name is still refused.
+        var output = new StringWriter();
+        Assert.Equal(2, Program.Run(["export", "--target", "plan9", "--json"], output, new StringWriter()));
+        Assert.Contains("linux (linux-x64)", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NewestGlibcIsReadFromTheVersionNames()
     {
         var file = Make("elf.bin", "\0GLIBC_2.5\0GLIBC_2.38\0GLIBC_2.31\0GLIBC_PRIVATE\0");

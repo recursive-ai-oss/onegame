@@ -20,6 +20,7 @@
     <Project Path="src/OneGame.Render2D/OneGame.Render2D.csproj" />
     <Project Path="src/OneGame.Render3D/OneGame.Render3D.csproj" />
     <Project Path="src/OneGame.Steam/OneGame.Steam.csproj" />
+    <Project Path="src/OneGame.Sdk/OneGame.Sdk.csproj" />
     <Project Path="src/OneGame.Server/OneGame.Server.csproj" />
     <Project Path="src/OneGame.Server.Live/OneGame.Server.Live.csproj" />
     <Project Path="src/OneGame.Server.Plugins/OneGame.Server.Plugins.csproj" />
