@@ -67,11 +67,22 @@ public class ClusterTests
             Assert.True(result.Passed, JsonSerializer.Serialize(result, ScenarioJson.Default.ScenarioResult));
             Assert.All(cluster.State.Nodes, n => Assert.True(ProcessCluster.IsAlive(n.Pid), n.Name + " should be running"));
 
-            // Every lantern ever picked up is held by a player, left with one who disconnected, or is in a swap that has not settled. The islands are read one after the other while
-            // the bots keep playing, so a read that catches a hand-over or a swap half way is skipped; a loss or a copy would show in every read.
+            var report = cluster.Hashes();
+            Assert.True(report.Ok, string.Join("; ", report.Problems));
+            Assert.Equal(2, report.Checks.Length);
+            Assert.Empty(report.Drift);
+
+            // Agreement and drift are checked while the bots play. Then the bots are killed: they would otherwise start a new swap every few seconds and the cluster would
+            // never be still. Their players leave, their swaps settle or refund, and the count is read once everything in flight has landed.
+            foreach (var bot in new[] { "bot1", "bot2" })
+            {
+                cluster.Kill(bot);
+            }
+
+            // Every lantern ever picked up is held by a player, left with one who disconnected, or is in a swap that has not settled; a loss or a copy would show in every read.
             string last = "";
             var balanced = false;
-            for (var attempt = 0; attempt < 60 && !balanced; attempt++)
+            for (var attempt = 0; attempt < 300 && !balanced; attempt++)
             {
                 Thread.Sleep(100);
                 long held = 0, collected = 0;
@@ -107,10 +118,6 @@ public class ClusterTests
             }
 
             Assert.True(balanced, "lanterns held by players never matched lanterns collected: " + last);
-            var report = cluster.Hashes();
-            Assert.True(report.Ok, string.Join("; ", report.Problems));
-            Assert.Equal(2, report.Checks.Length);
-            Assert.Empty(report.Drift);
             pids = [.. pids, .. cluster.Pids]; // the first processes (killed) and the ones that replaced them
         }
 
