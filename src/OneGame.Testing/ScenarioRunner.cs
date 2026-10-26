@@ -707,9 +707,29 @@ public sealed class ScenarioRunner
         return states.ValueKind == JsonValueKind.Object && states.TryGetProperty(state, out var v) && v.ValueKind == JsonValueKind.True;
     }
 
+    /// <summary>
+    /// Resolves a reference image. On iOS and in a page a game's screens can differ from the desktop's (no Quit button, for one), so
+    /// <c>name-mobile.png</c> beside <c>name.png</c> is used there when it exists. (Android is not listed: a NativeAOT game built for it
+    /// reports itself as Linux to <see cref="OperatingSystem"/>, so a game that branches on the platform sees a desktop there.)
+    /// </summary>
+    private static string ReferencePath(string reference, string baseDir)
+    {
+        var path = Path.GetFullPath(reference, baseDir);
+        if (OperatingSystem.IsIOS() || OperatingSystem.IsBrowser())
+        {
+            var mobile = Path.Combine(Path.GetDirectoryName(path)!, Path.GetFileNameWithoutExtension(path) + "-mobile" + Path.GetExtension(path));
+            if (File.Exists(mobile))
+            {
+                return mobile;
+            }
+        }
+
+        return path;
+    }
+
     private async ValueTask<ExpectationResult> CheckCaptureAsync(ScenarioExpectation e, int index, string scenarioName, Context ctx, Scenario scenario)
     {
-        var reference = Path.GetFullPath(e.Reference!, ctx.BaseDir);
+        var reference = ReferencePath(e.Reference!, ctx.BaseDir);
         var result = await _surface.InvokeAsync("capture_frame", Obj(("size", e.Size ?? scenario.Window), ("scale", e.Scale)));
         if (!File.Exists(reference))
         {

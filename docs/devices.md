@@ -74,4 +74,6 @@ A page needs a browser with WebGPU (Chrome and Edge 113+; Safari and Firefox are
 | iOS Simulator, Metal | 14/14; captures within the scenario files' tolerance | 8/8 with `--capture-max-diff 0.0025` (largest frame: 0.20 %) | UDP and WebSocket: agree at tick 3600, zero drift | `audiounit`, `peakPlayed` 0.077 |
 | Chrome, WebGPU | 14/14 | 8/8; largest 3D frame differs on 0.4 % of pixels | WebSocket: replica view hash equals the server's at five ticks, zero drift | `webaudio`, silent until the first click |
 
+On iOS and in a browser a capture compares against `name-mobile.png` beside `name.png` when that file exists (Bricks' title has no Quit button there, so `title-720p-mobile.png` and `title-1080p-mobile.png` are the same frames without it).
+
 Frames are compared with references drawn on a software renderer; GPU drivers differ along edges, which the tolerances above cover. Headed Chrome on a desktop GPU (NVIDIA, through a virtual X server) presents both samples' frames to the canvas.
