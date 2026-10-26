@@ -363,7 +363,7 @@ public sealed partial class AudioService : IDisposable
         : new NoDeviceBackend();
 
     // A NativeAOT game built for linux-bionic runs on the Linux runtime, where OperatingSystem.IsAndroid() is false; every Android app process
-    // does have the ANDROID_ROOT variable the system exports to it.
+    // does have the ANDROID_ROOT variable the system exports to it. (Same test as OneGame.Platform.RunningOn; this assembly does not reference the platform layer.)
     private static bool IsAndroidProcess() =>
         OperatingSystem.IsAndroid() || (OperatingSystem.IsLinux() && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ANDROID_ROOT")));
 

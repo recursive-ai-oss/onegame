@@ -708,14 +708,13 @@ public sealed class ScenarioRunner
     }
 
     /// <summary>
-    /// Resolves a reference image. On iOS and in a page a game's screens can differ from the desktop's (no Quit button, for one), so
-    /// <c>name-mobile.png</c> beside <c>name.png</c> is used there when it exists. (Android is not listed: a NativeAOT game built for it
-    /// reports itself as Linux to <see cref="OperatingSystem"/>, so a game that branches on the platform sees a desktop there.)
+    /// Resolves a reference image. On a phone or in a page a game's screens can differ from the desktop's (no Quit button, for one), so
+    /// <c>name-mobile.png</c> beside <c>name.png</c> is used there when it exists.
     /// </summary>
     private static string ReferencePath(string reference, string baseDir)
     {
         var path = Path.GetFullPath(reference, baseDir);
-        if (OperatingSystem.IsIOS() || OperatingSystem.IsBrowser())
+        if (OneGame.Platform.RunningOn.Mobile)
         {
             var mobile = Path.Combine(Path.GetDirectoryName(path)!, Path.GetFileNameWithoutExtension(path) + "-mobile" + Path.GetExtension(path));
             if (File.Exists(mobile))

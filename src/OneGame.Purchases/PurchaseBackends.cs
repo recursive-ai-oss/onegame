@@ -55,8 +55,7 @@ public static class PurchaseBackends
     {
         try
         {
-            // NativeAOT apps run on the linux-bionic runtime, where OperatingSystem.IsAndroid() is false; the activity host is the reliable sign.
-            if (OperatingSystem.IsAndroid() || AndroidActivityHost.Current is not null)
+            if (RunningOn.Android)
             {
                 return new PlayBillingBackend();
             }
