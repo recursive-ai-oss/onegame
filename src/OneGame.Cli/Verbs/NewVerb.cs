@@ -230,6 +230,27 @@ internal static class Templates
 
         """;
 
+    /// <summary>The scaffold's entity: sim and view in one class. The README and docs/first-game.md show this text, and a test keeps them equal.</summary>
+    public const string CounterEntity = """
+        /// <summary>One synced counter. Sim state is partial properties; views read it and send commands.</summary>
+        [Entity]
+        public partial class Counter : Entity
+        {
+            [Synced] public partial int Count { get; private set; }
+            [Synced] public partial int Ticks { get; private set; }
+
+            [Command]
+            public void Increment(int by) => Count += by;
+
+            // Runs once per fixed simulation tick: deterministic code only (no floats, clocks or I/O in synced state).
+            protected override void OnTick() => Ticks++;
+
+            // View code reads state and never writes it.
+            [View]
+            public string Label() => $"Count: {Count}";
+        }
+        """;
+
     public static string Game(string id, string cls, string name, bool withServer = false) => withServer ? GameOnly(id, cls, name) : GameWithSim(id, cls, name);
 
     private static string GameWithSim(string id, string cls, string name) => $$"""
@@ -239,15 +260,7 @@ internal static class Templates
 
         namespace {{id}};
 
-        /// <summary>The state of the game: one synced number and a command that changes it.</summary>
-        [Entity]
-        public partial class Counter : Entity
-        {
-            [Synced] public partial int Count { get; private set; }
-
-            [Command]
-            public void Increment(int by) => Count += by;
-        }
+        {{CounterEntity}}
 
         /// <summary>The game: its entity types, its starting world and its screens.</summary>
         public sealed class {{cls}}Game : GameDefinition
@@ -260,7 +273,7 @@ internal static class Templates
 
             public override void DefineScreens(ScreenSet screens) =>
                 screens.Add("main", game => Ui.Column(
-                    Ui.Label(() => "Count: " + CounterOf(game).Count).Named("count"),
+                    Ui.Label(() => CounterOf(game).Label()).Named("count"),
                     Ui.Button("Add one", () => CounterOf(game).Send.Increment(1)).Named("add").Padding(Length.Px(8)).Background(Color.Rgb(0x3060A0)))
                     .Padding(Length.Px(24)).Gap(Length.Px(12)).Background(Color.Rgb(0x203040)).TextColor(Color.White));
 
