@@ -25,6 +25,12 @@ def adb(*a):
 
 def centre(selector):
     q = m.call('ui_query', selector=selector)
+    for _ in range(10):   # a screen change lays out over the next few frames
+        if q:
+            break
+        time.sleep(0.5)
+        m.call('step', frames=3)
+        q = m.call('ui_query', selector=selector)
     if not q:
         raise RuntimeError(f'no element {selector}')
     s = q[0]['screen']          # pixels of the window
@@ -35,7 +41,12 @@ def table():
     return m.call('state_query', entity='Table')
 
 
-info = m.call('info')
+# A phone creates the window a moment after the process starts; wait until a frame has been presented.
+for _ in range(40):
+    info = m.call('info')
+    if info.get('presented') or info.get('headless'):
+        break
+    time.sleep(0.5)
 res['window'] = {k: info.get(k) for k in ('width', 'height', 'scale', 'backend', 'adapter', 'hash', 'drift')}
 
 # Finger input: the menu button, then the stock. With an adb serial the taps are real (`adb shell input tap`, so the OS delivers them);
