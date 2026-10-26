@@ -298,7 +298,11 @@ for s in samples:
             fail(f'solitaire live: could not start or address the game (pid {pid}, address {addr}): {o.strip()[-200:]}')
         else:
             time.sleep(4)
+            # CoreDevice closes the device tunnel when nothing uses it, which cuts the game's live-control connection; a cheap call
+            # every few seconds keeps it open for the length of the check.
+            keep = subprocess.Popen(['bash', '-c', f'while :; do xcrun devicectl device info lockState --device {D} >/dev/null 2>&1; sleep 3; done'])
             rc, o = run([PYTHON, os.path.join(HERE, 'live-check.py'), f'[{addr}]:{port}', os.path.join(W, 'live'), '--expect-audio', 'audiounit'], timeout=180)
+            keep.terminate()
             open(os.path.join(W, 'live.json'), 'w').write(o)
             try:
                 d = json.loads(o.strip().splitlines()[-1])
