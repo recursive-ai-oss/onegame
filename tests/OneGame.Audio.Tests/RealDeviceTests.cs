@@ -69,6 +69,11 @@ public class RealDeviceTests
 
         Report($"latency_ms min={latency.Min():F1} avg={latency.Average():F1} max={latency.Max():F1}");
         Report($"underruns={output.Underruns} losses={output.DeviceLosses} faults={output.RenderFaults} audioThreadAllocatedBytes={output.AudioThreadAllocatedBytes} framesRendered={output.FramesRendered}");
+        var device = output.DeviceStatus();
+        Report($"device written={device.FramesWritten} played={device.FramesPlayed} peak={device.PeakPlayed:F3} state={device.DeviceState}");
+        Assert.True(device.FramesWritten > rate * (seconds - 1), "no frames reached the device");
+        Assert.True(device.FramesPlayed > rate * (seconds - 2), "the device took no frames");
+        Assert.True(device.PeakPlayed > 0.01f, "the device played only silence");
         Assert.Equal(0, output.Underruns);
         Assert.Equal(0, output.AudioThreadAllocatedBytes);
         Assert.Equal(0, output.DeviceLosses);

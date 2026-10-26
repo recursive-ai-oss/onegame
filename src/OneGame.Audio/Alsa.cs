@@ -40,6 +40,24 @@ internal static unsafe partial class Alsa
     [LibraryImport(Lib, EntryPoint = "snd_pcm_delay")]
     public static partial int Delay(nint pcm, out nint frames);
 
+    [LibraryImport(Lib, EntryPoint = "snd_pcm_state")]
+    public static partial int State(nint pcm);
+
+    /// <summary>Names of snd_pcm_state_t values (alsa-lib PCM interface).</summary>
+    public static string StateName(int state) => state switch
+    {
+        0 => "open",
+        1 => "setup",
+        2 => "prepared",
+        3 => "running",
+        4 => "xrun",
+        5 => "draining",
+        6 => "paused",
+        7 => "suspended",
+        8 => "disconnected",
+        _ => "unknown",
+    };
+
     [LibraryImport(Lib, EntryPoint = "snd_pcm_drop")]
     public static partial int Drop(nint pcm);
 
