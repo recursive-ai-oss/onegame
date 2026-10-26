@@ -139,7 +139,7 @@ public sealed class GameInstance : IDisposable
             Backend = options.Headless ? PlatformBackendKind.Headless : options.Backend,
             DisplayName = options.Headless ? null : options.CanvasId ?? options.DisplayName,
             // Android hands gamepads over as input events; there are no device files to scan.
-            EnableGamepadDevices = !options.Headless && !OperatingSystem.IsAndroid(),
+            EnableGamepadDevices = !options.Headless && !OneGame.Platform.RunningOn.Android,
         });
         Window = Platform.CreateWindow(new WindowOptions { Title = definition.Name, Width = options.Width, Height = options.Height });
         Ui = new UiTree(measurer) { ArtSizes = new OneGame.Text.ArtAtlasSizes(art) };

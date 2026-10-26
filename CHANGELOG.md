@@ -4,6 +4,16 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-27
+
+### Added
+
+- `OneGame.Platform.RunningOn` (`Android`, `IOS`, `Browser`, `Phone`, `Mobile`, `Desktop`): one way for a game to ask what it runs on.
+
+### Fixed
+
+- Android builds reported themselves as Linux to platform checks (`OperatingSystem.IsAndroid()` is false in a NativeAOT Android app); the engine now asks `RunningOn`, and Bricks hides Quit on Android. Scenario captures on Android use `name-mobile.png` references like iOS and the browser.
+
 ## [1.1.1] - 2026-10-26
 
 ### Fixed

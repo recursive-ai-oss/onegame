@@ -12,6 +12,8 @@ Options: `--target linux|win|osx` (default: the host's; `linux-x64` and `win-x64
 
 Desktop exports work for a game created with `onegame new` from the installed tool, with no engine checkout: the `RecursiveAI.OneGame.Sdk` package carries the export targets. The web export, Play Billing in an Android build and `--server --plugins` read engine sources and still need a game created with `--engine <checkout>`; the Android and iOS entry files ship in the SDK package, but those two exports have only been run from a checkout.
 
+Branching on the platform: ask `OneGame.Platform.RunningOn` (`Android`, `IOS`, `Browser`, `Phone`, `Mobile`, `Desktop`), not `OperatingSystem.IsAndroid()`, which is false in a NativeAOT Android build (it runs on the Linux runtime). A scenario capture compares against `name-mobile.png` beside `name.png` on a phone or in a page when that file exists.
+
 Android: `onegame export --target android [--abi arm64-v8a,x86_64] [--dev]` makes a debug-signed APK (NativeAOT shared library, no Java). A game that connects to servers sets `<AndroidInternet>true</AndroidInternet>` in its project file to get the INTERNET permission in release builds too. Setup, device commands and what is verified are in [android](interfaces/android.md).
 
 iOS (on a Mac with Xcode): `onegame export --target ios-simulator [--dev]` makes an ad-hoc signed `.app` for the Simulator, `onegame export --target ios` an unsigned arm64 `.app` for a device, which the owner of an Apple Developer account signs (the steps are printed as `signingNeeds` and listed in [ios](interfaces/ios.md)). Both are NativeAOT executables; no workload is installed.

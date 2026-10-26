@@ -237,7 +237,7 @@ internal static class PlatformBackendFactory
             return PlatformBackendKind.Browser;
         }
 
-        if (OperatingSystem.IsAndroid() || AndroidActivityHost.Current is not null)
+        if (RunningOn.Android || AndroidActivityHost.Current is not null)
         {
             return PlatformBackendKind.Android;
         }

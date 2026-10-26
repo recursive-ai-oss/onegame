@@ -1,5 +1,6 @@
 using OneGame.Core;
 using OneGame.Host;
+using OneGame.Platform;
 using OneGame.UI;
 using OneGame.UI.Kit;
 
@@ -27,8 +28,8 @@ internal static class Screens
             UiKit.Button("Settings", () => { s.Click(); s.Open("settings"); }, "settings"),
         };
 
-        // A phone or a page has no program to quit.
-        if (!OperatingSystem.IsBrowser() && !OperatingSystem.IsAndroid() && !OperatingSystem.IsIOS())
+        // A phone or a page has no program to quit (RunningOn knows Android even in a NativeAOT build).
+        if (RunningOn.Desktop)
         {
             buttons.Add(UiKit.Button("Quit", () => game.Window.Close(), "quit"));
         }
