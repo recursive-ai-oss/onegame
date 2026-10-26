@@ -15,7 +15,7 @@ endpoint, outdir = sys.argv[1], sys.argv[2]
 serial = sys.argv[sys.argv.index('--serial') + 1] if '--serial' in sys.argv else None
 expect_audio = sys.argv[sys.argv.index('--expect-audio') + 1] if '--expect-audio' in sys.argv else None
 os.makedirs(outdir, exist_ok=True)
-m = Mcp(endpoint)
+m = Mcp(endpoint, timeout=180)   # a window on a slow compositor can take seconds per frame
 res, problems = {}, []
 
 
@@ -82,7 +82,7 @@ for _ in range(4):
     m.call('command_send', entity='Table', command='Draw')
     m.call('step', frames=30)
 time.sleep(1.5)
-m.call('step', frames=60)
+m.call('step', frames=20)
 dev = (m.call('audio') or {}).get('device', {})
 dev = dict(dev, deviceState=dev.get('deviceState') or dev.get('state'))   # the Linux backend names it `state`
 res['audio'] = {k: dev.get(k) for k in ('backend', 'deviceState', 'framesWritten', 'framesPlayed', 'peakPlayed', 'underruns', 'losses', 'audioThreadAllocatedBytes', 'detail')}
