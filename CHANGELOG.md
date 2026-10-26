@@ -4,6 +4,13 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-26
+
+### Fixed
+
+- Linux audio output: the ALSA sink never reported its device side, so the `audio` report showed `framesWritten`, `framesPlayed` and `peakPlayed` as 0 on every ALSA device even while sound was playing, and a device that really took nothing could not be told apart. It now reports frames written, frames the device has consumed (from `snd_pcm_delay`), the peak of consumed frames, its PCM state and underrun count.
+- The device checks in `tools/devices` now fail unless `framesWritten` and `framesPlayed` are above 0, not on a `Running` state alone.
+
 ## [1.1.0] - 2026-10-26
 
 A game builds from nuget.org alone, with no engine checkout.

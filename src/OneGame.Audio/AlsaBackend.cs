@@ -126,13 +126,25 @@ public sealed unsafe class AlsaBackend : IAudioBackend
     }
 }
 
-internal sealed unsafe class AlsaSink : IAudioSink
+internal sealed unsafe class AlsaSink : IAudioSink, IAudioSinkDiagnostics
 {
     private const int MaxRecoveries = 8;
     private nint _pcm;
     private readonly bool _float;
     private readonly short[]? _s16;
     private int _queued;
+
+    // What the device side has seen. Only the audio thread (Write) touches the PCM handle; Report reads these cached figures,
+    // because alsa-lib handles are not safe to query while another thread is inside a write.
+    private const int BlockRing = 512;
+    private readonly long[] _blockStart = new long[BlockRing];
+    private readonly float[] _blockPeak = new float[BlockRing];
+    private int _blockHead;
+    private int _blockCount;
+    private long _written;
+    private int _peakBits;
+    private long _xruns;
+    private int _state;
 
     public AlsaSink(nint pcm, bool isFloat, int rate, int channels, int period, int buffer)
     {
@@ -212,12 +224,70 @@ internal sealed unsafe class AlsaSink : IAudioSink
             }
         }
 
-        if (Alsa.Delay(_pcm, out var delay) == 0)
+        if (result == SinkWriteResult.Underrun)
         {
-            Volatile.Write(ref _queued, (int)Math.Max(0, delay));
+            Interlocked.Increment(ref _xruns);
         }
 
+        // Frames the device has taken are those we handed over minus what is still queued (snd_pcm_delay: frames between the application
+        // position and the speaker). The call fails in the xrun state, where everything handed over has been consumed.
+        var written = _written + frames;
+        var queued = Alsa.Delay(_pcm, out var delay) == 0 ? (int)Math.Clamp(delay, 0, written) : 0;
+        Volatile.Write(ref _queued, queued);
+        Volatile.Write(ref _state, Alsa.State(_pcm));
+        TrackPlayed(interleaved, written, written - queued);
         return result;
+    }
+
+    // Peak is measured on the frames the device has consumed, not on what we wrote: a block counts once its first frame has been played.
+    private void TrackPlayed(ReadOnlySpan<float> block, long written, long played)
+    {
+        var peak = 0f;
+        foreach (var v in block)
+        {
+            peak = MathF.Max(peak, MathF.Abs(v));
+        }
+
+        if (_blockCount == BlockRing)
+        {
+            Fold(_blockPeak[_blockHead]);
+            _blockHead = (_blockHead + 1) % BlockRing;
+            _blockCount--;
+        }
+
+        var slot = (_blockHead + _blockCount) % BlockRing;
+        _blockStart[slot] = _written;
+        _blockPeak[slot] = peak;
+        _blockCount++;
+        _written = written;
+        while (_blockCount > 0 && _blockStart[_blockHead] < played)
+        {
+            Fold(_blockPeak[_blockHead]);
+            _blockHead = (_blockHead + 1) % BlockRing;
+            _blockCount--;
+        }
+
+        Interlocked.Exchange(ref _playedShared, played);
+        Interlocked.Exchange(ref _writtenShared, written);
+    }
+
+    private long _playedShared;
+    private long _writtenShared;
+
+    private void Fold(float peak)
+    {
+        if (peak > BitConverter.Int32BitsToSingle(Volatile.Read(ref _peakBits)))
+        {
+            Volatile.Write(ref _peakBits, BitConverter.SingleToInt32Bits(peak));
+        }
+    }
+
+    public AudioSinkReport Report()
+    {
+        var state = _pcm == 0 ? "closed" : Alsa.StateName(Volatile.Read(ref _state));
+        return new AudioSinkReport(
+            state, Interlocked.Read(ref _writtenShared), Interlocked.Read(ref _playedShared), BitConverter.Int32BitsToSingle(Volatile.Read(ref _peakBits)),
+            Interlocked.Read(ref _xruns), null);
     }
 
     public void Dispose()
