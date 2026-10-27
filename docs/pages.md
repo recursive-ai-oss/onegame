@@ -54,7 +54,7 @@ Things worth knowing:
 - The page is transparent where you give it no background, and clicks on a transparent part pass through to what is under it.
 - An HTML page cannot resize in place, so it is made again when the window size or UI scale changes. Focus, scroll position and form values are lost then. Put what the page shows in your own state (the profile, the settings object) and have `Setup` apply it: set control values with `SetChecked` and `SetRangeValue`, and focus the first control with `Focus`. `Setup`'s changes are painted before the first frame.
 - Hide a page by calling `game.Pages.Remove("menu")` when another screen opens (the screen builders of the other screens are the place), or `SetVisible` to keep it.
-- The document is read-only after it is made: you cannot change a paragraph's text from a handler. Show a changing value in a form control (a range or a field), build the page again, or use a builder page.
+- Structure is fixed once the page is made: handlers change text, control state and classes, not the element tree. Change text with `SetTextContent` (see Limits), or use a builder page for a HUD.
 
 ## Handlers send commands
 
@@ -164,7 +164,7 @@ A capture draws the page. Tolerances for text edges follow the rest of the game 
 
 - **Platforms.** Pages run on Linux (lavapipe) and in headless Chrome (WebGPU on SwiftShader), where solitaire's settings captures match the desktop references within the web tolerance. Metal, Windows, phones and real GPUs in a browser have not run them.
 - **Native control looks.** Radio buttons, checkboxes and sliders keep OneRender's built-in look; only their accent colour is yours (`accent-color`). Their unfilled parts are light, which sits oddly on a dark card. Style your own with `appearance: none`.
-- **No live text yet.** An HTML page's text cannot change after it is made (see above). OneRender 1.1.0 adds text edits (no allocation) and class/attribute edits (a re-parse, about 830 KB). When it lands, use text, transform and opacity edits for per-frame changes, and keep class/attribute edits for events such as a click or a screen change.
+- **Live changes.** `InteractivePage.SetTextContent` changes an element's text with no allocation, so a readout can follow a slider every frame (solitaire's volume numbers do). `SetValue` and `SetChecked` change a control's state. Class edits and `SetAttribute`/`RemoveAttribute` re-style in place for about 835 KB; changing `value`, `type`, `checked`, `src` or `name` that way rebuilds at about 7.4 MB, so use `SetValue`/`SetChecked` for those. Per-frame changes should be text, transform and opacity; keep class and attribute edits for events (a click, a screen change).
 - **No text-input method yet.** Typing works; composed text from an input method and clipboard paste do not reach page fields.
 - **Tab order.** A radio group is one tab stop (OneRender 1.0.1), so the controller steps over the group and arrows move inside it.
 - **Cost.** OneRender's cost is in its own notes; a steady page allocates nothing in the adapter. Bounds on SVG keys, images, instances and clips are in `docs/interfaces/onerender.md`.

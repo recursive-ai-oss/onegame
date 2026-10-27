@@ -1,11 +1,10 @@
 name: settings-pad
-description: "A controller alone changes settings on the page: Draw 3, the checkbox off, Music volume up by two."
+description: "A controller alone changes settings on the page: Draw 3 by arrow, the checkbox off, Music volume up by two (the readout follows)."
 steps:
   - screen: settings
   - step: 3
-  - nav: down
-  - nav: south
-  - nav: down
+  - nav: dpad_right      # in the focused radio group the arrow moves the choice to Draw 3
+  - nav: down            # a radio group is one tab stop: next is the checkbox
   - nav: south
   - nav: down
   - nav: dpad_right

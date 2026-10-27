@@ -87,6 +87,30 @@ public class SetupTests
         Assert.False(c.Game.Pages.HasFocus);   // with no focus the pad belongs to the game's own navigation
     }
 
+    [Fact]
+    public void ChangingAReadoutsTextEveryFrameAllocatesNothingOnceWarm()
+    {
+        using var cluster = TestCluster.Start(new FormGame { InSetup = true }, new TestOptions { Width = 200, Height = 100, Gpu = GpuMode.Auto });
+        var c = cluster.Client;
+        c.Step(2);
+        var page = c.Game.Pages.Get("form")!.Interactive!;
+        var label = page.FindElement("go");
+        string[] text = ["Go", "Go 1", "Go 2"];
+        for (var i = 0; i < 3000; i++)
+        {
+            page.SetTextContent(label, text[i % 3], TestContext.Current.CancellationToken);
+        }
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < 300; i++)
+        {
+            page.SetTextContent(label, text[i % 3], TestContext.Current.CancellationToken);
+        }
+
+        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal("Go 2", page.GetTextContent(label));
+    }
+
     private static string Focused(PageScreen page)
     {
         var p = page.Interactive!;

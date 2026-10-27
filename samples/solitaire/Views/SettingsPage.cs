@@ -47,6 +47,8 @@ internal static class SettingsPage
         page.SetChecked(Find("auto-finish"), p.AutoFinish);
         page.SetRangeValue(Find("music-volume"), p.MusicVolume);
         page.SetRangeValue(Find("effects-volume"), p.EffectsVolume);
+        page.SetTextContent(Find("music-value"), Digits(p.MusicVolume));
+        page.SetTextContent(Find("effects-value"), Digits(p.EffectsVolume));
         page.SetChecked(Find(p.Glyphs switch { GlyphStyle.Keyboard => "glyphs-keyboard", GlyphStyle.Gamepad => "glyphs-gamepad", _ => "glyphs-auto" }), true);
 
         void On(string id, string type, Action handler) =>
@@ -65,12 +67,14 @@ internal static class SettingsPage
         On("music-volume", "input", () =>
         {
             p.MusicVolume = (int)Math.Round(page.GetRangeValue(Find("music-volume")));
+            page.SetTextContent(Find("music-value"), Digits(p.MusicVolume));
             s.ApplyVolumes();
             s.SaveProfile();
         });
         On("effects-volume", "input", () =>
         {
             p.EffectsVolume = (int)Math.Round(page.GetRangeValue(Find("effects-volume")));
+            page.SetTextContent(Find("effects-value"), Digits(p.EffectsVolume));
             s.ApplyVolumes();
             s.SaveProfile();
         });
@@ -98,6 +102,11 @@ internal static class SettingsPage
         }
     }
 
+    // Volumes are 0..10: shared strings, so a slider drag allocates nothing here. Only the text changes while it moves.
+    private static readonly string[] Numbers = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+
+    private static string Digits(int v) => Numbers[Math.Clamp(v, 0, 10)];
+
     private static string Hex(Color c) => $"#{c.R:x2}{c.G:x2}{c.B:x2}";
 
     private static string Html(string location)
@@ -118,6 +127,7 @@ internal static class SettingsPage
             input[type=radio],input[type=checkbox]{width:18px;height:18px}
             input[type=range]{flex:1;height:20px}
             .end{color:@dim;font-size:13px}
+            .value{width:24px;text-align:right;font-weight:700}
             input:focus{outline:2px solid @focus;outline-offset:2px}
             #save-location{color:@dim}
             button{font:16px Body;padding:0 16px;height:34px;border:1px solid transparent;border-radius:3px;background:@accent;color:@accentText}
@@ -146,9 +156,9 @@ internal static class SettingsPage
                   </div></div>
                 <div class="row"><label class="opt"><input type="checkbox" id="auto-finish">Offer to finish the game when every card is face up</label></div>
                 <div class="row"><span class="label">Music volume</span><span class="end">0</span>
-                  <input type="range" id="music-volume" min="0" max="10" step="1"><span class="end">10</span></div>
+                  <input type="range" id="music-volume" min="0" max="10" step="1"><span class="end">10</span><span class="value" id="music-value">0</span></div>
                 <div class="row"><span class="label">Effects volume</span><span class="end">0</span>
-                  <input type="range" id="effects-volume" min="0" max="10" step="1"><span class="end">10</span></div>
+                  <input type="range" id="effects-volume" min="0" max="10" step="1"><span class="end">10</span><span class="value" id="effects-value">0</span></div>
                 <div class="row"><span class="label">Input hints</span>
                   <div class="group">
                     <label class="opt"><input type="radio" name="glyphs" id="glyphs-auto">Automatic</label>
