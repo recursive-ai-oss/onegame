@@ -4,6 +4,19 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-27
+
+An examples gallery and a debug overlay.
+
+### Added
+
+- `examples/`: six runnable one-feature games (sprite, input actions, tween, particles, saves, a networked counter) with scenarios, built with the solution and run by CI through `tools/ci/examples.sh`.
+- An on-screen debug overlay in development builds, toggled with F3 or Back+Start: frame time, tick and entities, net transport, round trip, bytes per second and drift, audio device counters. `overlay` control operation and `overlay: on|off|toggle` scenario step; `ONEGAME_OVERLAY`, `ONEGAME_OVERLAY_KEY` and `ONEGAME_OVERLAY_CHORD` configure it.
+
+### Changed
+
+- Exports fail with `dev_tools_present` if overlay code is linked in; exports and release builds do not contain it.
+
 ## [1.4.0] - 2026-10-27
 
 Game feel and persistence: tweens and style transitions, particles in 2D and 3D, and a storage service for save slots, settings and files, in the browser too.
