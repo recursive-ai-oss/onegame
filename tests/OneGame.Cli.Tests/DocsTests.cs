@@ -49,7 +49,8 @@ public sealed class DocsTests
             ["mygame.csproj"] = Templates.Csproj(null, "<version>", "Mygame"),
             ["Program.cs"] = Templates.Program("Mygame", "Mygame"),
             ["Game.cs"] = Templates.Game("Mygame", "Mygame", "mygame"),
-            ["scenarios/click-button.yaml"] = Templates.Scenario,
+            ["scenarios/steer-ship.yaml"] = Templates.Scenario,
+            ["scenarios/ship-looks-right.yaml"] = Templates.LookScenario,
         };
         foreach (var (file, text) in generated)
         {
@@ -60,6 +61,6 @@ public sealed class DocsTests
     [Fact]
     public void ReadmeShowsTheScaffoldsEntity()
     {
-        Assert.Contains(Normal(Templates.CounterEntity), CodeBlocks("README.md"));
+        Assert.Contains(Normal(Templates.ShipEntity), CodeBlocks("README.md"));
     }
 }

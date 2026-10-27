@@ -34,6 +34,9 @@ steps:
   - press: Tab             # keys, also: type: "text", nav: next, wheel, screen, fixture, snapshot, reset: 77, ui-scale: 1.5, invoke
   - steam-input: { connect: 3 }          # the stand-in Steam Input controller (ONEGAME_STEAM_INPUT=fake): connect, disconnect, press, release, analog + x/y; runs 2 frames
   - steam-input: { press: map_select }
+  - action: jump           # an input action by name, as the keyboard would: also {name: move, x: 1, y: 0}, {name: move, state: down|up}
+  - pad: { button: south } # the harness's virtual gamepad; also {axis: leftx, value: 1}; press: {key: d, state: down|up} holds a key
+  - assets: { reload: art/ship.png }   # check files now / reload one / apply-data (staged YAML); expect with asset: {path, state, version}
   - nav: start             # a controller button: up down left right next previous activate cancel, or any button by name (start, back, west, north, x, y, left_stick...)
 expect:
   - state: { entity: Counter, property: Count, equals: 3 }
@@ -42,11 +45,15 @@ expect:
   - ui: { id: count, text: "Count: 3" }       # or selector + count/contains/visible/enabled/focused/pressed
   - steam-input: { set: Map, controllers: 1, down: map_select, keyboard: false }   # active action set, pads, held actions, on-screen keyboard (docs/interfaces/steam.md)
   - sound: { name: coin, count: 1, frames: 5 }  # the game played the clip loaded as "coin" (or coin.ogg) once in the last 5 frames; also min, max; no bounds = at least once
+  - action: { name: move, held: true, x: 1 }   # an action's current state (also pressed, released, y)
+  - asset: { path: art/ship.png, state: ready, version: 1 }
   - tick: 3
   - capture: { reference: refs/main.png, size: 320x200, tolerance: 2, max-diff: 0.001 }
 ```
 
 **Sounds.** A scenario can assert what the game played without a sound device: `sound:` counts the sounds the game asked the audio service for since the scenario began (earlier ones don't count), matched by the name the clip was loaded under (`audio.LoadSound(stream, "coin")`; a file extension in that name is optional in the scenario). `frames: N` counts only those requested in the last N frames. Every scenario result carries the whole event log as `sounds` (sequence, frame, sound, bus, volume, loop, music, started), and the `audio_events` operation reads it live. Name clips when loading them: the default name is `sound`.
+
+**Input and assets.** `action:` and `pad:` drive the game's input actions and a virtual gamepad (`docs/interfaces/input.md`); the live operations `actions` (list or drive actions) and `input_pad` do the same from an agent. Changes show after the next `step:`. `assets:` and `asset:` check and reload loaded files, and the `assets` operation lists them with their version and state. A 2D game's drawing is visible through `draw_view` (sprites and text drawn last frame, the camera, screen to world conversion). Hot reload works in a running Debug game: save the picture and the next `capture_frame` shows it (`docs/interfaces/assets.md`).
 
 `onegame test --json` runs them all (and the project's C# tests; `--no-unit` skips those). A failing expectation reports `expected` and `actual` with the line. Unknown keys are errors with a line number. Run one with `onegame test --scenario scenarios/x.yaml`. `onegame test --update-references` creates missing capture references and rewrites changed ones; look at them before committing. With `--json`, the result has `references: {created: [...], updated: [...]}` (absolute paths) and each such expectation carries `referenceAction`.
 

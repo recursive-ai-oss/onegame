@@ -48,6 +48,7 @@ public class Render2DStage : IRenderStage, IDisposable
             throw new ArgumentException("The 2D renderer needs fonts and shaders.", nameof(resources));
         }
 
+        _draw.Assets = resources.Assets;
         _glyphs = new GlyphAtlas(resources.Fonts);
         _text = new TextQuadBuilder(resources.Measurer, _glyphs);
     }

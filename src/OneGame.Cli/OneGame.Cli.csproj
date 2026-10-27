@@ -35,6 +35,9 @@
     <!-- The font a new game starts with, and its licence. -->
     <EmbeddedResource Include="../../assets/fonts/NotoSans-Regular.ttf" LogicalName="fonts/NotoSans-Regular.ttf" />
     <EmbeddedResource Include="../../assets/fonts/OFL.txt" LogicalName="fonts/OFL.txt" />
+    <!-- What a new game starts with: a ship picture, and the reference frame its look scenario compares against. -->
+    <EmbeddedResource Include="../../assets/templates/ship.png" LogicalName="template/art/ship.png" />
+    <EmbeddedResource Include="../../assets/templates/ship-reference.png" LogicalName="template/ship-reference.png" />
   </ItemGroup>
 
   <ItemGroup>
