@@ -33,7 +33,7 @@ public readonly record struct LoudnessReading(double MomentaryLufs, double Short
 /// <see cref="IAudioSink"/>. After construction the thread allocates nothing, takes no lock shared with the game thread and lets no exception out.
 /// A lost device drops to a silent, real-time-paced mode and is reopened at the same format when it comes back.
 /// </summary>
-public sealed class AudioOutput : IDisposable
+public sealed partial class AudioOutput : IDisposable
 {
     private const int MaxChunkFrames = 2048;
     private const int MinChunkFrames = 64;
@@ -99,12 +99,18 @@ public sealed class AudioOutput : IDisposable
     public bool Metering { get; set; }
 
     /// <summary>The loudness at the output, after the limiter. Safe from any thread; updated once per block while sound is rendering (not while paused).</summary>
-    public LoudnessReading Loudness => new(
+    public LoudnessReading Loudness => _dev is { } d ? new(d.Loudness.MomentaryLufs, d.Loudness.ShortTermLufs, d.Loudness.IntegratedLufs, d.Loudness.TruePeakDbtp, d.Loudness.Frames) : new(
         Volatile.Read(ref _momentary), Volatile.Read(ref _shortTerm), Volatile.Read(ref _integrated), Volatile.Read(ref _truePeak), Interlocked.Read(ref _meteredFrames));
 
     /// <summary>Clears the meter's history (integrated loudness, true peak) at the next block, so a new measurement starts clean.</summary>
     public void ResetLoudness()
     {
+        if (_dev is { } device)
+        {
+            device.ResetLoudness();
+            return;
+        }
+
         Volatile.Write(ref _resetMeter, 1);
         if (_backend.IsManual)
         {
@@ -142,6 +148,13 @@ public sealed class AudioOutput : IDisposable
         ArgumentOutOfRangeException.ThrowIfGreaterThan(options.Channels, 16);
 
         var output = new AudioOutput(backend, options, limiter);
+        if ((backend as DevicesBackend ?? (backend as AlsaBackend)?.Devices) is { } devices)
+        {
+            // The device side is oneaudio's: nothing opens until Start gives it the mixer.
+            output._devBackend = devices.Inner;
+            return output;
+        }
+
         if (!output.TryOpenSink(first: true))
         {
             output._nextRetry = Stopwatch.GetTimestamp() + RetryTicks;
@@ -154,13 +167,13 @@ public sealed class AudioOutput : IDisposable
     public AudioDeviceFormat Format { get; private set; }
 
     /// <summary>The current state.</summary>
-    public AudioOutputStatus Status => (AudioOutputStatus)Volatile.Read(ref _status);
+    public AudioOutputStatus Status => _dev is { } d ? StatusOf(d.State) : (AudioOutputStatus)Volatile.Read(ref _status);
 
     /// <summary>The device name in use or being retried; <see langword="null"/> for the system default.</summary>
     public string? DeviceName => Volatile.Read(ref _deviceName);
 
     /// <summary>The most recent reason a device failed to open, or <see langword="null"/>.</summary>
-    public string? LastError => Volatile.Read(ref _lastError);
+    public string? LastError => _dev is { } d ? d.LastError : Volatile.Read(ref _lastError);
 
     /// <summary>Stops sound without stopping the device: it is fed silence and the source is not rendered, so the mixer's timeline holds still.</summary>
     public bool Paused
@@ -179,6 +192,8 @@ public sealed class AudioOutput : IDisposable
             {
                 Interlocked.Increment(ref _suspensions);
             }
+
+            ApplyDeviceSuspend();
         }
     }
 
@@ -198,34 +213,34 @@ public sealed class AudioOutput : IDisposable
     public string BackendName => _backend.Name;
 
     /// <summary>The device's buffer in frames, or 0 with no device.</summary>
-    public int BufferFrames => Volatile.Read(ref _bufferFrames);
+    public int BufferFrames => _dev is { } d ? d.Counters.BufferFrames : Volatile.Read(ref _bufferFrames);
 
     /// <summary>The device's write size in frames, or 0 with no device.</summary>
-    public int PeriodFrames => Volatile.Read(ref _periodFrames);
+    public int PeriodFrames => _dev is { } d ? d.Counters.PeriodFrames : Volatile.Read(ref _periodFrames);
 
     /// <summary>Output latency in milliseconds: audio queued in the device right after a write. 0 with no device.</summary>
-    public double LatencyMilliseconds => Volatile.Read(ref _queuedFrames) * 1000.0 / Format.SampleRate;
+    public double LatencyMilliseconds => _dev is { } d ? d.Counters.LatencyMilliseconds : Volatile.Read(ref _queuedFrames) * 1000.0 / Format.SampleRate;
 
     /// <summary>Times the device ran dry (the game could not keep up). Expected 0.</summary>
-    public long Underruns => Interlocked.Read(ref _underruns);
+    public long Underruns => _dev is { } d ? d.Counters.Underruns : Interlocked.Read(ref _underruns);
 
     /// <summary>Times an open device was lost.</summary>
-    public long DeviceLosses => Interlocked.Read(ref _losses);
+    public long DeviceLosses => _dev is { } d ? d.Counters.DeviceLosses : Interlocked.Read(ref _losses);
 
     /// <summary>Times a device was opened again after a loss, a failed open or a device change.</summary>
-    public long Reopens => Interlocked.Read(ref _reopens);
+    public long Reopens => _dev is { } d ? d.Counters.Reopens : Interlocked.Read(ref _reopens);
 
     /// <summary>Exceptions the render source threw. The block is replaced by silence. Expected 0.</summary>
-    public long RenderFaults => Interlocked.Read(ref _faults);
+    public long RenderFaults => _dev is { } d ? d.Counters.CallbackFaults : Interlocked.Read(ref _faults);
 
     /// <summary>Frames produced so far, to a device or not.</summary>
-    public long FramesRendered => Interlocked.Read(ref _framesRendered);
+    public long FramesRendered => _dev is { } d ? d.Counters.FramesRendered : Interlocked.Read(ref _framesRendered);
 
     /// <summary>Frames produced while no device was open.</summary>
-    public long SilentFrames => Interlocked.Read(ref _silentFrames);
+    public long SilentFrames => _dev is { } d ? d.Counters.SilentFrames : Interlocked.Read(ref _silentFrames);
 
     /// <summary>Bytes the audio thread allocated after its first few blocks, not counting device opens. Expected 0.</summary>
-    public long AudioThreadAllocatedBytes => Interlocked.Read(ref _allocNow);
+    public long AudioThreadAllocatedBytes => _dev is { } d ? d.Counters.RenderAllocatedBytes : Interlocked.Read(ref _allocNow);
 
     /// <summary>Attaches the source and, for a real device, starts the audio thread.</summary>
     /// <param name="source">The mixer. Its rate and channel count must equal <see cref="Format"/>.</param>
@@ -247,6 +262,12 @@ public sealed class AudioOutput : IDisposable
             }
 
             _source = source;
+            if (_devBackend is not null)
+            {
+                StartOnDevices(source);
+                return;
+            }
+
             if (Metering && Format.SampleRate >= LoudnessMeter.MinSampleRate)
             {
                 // BS.1770 K-weighting is designed per sample rate; the meter and its memory are built here, never on the audio thread.
@@ -271,6 +292,13 @@ public sealed class AudioOutput : IDisposable
     /// <param name="deviceName">A name from <see cref="IAudioBackend.ListDevices"/>, or <see langword="null"/> for the system default.</param>
     public void SelectDevice(string? deviceName)
     {
+        if (_devBackend is not null)
+        {
+            Volatile.Write(ref _deviceName, deviceName);
+            _dev?.SelectDevice(deviceName);
+            return;
+        }
+
         Volatile.Write(ref _deviceName, deviceName);
         Volatile.Write(ref _reopenRequested, 1);
         if (_backend.IsManual && _source is not null)
@@ -291,6 +319,14 @@ public sealed class AudioOutput : IDisposable
             throw new InvalidOperationException("Advance needs a manual backend and a started output.");
         }
 
+        if (_dev is { } manual)
+        {
+            // A manual device has no supervisor thread; reopening after a loss and the events happen when we pump it.
+            manual.Pump();
+            manual.Advance(frames);
+            return;
+        }
+
         while (frames > 0)
         {
             var n = Math.Min(frames, MaxChunkFrames);
@@ -307,12 +343,18 @@ public sealed class AudioOutput : IDisposable
     /// <summary>For pumped backends (a web page, which has no audio thread): renders as many blocks as the device wants right now. The page calls this from a timer; it does nothing for other backends.</summary>
     public void Pump()
     {
-        if (!_backend.IsManual || _source is null || Status == AudioOutputStatus.Stopped)
+        if (!(_backend.IsManual || _devBackend is IPumpedDeviceBackend) || _source is null || Status == AudioOutputStatus.Stopped)
         {
             return;
         }
 
         BeforePump?.Invoke();
+        if (_dev is { } pumpedDevice)
+        {
+            PumpDevice(pumpedDevice);
+            return;
+        }
+
         ApplyReopenRequest();
         if (_sink is null)
         {
@@ -350,6 +392,11 @@ public sealed class AudioOutput : IDisposable
     /// <returns>A snapshot.</returns>
     public AudioDeviceStatus DeviceStatus()
     {
+        if (_dev is not null)
+        {
+            return DeviceStatusOnDevices();
+        }
+
         var report = (_sink as IAudioSinkDiagnostics)?.Report();
         return new AudioDeviceStatus(
             BackendName, Status.ToString(), report?.State, DeviceName, LastError, Suspended, Paused, BufferFrames, PeriodFrames, Math.Round(LatencyMilliseconds, 2),
@@ -360,6 +407,12 @@ public sealed class AudioOutput : IDisposable
     /// <summary>Stops the thread and closes the device.</summary>
     public void Dispose()
     {
+        if (_devBackend is not null)
+        {
+            DisposeOnDevices();
+            return;
+        }
+
         Thread? thread;
         lock (_lifecycle)
         {
