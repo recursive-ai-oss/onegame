@@ -10,7 +10,7 @@ Pages are **view code**. A handler reads state and sends commands, never writes 
 |---|---|
 | you want real CSS: grid, gradients, shadows, filters, transitions, animations, blend modes | you want the component kit (tables, tabs, tooltips, dialogs, lists, text input with its focus rules) |
 | the screen is mostly layout and text, or you already have the HTML | the screen needs focus navigation by controller across custom widgets |
-| you want native form controls (radio buttons, checkboxes, sliders, text fields) with no code | the game must run in a browser (see the limits below) |
+| you want native form controls (radio buttons, checkboxes, sliders, text fields) with no code | you want the kit's focus rules and widgets ready made |
 
 ## An HTML page
 
@@ -162,9 +162,9 @@ A capture draws the page. Tolerances for text edges follow the rest of the game 
 
 ## Limits and what is not there yet
 
-- **Browsers.** OneRender stops inside the browser's .NET runtime when a page is made, so pages do not run on the web target yet. Solitaire keeps its kit settings screen for browsers (`OperatingSystem.IsBrowser()`). Pages have run on Linux (lavapipe); Metal, WebGPU, Windows and phones have not run them.
+- **Platforms.** Pages run on Linux (lavapipe) and in headless Chrome (WebGPU on SwiftShader), where solitaire's settings captures match the desktop references within the web tolerance. Metal, Windows, phones and real GPUs in a browser have not run them.
 - **Native control looks.** Radio buttons, checkboxes and sliders keep OneRender's built-in look; only their accent colour is yours (`accent-color`). Their unfilled parts are light, which sits oddly on a dark card. Style your own with `appearance: none`.
-- **No live text.** An HTML page's text cannot change after it is made (see above).
+- **No live text yet.** An HTML page's text cannot change after it is made (see above). OneRender 1.1.0 adds text edits (no allocation) and class/attribute edits (a re-parse, about 830 KB). When it lands, use text, transform and opacity edits for per-frame changes, and keep class/attribute edits for events such as a click or a screen change.
 - **No text-input method yet.** Typing works; composed text from an input method and clipboard paste do not reach page fields.
-- **Tab order.** A radio group's buttons are each a tab stop when set from code, so the controller visits all of them.
+- **Tab order.** A radio group is one tab stop (OneRender 1.0.1), so the controller steps over the group and arrows move inside it.
 - **Cost.** OneRender's cost is in its own notes; a steady page allocates nothing in the adapter. Bounds on SVG keys, images, instances and clips are in `docs/interfaces/onerender.md`.

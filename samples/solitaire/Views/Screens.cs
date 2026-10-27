@@ -139,12 +139,6 @@ internal static class Screens
     /// </summary>
     public static Element Settings(GameInstance game)
     {
-        // OneRender does not run on the browser's .NET runtime yet (it stops in LivePage/InteractivePage creation), so a browser keeps the kit screen.
-        if (OperatingSystem.IsBrowser())
-        {
-            return SettingsKit(game);
-        }
-
         var s = Session.For(game);
         SettingsPage.Show(game);
         var content = Ui.Column();
@@ -155,75 +149,4 @@ internal static class Screens
         });
         return Page(s, content);
     }
-
-    // The kit version of the screen, for browsers.
-    private static Element SettingsKit(GameInstance game)
-    {
-        var s = Session.For(game);
-        var p = s.Profile;
-        void Save() => s.SaveProfile();
-
-        var draw = UiKit.RadioGroup(
-            [new Choice<int>(1, "Draw 1"), new Choice<int>(3, "Draw 3")],
-            () => p.DrawMode,
-            v =>
-            {
-                p.DrawMode = v;
-                Save();
-            },
-            "draw-mode",
-            horizontal: true);
-        var auto = UiKit.Toggle("Offer to finish the game when every card is face up", () => p.AutoFinish, v =>
-        {
-            p.AutoFinish = v;
-            Save();
-        }, "auto-finish");
-        var music = UiKit.Slider(() => p.MusicVolume, v =>
-        {
-            p.MusicVolume = v;
-            s.ApplyVolumes();
-            Save();
-        }, 0, 10, 1, "music-volume");
-        var effects = UiKit.Slider(() => p.EffectsVolume, v =>
-        {
-            p.EffectsVolume = v;
-            s.ApplyVolumes();
-            Save();
-        }, 0, 10, 1, "effects-volume");
-        var glyphs = UiKit.RadioGroup(
-            [new Choice<GlyphStyle>(GlyphStyle.Auto, "Automatic"), new Choice<GlyphStyle>(GlyphStyle.Keyboard, "Keyboard"), new Choice<GlyphStyle>(GlyphStyle.Gamepad, "Gamepad")],
-            () => p.Glyphs,
-            v =>
-            {
-                p.Glyphs = v;
-                Save();
-            },
-            "glyphs",
-            horizontal: true);
-
-        var rows = Ui.Column(
-            Row("New games deal", draw),
-            Ui.Box(auto),
-            Row("Music volume", music),
-            Row("Effects volume", effects),
-            Row("Input hints", glyphs),
-            Ui.Label("Saved in: " + s.Data.Description).Class("dim").Named("save-location"))
-            .Gap(Length.Ui(14));
-
-        var content = Ui.Column(
-            Ui.Label("Settings").Class("title"),
-            UiKit.Card(null, rows).Width(Length.Ui(620)),
-            UiKit.Button("Back", s.Back, "back", ButtonKind.Primary))
-            .Gap(Length.Ui(16))
-            .Align(Align.Center);
-        content.On(UiEventKind.Cancel, (_, _) =>
-        {
-            s.Back();
-            return true;
-        });
-        return Page(s, content);
-    }
-
-    private static Element Row(string label, Element control) =>
-        Ui.Row(Ui.Label(label).Width(Length.Ui(170)), control.Grow()).Gap(Length.Ui(14)).Align(Align.Center);
 }
