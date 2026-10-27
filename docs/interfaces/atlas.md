@@ -94,7 +94,7 @@ size, edges stretched along one axis, the middle in both, with texture coordinat
 | Font file / faces | 64 MiB / 256 | `TextLimitException` |
 
 A font that is not a usable font throws OneFont's `FontFormatException` from `FontLibrary.Add`. An asset that decodes badly later is
-remembered as `AtlasStatus.Invalid` and not retried. All of these classes are for the UI thread only.
+remembered as `AtlasStatus.Invalid` and not retried. All of these classes are for the UI thread only, except that `ArtAtlas.Preload` rasterizes on worker threads (see `docs/ui-guide.md`, "Preloading art"): workers read only the immutable source bytes and hand pixels back through a queue, and every change to pages and entries stays on the UI thread.
 
 ## Fonts
 

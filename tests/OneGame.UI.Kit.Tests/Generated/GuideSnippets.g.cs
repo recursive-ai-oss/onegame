@@ -87,7 +87,7 @@ public sealed class GuideGame
     public List<Good> Goods { get; } = [new("Grain", 12, 40), new("Iron", 30, 8), new("Silk", 95, 3), new("Salt", 7, 120)];
 }
 
-// docs/ui-guide.md line 640
+// docs/ui-guide.md line 657
 public static class MyComponents
 {
     /// <summary>A price tag: shows an amount, turns red when it exceeds the player's gold.</summary>
@@ -108,7 +108,7 @@ public static class MyComponents
     }
 }
 
-// docs/ui-guide.md line 727
+// docs/ui-guide.md line 744
 public sealed class ScreenTest
 {
     public UiTree Tree { get; } = new();
@@ -244,7 +244,19 @@ internal static class Snippets
     }
 
     // docs/ui-guide.md line 318
-    public static void Run11(UiTree ui, KitHost host, GuideGame game)
+    public static void Setup11()
+    {
+        // In DefineArt, or any time before the screen opens: the second argument is the UI scale the art will be drawn at.
+        var art = new ArtAtlas();                       // or game.Art, the host's atlas
+        var loading = art.Preload(["panel-frame", "backdrop", "coin"], 1.5f);
+        // A loading screen can wait on it:
+        if (loading.IsComplete) { /* show the screen */ }
+        // Or finish everything right now on this thread:
+        art.CompletePreload();
+    }
+
+    // docs/ui-guide.md line 335
+    public static void Run12(UiTree ui, KitHost host, GuideGame game)
     {
         var theme = new StyleSheet()
             .Rule(":root", s => s.Token("--gold", Color.Hex("#d9a441")).Token("--gap", Length.Ui(8)))
@@ -254,8 +266,8 @@ internal static class Snippets
         ui.Root.Add(Ui.Column(Ui.Label("12 gold").Class("price")).Class("stack"));
     }
 
-    // docs/ui-guide.md line 335
-    public static void Run12(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 352
+    public static void Run13(UiTree ui, KitHost host, GuideGame game)
     {
         // Centered on the screen, whatever the size.
         var modal = Ui.Box(Ui.Label("Hello")).Padding(20).Anchor(AnchorPoint.Center, toScreen: true);
@@ -278,8 +290,8 @@ internal static class Snippets
         ui.Root.With(Ui.Column(modal, bar, split, tiles, hud, scroller));
     }
 
-    // docs/ui-guide.md line 375
-    public static void Run13(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 392
+    public static void Run14(UiTree ui, KitHost host, GuideGame game)
     {
         var save = UiKit.Button("Save game", () => game.Gold += 1, id: "save");
         var danger = UiKit.Button("Sell everything", () => game.Gold = 0, "sell", ButtonKind.Danger);
@@ -287,16 +299,16 @@ internal static class Snippets
         ui.Root.Add(Ui.Row(save, danger, price).Gap(8));
     }
 
-    // docs/ui-guide.md line 387
-    public static void Run14(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 404
+    public static void Run15(UiTree ui, KitHost host, GuideGame game)
     {
         var fastOn = false;
         var fast = UiKit.ToggleButton("FAST", () => fastOn, v => fastOn = v, id: "fast");    // clicking, Enter, Space and confirm flip it
         ui.Root.Add(Ui.Row(fast, UiKit.Button("Pause", () => { }, "pause")).Gap(8));
     }
 
-    // docs/ui-guide.md line 399
-    public static void Run15(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 416
+    public static void Run16(UiTree ui, KitHost host, GuideGame game)
     {
         var sound = UiKit.Toggle("Sound", () => game.Sound, v => game.Sound = v, "sound");
 
@@ -313,8 +325,8 @@ internal static class Snippets
         ui.Root.Add(Ui.Column(sound, level, volume, quantity, loading).Gap(8).Padding(12));
     }
 
-    // docs/ui-guide.md line 425
-    public static void Run16(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 442
+    public static void Run17(UiTree ui, KitHost host, GuideGame game)
     {
         var detail = UiKit.Frame(
             KitArt.Frame,                  // an SVG registered in the art atlas, with nine-slice insets
@@ -326,8 +338,8 @@ internal static class Snippets
         ui.Root.Add(detail.Width(Length.Ui(260)));
     }
 
-    // docs/ui-guide.md line 442
-    public static void Run17(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 459
+    public static void Run18(UiTree ui, KitHost host, GuideGame game)
     {
         var tabs = UiKit.Tabs(
             [new TabPage("Market", Ui.Label("Prices go here")), new TabPage("Cargo", Ui.Label("Your hold")), new TabPage("Ships", Ui.Label("Your fleet"))],
@@ -337,16 +349,16 @@ internal static class Snippets
         ui.Root.Add(tabs);
     }
 
-    // docs/ui-guide.md line 456
-    public static void Run18(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 473
+    public static void Run19(UiTree ui, KitHost host, GuideGame game)
     {
         var entries = Ui.Column(Enumerable.Range(0, 50).Select(i => Ui.Label("Entry " + i)).ToArray());
         var view = UiKit.ScrollView(entries, id: "log").Height(Length.Ui(200));
         ui.Root.Add(view);
     }
 
-    // docs/ui-guide.md line 471
-    public static void Run19(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 488
+    public static void Run20(UiTree ui, KitHost host, GuideGame game)
     {
         var table = UiKit.Table<Good>(
             [
@@ -367,8 +379,8 @@ internal static class Snippets
         ui.Root.Add(Ui.Column(table).Height(Length.Ui(300)));
     }
 
-    // docs/ui-guide.md line 507
-    public static void Run20(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 524
+    public static void Run21(UiTree ui, KitHost host, GuideGame game)
     {
         var sort = UiKit.Dropdown(
             [new Choice<string>("easy", "Easy"), new Choice<string>("normal", "Normal"), new Choice<string>("hard", "Hard")],
@@ -379,8 +391,8 @@ internal static class Snippets
         ui.Root.Add(Ui.Column(sort, Ui.Label("below")).Padding(20));
     }
 
-    // docs/ui-guide.md line 523
-    public static void Run21(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 540
+    public static void Run22(UiTree ui, KitHost host, GuideGame game)
     {
         var confirm = UiKit.ConfirmDialog(
             "Sell everything?",
@@ -395,8 +407,8 @@ internal static class Snippets
         ui.Root.With(Ui.Column(open), confirm);  // add the dialog last: it paints over everything
     }
 
-    // docs/ui-guide.md line 543
-    public static void Run22(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 560
+    public static void Run23(UiTree ui, KitHost host, GuideGame game)
     {
         var filter = UiKit.TextInput(
             get: () => game.Filter,
@@ -410,16 +422,16 @@ internal static class Snippets
         ui.Root.Add(Ui.Column(filter, password, digits).Gap(8).Padding(12));
     }
 
-    // docs/ui-guide.md line 571
-    public static void Run23(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 588
+    public static void Run24(UiTree ui, KitHost host, GuideGame game)
     {
         var buy = host.Tooltip(UiKit.Button("Buy", () => game.Gold -= 5, "buy"), "Buy one unit at the market price");
         var qty = host.Tooltip(UiKit.NumberStepper(() => game.Quantity, v => game.Quantity = v, 1, 99, 1, "qty"), () => "Quantity: " + game.Quantity);
         ui.Root.Add(Ui.Row(buy, qty).Gap(8).Padding(40));
     }
 
-    // docs/ui-guide.md line 582
-    public static void Run24(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 599
+    public static void Run25(UiTree ui, KitHost host, GuideGame game)
     {
         host.Glyphs.Bind("confirm", keyboard: "Enter", mouse: "left", gamepad: "a")
                    .Bind("back", keyboard: "Escape", gamepad: "b")
@@ -428,8 +440,8 @@ internal static class Snippets
         ui.Root.Add(prompt);
     }
 
-    // docs/ui-guide.md line 596
-    public static void Run25(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 613
+    public static void Run26(UiTree ui, KitHost host, GuideGame game)
     {
         var row = FocusHelpers.FocusGroup(Ui.Row(UiKit.Button("A", () => { }, "a"), UiKit.Button("B", () => { }, "b"), UiKit.Button("C", () => { }, "c")), horizontal: true, wrap: true);
         var start = UiKit.Button("Start", () => { }, "start").AsDefaultFocus();
@@ -437,8 +449,8 @@ internal static class Snippets
         FocusHelpers.FocusDefault(ui, ui.Root);       // call when a screen opens, so a controller player never starts with nothing focused
     }
 
-    // docs/ui-guide.md line 670
-    public static void Run27(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 687
+    public static void Run28(UiTree ui, KitHost host, GuideGame game)
     {
         // 1. Start from a ready-made theme with a few changes.
         host.SetTheme(KitTheme.Create(KitTokens.Dark with { Accent = Color.Hex("#4fb3a5"), AccentHover = Color.Hex("#6fd0c2"), Radius = Length.Ui(8) }));
@@ -452,8 +464,8 @@ internal static class Snippets
             .Rule(".market .kit-row.selected", s => s.Var("background-color", "--kit-accent")));
     }
 
-    // docs/ui-guide.md line 709
-    public static void Run28(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 726
+    public static void Run29(UiTree ui, KitHost host, GuideGame game)
     {
         var report = ThemeLint.Check(ui);             // the tokens in effect on the root; ThemeLint.Check(KitTokens) checks a token set before you use it
         if (!report.Passed)
@@ -465,8 +477,8 @@ internal static class Snippets
         }
     }
 
-    // docs/ui-guide.md line 770
-    public static void Run30(UiTree ui, KitHost host, GuideGame game)
+    // docs/ui-guide.md line 787
+    public static void Run31(UiTree ui, KitHost host, GuideGame game)
     {
         var t = new ScreenTest();
         var state = new GuideGame();
@@ -495,7 +507,6 @@ internal static class Snippets
         ("Run8", Run8),
         ("Run9", Run9),
         ("Run10", Run10),
-        ("Run11", Run11),
         ("Run12", Run12),
         ("Run13", Run13),
         ("Run14", Run14),
@@ -510,8 +521,9 @@ internal static class Snippets
         ("Run23", Run23),
         ("Run24", Run24),
         ("Run25", Run25),
-        ("Run27", Run27),
+        ("Run26", Run26),
         ("Run28", Run28),
-        ("Run30", Run30),
+        ("Run29", Run29),
+        ("Run31", Run31),
     ];
 }

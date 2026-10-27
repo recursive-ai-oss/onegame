@@ -313,6 +313,16 @@ var glyphStatus = glyphAtlas.TryGet(placed[0].FaceId, placed[0].GlyphId, 18, 0, 
 var art = new ArtAtlas();
 art.AddSvg("coin", ReadResource("coin.svg"));
 var svgStatus = art.TryGetScaled("coin", 2, out var coin);
+var preloadAtlas = new ArtAtlas();
+preloadAtlas.AddSvg("coin", ReadResource("coin.svg"));
+var preload = preloadAtlas.Preload(["coin"], 2);
+preloadAtlas.CompletePreload();
+if (!preload.IsComplete || preload.Failed != 0 || preloadAtlas.TryGetScaled("coin", 2, out _) != AtlasStatus.Ok || preloadAtlas.SyncRasterizations != 0)
+{
+    Console.Error.WriteLine("art preload smoke failed");
+    return 1;
+}
+
 if (textLines.Count < 2 || placed.Count == 0 || glyphStatus != AtlasStatus.Ok || glyph.Width == 0 || svgStatus != AtlasStatus.Ok || coin.Width != 48)
 {
     Console.Error.WriteLine($"text smoke failed: lines={textLines.Count} glyphs={placed.Count} glyph={glyphStatus} svg={svgStatus}");

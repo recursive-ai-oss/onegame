@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using OneImage;
 using OneImage.Svg;
 
@@ -130,6 +132,41 @@ public sealed class StandaloneArt
     public void MarkUploaded() => _pixels = null;
 }
 
+/// <summary>Progress of one <see cref="ArtAtlas.Preload(IEnumerable{string}, float)"/> call. Safe to read from any thread.</summary>
+public sealed class ArtPreload
+{
+    private int _total;
+    private int _finished;
+    private int _failed;
+    private int _sealed;
+
+    /// <summary>Gets how many rasters were asked for.</summary>
+    public int Total => Volatile.Read(ref _total);
+
+    /// <summary>Gets how many are finished: in the atlas, already there, or given up on.</summary>
+    public int Finished => Volatile.Read(ref _finished);
+
+    /// <summary>Gets how many finished without art in the atlas (unknown id, too large, damaged, or no room). A draw of those behaves as without preload.</summary>
+    public int Failed => Volatile.Read(ref _failed);
+
+    /// <summary>Gets whether every requested raster is finished.</summary>
+    public bool IsComplete => Volatile.Read(ref _sealed) == 1 && Finished >= Total;
+
+    internal void Add(int n) => Interlocked.Add(ref _total, n);
+
+    internal void Seal() => Volatile.Write(ref _sealed, 1);
+
+    internal void Finish(bool failed)
+    {
+        if (failed)
+        {
+            Interlocked.Increment(ref _failed);
+        }
+
+        Interlocked.Increment(ref _finished);
+    }
+}
+
 /// <summary>A registered asset was refused: it is damaged or breaks a size budget.</summary>
 public class AtlasAssetException : Exception
 {
@@ -191,6 +228,10 @@ public sealed class ArtAtlas
 
     private readonly record struct Key(string Id, int Width, int Height);
 
+    private sealed record PreloadJob(Key Key, Source Source, ArtPreload Handle);
+
+    private sealed record PreloadResult(PreloadJob Job, byte[]? Pixels, bool Invalid);
+
     private readonly record struct Entry(ArtRegion Region, bool Failed);
 
     private static readonly ImageConfiguration SvgConfig = new ImageConfiguration().Add(SvgFormat.Instance);
@@ -203,6 +244,12 @@ public sealed class ArtAtlas
     private readonly Dictionary<int, StandaloneArt> _standalones = [];
     private readonly List<int> _released = [];
     private int _nextHandle = 1;
+    private long _syncRasterizations;
+    private long _backgroundRasterizations;
+    private readonly Lock _gate = new();
+    private readonly Queue<PreloadJob> _queue = new();
+    private readonly System.Collections.Concurrent.ConcurrentQueue<PreloadResult> _done = new();
+    private int _workers;
 
     /// <summary>Creates an empty atlas.</summary>
     /// <param name="options">Page sizes; the defaults when <see langword="null"/>.</param>
@@ -239,7 +286,11 @@ public sealed class ArtAtlas
 
     /// <summary>Starts a frame; see <see cref="AtlasPages.BeginFrame"/>.</summary>
     /// <param name="frame">A number that grows with every frame.</param>
-    public void BeginFrame(long frame) => _pages.BeginFrame(frame);
+    public void BeginFrame(long frame)
+    {
+        _pages.BeginFrame(frame);
+        PumpPreload();
+    }
 
     /// <summary>Registers an SVG document. Nothing is rasterized yet; the size is read to seed scaling.</summary>
     /// <param name="id">The resource id used by display list <c>Image</c> commands.</param>
@@ -299,6 +350,11 @@ public sealed class ArtAtlas
         return TryGet(id, Math.Max(1, (int)MathF.Round(s.Width * scale)), Math.Max(1, (int)MathF.Round(s.Height * scale)), out region);
     }
 
+    private static bool IsFittedSize(Source s, float width, float height, float scale, int threshold) =>
+        s.Svg && float.IsFinite(width) && float.IsFinite(height) && width >= 1 && height >= 1 && width <= int.MaxValue && height <= int.MaxValue
+        && MathF.Max(width, height) > threshold
+        && (MathF.Abs(width - (s.Width * scale)) > 1f || MathF.Abs(height - (s.Height * scale)) > 1f);
+
     /// <summary>
     /// Looks up the resource for drawing into a box of the given pixel size. An SVG whose box is larger than <see cref="ArtLimits.StandaloneThreshold"/> on a side is rasterized at the box's
     /// own size when that differs from its natural size times <paramref name="scale"/> by more than a pixel, so a backdrop stretched over a panel stays sharp. Smaller boxes (icons, cards)
@@ -319,9 +375,7 @@ public sealed class ArtAtlas
             return AtlasStatus.UnknownResource;
         }
 
-        if (s.Svg && float.IsFinite(width) && float.IsFinite(height) && width >= 1 && height >= 1 && width <= int.MaxValue && height <= int.MaxValue
-            && MathF.Max(width, height) > Math.Min(_limits.StandaloneThreshold, _pages.MaxEntrySize)
-            && (MathF.Abs(width - (s.Width * scale)) > 1f || MathF.Abs(height - (s.Height * scale)) > 1f))
+        if (IsFittedSize(s, width, height, scale, Math.Min(_limits.StandaloneThreshold, _pages.MaxEntrySize)))
         {
             var status = TryGet(id, (int)MathF.Round(width), (int)MathF.Round(height), out region);
             if (status is not (AtlasStatus.TooLarge or AtlasStatus.Full))
@@ -379,16 +433,15 @@ public sealed class ArtAtlas
             return AtlasStatus.Ok;
         }
 
-        var limit = Math.Min(_limits.StandaloneThreshold, _pages.MaxEntrySize);
-        var standalone = width > limit || height > limit;
-        if (standalone && !MakeRoom((long)width * height * 4))
+        byte[] pixels;
+        if (!MakeRoomFor(width, height))
         {
             return AtlasStatus.Full;
         }
 
-        byte[] pixels;
         try
         {
+            Interlocked.Increment(ref _syncRasterizations);
             pixels = Rasterize(s, width, height);
         }
         catch (ImageException)
@@ -397,8 +450,25 @@ public sealed class ArtAtlas
             return AtlasStatus.Invalid;
         }
 
+        return Store(key, s, pixels, out region);
+    }
+
+    private bool IsStandalone(int width, int height)
+    {
+        var limit = Math.Min(_limits.StandaloneThreshold, _pages.MaxEntrySize);
+        return width > limit || height > limit;
+    }
+
+    private bool MakeRoomFor(int width, int height) => !IsStandalone(width, height) || MakeRoom((long)width * height * 4);
+
+    // Puts finished pixels into a page or a standalone texture and records the entry. Frame thread only.
+    private AtlasStatus Store(Key key, Source s, byte[] pixels, out ArtRegion region)
+    {
+        region = default;
+        var width = key.Width;
+        var height = key.Height;
         var scaled = s.Slice.Scaled((float)width / s.Width, (float)height / s.Height);
-        if (standalone)
+        if (IsStandalone(width, height))
         {
             var art = new StandaloneArt(_nextHandle++, width, height, pixels) { LastUsedFrame = _pages.Frame };
             _standalones[art.Handle] = art;
@@ -469,6 +539,268 @@ public sealed class ArtAtlas
         }
 
         _scratchKeys.Clear();
+    }
+
+    /// <summary>Gets how many rasterizations ran inside a lookup (<see cref="TryGet"/> and its variants), that is on the caller's thread, because the art was not ready.</summary>
+    public long SyncRasterizations => Interlocked.Read(ref _syncRasterizations);
+
+    /// <summary>Gets how many rasterizations ran for <see cref="Preload(IEnumerable{string}, float)"/>, on a worker thread or in <see cref="PumpPreload"/>.</summary>
+    public long PreloadRasterizations => Interlocked.Read(ref _backgroundRasterizations);
+
+    /// <summary>
+    /// Gets or sets whether preload may rasterize on worker threads. The default is true everywhere threads exist and false in the browser (WebAssembly without threads),
+    /// where preload work is done a little at a time by <see cref="PumpPreload"/> instead.
+    /// </summary>
+    public bool BackgroundThreads { get; set; } = !OperatingSystem.IsBrowser();
+
+    /// <summary>Gets or sets the time <see cref="BeginFrame"/> may spend rasterizing preload work when <see cref="BackgroundThreads"/> is false (at least one item is always done). Default 2 ms.</summary>
+    public TimeSpan PreloadFrameBudget { get; set; } = TimeSpan.FromMilliseconds(2);
+
+    /// <summary>
+    /// Starts rasterizing resources ahead of their first draw, at their natural size times <paramref name="scale"/> (the display list's UI scale), the size <see cref="TryGetScaled"/> asks for.
+    /// The decoding and rasterizing run on worker threads; the pages are only touched on the UI thread, in <see cref="BeginFrame"/> or <see cref="PumpPreload"/>.
+    /// Until the result is stored, a draw behaves as without preload: it rasterizes on the spot. Unknown ids, sizes beyond the budgets and art already present count as finished.
+    /// </summary>
+    /// <param name="ids">The resource ids.</param>
+    /// <param name="scale">The UI scale the art will be drawn at.</param>
+    /// <returns>A handle to watch progress.</returns>
+    public ArtPreload Preload(IEnumerable<string> ids, float scale)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        var handle = new ArtPreload();
+        foreach (var id in ids)
+        {
+            if (_sources.TryGetValue(id, out var s))
+            {
+                if (!s.Svg)
+                {
+                    Enqueue(handle, id, s, s.Width, s.Height);
+                }
+                else if (float.IsFinite(scale) && scale > 0 && scale <= 64)
+                {
+                    Enqueue(handle, id, s, Math.Max(1, (int)MathF.Round(s.Width * scale)), Math.Max(1, (int)MathF.Round(s.Height * scale)));
+                }
+                else
+                {
+                    handle.Add(1);
+                    handle.Finish(failed: true);
+                }
+            }
+            else
+            {
+                handle.Add(1);
+                handle.Finish(failed: true);
+            }
+        }
+
+        handle.Seal();
+        StartWorkers();
+        return handle;
+    }
+
+    /// <summary>Starts rasterizing one resource for a box of the given pixel size, the size <see cref="TryGetFitted"/> would pick; see <see cref="Preload(IEnumerable{string}, float)"/>.</summary>
+    /// <param name="id">The resource id.</param>
+    /// <param name="width">Box width in pixels.</param>
+    /// <param name="height">Box height in pixels.</param>
+    /// <param name="scale">The display list's UI scale.</param>
+    /// <returns>A handle to watch progress.</returns>
+    public ArtPreload PreloadFitted(string id, float width, float height, float scale)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        if (_sources.TryGetValue(id, out var s) && IsFittedSize(s, width, height, scale, Math.Min(_limits.StandaloneThreshold, _pages.MaxEntrySize)))
+        {
+            var handle = new ArtPreload();
+            Enqueue(handle, id, s, (int)MathF.Round(width), (int)MathF.Round(height));
+            handle.Seal();
+            StartWorkers();
+            return handle;
+        }
+
+        return Preload([id], scale);
+    }
+
+    private void Enqueue(ArtPreload handle, string id, Source s, int width, int height)
+    {
+        handle.Add(1);
+        if (width <= 0 || height <= 0 || width > _limits.MaxRasterDimension || height > _limits.MaxRasterDimension
+            || (long)width * height > _limits.MaxRasterPixels || (long)width * height * 4 > _limits.MaxStandaloneBytes)
+        {
+            handle.Finish(failed: true);
+            return;
+        }
+
+        var key = new Key(id, width, height);
+        if (_entries.TryGetValue(key, out var e))
+        {
+            handle.Finish(failed: e.Failed);
+            return;
+        }
+
+        lock (_gate)
+        {
+            _queue.Enqueue(new PreloadJob(key, s, handle));
+        }
+    }
+
+    private void StartWorkers()
+    {
+        if (!BackgroundThreads)
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            var want = Math.Min(_queue.Count, Math.Clamp(Environment.ProcessorCount / 2, 1, 4));
+            while (_workers < want)
+            {
+                _workers++;
+                _ = Task.Run(Work);
+            }
+        }
+    }
+
+    // Worker loop: only reads the immutable source bytes and limits, never the atlas state.
+    private void Work()
+    {
+        while (true)
+        {
+            PreloadJob? job;
+            lock (_gate)
+            {
+                if (!_queue.TryDequeue(out job))
+                {
+                    _workers--;
+                    return;
+                }
+            }
+
+            _done.Enqueue(Run(job));
+        }
+    }
+
+    private PreloadResult Run(PreloadJob job)
+    {
+        try
+        {
+            var pixels = Rasterize(job.Source, job.Key.Width, job.Key.Height);
+            Interlocked.Increment(ref _backgroundRasterizations);
+            return new PreloadResult(job, pixels, false);
+        }
+        catch (ImageException)
+        {
+            return new PreloadResult(job, null, true);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Not remembered: a draw will try again on its own thread and surface the problem there.
+            return new PreloadResult(job, null, false);
+        }
+    }
+
+    /// <summary>
+    /// Stores finished preload results in the pages (a memory copy per item), and, when <see cref="BackgroundThreads"/> is false, rasterizes queued work for up to
+    /// <see cref="PreloadFrameBudget"/> first. <see cref="BeginFrame"/> calls it; call it directly to make progress outside a frame. UI thread only.
+    /// </summary>
+    public void PumpPreload()
+    {
+        if (!BackgroundThreads)
+        {
+            var start = System.Diagnostics.Stopwatch.GetTimestamp();
+            while (true)
+            {
+                PreloadJob? job;
+                lock (_gate)
+                {
+                    if (!_queue.TryDequeue(out job))
+                    {
+                        break;
+                    }
+                }
+
+                _done.Enqueue(Run(job));
+                if (System.Diagnostics.Stopwatch.GetElapsedTime(start) >= PreloadFrameBudget)
+                {
+                    break;
+                }
+            }
+        }
+
+        while (_done.TryDequeue(out var r))
+        {
+            Apply(r);
+        }
+    }
+
+    /// <summary>Finishes every queued preload (the queue on the calling thread, work already on a worker by waiting for it) and stores the results: a loading screen's last step. UI thread only.</summary>
+    public void CompletePreload()
+    {
+        while (true)
+        {
+            PreloadJob? job;
+            lock (_gate)
+            {
+                _queue.TryDequeue(out job);
+            }
+
+            if (job is null)
+            {
+                break;
+            }
+
+            _done.Enqueue(Run(job));
+        }
+
+        while (true)
+        {
+            int workers;
+            lock (_gate)
+            {
+                workers = _workers;
+            }
+
+            // Drain after reading the count: a worker enqueues its result before it exits.
+            while (_done.TryDequeue(out var r))
+            {
+                Apply(r);
+            }
+
+            if (workers == 0)
+            {
+                break;
+            }
+
+            Thread.Yield();
+        }
+    }
+
+    private void Apply(PreloadResult r)
+    {
+        var job = r.Job;
+        var failed = false;
+        // Skip results for art replaced by AddSvg/AddImage since the job was queued, and for entries a draw already made.
+        if (_sources.TryGetValue(job.Key.Id, out var current) && ReferenceEquals(current, job.Source) && !_entries.ContainsKey(job.Key))
+        {
+            if (r.Invalid)
+            {
+                _entries[job.Key] = new Entry(default, true);
+                failed = true;
+            }
+            else if (r.Pixels is not null)
+            {
+                failed = !MakeRoomFor(job.Key.Width, job.Key.Height) || Store(job.Key, job.Source, r.Pixels, out _) != AtlasStatus.Ok;
+            }
+            else
+            {
+                failed = true;
+            }
+        }
+        else if (_entries.TryGetValue(job.Key, out var e))
+        {
+            failed = e.Failed;
+        }
+
+        job.Handle.Finish(failed);
     }
 
     private void Add(string id, ReadOnlyMemory<byte> data, NineSlice slice, bool svg)

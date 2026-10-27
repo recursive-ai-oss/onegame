@@ -310,6 +310,23 @@ An SVG in a box bigger than 512 pixels is rasterized at the box's own size, not 
 Limits (`ArtLimits`): 8192 pixels and 16 megapixels per raster, and 256 MiB of such textures at once; past that the least recently drawn ones are released and rasterized again when needed (`docs/interfaces/atlas.md`).
 Stay under them by registering art at the size you draw it: a 2048x1152 backdrop is 9 MiB on the GPU.
 
+### Preloading art
+
+Art is rasterized the first time it is drawn, which can hitch the frame that opens an art-heavy screen. Ask for it ahead of time instead:
+
+```csharp setup
+// In DefineArt, or any time before the screen opens: the second argument is the UI scale the art will be drawn at.
+var art = new ArtAtlas();                       // or game.Art, the host's atlas
+var loading = art.Preload(["panel-frame", "backdrop", "coin"], 1.5f);
+// A loading screen can wait on it:
+if (loading.IsComplete) { /* show the screen */ }
+// Or finish everything right now on this thread:
+art.CompletePreload();
+```
+
+`GameInstance.Art` is the host's atlas. Decoding and rasterizing run on worker threads; storing the result in a page (a memory copy) happens on the UI thread in the next `BeginFrame`, so the art appears on a later frame. A draw before then rasterizes on the spot, exactly as without preload, so nothing is ever skipped and the pixels are the same either way. `PreloadFitted(id, width, height, scale)` is for a vector backdrop drawn in a box of its own size.
+Where threads are unavailable (the browser) `BackgroundThreads` is false: each frame rasterizes queued art for up to `PreloadFrameBudget` (2 ms, at least one item) and the rest waits for later frames. `SyncRasterizations` counts lookups that had to rasterize; it stays flat for preloaded art. Page positions of preloaded art can differ between runs, the pixels do not.
+
 ### Tokens: values the theme can change
 
 A token is a named value defined on an element (usually `:root`) and read by that element's descendants:
