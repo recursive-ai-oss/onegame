@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>onegame-corpus</AssemblyName>
+    <RootNamespace>OneGame.Corpus</RootNamespace>
+    <Description>Writes a corpus of real onegame payloads for compression work.</Description>
+    <IsPackable>false</IsPackable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OneGameAnalyzers>false</OneGameAnalyzers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneGame.Core/OneGame.Core.csproj" />
+    <ProjectReference Include="../../src/OneGame.Sync/OneGame.Sync.csproj" />
+    <ProjectReference Include="../../samples/lanterns/Sim/Lanterns.Sim.csproj" />
+    <ProjectReference Include="../../samples/bricks/Bricks.csproj" />
+    <ProjectReference Include="../../samples/solitaire/Solitaire.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneGame.Corpus.Tests" />
+  </ItemGroup>
+
+</Project>
