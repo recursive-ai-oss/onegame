@@ -18,12 +18,19 @@ public sealed class ScaffoldTests : IDisposable
 
     public void Dispose()
     {
-        try
+        // Windows refuses to delete a program that is still loaded, and a build server may hold files a moment longer. Retry briefly,
+        // then leave the folder in the temp directory: cleanup never fails a test.
+        for (var attempt = 0; attempt < 20; attempt++)
         {
-            Directory.Delete(_root, true);
-        }
-        catch (IOException)
-        {
+            try
+            {
+                Directory.Delete(_root, true);
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Thread.Sleep(250);
+            }
         }
     }
 
@@ -104,6 +111,8 @@ public sealed class ScaffoldTests : IDisposable
             {
                 game.Kill(true);
             }
+
+            game.WaitForExit(10_000);
         }
     }
 }
