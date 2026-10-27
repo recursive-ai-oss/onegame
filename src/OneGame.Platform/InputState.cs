@@ -56,6 +56,11 @@ public sealed class InputState
     {
     }
 
+    // The action layer walks these every frame without allocating.
+    internal Dictionary<int, GamepadState> GamepadStates => _gamepads;
+
+    internal Dictionary<int, (float X, float Y)> TouchPoints => _touches;
+
     /// <summary>Whether a key is held.</summary>
     public bool IsKeyDown(Key key) => (uint)key < (uint)_keys.Length && _keys[(int)key];
 

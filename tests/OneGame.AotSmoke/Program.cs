@@ -280,6 +280,15 @@ using (var store = SteamPlatform.Start())
     Console.WriteLine("steam input: action sets, actions file, stand-in controller, glyph names and the disabled path");
 }
 
+var actionProblem = ActionSmoke.Run();
+if (actionProblem is not null)
+{
+    Console.Error.WriteLine("actions: " + actionProblem);
+    return 1;
+}
+
+Console.WriteLine("actions: keyboard, pad, harness and Steam Input sources, rebinding and the bindings text");
+
 
 // Text and vector art: shape a string with the real measurer, rasterize one glyph and one SVG into atlas pages.
 var fonts = new FontLibrary();

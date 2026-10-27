@@ -124,6 +124,7 @@ public sealed class GameInstance : IDisposable
         Options = options;
         definition.RegisterEntities(_registry);
         definition.DefineScreens(_screenSet);
+        definition.DefineActions(Actions);
         definition.DefineFixtures(_fixtureSet);
         var fonts = new FontLibrary();
         definition.DefineFonts(fonts);
@@ -188,6 +189,9 @@ public sealed class GameInstance : IDisposable
 
     /// <summary>The authority world: the state the simulation runs on. Read it through this property rather than keeping the reference: it changes when a snapshot or fixture is loaded.</summary>
     public World World { get; private set; } = null!;
+
+    /// <summary>The game's input actions, declared in <see cref="GameDefinition.DefineActions"/>. Updated once per frame before <see cref="GameDefinition.OnEachFrame"/>; read them from view code and send commands. Actions never write synced state.</summary>
+    public ActionMap Actions { get; } = new();
 
     /// <summary>The single-player cluster: one authority node holding <see cref="World"/> and one local replica of it. Rebuilt whenever the world is replaced.</summary>
     /// <exception cref="ReplicaWriteException">The game is connected to a server and has no cluster of its own.</exception>
@@ -558,6 +562,13 @@ public sealed class GameInstance : IDisposable
     private void RunFrame(int ticks)
     {
         DrainInput();
+        if (Actions.FollowsScreens)
+        {
+            Actions.ActivateForScreen(CurrentScreen);
+        }
+
+        Actions.KeyboardCaptured = Ui.TextInputArea is not null;
+        Actions.Update(Platform.Input, Window.Width, Window.Height);
         Definition.OnEachFrame(this);
         if (_stick.Tick(out var repeat))
         {
@@ -597,6 +608,13 @@ public sealed class GameInstance : IDisposable
 
     private void Handle(in PlatformEvent e)
     {
+        // Actions see every event first so a press shorter than a frame is not lost; a pending rebinding swallows input.
+        Actions.KeyboardCaptured = Ui.TextInputArea is not null;
+        if (Actions.Observe(e))
+        {
+            return;
+        }
+
         switch (e.Kind)
         {
             case PlatformEventKind.WindowResized:

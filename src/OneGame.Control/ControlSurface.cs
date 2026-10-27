@@ -124,6 +124,8 @@ public sealed partial class ControlSurface : IControlEndpoint
         "render_graph" => Json(RenderGraphReport(), ControlJson.Default.RenderGraphReport),
         "theme_lint" => Json(ThemeLintCheck(), ControlJson.Default.ThemeLintReport),
         "steam_input" => Json(SteamInputOp(a), ControlJson.Default.SteamInputReport),
+        "actions" => new ControlResult(ActionsOp(a)),
+        "input_pad" => Json(InputPad(a), ControlJson.Default.InputResult),
         "audio" => Json(AudioReport(a), ControlJson.Default.AudioStatus),
         "audio_events" => Json(AudioEvents(a), ControlJson.Default.AudioEventsResult),
         "audio_capture" => Json(AudioCapture(a), ControlJson.Default.AudioCaptureResult),
