@@ -797,4 +797,40 @@ public sealed class FeatureTests
         var enc = d.BeginCommands();
         d.Submit(enc);
     }
+
+    [Fact]
+    public void PooledEncodersThatRecordedLessEarlierDoNotAllocateOnABusyFrame()
+    {
+        using var gpu = new GpuFixture();
+        var d = gpu.Device;
+        var target = Target(d, 8, 8);
+
+        static void Passes(GpuDevice d, GpuCommandEncoder enc, GpuTexture target, int count)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                enc.BeginRenderPass(ColorAttachment.Clear(target, 0, 0, 0, 1)).EndPass();
+            }
+        }
+
+        // Two encoders in flight at once, one busy and one nearly idle; both go back to the pool.
+        var a = d.BeginCommands();
+        var b = d.BeginCommands();
+        Passes(d, a, target, 60);
+        Passes(d, b, target, 1);
+        d.Submit(a);
+        d.Submit(b);
+        d.WaitIdle();
+
+        // Now both are asked for a busy frame. Whichever the pool hands out, recording must not allocate managed memory.
+        var x = d.BeginCommands();
+        var y = d.BeginCommands();
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        Passes(d, x, target, 60);
+        Passes(d, y, target, 60);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        d.Submit(x);
+        d.Submit(y);
+        Assert.True(allocated == 0, $"recording 60 passes into pooled encoders allocated {allocated} bytes");
+    }
 }
