@@ -4,6 +4,25 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-10-27
+
+Android audio on the device package, and fixes from real Windows hardware.
+
+### Changed
+
+- Android audio output runs on `RecursiveAI.OneAudio.Devices` 1.3.0's AAudio backend: data-callback streams, device-clock frame counters, reopen on route change. `AAudioBackend` stays as a name for it; the engine's own AAudio interop is removed. On Android `device.deviceState` reads `running` (was `started`).
+- `RecursiveAI.OneAudio` and `RecursiveAI.OneAudio.Devices` updated to 1.3.0.
+
+### Fixed
+
+- Render3D: a scene with no point or spot lights read light counts from a buffer nobody wrote, or from an earlier frame. On some drivers that looped over garbage and hung the frame; with stale counts it lit the scene with lights that were gone. The shader now ignores the buffer unless the cluster pass ran.
+- Vulkan: pooled command encoders are pre-sized for a busy frame, so steady frames no longer allocate a few hundred bytes to 2 KB now and then on slower GPUs.
+- Tests run on Windows hardware: an edge-sharpness check accepts a sharper result than the reference, and the cluster-kill test no longer needs `sleep`.
+
+### Added
+
+- Device checks for Windows (`tools/devices/windows.sh`); the live check is strict about device counters on every backend, WASAPI included.
+
 ## [1.5.1] - 2026-10-27
 
 Fixes from building a game from the packages alone.

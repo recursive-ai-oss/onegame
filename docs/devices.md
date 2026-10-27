@@ -34,7 +34,7 @@ The machine's GPU draws captures a little differently from the software referenc
    onegame android test --scenario scenarios --json      # 14 of 14; state hashes equal the desktop's
    onegame android live                                  # prints tcp:127.0.0.1:N for `onegame mcp --socket`
    ```
-   Over MCP: `audio` must report `backend: "aaudio"`, `deviceState: "started"` and a growing `framesPlayed`; draw a card (`ui_tap {id: stock}`), then `peakPlayed` is above 0. Touch with a finger, rotate, press Home and come back: `hash` is the same before and after.
+   Over MCP: `audio` must report `backend: "aaudio"`, `deviceState: "running"` and a growing `framesPlayed`; draw a card (`ui_tap {id: stock}`), then `peakPlayed` is above 0. Touch with a finger, rotate, press Home and come back: `hash` is the same before and after.
 3. Lanterns as a client of servers on the computer: build the servers into `bin/` (README of the sample), start `onegame cluster up --spec` with the servers only, and run the client with the computer's LAN address, not `10.0.2.2`:
    ```
    LANTERNS_HOST=<computer's address> onegame cluster test cluster/play-android.yaml --spec cluster-android.yaml --json
