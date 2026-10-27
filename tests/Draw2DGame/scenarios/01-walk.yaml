@@ -1,0 +1,15 @@
+name: a hero drawn with the 2D happy path stands, walks right and walks back, and the frames show it
+window: 480x270
+steps:
+  - step: 2
+  - expect: {capture: {reference: refs/idle.png, tolerance: 4, max-diff: 0.001}}
+  - command: {entity: Hero, name: Go, args: [1.5]}
+  - step: 100
+  - expect: {state: {entity: Hero, property: X, min: 149, max: 151}}
+  - expect: {capture: {reference: refs/walk-right.png, tolerance: 4, max-diff: 0.001}}
+  - command: {entity: Hero, name: Go, args: [-2]}
+  - step: 140
+  - expect: {state: {entity: Hero, property: X, min: -131, max: -129}}
+  - expect: {capture: {reference: refs/walk-left.png, tolerance: 4, max-diff: 0.001}}
+expect:
+  - tick: 242

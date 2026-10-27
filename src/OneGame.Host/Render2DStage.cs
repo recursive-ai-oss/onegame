@@ -32,6 +32,7 @@ public class Render2DStage : IRenderStage, IDisposable
     private readonly Dictionary<GpuFormat, Renderer2D> _renderers = [];
     private readonly HashSet<GpuTexture> _seen = [];
     private readonly Render2DPass _pass = new();
+    private readonly Draw2D _draw = new();
     private RenderGraph? _graph;
 
     /// <summary>Creates the stage over the game's fonts, art and shaders.</summary>
@@ -47,6 +48,12 @@ public class Render2DStage : IRenderStage, IDisposable
         _glyphs = new GlyphAtlas(resources.Fonts);
         _text = new TextQuadBuilder(resources.Measurer, _glyphs);
     }
+
+    /// <summary>
+    /// Immediate-mode 2D drawing. Every frame, before the UI, the stage asks each <see cref="IView2D"/> entity of the world to draw into it
+    /// (and then <see cref="Draw2D.Describer"/>, for entities that cannot reference the host), and shows the result under the UI.
+    /// </summary>
+    public Draw2D Draw => _draw;
 
     /// <summary>Where this stage registers materials whose shader files may be edited while the game runs.</summary>
     protected HotShaders HotShaders => _resources.HotShaders;
@@ -107,6 +114,7 @@ public class Render2DStage : IRenderStage, IDisposable
         // A scene stage draws first; the 2D pass then adds to what it left instead of clearing the target.
         var hasScene = AddScenePasses(device, _graph, _pass.Target, target, frame);
         renderer.BeginFrame(target, new FrameOptions { Clear = hasScene ? null : ClearColor });
+        _draw.Draw(renderer, frame, _text, _resources.Measurer!, _glyphs);
         renderer.Ui.Draw(frame.List, _text, _glyphs, _resources.Art);
         DrawOverUi(renderer, frame);
         _pass.Renderer = renderer;

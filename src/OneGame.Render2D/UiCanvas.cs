@@ -378,6 +378,39 @@ public sealed class UiCanvas : IDisposable
         DropReleased(art);
     }
 
+    /// <summary>
+    /// Draws one line of text with its top-left corner at a point, outside any display list. This is how the immediate-mode text of the
+    /// host's <c>Draw2D</c> reaches the screen. The coordinates are the ones in effect now.
+    /// </summary>
+    /// <param name="text">Builds the glyph quads; made over the measurer the caller sized the text with.</param>
+    /// <param name="glyphs">The glyph atlas <paramref name="text"/> draws from.</param>
+    /// <param name="line">The string; newlines are not broken.</param>
+    /// <param name="style">Family, size and spacing.</param>
+    /// <param name="topLeft">Where the line box starts.</param>
+    /// <param name="color">Text colour, straight alpha.</param>
+    public void Text(TextQuadBuilder text, GlyphAtlas glyphs, string line, in TextStyle style, Vector2 topLeft, Color color)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(glyphs);
+        ArgumentNullException.ThrowIfNull(line);
+        if (_skip > 0)
+        {
+            return;
+        }
+
+        glyphs.BeginFrame(_r.FrameNumber);
+        _glyphs.Clear();
+        _ = text.BuildLine(line, style, topLeft.X, topLeft.Y, color, _glyphs);
+        foreach (var g in _glyphs)
+        {
+            var page = Page(glyphs.Pages, AtlasKind.Glyphs, g.Page);
+            var uv = new Vector4(g.U0, g.V0, g.U1 - g.U0, g.V1 - g.V0);
+            EmitRaw(4, new Rect(g.X0, g.Y0, g.X1 - g.X0, g.Y1 - g.Y0), default, default, g.Color, g.Color, 0, default, uv, _r.GroupOf(page.Texture), 0);
+        }
+
+        SyncPages(glyphs.Pages, AtlasKind.Glyphs);
+    }
+
     private void DrawArt(in DrawCommand c, ArtAtlas art, float scale)
     {
         if (_skip > 0)

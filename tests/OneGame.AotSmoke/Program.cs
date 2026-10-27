@@ -416,6 +416,15 @@ if (frame[red] != 255 || frame[red + 1] != 0 || frame[green] != 0 || frame[green
 
 Console.WriteLine($"render2d: sprite, rounded rect and text drawn in {frameStats.DrawCalls} draws, {frameStats.Passes} pass; read back 96x64");
 
+var draw2dProblem = Draw2DSmoke.Run(device, ReadResource("font.ttf"));
+if (draw2dProblem is not null)
+{
+    Console.Error.WriteLine("draw2d: " + draw2dProblem);
+    return 1;
+}
+
+Console.WriteLine("draw2d: IView2D entity drawn through the default stage: animated sprite clip, disc, line and text, camera follow");
+
 var render3dProblem = Render3DSmoke.Run(device, ReadResource("fox.glb"));
 if (render3dProblem is not null)
 {
