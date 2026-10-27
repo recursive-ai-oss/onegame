@@ -1,0 +1,16 @@
+name: slide-and-glow
+description: A tween slides the card in; a class change starts a style transition; both finish.
+steps:
+  - click: slide
+  - tweens: 0.2
+  - expect: { tweens: { active: 1 } }
+  - tweens: settle
+  - expect: { tweens: { active: 0 } }
+  - click: toggle
+  - tweens: 0.1
+  - expect: { tweens: { active: 1 } }
+  - tweens: settle
+expect:
+  - tweens: { active: 0 }
+  - ui: { selector: .landed, count: 1 }
+  - ui: { selector: .lit, count: 1 }

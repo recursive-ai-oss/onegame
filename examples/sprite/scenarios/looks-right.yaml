@@ -1,0 +1,8 @@
+name: looks-right
+description: The sprite is loaded and drawn where the ship is.
+window: 320x180
+steps:
+  - step: 20
+expect:
+  - capture: { reference: refs/ship.png, tolerance: 48, max-diff: 0.01 }
+  - asset: { path: art/ship.png, state: ready }

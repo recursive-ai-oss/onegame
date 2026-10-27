@@ -1,0 +1,16 @@
+name: slide-and-fire
+description: Holding move slides the turret, releasing it stops, and each press of fire counts one shot.
+steps:
+  - action: { name: move, state: down, x: 1, y: 0 }
+  - step: 10
+  - action: { name: move, state: up }
+  - step: 5
+  - expect:
+      state: { entity: Turret, property: X, min: 27, max: 36 }
+  - action: fire
+  - step: 2
+  - action: fire
+  - step: 2
+expect:
+  - state: { entity: Turret, property: Shots, equals: 2 }
+  - state: { entity: Turret, property: Dx, equals: 0 }

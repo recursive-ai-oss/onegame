@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>SavesExample</AssemblyName>
+    <RootNamespace>SavesExample</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Target framework, analyzers, engine references and, in Debug builds only, the development tools (live control, scenarios, capture). -->
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+
+</Project>

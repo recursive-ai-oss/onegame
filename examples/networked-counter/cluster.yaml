@@ -1,0 +1,7 @@
+# One server and two clients, each its own process on real sockets. Publish both programs into bin/ first (see README.md).
+name: networked-counter
+startupTimeout: 60000
+nodes:
+  - { name: server, role: server, exe: bin/NetworkedCounterExampleServer, listen: udp+ws, scopes: [{ id: 1, seed: 1 }] }
+  - { name: alice, role: client, exe: bin/NetworkedCounterExample, connect: server, transport: udp, net: "latency=60,loss=0.02,seed=5" }
+  - { name: bob, role: client, exe: bin/NetworkedCounterExample, connect: server, transport: ws }

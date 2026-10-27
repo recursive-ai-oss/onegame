@@ -1,0 +1,11 @@
+<Project>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- The engine checkout the examples build against. Outside a checkout, delete this file and use the RecursiveAI.OneGame.Sdk package. -->
+    <OneGameRoot>$(MSBuildThisFileDirectory)../</OneGameRoot>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

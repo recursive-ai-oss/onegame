@@ -32,6 +32,15 @@
     <Project Path="src/OneGame.UI/OneGame.UI.csproj" />
     <Project Path="src/OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
   </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/input-actions/InputActionsExample.csproj" />
+    <Project Path="examples/networked-counter/NetworkedCounterExample.csproj" />
+    <Project Path="examples/networked-counter/server/NetworkedCounterExampleServer.csproj" />
+    <Project Path="examples/particles/ParticlesExample.csproj" />
+    <Project Path="examples/saves/SavesExample.csproj" />
+    <Project Path="examples/sprite/SpriteExample.csproj" />
+    <Project Path="examples/tween/TweenExample.csproj" />
+  </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/bricks/Bricks.csproj" />
     <Project Path="samples/bricks/tests/Bricks.Tests.csproj" />

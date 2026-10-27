@@ -74,6 +74,17 @@ Then read, in order:
 
 Each sample has scenarios (`onegame test --json` in its folder) and a README.
 
+## Examples
+
+One feature each, a few dozen lines, copy what you need. Every example has scenarios that CI runs, so none can go stale. See [examples/README.md](examples/README.md).
+
+- `examples/sprite`: a sprite and shapes drawn from a view with `Draw2D`.
+- `examples/input-actions`: one action declaration answering keys, a pad and the test harness.
+- `examples/tween`: a tween started from code and a CSS style transition.
+- `examples/particles`: a spark emitter plus a burst on a hit.
+- `examples/saves`: a save slot and typed settings.
+- `examples/networked-counter`: one server and two clients over UDP and WebSocket, with zero drift.
+
 ## Build and test the engine
 
 Requires the .NET SDK pinned in `global.json`.
@@ -90,6 +101,7 @@ Build output goes to `artifacts/` at the repository root; set `ONEGAME_ARTIFACTS
 - `src/`: the engine, one project per area, the `OneGame.Generators` analyzers and source generators, and the `onegame` command in `OneGame.Cli`.
 - `tests/`: one test project per area, plus `OneGame.AotSmoke`, a native-AOT app that touches every runtime assembly.
 - `samples/`: the sample games.
+- `examples/`: small one-feature examples.
 - `build/`: the MSBuild targets games import.
 - `tools/`: CI and device scripts.
 - `docs/`: documentation.
