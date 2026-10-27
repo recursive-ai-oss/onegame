@@ -59,6 +59,7 @@ Then read, in order:
 
 - [docs/first-game.md](docs/first-game.md): the game `onegame new` writes, line by line, then run, test and export.
 - [docs/2d.md](docs/2d.md), [docs/input.md](docs/input.md) and [docs/assets.md](docs/assets.md): drawing sprites, shapes and text, input actions and rebinding, and loading files with hot reload.
+- [docs/tweens.md](docs/tweens.md), [docs/particles.md](docs/particles.md) and [docs/saves.md](docs/saves.md): animating view state and styles, particle effects, and save slots and settings.
 - [docs/driving-a-game.md](docs/driving-a-game.md): making a game, scenarios, replays, captures and live control.
 - [docs/ui-guide.md](docs/ui-guide.md): screens, styling and the component kit.
 - [docs/exporting.md](docs/exporting.md): Windows, Linux, macOS, Android, iOS, web and dedicated-server builds.

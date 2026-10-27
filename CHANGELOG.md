@@ -4,6 +4,25 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-27
+
+Game feel and persistence: tweens and style transitions, particles in 2D and 3D, and a storage service for save slots, settings and files, in the browser too.
+
+### Added
+
+- Tweens: `OneGame.Tweens` with `Easing` (the CSS timing functions, cubic-bezier and steps, plus named in/out curves), `TweenSet`/`Tween` with sequences, parallel groups, delay, repeat and yoyo, callbacks and cancel; no allocation per frame. `game.Tweens` runs them on view time, so the simulation and replays are unaffected.
+- The style `transition` property now animates, following CSS Transitions.
+- Particles: `OneGame.Particles` emitters (a new package) with `Draw2D.Particles` and `SceneWriter.Particles`, built on the new `Renderer2D.AdditiveMaterial` and 3D camera-facing billboards (`BillboardBatch3D`); seedable, view-only, no allocation per frame.
+- Storage: `game.Storage` gives named save slots built on world saves (label, kind, time and game version for a load screen), quick-save, rotating autosave, typed settings (`SettingsSchema<T>`) and plain files (`IByteStore`). Writes are atomic; readers check limits before allocating.
+- Browser persistence through IndexedDB for saves, settings and files.
+- Harness: `tweens`, `particles` and `saves` control operations; scenario steps `tweens:` and `saves:` and expectations `tweens:`, `particles:` and `saves:`; `--data` and `--persist-data` arguments; `onegame web test --profile --port`.
+- User guides: `docs/tweens.md`, `docs/particles.md`, `docs/saves.md`.
+
+### Changed
+
+- OneShader 1.3.0. Layouts come from `ToBindings`, `UnionOptions` and vertex stream splitting alone (`ShaderLayouts.Bindings(..., options)`, `ShaderLayouts.VertexStreams`); the IBL passes share one layout and the 3D instance vertex layout is derived from the shader.
+- The solitaire and bricks samples use the engine storage service in place of their own file stores.
+
 ## [1.3.0] - 2026-10-27
 
 Audio devices from the one* audio library, shader layouts from the one* shader library, and user guides for the 1.2 happy paths.
