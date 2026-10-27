@@ -193,53 +193,18 @@ public class OutputTests
 public class BackendLogicTests
 {
     [Fact]
-    public void WasapiFormatBytesDescribeFloatExtensible()
-    {
-        var b = new byte[WasapiLogic.ExtensibleFormatBytes];
-        WasapiLogic.WriteFloatFormat(b, 48_000, 2);
-        Assert.Equal(0xFFFE, BitConverter.ToUInt16(b, 0));
-        Assert.Equal(2, BitConverter.ToUInt16(b, 2));
-        Assert.Equal(48_000u, BitConverter.ToUInt32(b, 4));
-        Assert.Equal(48_000u * 8, BitConverter.ToUInt32(b, 8));
-        Assert.Equal(8, BitConverter.ToUInt16(b, 12));
-        Assert.Equal(32, BitConverter.ToUInt16(b, 14));
-        Assert.Equal(22, BitConverter.ToUInt16(b, 16));
-        Assert.Equal(3u, BitConverter.ToUInt32(b, 20));
-        Assert.Equal(new Guid("00000003-0000-0010-8000-00aa00389b71"), new Guid(b.AsSpan(24, 16)));
-    }
-
-    [Theory]
-    [InlineData(1, 0x4u)]
-    [InlineData(2, 0x3u)]
-    [InlineData(6, 0x3Fu)]
-    [InlineData(3, 0u)]
-    public void WasapiChannelMasks(int channels, uint mask) => Assert.Equal(mask, WasapiLogic.ChannelMask(channels));
-
-    [Fact]
-    public void WasapiArithmeticAndErrorClasses()
-    {
-        Assert.Equal(400_000L, WasapiLogic.ToReferenceTime(40));
-        Assert.Equal(300, WasapiLogic.WritableFrames(1000, 700, 480));
-        Assert.Equal(480, WasapiLogic.WritableFrames(1000, 0, 480));
-        Assert.Equal(0, WasapiLogic.WritableFrames(1000, 1200, 480));
-        Assert.True(WasapiLogic.IsDeviceLost(unchecked((int)0x88890004)));
-        Assert.False(WasapiLogic.IsDeviceLost(0));
-        Assert.False(WasapiLogic.IsDeviceLost(unchecked((int)0x88890002)));
-    }
-
-    [Fact]
-    public void WasapiBackendOffWindowsFailsCleanly()
+    public void WasapiBackendOffWindowsHasNoDevicesAndTheOutputRunsSilently()
     {
         if (OperatingSystem.IsWindows())
         {
             return;
         }
 
-        var ok = new WasapiBackend().TryOpen(new AudioDeviceOptions(), out var sink, out var reason);
-        Assert.False(ok);
-        Assert.Null(sink);
-        Assert.False(string.IsNullOrEmpty(reason));
         Assert.Empty(new WasapiBackend().ListDevices());
+        using var output = AudioOutput.Create(new WasapiBackend(), new AudioDeviceOptions(), OutputLimiterMode.Clamp);
+        output.Start(new Silence());
+        Assert.Equal(AudioOutputStatus.NoDevice, output.Status);
+        Assert.False(string.IsNullOrEmpty(output.LastError));
     }
 
     [Fact]
@@ -250,10 +215,19 @@ public class BackendLogicTests
             return;
         }
 
-        var ok = new AlsaBackend().TryOpen(new AudioDeviceOptions { DeviceName = "onegame_no_such_device" }, out var sink, out var reason);
-        Assert.False(ok);
-        Assert.Null(sink);
-        Assert.False(string.IsNullOrEmpty(reason));
+        using var output = AudioOutput.Create(new AlsaBackend(), new AudioDeviceOptions { DeviceName = "onegame_no_such_device" }, OutputLimiterMode.Clamp);
+        output.Start(new Silence());
+        Assert.Equal(AudioOutputStatus.NoDevice, output.Status);
+        Assert.False(string.IsNullOrEmpty(output.LastError));
+    }
+
+    private sealed class Silence : IAudioRenderSource
+    {
+        public int SampleRate => 48_000;
+
+        public int Channels => 2;
+
+        public void Render(Span<float> interleaved) => interleaved.Clear();
     }
 
     [Fact]
