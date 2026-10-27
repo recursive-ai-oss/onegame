@@ -4,6 +4,23 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-27
+
+Happy-path layers over the low-level API: a first game now has a moving sprite, action-mapped input and a hot-reloaded asset in about 90 lines.
+
+### Added
+
+- 2D drawing from view code: entities implementing `IView2D` are drawn by the default `Render2DStage` through `Draw2D` (sprites, sprite-sheet frames and clips, rectangles, lines, circles, text), batched onto the existing `Scene2D`. `SpriteSheet`, `SpriteClip` (frame animation on view time) and `Camera2DRig` (follow, smoothing, bounds, zoom, screen and world conversion). `UiCanvas.Text` and `TextQuadBuilder.BuildLine` draw text outside a UI list. Control operation `draw_view`.
+- `Draw2D.Texture(path)` and `d.Sprite("art/ship.png", ...)` draw from an asset path; a grid `SpriteSheet` over an asset texture is cut again when a reload changes the image size.
+- Input actions: `ActionMap` with contexts, bindings, composites (`Wasd`, `Arrows`, sticks, pairs) and queries, declared in `GameDefinition.DefineActions` and read from `GameInstance.Actions`; rebinding with a bindings file and `ActionUi`; `SteamActionSource`. Control operations `actions` and `input_pad`, scenario steps `action:` and `pad:`, `press:` with `state`, and the `action:` expectation.
+- `Assets`: cached, reference-counted handles for textures, SVG, YAML data, sounds, models and fonts, background loads and size limits; `GameDefinition.CreateAssetSource`; development hot reload (textures, sounds and models swap in at once; YAML data is staged and applied at a boundary); the `assets` operation, `assets:` step and `asset:` expectation; `Renderer2D.ReplaceTexture`.
+- `onegame new` writes a ship game: a `Ship` entity with fixed-point position drawn from `art/ship.png`, `DefineActions` for move and boost, a scenario using `action:`, and a capture scenario with its reference. `--server` keeps the counter scaffold.
+- `tools/OneGame.Corpus` (`onegame-corpus`): a seeded, deterministic corpus of real frames, snapshots, saves, recordings and transfer bundles from Lanterns, Bricks and Solitaire, for compression work.
+
+### Changed
+
+- OneShader 1.1.0. `ShaderSource.Layout` replaces the `Bindings`, `ComputeGroup*`, `Msl*` and `Wgsl*` members (breaking for a hand-built `ShaderSource`); `ShaderLayouts.Bindings` and `ShaderLayouts.PushConstants` expose the generated layouts.
+
 ## [1.1.2] - 2026-10-27
 
 ### Added

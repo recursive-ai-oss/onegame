@@ -8,7 +8,7 @@ onegame new mygame
 cd mygame
 ```
 
-`onegame new` writes five files you edit (a project, an entry point, the game, a scenario, a readme) and a default font. The project file is the whole build setup: the `RecursiveAI.OneGame.Sdk` package brings the target framework, the engine libraries, the analyzers that make the sim and view rules compile errors, the development tools of Debug builds and the export targets.
+`onegame new` writes the files you edit (a project, an entry point, the game, two scenarios, a readme), a default font and a ship picture, `art/ship.png`. The result is a ship you fly with the keyboard or a gamepad, drawn from the picture, with its code, tests and a hot-reloaded asset in about 90 lines. The project file is the whole build setup: the `RecursiveAI.OneGame.Sdk` package brings the target framework, the engine libraries, the analyzers that make the sim and view rules compile errors, the development tools of Debug builds and the export targets.
 
 **`mygame.csproj`**
 
@@ -39,83 +39,131 @@ internal static class Program
 **`Game.cs`**
 
 ```csharp
+using System;
+using System.Numerics;
 using OneGame.Core;
 using OneGame.Host;
+using OneGame.Platform;
 using OneGame.UI;
 
 namespace Mygame;
 
-/// <summary>One synced counter. Sim state is partial properties; views read it and send commands.</summary>
+/// <summary>A ship. Synced state is fixed-point and changes only through commands; the view draws it from art/ship.png and never writes state.</summary>
 [Entity]
-public partial class Counter : Entity
+public partial class Ship : Entity, IView2D
 {
-    [Synced] public partial int Count { get; private set; }
-    [Synced] public partial int Ticks { get; private set; }
+    [Synced] public partial Fixed X { get; private set; }
+    [Synced] public partial Fixed Y { get; private set; }
+    [Synced] public partial int Dx { get; private set; }
+    [Synced] public partial int Dy { get; private set; }
+    [Synced] public partial bool Boost { get; private set; }
 
     [Command]
-    public void Increment(int by) => Count += by;
+    public void Steer(int dx, int dy, bool boost) => (Dx, Dy, Boost) = (dx, dy, boost);
 
     // Runs once per fixed simulation tick: deterministic code only (no floats, clocks or I/O in synced state).
-    protected override void OnTick() => Ticks++;
+    protected override void OnTick()
+    {
+        var speed = Boost ? Fixed.FromInt(3) : Fixed.FromRatio(3, 2);
+        X += speed * Dx;
+        Y += speed * Dy;
+    }
 
-    // View code reads state and never writes it.
+    // View code reads state and never writes it. The picture is an asset: edit art/ship.png while the game runs and it changes.
     [View]
-    public string Label() => $"Count: {Count}";
+    public void Draw(Draw2D d) =>
+        d.Sprite("art/ship.png", new Vector2(X.ToSingle(), Y.ToSingle()), scale: 2, tint: Boost ? Color.Rgb(0xFFD080) : Color.White);
+
+    [View]
+    public string Label() => $"x {X.ToInt()}  y {Y.ToInt()}";
 }
 
-/// <summary>The game: its entity types, its starting world and its screens.</summary>
+/// <summary>The game: its entity types, its starting world, its input actions and its screens.</summary>
 public sealed class MygameGame : GameDefinition
 {
     public override string Name => "mygame";
 
     public override void RegisterEntities(EntityRegistry registry) => OneGame.Generated.Mygame.EntityTypes.Register(registry);
 
-    public override void Setup(World world) => world.Add(new Counter());
+    public override void Setup(World world) => world.Add(new Ship());
+
+    // Input is declared as actions with default bindings. One declaration answers the keyboard, a gamepad and the test harness.
+    public override void DefineActions(ActionMap actions) =>
+        actions.Context("play", c => c
+            .Vector("move", Bind.Wasd, Bind.Arrows, Bind.LeftStick)
+            .Button("boost", Bind.Key(Key.Space), Bind.Pad(GamepadButton.South)));
+
+    // View code reads the actions and sends the ship a command when they change.
+    public override void OnEachFrame(GameInstance game)
+    {
+        var ship = ShipOf(game);
+        var move = game.Actions.Vector("move");
+        int dx = (int)MathF.Round(move.X), dy = (int)MathF.Round(move.Y);
+        var boost = game.Actions.Held("boost");
+        if (dx != ship.Dx || dy != ship.Dy || boost != ship.Boost)
+        {
+            ship.Send.Steer(dx, dy, boost);
+        }
+    }
 
     public override void DefineScreens(ScreenSet screens) =>
-        screens.Add("main", game => Ui.Column(
-            Ui.Label(() => CounterOf(game).Label()).Named("count"),
-            Ui.Button("Add one", () => CounterOf(game).Send.Increment(1)).Named("add").Padding(Length.Px(8)).Background(Color.Rgb(0x3060A0)))
-            .Padding(Length.Px(24)).Gap(Length.Px(12)).Background(Color.Rgb(0x203040)).TextColor(Color.White));
+        screens.Add("main", game => Ui.Label(() => ShipOf(game).Label()).Named("pos").Padding(Length.Px(8)).TextColor(Color.White));
 
     // Read the world through the instance: it is replaced when a snapshot or fixture is loaded.
-    private static Counter CounterOf(GameInstance game) => (Counter)game.World.Entities[0];
+    private static Ship ShipOf(GameInstance game) => (Ship)game.World.Entities[0];
 }
 ```
 
 What is in it:
 
-- `Count` and `Ticks` are **synced state**: partial properties the generator completes with change tracking, binary codecs, deltas and snapshots. They have private setters, so only sim code writes them.
-- `Increment` is a **command**. The UI calls it through `Send`; the authority runs it. Commands are the only way a view changes the world.
-- `OnTick` is the **simulation step**, run at a fixed rate. Reading the clock or using a `float` in synced state here is a compile error with an `OG....` id and the fix in the message.
-- `Label` is a **view member**. Assigning `Count` inside it is a compile error.
-- `DefineScreens` builds the UI with a declarative C# builder; lambdas such as `() => CounterOf(game).Label()` are bindings that are re-read every frame.
+- **A moving sprite.** `X`, `Y`, `Dx`, `Dy` and `Boost` are **synced state**: partial properties the generator completes with change tracking, binary codecs, deltas and snapshots. Positions are `Fixed` (fixed-point, so every machine computes the same numbers); private setters mean only sim code writes them. `OnTick` is the **simulation step**, run at a fixed rate; a `float`, the clock or I/O in it is a compile error with an `OG....` id and the fix in the message. `Draw` is a **view member** of an `IView2D` entity: the 2D renderer calls it every frame and the sprite is drawn where the ship is. Assigning `X` inside it is a compile error. See `docs/interfaces/render2d.md` for sprites, shapes, text, sprite sheets and the camera.
+- **An action-mapped input.** `DefineActions` declares a `move` vector and a `boost` button with default bindings (WASD, arrows, the left stick; Space, the pad's south button). `OnEachFrame` reads them and sends the ship a command, `Steer`, when they change. Commands are the only way a view changes the world: the authority runs them, so replays, saves and the network see commands, never keys. The same declaration answers the keyboard, a gamepad, Steam Input and the scenario step `action:`; players can rebind (`docs/interfaces/input.md`).
+- **A hot-reloaded asset.** `d.Sprite("art/ship.png", ...)` loads the file once through the asset service and caches it. Run `onegame run`, edit `art/ship.png` in any image editor, save: the next frame shows the new picture and the game keeps running (Debug builds only; an export reads the files it ships). A damaged file keeps the old picture and reports the error. See `docs/interfaces/assets.md`.
+- `DefineScreens` builds the UI with a declarative C# builder; the lambda `() => ShipOf(game).Label()` is a binding re-read every frame. The ship is read through the instance because the world is replaced when a snapshot or fixture is loaded.
 
-**`scenarios/click-button.yaml`**
+**`scenarios/steer-ship.yaml`**
 
 ```yaml
-name: click-button
-description: Pressing the button adds one to the counter.
+name: steer-ship
+description: The move action steers the ship, and holding boost makes it faster.
 steps:
+  - action: { name: move, state: down, x: 1, y: 0 }
+  - step: 10
+  - action: { name: move, state: up }
+  - step: 2
   - expect:
-      ui: { id: count, text: "Count: 0" }
-  - click: add
-  - step: 1
-  - click: add
-  - step: 1
+      state: { entity: Ship, property: X, min: 14, max: 17 }
+  - action: { name: boost, state: down }
+  - action: { name: move, state: down, x: 0, y: 1 }
+  - step: 10
 expect:
-  - state: { entity: Counter, property: Count, equals: 2 }
-  - ui: { id: count, text: "Count: 2" }
+  - action: { name: boost, held: true }
+  - state: { entity: Ship, property: Boost, equals: true }
+  - state: { entity: Ship, property: Y, min: 27, max: 33 }
 ```
 
-A scenario is a test written as text: it clicks elements by id, steps frames and checks state and UI.
+**`scenarios/ship-looks-right.yaml`**
+
+```yaml
+name: ship-looks-right
+description: The ship is drawn from art/ship.png after it has flown a little, and the picture is loaded.
+window: 640x360
+steps:
+  - action: { name: move, state: down, x: 1, y: -1 }
+  - step: 40
+expect:
+  - capture: { reference: refs/ship.png, tolerance: 48, max-diff: 0.01 }
+  - asset: { path: art/ship.png, state: ready }
+```
+
+A scenario is a test written as text: it presses actions, steps frames and checks state, assets and a captured picture. `action:` steps go through the same actions the keyboard does. The capture compares the drawn frame with `scenarios/refs/ship.png`; it needs a Vulkan driver (a software one is fine).
 
 ## Run it
 
 ```
 onegame run --headless --frames 60 --json
 # {"ok":true,"game":"mygame","headless":true,"frames":60,"tick":60,"hash":"...","width":1280,"height":720}
-onegame run                                   # the same game in a window
+onegame run                                   # the same game in a window: fly with WASD, edit art/ship.png and save
 ```
 
 `hash` is the hash of the whole world after the last tick. The same game, seed and inputs give the same hash on every system.
@@ -124,7 +172,7 @@ onegame run                                   # the same game in a window
 
 ```
 onegame test --json
-# {"ok":true,"scenarios":{"ok":true,"passed":1,"failed":0,...},"unitTests":{...}}
+# {"ok":true,"scenarios":{"ok":true,"passed":2,"failed":0,...},"unitTests":{...}}
 ```
 
 This runs every file in `scenarios/` in a headless game, and any C# test projects next to the game. Add a scenario by adding a file; `onegame capture --size 720p` writes a picture of the screen to look at.
@@ -135,7 +183,7 @@ This runs every file in `scenarios/` in a headless game, and any C# test project
 onegame export --target linux      # or win, osx
 ```
 
-The result is a folder and an archive in `./export`: a NativeAOT program, its fonts and a licence-notices file, with the development tools left out. Run it with `--headless --frames 60 --json` to check it starts; the hash equals the one from `onegame run`. NativeAOT needs the platform's C++ linker (`clang` and `zlib1g-dev` on Linux, the Visual Studio C++ tools on Windows); an export on another OS's host falls back to a self-contained build and says so in `warnings`.
+The result is a folder and an archive in `./export`: a NativeAOT program, its fonts and pictures and a licence-notices file, with the development tools left out. Run it with `--headless --frames 60 --json` to check it starts; the hash equals the one from `onegame run`. NativeAOT needs the platform's C++ linker (`clang` and `zlib1g-dev` on Linux, the Visual Studio C++ tools on Windows); an export on another OS's host falls back to a self-contained build and says so in `warnings`.
 
 ## Next
 

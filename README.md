@@ -7,22 +7,34 @@ It runs on Windows, Linux (X11 and Wayland, the Steam Deck), macOS, Android, iOS
 One class holds an entity's synced state, its commands, its deterministic simulation and its view. The generator writes the change tracking, codecs, deltas and snapshots; the analyzers turn the sim and view rules into compile errors:
 
 ```csharp
-/// <summary>One synced counter. Sim state is partial properties; views read it and send commands.</summary>
+/// <summary>A ship. Synced state is fixed-point and changes only through commands; the view draws it from art/ship.png and never writes state.</summary>
 [Entity]
-public partial class Counter : Entity
+public partial class Ship : Entity, IView2D
 {
-    [Synced] public partial int Count { get; private set; }
-    [Synced] public partial int Ticks { get; private set; }
+    [Synced] public partial Fixed X { get; private set; }
+    [Synced] public partial Fixed Y { get; private set; }
+    [Synced] public partial int Dx { get; private set; }
+    [Synced] public partial int Dy { get; private set; }
+    [Synced] public partial bool Boost { get; private set; }
 
     [Command]
-    public void Increment(int by) => Count += by;
+    public void Steer(int dx, int dy, bool boost) => (Dx, Dy, Boost) = (dx, dy, boost);
 
     // Runs once per fixed simulation tick: deterministic code only (no floats, clocks or I/O in synced state).
-    protected override void OnTick() => Ticks++;
+    protected override void OnTick()
+    {
+        var speed = Boost ? Fixed.FromInt(3) : Fixed.FromRatio(3, 2);
+        X += speed * Dx;
+        Y += speed * Dy;
+    }
 
-    // View code reads state and never writes it.
+    // View code reads state and never writes it. The picture is an asset: edit art/ship.png while the game runs and it changes.
     [View]
-    public string Label() => $"Count: {Count}";
+    public void Draw(Draw2D d) =>
+        d.Sprite("art/ship.png", new Vector2(X.ToSingle(), Y.ToSingle()), scale: 2, tint: Boost ? Color.Rgb(0xFFD080) : Color.White);
+
+    [View]
+    public string Label() => $"x {X.ToInt()}  y {Y.ToInt()}";
 }
 ```
 
