@@ -37,13 +37,11 @@ internal interface IWebAudioHost
 /// Web Audio behind the device package's backend seam. A page has no audio thread: a timer calls <c>AudioOutput.Pump</c>, which advances the manual device by the
 /// frames the worklet wants, on the page's thread. The package starts no thread for a manual backend.
 /// </summary>
-internal sealed class WebAudioDeviceBackend(IWebAudioHost host) : Dev.IAudioDeviceBackend, IPumpedBackend, IDeviceStateText
+internal sealed class WebAudioDeviceBackend(IWebAudioHost host) : Dev.IAudioDeviceBackend, IPumpedBackend
 {
     private const int Period = 480;
 
     public string Name => "webaudio";
-
-    public string StateText => host.State();
 
     public Dev.DeviceBackendKind Kind => Dev.DeviceBackendKind.Custom;
 
@@ -117,6 +115,9 @@ internal sealed class WebAudioStream : Dev.IOpenDevice, Dev.IManualDevice
     public int QueuedFrames => _host.Queued();
 
     public string? Detail => _host.Stats();
+
+    // The page's own words (awaiting_gesture, running, suspended) are what the audio report shows.
+    public string? StateText => _host.State();
 
     public bool Start(out string reason)
     {

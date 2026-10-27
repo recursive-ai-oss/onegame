@@ -42,6 +42,7 @@ public sealed partial class AudioOutput
             Limiter = _limiter == OutputLimiterMode.Clamp ? Dev.OutputLimiterMode.Clamp : Dev.OutputLimiterMode.SoftKnee,
             Metering = Metering && Format.SampleRate >= LoudnessMeter.MinSampleRate,
             MeasureRenderAllocations = true,
+            AllocationWarmupBlocks = 48,
             AppleSession = _appleSession,
         };
         var device = Dev.AudioOutputDevice.Open(new DeviceSource(source), options, _devBackend!);
@@ -101,7 +102,7 @@ public sealed partial class AudioOutput
         var d = _dev!;
         var c = d.Counters;
         return new AudioDeviceStatus(
-            BackendName, Status.ToString(), (_devBackend as IDeviceStateText)?.StateText ?? d.State.ToString().ToLowerInvariant(), DeviceName, LastError, Suspended, Paused, c.BufferFrames, c.PeriodFrames, Math.Round(c.LatencyMilliseconds, 2),
+            BackendName, Status.ToString(), d.StateText ?? d.State.ToString().ToLowerInvariant(), DeviceName, LastError, Suspended, Paused, c.BufferFrames, c.PeriodFrames, Math.Round(c.LatencyMilliseconds, 2),
             c.Underruns, c.DeviceUnderruns, c.DeviceLosses, c.Reopens, Suspensions, c.FramesRendered, c.FramesWritten, c.FramesPlayed, c.PeakPlayed,
             c.RenderAllocatedBytes, d.Detail);
     }
@@ -127,11 +128,4 @@ public sealed partial class AudioOutput
             source.Render(interleaved);
         }
     }
-}
-
-/// <summary>Implemented by a device backend whose own state words (such as the browser's <c>awaiting_gesture</c>) are what the <c>audio</c> report should show.</summary>
-internal interface IDeviceStateText
-{
-    /// <summary>The device's state in a few lowercase words.</summary>
-    string StateText { get; }
 }
