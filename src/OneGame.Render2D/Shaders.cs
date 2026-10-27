@@ -1,4 +1,8 @@
 using OneGame.Gpu;
+using OneGame.Render2D.Shaders;
+using EntryLayout = OneShader.Layouts.EntryLayout;
+using VertexAttributeOverride = OneShader.Layouts.VertexAttributeOverride;
+using VertexLayoutOverrides = OneShader.Layouts.VertexLayoutOverrides;
 
 namespace OneGame.Render2D;
 
@@ -74,92 +78,51 @@ public static class ShaderNames
     public const string UiPixel = "PSMain";
 }
 
-/// <summary>The fixed resource layout every 2D program shares. Set 0 and set 1 are identical in all programs so bind groups made once are valid everywhere.</summary>
+/// <summary>
+/// The resource layout every 2D program shares, derived from the shaders. Set 0 and set 1 are identical in all programs so bind groups made
+/// once are valid everywhere; set 0 is therefore visible to both stages even where only one shader reads it.
+/// </summary>
 internal static class Layouts
 {
-    public const ShaderStage Both = ShaderStage.Vertex | ShaderStage.Pixel;
+    private static readonly (uint Set, ShaderStage Stages)[] Everywhere = [(0, ShaderStage.Vertex | ShaderStage.Pixel)];
 
-    /// <summary>Set 0 binding 0: viewport size. Binding 1: the clip table.</summary>
-    public static readonly ResourceBinding[] Frame =
-    [
-        new(0, 0, 1, ResourceKind.ConstantBuffer, Both),
-        new(0, 1, 1, ResourceKind.ReadOnlyStorageBuffer, Both),
-    ];
+    // Sets 0 and 1 are the same in every layout, so every layout starts from the entry points that between them use all of them.
+    private static readonly EntryLayout[] Shared = [Quad.VSMain.Layout, Quad.PSSprite.Layout, Ui.VSMain.Layout, Ui.PSMain.Layout];
 
-    /// <summary>Set 1: a texture and its sampler.</summary>
-    public static readonly ResourceBinding[] Texture =
-    [
-        new(1, 0, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
-        new(1, 1, 1, ResourceKind.Sampler, ShaderStage.Pixel),
-    ];
+    /// <summary>Sprites and UI: frame constants and clip table, a texture and its sampler.</summary>
+    public static ResourceBinding[] Plain() => ShaderLayouts.Bindings(Shared, widenSets: Everywhere);
 
-    /// <summary>Set 2 of materials, blur and grade: parameters.</summary>
-    public static readonly ResourceBinding[] Params =
-    [
-        new(2, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Pixel),
-    ];
+    /// <summary>Materials, blur and grade: <see cref="Plain"/> plus a parameter block in set 2.</summary>
+    public static ResourceBinding[] WithParams() =>
+        ShaderLayouts.Bindings([.. Shared, Quad.PSBlur.Layout, Quad.PSGrade.Layout], widenSets: Everywhere);
 
-    /// <summary>Set 2 of tile programs: parameters, id pool, colour pool.</summary>
-    public static readonly ResourceBinding[] TilePools =
-    [
-        new(2, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Pixel),
-        new(2, 1, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
-        new(2, 2, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
-    ];
+    /// <summary>Tile programs: <see cref="Plain"/> plus parameters, the id pool and the colour pool in set 2.</summary>
+    public static ResourceBinding[] WithPools() =>
+        ShaderLayouts.Bindings([.. Shared, Tile.VSMain.Layout, Tile.PSIds.Layout, Tile.PSFlat.Layout], widenSets: Everywhere);
 
-    public static ResourceBinding[] Concat(params ResourceBinding[][] parts)
-    {
-        var list = new List<ResourceBinding>();
-        foreach (var p in parts)
-        {
-            list.AddRange(p);
-        }
-
-        return [.. list];
-    }
+    // The engine packs colours as unorm8x4 and its instances are smaller than the shader's float-typed input struct.
 
     /// <summary>The per-instance vertex layout of quads (48 bytes). Only the tile programs read the last word.</summary>
-    public static VertexBufferLayout QuadVertex(bool withExtra = false) => new()
-    {
-        Stride = (uint)QuadInstance.Size,
-        StepMode = VertexStepMode.Instance,
-        Attributes = withExtra
-            ? new VertexElement[]
-            {
-                new(0, VertexFormat.Float2, 0),
-                new(1, VertexFormat.Float2, 8),
-                new(2, VertexFormat.Float2, 16),
-                new(3, VertexFormat.Float4, 24),
-                new(4, VertexFormat.UNorm8x4, 40),
-                new(5, VertexFormat.UInt1, 44),
-            }
-            : new VertexElement[]
-            {
-                new(0, VertexFormat.Float2, 0),
-                new(1, VertexFormat.Float2, 8),
-                new(2, VertexFormat.Float2, 16),
-                new(3, VertexFormat.Float4, 24),
-                new(4, VertexFormat.UNorm8x4, 40),
-            },
-    };
+    public static VertexBufferLayout QuadVertex(bool withExtra = false) => ShaderLayouts.Vertex(
+        withExtra ? Tile.VSMain.Layout : Quad.VSMain.Layout, VertexStepMode.Instance,
+        new VertexLayoutOverrides
+        {
+            Stride = (uint)QuadInstance.Size,
+            Attributes = withExtra
+                ? new Dictionary<uint, VertexAttributeOverride> { [4] = new(OneShader.VertexFormat.Unorm8x4, 40), [5] = new(null, 44) }
+                : new Dictionary<uint, VertexAttributeOverride> { [4] = new(OneShader.VertexFormat.Unorm8x4, 40) },
+        });
 
     /// <summary>The per-instance vertex layout of UI primitives (128 bytes).</summary>
-    public static VertexBufferLayout UiVertex() => new()
+    public static VertexBufferLayout UiVertex() => ShaderLayouts.Vertex(Ui.VSMain.Layout, VertexStepMode.Instance, new VertexLayoutOverrides
     {
         Stride = (uint)UiInstance.Size,
-        StepMode = VertexStepMode.Instance,
-        Attributes = new VertexElement[]
+        Attributes = new Dictionary<uint, VertexAttributeOverride>
         {
-            new(0, VertexFormat.Float4, 0),
-            new(1, VertexFormat.Float4, 16),
-            new(2, VertexFormat.Float2, 32),
-            new(3, VertexFormat.Float4, 40),
-            new(4, VertexFormat.Float4, 56),
-            new(5, VertexFormat.Float4, 72),
-            new(6, VertexFormat.UNorm8x4, 88),
-            new(7, VertexFormat.UNorm8x4, 92),
-            new(8, VertexFormat.Float4, 96),
-            new(9, VertexFormat.UInt4, 112),
+            [6] = new(OneShader.VertexFormat.Unorm8x4, 88),
+            [7] = new(OneShader.VertexFormat.Unorm8x4, 92),
+            [8] = new(null, 96),
+            [9] = new(null, 112),
         },
-    };
+    });
 }

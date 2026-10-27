@@ -142,9 +142,9 @@ public sealed partial class Renderer2D : IDisposable
         _format = format;
         _shaders = shaders;
 
-        _layoutPlain = device.CreatePipelineLayout(Layouts.Concat(Layouts.Frame, Layouts.Texture));
-        _layoutParams = device.CreatePipelineLayout(Layouts.Concat(Layouts.Frame, Layouts.Texture, Layouts.Params));
-        _layoutTile = device.CreatePipelineLayout(Layouts.Concat(Layouts.Frame, Layouts.Texture, Layouts.TilePools));
+        _layoutPlain = device.CreatePipelineLayout(Layouts.Plain());
+        _layoutParams = device.CreatePipelineLayout(Layouts.WithParams());
+        _layoutTile = device.CreatePipelineLayout(Layouts.WithPools());
 
         _quadVertex = Shader(ShaderNames.Quad, ShaderNames.Vertex);
         _spritePixel = Shader(ShaderNames.Quad, ShaderNames.Sprite);

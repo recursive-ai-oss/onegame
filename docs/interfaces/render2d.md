@@ -115,8 +115,7 @@ primitives for HUDs and tools: `Fill` (solid or `Gradient.Linear/Radial`), `Bord
 ## Shaders
 
 The renderer's shaders are HLSL in `src/OneGame.Render2D/Shaders` (`Quad.hlsl`: sprite, blur, grade; `Tile.hlsl`: ids, flat; `Ui.hlsl`). It asks
-an `IShaderSource` for `(program, entry)` pairs (`ShaderNames`) and gets SPIR-V and an entry point name. Resource slots are fixed and written
-in `Shaders.cs`: set 0 = frame constants + clip table, set 1 = texture + sampler, set 2 = parameters (tile programs: parameters + two pools). Sets
+an `IShaderSource` for `(program, entry)` pairs (`ShaderNames`) and gets SPIR-V and an entry point name. Resource slots are fixed by the HLSL: set 0 = frame constants + clip table, set 1 = texture + sampler, set 2 = parameters (tile programs: parameters + two pools). Sets
 0 and 1 are identical in every program so bind groups are shared.
 
 The shaders are compiled during `dotnet build` by the shader build package (`RecursiveAI.OneShader.Build`, referenced by `OneGame.Render2D.csproj`),
@@ -126,8 +125,7 @@ cluster and every test, and the SPIR-V is embedded in the assembly, so nothing i
 `Renderer2D.Create` or `GameOptions.Shaders`. A custom sprite material is HLSL in your own project compiled the same way (see
 `tests/OneGame.Render2D.Tests/Shaders/Ripple.hlsl`); pass its `PSMain.SpirV` and `EntryPoint` to `CreateMaterial`.
 
-The pipeline layouts come from the tables in `Shaders.cs` (their set 0 and 1 stages are deliberately wider than any one shader uses, so bind groups carry across programs), not from the entry layouts; `GeneratedShaderTests` checks that every binding and vertex
-input the HLSL declares agrees with those tables. The GPU layer keeps its own `ShaderStage`, `ResourceKind` and `VertexFormat` enums, and
+The pipeline layouts and the two instance vertex layouts are derived from the generated entry layouts in `Shaders.cs` (set 0 is widened to both stages, so bind groups carry across programs; the vertex overrides say the colours are packed `UNorm8x4` in 48- and 128-byte instances). The GPU layer keeps its own `ShaderStage`, `ResourceKind` and `VertexFormat` enums, and
 `GeneratedShaders` maps the stage.
 
 ## Shader hot reload (development builds)

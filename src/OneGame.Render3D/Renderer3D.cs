@@ -100,22 +100,8 @@ public sealed partial class Renderer3D : IDisposable
         _skyVs = Own(device.CreateShader(new ShaderSource(ShaderStage.Vertex, Pbr.VSSky.EntryPoint) { SpirV = Pbr.VSSky.SpirV, Wgsl = Pbr.VSSky.Wgsl, WgslEntryPoint = Pbr.VSSky.WgslEntryPoint, Msl = Pbr.VSSky.Msl, MslFunctionName = Pbr.VSSky.MslFunctionName, Layout = Pbr.VSSky.Layout }));
         _skyPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Pbr.PSSky.EntryPoint) { SpirV = Pbr.PSSky.SpirV, Wgsl = Pbr.PSSky.Wgsl, WgslEntryPoint = Pbr.PSSky.WgslEntryPoint, Msl = Pbr.PSSky.Msl, MslFunctionName = Pbr.PSSky.MslFunctionName, Layout = Pbr.PSSky.Layout }));
 
-        // The packed glTF vertex (GltfPrimitive.PackVertices). Joint indices are two 32-bit words, each holding two 16-bit indices.
-        _vertexLayout = new VertexBufferLayout
-        {
-            Stride = GltfPrimitive.PackedVertexSize,
-            Attributes = new VertexElement[]
-            {
-                new(0, VertexFormat.Float3, 0),
-                new(1, VertexFormat.Float3, 12),
-                new(2, VertexFormat.Float4, 24),
-                new(3, VertexFormat.Float2, 40),
-                new(4, VertexFormat.Float2, 48),
-                new(5, VertexFormat.Float4, 56),
-                new(6, VertexFormat.UInt2, 72),
-                new(7, VertexFormat.Float4, 80),
-            },
-        };
+        // The packed glTF vertex (GltfPrimitive.PackVertices) is what the shader declares; joint indices are two 32-bit words, each holding two 16-bit indices.
+        _vertexLayout = ShaderLayouts.Vertex(Pbr.VSMain.Layout);
 
         _instanceLayout = new VertexBufferLayout
         {
