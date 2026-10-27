@@ -108,7 +108,7 @@ using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true,
     // The device section and the lifecycle switch, which the phone and web backends are driven through.
     audio.SetSuspended(true);
     audio.SetSuspended(false);
-    if (status.Device is not { Backend: "capture", FramesPlayed: 0 } || audio.Output.Suspensions != 1 || audio.Output.IsPumped)
+    if (status.Device is not { Backend: "capture", FramesPlayed: 24_000 } || audio.Output.Suspensions != 1 || audio.Output.IsPumped)
     {
         Console.Error.WriteLine("audio device report smoke failed");
         return 1;
