@@ -14,7 +14,7 @@ namespace OneGame.Generators;
 /// members marked [View], plus any member marked [Sim]. View code is every member marked [View] and every member of a type marked [View].
 /// Sim code is checked through calls: a call into a method of the same compilation is followed to the offending line, and a call
 /// into another assembly must be on the framework allow list, marked [SimSafe] or trusted (OG0015). A view may not call anything
-/// that changes state (OG0008).
+/// that changes state (OG0008); OneRender DOM event handlers count as views.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class SimRulesAnalyzer : DiagnosticAnalyzer
@@ -57,6 +57,7 @@ public sealed class SimRulesAnalyzer : DiagnosticAnalyzer
             start.RegisterOperationAction(state.AnalyzeViewWrite, OperationKind.SimpleAssignment, OperationKind.CompoundAssignment,
                 OperationKind.Increment, OperationKind.Decrement);
             start.RegisterOperationAction(state.AnalyzeViewCall, OperationKind.Invocation);
+            start.RegisterOperationAction(state.AnalyzeHandlerMethodGroup, OperationKind.DelegateCreation);
             start.RegisterOperationAction(State.AnalyzeViewRead, OperationKind.PropertyReference);
         });
     }
@@ -681,7 +682,7 @@ public sealed class SimRulesAnalyzer : DiagnosticAnalyzer
 
         public void AnalyzeViewWrite(OperationAnalysisContext context)
         {
-            if (ScopeOf(context.ContainingSymbol) != Scope.View)
+            if (ScopeOf(context.ContainingSymbol) != Scope.View && !InsideDomHandler(context.Operation))
             {
                 return;
             }
@@ -730,7 +731,7 @@ public sealed class SimRulesAnalyzer : DiagnosticAnalyzer
 
         public void AnalyzeViewCall(OperationAnalysisContext context)
         {
-            if (ScopeOf(context.ContainingSymbol) != Scope.View)
+            if (ScopeOf(context.ContainingSymbol) != Scope.View && !InsideDomHandler(context.Operation))
             {
                 return;
             }
@@ -740,6 +741,45 @@ public sealed class SimRulesAnalyzer : DiagnosticAnalyzer
             {
                 context.ReportDiagnostic(Diagnostic.Create(Rules.ViewWrites, context.Operation.Syntax.GetLocation(),
                     $"'{method.ContainingType?.Name}.{method.Name}' changes state"));
+            }
+        }
+
+        // ---- OneRender DOM event handlers are view code (OG0008) ---------------------------------------------------
+
+        /// <summary>True for OneRender's listener delegate, the type every DOM event registration takes.</summary>
+        private static bool IsDomListener(ITypeSymbol? type)
+            => type is INamedTypeSymbol { Name: "EventListener", TypeKind: TypeKind.Delegate, ContainingNamespace: { Name: "Interaction", ContainingNamespace: { Name: "OneRender", ContainingNamespace.IsGlobalNamespace: true } } };
+
+        /// <summary>
+        /// True when the operation sits in a lambda converted to a OneRender listener, however far down. A handler runs from input
+        /// dispatch, so it is view code wherever it was registered from: a view member, a screen builder or game setup.
+        /// </summary>
+        private static bool InsideDomHandler(IOperation op)
+        {
+            for (var parent = op.Parent; parent is not null; parent = parent.Parent)
+            {
+                if (parent is IAnonymousFunctionOperation && parent.Parent is IDelegateCreationOperation creation && IsDomListener(creation.Type))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>A method or local function passed as a listener: its body runs as view code, so it cannot change state (lambdas are checked in place).</summary>
+        public void AnalyzeHandlerMethodGroup(OperationAnalysisContext context)
+        {
+            var creation = (IDelegateCreationOperation)context.Operation;
+            if (!IsDomListener(creation.Type) || creation.Target is not IMethodReferenceOperation reference)
+            {
+                return;
+            }
+
+            if (WritesState(reference.Method))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(Rules.ViewWrites, reference.Syntax.GetLocation(),
+                    $"the DOM event handler '{reference.Method.Name}' changes state"));
             }
         }
 
