@@ -18,7 +18,7 @@ internal sealed class WebVerb : IVerb
 {
     public string Name => "web";
 
-    public string Summary => "Run a game in headless Chrome: web test [--scenario <folder>] [--dir <exported folder>] [--tolerance N] [--max-diff F] [--timeout S]; needs Chrome (ONEGAME_CHROME).";
+    public string Summary => "Run a game in headless Chrome: web test [--scenario <folder>] [--dir <exported folder>] [--profile <folder> --port N: keep the browser profile, so saved files survive to the next run; the same port keeps the same web origin] [--tolerance N] [--max-diff F] [--timeout S]; needs Chrome (ONEGAME_CHROME).";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
@@ -27,7 +27,7 @@ internal sealed class WebVerb : IVerb
             throw new CliException(ExitCodes.Usage, "bad_args", "Usage: onegame web test [--project <dir>] [--scenario <folder>] [--dir <exported folder>] [--tolerance N] [--max-diff F] [--timeout S].");
         }
 
-        var a = new ProjectArgs(args.Skip(1).ToArray(), "--scenario", "--dir", "--tolerance", "--max-diff", "--timeout");
+        var a = new ProjectArgs(args.Skip(1).ToArray(), "--scenario", "--dir", "--profile", "--port", "--tolerance", "--max-diff", "--timeout");
         var project = Projects.Find(a.Get("--project"));
         var timeout = TimeSpan.FromSeconds(double.Parse(a.Get("--timeout") ?? "300", CultureInfo.InvariantCulture));
         var tolerance = int.Parse(a.Get("--tolerance") ?? "0", CultureInfo.InvariantCulture);
@@ -43,18 +43,21 @@ internal sealed class WebVerb : IVerb
 
         folder = Path.GetFullPath(folder);
         var chrome = FindChrome();
-        var port = FreePort();
+        // Browser storage belongs to an origin, port included: a run that must find an earlier run's files names its port.
+        var port = a.Get("--port") is { } given ? int.Parse(given, CultureInfo.InvariantCulture) : FreePort();
         using var listener = new HttpListener();
         listener.Prefixes.Add($"http://127.0.0.1:{port}/");
         listener.Start();
-        var profile = Path.Combine(Path.GetTempPath(), "onegame-chrome-" + Environment.ProcessId);
+        // A given profile folder is kept between runs (IndexedDB lives in it): the way to prove a save survives a restart of the page.
+        var keepProfile = a.Get("--profile") is not null;
+        var profile = keepProfile ? Path.GetFullPath(a.Get("--profile")!) : Path.Combine(Path.GetTempPath(), "onegame-chrome-" + Environment.ProcessId);
         Process? browser = null;
         using var cancel = new CancellationTokenSource(timeout);
         try
         {
             var pending = new TaskCompletionSource<WebSocket>(TaskCreationOptions.RunContinuationsAsynchronously);
             var serving = Serve(listener, folder, pending, cancel.Token);
-            var page = $"http://127.0.0.1:{port}/index.html?args=--no-present&control=ws://127.0.0.1:{port}/control";
+            var page = $"http://127.0.0.1:{port}/index.html?args=--no-present{(keepProfile ? "%20--persist-data" : string.Empty)}&control=ws://127.0.0.1:{port}/control";
             browser = Process.Start(new ProcessStartInfo(chrome)
             {
                 ArgumentList =
@@ -104,6 +107,16 @@ internal sealed class WebVerb : IVerb
                 w.WriteNumber("maxDiff", maxDiff);
             });
             var elapsed = clock.Elapsed;
+            if (keepProfile)
+            {
+                // Saved files reach IndexedDB a moment after the game wrote them; closing the page before that would lose them.
+                var unwritten = channel.Call("flush", w => w.WriteNumber("timeoutMs", 10_000)).GetProperty("pending").GetInt32();
+                if (unwritten > 0)
+                {
+                    throw new CliException(ExitCodes.Failed, "storage_pending", $"{unwritten} saved files were still being written to the browser's storage after 10 s.");
+                }
+            }
+
             // Images the run wrote (actual and diff frames of failed checks) come back next to the game's other artifacts.
             var pulled = Path.Combine(project.Directory, "artifacts", "web");
             foreach (var name in channel.Call("list", w => w.WriteString("path", "artifacts")).GetProperty("files").EnumerateArray().Select(f => f.GetString()!).Where(n => n.EndsWith(".png", StringComparison.Ordinal)))
@@ -176,7 +189,7 @@ internal sealed class WebVerb : IVerb
             {
             }
 
-            if (Directory.Exists(profile))
+            if (!keepProfile && Directory.Exists(profile))
             {
                 try
                 {

@@ -14,6 +14,18 @@ public abstract class GameDefinition
     /// <summary>The game's name, shown in the window title and in harness output.</summary>
     public abstract string Name { get; }
 
+    /// <summary>The game's version text, recorded in each save slot's description (for a load screen: "made with 1.2"). Optional.</summary>
+    public virtual string Version => string.Empty;
+
+    /// <summary>
+    /// Where this game keeps its saves and settings, when it wants something other than the host's default (a store's cloud, a test's
+    /// in-memory files). Return null for the default. Called once per game instance, the first time the game uses <see cref="GameInstance.Storage"/>.
+    /// </summary>
+    public virtual OneGame.Storage.IByteStore? CreateStore(GameInstance game) => null;
+
+    /// <summary>The largest save slot file the game reads or writes, in bytes (default 64 MiB). Set it to what a save of this game can be, so a damaged file is refused early.</summary>
+    public virtual int MaxSaveBytes => 64 * 1024 * 1024;
+
     /// <summary>Seed of the world's random streams. Runs with the same seed and the same commands are identical.</summary>
     public virtual ulong Seed => 1;
 

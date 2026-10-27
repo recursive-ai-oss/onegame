@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using OneGame.Core;
+using OneGame.Storage;
 using OneGame.Host;
 using OneGame.Platform;
 using OneGame.UI;
@@ -15,8 +16,7 @@ namespace Solitaire.Views;
 [View]
 internal sealed class Session
 {
-    private const int MaxSaveBytes = 256 * 1024;
-    private const string SaveFile = "game.sav";
+    private const string SaveSlot = "continue";
     private const int DoubleClickFrames = 24;
     private const float DragStartDistance = 6;
 
@@ -43,10 +43,10 @@ internal sealed class Session
     {
         Game = game;
         Definition = (SolitaireGame)game.Definition;
-        Data = Definition.Services.CreateStore(game);
+        Data = game.Storage.Files;
         Sound = Definition.Services.Sounds;
         Profile = Data.TryRead(Profile.FileName, 16 * 1024, out var bytes) && Profile.TryRead(bytes, out var loaded) ? loaded : new Profile();
-        HasSave = Data.TryRead(SaveFile, MaxSaveBytes, out _);
+        HasSave = game.Storage.Slots.Exists(SaveSlot);
         Kit = Kits.For(game.Ui);
         Kit.Glyphs
             .Bind("confirm", keyboard: " ", mouse: "left", gamepad: "a")
@@ -69,7 +69,7 @@ internal sealed class Session
 
     public Profile Profile { get; }
 
-    public IDataStore Data { get; }
+    public IByteStore Data { get; }
 
     public ISoundSink Sound { get; }
 
@@ -138,18 +138,15 @@ internal sealed class Session
             return;
         }
 
-        if (!Data.TryRead(SaveFile, MaxSaveBytes, out var bytes))
+        var loaded = Game.Storage.Load(SaveSlot);
+        if (loaded.Status == SlotStatus.NoSuchSlot)
         {
             HasSave = false;
             Say("There is no saved game.");
             return;
         }
 
-        try
-        {
-            Game.LoadSnapshot(bytes);
-        }
-        catch (InvalidDataException)
+        if (!loaded.Ok)
         {
             DropSave("The saved game is damaged and was removed.");
             return;
@@ -194,11 +191,11 @@ internal sealed class Session
 
         // The harness reset the game. In a run whose files live in memory that means a clean slate: no profile, no save, the keyboard glyphs.
         _resets = Definition.Resets;
-        if (Data is MemoryStore)
+        if (Data is MemoryByteStore)
         {
             Profile.ResetAll();
             Data.Delete(Profile.FileName);
-            Data.Delete(SaveFile);
+            Game.Storage.Slots.Delete(SaveSlot);
             HasSave = false;
             Kit.Glyphs.SetDevice(InputDevice.Keyboard);
             _notice = null;
@@ -207,7 +204,7 @@ internal sealed class Session
 
     private void DropSave(string message)
     {
-        Data.Delete(SaveFile);
+        Game.Storage.Slots.Delete(SaveSlot);
         HasSave = false;
         Say(message);
     }
@@ -662,12 +659,12 @@ internal sealed class Session
         _savedSignature = signature;
         if (table.Phase == GamePhase.Won || table.Moves == 0)
         {
-            Data.Delete(SaveFile);
+            Game.Storage.Slots.Delete(SaveSlot);
             HasSave = false;
         }
         else
         {
-            HasSave = Data.Write(SaveFile, Game.SaveSnapshot());
+            HasSave = Game.Storage.Save(SaveSlot, "Deal " + table.Deal.ToString(System.Globalization.CultureInfo.InvariantCulture), SlotKind.Auto).Ok;
         }
     }
 }

@@ -14,6 +14,8 @@ public static class SyncFuzzTargets
     public static IReadOnlyList<FuzzTargets.Target> All { get; } =
     [
         new FuzzTargets.Target("save", RunSave, () => [ValidSave(), Scenario1SaveFixture.Build()]),
+        new FuzzTargets.Target("storage-slot", RunStorageSlot, StorageSlotSeeds),
+        new FuzzTargets.Target("storage-settings", RunStorageSettings, StorageSettingsSeeds),
         new FuzzTargets.Target("recording", RunRecording, () => [ValidRecording()]),
         new FuzzTargets.Target("digest", RunDigest, () => [ValidDigest()]),
         new FuzzTargets.Target("transport-client", RunToReplica, () => Traffic().ToClient),
@@ -55,6 +57,57 @@ public static class SyncFuzzTargets
         var result = SaveFile.Load(input, world);
         _ = SaveFile.ToJson(input, Scenario.NewWorld(WorldRole.Authority));
         return result.Status == SaveStatus.Ok;
+    }
+
+    // ---- storage: slot files and settings files, as they come back from a disk, a cloud or IndexedDB ----
+
+    private static IEnumerable<byte[]> StorageSlotSeeds()
+    {
+        var store = new OneGame.Storage.MemoryByteStore();
+        var slots = new OneGame.Storage.SaveSlots(store, new OneGame.Storage.SaveSlotOptions { GameVersion = "1.0", Time = new FixedClock() });
+        slots.Save("a", Small(), "Day 3");
+        slots.Import("b", Scenario1SaveFixture.Build(), "old", OneGame.Storage.SlotKind.Auto);
+        foreach (var name in new[] { "slot-a.sav", "slot-b.sav" })
+        {
+            store.TryRead(name, int.MaxValue, out var bytes);
+            yield return bytes;
+        }
+    }
+
+    private static bool RunStorageSlot(byte[] input)
+    {
+        var store = new OneGame.Storage.MemoryByteStore();
+        store.Write("slot-fuzz.sav", input);
+        var slots = new OneGame.Storage.SaveSlots(store, new OneGame.Storage.SaveSlotOptions { MaxSaveBytes = 8 << 20, Time = new FixedClock() });
+        _ = slots.List();
+        _ = OneGame.Storage.SaveSlots.TryParse(input, "fuzz", out _, out _);
+        return slots.Load("fuzz", Scenario.NewWorld(WorldRole.Authority)).Ok;
+    }
+
+    private static IEnumerable<byte[]> StorageSettingsSeeds()
+    {
+        var file = new OneGame.Storage.SettingsFile<OneGame.Sync.Tests.Storage.SampleSettings>(new OneGame.Storage.MemoryByteStore(), OneGame.Sync.Tests.Storage.SampleSettings.Schema);
+        yield return file.ToBytes();
+        file.Value.Volume = 2;
+        file.Value.Fullscreen = true;
+        file.Value.Scale = 2.5f;
+        file.Value.Name = "Ada";
+        file.Value.Quality = OneGame.Sync.Tests.Storage.SampleQuality.High;
+        yield return file.ToBytes();
+    }
+
+    private static bool RunStorageSettings(byte[] input)
+    {
+        var file = new OneGame.Storage.SettingsFile<OneGame.Sync.Tests.Storage.SampleSettings>(new OneGame.Storage.MemoryByteStore(), OneGame.Sync.Tests.Storage.SampleSettings.Schema);
+        var load = file.Apply(input);
+        _ = file.ToText();
+        _ = file.ToBytes();
+        return load.Clean;
+    }
+
+    private sealed class FixedClock : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(2026, 10, 27, 12, 0, 0, TimeSpan.Zero);
     }
 
     private static byte[] ValidRecording()

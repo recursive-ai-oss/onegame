@@ -105,7 +105,7 @@ public interface IDevTools
 /// <summary>The entry point of a game: parse the command line, create the instance, run it.</summary>
 public static class GameApp
 {
-    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "also-scopes", "name", "net", "realtime", "until-tick", "no-present"];
+    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "also-scopes", "name", "net", "realtime", "until-tick", "no-present", "persist-data", "data"];
 
     /// <summary>
     /// Set by development builds before <see cref="Run(GameDefinition, string[])"/> so the extra options work. A release build leaves it
@@ -120,7 +120,8 @@ public static class GameApp
     /// <c>--connect udp://host:port|ws://host:port</c> (play on a server: the world is a replica of its scope), with <c>--scope N</c>, <c>--name N</c> and
     /// <c>--net latency=100,loss=0.02</c> (network conditions on this client's traffic). <c>--realtime</c> makes a headless run follow the clock instead of
     /// running its frames as fast as it can, and <c>--until-tick N</c> (a connected client; implies <c>--realtime</c>) stops once the replica reaches tick N or the
-    /// connection closes; a release build has no live control, so this is how a connected client is run and checked.
+    /// connection closes; a release build has no live control, so this is how a connected client is run and checked. <c>--data FOLDER</c> keeps
+    /// saves and settings in that folder, and <c>--persist-data</c> keeps them in the platform's persistent store even when headless.
     /// </summary>
     public static int Run(GameDefinition game, string[] args) => Run(game, args, Console.Out, Console.Error);
 
@@ -233,6 +234,16 @@ public static class GameApp
         if (a.Has("no-present"))
         {
             o = o with { PresentFrames = false };
+        }
+
+        if (a.Has("persist-data"))
+        {
+            o = o with { PersistData = true };
+        }
+
+        if (a.Get("data") is { Length: > 0 } dataDirectory)
+        {
+            o = o with { DataDirectory = dataDirectory };
         }
 
         if (a.Get("display") is { } display)

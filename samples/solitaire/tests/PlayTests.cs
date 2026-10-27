@@ -1,3 +1,4 @@
+using OneGame.Storage;
 using System.Globalization;
 using System.Net.Sockets;
 using System.Text;
@@ -341,10 +342,10 @@ public class StoreTests
         var dir = Path.Combine(Path.GetTempPath(), "solitaire-test-" + Guid.NewGuid().ToString("N"));
         var cloud = new FakeCloud();
         Assert.IsType<CloudStore>(DataStores.Choose(new FakeStore(cloud, true), dir));
-        Assert.IsType<LocalFileStore>(DataStores.Choose(new FakeStore(cloud, false), dir));
+        Assert.IsType<FolderByteStore>(DataStores.Choose(new FakeStore(cloud, false), dir));
         cloud.Enabled = false;
-        Assert.IsType<LocalFileStore>(DataStores.Choose(new FakeStore(cloud, true), dir));
-        Assert.IsType<LocalFileStore>(DataStores.Choose(null, dir));
+        Assert.IsType<FolderByteStore>(DataStores.Choose(new FakeStore(cloud, true), dir));
+        Assert.IsType<FolderByteStore>(DataStores.Choose(null, dir));
     }
 
     [Fact]
@@ -364,7 +365,7 @@ public class StoreTests
     }
 
     [Fact]
-    public void LocalFileStoreFallbackKeepsTheProfileBetweenRuns()
+    public void FolderByteStoreFallbackKeepsTheProfileBetweenRuns()
     {
         var dir = Path.Combine(Path.GetTempPath(), "solitaire-test-" + Guid.NewGuid().ToString("N"));
         try
@@ -372,7 +373,7 @@ public class StoreTests
             var store = DataStores.Choose(new FakeStore(new FakeCloud { Enabled = false }, true), dir);
             var p = new Profile { DrawMode = 3 };
             Assert.True(store.Write(Profile.FileName, p.Write()));
-            var again = new LocalFileStore(dir);
+            var again = new FolderByteStore(dir);
             Assert.True(again.TryRead(Profile.FileName, 16 * 1024, out var bytes));
             Assert.True(Profile.TryRead(bytes, out var read));
             Assert.Equal(3, read.DrawMode);

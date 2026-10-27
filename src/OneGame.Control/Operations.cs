@@ -164,6 +164,7 @@ public sealed record BusLoudnessStatus(int Index, string? Name, OneGame.Audio.Lo
 [JsonSerializable(typeof(Draw2DReport))]
 [JsonSerializable(typeof(BusLoudnessStatus))]
 [JsonSerializable(typeof(QualityResult))]
+[JsonSerializable(typeof(SavesResult))]
 public sealed partial class ControlJson : JsonSerializerContext
 {
 }
@@ -257,6 +258,7 @@ public static partial class ControlOps
         ..Draw2DOps,
         ..TouchOps,
         ..StoreOps,
+        ..SaveOps,
         ..SteamInputOps,
         ..ActionOps,
         ..AudioEventOps,

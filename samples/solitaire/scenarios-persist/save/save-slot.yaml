@@ -1,0 +1,17 @@
+name: save-slot
+description: Play three draws, then write a named save slot. Run before load/restore-slot.yaml in a new process or a reloaded page to prove the save survives.
+steps:
+  - screen: table
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - command: { entity: Table, name: Draw }
+  - step: 1
+  - saves: { action: save, slot: reload-check, label: "After three draws" }
+  - expect:
+      saves:
+        has: reload-check
+        slot: { name: reload-check, label: "After three draws", kind: manual, tick: 3 }
+  - expect:
+      hash: a0c7cb1ad39a363f

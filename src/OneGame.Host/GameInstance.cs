@@ -79,6 +79,22 @@ public sealed record GameOptions
 
     /// <summary>Where the 2D renderer gets its compiled shaders. When null, the renderer's own shaders, compiled during the build, are used.</summary>
     public IShaderSource? Shaders { get; init; }
+
+    /// <summary>
+    /// Where the game keeps its saves and settings. When null the host picks: the <c>--data</c> folder or <c>ONEGAME_DATA_DIR</c> if given,
+    /// otherwise memory for a headless or unpresented run (a test never touches a player's files), IndexedDB in a browser, and a folder
+    /// under the user's local application data elsewhere. See <see cref="GameStorage"/>.
+    /// </summary>
+    public OneGame.Storage.IByteStore? Storage { get; init; }
+
+    /// <summary>A folder for the game's saves and settings, overriding the default choice (the <c>--data</c> argument).</summary>
+    public string? DataDirectory { get; init; }
+
+    /// <summary>
+    /// Keep saves and settings in the platform's persistent store even for a headless or unpresented run (the <c>--persist-data</c>
+    /// argument). Tests that must see a save survive a restart or a page reload use it.
+    /// </summary>
+    public bool PersistData { get; init; }
 }
 
 /// <summary>A captured frame: RGBA8 pixels, top row first.</summary>
@@ -231,6 +247,11 @@ public sealed class GameInstance : IDisposable
 
     /// <summary>The shaders the game's render stage registered for hot reload. A development build recompiles them when their files change.</summary>
     public HotShaders HotShaders { get; }
+
+    /// <summary>Save slots, settings and files for this game. See <see cref="GameStorage"/> and <c>docs/saves.md</c>.</summary>
+    public GameStorage Storage => _storage ??= new GameStorage(this);
+
+    private GameStorage? _storage;
 
     /// <summary>The game's asset service: load textures, data, sounds and models by path. Textures are uploaded through the 2D stage's renderer. See <c>docs/interfaces/assets.md</c>.</summary>
     public Assets Assets { get; }
@@ -465,6 +486,19 @@ public sealed class GameInstance : IDisposable
     /// <exception cref="InvalidDataException">The save is malformed, damaged or from an unsupported version.</exception>
     public void LoadSnapshot(ReadOnlySpan<byte> snapshot)
     {
+        var result = TryLoadSnapshot(snapshot);
+        if (result.Status != SaveStatus.Ok)
+        {
+            throw new InvalidDataException($"The save could not be loaded: {result.Status} ({result.Detail}).");
+        }
+    }
+
+    /// <summary>
+    /// Like <see cref="LoadSnapshot"/> but reports a refused save instead of throwing. The world is built fresh and swapped in only when
+    /// the load worked, so a refused save leaves the running game untouched.
+    /// </summary>
+    public LoadResult TryLoadSnapshot(ReadOnlySpan<byte> snapshot)
+    {
         if (_remote is not null)
         {
             throw RemoteOnly("cannot load snapshots");
@@ -472,13 +506,13 @@ public sealed class GameInstance : IDisposable
 
         var world = NewWorld(static _ => { });
         var result = SaveFile.Load(snapshot, world);
-        if (result.Status != SaveStatus.Ok)
+        if (result.Status == SaveStatus.Ok)
         {
-            throw new InvalidDataException($"The save could not be loaded: {result.Status} ({result.Detail}).");
+            Seed = world.Seed;
+            Replace(world);
         }
 
-        Seed = world.Seed;
-        Replace(world);
+        return result;
     }
 
     /// <summary>Writes the current world as a save file (header, hashes, snapshot).</summary>

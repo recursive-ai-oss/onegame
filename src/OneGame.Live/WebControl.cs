@@ -151,6 +151,20 @@ internal static class WebControl
                 });
             }
 
+            case "flush":
+            {
+                // Waits (up to the given milliseconds) until the browser has committed every saved file to IndexedDB, so a tool may close the page.
+                var limit = Environment.TickCount64 + Math.Clamp(root.TryGetProperty("timeoutMs", out var t) ? t.GetInt32() : 5000, 0, 60_000);
+                var pending = BrowserByteStore.Pending;
+                while (pending > 0 && Environment.TickCount64 < limit)
+                {
+                    await Task.Delay(10).ConfigureAwait(true);
+                    pending = BrowserByteStore.Pending;
+                }
+
+                return Reply(id, w => w.WriteNumber("pending", pending));
+            }
+
             case "pause":
                 game.HostPaused = root.GetProperty("paused").GetBoolean();
                 return Reply(id, w => w.WriteBoolean("paused", game.HostPaused));
@@ -190,7 +204,7 @@ internal static class WebControl
             }
 
             default:
-                throw new ControlException("bad_op", $"Unknown control operation '{op}'. Operations: put, get, list, pause, mcp, scenarios.");
+                throw new ControlException("bad_op", $"Unknown control operation '{op}'. Operations: put, get, list, flush, pause, mcp, scenarios.");
         }
     }
 

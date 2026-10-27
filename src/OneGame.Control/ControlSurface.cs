@@ -131,6 +131,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         "audio_events" => Json(AudioEvents(a), ControlJson.Default.AudioEventsResult),
         "audio_capture" => Json(AudioCapture(a), ControlJson.Default.AudioCaptureResult),
         "store" => Json(StoreAction(a), ControlJson.Default.PurchaseStatus),
+        "saves" => Json(SavesOp(a), ControlJson.Default.SavesResult),
         "capture_frame" => CaptureFrameAsync(a).AsTask().GetAwaiter().GetResult(),
         "capture_sequence" => Json(CaptureSequenceAsync(a).AsTask().GetAwaiter().GetResult(), ControlJson.Default.SequenceResult),
         "quality" => Json(Quality(a), ControlJson.Default.QualityResult),

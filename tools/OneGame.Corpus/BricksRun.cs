@@ -20,7 +20,7 @@ internal sealed class BricksRun : SoloRun
     protected override int SampleTicks => 3000;
 
     protected override void Register(EntityRegistry registry) =>
-        new BricksGame(new GameServices { CreateStore = _ => new MemoryStore() }).RegisterEntities(registry);
+        new BricksGame(new GameServices { CreateStore = _ => new OneGame.Storage.MemoryByteStore() }).RegisterEntities(registry);
 
     protected override void Seed(World world) => world.Add(new Court());
 

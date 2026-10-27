@@ -27,4 +27,4 @@ Android and iOS reach the desktop scenarios' state hashes. In the browser all bu
 - `Sim/Physics.cs` sweeps the ball against walls, paddle and bricks, so a fast ball never tunnels.
 - `levels/*.yaml` are read through OneYaml's generated metadata; unknown keys are errors.
 - `Views/` only reads the court and sends commands. Held keys, sticks and the pointer are polled each frame; launch and pause are events.
-- `Profile.cs` is the settings and score file, written through the data store.
+- `Profile.cs` is the settings and score file, written through the engine's `IByteStore` (see [saves.md](../../docs/saves.md)).
