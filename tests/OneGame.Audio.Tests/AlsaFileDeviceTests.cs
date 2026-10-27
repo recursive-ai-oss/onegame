@@ -46,7 +46,9 @@ public class AlsaFileDeviceTests
             Assert.Equal(AudioOutputStatus.Running, output.Status);
             core.Play(new VoiceRequest { Source = core.LoadClip(new MemoryStream(TestCore.Constant(0.5f, 48_000))) });
 
-            Assert.True(WaitFor(() => output.DeviceStatus().FramesPlayed > 24_000), "the device never took frames: " + output.DeviceStatus());
+            // The file PCM is not paced, so the audio thread runs ahead and the device can consume plenty of leading silence before the
+            // voice starts. Wait for the peak as well as the frame count; the peak is sticky once a loud block has been consumed.
+            Assert.True(WaitFor(() => output.DeviceStatus() is { FramesPlayed: > 24_000, PeakPlayed: > 0.2f }), "the device never took the tone: " + output.DeviceStatus());
             var s = output.DeviceStatus();
             Assert.Equal("alsa", s.Backend);
             Assert.True(s.FramesWritten >= s.FramesPlayed, s.ToString());
