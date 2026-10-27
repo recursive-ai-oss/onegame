@@ -1,0 +1,14 @@
+name: the same commands with and without particles leave the same simulation state
+window: 480x270
+steps:
+  - step: 30
+  - command: {entity: Spout, name: Pop}
+  - step: 10
+  - command: {entity: Spout, name: MoveTo, args: [40]}
+  - step: 30
+  - command: {entity: Spout, name: Pop}
+  - step: 20
+  - capture: {path: hash-run.png}
+  - step: 30
+expect:
+  - tick: 120

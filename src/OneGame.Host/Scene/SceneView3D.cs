@@ -27,6 +27,7 @@ public sealed class SceneView3D : IDisposable
     private readonly SceneWriter _writer;
     private readonly List<Light3D> _lightPool = [];
     private readonly Camera3D _camera = new();
+    private readonly List<BillboardBatch3D> _billboardPool = [];
 
     /// <summary>Creates a view over a model library.</summary>
     /// <param name="models">The models entities can show; a new empty library when null.</param>
@@ -67,6 +68,7 @@ public sealed class SceneView3D : IDisposable
         _writer.Clear();
         _writer.Tick = tick;
         _writer.Alpha = alpha;
+        _writer.BeginTime();
         var entities = world.Entities;
         for (var i = 0; i < entities.Count; i++)
         {
@@ -81,6 +83,9 @@ public sealed class SceneView3D : IDisposable
         Describer?.Invoke(world, _writer);
         _writer.Entity = default;
     }
+
+    /// <summary>The particle emitters entities showed in the last <see cref="Prepare"/>, in call order.</summary>
+    public IReadOnlyList<OneGame.Particles.ParticleEmitter> ParticleEmitters => _writer.ParticleEmitters;
 
     /// <summary>The camera in use as of the last <see cref="Prepare"/>: the override, else the entity camera with the highest priority, else <see cref="DefaultCamera"/>.</summary>
     public ViewCamera Camera => CameraOverride ?? (_writer.HasCamera ? _writer.ChosenCamera : DefaultCamera);
@@ -155,6 +160,8 @@ public sealed class SceneView3D : IDisposable
             entry.Batch.Add(d.World, d.Tint);
         }
 
+        BuildBillboards(scene);
+
         scene.Lights.Clear();
         var lights = _writer.Lights;
         for (var i = 0; i < lights.Count; i++)
@@ -178,6 +185,59 @@ public sealed class SceneView3D : IDisposable
             scene.Lights.Add(light);
         }
     }
+
+    // Emitters shown this frame become quads in pooled batches, one batch per texture, refilled each frame.
+    private void BuildBillboards(Scene3D scene)
+    {
+        for (var i = 0; i < _billboardPool.Count; i++)
+        {
+            _billboardPool[i].Clear();
+        }
+
+        var emitters = _writer.Emitters;
+        for (var e = 0; e < emitters.Count; e++)
+        {
+            var (emitter, texture) = emitters[e];
+            BillboardBatch3D? batch = null;
+            for (var i = 0; i < _billboardPool.Count; i++)
+            {
+                if (ReferenceEquals(_billboardPool[i].Texture, texture))
+                {
+                    batch = _billboardPool[i];
+                    break;
+                }
+            }
+
+            if (batch is null)
+            {
+                batch = new BillboardBatch3D { Texture = texture, Name = "particles" };
+                _billboardPool.Add(batch);
+            }
+
+            if (!scene.Billboards.Contains(batch))
+            {
+                scene.Billboards.Add(batch);
+            }
+
+            var s = emitter.Settings;
+            var additive = s.Blend == OneGame.Particles.ParticleBlend.Additive;
+            for (var i = 0; i < emitter.Count; i++)
+            {
+                var p = emitter.Sample(i);
+                batch.Add(new Billboard3D
+                {
+                    Position = p.Position,
+                    Size = new Vector2(p.Size),
+                    Rotation = p.Rotation,
+                    Color = new Vector4(Linear(p.Color.X) * s.Emission, Linear(p.Color.Y) * s.Emission, Linear(p.Color.Z) * s.Emission, p.Color.W),
+                    Uv = p.Uv,
+                    Additive = additive,
+                });
+            }
+        }
+    }
+
+    private static float Linear(float c) => c <= 0.04045f ? c / 12.92f : MathF.Pow((c + 0.055f) / 1.055f, 2.4f);
 
     /// <summary>Where a world point lands in a target of <paramref name="width"/> x <paramref name="height"/> pixels (origin top left).</summary>
     /// <param name="point">The world position.</param>

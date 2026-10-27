@@ -231,6 +231,9 @@ public enum ExpectKind
 
     /// <summary>The state of an input action this frame: held, pressed, released, value.</summary>
     Action,
+
+    /// <summary>Live particles in the frame just drawn: in total or in the emitter of a given name, exactly, at least or at most.</summary>
+    Particles,
 }
 
 /// <summary>A check on the game's state. Unset fields are not checked.</summary>
@@ -331,6 +334,9 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
 
     /// <summary>The sound's name (sound): the name the clip was loaded under, with or without its file extension.</summary>
     public string? SoundName { get; init; }
+
+    /// <summary>The emitter's name (particles); null counts every emitter shown.</summary>
+    public string? EmitterName { get; init; }
 
     /// <summary>Only sounds requested in the last this-many frames count (sound); 0 counts every sound since the scenario began.</summary>
     public int SoundFrames { get; init; }
@@ -949,6 +955,15 @@ public static class ScenarioParser
                         Min = sd.TryGetValue("min", out var sdmin) ? Number(sdmin, "min") : (noBound ? 1 : null),
                         Max = sd.TryGetValue("max", out var sdmax) ? Number(sdmax, "max") : null,
                         SoundFrames = sd.TryGetValue("frames", out var sdf) ? Whole(sdf, "frames") : 0,
+                    };
+                case "particles":
+                    var pm = Map(v, ["emitter", "count", "min", "max"], "particles");
+                    return new ScenarioExpectation(ExpectKind.Particles, line)
+                    {
+                        EmitterName = OptText(v, "emitter"),
+                        Count = pm.TryGetValue("count", out var pmc) ? Whole(pmc, "count") : null,
+                        Min = pm.TryGetValue("min", out var pmmin) ? Number(pmmin, "min") : null,
+                        Max = pm.TryGetValue("max", out var pmmax) ? Number(pmmax, "max") : null,
                     };
                 case "action":
                     var axm = Map(v, ["name", "held", "pressed", "released", "x", "y", "value"], "action");

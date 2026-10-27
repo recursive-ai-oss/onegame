@@ -1,5 +1,6 @@
 using System.Numerics;
 using OneGame.Core;
+using OneGame.Particles;
 using OneGame.Render2D;
 using OneGame.Text;
 using OneGame.UI;
@@ -13,9 +14,10 @@ namespace OneGame.Host;
 /// behind), then call order; text is drawn over everything else, in call order. Steady frames allocate nothing (text strings that the view
 /// builds each frame are the view's own allocation).
 /// </summary>
-public sealed class Draw2D
+public sealed partial class Draw2D
 {
     private const int DiskSize = 128;
+    private const int SoftSize = 64;
 
     private struct TextItem
     {
@@ -35,6 +37,8 @@ public sealed class Draw2D
     private Renderer2D? _assetsFor;
     private Texture2D? _white;
     private Texture2D? _disk;
+    private Texture2D? _soft;
+    private readonly List<ParticleEmitter> _emitters = [];
     private long _lastTick = long.MinValue;
     private float _lastTime;
 
@@ -95,11 +99,13 @@ public sealed class Draw2D
             _assetsFor = renderer;
             _white = renderer.CreateTexture(1, 1, [255, 255, 255, 255], TextureFilter.Nearest);
             _disk = renderer.CreateTexture(DiskSize, DiskSize, MakeDisk(), TextureFilter.Linear);
+            _soft = renderer.CreateTexture(SoftSize, SoftSize, MakeSoft(), TextureFilter.Linear);
         }
 
         Renderer = renderer;
         _scene.Clear();
         _texts.Clear();
+        _emitters.Clear();
         Layer = _scene.DefaultLayer;
         SpriteCount = 0;
         Width = frame.Width;

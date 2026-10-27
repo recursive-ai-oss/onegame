@@ -104,6 +104,9 @@ public sealed partial class Renderer2D : IDisposable
     private readonly GpuGraphicsPipeline _blurPipeline;
     private readonly GpuGraphicsPipeline _gradePipeline;
     private readonly GpuShader _blurPixel;
+    private readonly GpuShader _additivePixel;
+    private readonly GpuGraphicsPipeline _additivePipeline;
+    private Material? _additiveMaterial;
     private readonly GpuShader _gradePixel;
     private readonly GpuBuffer _clipBuffer;
     private readonly GpuSampler _clampLinear;
@@ -150,6 +153,7 @@ public sealed partial class Renderer2D : IDisposable
         _spritePixel = Shader(ShaderNames.Quad, ShaderNames.Sprite);
         _blurPixel = Shader(ShaderNames.Quad, ShaderNames.Blur);
         _gradePixel = Shader(ShaderNames.Quad, ShaderNames.Grade);
+        _additivePixel = Shader(ShaderNames.Quad, ShaderNames.Additive);
         _tileVertex = Shader(ShaderNames.Tile, ShaderNames.Vertex);
         _tileIdsPixel = Shader(ShaderNames.Tile, ShaderNames.TileIds);
         _tileFlatPixel = Shader(ShaderNames.Tile, ShaderNames.TileFlat);
@@ -159,6 +163,7 @@ public sealed partial class Renderer2D : IDisposable
         _spritePipeline = Pipeline(_layoutPlain, _quadVertex, _spritePixel, Layouts.QuadVertex(), "sprite");
         _blurPipeline = Pipeline(_layoutParams, _quadVertex, _blurPixel, Layouts.QuadVertex(), "blur");
         _gradePipeline = Pipeline(_layoutParams, _quadVertex, _gradePixel, Layouts.QuadVertex(), "grade");
+        _additivePipeline = Pipeline(_layoutParams, _quadVertex, _additivePixel, Layouts.QuadVertex(), "additive");
         _tileIdsPipeline = Pipeline(_layoutTile, _tileVertex, _tileIdsPixel, Layouts.QuadVertex(true), "tile ids");
         _tileFlatPipeline = Pipeline(_layoutTile, _tileVertex, _tileFlatPixel, Layouts.QuadVertex(true), "tile flat");
         _uiPipeline = Pipeline(_layoutPlain, _uiVertex, _uiPixel, Layouts.UiVertex(), "ui");
@@ -382,6 +387,12 @@ public sealed partial class Renderer2D : IDisposable
         var group = _device.CreateBindGroup(_layoutParams, 2, [BindGroupEntry.ForBuffer(0, buffer)]);
         return new Material(buffer, group, pipeline, ownsPipeline);
     }
+
+    /// <summary>
+    /// A built-in material that adds a sprite's colour to what is already on the target instead of blending it over: glows, sparks and fire.
+    /// Set it as <see cref="Sprite.Material"/>. The sprite's alpha scales its brightness; the colour is premultiplied as for any sprite.
+    /// </summary>
+    public Material AdditiveMaterial => _additiveMaterial ??= NewMaterial(_additivePipeline, ownsPipeline: false);
 
     /// <summary>Makes an empty post-processing chain. Add effects, then pass it to <see cref="DrawScene"/>.</summary>
     /// <returns>The chain.</returns>
@@ -984,12 +995,13 @@ public sealed partial class Renderer2D : IDisposable
         }
 
         Ui.Dispose();
+        _additiveMaterial?.Dispose();
         _white.Dispose();
         _quadBuffer?.Dispose();
         _uiBuffer?.Dispose();
         _clipBuffer.Dispose();
         _clampLinear.Dispose();
-        foreach (var p in new IDisposable[] { _spritePipeline, _tileIdsPipeline, _tileFlatPipeline, _uiPipeline, _blurPipeline, _gradePipeline, _quadVertex, _spritePixel, _blurPixel, _gradePixel, _tileVertex, _tileIdsPixel, _tileFlatPixel, _uiVertex, _uiPixel, _layoutPlain, _layoutParams, _layoutTile })
+        foreach (var p in new IDisposable[] { _spritePipeline, _tileIdsPipeline, _tileFlatPipeline, _uiPipeline, _blurPipeline, _gradePipeline, _additivePipeline, _quadVertex, _spritePixel, _blurPixel, _additivePixel, _gradePixel, _tileVertex, _tileIdsPixel, _tileFlatPixel, _uiVertex, _uiPixel, _layoutPlain, _layoutParams, _layoutTile })
         {
             p.Dispose();
         }

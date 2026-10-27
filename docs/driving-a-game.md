@@ -44,6 +44,7 @@ expect:
   - state: { table: lanes, row: 2, property: Heat, equals: 7 }
   - ui: { id: count, text: "Count: 3" }       # or selector + count/contains/visible/enabled/focused/pressed
   - steam-input: { set: Map, controllers: 1, down: map_select, keyboard: false }   # active action set, pads, held actions, on-screen keyboard (docs/interfaces/steam.md)
+  - particles: { emitter: sparks, min: 50, max: 100 }  # live particles in the frame just drawn (an emitter's name, or all); count, min, max; see docs/particles.md
   - sound: { name: coin, count: 1, frames: 5 }  # the game played the clip loaded as "coin" (or coin.ogg) once in the last 5 frames; also min, max; no bounds = at least once
   - action: { name: move, held: true, x: 1 }   # an action's current state (also pressed, released, y)
   - asset: { path: art/ship.png, state: ready, version: 1 }

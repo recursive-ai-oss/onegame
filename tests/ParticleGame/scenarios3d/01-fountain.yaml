@@ -1,0 +1,16 @@
+name: seeded 3D emitters draw as billboards in the scene, behind a wall where it hides them, and the harness counts them
+window: 480x270
+steps:
+  - step: 1
+  - expect: {particles: {emitter: sparks, min: 55, max: 90}}
+  - expect: {particles: {emitter: smoke, min: 25, max: 50}}
+  - expect: {capture: {reference: refs/stream.png, tolerance: 4, max-diff: 0.001}}
+  - command: {entity: Spout3D, name: Pop}
+  - step: 1
+  - expect: {particles: {emitter: pop, count: 24}}
+  - step: 20
+  - expect: {capture: {reference: refs/pop-spread.png, tolerance: 4, max-diff: 0.001}}
+  - step: 60
+  - expect: {particles: {emitter: pop, count: 0}}
+expect:
+  - tick: 82

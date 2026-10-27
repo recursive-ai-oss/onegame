@@ -188,6 +188,7 @@ public sealed partial class Renderer3D
             ShadowLights = _shadowCount,
             Instances = InstanceTotal,
             InstancesDrawn = InstanceVisible,
+            Billboards = _bbCount,
             Quality = _quality,
             Ssao = _ssaoActive,
         };
@@ -290,6 +291,7 @@ public sealed partial class Renderer3D
         CullBatches(viewProj);
         FlushObjects();
         RefreshBindGroups();
+        CollectBillboards(scene, view);
     }
 
     private static LightRecord MakeLight(Light3D l)
@@ -658,6 +660,7 @@ public sealed partial class Renderer3D
 
             r.DrawRegular(pass, r._blend, r._blendCount, PipeKind.Main, Samples, -1);
             r.DrawBatches(pass, PipeKind.Main, Samples, 0, blend: true);
+            r.DrawBillboards(pass, Samples);
         }
     }
 

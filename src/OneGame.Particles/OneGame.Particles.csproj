@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Particle emitters: a seedable, allocation-free simulation for sparks, smoke, dust and trails, drawn by the 2D and 3D renderers.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="System.Numerics" />
+    <InternalsVisibleTo Include="OneGame.Particles.Tests" />
+  </ItemGroup>
+
+</Project>

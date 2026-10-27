@@ -62,6 +62,9 @@ public static class ShaderNames
     /// <summary>Quad pixel entry point: texture times tint.</summary>
     public const string Sprite = "PSSprite";
 
+    /// <summary>Quad pixel entry point: texture times tint, added to the target instead of blended over it.</summary>
+    public const string Additive = "PSAdditive";
+
     /// <summary>Quad pixel entry point: separable blur.</summary>
     public const string Blur = "PSBlur";
 
