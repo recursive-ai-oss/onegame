@@ -1,3 +1,4 @@
+using OneGame.Storage;
 using OneGame.Platform;
 using OneGame.Testing;
 using OneGame.UI.Kit;
@@ -8,7 +9,7 @@ namespace Bricks.Tests;
 /// <summary>The game as a player meets it: input, the harness's determinism checks, and what survives a restart.</summary>
 public class PlayTests
 {
-    private static BricksGame Make() => new(new GameServices { CreateStore = _ => new MemoryStore() });
+    private static BricksGame Make() => new(new GameServices { CreateStore = _ => new MemoryByteStore() });
 
     private static TestOptions Options => new() { Width = 540, Height = 960 };
 
@@ -123,7 +124,7 @@ public class PlayTests
         var dir = Path.Combine(Path.GetTempPath(), "bricks-test-" + Guid.NewGuid().ToString("N"));
         try
         {
-            BricksGame OnDisk() => new(new GameServices { CreateStore = _ => new LocalFileStore(dir) });
+            BricksGame OnDisk() => new(new GameServices { CreateStore = _ => new FolderByteStore(dir) });
             using (var first = TestCluster.Start(OnDisk(), Options))
             {
                 var client = first.Client;

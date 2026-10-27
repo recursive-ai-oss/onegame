@@ -49,7 +49,7 @@ Input comes from all three devices through the same code: pointer (click, drag a
 
 `Profile` is the settings and the record book. It is read defensively: every number is range-checked and the history length is capped before anything is allocated, so a damaged file gives a fresh profile and never an exception. The game saves itself after every move; `Continue` loads that file and checks it is a sane game before using it.
 
-`IDataStore` has three implementations: `LocalFileStore` (a folder), `MemoryStore` (headless runs and tests) and `CloudStore` (Steam Cloud). `DataStores.Choose` picks the cloud only when the store is running and the player has cloud saves on, and the local folder otherwise. Steam starts only when `SOLITAIRE_STEAM_APPID` is set.
+The game keeps its files through the engine storage service ([saves.md](../../docs/saves.md)): the profile is a file in the game's `IByteStore`, and the saved game is the slot `continue` (`game.Storage.Save`/`Load`, written after every move). The store is `MemoryByteStore` for headless runs and tests, a folder or the browser's storage for players, and `CloudStore` (an `IByteStore` over Steam Cloud) when the store is running and the player has cloud saves on (`DataStores.Choose`). Steam starts only when `SOLITAIRE_STEAM_APPID` is set. `scenarios-persist/` holds a save scenario and a load scenario that prove a slot survives a restart: run them one after the other with the same `SOLITAIRE_DATA` folder (`onegame test --scenario scenarios-persist/save`, then `.../load`), or in a browser with `onegame web test --scenario scenarios-persist/save --profile <folder> --port 38417` and again with `load`.
 
 ### Sounds
 

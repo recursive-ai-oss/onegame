@@ -15,6 +15,7 @@
     <Using Include="System" />
     <Using Include="System.Collections.Generic" />
     <InternalsVisibleTo Include="OneGame.Core.Tests" />
+    <InternalsVisibleTo Include="OneGame.Sync.Tests" />
     <InternalsVisibleTo Include="OneGame.Sync" />
     <InternalsVisibleTo Include="OneGame.Net" />
     <InternalsVisibleTo Include="OneGame.Control" />

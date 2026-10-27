@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using OneGame.Core;
+using OneGame.Storage;
 using OneGame.Host;
 using OneGame.Platform;
 using OneGame.UI;
@@ -38,7 +39,7 @@ internal sealed class Session
     {
         Game = game;
         Definition = (BricksGame)game.Definition;
-        Data = Definition.Services.CreateStore(game);
+        Data = game.Storage.Files;
         Sound = Definition.Services.Sounds;
         Profile = LoadProfile();
         Kit = Kits.For(game.Ui);
@@ -63,7 +64,7 @@ internal sealed class Session
     /// <summary>The settings and the high-score table.</summary>
     public Profile Profile { get; private set; }
 
-    public IDataStore Data { get; }
+    public IByteStore Data { get; }
 
     public ISoundSink Sound { get; }
 
@@ -200,7 +201,7 @@ internal sealed class Session
             // The harness reset the game: a new scenario, or a new game of the harness's own. In a run whose files live in memory that
             // means a clean slate, so scenarios never see each other's scores.
             _resets = Definition.Resets;
-            if (Data is MemoryStore)
+            if (Data is MemoryByteStore)
             {
                 Data.Delete(Profile.FileName);
             }

@@ -3,6 +3,7 @@ using OneGame.Atlas;
 using OneGame.Audio;
 using OneGame.Core;
 using OneGame.Host;
+using OneGame.Storage;
 using OneGame.UI;
 using OneGame.UI.Kit;
 using Bricks.Views;
@@ -13,7 +14,7 @@ namespace Bricks;
 public sealed class GameServices
 {
     /// <summary>Makes the data store for a running game.</summary>
-    public Func<GameInstance, IDataStore> CreateStore { get; init; } = DefaultStore;
+    public Func<GameInstance, IByteStore> CreateStore { get; init; } = DefaultStore;
 
     /// <summary>Where sounds go.</summary>
     public ISoundSink Sounds { get; init; } = new SilentSounds();
@@ -22,10 +23,10 @@ public sealed class GameServices
     /// The default: files in memory for a headless run (a test never touches the player's own scores), otherwise a folder
     /// (<c>BRICKS_DATA</c> if set, else the user's local application data).
     /// </summary>
-    private static IDataStore DefaultStore(GameInstance game) =>
-        (game.Options.Headless || !game.Options.PresentFrames) && Environment.GetEnvironmentVariable("BRICKS_DATA") is not { Length: > 0 }
-            ? new MemoryStore()
-            : new LocalFileStore(Environment.GetEnvironmentVariable("BRICKS_DATA") is { Length: > 0 } dir ? dir : LocalFileStore.DefaultDirectory());
+    private static IByteStore DefaultStore(GameInstance game) =>
+        !game.Options.PersistData && (game.Options.Headless || !game.Options.PresentFrames) && Environment.GetEnvironmentVariable("BRICKS_DATA") is not { Length: > 0 }
+            ? new MemoryByteStore()
+            : Environment.GetEnvironmentVariable("BRICKS_DATA") is { Length: > 0 } dir ? new FolderByteStore(dir) : GameStorage.Create("bricks", game.Options with { PersistData = true });
 }
 
 /// <summary>One kit host per UI tree, so screens built later find the one that installed the theme.</summary>
@@ -76,6 +77,9 @@ public sealed class BricksGame : GameDefinition
     /// checks that the table was really saved.
     /// </summary>
     internal int Restarts { get; private set; }
+
+    /// <inheritdoc />
+    public override IByteStore? CreateStore(GameInstance game) => Services.CreateStore(game);
 
     /// <inheritdoc />
     public override string Name => "Bricks";

@@ -1,0 +1,13 @@
+name: restore-slot
+description: In a new process or a reloaded page, find the slot save-slot.yaml wrote, load it and land on the same world.
+steps:
+  - screen: table
+  - expect:
+      saves:
+        has: reload-check
+        slot: { name: reload-check, label: "After three draws", kind: manual, tick: 3 }
+  - saves: { action: load, slot: reload-check }
+  - expect:
+      tick: 3
+  - expect:
+      hash: a0c7cb1ad39a363f

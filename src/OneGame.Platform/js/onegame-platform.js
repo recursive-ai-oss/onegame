@@ -229,3 +229,50 @@ export function wsPending(id) { const q = sockets[id].inbox; return q.length ? q
 export function wsReceive(id, dest) { const m = sockets[id].inbox.shift(); dest.set(m); return m.length; }
 export function wsSend(id, data) { const s = sockets[id]; if (s.state === 1) s.ws.send(data.slice()); }
 export function wsClose(id) { const s = sockets[id]; if (s.ws && s.state < 2) { s.state = 2; s.ws.close(1000); } }
+
+// ---- Files that survive a reload (IndexedDB), read and written synchronously by the managed side ----
+// The page loads every file into memory with storageOpen before the program starts (boot script), so reads never wait. A write updates
+// memory at once and queues one IndexedDB transaction per file; a transaction either stores the whole file or nothing, so a reload
+// during a write finds the old file or the new one. Reference: W3C Indexed Database API 3.0 (transactions are atomic).
+const kv = new Map();        // key -> Uint8Array
+let kvDb = null, kvKind = 'memory', kvPending = 0, kvFailed = 0, kvWhy = '';
+export function storageOpen(name) {
+  return new Promise((resolve) => {
+    if (!globalThis.indexedDB) { kvWhy = 'indexedDB is not available'; resolve(kvKind); return; }
+    let rq;
+    try { rq = indexedDB.open(name || 'onegame-files', 1); } catch (e) { kvWhy = String(e); resolve(kvKind); return; }
+    rq.onupgradeneeded = () => { rq.result.createObjectStore('files'); };
+    rq.onerror = () => { kvWhy = String(rq.error); resolve(kvKind); };
+    rq.onblocked = () => { kvWhy = 'blocked'; resolve(kvKind); };
+    rq.onsuccess = () => {
+      const db = rq.result;
+      try {
+        const tx = db.transaction('files', 'readonly');
+        const cur = tx.objectStore('files').openCursor();
+        cur.onsuccess = () => {
+          const c = cur.result;
+          if (c) { if (c.value instanceof Uint8Array || c.value instanceof ArrayBuffer) kv.set(String(c.key), new Uint8Array(c.value)); c.continue(); }
+        };
+        tx.oncomplete = () => { kvDb = db; kvKind = 'indexeddb'; resolve(kvKind); };
+        tx.onerror = tx.onabort = () => { kvWhy = String(tx.error); resolve(kvKind); };
+      } catch (e) { kvWhy = String(e); resolve(kvKind); }
+    };
+  });
+}
+function kvPersist(work) {
+  if (!kvDb) return;
+  kvPending++;
+  try {
+    const tx = kvDb.transaction('files', 'readwrite');
+    work(tx.objectStore('files'));
+    tx.oncomplete = () => { kvPending--; };
+    tx.onerror = tx.onabort = () => { kvPending--; kvFailed++; kvWhy = String(tx.error); };
+  } catch (e) { kvPending--; kvFailed++; kvWhy = String(e); }
+}
+export function kvSize(key) { const v = kv.get(key); return v ? v.length : -1; }
+export function kvRead(key, dest) { const v = kv.get(key); if (!v) return -1; dest.set(v); return v.length; }
+export function kvWrite(key, data) { const v = data.slice(); kv.set(key, v); kvPersist((s) => s.put(v, key)); }
+export function kvDelete(key) { if (kv.delete(key)) kvPersist((s) => s.delete(key)); }
+export function kvList(prefix) { return [...kv.keys()].filter((k) => k.startsWith(prefix)).sort().join('\n'); }
+// kind: "indexeddb" or "memory"; pending: transactions not yet committed; failed: transactions the browser refused (quota, closed database).
+export function kvStatus() { return JSON.stringify({ kind: kvKind, pending: kvPending, failed: kvFailed, why: kvWhy, files: kv.size }); }

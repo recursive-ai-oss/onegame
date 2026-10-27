@@ -456,6 +456,9 @@ public sealed class ScenarioRunner
             case StepKind.Store:
                 _surface.Call("store", s.ControlArgs);
                 break;
+            case StepKind.Saves:
+                _surface.Call("saves", s.ControlArgs);
+                break;
             case StepKind.Assets:
                 _surface.Call("assets", s.ControlArgs);
                 break;
@@ -498,6 +501,7 @@ public sealed class ScenarioRunner
                 ExpectKind.Capture => await CheckCaptureAsync(e, index, scenarioName, ctx, scenario),
                 ExpectKind.Pick => CheckPick(e, index),
                 ExpectKind.Store => CheckStore(e, index),
+                ExpectKind.Saves => CheckSaves(e, index),
                 ExpectKind.Asset => CheckAsset(e, index),
                 ExpectKind.SteamInput => CheckSteamInput(e, index),
                 ExpectKind.Action => CheckAction(e, index),
@@ -583,6 +587,52 @@ public sealed class ScenarioRunner
         }
 
         return new ExpectationResult(index, "store", e.Line, true, "store", null, null, null);
+    }
+
+    private ExpectationResult CheckSaves(ScenarioExpectation e, int index)
+    {
+        using var doc = JsonDocument.Parse(_surface.Call("saves", Obj(("action", "list"))));
+        var root = doc.RootElement;
+        var slots = root.GetProperty("slots").EnumerateArray().ToList();
+        var names = slots.Select(x => x.GetProperty("slot").GetString() ?? string.Empty).ToList();
+        var settingsText = string.Join('\n', root.GetProperty("settings").EnumerateArray().Select(x => x.GetProperty("text").GetString()));
+        foreach (var (key, want) in e.SavesChecks)
+        {
+            var colon = key.IndexOf(':', StringComparison.Ordinal);
+            (bool Ok, string Actual) = (colon < 0 ? key : key[..colon]) switch
+            {
+                "slots" => (names.Count.ToString(CultureInfo.InvariantCulture) == want, names.Count.ToString(CultureInfo.InvariantCulture)),
+                "has" => (names.Contains(want), string.Join(',', names)),
+                "lacks" => (!names.Contains(want), string.Join(',', names)),
+                "latest" => (names.Count > 0 && names[0] == want, names.Count > 0 ? names[0] : "none"),
+                "files" => (root.GetProperty("files").GetArrayLength().ToString(CultureInfo.InvariantCulture) == want, root.GetProperty("files").GetArrayLength().ToString(CultureInfo.InvariantCulture)),
+                "settings" => (settingsText.Contains(want, StringComparison.Ordinal), settingsText.ReplaceLineEndings(" | ")),
+                "label" or "kind" or "tick" or "game-version" => SlotField(slots, key[..colon], key[(colon + 1)..], want),
+                _ => throw new ControlException("bad_args", $"Unknown saves check '{key}'."),
+            };
+            if (!Ok)
+            {
+                var target = "saves." + key;
+                return new ExpectationResult(index, "saves", e.Line, false, target, want, Actual, $"{target} is {Actual}, expected {want}");
+            }
+        }
+
+        return new ExpectationResult(index, "saves", e.Line, true, "saves", null, null, null);
+    }
+
+    private static (bool Ok, string Actual) SlotField(List<JsonElement> slots, string field, string slot, string want)
+    {
+        foreach (var s in slots)
+        {
+            if (s.GetProperty("slot").GetString() == slot)
+            {
+                var json = field switch { "label" => "label", "kind" => "kind", "tick" => "tick", _ => "gameVersion" };
+                var actual = s.GetProperty(json).ValueKind == JsonValueKind.Number ? s.GetProperty(json).GetInt64().ToString(CultureInfo.InvariantCulture) : s.GetProperty(json).GetString() ?? string.Empty;
+                return (actual == want, actual);
+            }
+        }
+
+        return (false, $"no slot '{slot}'");
     }
 
     private ExpectationResult CheckSteamInput(ScenarioExpectation e, int index)

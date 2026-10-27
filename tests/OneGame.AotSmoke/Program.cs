@@ -249,6 +249,15 @@ if (harness != 0)
     return harness;
 }
 
+// Saves and settings: a folder store, a typed settings file, a save slot and the control operation.
+if (StorageSmoke.Run() is { } storageProblem)
+{
+    Console.Error.WriteLine(storageProblem);
+    return 1;
+}
+
+Console.WriteLine("ok: storage");
+
 
 // Windows, clipboard and input-method text.
 var windowed = WindowedSmoke.Run();

@@ -4,6 +4,7 @@ using OneGame.Core;
 using OneGame.Host;
 using OneGame.Steam;
 using OneGame.Stores;
+using OneGame.Storage;
 using OneGame.UI;
 using OneGame.UI.Kit;
 using Solitaire.Views;
@@ -14,7 +15,7 @@ namespace Solitaire;
 public sealed class GameServices
 {
     /// <summary>Makes the data store for a running game.</summary>
-    public Func<GameInstance, IDataStore> CreateStore { get; init; } = DefaultStore;
+    public Func<GameInstance, IByteStore> CreateStore { get; init; } = DefaultStore;
 
     /// <summary>Where sounds go.</summary>
     public ISoundSink Sounds { get; init; } = new SilentSounds();
@@ -28,9 +29,17 @@ public sealed class GameServices
     /// The default: files in memory for a headless run (a test never touches the player's save), otherwise the store's cloud or a folder
     /// (<c>SOLITAIRE_DATA</c> if set, else the user's local application data).
     /// </summary>
-    private static IDataStore DefaultStore(GameInstance game) => (game.Options.Headless || !game.Options.PresentFrames) && Environment.GetEnvironmentVariable("SOLITAIRE_DATA") is not { Length: > 0 }
-        ? new MemoryStore()
-        : DataStores.Choose(((SolitaireGame)game.Definition).Services.Store, Environment.GetEnvironmentVariable("SOLITAIRE_DATA") is { Length: > 0 } dir ? dir : LocalFileStore.DefaultDirectory());
+    private static IByteStore DefaultStore(GameInstance game)
+    {
+        var dir = Environment.GetEnvironmentVariable("SOLITAIRE_DATA");
+        if (!game.Options.PersistData && (game.Options.Headless || !game.Options.PresentFrames) && string.IsNullOrEmpty(dir))
+        {
+            return new MemoryByteStore();
+        }
+
+        IByteStore local = string.IsNullOrEmpty(dir) ? GameStorage.Create("solitaire", game.Options with { PersistData = true }) : new FolderByteStore(dir);
+        return DataStores.Choose(((SolitaireGame)game.Definition).Services.Store, local);
+    }
 }
 
 /// <summary>One kit host per UI tree, so screens built later find the one that installed the theme.</summary>
@@ -66,6 +75,12 @@ public sealed class SolitaireGame : GameDefinition
 
     /// <summary>The files, sounds and store the game uses.</summary>
     public GameServices Services { get; }
+
+    /// <inheritdoc />
+    public override IByteStore? CreateStore(GameInstance game) => Services.CreateStore(game);
+
+    /// <inheritdoc />
+    public override int MaxSaveBytes => 256 * 1024;
 
     /// <inheritdoc />
     public override string Name => "Solitaire";

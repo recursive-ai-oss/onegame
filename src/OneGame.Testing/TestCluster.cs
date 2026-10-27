@@ -29,6 +29,9 @@ public sealed record TestOptions
 
     /// <summary>Folder for files that operations write (captures, snapshots). A fresh temporary folder when null.</summary>
     public string? OutputDirectory { get; init; }
+
+    /// <summary>Where the game's saves and settings live. A test starts with memory (never the player's files); give a shared store, or a folder, to model a restart.</summary>
+    public OneGame.Storage.IByteStore? Storage { get; init; }
 }
 
 /// <summary>A headless game under test, driven through the control layer like a live one. One node for now.</summary>
@@ -178,7 +181,7 @@ public sealed class TestCluster : IDisposable
     public static ProcessCluster Launch(ClusterSpec spec, int? parentPid = null) => ProcessCluster.Up(spec, parentPid);
 
     internal static TestClient NewNode(GameDefinition game, TestOptions options, string output) =>
-        new(GameInstance.Create(game, new GameOptions { Headless = true, Width = options.Width, Height = options.Height, Scale = options.Scale, Seed = options.Seed, Gpu = options.Gpu, Shaders = options.Shaders }), output);
+        new(GameInstance.Create(game, new GameOptions { Headless = true, Width = options.Width, Height = options.Height, Scale = options.Scale, Seed = options.Seed, Gpu = options.Gpu, Shaders = options.Shaders, Storage = options.Storage }), output);
 
     /// <summary>Runs a scenario against the first node.</summary>
     public ScenarioResult Run(Scenario scenario, ScenarioRunOptions? options = null) =>

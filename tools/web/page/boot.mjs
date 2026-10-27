@@ -14,6 +14,7 @@ try {
   const query = new URLSearchParams(location.search);
   const args = (query.get('args') || '').split(' ').filter(Boolean);
   if (query.get('control')) args.push('--control', query.get('control'));
+  await platform.storageOpen('onegame-files');  // saved files are loaded from IndexedDB before the program starts, so reads never wait
   const runtime = await dotnet.withApplicationArguments(...args).create();
   runtime.setModuleImports('onegame-gpu', gpu);
   runtime.setModuleImports('onegame-platform', platform);

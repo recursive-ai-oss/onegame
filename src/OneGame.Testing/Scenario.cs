@@ -95,6 +95,9 @@ public enum StepKind
     /// <summary>Drive the game's in-app purchases (and script the fake store).</summary>
     Store,
 
+    /// <summary>Save, load, list or delete save slots, and reload or save settings (the <c>saves</c> operation).</summary>
+    Saves,
+
     /// <summary>Read changed asset files again (<c>check</c>), swap in staged data (<c>apply-data</c>) or reload one asset (<c>reload: path</c>).</summary>
     Assets,
 
@@ -223,6 +226,9 @@ public enum ExpectKind
     /// <summary>The purchase service's state: what is owned, pending or unfinished.</summary>
     Store,
 
+    /// <summary>The save slots and settings: how many slots, which exist, which is newest, what the settings read.</summary>
+    Saves,
+
     /// <summary>A loaded asset: its state, version, and a part of its last error.</summary>
     Asset,
 
@@ -249,6 +255,9 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
 
     /// <summary>The checks of an <see cref="ExpectKind.Asset"/> expectation: <c>path</c> first, then <c>state</c>, <c>version</c> or <c>error</c> (a part of the message).</summary>
     public (string Key, string Value)[] AssetChecks { get; init; } = [];
+
+    /// <summary>The checks of an <see cref="ExpectKind.Saves"/> expectation: a key (slots, has, lacks, latest, files, settings, label:SLOT, kind:SLOT) and its value.</summary>
+    public (string Key, string Value)[] SavesChecks { get; init; } = [];
 
     /// <summary>Entity spec (state).</summary>
     public string? Entity { get; init; }
@@ -799,6 +808,16 @@ public static class ScenarioParser
                         ControlArgs = ScenarioRunner.Obj(("action", storeAction), ("product", stm.TryGetValue("product", out var s_product) ? Text(s_product, "product") : null), ("outcome", stm.TryGetValue("outcome", out var s_outcome) ? Text(s_outcome, "outcome") : null), ("error", stm.TryGetValue("error", out var s_error) ? Text(s_error, "error") : null),
                             ("approve", stm.TryGetValue("approve", out var storeApprove) ? Bool(storeApprove, "approve") : null)),
                     };
+                case "saves":
+                    // saves: quick-save | {action: save, slot: a, label: x} | {action: write-file, name: settings.bin, data: <base64>}
+                    var savesKeys = new[] { "action", "slot", "label", "file", "name", "data" };
+                    var svm = v.Kind == YamlNodeKind.Scalar ? new Dictionary<string, YamlNode>() : Map(v, savesKeys, "saves");
+                    var savesAction = v.Kind == YamlNodeKind.Scalar ? Text(v, "saves") : svm.TryGetValue("action", out var savesActionNode) ? Text(savesActionNode, "action") : throw Error(v, "saves needs an action: list, save, load, quick-save, quick-load, autosave, load-latest, delete, settings-load, settings-save, write-file or delete-file");
+                    return new ScenarioStep(StepKind.Saves, line)
+                    {
+                        ControlArgs = ScenarioRunner.Obj(("action", savesAction), ("slot", svm.TryGetValue("slot", out var sv1) ? Text(sv1, "slot") : null), ("label", svm.TryGetValue("label", out var sv2) ? Text(sv2, "label") : null),
+                            ("file", svm.TryGetValue("file", out var sv3) ? Text(sv3, "file") : null), ("name", svm.TryGetValue("name", out var sv4) ? Text(sv4, "name") : null), ("data", svm.TryGetValue("data", out var sv5) ? Text(sv5, "data") : null)),
+                    };
                 case "assets":
                     // assets: check | apply-data, or assets: {reload: art/ship.png}
                     if (v.Kind == YamlNodeKind.Scalar)
@@ -927,6 +946,27 @@ public static class ScenarioParser
                     return sx.Count > 0
                         ? new ScenarioExpectation(ExpectKind.Store, line) { StoreChecks = [.. sx.Select(kv => (kv.Key, Text(kv.Value, kv.Key)))] }
                         : throw Error(v, "store needs at least one of owned, not-owned, pending, connection, unfinished, products, recent");
+                case "saves":
+                    // saves: {slots: 2, has: a, lacks: b, latest: a, files: 3, settings: "music = 5", slot: {name: a, label: "Day 3", kind: manual, tick: 12}}
+                    var svx = Map(v, ["slots", "has", "lacks", "latest", "files", "settings", "slot"], "saves");
+                    var svChecks = new List<(string, string)>();
+                    foreach (var (key, node) in svx)
+                    {
+                        if (key != "slot")
+                        {
+                            svChecks.Add((key, Text(node, key)));
+                            continue;
+                        }
+
+                        var detail = Map(node, ["name", "label", "kind", "tick", "game-version"], "saves.slot");
+                        var slotName = detail.TryGetValue("name", out var slotNameNode) ? Text(slotNameNode, "name") : throw Error(node, "saves.slot needs a name");
+                        foreach (var (dk, dv) in detail.Where(d => d.Key != "name"))
+                        {
+                            svChecks.Add((dk + ":" + slotName, Text(dv, dk)));
+                        }
+                    }
+
+                    return svChecks.Count > 0 ? new ScenarioExpectation(ExpectKind.Saves, line) { SavesChecks = [.. svChecks] } : throw Error(v, "saves needs at least one of slots, has, lacks, latest, files, settings, slot");
                 case "asset":
                     var ax = Map(v, ["path", "state", "version", "error"], "asset");
                     return ax.ContainsKey("path") && ax.Count > 1
