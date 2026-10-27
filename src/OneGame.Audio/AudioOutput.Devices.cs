@@ -8,6 +8,20 @@ public sealed partial class AudioOutput
 {
     private Dev.IAudioDeviceBackend? _devBackend;
     private Dev.AudioOutputDevice? _dev;
+    private long _resetAtFrames = -1;
+
+    private LoudnessReading DeviceLoudness(Dev.AudioOutputDevice d)
+    {
+        var at = Volatile.Read(ref _resetAtFrames);
+        if (at >= 0 && d.Counters.FramesRendered <= at)
+        {
+            return new(double.NegativeInfinity, double.NegativeInfinity, double.NegativeInfinity, double.NegativeInfinity, 0);
+        }
+
+        var l = d.Loudness;
+        return new(l.MomentaryLufs, l.ShortTermLufs, l.IntegratedLufs, l.TruePeakDbtp, l.FramesMeasured);
+    }
+    private Dev.AppleSessionCategory _appleSession;
 
     private static AudioOutputStatus StatusOf(Dev.DeviceState state) => state switch
     {
@@ -28,6 +42,7 @@ public sealed partial class AudioOutput
             Limiter = _limiter == OutputLimiterMode.Clamp ? Dev.OutputLimiterMode.Clamp : Dev.OutputLimiterMode.SoftKnee,
             Metering = Metering && Format.SampleRate >= LoudnessMeter.MinSampleRate,
             MeasureRenderAllocations = true,
+            AppleSession = _appleSession,
         };
         var device = Dev.AudioOutputDevice.Open(new DeviceSource(source), options, _devBackend!);
         device.Event += OnDeviceEvent;

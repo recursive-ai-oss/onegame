@@ -8,6 +8,9 @@ namespace OneGame.Audio;
 /// </summary>
 internal sealed class DevicesBackend(Dev.IAudioDeviceBackend inner) : IAudioBackend
 {
+    /// <summary>The iOS session category to ask for; ignored elsewhere.</summary>
+    public Dev.AppleSessionCategory AppleSession { get; init; } = Dev.AppleSessionCategory.Ambient;
+
     public Dev.IAudioDeviceBackend Inner { get; } = inner;
 
     public string Name => Inner.Name;
@@ -34,7 +37,7 @@ internal sealed class DevicesBackend(Dev.IAudioDeviceBackend inner) : IAudioBack
 }
 
 /// <summary>Linux output through ALSA, provided by the device package. Kept as a type of this assembly so code that named it keeps working.</summary>
-public sealed class AlsaBackend : IAudioBackend
+public sealed class AlsaBackend : IAudioBackend, IDevicesHolder
 {
     private readonly DevicesBackend _backend = new(new Dev.AlsaBackend());
 
@@ -50,5 +53,11 @@ public sealed class AlsaBackend : IAudioBackend
     /// <inheritdoc/>
     public bool TryOpen(AudioDeviceOptions options, out IAudioSink? sink, out string reason) => _backend.TryOpen(options, out sink, out reason);
 
-    internal DevicesBackend Devices => _backend;
+    DevicesBackend IDevicesHolder.Devices => _backend;
+}
+
+/// <summary>Implemented by the public backend types that stand for a device-package backend.</summary>
+internal interface IDevicesHolder
+{
+    DevicesBackend Devices { get; }
 }

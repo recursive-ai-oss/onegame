@@ -99,7 +99,7 @@ public sealed partial class AudioOutput : IDisposable
     public bool Metering { get; set; }
 
     /// <summary>The loudness at the output, after the limiter. Safe from any thread; updated once per block while sound is rendering (not while paused).</summary>
-    public LoudnessReading Loudness => _dev is { } d ? new(d.Loudness.MomentaryLufs, d.Loudness.ShortTermLufs, d.Loudness.IntegratedLufs, d.Loudness.TruePeakDbtp, d.Loudness.FramesMeasured) : new(
+    public LoudnessReading Loudness => _dev is { } d ? DeviceLoudness(d) : new(
         Volatile.Read(ref _momentary), Volatile.Read(ref _shortTerm), Volatile.Read(ref _integrated), Volatile.Read(ref _truePeak), Interlocked.Read(ref _meteredFrames));
 
     /// <summary>Clears the meter's history (integrated loudness, true peak) at the next block, so a new measurement starts clean.</summary>
@@ -108,6 +108,8 @@ public sealed partial class AudioOutput : IDisposable
         if (_dev is { } device)
         {
             device.ResetLoudness();
+            // The package clears at the next block; a reader who just asked for a reset expects to see it at once.
+            Volatile.Write(ref _resetAtFrames, device.Counters.FramesRendered);
             return;
         }
 
@@ -147,11 +149,13 @@ public sealed partial class AudioOutput : IDisposable
         ArgumentOutOfRangeException.ThrowIfLessThan(options.Channels, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(options.Channels, 16);
 
+        (backend as CaptureAudioBackend)?.Prepare(options);
         var output = new AudioOutput(backend, options, limiter);
-        if ((backend as DevicesBackend ?? (backend as AlsaBackend)?.Devices) is { } devices)
+        if ((backend as DevicesBackend ?? (backend as IDevicesHolder)?.Devices) is { } devices)
         {
             // The device side is oneaudio's: nothing opens until Start gives it the mixer.
             output._devBackend = devices.Inner;
+            output._appleSession = devices.AppleSession;
             return output;
         }
 

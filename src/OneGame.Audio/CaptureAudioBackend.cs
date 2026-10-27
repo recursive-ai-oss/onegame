@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using Dev = OneAudio.Devices;
 
 namespace OneGame.Audio;
 
@@ -6,19 +7,23 @@ namespace OneGame.Audio;
 /// A backend with no device: it records the samples the output stage would have sent to the speakers. It is manual, so time moves only when
 /// <see cref="AudioOutput.Advance"/> is called, which makes captures exact and repeatable. Tests and the harness use it.
 /// </summary>
-public sealed class CaptureAudioBackend : IAudioBackend, IDisposable
+public sealed class CaptureAudioBackend : IAudioBackend, IDevicesHolder, IDisposable
 {
+    private readonly Dev.ManualBackend _manual = new();
+    private readonly DevicesBackend _backend;
     private CaptureSink? _sink;
 
-    /// <summary>The most recent sink opened through this backend, or <see langword="null"/> before the first open.</summary>
+    /// <summary>Creates the backend.</summary>
+    public CaptureAudioBackend() => _backend = new DevicesBackend(_manual);
+
+    /// <summary>The recording, or <see langword="null"/> before an output has been created on this backend.</summary>
     public CaptureSink? Sink => _sink;
 
     /// <inheritdoc/>
     public string Name => "capture";
 
-    /// <summary>Releases the sink object; the samples stay readable.</summary>
-    public void Dispose() => _sink?.Dispose();
-
+    /// <inheritdoc/>
+    public void Dispose() => _sink = null;
 
     /// <inheritdoc/>
     public bool IsManual => true;
@@ -27,18 +32,21 @@ public sealed class CaptureAudioBackend : IAudioBackend, IDisposable
     public IReadOnlyList<AudioDeviceInfo> ListDevices() => [new AudioDeviceInfo("capture", "Capture sink", true)];
 
     /// <inheritdoc/>
-    public bool TryOpen(AudioDeviceOptions options, out IAudioSink? sink, out string reason)
+    public bool TryOpen(AudioDeviceOptions options, out IAudioSink? sink, out string reason) => _backend.TryOpen(options, out sink, out reason);
+
+    DevicesBackend IDevicesHolder.Devices => _backend;
+
+    // Called when an output is created. A reopen continues the same recording instead of starting a new one.
+    internal void Prepare(AudioDeviceOptions options)
     {
-        // A reopen continues the same recording instead of starting a new one.
         var format = new AudioDeviceFormat(options.SampleRate, options.Channels);
         if (_sink is null || _sink.Format != format)
         {
             _sink = new CaptureSink(format);
         }
 
-        sink = _sink;
-        reason = string.Empty;
-        return true;
+        var recording = _sink;
+        _manual.Sink = block => recording.Write(block);
     }
 }
 
