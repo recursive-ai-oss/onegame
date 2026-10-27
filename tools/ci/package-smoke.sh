@@ -98,6 +98,8 @@ grep -q '"runtime":"nativeaot"' "$work/export.json" || { echo "the export is not
 exe=$(ls "$work"/export/*/Mygame.exe "$work"/export/*/Mygame 2>/dev/null | head -1)
 [ -n "$exe" ] || { echo "no Mygame program in the export"; ls -R "$work/export" | head -30; exit 1; }
 
+case "$target" in linux*) step "the export needs glibc 2.31 or older"; bash "$repo/tools/ci/glibc-baseline.sh" "$exe" ;; esac
+
 step "run the exported game headless"
 "$exe" --headless --frames 60 --seed 42 --gpu off --json | tee "$work/exported-run.json"
 grep -q '"ok":true' "$work/exported-run.json"

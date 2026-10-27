@@ -99,3 +99,24 @@ Networking, matchmaking, lobbies, Workshop/UGC, leaderboards, haptics and motion
 Still unconfirmed:
 - the 8-byte Windows packing (no Windows client run yet);
 - `GameOverlayActivated` (the overlay is off for a game not launched through Steam).
+
+## Detecting the Steam Deck
+
+`store.Environment.IsHandheld` is the flat call `ISteamUtils::IsSteamRunningOnSteamDeck`, nothing more. Valve's reference marks that call **deprecated as of Steamworks SDK 1.65**, in favour of `IsRunningOnSteamHardware` (returns `ESteamHardwareType`: Deck 1, Machine 2, Frame 3) and `GetSteamHardwareDefaultConfig`. The redistributable the engine is built and tested with (`SteamUtils010`) has no export for the new calls, so the binding stays on the old one.
+
+Checked on a Steam Deck (SteamOS 3.8, Desktop Mode, KDE Plasma) with app 480, from a plain program started over ssh and again as a user unit in the desktop session:
+
+| Steam client | `IsHandheld` | `IsCouchMode` |
+|---|---|---|
+| started by the session with `-steamdeck` (the default) | true | false |
+| restarted without `-steamdeck` | true | false |
+
+So on a real Deck the call is true in Desktop Mode, and it does not depend on the client's `-steamdeck` flag; `IsCouchMode` (Big Picture) is a separate question and is false in Desktop Mode. A `false` seen elsewhere came from something other than the Deck being in Desktop Mode: another machine's client, or a newer redistributable where the deprecated call no longer answers. (Game Mode was not tried: it would have taken the Deck's session over.)
+
+A game that must know whether it runs on a Deck should combine signals and not rely on one:
+
+1. `store.Environment.IsHandheld`, when Steam is available.
+2. The `SteamDeck=1` environment variable, which a client started with `-steamdeck` sets for the games it launches (a public report in Valve's client tracker shows it being forced on non-Deck hardware that runs the client with that flag, so it means "Deck-style client", not "Deck hardware").
+3. Without Steam (a program started by hand, or a non-Steam build): `ID=steamos` and `VARIANT_ID=steamdeck` in `/etc/os-release`, or DMI `sys_vendor` `Valve` with `product_name` `Jupiter` (LCD) or `Galileo` (OLED; only Jupiter was checked here), read from `/sys/devices/virtual/dmi/id/`.
+
+Treat "is a Deck" as a hint for defaults (glyphs, UI scale, quality); keep every feature reachable without it.
