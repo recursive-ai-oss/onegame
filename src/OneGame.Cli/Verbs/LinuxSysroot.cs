@@ -15,13 +15,15 @@ internal static class LinuxSysroot
     /// <summary>The glibc the baseline runtime provides.</summary>
     public static readonly Version Baseline = new(2, 31);
 
-    private const string Layout = "debian11-glibc2.31-1";
+    private const string Layout = "debian11-glibc2.31-2";
 
     // Debian 11 (bullseye) binaries from snapshot.debian.org, addressed by the archive's own file hash.
     private static readonly (string Name, string Sha1, string Sha256)[] Packages =
     [
         ("libc6_2.31-13+deb11u13_amd64.deb", "429f4b15a81de688b2a4cfa46a2c9f6705baf8a8", "22259b07ee4d6bc97fad5a828a9db5684e1d77db71464c4e3862ddef7d65310e"),
         ("libc6-dev_2.31-13+deb11u13_amd64.deb", "247ecad434d96644fdbd160f9bf79b85af6f6ae4", "c156953c41d1034e1b6ce186497542569509b0c5aeefa8b8681319d536474421"),
+        // clang (the default on some hosts, for example GitHub's ubuntu runners) links -lgcc_s and finds it only in the sysroot; gcc found the host's.
+        ("libgcc-s1_10.2.1-6_amd64.deb", "d6a30a2c427e823fcac253c242e4272401cc61a6", "e478f2709d8474165bb664de42e16950c391f30eaa55bc9b3573281d83a29daf"),
     ];
 
     private const long MaxDownload = 16 * 1024 * 1024;

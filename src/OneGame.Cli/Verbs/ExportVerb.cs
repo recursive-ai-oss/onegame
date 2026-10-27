@@ -292,7 +292,7 @@ internal sealed partial class ExportVerb : IVerb
 
     private static void Publish(ProjectRef project, string target, bool aot, string folder, string[] extra)
     {
-        List<string> args = ["publish", project.File, "-c", "Release", "-r", target, "--self-contained", "true", "-o", folder, "--nologo", "-v", "q", "-clp:NoSummary",
+        List<string> args = ["publish", project.File, "-c", "Release", "-r", target, "--self-contained", "true", "-o", folder, "--nologo", "-v", "m", "-clp:NoSummary",
             "-p:OneGameDev=false", "-p:DebugType=none", "-p:DebugSymbols=false", "-p:GenerateFullPaths=true"];
         args.AddRange(extra);
         if (aot)
@@ -314,6 +314,11 @@ internal sealed partial class ExportVerb : IVerb
             if (text.Length == 0)
             {
                 text = string.Join(" | ", (run.Output + "\n" + run.Error).Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).TakeLast(6));
+            }
+
+            if (BuildOutput.ToolTail(run.Output + "\n" + run.Error) is { Length: > 0 } tail && !text.Contains(tail, StringComparison.Ordinal))
+            {
+                text += " | tool output: " + tail;
             }
 
             throw new CliException(ExitCodes.BuildFailed, "publish_failed", $"dotnet publish failed (exit {run.ExitCode}): {text}");

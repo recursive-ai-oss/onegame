@@ -45,7 +45,7 @@ internal sealed partial class ExportVerb
         }
 
         Directory.CreateDirectory(folder);
-        List<string> args = ["publish", project.File, "-c", "Release", "-r", target, "-o", folder, "--nologo", "-v", "q", "-clp:NoSummary", "-p:DebugType=none", "-p:DebugSymbols=false", "-p:GenerateFullPaths=true"];
+        List<string> args = ["publish", project.File, "-c", "Release", "-r", target, "-o", folder, "--nologo", "-v", "m", "-clp:NoSummary", "-p:DebugType=none", "-p:DebugSymbols=false", "-p:GenerateFullPaths=true"];
         if (plugins)
         {
             // Plugins are loaded assemblies: the host runs on the installed .NET runtime.
@@ -66,6 +66,11 @@ internal sealed partial class ExportVerb
             if (text.Length == 0)
             {
                 text = string.Join(" | ", (run.Output + "\n" + run.Error).Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).TakeLast(6));
+            }
+
+            if (BuildOutput.ToolTail(run.Output + "\n" + run.Error) is { Length: > 0 } tail && !text.Contains(tail, StringComparison.Ordinal))
+            {
+                text += " | tool output: " + tail;
             }
 
             throw new CliException(ExitCodes.BuildFailed, "publish_failed", $"dotnet publish failed (exit {run.ExitCode}): {text}");
