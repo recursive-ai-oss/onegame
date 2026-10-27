@@ -16,6 +16,9 @@ public sealed record HostResources(FontLibrary? Fonts, FontTextMeasurer? Measure
 {
     /// <summary>Where a stage registers materials whose shader files may be edited while the game runs.</summary>
     public HotShaders HotShaders { get; init; } = new();
+
+    /// <summary>The game's asset service; the 2D stage attaches its renderer so textures can be uploaded.</summary>
+    public Assets? Assets { get; init; }
 }
 
 /// <summary>
@@ -96,6 +99,11 @@ public class Render2DStage : IRenderStage, IDisposable
         {
             renderer = Renderer2D.Create(device, target.Format, _resources.Shaders!);
             _renderers[target.Format] = renderer;
+            if (_resources.Assets is { Renderer: null } assets)
+            {
+                assets.AttachRenderer(renderer);
+            }
+
             RendererCreated(renderer);
         }
 

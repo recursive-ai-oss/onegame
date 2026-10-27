@@ -17,6 +17,7 @@
     <ProjectReference Include="../OneGame.Platform/OneGame.Platform.csproj" />
     <ProjectReference Include="../OneGame.Gpu/OneGame.Gpu.csproj" />
     <ProjectReference Include="../OneGame.Audio/OneGame.Audio.csproj" />
+    <ProjectReference Include="../OneGame.Gltf/OneGame.Gltf.csproj" />
     <ProjectReference Include="../OneGame.Gpu.Backends/OneGame.Gpu.Backends.csproj" />
     <ProjectReference Include="../OneGame.Gpu.WebGpu/OneGame.Gpu.WebGpu.csproj" />
   </ItemGroup>
@@ -24,6 +25,8 @@
   <ItemGroup>
     <!-- PNG encoding for captures. -->
     <PackageReference Include="RecursiveAI.OneImage" />
+    <PackageReference Include="RecursiveAI.OneImage.Svg" />
+    <PackageReference Include="OneYaml" />
     <PackageReference Include="RecursiveAI.OneShader" />
   </ItemGroup>
 

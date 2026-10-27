@@ -51,6 +51,8 @@ internal static class HarnessSmoke
             throw new InvalidOperationException("The hot table cell was not written.");
         }
 
+        AssetsSmoke.Run();
+
         // Shader hot reload: compile a file, register it, edit it, and let the control layer recompile and swap it.
         var hlsl = Path.Combine(Path.GetTempPath(), "aot-smoke-" + Environment.ProcessId + ".hlsl");
         const string Body = "[shader(\"pixel\")] float4 PSMain() : SV_Target { return float4(@V@, 0, 0, 1); }";

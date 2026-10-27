@@ -89,6 +89,9 @@ public enum StepKind
     /// <summary>Drive the game's in-app purchases (and script the fake store).</summary>
     Store,
 
+    /// <summary>Read changed asset files again (<c>check</c>), swap in staged data (<c>apply-data</c>) or reload one asset (<c>reload: path</c>).</summary>
+    Assets,
+
     /// <summary>Drive the harness's stand-in Steam Input controller (connect, press, release, analog), then run two frames so the game sees it.</summary>
     SteamInput,
 
@@ -208,6 +211,9 @@ public enum ExpectKind
     /// <summary>The purchase service's state: what is owned, pending or unfinished.</summary>
     Store,
 
+    /// <summary>A loaded asset: its state, version, and a part of its last error.</summary>
+    Asset,
+
     /// <summary>The state of Steam Input: the active action set, the number of controllers, actions held down, the on-screen keyboard.</summary>
     SteamInput,
 
@@ -220,6 +226,9 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
 {
     /// <summary>The checks of a <see cref="ExpectKind.Store"/> expectation: a key (owned, not-owned, pending, connection, unfinished, products, recent) and its value.</summary>
     public (string Key, string Value)[] StoreChecks { get; init; } = [];
+
+    /// <summary>The checks of an <see cref="ExpectKind.Asset"/> expectation: <c>path</c> first, then <c>state</c>, <c>version</c> or <c>error</c> (a part of the message).</summary>
+    public (string Key, string Value)[] AssetChecks { get; init; } = [];
 
     /// <summary>Entity spec (state).</summary>
     public string? Entity { get; init; }
@@ -731,6 +740,23 @@ public static class ScenarioParser
                         ControlArgs = ScenarioRunner.Obj(("action", storeAction), ("product", stm.TryGetValue("product", out var s_product) ? Text(s_product, "product") : null), ("outcome", stm.TryGetValue("outcome", out var s_outcome) ? Text(s_outcome, "outcome") : null), ("error", stm.TryGetValue("error", out var s_error) ? Text(s_error, "error") : null),
                             ("approve", stm.TryGetValue("approve", out var storeApprove) ? Bool(storeApprove, "approve") : null)),
                     };
+                case "assets":
+                    // assets: check | apply-data, or assets: {reload: art/ship.png}
+                    if (v.Kind == YamlNodeKind.Scalar)
+                    {
+                        var what = Text(v, "assets");
+                        return what switch
+                        {
+                            "check" => new ScenarioStep(StepKind.Assets, line) { ControlArgs = "{}" },
+                            "apply-data" => new ScenarioStep(StepKind.Assets, line) { ControlArgs = "{\"apply_data\":true}" },
+                            _ => throw Error(v, "assets takes check, apply-data or {reload: path}"),
+                        };
+                    }
+
+                    var am = Map(v, ["reload"], "assets");
+                    return am.TryGetValue("reload", out var reloadNode)
+                        ? new ScenarioStep(StepKind.Assets, line) { ControlArgs = ScenarioRunner.Obj(("reload", Text(reloadNode, "reload"))) }
+                        : throw Error(v, "assets takes check, apply-data or {reload: path}");
                 case "steam-input":
                     var si = Map(v, ["connect", "disconnect", "press", "release", "analog", "x", "y", "controller"], "steam-input");
                     var sj = new List<string>();
@@ -837,6 +863,11 @@ public static class ScenarioParser
                     return sx.Count > 0
                         ? new ScenarioExpectation(ExpectKind.Store, line) { StoreChecks = [.. sx.Select(kv => (kv.Key, Text(kv.Value, kv.Key)))] }
                         : throw Error(v, "store needs at least one of owned, not-owned, pending, connection, unfinished, products, recent");
+                case "asset":
+                    var ax = Map(v, ["path", "state", "version", "error"], "asset");
+                    return ax.ContainsKey("path") && ax.Count > 1
+                        ? new ScenarioExpectation(ExpectKind.Asset, line) { AssetChecks = [.. ax.Select(kv => (kv.Key, Text(kv.Value, kv.Key)))] }
+                        : throw Error(v, "asset needs a path and at least one of state, version, error");
                 case "tick":
                     return new ScenarioExpectation(ExpectKind.Tick, line) { EqualTo = Text(v, "tick") };
                 case "hash":

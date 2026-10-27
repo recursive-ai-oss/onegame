@@ -244,6 +244,39 @@ public sealed partial class Renderer2D : IDisposable
         return tex;
     }
 
+    /// <summary>
+    /// Replaces the pixels of a texture made by <see cref="CreateTexture(int, int, ReadOnlySpan{byte}, TextureFilter)"/>, keeping the same <see cref="Texture2D"/> object so everything
+    /// that holds it draws the new image from the next frame on. The size may change. Waits for the device, so it is meant for development
+    /// reloads and loading screens, not for every frame.
+    /// </summary>
+    /// <param name="texture">A texture made by this renderer's <c>CreateTexture</c>.</param>
+    /// <param name="width">New width in pixels.</param>
+    /// <param name="height">New height in pixels.</param>
+    /// <param name="rgba">Exactly <c>width * height * 4</c> straight-alpha sRGB bytes.</param>
+    /// <param name="filter">How the texture is filtered when scaled.</param>
+    public void ReplaceTexture(Texture2D texture, int width, int height, ReadOnlySpan<byte> rgba, TextureFilter filter = TextureFilter.Linear)
+    {
+        ArgumentNullException.ThrowIfNull(texture);
+        ArgumentOutOfRangeException.ThrowIfLessThan(width, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
+        if (rgba.Length != checked(width * height * 4))
+        {
+            throw new ArgumentException($"a {width}x{height} texture needs {width * height * 4} bytes, got {rgba.Length}", nameof(rgba));
+        }
+
+        var stored = new byte[rgba.Length];
+        Colors.PremultiplySrgb(rgba, stored);
+        var fresh = CreateRaw(width, height, texture.Format, filter);
+        _device.WriteTexture(fresh.Texture, 0, 0, stored);
+        var old = texture.Swap(fresh.Texture, fresh.Sampler);
+
+        // Frames in flight may still read the old image and its bind group.
+        _device.WaitIdle();
+        old.Group?.Dispose();
+        old.Texture.Dispose();
+        old.Sampler.Dispose();
+    }
+
     internal Texture2D CreateRaw(int width, int height, GpuFormat format, TextureFilter filter)
     {
         var gpu = _device.CreateTexture(new TextureDesc((uint)width, (uint)height, format, TextureUsage.Sampled | TextureUsage.CopyDestination));
