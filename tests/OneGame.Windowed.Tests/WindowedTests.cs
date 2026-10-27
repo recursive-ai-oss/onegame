@@ -15,7 +15,12 @@ internal sealed class Session : IDisposable
     public Session(PlatformBackendKind backend, string display, OneGame.Gpu.PresentMode presentMode = OneGame.Gpu.PresentMode.Vsync)
     {
         // The software rasterizer is deterministic and needs no display hardware; the validation layer reports anything the game does wrong.
-        if (backend != PlatformBackendKind.Cocoa)
+        // A machine that has only a real GPU (a laptop) names its adapter in ONEGAME_WINDOWED_ADAPTER instead.
+        if (Environment.GetEnvironmentVariable("ONEGAME_WINDOWED_ADAPTER") is { Length: > 0 } chosen)
+        {
+            Environment.SetEnvironmentVariable("ONEGAME_GPU_ADAPTER", chosen);
+        }
+        else if (backend != PlatformBackendKind.Cocoa)
         {
             Environment.SetEnvironmentVariable("ONEGAME_GPU_ADAPTER", "software");
         }
