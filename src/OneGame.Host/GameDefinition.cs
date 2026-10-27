@@ -83,6 +83,12 @@ public abstract class GameDefinition
         }
     }
 
+    /// <summary>
+    /// Where <see cref="GameInstance.Assets"/> reads content from. The default is the program's folder, a macOS bundle's <c>Resources</c> and the working
+    /// directory, in that order, so an export finds its <c>art/</c> and <c>data/</c> next to the program and a development run finds them in the project.
+    /// </summary>
+    public virtual IAssetSource CreateAssetSource() => new FileAssetSource();
+
     /// <summary>Registers SVG and image art the UI refers to by id.</summary>
     public virtual void DefineArt(ArtAtlas art)
     {

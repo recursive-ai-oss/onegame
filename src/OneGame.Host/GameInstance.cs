@@ -133,7 +133,8 @@ public sealed class GameInstance : IDisposable
         definition.DefineArt(art);
         var shaders = options.Shaders ?? GeneratedShaders.Instance;
         HotShaders = new HotShaders();
-        _stage = definition.CreateRenderStage(new HostResources(haveFonts ? fonts : null, measurer, art, shaders) { HotShaders = HotShaders });
+        Assets = new Assets(definition.CreateAssetSource());
+        _stage = definition.CreateRenderStage(new HostResources(haveFonts ? fonts : null, measurer, art, shaders) { HotShaders = HotShaders, Assets = Assets });
         Platform = PlatformApp.Create(new PlatformOptions
         {
             Backend = options.Headless ? PlatformBackendKind.Headless : options.Backend,
@@ -226,6 +227,9 @@ public sealed class GameInstance : IDisposable
 
     /// <summary>The shaders the game's render stage registered for hot reload. A development build recompiles them when their files change.</summary>
     public HotShaders HotShaders { get; }
+
+    /// <summary>The game's asset service: load textures, data, sounds and models by path. Textures are uploaded through the 2D stage's renderer. See <c>docs/interfaces/assets.md</c>.</summary>
+    public Assets Assets { get; }
 
     /// <summary>True once the window was closed or a quit was requested.</summary>
     public bool QuitRequested => Platform.QuitRequested || Window.IsClosed;
@@ -585,6 +589,7 @@ public sealed class GameInstance : IDisposable
         }
 
         Frame++;
+        Assets.Update();
         if (Options.Headless)
         {
             Ui.Update();
@@ -984,6 +989,7 @@ public sealed class GameInstance : IDisposable
         _device?.WaitIdle();
         _swapchain?.Dispose();
         (_stage as IDisposable)?.Dispose();
+        Assets.Dispose();
         if (Options.Device is null)
         {
             _device?.Dispose();

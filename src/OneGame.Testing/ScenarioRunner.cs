@@ -104,6 +104,8 @@ public sealed class ScenarioRunner
 
         var setup = Guarded(() =>
         {
+            // A scenario starts a run, so data files that changed on disk while the game idled are swapped in here and nowhere mid-run.
+            game.Assets.ApplyPendingData();
             if (scenario.Window is not null)
             {
                 var (w, h) = Resolution.Parse(scenario.Window);
@@ -403,6 +405,9 @@ public sealed class ScenarioRunner
             case StepKind.Store:
                 _surface.Call("store", s.ControlArgs);
                 break;
+            case StepKind.Assets:
+                _surface.Call("assets", s.ControlArgs);
+                break;
             case StepKind.SteamInput:
                 _surface.Call("steam_input", s.ControlArgs);
                 _surface.Call("step", "{\"count\":2}");
@@ -439,6 +444,7 @@ public sealed class ScenarioRunner
                 ExpectKind.Capture => await CheckCaptureAsync(e, index, scenarioName, ctx, scenario),
                 ExpectKind.Pick => CheckPick(e, index),
                 ExpectKind.Store => CheckStore(e, index),
+                ExpectKind.Asset => CheckAsset(e, index),
                 ExpectKind.SteamInput => CheckSteamInput(e, index),
                 ExpectKind.Sound => CheckSound(e, index),
                 _ => throw new ControlException("bad_args", "Unknown expectation."),
@@ -461,6 +467,35 @@ public sealed class ScenarioRunner
         || (double.TryParse(actual, NumberStyles.Float, CultureInfo.InvariantCulture, out var a)
             && double.TryParse(expected, NumberStyles.Float, CultureInfo.InvariantCulture, out var b)
             && Math.Abs(a - b) < 1e-9);
+
+    private ExpectationResult CheckAsset(ScenarioExpectation e, int index)
+    {
+        var path = e.AssetChecks.First(c => c.Key == "path").Value;
+        using var doc = JsonDocument.Parse(_surface.Call("assets", "{\"check\":false}"));
+        var found = doc.RootElement.GetProperty("assets").EnumerateArray().FirstOrDefault(a => a.GetProperty("path").GetString() == path);
+        if (found.ValueKind == JsonValueKind.Undefined)
+        {
+            return new ExpectationResult(index, "asset", e.Line, false, "asset." + path, "loaded", "not loaded", $"{path} is not loaded");
+        }
+
+        foreach (var (key, want) in e.AssetChecks.Where(c => c.Key != "path"))
+        {
+            var (ok, actual) = key switch
+            {
+                "state" => (found.GetProperty("state").GetString() == want, found.GetProperty("state").GetString() ?? string.Empty),
+                "version" => (found.GetProperty("version").GetInt32().ToString(CultureInfo.InvariantCulture) == want, found.GetProperty("version").GetInt32().ToString(CultureInfo.InvariantCulture)),
+                "error" => (found.TryGetProperty("error", out var er) && (er.GetString() ?? string.Empty).Contains(want, StringComparison.Ordinal), found.TryGetProperty("error", out var er2) ? er2.GetString() ?? string.Empty : "none"),
+                _ => throw new ControlException("bad_args", $"Unknown asset check '{key}'."),
+            };
+            if (!ok)
+            {
+                var target = $"asset.{path}.{key}";
+                return new ExpectationResult(index, "asset", e.Line, false, target, want, actual, $"{target} is {actual}, expected {want}");
+            }
+        }
+
+        return new ExpectationResult(index, "asset", e.Line, true, "asset." + path, null, null, null);
+    }
 
     private ExpectationResult CheckStore(ScenarioExpectation e, int index)
     {

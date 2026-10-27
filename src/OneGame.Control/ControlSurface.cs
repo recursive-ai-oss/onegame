@@ -121,6 +121,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         "ui_hit" => Json(UiHit(a), ControlJson.Default.HitResult),
         "snapshot_save" => Json(SnapshotSave(a), ControlJson.Default.SnapshotResult),
         "shaders" => Json(ShaderCheck(), ControlJson.Default.ShadersResult),
+        "assets" => Json(AssetsOp(a), ControlJson.Default.AssetsResult),
         "render_graph" => Json(RenderGraphReport(), ControlJson.Default.RenderGraphReport),
         "theme_lint" => Json(ThemeLintCheck(), ControlJson.Default.ThemeLintReport),
         "steam_input" => Json(SteamInputOp(a), ControlJson.Default.SteamInputReport),
@@ -893,8 +894,12 @@ public sealed partial class ControlSurface : IControlEndpoint
 
     private static string Sha256(byte[] data) => Sha256Hex.Hash(data);
 
-    /// <summary>Checks the registered shader files for edits, as the <c>shaders</c> operation does. Cheap; call it from a game loop.</summary>
-    public void PollShaders() => Reloader.Poll();
+    /// <summary>Checks the registered shader files and the loaded asset files for edits, as the <c>shaders</c> and <c>assets</c> operations do. Cheap; call it from a game loop.</summary>
+    public void PollShaders()
+    {
+        Reloader.Poll();
+        AssetWatcher.Poll();
+    }
 
     private ShaderReloader? _reloader;
 
@@ -1057,6 +1062,7 @@ public sealed partial class ControlSurface : IControlEndpoint
     {
         // An edit made just before the capture shows in it.
         Reloader.Check();
+        AssetWatcher.Check();
         CapturedFrame frame;
         int w, h;
         float scale;

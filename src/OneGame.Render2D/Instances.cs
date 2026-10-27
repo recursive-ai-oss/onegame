@@ -134,16 +134,28 @@ public sealed class Texture2D : IDisposable
     }
 
     /// <summary>Width in pixels.</summary>
-    public int Width { get; }
+    public int Width { get; private set; }
 
     /// <summary>Height in pixels.</summary>
-    public int Height { get; }
+    public int Height { get; private set; }
 
     internal GpuFormat Format { get; }
 
-    internal GpuTexture Texture { get; }
+    internal GpuTexture Texture { get; private set; }
 
-    internal GpuSampler Sampler { get; }
+    internal GpuSampler Sampler { get; private set; }
+
+    /// <summary>Swaps in a new GPU image (possibly of another size) and returns the old ones for the caller to dispose once the device is idle.</summary>
+    internal (GpuTexture Texture, GpuSampler Sampler, GpuBindGroup? Group) Swap(GpuTexture texture, GpuSampler sampler)
+    {
+        var old = (Texture, Sampler, Group);
+        Texture = texture;
+        Sampler = sampler;
+        Group = null;
+        Width = (int)texture.Width;
+        Height = (int)texture.Height;
+        return old;
+    }
 
     /// <summary>The set 1 bind group, made the first time the texture is drawn.</summary>
     internal GpuBindGroup? Group { get; set; }
