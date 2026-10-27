@@ -4,6 +4,21 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-27
+
+Fixes from building a game from the packages alone.
+
+### Changed
+
+- Linux NativeAOT exports link against glibc 2.31 by default (a build sysroot is fetched once, checked against a pinned hash and cached), so they run on SteamOS, the Steam Linux Runtime and the Steam Deck when built on a current system. `--host-glibc` links against the host instead; `--sysroot <dir>` uses your own.
+- An export that needs a newer glibc than 2.31 now fails with `glibc_too_new` instead of warning.
+- Games using NuGet central package management (`Directory.Packages.props`) build with the SDK: the engine packages are versioned with `VersionOverride`.
+
+### Added
+
+- `ArtAtlas.Preload`, `PreloadFitted`, `PumpPreload`, `CompletePreload`, `ArtPreload`, `BackgroundThreads`, `PreloadFrameBudget` and the `SyncRasterizations`/`PreloadRasterizations` counters: art can be decoded and rasterized before its first draw, off the frame thread (spread over frames where there are no threads). `GameInstance.Art` exposes the game's atlas.
+- Docs: detecting the Steam Deck, and the deprecation of `IsSteamRunningOnSteamDeck`.
+
 ## [1.5.0] - 2026-10-27
 
 An examples gallery and a debug overlay.
