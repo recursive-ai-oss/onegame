@@ -33,18 +33,11 @@ public sealed partial class Renderer3D
     private void InitPost()
     {
         var device = Device;
-        ReadOnlySpan<ResourceBinding> bindings =
-        [
-            new(0, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Pixel) { Dynamic = true },
-            new(0, 1, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
-            new(0, 2, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
-            new(0, 3, 1, ResourceKind.Sampler, ShaderStage.Pixel),
-        ];
-        _postLayout = Own(device.CreatePipelineLayout(bindings));
-        _postVs = Own(device.CreateShader(new ShaderSource(ShaderStage.Vertex, Post.VSFull.EntryPoint) { SpirV = Post.VSFull.SpirV, Wgsl = Post.VSFull.Wgsl, WgslEntryPoint = Post.VSFull.WgslEntryPoint, Msl = Post.VSFull.Msl, MslFunctionName = Post.VSFull.MslFunctionName, Bindings = Post.Bindings.All }));
-        _downPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Post.PSDown.EntryPoint) { SpirV = Post.PSDown.SpirV, Wgsl = Post.PSDown.Wgsl, WgslEntryPoint = Post.PSDown.WgslEntryPoint, Msl = Post.PSDown.Msl, MslFunctionName = Post.PSDown.MslFunctionName, Bindings = Post.Bindings.All }));
-        _upPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Post.PSUp.EntryPoint) { SpirV = Post.PSUp.SpirV, Wgsl = Post.PSUp.Wgsl, WgslEntryPoint = Post.PSUp.WgslEntryPoint, Msl = Post.PSUp.Msl, MslFunctionName = Post.PSUp.MslFunctionName, Bindings = Post.Bindings.All }));
-        _tonemapPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Post.PSTonemap.EntryPoint) { SpirV = Post.PSTonemap.SpirV, Wgsl = Post.PSTonemap.Wgsl, WgslEntryPoint = Post.PSTonemap.WgslEntryPoint, Msl = Post.PSTonemap.Msl, MslFunctionName = Post.PSTonemap.MslFunctionName, Bindings = Post.Bindings.All }));
+        _postLayout = Own(device.CreatePipelineLayout(ShaderLayouts.Bindings([Post.PSDown.Layout, Post.PSUp.Layout, Post.PSTonemap.Layout], [(0, 0)])));
+        _postVs = Own(device.CreateShader(new ShaderSource(ShaderStage.Vertex, Post.VSFull.EntryPoint) { SpirV = Post.VSFull.SpirV, Wgsl = Post.VSFull.Wgsl, WgslEntryPoint = Post.VSFull.WgslEntryPoint, Msl = Post.VSFull.Msl, MslFunctionName = Post.VSFull.MslFunctionName, Layout = Post.VSFull.Layout }));
+        _downPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Post.PSDown.EntryPoint) { SpirV = Post.PSDown.SpirV, Wgsl = Post.PSDown.Wgsl, WgslEntryPoint = Post.PSDown.WgslEntryPoint, Msl = Post.PSDown.Msl, MslFunctionName = Post.PSDown.MslFunctionName, Layout = Post.PSDown.Layout }));
+        _upPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Post.PSUp.EntryPoint) { SpirV = Post.PSUp.SpirV, Wgsl = Post.PSUp.Wgsl, WgslEntryPoint = Post.PSUp.WgslEntryPoint, Msl = Post.PSUp.Msl, MslFunctionName = Post.PSUp.MslFunctionName, Layout = Post.PSUp.Layout }));
+        _tonemapPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Post.PSTonemap.EntryPoint) { SpirV = Post.PSTonemap.SpirV, Wgsl = Post.PSTonemap.Wgsl, WgslEntryPoint = Post.PSTonemap.WgslEntryPoint, Msl = Post.PSTonemap.Msl, MslFunctionName = Post.PSTonemap.MslFunctionName, Layout = Post.PSTonemap.Layout }));
         _postBuffer = Own(device.CreateBuffer(new BufferDesc((ulong)PostSlots * GpuDevice.DynamicOffsetAlignment, BufferUsage.Uniform | BufferUsage.CopyDestination) { Label = "3d post" }));
         _postSampler = Own(device.CreateSampler(SamplerDesc.Linear));
         _downPipeline = Own(device.CreateGraphicsPipeline(PostPipeline(_downPs, HdrFormat, null, "bloom down")));

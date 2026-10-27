@@ -194,7 +194,7 @@ public class SpriteTests
     {
         using var rig = new Rig(128, 96);
         var tex = rig.Own(rig.Renderer.CreateTexture(32, 32, Pixels.Checker(32, 4, new Color(255, 255, 255, 255), new Color(90, 90, 200, 255)), TextureFilter.Linear));
-        var ripple = rig.Own(rig.Renderer.CreateMaterial(new ShaderCode(OneGame.Gpu.ShaderStage.Pixel, Ripple.PSMain.EntryPoint, Ripple.PSMain.SpirV.ToArray(), Ripple.PSMain.Msl.ToArray(), Ripple.PSMain.MslFunctionName, Ripple.Bindings.All.ToArray()), "ripple"));
+        var ripple = rig.Own(rig.Renderer.CreateMaterial(new ShaderCode(OneGame.Gpu.ShaderStage.Pixel, Ripple.PSMain.EntryPoint, Ripple.PSMain.SpirV.ToArray(), Ripple.PSMain.Msl.ToArray(), Ripple.PSMain.MslFunctionName, Ripple.PSMain.Layout), "ripple"));
         ripple.SetParameter(0, new Vector4(0.06f, 3f, 0.25f, 0));
         ripple.SetParameter(1, new Vector4(0.9f, 0.2f, 0.1f, 0));
         var scene = new Scene2D();

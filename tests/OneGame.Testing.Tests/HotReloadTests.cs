@@ -31,7 +31,7 @@ public sealed class GlowGame : ShopGame
             var pixels = new byte[8 * 8 * 4];
             Array.Fill(pixels, (byte)255);
             _texture = renderer.CreateTexture(8, 8, pixels);
-            _material = renderer.CreateMaterial(new ShaderCode(OneGame.Gpu.ShaderStage.Pixel, Glow.PSMain.EntryPoint, Glow.PSMain.SpirV.ToArray(), Glow.PSMain.Msl.ToArray(), Glow.PSMain.MslFunctionName, Glow.Bindings.All.ToArray()), "glow");
+            _material = renderer.CreateMaterial(new ShaderCode(OneGame.Gpu.ShaderStage.Pixel, Glow.PSMain.EntryPoint, Glow.PSMain.SpirV.ToArray(), Glow.PSMain.Msl.ToArray(), Glow.PSMain.MslFunctionName, Glow.PSMain.Layout), "glow");
             _material.SetParameter(0, new Vector4(1, 0, 0, 1));
             var material = _material;
             HotShaders.Register(new HotShader("glow", ShaderPath, Glow.PSMain.EntryPoint, Glow.Reflection, spirv =>

@@ -220,9 +220,10 @@ internal sealed unsafe partial class MetalDevice
             throw new GpuException($"compiled Metal library has no function {name}");
         }
 
-        var vb = source.MslVertexBufferIndex == 0 ? VertexBufferBase : (uint)source.MslVertexBufferIndex;
-        return new MetalShader(library, function, source.Stage, source.EntryPoint, new SlotTable(source.Bindings),
-            (source.ComputeGroupX, source.ComputeGroupY, source.ComputeGroupZ), vb, source.MslPushConstantIndex);
+        var layout = source.Layout;
+        var (gx, gy, gz) = layout?.WorkgroupSize ?? default;
+        var push = layout?.PushConstant is { } pc && pc.MetalIndex != OneShader.Layouts.LayoutSlots.None ? (int)pc.MetalIndex : -1;
+        return new MetalShader(library, function, source.Stage, source.EntryPoint, new SlotTable(layout), (gx, gy, gz), VertexBufferBase, push);
     }
 
     /// <inheritdoc />
@@ -575,7 +576,7 @@ internal sealed unsafe partial class MetalDevice
 
         if (cs.GroupSize.X == 0)
         {
-            throw new ArgumentException("a Metal compute shader needs its thread-group size (ShaderSource.ComputeGroupX/Y/Z from the generated ThreadGroupSize members)", nameof(desc));
+            throw new ArgumentException("a Metal compute shader needs its thread-group size (ShaderSource.Layout of the generated entry point carries it)", nameof(desc));
         }
 
         using var pool = new Pool();

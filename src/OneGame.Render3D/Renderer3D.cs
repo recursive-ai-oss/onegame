@@ -88,45 +88,17 @@ public sealed partial class Renderer3D : IDisposable
         ArgumentNullException.ThrowIfNull(device);
         Device = device;
 
-        const ShaderStage vp = ShaderStage.Vertex | ShaderStage.Pixel;
-        ReadOnlySpan<ResourceBinding> bindings =
-        [
-            new(0, 0, 1, ResourceKind.ConstantBuffer, vp),
-            new(0, 1, 1, ResourceKind.ReadOnlyStorageBuffer, ShaderStage.Pixel),
-            new(0, 2, 1, ResourceKind.ReadOnlyStorageBuffer, ShaderStage.Pixel),
-            new(0, 3, 1, ResourceKind.ReadOnlyStorageBuffer, ShaderStage.Vertex),
-            new(0, 4, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
-            new(0, 5, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
-            new(0, 6, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
-            new(0, 7, 1, ResourceKind.Sampler, ShaderStage.Pixel),
-            new(0, 8, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
-            new(0, 9, 1, ResourceKind.ReadOnlyStorageBuffer, ShaderStage.Pixel),
-            new(0, 10, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
-            new(0, 11, 1, ResourceKind.Sampler, ShaderStage.Pixel),
-            new(1, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Vertex) { Dynamic = true },
-            new(2, 0, 1, ResourceKind.ConstantBuffer, vp),
-            new(2, 1, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
-            new(2, 2, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
-            new(2, 3, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
-            new(2, 4, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
-            new(2, 5, 1, ResourceKind.SampledTexture, ShaderStage.Pixel),
-            new(2, 6, 1, ResourceKind.Sampler, ShaderStage.Pixel),
-            new(2, 7, 1, ResourceKind.Sampler, ShaderStage.Pixel),
-            new(2, 8, 1, ResourceKind.Sampler, ShaderStage.Pixel),
-            new(2, 9, 1, ResourceKind.Sampler, ShaderStage.Pixel),
-            new(2, 10, 1, ResourceKind.Sampler, ShaderStage.Pixel),
-        ];
-        _layout = Own(device.CreatePipelineLayout(bindings));
-        _pbrVs = Own(device.CreateShader(new ShaderSource(ShaderStage.Vertex, Pbr.VSMain.EntryPoint) { SpirV = Pbr.VSMain.SpirV, Wgsl = Pbr.VSMain.Wgsl, WgslEntryPoint = Pbr.VSMain.WgslEntryPoint, Msl = Pbr.VSMain.Msl, MslFunctionName = Pbr.VSMain.MslFunctionName, Bindings = Pbr.Bindings.All }));
-        _pbrPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Pbr.PSMain.EntryPoint) { SpirV = Pbr.PSMain.SpirV, Wgsl = Pbr.PSMain.Wgsl, WgslEntryPoint = Pbr.PSMain.WgslEntryPoint, Msl = Pbr.PSMain.Msl, MslFunctionName = Pbr.PSMain.MslFunctionName, Bindings = Pbr.Bindings.All }));
-        _pbrVsInst = Own(device.CreateShader(new ShaderSource(ShaderStage.Vertex, Pbr.VSInst.EntryPoint) { SpirV = Pbr.VSInst.SpirV, Wgsl = Pbr.VSInst.Wgsl, WgslEntryPoint = Pbr.VSInst.WgslEntryPoint, Msl = Pbr.VSInst.Msl, MslFunctionName = Pbr.VSInst.MslFunctionName, Bindings = Pbr.Bindings.All }));
-        _outlineVs = Own(device.CreateShader(new ShaderSource(ShaderStage.Vertex, Pbr.VSOutline.EntryPoint) { SpirV = Pbr.VSOutline.SpirV, Wgsl = Pbr.VSOutline.Wgsl, WgslEntryPoint = Pbr.VSOutline.WgslEntryPoint, Msl = Pbr.VSOutline.Msl, MslFunctionName = Pbr.VSOutline.MslFunctionName, Bindings = Pbr.Bindings.All }));
-        _outlineVsInst = Own(device.CreateShader(new ShaderSource(ShaderStage.Vertex, Pbr.VSOutlineInst.EntryPoint) { SpirV = Pbr.VSOutlineInst.SpirV, Wgsl = Pbr.VSOutlineInst.Wgsl, WgslEntryPoint = Pbr.VSOutlineInst.WgslEntryPoint, Msl = Pbr.VSOutlineInst.Msl, MslFunctionName = Pbr.VSOutlineInst.MslFunctionName, Bindings = Pbr.Bindings.All }));
-        _shadowMaskPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Pbr.PSShadowMask.EntryPoint) { SpirV = Pbr.PSShadowMask.SpirV, Wgsl = Pbr.PSShadowMask.Wgsl, WgslEntryPoint = Pbr.PSShadowMask.WgslEntryPoint, Msl = Pbr.PSShadowMask.Msl, MslFunctionName = Pbr.PSShadowMask.MslFunctionName, Bindings = Pbr.Bindings.All }));
-        _prepassPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Pbr.PSPrepass.EntryPoint) { SpirV = Pbr.PSPrepass.SpirV, Wgsl = Pbr.PSPrepass.Wgsl, WgslEntryPoint = Pbr.PSPrepass.WgslEntryPoint, Msl = Pbr.PSPrepass.Msl, MslFunctionName = Pbr.PSPrepass.MslFunctionName, Bindings = Pbr.Bindings.All }));
-        _outlinePs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Pbr.PSOutline.EntryPoint) { SpirV = Pbr.PSOutline.SpirV, Wgsl = Pbr.PSOutline.Wgsl, WgslEntryPoint = Pbr.PSOutline.WgslEntryPoint, Msl = Pbr.PSOutline.Msl, MslFunctionName = Pbr.PSOutline.MslFunctionName, Bindings = Pbr.Bindings.All }));
-        _skyVs = Own(device.CreateShader(new ShaderSource(ShaderStage.Vertex, Pbr.VSSky.EntryPoint) { SpirV = Pbr.VSSky.SpirV, Wgsl = Pbr.VSSky.Wgsl, WgslEntryPoint = Pbr.VSSky.WgslEntryPoint, Msl = Pbr.VSSky.Msl, MslFunctionName = Pbr.VSSky.MslFunctionName, Bindings = Pbr.Bindings.All }));
-        _skyPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Pbr.PSSky.EntryPoint) { SpirV = Pbr.PSSky.SpirV, Wgsl = Pbr.PSSky.Wgsl, WgslEntryPoint = Pbr.PSSky.WgslEntryPoint, Msl = Pbr.PSSky.Msl, MslFunctionName = Pbr.PSSky.MslFunctionName, Bindings = Pbr.Bindings.All }));
+        _layout = Own(device.CreatePipelineLayout(ShaderLayouts.Bindings([Pbr.VSMain.Layout, Pbr.PSMain.Layout, Pbr.VSInst.Layout, Pbr.VSOutline.Layout, Pbr.VSOutlineInst.Layout, Pbr.PSShadowMask.Layout, Pbr.PSPrepass.Layout, Pbr.PSOutline.Layout, Pbr.VSSky.Layout, Pbr.PSSky.Layout], [(1, 0)])));
+        _pbrVs = Own(device.CreateShader(new ShaderSource(ShaderStage.Vertex, Pbr.VSMain.EntryPoint) { SpirV = Pbr.VSMain.SpirV, Wgsl = Pbr.VSMain.Wgsl, WgslEntryPoint = Pbr.VSMain.WgslEntryPoint, Msl = Pbr.VSMain.Msl, MslFunctionName = Pbr.VSMain.MslFunctionName, Layout = Pbr.VSMain.Layout }));
+        _pbrPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Pbr.PSMain.EntryPoint) { SpirV = Pbr.PSMain.SpirV, Wgsl = Pbr.PSMain.Wgsl, WgslEntryPoint = Pbr.PSMain.WgslEntryPoint, Msl = Pbr.PSMain.Msl, MslFunctionName = Pbr.PSMain.MslFunctionName, Layout = Pbr.PSMain.Layout }));
+        _pbrVsInst = Own(device.CreateShader(new ShaderSource(ShaderStage.Vertex, Pbr.VSInst.EntryPoint) { SpirV = Pbr.VSInst.SpirV, Wgsl = Pbr.VSInst.Wgsl, WgslEntryPoint = Pbr.VSInst.WgslEntryPoint, Msl = Pbr.VSInst.Msl, MslFunctionName = Pbr.VSInst.MslFunctionName, Layout = Pbr.VSInst.Layout }));
+        _outlineVs = Own(device.CreateShader(new ShaderSource(ShaderStage.Vertex, Pbr.VSOutline.EntryPoint) { SpirV = Pbr.VSOutline.SpirV, Wgsl = Pbr.VSOutline.Wgsl, WgslEntryPoint = Pbr.VSOutline.WgslEntryPoint, Msl = Pbr.VSOutline.Msl, MslFunctionName = Pbr.VSOutline.MslFunctionName, Layout = Pbr.VSOutline.Layout }));
+        _outlineVsInst = Own(device.CreateShader(new ShaderSource(ShaderStage.Vertex, Pbr.VSOutlineInst.EntryPoint) { SpirV = Pbr.VSOutlineInst.SpirV, Wgsl = Pbr.VSOutlineInst.Wgsl, WgslEntryPoint = Pbr.VSOutlineInst.WgslEntryPoint, Msl = Pbr.VSOutlineInst.Msl, MslFunctionName = Pbr.VSOutlineInst.MslFunctionName, Layout = Pbr.VSOutlineInst.Layout }));
+        _shadowMaskPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Pbr.PSShadowMask.EntryPoint) { SpirV = Pbr.PSShadowMask.SpirV, Wgsl = Pbr.PSShadowMask.Wgsl, WgslEntryPoint = Pbr.PSShadowMask.WgslEntryPoint, Msl = Pbr.PSShadowMask.Msl, MslFunctionName = Pbr.PSShadowMask.MslFunctionName, Layout = Pbr.PSShadowMask.Layout }));
+        _prepassPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Pbr.PSPrepass.EntryPoint) { SpirV = Pbr.PSPrepass.SpirV, Wgsl = Pbr.PSPrepass.Wgsl, WgslEntryPoint = Pbr.PSPrepass.WgslEntryPoint, Msl = Pbr.PSPrepass.Msl, MslFunctionName = Pbr.PSPrepass.MslFunctionName, Layout = Pbr.PSPrepass.Layout }));
+        _outlinePs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Pbr.PSOutline.EntryPoint) { SpirV = Pbr.PSOutline.SpirV, Wgsl = Pbr.PSOutline.Wgsl, WgslEntryPoint = Pbr.PSOutline.WgslEntryPoint, Msl = Pbr.PSOutline.Msl, MslFunctionName = Pbr.PSOutline.MslFunctionName, Layout = Pbr.PSOutline.Layout }));
+        _skyVs = Own(device.CreateShader(new ShaderSource(ShaderStage.Vertex, Pbr.VSSky.EntryPoint) { SpirV = Pbr.VSSky.SpirV, Wgsl = Pbr.VSSky.Wgsl, WgslEntryPoint = Pbr.VSSky.WgslEntryPoint, Msl = Pbr.VSSky.Msl, MslFunctionName = Pbr.VSSky.MslFunctionName, Layout = Pbr.VSSky.Layout }));
+        _skyPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Pbr.PSSky.EntryPoint) { SpirV = Pbr.PSSky.SpirV, Wgsl = Pbr.PSSky.Wgsl, WgslEntryPoint = Pbr.PSSky.WgslEntryPoint, Msl = Pbr.PSSky.Msl, MslFunctionName = Pbr.PSSky.MslFunctionName, Layout = Pbr.PSSky.Layout }));
 
         // The packed glTF vertex (GltfPrimitive.PackVertices). Joint indices are two 32-bit words, each holding two 16-bit indices.
         _vertexLayout = new VertexBufferLayout

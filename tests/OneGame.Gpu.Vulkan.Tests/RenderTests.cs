@@ -10,8 +10,8 @@ public sealed class RenderTests
 
     static GraphicsPipelineDesc TrianglePipeline(GpuDevice d, GpuFormat format, out GpuShader vs, out GpuShader fs, out GpuPipelineLayout layout)
     {
-        vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Triangle.VSMain.EntryPoint) { SpirV = Triangle.VSMain.SpirV, Wgsl = Triangle.VSMain.Wgsl, WgslEntryPoint = Triangle.VSMain.WgslEntryPoint, Msl = Triangle.VSMain.Msl, MslFunctionName = Triangle.VSMain.MslFunctionName, Bindings = Triangle.Bindings.All });
-        fs = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Triangle.PSMain.EntryPoint) { SpirV = Triangle.PSMain.SpirV, Wgsl = Triangle.PSMain.Wgsl, WgslEntryPoint = Triangle.PSMain.WgslEntryPoint, Msl = Triangle.PSMain.Msl, MslFunctionName = Triangle.PSMain.MslFunctionName, Bindings = Triangle.Bindings.All });
+        vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Triangle.VSMain.EntryPoint) { SpirV = Triangle.VSMain.SpirV, Wgsl = Triangle.VSMain.Wgsl, WgslEntryPoint = Triangle.VSMain.WgslEntryPoint, Msl = Triangle.VSMain.Msl, MslFunctionName = Triangle.VSMain.MslFunctionName, Layout = Triangle.VSMain.Layout });
+        fs = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Triangle.PSMain.EntryPoint) { SpirV = Triangle.PSMain.SpirV, Wgsl = Triangle.PSMain.Wgsl, WgslEntryPoint = Triangle.PSMain.WgslEntryPoint, Msl = Triangle.PSMain.Msl, MslFunctionName = Triangle.PSMain.MslFunctionName, Layout = Triangle.PSMain.Layout });
         layout = d.CreatePipelineLayout([]);
         return new GraphicsPipelineDesc
         {
@@ -145,8 +145,8 @@ public sealed class RenderTests
         d.WriteBuffer(ub2, 0, MemoryMarshal.AsBytes<Params>([new Params { R = 1, G = 1, B = 1, A = 0.5f, OffsetX = 0.25f, OffsetY = 0.25f }]));
 
         using var sampler = d.CreateSampler(SamplerDesc.Nearest);
-        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, TexturedQuad.VSMain.EntryPoint) { SpirV = TexturedQuad.VSMain.SpirV, Wgsl = TexturedQuad.VSMain.Wgsl, WgslEntryPoint = TexturedQuad.VSMain.WgslEntryPoint, Msl = TexturedQuad.VSMain.Msl, MslFunctionName = TexturedQuad.VSMain.MslFunctionName, Bindings = TexturedQuad.Bindings.All });
-        using var fs = d.CreateShader(new ShaderSource(ShaderStage.Pixel, TexturedQuad.PSMain.EntryPoint) { SpirV = TexturedQuad.PSMain.SpirV, Wgsl = TexturedQuad.PSMain.Wgsl, WgslEntryPoint = TexturedQuad.PSMain.WgslEntryPoint, Msl = TexturedQuad.PSMain.Msl, MslFunctionName = TexturedQuad.PSMain.MslFunctionName, Bindings = TexturedQuad.Bindings.All });
+        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, TexturedQuad.VSMain.EntryPoint) { SpirV = TexturedQuad.VSMain.SpirV, Wgsl = TexturedQuad.VSMain.Wgsl, WgslEntryPoint = TexturedQuad.VSMain.WgslEntryPoint, Msl = TexturedQuad.VSMain.Msl, MslFunctionName = TexturedQuad.VSMain.MslFunctionName, Layout = TexturedQuad.VSMain.Layout });
+        using var fs = d.CreateShader(new ShaderSource(ShaderStage.Pixel, TexturedQuad.PSMain.EntryPoint) { SpirV = TexturedQuad.PSMain.SpirV, Wgsl = TexturedQuad.PSMain.Wgsl, WgslEntryPoint = TexturedQuad.PSMain.WgslEntryPoint, Msl = TexturedQuad.PSMain.Msl, MslFunctionName = TexturedQuad.PSMain.MslFunctionName, Layout = TexturedQuad.PSMain.Layout });
         using var layout = d.CreatePipelineLayout(
         [
             new ResourceBinding(0, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Vertex | ShaderStage.Pixel),
@@ -206,7 +206,7 @@ public sealed class RenderTests
         using var outBuf = d.CreateBuffer(new BufferDesc(N * 4, BufferUsage.Storage | BufferUsage.CopySource));
         d.WriteBuffer(inBuf, 0, MemoryMarshal.AsBytes<uint>(input));
 
-        using var cs = d.CreateShader(new ShaderSource(ShaderStage.Compute, Fill.CSMain.EntryPoint) { SpirV = Fill.CSMain.SpirV, Wgsl = Fill.CSMain.Wgsl, WgslEntryPoint = Fill.CSMain.WgslEntryPoint, Msl = Fill.CSMain.Msl, MslFunctionName = Fill.CSMain.MslFunctionName, Bindings = Fill.Bindings.All, ComputeGroupX = Fill.CSMain.ThreadGroupSizeX, ComputeGroupY = Fill.CSMain.ThreadGroupSizeY, ComputeGroupZ = Fill.CSMain.ThreadGroupSizeZ });
+        using var cs = d.CreateShader(new ShaderSource(ShaderStage.Compute, Fill.CSMain.EntryPoint) { SpirV = Fill.CSMain.SpirV, Wgsl = Fill.CSMain.Wgsl, WgslEntryPoint = Fill.CSMain.WgslEntryPoint, Msl = Fill.CSMain.Msl, MslFunctionName = Fill.CSMain.MslFunctionName, Layout = Fill.CSMain.Layout });
         using var layout = d.CreatePipelineLayout(
         [
             new ResourceBinding(0, 0, 1, ResourceKind.StorageBuffer, ShaderStage.Compute),
@@ -242,7 +242,7 @@ public sealed class RenderTests
         using var b = d.CreateBuffer(new BufferDesc(N * 4, BufferUsage.Storage | BufferUsage.CopyDestination | BufferUsage.CopySource));
         d.WriteBuffer(a, 0, MemoryMarshal.AsBytes<uint>(new uint[N]));
         d.WriteBuffer(b, 0, MemoryMarshal.AsBytes<uint>(new uint[N]));
-        using var cs = d.CreateShader(new ShaderSource(ShaderStage.Compute, Fill.CSMain.EntryPoint) { SpirV = Fill.CSMain.SpirV, Wgsl = Fill.CSMain.Wgsl, WgslEntryPoint = Fill.CSMain.WgslEntryPoint, Msl = Fill.CSMain.Msl, MslFunctionName = Fill.CSMain.MslFunctionName, Bindings = Fill.Bindings.All, ComputeGroupX = Fill.CSMain.ThreadGroupSizeX, ComputeGroupY = Fill.CSMain.ThreadGroupSizeY, ComputeGroupZ = Fill.CSMain.ThreadGroupSizeZ });
+        using var cs = d.CreateShader(new ShaderSource(ShaderStage.Compute, Fill.CSMain.EntryPoint) { SpirV = Fill.CSMain.SpirV, Wgsl = Fill.CSMain.Wgsl, WgslEntryPoint = Fill.CSMain.WgslEntryPoint, Msl = Fill.CSMain.Msl, MslFunctionName = Fill.CSMain.MslFunctionName, Layout = Fill.CSMain.Layout });
         using var layout = d.CreatePipelineLayout(
         [
             new ResourceBinding(0, 0, 1, ResourceKind.StorageBuffer, ShaderStage.Compute),

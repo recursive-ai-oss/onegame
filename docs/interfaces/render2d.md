@@ -126,7 +126,7 @@ cluster and every test, and the SPIR-V is embedded in the assembly, so nothing i
 `Renderer2D.Create` or `GameOptions.Shaders`. A custom sprite material is HLSL in your own project compiled the same way (see
 `tests/OneGame.Render2D.Tests/Shaders/Ripple.hlsl`); pass its `PSMain.SpirV` and `EntryPoint` to `CreateMaterial`.
 
-The pipeline layouts come from the tables in `Shaders.cs`, not from `Bindings.All`; `GeneratedShaderTests` checks that every binding and vertex
+The pipeline layouts come from the tables in `Shaders.cs` (their set 0 and 1 stages are deliberately wider than any one shader uses, so bind groups carry across programs), not from the entry layouts; `GeneratedShaderTests` checks that every binding and vertex
 input the HLSL declares agrees with those tables. The GPU layer keeps its own `ShaderStage`, `ResourceKind` and `VertexFormat` enums, and
 `GeneratedShaders` maps the stage.
 

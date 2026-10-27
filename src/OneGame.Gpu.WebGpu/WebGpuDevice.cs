@@ -116,8 +116,10 @@ internal sealed class WebGpuDevice : GpuDevice
         }
 
         var id = NextId();
+        var push = source.Layout?.PushConstant;
+        var hasPush = push is { } p && p.WgslGroup != OneShader.Layouts.LayoutSlots.None;
         _stream.U(Op.CreateShader).U(id).U((uint)stage).Str(wgslEntryPoint).Bytes(wgsl).Str(entryPoint)
-            .U(source.WgslPushGroup < 0 ? 0u : (uint)source.WgslPushGroup + 1).U(source.WgslPushBinding < 0 ? 0u : (uint)source.WgslPushBinding + 1);
+            .U(hasPush ? push!.Value.WgslGroup + 1 : 0u).U(hasPush ? push!.Value.WgslBinding + 1 : 0u);
         return new WebShader(this, id, stage, entryPoint);
     }
 
