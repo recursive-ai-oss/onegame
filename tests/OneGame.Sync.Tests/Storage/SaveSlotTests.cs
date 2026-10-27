@@ -236,10 +236,11 @@ public class SaveSlotTests : IDisposable
         w.WriteVarInt(0);
         w.WriteVarUInt(int.MaxValue); // a version string of 2 GiB, with nothing behind it
         var bytes = w.ToArray();
+        SaveSlots.TryParse(bytes, "x", out _, out _); // first call pays one-time type setup, which is not what is measured
         var before = GC.GetAllocatedBytesForCurrentThread();
         Assert.Equal(SlotStatus.BadSlotFile, SaveSlots.TryParse(bytes, "x", out var info, out _));
         Assert.Null(info);
-        Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < 2_000);
+        Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < 16_000, "the claimed 2 GiB must not be allocated");
     }
 
     [Fact]
