@@ -5,6 +5,7 @@
     <ProjectReference Include="../../src/OneGame.Gpu.Backends/OneGame.Gpu.Backends.csproj" />
     <ProjectReference Include="../../src/OneGame.Control/OneGame.Control.csproj" />
     <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
+    <ProjectReference Include="../PagesGame/PagesGame.csproj" />
     <!-- Test only: OneRender's own rasterizer is the reference the GPU output is compared with, and its default fonts the text both draw. -->
     <PackageReference Include="RecursiveAI.OneRender.Image" />
     <PackageReference Include="RecursiveAI.OneRender.Fonts" />

@@ -160,6 +160,23 @@ public sealed class PageScreen
         _options.Setup?.Invoke(this);
     }
 
+    /// <summary>
+    /// Makes the page lay out again on the next frame, for an image whose size changed through <see cref="PageImages.Replace"/>. An HTML page is
+    /// created anew (its focus and field values are lost); a builder page is repainted. Same-size replacements need nothing: pixels are read every frame.
+    /// </summary>
+    public void Refresh()
+    {
+        if (_html is not null)
+        {
+            Draw = null;
+            Interactive = null;
+        }
+        else
+        {
+            Live?.Repaint();
+        }
+    }
+
     /// <summary>Moves the page's clock to <paramref name="nowMs"/> (view time in milliseconds) and updates what animates.</summary>
     internal void Advance(double nowMs)
     {
@@ -213,7 +230,13 @@ public sealed class PageScreen
         if (Interactive is { } p)
         {
             var n = p.FindElement(name);
-            return n.IsNull ? null : n.TextContent ?? "";
+            if (n.IsNull)
+            {
+                return null;
+            }
+
+            // A text field's text is what was typed into it, not its (empty) content.
+            return n.LocalName is "input" or "textarea" ? p.GetValue(n) : n.TextContent ?? "";
         }
 
         return null;

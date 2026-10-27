@@ -81,6 +81,16 @@ internal sealed class Rig : IDisposable
         return bytes;
     }
 
+    /// <summary>Records and runs one frame without reading the target back.</summary>
+    public void Draw()
+    {
+        Pages.Prepare(Width, Height, Scale);
+        Graph.BeginFrame();
+        var target = Graph.ImportTexture("target", Target);
+        Renderer.AddPasses(Graph, target, Pages.Screens, Pages.Scopes, new PageFrame(Width, Height, Scale, _frame++, 0, Vector4.One));
+        Graph.Execute();
+    }
+
     /// <summary>The list of the first screen drawn through OneRender's own rasterizer over white, at this rig's size.</summary>
     public byte[] Reference(PageScreen screen)
     {

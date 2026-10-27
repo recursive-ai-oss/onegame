@@ -124,6 +124,15 @@ public sealed class PageSet
         }
     }
 
+    /// <summary>Lays every screen out again; see <see cref="PageScreen.Refresh"/>.</summary>
+    public void Refresh()
+    {
+        foreach (var s in _all)
+        {
+            s.Refresh();
+        }
+    }
+
     /// <summary>Finds a named element in the shown screens, topmost first.</summary>
     /// <param name="name">The element's name.</param>
     public PageScreen? ScreenWith(string name)

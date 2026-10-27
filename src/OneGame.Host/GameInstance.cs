@@ -148,6 +148,7 @@ public sealed partial class GameInstance : IDisposable
         var measurer = haveFonts ? new FontTextMeasurer(fonts) : null;
         var art = new ArtAtlas();
         Art = art;
+        Fonts = fonts;
         definition.DefineArt(art);
         var shaders = options.Shaders ?? GeneratedShaders.Instance;
         HotShaders = new HotShaders();
@@ -261,6 +262,9 @@ public sealed partial class GameInstance : IDisposable
 
     /// <summary>The UI's SVG and image atlas. Call <see cref="ArtAtlas.Preload(IEnumerable{string}, float)"/> before a screen opens so its art is ready on the first draw.</summary>
     public ArtAtlas Art { get; }
+
+    /// <summary>The game's fonts, as <see cref="GameDefinition.DefineFonts"/> filled them.</summary>
+    public FontLibrary Fonts { get; }
 
     /// <summary>The game's asset service: load textures, data, sounds and models by path. Textures are uploaded through the 2D stage's renderer. See <c>docs/interfaces/assets.md</c>.</summary>
     public Assets Assets { get; }

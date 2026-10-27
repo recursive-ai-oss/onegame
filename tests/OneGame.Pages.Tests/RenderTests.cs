@@ -6,6 +6,8 @@ namespace OneGame.Pages.Tests;
 
 public class RenderTests
 {
+    internal const string BoxesHtml = Boxes;
+
     private const string Boxes = """
         <body style="margin:0;background:#fff">
         <div style="position:absolute;left:10px;top:10px;width:60px;height:40px;background:#e03030"></div>
@@ -149,6 +151,54 @@ public class ContentTests
         var (max, mean, share) = Shots.Diff(gpu, reference, 12);
         Shots.Note($"paths vs reference: max {max}, mean {mean:F3}, over-12 {share:P3}");
         Assert.True(share < 0.04, $"{share:P3} differ (max {max})");
+    }
+
+    [Fact]
+    public void ReplacingAnImageShowsTheNewPixelsAndTheGraphListsEffectPasses()
+    {
+        using var rig = new Rig(80, 80);
+        var (png, _) = Disc(32);
+        rig.Images.Add("coin.png", png);
+        rig.Pages.Show("p", PageScreen.FromHtml("""<body style="margin:0"><img src="coin.png" style="width:64px;height:64px;filter:blur(1px)"></body>""", rig.Options()));
+        var before = rig.Render();
+        var rgba = new byte[32 * 32 * 4];
+        for (var i = 0; i < rgba.Length; i += 4)
+        {
+            (rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3]) = (250, 20, 20, 255);
+        }
+
+        rig.Images.Replace("coin.png", OneGame.Host.Png.Encode(new CapturedFrame(32, 32, rgba, "t")));
+        var after = rig.Render();
+        Shots.Save("replace-before", 80, 80, before);
+        Shots.Save("replace-after", 80, 80, after);
+        // The disc's centre went from a green-blue gradient to solid red.
+        var centre = ((40 * 80) + 40) * 4;
+        Assert.True(after[centre] > 200 && after[centre + 1] < 80, $"centre is {after[centre]},{after[centre + 1]},{after[centre + 2]}");
+        Assert.NotEqual(before[centre], after[centre]);
+        var names = rig.Graph.Describe().Passes.Select(p => p.Name).ToArray();
+        Assert.Contains("page.blur", names);
+        Assert.Contains("page.layer", names);
+    }
+
+    [Fact]
+    public void AFrameThatChangesNothingAllocatesNothing()
+    {
+        using var rig = new Rig(160, 150);
+        rig.Pages.Show("p", PageScreen.FromHtml(RenderTests.BoxesHtml, rig.Options()));
+        for (var i = 0; i < 5; i++)
+        {
+            rig.Draw();
+        }
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < 20; i++)
+        {
+            rig.Draw();
+        }
+
+        var perFrame = (GC.GetAllocatedBytesForCurrentThread() - before) / 20;
+        Shots.Note($"allocation per steady page frame: {perFrame} B");
+        Assert.True(perFrame < 20_000, $"{perFrame} B per frame");
     }
 
     private static byte[] RenderList(Rig rig, DisplayList list, out byte[] reference)
