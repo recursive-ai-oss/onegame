@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OneGameRoot>$(MSBuildThisFileDirectory)../../</OneGameRoot>
+    <AssemblyName>PagesGame</AssemblyName>
+    <RootNamespace>PagesGame</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <Compile Include="Sim/*.cs" />
+    <EmbeddedResource Include="$(OneGameRoot)assets/fonts/NotoSans-Regular.ttf" LogicalName="fonts/NotoSans-Regular.ttf" />
+  </ItemGroup>
+
+</Project>

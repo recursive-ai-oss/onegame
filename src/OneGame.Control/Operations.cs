@@ -268,6 +268,7 @@ public static partial class ControlOps
         ..AudioEventOps,
         ..AssetOps,
         ..TweenOps,
+        ..PageOps,
         ..OverlayOps,
         new("quit", "Ask the game to exit.", NoArgs, false),
     ];

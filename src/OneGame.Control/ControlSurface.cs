@@ -125,6 +125,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         "shaders" => Json(ShaderCheck(), ControlJson.Default.ShadersResult),
         "assets" => Json(AssetsOp(a), ControlJson.Default.AssetsResult),
         "tweens" => Json(TweensOp(a), ControlJson.Default.TweensResult),
+        "pages" => new ControlResult(PagesOp()),
         "overlay" => Json(OverlayOp(a), ControlJson.Default.OverlayResult),
         "render_graph" => Json(RenderGraphReport(), ControlJson.Default.RenderGraphReport),
         "theme_lint" => Json(ThemeLintCheck(), ControlJson.Default.ThemeLintReport),
@@ -751,11 +752,22 @@ public sealed partial class ControlSurface : IControlEndpoint
             first = false;
         }
 
+        if (first && PageElementJson(a.Required("selector")) is { } pageElement)
+        {
+            sb.Append(pageElement);
+        }
+
         return sb.Append(']').ToString();
     }
 
     private InvokeResult UiInvoke(Args a)
     {
+        if (PageNameOf(a) is { } pageName && PageScreenWith(pageName) is { } invokeScreen && Game.Ui.Find(pageName) is null)
+        {
+            var clicked = invokeScreen.Click(pageName);
+            return new InvokeResult("page:" + pageName, clicked, Game.World.Tick);
+        }
+
         var e = FindElement(a);
         var ok = Game.Ui.Invoke(e);
         Game.Ui.Update();
@@ -764,6 +776,11 @@ public sealed partial class ControlSurface : IControlEndpoint
 
     private InputResult UiClick(Args a)
     {
+        if (PageNameOf(a) is { } pageName && PageScreenWith(pageName) is { } clickScreen && Game.Ui.Find(pageName) is null)
+        {
+            return PageClick(clickScreen, pageName);
+        }
+
         var e = FindElement(a);
         var b = e.AbsoluteBounds;
         var x = b.X + (b.Width / 2);

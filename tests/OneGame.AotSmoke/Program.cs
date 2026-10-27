@@ -479,6 +479,18 @@ if (render3dProblem is not null)
 }
 
 Console.WriteLine("render3d: skinned glTF model through the PBR passes, then shadow maps (cascaded and spot), ambient occlusion, an instance batch, toon outlines and all four quality levels");
+
+// Last: a Vulkan device that has had WaitIdle submit a pending texture upload makes the 3D smoke's readback wait forever on lavapipe.
+// The page renderer waits for idle when it is disposed, so it runs after the 3D smoke.
+var pagesProblem = PagesSmoke.Run(device, ReadResource("font.ttf"));
+if (pagesProblem is not null)
+{
+    Console.Error.WriteLine("pages: " + pagesProblem);
+    return 1;
+}
+
+Console.WriteLine("pages: an HTML page with a gradient, a filter and text drawn through the 2D stage");
+
 return 0;
 
 static byte[] ReadResource(string name)

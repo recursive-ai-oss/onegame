@@ -102,7 +102,22 @@ public sealed class FontLibrary
             throw new TextLimitException($"The library already holds {MaxFaces} faces.");
         }
 
-        var face = FontFace.Load(fontData, faceIndex);
+        return Add(FontFace.Load(fontData, faceIndex), family);
+    }
+
+    /// <summary>Adds a face that is already loaded, so another component (a OneRender page) can hold the same object.</summary>
+    /// <param name="face">The face; the library keeps a reference.</param>
+    /// <param name="family">The family name to register the face under; the font's own name when <see langword="null"/>.</param>
+    /// <returns>The face id used by glyph atlas keys and positioned glyphs.</returns>
+    /// <exception cref="TextLimitException">The library already holds the most faces it accepts.</exception>
+    public int Add(FontFace face, string? family = null)
+    {
+        ArgumentNullException.ThrowIfNull(face);
+        if (_faces.Count >= MaxFaces)
+        {
+            throw new TextLimitException($"The library already holds {MaxFaces} faces.");
+        }
+
         var id = _faces.Count;
         _faces.Add(face);
         var name = string.IsNullOrWhiteSpace(family) ? face.FamilyName : family.Trim();
@@ -118,7 +133,7 @@ public sealed class FontLibrary
     }
 
     /// <summary>Makes a loaded face a last resort for every stack, after the families the style names (for scripts the main font lacks).</summary>
-    /// <param name="faceId">A face id returned by <see cref="Add"/>.</param>
+    /// <param name="faceId">A face id returned by <see cref="Add(byte[], string?, int)"/>.</param>
     public void AddFallback(int faceId)
     {
         _ = Face(faceId);
