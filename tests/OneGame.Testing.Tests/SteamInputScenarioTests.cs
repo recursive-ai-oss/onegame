@@ -7,6 +7,7 @@ using OneGame.UI;
 
 namespace OneGame.Testing.Tests;
 
+[Collection("SteamInputService")]
 public class SteamInputScenarioTests
 {
     private sealed class PadGame : GameDefinition, IDisposable

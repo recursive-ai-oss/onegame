@@ -31,6 +31,14 @@ public abstract class GameDefinition
     /// <summary>Declares the screens. A screen named <c>main</c> is shown at start; others open with <see cref="GameInstance.OpenScreen"/>.</summary>
     public abstract void DefineScreens(ScreenSet screens);
 
+    /// <summary>
+    /// Declares the game's input actions (buttons, axes and vectors with default bindings, grouped in contexts a screen switches on). View code reads them from <see cref="GameInstance.Actions"/> and sends commands.
+    /// Games that read raw input need not override this.
+    /// </summary>
+    public virtual void DefineActions(OneGame.Platform.ActionMap actions)
+    {
+    }
+
     /// <summary>Adds style sheets to the UI tree before the first screen is built.</summary>
     public virtual void Style(UiTree ui)
     {

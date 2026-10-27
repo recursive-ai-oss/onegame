@@ -352,7 +352,7 @@ public sealed class ScenarioRunner
                 _surface.Call("ui_invoke", s.Id is not null ? Obj(("id", s.Id)) : Obj(("selector", s.Selector)));
                 break;
             case StepKind.Press:
-                _surface.Call("input_key", Obj(("key", s.Text), ("modifiers", s.Modifiers)));
+                _surface.Call("input_key", s.KeyState is null ? Obj(("key", s.Text), ("modifiers", s.Modifiers)) : Obj(("key", s.Text), ("modifiers", s.Modifiers), ("action", s.KeyState)));
                 break;
             case StepKind.Type:
                 _surface.Call("input_text", Obj(("text", s.Text)));
@@ -402,6 +402,12 @@ public sealed class ScenarioRunner
             case StepKind.Camera:
                 _surface.Call("camera", s.ControlArgs);
                 break;
+            case StepKind.Action:
+                _surface.Call("actions", s.ControlArgs);
+                break;
+            case StepKind.Pad:
+                _surface.Call("input_pad", s.ControlArgs);
+                break;
             case StepKind.Store:
                 _surface.Call("store", s.ControlArgs);
                 break;
@@ -446,6 +452,7 @@ public sealed class ScenarioRunner
                 ExpectKind.Store => CheckStore(e, index),
                 ExpectKind.Asset => CheckAsset(e, index),
                 ExpectKind.SteamInput => CheckSteamInput(e, index),
+                ExpectKind.Action => CheckAction(e, index),
                 ExpectKind.Sound => CheckSound(e, index),
                 _ => throw new ControlException("bad_args", "Unknown expectation."),
             };
@@ -585,6 +592,66 @@ public sealed class ScenarioRunner
         }
 
         return new ExpectationResult(index, "steam-input", e.Line, problems.Count == 0, "steam-input", string.Join(", ", expected), string.Join(", ", actual), problems.Count == 0 ? null : string.Join("; ", problems));
+    }
+
+    private ExpectationResult CheckAction(ScenarioExpectation e, int index)
+    {
+        using var doc = JsonDocument.Parse(_surface.Call("actions"));
+        JsonElement? found = null;
+        foreach (var a in doc.RootElement.GetProperty("actions").EnumerateArray())
+        {
+            if (a.GetProperty("name").GetString() == e.ActionName)
+            {
+                found = a;
+            }
+        }
+
+        if (found is not { } act)
+        {
+            return new ExpectationResult(index, "action", e.Line, false, "action", e.ActionName!, "missing", $"the game has no action '{e.ActionName}'");
+        }
+
+        var problems = new List<string>();
+        var expected = new List<string>();
+        var actual = new List<string>();
+        void Flag(string what, bool? want)
+        {
+            if (want is not { } w)
+            {
+                return;
+            }
+
+            var have = act.GetProperty(what).GetBoolean();
+            expected.Add($"{what}={w}".ToLowerInvariant());
+            actual.Add($"{what}={have}".ToLowerInvariant());
+            if (have != w)
+            {
+                problems.Add($"{e.ActionName} {what} is {have.ToString().ToLowerInvariant()}, expected {w.ToString().ToLowerInvariant()}");
+            }
+        }
+
+        void Num(string what, double? want)
+        {
+            if (want is not { } w)
+            {
+                return;
+            }
+
+            var have = act.GetProperty(what).GetDouble();
+            expected.Add($"{what}={w.ToString("0.###", CultureInfo.InvariantCulture)}");
+            actual.Add($"{what}={have.ToString("0.###", CultureInfo.InvariantCulture)}");
+            if (Math.Abs(have - w) > 0.001)
+            {
+                problems.Add($"{e.ActionName} {what} is {have.ToString("0.###", CultureInfo.InvariantCulture)}, expected {w.ToString("0.###", CultureInfo.InvariantCulture)}");
+            }
+        }
+
+        Flag("held", e.ActionHeld);
+        Flag("pressed", e.ActionPressed);
+        Flag("released", e.ActionReleased);
+        Num("x", e.ActionX);
+        Num("y", e.ActionY);
+        return new ExpectationResult(index, "action", e.Line, problems.Count == 0, "action", $"{e.ActionName}: {string.Join(", ", expected)}", $"{e.ActionName}: {string.Join(", ", actual)}", problems.Count == 0 ? null : string.Join("; ", problems));
     }
 
     private ExpectationResult CheckPick(ScenarioExpectation e, int index)

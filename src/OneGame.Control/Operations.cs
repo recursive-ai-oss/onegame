@@ -258,6 +258,7 @@ public static partial class ControlOps
         ..TouchOps,
         ..StoreOps,
         ..SteamInputOps,
+        ..ActionOps,
         ..AudioEventOps,
         ..AssetOps,
         new("quit", "Ask the game to exit.", NoArgs, false),

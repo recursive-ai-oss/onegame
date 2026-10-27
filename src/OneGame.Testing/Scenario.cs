@@ -44,6 +44,12 @@ public enum StepKind
     /// <summary>Press a key.</summary>
     Press,
 
+    /// <summary>Drive an input action as the harness source (tap, hold, release).</summary>
+    Action,
+
+    /// <summary>Press, hold or release a button, or set an axis, on the harness's virtual gamepad.</summary>
+    Pad,
+
     /// <summary>Type text.</summary>
     Type,
 
@@ -171,6 +177,9 @@ public sealed record ScenarioStep(StepKind Kind, int Line)
     /// <summary>The node of a process cluster the step is aimed at; null for a single game.</summary>
     public string? Node { get; init; }
 
+    /// <summary>For a <see cref="StepKind.Press"/> step: <c>press</c> (default), <c>down</c> or <c>up</c>.</summary>
+    public string? KeyState { get; init; }
+
     /// <summary>The arguments of the <c>camera</c> operation, as JSON, for a <see cref="StepKind.Camera"/> step.</summary>
     public string? ControlArgs { get; init; }
 
@@ -219,6 +228,9 @@ public enum ExpectKind
 
     /// <summary>Sounds the game asked the audio service to play: how many, by name, optionally within the last few frames.</summary>
     Sound,
+
+    /// <summary>The state of an input action this frame: held, pressed, released, value.</summary>
+    Action,
 }
 
 /// <summary>A check on the game's state. Unset fields are not checked.</summary>
@@ -328,6 +340,24 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
 
     /// <summary>A digital action that must not be down on any controller (steam-input).</summary>
     public string? UpAction { get; init; }
+
+    /// <summary>The input action to check (action).</summary>
+    public string? ActionName { get; init; }
+
+    /// <summary>Whether the action must be held (action).</summary>
+    public bool? ActionHeld { get; init; }
+
+    /// <summary>Whether the action must have been pressed this frame (action).</summary>
+    public bool? ActionPressed { get; init; }
+
+    /// <summary>Whether the action must have been released this frame (action).</summary>
+    public bool? ActionReleased { get; init; }
+
+    /// <summary>The action's value or x (action).</summary>
+    public double? ActionX { get; init; }
+
+    /// <summary>A vector action's y, down positive (action).</summary>
+    public double? ActionY { get; init; }
 }
 
 /// <summary>A scenario: where to start, what to do, and what must hold afterwards.</summary>
@@ -626,12 +656,30 @@ public static class ScenarioParser
                         return new ScenarioStep(StepKind.Press, line) { Text = Text(v, "press") };
                     }
 
-                    var k = Map(v, ["key", "modifiers"], "press");
+                    var k = Map(v, ["key", "modifiers", "state"], "press");
                     return new ScenarioStep(StepKind.Press, line)
                     {
+                        KeyState = k.TryGetValue("state", out var kst) ? Text(kst, "state") is { } kss && kss is "press" or "down" or "up" ? kss : throw Error(kst, "state is press, down or up") : null,
                         Text = k.TryGetValue("key", out var kn) ? Text(kn, "key") : throw Error(v, "press needs a key"),
                         Modifiers = k.TryGetValue("modifiers", out var mn) ? StringList(this, mn, "modifiers") : [],
                     };
+                case "action":
+                    var ac = v.Kind == YamlNodeKind.Scalar ? new Dictionary<string, YamlNode>() : Map(v, ["name", "state", "x", "y"], "action");
+                    var acName = v.Kind == YamlNodeKind.Scalar ? Text(v, "action") : ac.TryGetValue("name", out var acn) ? Text(acn, "name") : throw Error(v, "action needs a name");
+                    return new ScenarioStep(StepKind.Action, line)
+                    {
+                        ControlArgs = ScenarioRunner.Obj(("name", acName), ("state", ac.TryGetValue("state", out var acs) ? Text(acs, "state") : null),
+                            ("x", ac.TryGetValue("x", out var acx) ? Number(acx, "x") : null), ("y", ac.TryGetValue("y", out var acy) ? Number(acy, "y") : null)),
+                    };
+                case "pad":
+                    var pd = Map(v, ["button", "axis", "state", "value"], "pad");
+                    return pd.ContainsKey("button") == pd.ContainsKey("axis")
+                        ? throw Error(v, "pad needs a button (with an optional state: press, down or up) or an axis (with a value from -1 to 1)")
+                        : new ScenarioStep(StepKind.Pad, line)
+                        {
+                            ControlArgs = ScenarioRunner.Obj(("button", pd.TryGetValue("button", out var pdb) ? Text(pdb, "button") : null), ("axis", pd.TryGetValue("axis", out var pda) ? Text(pda, "axis") : null),
+                                ("state", pd.TryGetValue("state", out var pds) ? Text(pds, "state") : null), ("value", pd.TryGetValue("value", out var pdv) ? Number(pdv, "value") : null)),
+                        };
                 case "type":
                     return new ScenarioStep(StepKind.Type, line) { Text = Text(v, "type") };
                 case "nav":
@@ -901,6 +949,17 @@ public static class ScenarioParser
                         Min = sd.TryGetValue("min", out var sdmin) ? Number(sdmin, "min") : (noBound ? 1 : null),
                         Max = sd.TryGetValue("max", out var sdmax) ? Number(sdmax, "max") : null,
                         SoundFrames = sd.TryGetValue("frames", out var sdf) ? Whole(sdf, "frames") : 0,
+                    };
+                case "action":
+                    var axm = Map(v, ["name", "held", "pressed", "released", "x", "y", "value"], "action");
+                    return new ScenarioExpectation(ExpectKind.Action, line)
+                    {
+                        ActionName = axm.TryGetValue("name", out var axn) ? Text(axn, "name") : throw Error(v, "action needs the action's name"),
+                        ActionHeld = axm.TryGetValue("held", out var axh) ? Bool(axh, "held") : null,
+                        ActionPressed = axm.TryGetValue("pressed", out var axp) ? Bool(axp, "pressed") : null,
+                        ActionReleased = axm.TryGetValue("released", out var axr) ? Bool(axr, "released") : null,
+                        ActionX = axm.TryGetValue("x", out var axx) ? Number(axx, "x") : axm.TryGetValue("value", out var axv) ? Number(axv, "value") : null,
+                        ActionY = axm.TryGetValue("y", out var axy) ? Number(axy, "y") : null,
                     };
                 case "steam-input":
                     var six = Map(v, ["set", "controllers", "down", "up", "keyboard"], "steam-input");
