@@ -47,8 +47,12 @@ public class CliTests
     {
         var dir = Path.Combine(Path.GetTempPath(), "onegame-kill-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
-        using var victim = System.Diagnostics.Process.Start("sleep", "120")!;
-        using var bystander = System.Diagnostics.Process.Start("sleep", "120")!;
+        // Two idle programs to stand in for nodes: Windows has no sleep, but every machine has ping.
+        System.Diagnostics.Process Idle() => OperatingSystem.IsWindows()
+            ? System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ping", "-n 120 127.0.0.1") { CreateNoWindow = true, UseShellExecute = false, RedirectStandardOutput = true })!
+            : System.Diagnostics.Process.Start("sleep", "120")!;
+        using var victim = Idle();
+        using var bystander = Idle();
         try
         {
             NodeState Node(string name, int pid) => new(name, "server", pid, Path.Combine(dir, name + ".sock"), Path.Combine(dir, name + ".log"), [], null, null);

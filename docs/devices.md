@@ -11,11 +11,18 @@ The two samples run on the Android emulator, the iOS Simulator and in Chrome wit
 | Android phone | `tools/devices/android.sh [--serial S]` | USB debugging on, `adb`, the Android SDK and NDK the export uses; the phone on the same network as the computer for Lanterns (`--lan-host` if the guess is wrong) |
 | iPhone or iPad | `python3 tools/devices/ios.py` on the Mac the device is plugged into | the device trusted and in Developer Mode, unlocked; an App Store Connect API key in `ASC_KEY_FILE`, `ASC_KEY_ID`, `ASC_ISSUER_ID` (the script registers the device and makes the profile; `asc.py` needs `pip install cryptography`), or ready profiles in `IOS_PROFILE_DIR` |
 | Steam Deck | `tools/devices/deck.sh [--host H]` | ssh on, this computer's key in the Deck's `authorized_keys`; the Deck found by `steamdeck.local` or a scan of the network (`find-host.py`); desktop mode logged in for the windowed run |
+| Windows computer | `tools/devices/windows.sh --host H --user U [--tests]` | ssh on (OpenSSH server), this computer's key authorized, the user logged in at the desktop; a Visual Studio install with the C++ tools for the NativeAOT export. A .NET SDK and the validation layer are installed under `%USERPROFILE%\onegame` only |
 | Gamepad | `tools/devices/pad.sh [--expect NAME] [--rumble]` | the pad plugged in and `/dev/input/event*` readable; `--virtual xbox\|dualsense` runs the same check against a `/dev/uinput` stand-in |
 
 The community controller mapping database is test data: `tools/devices/fetch-gamecontrollerdb.sh <file>` downloads a pinned copy and `pad.sh` does it on first use. What the pad check reports (device id, database entry, whether the layout was mapped, rumble, which buttons and axes moved) needs a person pressing things to cover the buttons; unattended it reports what the idle device says.
 
 For a cluster whose servers run on the computer and whose client runs on a phone, set `ONEGAME_CLUSTER_BIND=0.0.0.0` ([cluster](interfaces/cluster.md)); the scripts do. A game's live control on a device the computer can reach only over the network is `--live tcp:*:PORT` ([control](interfaces/control.md)).
+
+## A Windows computer
+
+`tools/devices/windows.sh` builds the engine on the machine, runs each sample's scenarios on its GPU with the validation layer on and compares every state hash with a run here, opens Solitaire in the logged-in user's session (ssh has no desktop, so a one-shot scheduled task running as that user starts it) and drives it over live control through an ssh tunnel: touch, the WASAPI device with strict counters (frames written and played and the peak above 0, no underruns), a presented frame, background and back, and F3 for the debug overlay (the key is posted to the game's own window, so it never lands in whatever the person is typing in). The particles example, a Lanterns client against servers on this computer, and `export --target win` (hash equal to a development run, `--live` refused) follow. `--tests` also runs the GPU, window, audio and platform test apps there; `ONEGAME_WINDOWED_ADAPTER` names the GPU for the window tests, which otherwise insist on a software one. Every task, program and tunnel the script starts is removed on exit, however it ends.
+
+The machine's GPU draws captures a little differently from the software references (edges differ by up to about 55 per channel on at most 0.2 % of pixels on Intel Iris Xe); the scenario files' own tolerances already cover that.
 
 ## A real Android phone
 
