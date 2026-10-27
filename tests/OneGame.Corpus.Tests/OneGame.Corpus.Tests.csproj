@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../tools/OneGame.Corpus/OneGame.Corpus.csproj" />
+  </ItemGroup>
+
+</Project>
