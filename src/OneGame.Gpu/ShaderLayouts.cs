@@ -1,5 +1,4 @@
 using OneShader.Layouts;
-using OneShader.Layouts.Vulkan;
 
 namespace OneGame.Gpu;
 
@@ -9,7 +8,7 @@ namespace OneGame.Gpu;
 /// </summary>
 /// <remarks>
 /// Several entry points that share one pipeline layout (a vertex shader and some pixel variants, or a family of compute passes) are
-/// combined with <see cref="PipelineLayout.TryCreateUnion"/>: a resource at the same set and binding must agree on kind and count, and its
+/// combined with <c>PipelineLayout.TryCreateUnion</c>: a resource at the same set and binding must agree on kind and count, and its
 /// stages are the union of the entry points' stages.
 /// </remarks>
 public static class ShaderLayouts
@@ -18,11 +17,12 @@ public static class ShaderLayouts
     /// <param name="entries">The entry points that run with the pipeline layout.</param>
     /// <param name="dynamic">(set, binding) pairs of buffers to declare with a dynamic offset.</param>
     /// <param name="widenSets">Stages to add to every binding of a set, so a bind group made once fits pipelines whose shaders use it from different stages.</param>
+    /// <param name="options">Leniency for slots one descriptor covers: a texture read as 2D by one entry point and as a cube by another, or a buffer read by one and written by another.</param>
     /// <returns>Bindings for <see cref="GpuDevice.CreatePipelineLayout(ReadOnlySpan{ResourceBinding})"/>.</returns>
     /// <exception cref="ArgumentException">Two entry points declare different resources at the same slot, or one uses a resource kind this layer has no binding for.</exception>
-    public static ResourceBinding[] Bindings(ReadOnlySpan<EntryLayout> entries, ReadOnlySpan<(uint Set, uint Binding)> dynamic = default, ReadOnlySpan<(uint Set, ShaderStage Stages)> widenSets = default)
+    public static ResourceBinding[] Bindings(ReadOnlySpan<EntryLayout> entries, ReadOnlySpan<(uint Set, uint Binding)> dynamic = default, ReadOnlySpan<(uint Set, ShaderStage Stages)> widenSets = default, UnionOptions? options = null)
     {
-        if (!PipelineLayout.TryCreateUnion(entries, out var union, out var error))
+        if (!PipelineLayout.TryCreateUnion(entries, options ?? new UnionOptions(), out var union, out var error))
         {
             throw new ArgumentException(error!.Message, nameof(entries));
         }
@@ -33,18 +33,15 @@ public static class ShaderLayouts
             widen[set] = Unmap(stages);
         }
 
-        var options = new VulkanLayoutOptions { DynamicBindings = [.. dynamic.ToArray()], WidenSets = widen };
-        var result = new List<ResourceBinding>();
-        foreach (var set in union!.ToVulkan(options).SetLayouts)
+        var described = union!.ToBindings(new BindingOptions { DynamicBindings = [.. dynamic.ToArray()], WidenSets = widen });
+        var result = new ResourceBinding[described.Count];
+        for (var i = 0; i < result.Length; i++)
         {
-            foreach (var b in set.Bindings)
-            {
-                var resource = union!.Groups.Single(g => g.Set == set.Set).Entries.Single(e => e.Resource.Binding == b.Binding).Resource;
-                result.Add(new ResourceBinding(set.Set, b.Binding, b.DescriptorCount, Map(resource.Kind, resource.Name), Map(b.StageFlags)) { Dynamic = b.IsDynamic });
-            }
+            var b = described[i];
+            result[i] = new ResourceBinding(b.Set, b.Binding, b.Count, Map(b.Type, b.Name), Map(b.Stages)) { Dynamic = b.IsDynamic };
         }
 
-        return [.. result];
+        return result;
     }
 
     /// <summary>The push-constant range that covers the blocks of <paramref name="entries"/>, or an empty range when none has one.</summary>
@@ -98,6 +95,35 @@ public static class ShaderLayouts
         return new VertexBufferLayout { Stride = vertex.Stride, StepMode = step, Attributes = elements };
     }
 
+    /// <summary>The vertex buffer layouts of a vertex entry point that reads several buffers, for example a per-vertex mesh and a per-instance stream.</summary>
+    /// <param name="entry">The vertex shader's layout.</param>
+    /// <param name="streams">The buffers: each takes the shader inputs from its first location up to the next stream's.</param>
+    /// <returns>One layout per stream, in order, with offsets relative to the stream.</returns>
+    /// <exception cref="ArgumentException">The entry point has no vertex input, the streams don't fit it, or an input uses a format this layer has no vertex format for.</exception>
+    public static VertexBufferLayout[] VertexStreams(EntryLayout entry, params VertexStream[] streams)
+    {
+        var vertex = entry.Vertex ?? throw new ArgumentException($"entry point {entry.Name} has no vertex input", nameof(entry));
+        if (!vertex.TrySplit(streams, out var split, out var error))
+        {
+            throw new ArgumentException(error!.Message, nameof(streams));
+        }
+
+        var result = new VertexBufferLayout[split!.Streams.Count];
+        for (var i = 0; i < result.Length; i++)
+        {
+            var s = split.Streams[i];
+            var elements = new VertexElement[s.Attributes.Count];
+            for (var j = 0; j < elements.Length; j++)
+            {
+                elements[j] = new VertexElement(s.Attributes[j].Location, Map(s.Attributes[j].Format, entry.Name), s.Attributes[j].Offset);
+            }
+
+            result[i] = new VertexBufferLayout { Stride = s.Stride, StepMode = s.StepMode == OneShader.Layouts.VertexStepMode.Instance ? VertexStepMode.Instance : VertexStepMode.Vertex, Attributes = elements };
+        }
+
+        return result;
+    }
+
     static ShaderStage Map(OneShader.ShaderStages stages)
     {
         var result = ShaderStage.None;
@@ -112,27 +138,6 @@ public static class ShaderLayouts
         }
 
         if ((stages & OneShader.ShaderStages.Compute) != 0)
-        {
-            result |= ShaderStage.Compute;
-        }
-
-        return result;
-    }
-
-    static ShaderStage Map(ShaderStageFlags stages)
-    {
-        var result = ShaderStage.None;
-        if ((stages & ShaderStageFlags.Vertex) != 0)
-        {
-            result |= ShaderStage.Vertex;
-        }
-
-        if ((stages & ShaderStageFlags.Fragment) != 0)
-        {
-            result |= ShaderStage.Pixel;
-        }
-
-        if ((stages & ShaderStageFlags.Compute) != 0)
         {
             result |= ShaderStage.Compute;
         }
@@ -161,15 +166,15 @@ public static class ShaderLayouts
         return result;
     }
 
-    static ResourceKind Map(OneShader.ResourceKind kind, string name) => kind switch
+    static ResourceKind Map(BindingType type, string name) => type switch
     {
-        OneShader.ResourceKind.ConstantBuffer => ResourceKind.ConstantBuffer,
-        OneShader.ResourceKind.StorageBuffer => ResourceKind.StorageBuffer,
-        OneShader.ResourceKind.ReadOnlyStorageBuffer => ResourceKind.ReadOnlyStorageBuffer,
-        OneShader.ResourceKind.SampledTexture => ResourceKind.SampledTexture,
-        OneShader.ResourceKind.Sampler => ResourceKind.Sampler,
-        OneShader.ResourceKind.StorageTexture => ResourceKind.StorageTexture,
-        _ => throw new ArgumentException($"{name} is a {kind}, which this layer has no binding for"),
+        BindingType.UniformBuffer => ResourceKind.ConstantBuffer,
+        BindingType.StorageBuffer => ResourceKind.StorageBuffer,
+        BindingType.ReadOnlyStorageBuffer => ResourceKind.ReadOnlyStorageBuffer,
+        BindingType.SampledTexture => ResourceKind.SampledTexture,
+        BindingType.Sampler => ResourceKind.Sampler,
+        BindingType.StorageTexture => ResourceKind.StorageTexture,
+        _ => throw new ArgumentException($"{name} is a {type}, which this layer has no binding for"),
     };
 
     static VertexFormat Map(OneShader.VertexFormat format, string entry) => format switch

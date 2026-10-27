@@ -83,8 +83,8 @@ public sealed partial class Renderer3D
     private void InitIbl()
     {
         var device = Device;
-        // The equirect pass reads a 2D texture where the others read a cube at the same slot: the descriptor is the same, so it shares the layout.
-        _iblLayout = Own(device.CreatePipelineLayout(ShaderLayouts.Bindings([IblPrefilter.CSMain.Layout, IblIrradiance.CSMain.Layout])));
+        // The equirect pass reads a 2D texture where the others read a cube at the same slot: the descriptor is the same, so they share the layout.
+        _iblLayout = Own(device.CreatePipelineLayout(ShaderLayouts.Bindings([IblEquirect.CSMain.Layout, IblPrefilter.CSMain.Layout, IblIrradiance.CSMain.Layout], options: new OneShader.Layouts.UnionOptions { IgnoreTextureDimension = true })));
         _lutLayout = Own(device.CreatePipelineLayout(ShaderLayouts.Bindings([EnvBrdf.CSMain.Layout])));
         _equirectPipeline = Own(device.CreateComputePipeline(new ComputePipelineDesc
         {
