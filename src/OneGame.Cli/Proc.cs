@@ -93,6 +93,15 @@ internal static partial class BuildOutput
     [GeneratedRegex(@"^(?:\S+ : )?(?<sev>error|warning) (?<code>[A-Za-z]+\d+): (?<msg>.*?)(?: \[[^\]]+\])?$")]
     private static partial Regex WithoutFile();
 
+    /// <summary>
+    /// The last lines of a failed build's output that are not MSBuild diagnostics: what the native linker or another tool printed itself.
+    /// MSBuild reports such a failure as only the tool's command line, so the reason would otherwise be lost.
+    /// </summary>
+    public static string ToolTail(string text, int lines = 6) =>
+        string.Join(" | ", text.Split('\n').Select(l => l.Trim())
+            .Where(l => l.Length is > 0 and < 400 && !l.Contains("MSB3073", StringComparison.Ordinal) && !l.StartsWith("Time Elapsed", StringComparison.Ordinal) && !l.EndsWith("Error(s)", StringComparison.Ordinal) && !l.EndsWith("Warning(s)", StringComparison.Ordinal))
+            .TakeLast(lines));
+
     /// <summary>Extracts the distinct errors and warnings from build output.</summary>
     public static List<Diagnostic> Parse(string text)
     {
