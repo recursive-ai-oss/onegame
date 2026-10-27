@@ -64,4 +64,26 @@ public class HappyPathTests
         bounded.Bounds = new Rect(0, 0, 150, 60);
         Assert.Equal(new Vector2(75, 30), bounded.Current(size).Position);
     }
+
+    [Fact]
+    public void AGridSheetIsCutAgainWhenAReloadChangesTheTextureSize()
+    {
+        using var rig = new Rig(64, 64);
+        var texture = rig.Renderer.CreateTexture(32, 16, new byte[32 * 16 * 4]);
+        var sheet = SpriteSheet.Grid(texture, 8, 8);
+        var clip = sheet.AddClip("all", 0, 8, 8);
+        Assert.Equal(8, sheet.FrameCount);
+
+        rig.Renderer.ReplaceTexture(texture, 16, 16, new byte[16 * 16 * 4]);
+        Assert.Equal(4, sheet.FrameCount);
+        Assert.Equal(new PixelRect(8, 8, 8, 8), sheet.Frame(3));
+        Assert.True(sheet.Resized);
+        // A clip made for the bigger image shows the last frame of the smaller one instead of failing.
+        Assert.Equal(new PixelRect(8, 8, 8, 8), sheet.Frame(clip.FrameAt(0.9f)));
+
+        // Explicit frames are not re-cut: they were chosen by hand.
+        var hand = SpriteSheet.Frames(texture, [new PixelRect(0, 0, 4, 4)]);
+        rig.Renderer.ReplaceTexture(texture, 32, 32, new byte[32 * 32 * 4]);
+        Assert.Equal(1, hand.FrameCount);
+    }
 }

@@ -71,20 +71,25 @@ public sealed class SpriteClip
 /// </summary>
 public sealed class SpriteSheet
 {
-    private readonly PixelRect[] _frames;
+    private PixelRect[] _frames;
+    private (int W, int H, int Margin, int Spacing)? _grid;
+    private int _cutWidth;
+    private int _cutHeight;
     private readonly Dictionary<string, SpriteClip> _clips = new(StringComparer.Ordinal);
 
     private SpriteSheet(Texture2D texture, PixelRect[] frames)
     {
         Texture = texture;
         _frames = frames;
+        _cutWidth = texture.Width;
+        _cutHeight = texture.Height;
     }
 
     /// <summary>The image all the frames are cut from.</summary>
     public Texture2D Texture { get; }
 
     /// <summary>How many frames the sheet has.</summary>
-    public int FrameCount => _frames.Length;
+    public int FrameCount => Current().Length;
 
     /// <summary>The names of the clips added so far.</summary>
     public IEnumerable<string> ClipNames => _clips.Keys;
@@ -95,7 +100,7 @@ public sealed class SpriteSheet
     /// <param name="frameHeight">Cell height in pixels.</param>
     /// <param name="margin">Pixels around the whole grid.</param>
     /// <param name="spacing">Pixels between cells.</param>
-    /// <returns>The sheet.</returns>
+    /// <returns>The sheet. It follows the texture: when a development reload changes the image's size, the grid is cut again.</returns>
     /// <exception cref="ArgumentException">Not even one cell fits in the texture.</exception>
     public static SpriteSheet Grid(Texture2D texture, int frameWidth, int frameHeight, int margin = 0, int spacing = 0)
     {
@@ -104,11 +109,18 @@ public sealed class SpriteSheet
         ArgumentOutOfRangeException.ThrowIfLessThan(frameHeight, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(margin);
         ArgumentOutOfRangeException.ThrowIfNegative(spacing);
-        var cols = (texture.Width - (2 * margin) + spacing) / (frameWidth + spacing);
-        var rows = (texture.Height - (2 * margin) + spacing) / (frameHeight + spacing);
+        var frames = CutGrid(texture.Width, texture.Height, frameWidth, frameHeight, margin, spacing)
+            ?? throw new ArgumentException($"A {frameWidth}x{frameHeight} cell does not fit in the {texture.Width}x{texture.Height} texture.", nameof(frameWidth));
+        return new SpriteSheet(texture, frames) { _grid = (frameWidth, frameHeight, margin, spacing) };
+    }
+
+    private static PixelRect[]? CutGrid(int width, int height, int frameWidth, int frameHeight, int margin, int spacing)
+    {
+        var cols = (width - (2 * margin) + spacing) / (frameWidth + spacing);
+        var rows = (height - (2 * margin) + spacing) / (frameHeight + spacing);
         if (cols < 1 || rows < 1)
         {
-            throw new ArgumentException($"A {frameWidth}x{frameHeight} cell does not fit in the {texture.Width}x{texture.Height} texture.", nameof(frameWidth));
+            return null;
         }
 
         var frames = new PixelRect[cols * rows];
@@ -120,8 +132,26 @@ public sealed class SpriteSheet
             }
         }
 
-        return new SpriteSheet(texture, frames);
+        return frames;
     }
+
+    // A grid sheet follows its texture: when a development reload gives the texture another size the cells are cut again. Explicit frames cannot be.
+    private PixelRect[] Current()
+    {
+        if (_grid is { } g && (Texture.Width != _cutWidth || Texture.Height != _cutHeight))
+        {
+            _cutWidth = Texture.Width;
+            _cutHeight = Texture.Height;
+            // A texture too small for one cell keeps the last cut: the frames then lie outside it, which the renderer clips.
+            _frames = CutGrid(_cutWidth, _cutHeight, g.W, g.H, g.Margin, g.Spacing) ?? _frames;
+            Resized = true;
+        }
+
+        return _frames;
+    }
+
+    /// <summary>True once a reload gave the texture another size and the grid was cut again. Frame numbers past the new count then show the last frame instead of throwing.</summary>
+    public bool Resized { get; private set; }
 
     /// <summary>Uses explicit rectangles as the frames, numbered in the order given.</summary>
     /// <param name="texture">The image.</param>
@@ -150,9 +180,16 @@ public sealed class SpriteSheet
     /// <summary>The pixel rectangle of a frame.</summary>
     /// <param name="index">The frame number.</param>
     /// <returns>The rectangle.</returns>
-    public PixelRect Frame(int index) => (uint)index < (uint)_frames.Length
-        ? _frames[index]
-        : throw new ArgumentOutOfRangeException(nameof(index), index, $"The sheet has {_frames.Length} frames.");
+    public PixelRect Frame(int index)
+    {
+        var frames = Current();
+        if ((uint)index < (uint)frames.Length)
+        {
+            return frames[index];
+        }
+
+        return Resized && index >= 0 ? frames[^1] : throw new ArgumentOutOfRangeException(nameof(index), index, $"The sheet has {frames.Length} frames.");
+    }
 
     /// <summary>Adds a clip of consecutive frames.</summary>
     /// <param name="name">The clip's name.</param>

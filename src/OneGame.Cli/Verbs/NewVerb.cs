@@ -56,10 +56,19 @@ internal sealed class NewVerb : IVerb
             [name + ".csproj"] = Templates.Csproj(root, sdkVersion, cls, withServer),
             ["Program.cs"] = Templates.Program(cls, cls),
             ["Game.cs"] = Templates.Game(cls, cls, name, withServer),
-            ["scenarios/click-button.yaml"] = Templates.Scenario,
             [".gitignore"] = "bin/\nobj/\nartifacts/\ncaptures/\n",
-            ["README.md"] = Templates.Readme(name),
+            ["README.md"] = Templates.Readme(name, withServer),
         };
+        if (withServer)
+        {
+            files["scenarios/click-button.yaml"] = Templates.CounterScenario;
+        }
+        else
+        {
+            files["scenarios/steer-ship.yaml"] = Templates.Scenario;
+            files["scenarios/ship-looks-right.yaml"] = Templates.LookScenario;
+        }
+
         if (withServer)
         {
             // The simulation lives in its own file so the server project can compile it without the game's screens.
@@ -78,6 +87,14 @@ internal sealed class NewVerb : IVerb
 
         ExportAssets.WriteDefaultFont(target);
         var created = files.Keys.Concat(["fonts/NotoSans-Regular.ttf", "fonts/OFL.txt"]);
+        if (!withServer)
+        {
+            // The ship's picture and the reference image of the look scenario ship inside the tool.
+            WriteResource("template/art/ship.png", Path.Combine(target, "art", "ship.png"));
+            WriteResource("template/ship-reference.png", Path.Combine(target, "scenarios", "refs", "ship.png"));
+            created = created.Concat(["art/ship.png", "scenarios/refs/ship.png"]);
+        }
+
         string[] next = [$"cd {target}", "onegame build", "onegame run --headless --frames 60", "onegame test"];
         if (json)
         {
@@ -93,6 +110,15 @@ internal sealed class NewVerb : IVerb
         }
 
         return ExitCodes.Ok;
+    }
+
+    private static void WriteResource(string resource, string path)
+    {
+        using var stream = typeof(NewVerb).Assembly.GetManifestResourceStream(resource)
+            ?? throw new CliException(ExitCodes.RuntimeError, "no_template", $"The tool was built without its template file {resource}.");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        using var file = File.Create(path);
+        stream.CopyTo(file);
     }
 
     private static bool IsName(string name) =>
@@ -231,6 +257,39 @@ internal static class Templates
         """;
 
     /// <summary>The scaffold's entity: sim and view in one class. The README and docs/first-game.md show this text, and a test keeps them equal.</summary>
+    public const string ShipEntity = """
+        /// <summary>A ship. Synced state is fixed-point and changes only through commands; the view draws it from art/ship.png and never writes state.</summary>
+        [Entity]
+        public partial class Ship : Entity, IView2D
+        {
+            [Synced] public partial Fixed X { get; private set; }
+            [Synced] public partial Fixed Y { get; private set; }
+            [Synced] public partial int Dx { get; private set; }
+            [Synced] public partial int Dy { get; private set; }
+            [Synced] public partial bool Boost { get; private set; }
+
+            [Command]
+            public void Steer(int dx, int dy, bool boost) => (Dx, Dy, Boost) = (dx, dy, boost);
+
+            // Runs once per fixed simulation tick: deterministic code only (no floats, clocks or I/O in synced state).
+            protected override void OnTick()
+            {
+                var speed = Boost ? Fixed.FromInt(3) : Fixed.FromRatio(3, 2);
+                X += speed * Dx;
+                Y += speed * Dy;
+            }
+
+            // View code reads state and never writes it. The picture is an asset: edit art/ship.png while the game runs and it changes.
+            [View]
+            public void Draw(Draw2D d) =>
+                d.Sprite("art/ship.png", new Vector2(X.ToSingle(), Y.ToSingle()), scale: 2, tint: Boost ? Color.Rgb(0xFFD080) : Color.White);
+
+            [View]
+            public string Label() => $"x {X.ToInt()}  y {Y.ToInt()}";
+        }
+        """;
+
+    /// <summary>The server variant's entity, a counter in <c>Sim.cs</c>.</summary>
     public const string CounterEntity = """
         /// <summary>One synced counter. Sim state is partial properties; views read it and send commands.</summary>
         [Entity]
@@ -254,31 +313,50 @@ internal static class Templates
     public static string Game(string id, string cls, string name, bool withServer = false) => withServer ? GameOnly(id, cls, name) : GameWithSim(id, cls, name);
 
     private static string GameWithSim(string id, string cls, string name) => $$"""
+        using System;
+        using System.Numerics;
         using OneGame.Core;
         using OneGame.Host;
+        using OneGame.Platform;
         using OneGame.UI;
 
         namespace {{id}};
 
-        {{CounterEntity}}
+        {{ShipEntity}}
 
-        /// <summary>The game: its entity types, its starting world and its screens.</summary>
+        /// <summary>The game: its entity types, its starting world, its input actions and its screens.</summary>
         public sealed class {{cls}}Game : GameDefinition
         {
             public override string Name => "{{name}}";
 
             public override void RegisterEntities(EntityRegistry registry) => OneGame.Generated.{{id}}.EntityTypes.Register(registry);
 
-            public override void Setup(World world) => world.Add(new Counter());
+            public override void Setup(World world) => world.Add(new Ship());
+
+            // Input is declared as actions with default bindings. One declaration answers the keyboard, a gamepad and the test harness.
+            public override void DefineActions(ActionMap actions) =>
+                actions.Context("play", c => c
+                    .Vector("move", Bind.Wasd, Bind.Arrows, Bind.LeftStick)
+                    .Button("boost", Bind.Key(Key.Space), Bind.Pad(GamepadButton.South)));
+
+            // View code reads the actions and sends the ship a command when they change.
+            public override void OnEachFrame(GameInstance game)
+            {
+                var ship = ShipOf(game);
+                var move = game.Actions.Vector("move");
+                int dx = (int)MathF.Round(move.X), dy = (int)MathF.Round(move.Y);
+                var boost = game.Actions.Held("boost");
+                if (dx != ship.Dx || dy != ship.Dy || boost != ship.Boost)
+                {
+                    ship.Send.Steer(dx, dy, boost);
+                }
+            }
 
             public override void DefineScreens(ScreenSet screens) =>
-                screens.Add("main", game => Ui.Column(
-                    Ui.Label(() => CounterOf(game).Label()).Named("count"),
-                    Ui.Button("Add one", () => CounterOf(game).Send.Increment(1)).Named("add").Padding(Length.Px(8)).Background(Color.Rgb(0x3060A0)))
-                    .Padding(Length.Px(24)).Gap(Length.Px(12)).Background(Color.Rgb(0x203040)).TextColor(Color.White));
+                screens.Add("main", game => Ui.Label(() => ShipOf(game).Label()).Named("pos").Padding(Length.Px(8)).TextColor(Color.White));
 
             // Read the world through the instance: it is replaced when a snapshot or fixture is loaded.
-            private static Counter CounterOf(GameInstance game) => (Counter)game.World.Entities[0];
+            private static Ship ShipOf(GameInstance game) => (Ship)game.World.Entities[0];
         }
 
         """;
@@ -313,6 +391,37 @@ internal static class Templates
         """;
 
     public const string Scenario = """
+        name: steer-ship
+        description: The move action steers the ship, and holding boost makes it faster.
+        steps:
+          - action: { name: move, state: down, x: 1, y: 0 }
+          - step: 10
+          - action: { name: move, state: up }
+          - step: 2
+          - expect:
+              state: { entity: Ship, property: X, min: 14, max: 17 }
+          - action: { name: boost, state: down }
+          - action: { name: move, state: down, x: 0, y: 1 }
+          - step: 10
+        expect:
+          - action: { name: boost, held: true }
+          - state: { entity: Ship, property: Boost, equals: true }
+          - state: { entity: Ship, property: Y, min: 27, max: 33 }
+        """;
+
+    public const string LookScenario = """
+        name: ship-looks-right
+        description: The ship is drawn from art/ship.png after it has flown a little, and the picture is loaded.
+        window: 640x360
+        steps:
+          - action: { name: move, state: down, x: 1, y: -1 }
+          - step: 40
+        expect:
+          - capture: { reference: refs/ship.png, tolerance: 48, max-diff: 0.01 }
+          - asset: { path: art/ship.png, state: ready }
+        """;
+
+    public const string CounterScenario = """
         name: click-button
         description: Pressing the button adds one to the counter.
         steps:
@@ -327,7 +436,7 @@ internal static class Templates
           - ui: { id: count, text: "Count: 2" }
         """;
 
-    public static string Readme(string name) => $"""
+    public static string Readme(string name, bool withServer = false) => $"""
         # {name}
 
         A onegame game.
@@ -340,7 +449,17 @@ internal static class Templates
         onegame capture --size 720p                # captures/frame.png
         onegame mcp --project .                    # let an agent drive the game over MCP
         ```
+        {(withServer ? "" : ShipReadme)}
+        Scenarios live in `scenarios/`. `fonts/` holds the game's fonts (Noto Sans Regular to start, SIL Open Font License; its licence sits beside it) and `art/` its pictures. `onegame export --target linux-x64 --json` packages a Release build to ship; see the engine's `docs/exporting.md`. Debug builds include the development tools (live control, scenarios, capture, replay, asset hot reload); Release builds leave them out.
+        """;
 
-        Scenarios live in `scenarios/`. `fonts/` holds the game's fonts (Noto Sans Regular to start, SIL Open Font License; its licence sits beside it). `onegame export --target linux-x64 --json` packages a Release build to ship; see the engine's `docs/exporting.md`. Debug builds include the development tools (live control, scenarios, capture, replay); Release builds leave them out.
+    private const string ShipReadme = """
+
+        Fly the ship with WASD, the arrow keys or a gamepad's left stick; Space or the pad's south button boosts. The keys are the default bindings declared in `DefineActions`.
+
+        **Hot reload.** Run `onegame run` and, while the window is open, edit `art/ship.png` in any image editor and save: the ship changes in the next frame, and the game keeps running. (A broken file keeps the old picture and reports the error; fix it and it loads.) In a test the same thing is `- assets: { reload: art/ship.png }`.
+
+        The capture scenario `scenarios/ship-looks-right.yaml` needs a Vulkan driver (a software one is fine) to draw the frame it compares with `scenarios/refs/ship.png`; after you change how the ship looks, run `onegame test --update-references` and look at the new reference.
+
         """;
 }

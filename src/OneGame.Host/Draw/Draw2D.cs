@@ -31,6 +31,7 @@ public sealed class Draw2D
 
     private readonly Scene2D _scene = new();
     private readonly List<TextItem> _texts = [];
+    private readonly Dictionary<(string Path, TextureFilter Filter), Asset<Texture2D>> _textures = [];
     private Renderer2D? _assetsFor;
     private Texture2D? _white;
     private Texture2D? _disk;
@@ -41,6 +42,9 @@ public sealed class Draw2D
     {
         Layer = _scene.DefaultLayer;
     }
+
+    /// <summary>The game's assets, where <see cref="Texture"/> and the path overloads of <see cref="Sprite(string, Vector2, float, float, Color?, Vector2?, SpriteFlip, float)"/> load from. Null when the stage was made without them.</summary>
+    public Assets? Assets { get; internal set; }
 
     /// <summary>The renderer drawing this frame; use it to create textures (<see cref="Renderer2D.CreateTexture"/>). Null before the first frame.</summary>
     public Renderer2D? Renderer { get; private set; }
@@ -183,6 +187,41 @@ public sealed class Draw2D
     public Vector2 ScreenToWorld(Vector2 screen) => Camera.ScreenToWorld(screen, new Vector2(Width, Height));
 
     // ---- sprites ----
+
+    /// <summary>
+    /// A texture loaded from the game's content folders (<c>art/ship.png</c>), cached after the first call, so it is cheap to ask for every frame.
+    /// The texture is updated in place when the file changes during development, so sprites and <see cref="SpriteSheet"/>s over it show the new image.
+    /// </summary>
+    /// <param name="path">Path under a content folder.</param>
+    /// <param name="filter">How it is filtered when scaled; <see cref="TextureFilter.Nearest"/> for pixel art.</param>
+    /// <returns>The texture.</returns>
+    /// <exception cref="AssetException">The file is missing or damaged.</exception>
+    /// <exception cref="InvalidOperationException">The stage has no <see cref="Assets"/>.</exception>
+    public Texture2D Texture(string path, TextureFilter filter = TextureFilter.Linear)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        if (_textures.TryGetValue((path, filter), out var known))
+        {
+            return known.Value;
+        }
+
+        var assets = Assets ?? throw new InvalidOperationException("This Draw2D has no Assets to load from.");
+        var loaded = assets.LoadTexture(path, filter);
+        _textures[(path, filter)] = loaded;
+        return loaded.Value;
+    }
+
+    /// <summary>Draws a whole image loaded from the game's content folders; see <see cref="Texture"/>. The other parameters are those of <see cref="Sprite(Texture2D, Vector2, float, float, Color?, Vector2?, SpriteFlip, float)"/>.</summary>
+    /// <param name="path">Path under a content folder, like <c>art/ship.png</c>.</param>
+    /// <param name="position">Where its origin goes, in world units.</param>
+    /// <param name="rotation">Radians about the origin; positive turns clockwise on screen.</param>
+    /// <param name="scale">World units per texture pixel.</param>
+    /// <param name="tint">Colour multiplied into the texture.</param>
+    /// <param name="origin">The point of the sprite placed at <paramref name="position"/>, as a fraction of its size; the centre by default.</param>
+    /// <param name="flip">Mirroring.</param>
+    /// <param name="z">Draw order inside the layer.</param>
+    public void Sprite(string path, Vector2 position, float rotation = 0, float scale = 1, Color? tint = null, Vector2? origin = null, SpriteFlip flip = SpriteFlip.None, float z = 0) =>
+        Put(Texture(path), default, position, rotation, new Vector2(scale), tint ?? Color.White, origin ?? new Vector2(0.5f), flip, z);
 
     /// <summary>Draws a whole texture.</summary>
     /// <param name="texture">The image, from <see cref="Renderer2D.CreateTexture"/>.</param>

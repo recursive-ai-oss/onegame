@@ -189,6 +189,7 @@ public partial class Hero : Entity, IView2D
 - **Dropping down.** `d.Scene` is the `Scene2D` of the frame, `d.Layer` the layer new sprites go on (`d.Scene.AddLayer(...)` for parallax), and
   `d.Sprite(in Sprite)` takes any hand-built sprite with a material. Tilemaps and post chains still go through `DrawOverUi` or the stage's own
   `Renderer2D`, alongside.
+- **Drawing from files.** `d.Sprite("art/ship.png", pos, ...)` and `d.Texture(path, filter)` load through the game's `Assets` (`assets.md`), cached by path, cheap every frame. The texture is updated in place when the file changes in development, so a sprite, or a grid `SpriteSheet` over it, shows the new picture from the next frame; a grid sheet is cut again when the size changes (`Resized`; clip frames past the new count show the last frame), while a sheet of explicit frames keeps its rectangles. A missing or damaged file throws `AssetException`.
 - **Textures** are the renderer's (`d.Renderer.CreateTexture`); a texture belongs to one renderer, so a game with several targets of different
   formats creates its sheet per renderer.
 - **Rules.** Draw code is view code: mark it `[View]`; the analyzers keep it from writing synced state, and `Draw2D` has nothing that does. Keep
