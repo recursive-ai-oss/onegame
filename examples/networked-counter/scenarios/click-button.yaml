@@ -1,0 +1,12 @@
+name: click-button
+description: Alone, the game is one node, and the button adds one to the counter.
+steps:
+  - expect:
+      ui: { id: count, text: "Count: 0" }
+  - click: add
+  - step: 1
+  - click: add
+  - step: 1
+expect:
+  - state: { entity: Counter, property: Count, equals: 2 }
+  - ui: { id: count, text: "Count: 2" }

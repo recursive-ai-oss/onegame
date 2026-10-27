@@ -133,6 +133,13 @@ jobs:
           ONEGAME_GPU_ADAPTER: software
         run: bash tools/ci/lanterns-cluster.sh "$RUNNER_TEMP/cli/onegame" "$OUT/cluster"
 
+      # The examples gallery: every example's scenarios, and the networked one on a cluster of three processes.
+      - name: Examples
+        if: ${{ !cancelled() }}
+        env:
+          ONEGAME_GPU_ADAPTER: software
+        run: bash tools/ci/examples.sh "$RUNNER_TEMP/cli/onegame" "$OUT/examples"
+
       # The shipped program: NativeAOT, no development tools, started headless; its world hash is compared across systems below.
       - name: Export solitaire and run it
         if: ${{ !cancelled() }}
@@ -150,6 +157,7 @@ jobs:
           path: |
             ${{ runner.temp }}/artifacts/test-logs
             ${{ runner.temp }}/out/cluster
+            ${{ runner.temp }}/out/examples
             ${{ runner.temp }}/out/hashes/*.json
             ${{ runner.temp }}/out/hashes/*.txt
           if-no-files-found: warn

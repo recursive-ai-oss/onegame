@@ -1,0 +1,10 @@
+name: patrol
+description: The ship runs right, turns at the end of the line and comes back.
+steps:
+  - step: 70
+  - expect:
+      state: { entity: Patrol, property: Back, equals: true }
+  - step: 130
+expect:
+  - state: { entity: Patrol, property: Back, equals: false }
+  - state: { entity: Patrol, property: X, min: -84, max: -76 }

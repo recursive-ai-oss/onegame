@@ -1,0 +1,20 @@
+name: save-and-load
+description: Coins saved in a slot come back after more are added, and a changed setting is written to its file.
+steps:
+  - click: add
+  - step: 1
+  - click: add
+  - step: 1
+  - click: save
+  - click: add
+  - step: 1
+  - expect:
+      state: { entity: Jar, property: Coins, equals: 3 }
+  - click: load
+  - step: 1
+  - click: louder
+expect:
+  - state: { entity: Jar, property: Coins, equals: 2 }
+  - ui: { id: status, text: "Coins: 2   Volume: 8" }
+  - saves: { has: slot1, slots: 1 }
+  - saves: { settings: "volume = 8" }

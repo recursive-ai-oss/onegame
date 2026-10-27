@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>NetworkedCounterExample</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <Import Project="$(OneGameRoot)build/Server.targets" />
+
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <!-- The simulation the client and the server share. -->
+    <Compile Include="../Sim.cs" Link="Sim.cs" />
+  </ItemGroup>
+
+</Project>

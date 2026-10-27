@@ -1,0 +1,21 @@
+name: two-players
+description: Two players increment the same counter over a lossy UDP link and over a WebSocket; both replicas match the server.
+steps:
+  - wait: { node: alice, tick: 30, timeout: 60000 }
+  - wait: { node: bob, tick: 30, timeout: 60000 }
+  - command: { entity: Counter, name: Increment, args: [3] }
+    node: alice
+  - command: { entity: Counter, name: Increment, args: [4] }
+    node: bob
+  - wait: { node: server, tick: 240, timeout: 60000 }
+  - wait: { node: alice, tick: 240, timeout: 60000 }
+  - wait: { node: bob, tick: 240, timeout: 60000 }
+expect:
+  - state: { entity: Counter, property: Count, equals: 7 }
+    node: server
+  - state: { entity: Counter, property: Count, equals: 7 }
+    node: alice
+  - state: { entity: Counter, property: Count, equals: 7 }
+    node: bob
+  - agree: { server: server, clients: [alice, bob] }
+  - drift: { nodes: [server, alice, bob], equals: 0 }

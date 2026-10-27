@@ -1,0 +1,11 @@
+name: hit
+description: The torch throws sparks from the first frame, and a hit adds a burst.
+steps:
+  - step: 30
+  - expect: { particles: { emitter: sparks, min: 50, max: 150 } }
+  - expect: { particles: { emitter: flash, count: 0 } }
+  - action: hit
+  - step: 2
+expect:
+  - particles: { emitter: flash, min: 1 }
+  - state: { entity: Torch, property: Hits, equals: 1 }
