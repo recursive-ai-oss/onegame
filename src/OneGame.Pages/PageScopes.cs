@@ -1,5 +1,3 @@
-using OneGame.Render2D;
-
 namespace OneGame.Pages;
 
 /// <summary>What a host-scope number means to the page renderer.</summary>
@@ -13,16 +11,12 @@ public enum PageScopeKind
 
     /// <summary>The scope's content is drawn apart and added to what is below (a glow).</summary>
     Additive,
-
-    /// <summary>The scope's content is drawn apart and passed through a 2D material's pixel shader.</summary>
-    Material,
 }
 
 /// <summary>A resolved host-scope binding.</summary>
 /// <param name="Kind">What the scope does.</param>
 /// <param name="Layer">The layer a <see cref="PageScopeKind.Layer"/> scope draws with.</param>
-/// <param name="Material">The material of a <see cref="PageScopeKind.Material"/> scope.</param>
-public readonly record struct PageScopeBinding(PageScopeKind Kind, int Layer = 0, Material? Material = null);
+public readonly record struct PageScopeBinding(PageScopeKind Kind, int Layer = 0);
 
 /// <summary>
 /// Gives the numbers a page sets with <c>--host-scope</c> (or <c>StyleDeclaration.SetHostScope</c>) their meaning. An unbound number draws as if the
@@ -30,28 +24,38 @@ public readonly record struct PageScopeBinding(PageScopeKind Kind, int Layer = 0
 /// </summary>
 public sealed class PageScopes
 {
+    /// <summary>The layer drawn beneath the game's 2D pass: sprites and the <c>OneGame.UI</c> tree draw over it.</summary>
+    public const int Under = -1;
+
+    /// <summary>The layer drawn over the game's 2D pass, where pages normally are.</summary>
+    public const int Over = 0;
+
     private readonly Dictionary<int, PageScopeBinding> _bindings = [];
 
     /// <summary>How many numbers are bound.</summary>
     public int Count => _bindings.Count;
 
-    /// <summary>Draws the content of scope <paramref name="scope"/> when <paramref name="layer"/> is drawn instead of with layer 0.</summary>
+    /// <summary>True when some scope is bound to the <see cref="Under"/> layer.</summary>
+    public bool UsesUnder { get; private set; }
+
+    /// <summary>Draws the content of scope <paramref name="scope"/> in <paramref name="layer"/> (<see cref="Under"/> or <see cref="Over"/>) instead of with the page.</summary>
     /// <param name="scope">The host-scope number.</param>
-    /// <param name="layer">A layer number; <c>PageRenderer.AddPasses</c> draws one layer per call.</param>
-    public void Layer(int scope, int layer) => _bindings[scope] = new PageScopeBinding(PageScopeKind.Layer, layer);
+    /// <param name="layer">Where it is drawn.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The layer is neither <see cref="Under"/> nor <see cref="Over"/>.</exception>
+    public void Layer(int scope, int layer)
+    {
+        if (layer is not (Under or Over))
+        {
+            throw new ArgumentOutOfRangeException(nameof(layer), "A page layer is PageScopes.Under (-1) or PageScopes.Over (0).");
+        }
+
+        _bindings[scope] = new PageScopeBinding(PageScopeKind.Layer, layer);
+        UsesUnder |= layer == Under;
+    }
 
     /// <summary>Draws the content of scope <paramref name="scope"/> apart and adds it to what is below it, for glows and light.</summary>
     /// <param name="scope">The host-scope number.</param>
     public void Additive(int scope) => _bindings[scope] = new PageScopeBinding(PageScopeKind.Additive);
-
-    /// <summary>Draws the content of scope <paramref name="scope"/> apart and passes it through the pixel shader of a 2D material.</summary>
-    /// <param name="scope">The host-scope number.</param>
-    /// <param name="material">A material from <see cref="Renderer2D.CreateMaterial"/> or <see cref="Renderer2D.AdditiveMaterial"/>.</param>
-    public void Material(int scope, Material material)
-    {
-        ArgumentNullException.ThrowIfNull(material);
-        _bindings[scope] = new PageScopeBinding(PageScopeKind.Material, 0, material);
-    }
 
     /// <summary>Removes a binding.</summary>
     /// <param name="scope">The host-scope number.</param>

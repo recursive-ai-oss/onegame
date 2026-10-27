@@ -79,6 +79,9 @@ internal sealed partial class PageWalker
 
     public PageWalker(PageRenderer renderer) => _renderer = renderer;
 
+    /// <summary>The layer slot the walk left as the page's result.</summary>
+    public int Cur => _cur;
+
     private bool Emitting => _suppress == 0 && _layerNow == _layerFilter;
 
     /// <summary>Adds one screen's items to the plan. All screens of a plan share its root layer.</summary>

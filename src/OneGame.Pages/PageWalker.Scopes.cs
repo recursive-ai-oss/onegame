@@ -37,7 +37,7 @@ internal sealed partial class PageWalker
         return ++_plan.ClipCount;
     }
 
-    private (int X0, int Y0, int X1, int Y1) DeviceBox(in RectF rect, in Matrix3x2 m)
+    private static (int X0, int Y0, int X1, int Y1) DeviceBox(in RectF rect, in Matrix3x2 m)
     {
         var p0 = Vector2.Transform(new Vector2(rect.X, rect.Y), m);
         var p1 = Vector2.Transform(new Vector2(rect.X + rect.Width, rect.Y), m);

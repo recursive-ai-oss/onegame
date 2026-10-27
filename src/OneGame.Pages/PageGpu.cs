@@ -192,6 +192,33 @@ internal sealed class PageGpu : IDisposable
         return group;
     }
 
+    /// <summary>Drops the bind groups that name a texture that is about to be disposed. The caller has waited for the device.</summary>
+    public void Forget(GpuTexture texture)
+    {
+        foreach (var table in new[] { _groups, _nearestGroups })
+        {
+            List<(GpuTexture, GpuTexture)>? dead = null;
+            foreach (var k in table.Keys)
+            {
+                if (k.Item1 == texture || k.Item2 == texture)
+                {
+                    (dead ??= []).Add(k);
+                }
+            }
+
+            if (dead is null)
+            {
+                continue;
+            }
+
+            foreach (var k in dead)
+            {
+                table[k].Dispose();
+                table.Remove(k);
+            }
+        }
+    }
+
     /// <summary>Forgets the set 0 group of a clip buffer that is being replaced.</summary>
     public void ForgetFrame(GpuBuffer clips)
     {

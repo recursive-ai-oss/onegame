@@ -127,7 +127,12 @@ internal sealed partial class PageWalker
             return;
         }
 
-        if (!_renderer.Coverage.TryGet(it, _ctm, _clip, _plan.Width, _plan.Height, _list.FrameStamp, out var cov))
+        var box = DeviceBox(it.LocalBounds, _ctm);
+        var cx0 = Math.Max(box.X0, Math.Max(_clip.X0, 0));
+        var cy0 = Math.Max(box.Y0, Math.Max(_clip.Y0, 0));
+        var cx1 = Math.Min(box.X1, Math.Min(_clip.X1, _plan.Width));
+        var cy1 = Math.Min(box.Y1, Math.Min(_clip.Y1, _plan.Height));
+        if (!_renderer.Coverage.TryGet(it, _ctm, cx0, cy0, cx1, cy1, out var cov))
         {
             return;
         }

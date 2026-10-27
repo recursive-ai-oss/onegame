@@ -1,5 +1,6 @@
 using System.Numerics;
 using OneGame.Gpu;
+using OneGame.Gpu.Graph;
 
 namespace OneGame.Pages;
 
@@ -76,7 +77,7 @@ internal struct Batch
     public int Sh;
 }
 
-/// <summary>Everything one call of <see cref="PageRenderer.AddPasses"/> draws: instances, clips, passes. Reused between frames.</summary>
+/// <summary>Everything one call of <c>PageRenderer.AddPasses</c> draws: instances, clips, passes. Reused between frames.</summary>
 internal sealed class PagePlan
 {
     public PageInstance[] Instances = new PageInstance[1024];
@@ -93,6 +94,7 @@ internal sealed class PagePlan
     public int Width;
     public int Height;
     public int Root;
+    public GraphTexture[] Handles = new GraphTexture[32];
 
     public GpuBuffer? InstanceBuffer;
     public ulong InstanceCapacity;
