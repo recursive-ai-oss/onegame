@@ -324,6 +324,8 @@ internal sealed partial class PageWalker
         ref var inst = ref _plan.Instances[idx];
         // An empty hole of an inset shadow leaves the whole padding box shadowed: park the hole far away.
         inst.Rect = shape.IsEmpty ? new Vector4(-1e6f, -1e6f, 1f, 1f) : new Vector4(shape.X, shape.Y, shape.Width, shape.Height);
+        // The vertex shader grows the quad from Rect by Pad: an outer shadow's quad reaches the blur, not just the shape.
+        inst.Pad = it.ShadowInset ? Pad : Pad + (3 * sigma);
         SetRadii(ref inst, shapeRadii);
         inst.Widths = new Vector4(box.X, box.Y, box.Width, box.Height);
         inst.Uv = new Vector4(radii.TopLeftX, radii.TopRightX, radii.BottomRightX, radii.BottomLeftX);

@@ -542,12 +542,14 @@ float4 PSMaskCombine(PageOut i) : SV_Target
     return float4(0, 0, 0, o);
 }
 
-// The masked content: Tex premultiplied content, Tex2 the coverage (alpha).
+// The masked content: Tex premultiplied content, Tex2 the coverage.
 [shader("pixel")]
 float4 PSMaskApply(PageOut i) : SV_Target
 {
     float2 uv = LayerUv(i);
-    return Tex.Sample(Samp, uv) * (Tex2.Sample(Samp, uv).a * ClipCover(i.Dev, i.Flags.z));
+    // A path's coverage is an R8 bitmap over its own rectangle (Widths); a mask layer carries its coverage in alpha.
+    float cover = i.Grad.y > 0.5 ? Tex2.Sample(Samp, (i.Dev - i.Widths.xy) / i.Widths.zw).r : Tex2.Sample(Samp, uv).a;
+    return Tex.Sample(Samp, uv) * (cover * ClipCover(i.Dev, i.Flags.z));
 }
 
 // Colour filter functions (Filter Effects 1 §5) on premultiplied values, up to four in order. Radii holds the kinds (-1 for none) and Widths

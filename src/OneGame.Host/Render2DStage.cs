@@ -1,6 +1,7 @@
 using OneGame.Atlas;
 using OneGame.Gpu;
 using OneGame.Gpu.Graph;
+using OneGame.Pages;
 using OneGame.Render2D;
 using OneGame.Text;
 using OneGame.UI;
@@ -27,12 +28,23 @@ public sealed record HostResources(FontLibrary? Fonts, FontTextMeasurer? Measure
 /// </summary>
 public class Render2DStage : IRenderStage, IDisposable
 {
+    // The clear colour in linear light, for the page renderer (its targets are sRGB).
+    private static readonly System.Numerics.Vector4 LinearClear = new(
+        ToLinear(StubStage.Clear.R), ToLinear(StubStage.Clear.G), ToLinear(StubStage.Clear.B), StubStage.Clear.A / 255f);
+
+    private static float ToLinear(byte v)
+    {
+        var c = v / 255f;
+        return c <= 0.04045f ? c / 12.92f : MathF.Pow((c + 0.055f) / 1.055f, 2.4f);
+    }
+
     private static readonly OneGame.UI.Color ClearColor = new(StubStage.Clear.R, StubStage.Clear.G, StubStage.Clear.B, StubStage.Clear.A);
 
     private readonly HostResources _resources;
     private readonly GlyphAtlas _glyphs;
     private readonly TextQuadBuilder _text;
     private readonly Dictionary<GpuFormat, Renderer2D> _renderers = [];
+    private readonly Dictionary<GpuFormat, PageRenderer> _pageRenderers = [];
     private readonly HashSet<GpuTexture> _seen = [];
     private readonly Render2DPass _pass = new();
     private readonly Draw2D _draw = new();
@@ -59,6 +71,15 @@ public class Render2DStage : IRenderStage, IDisposable
     /// (and then <see cref="Draw2D.Describer"/>, for entities that cannot reference the host), and shows the result under the UI.
     /// </summary>
     public Draw2D Draw => _draw;
+
+    /// <summary>
+    /// The page screens to draw (<c>OneGame.Pages</c>): host-scope layer <see cref="PageScopes.Under"/> before the 2D pass and the UI, everything else after
+    /// them. The host sets it; null draws no pages.
+    /// </summary>
+    public PageSet? Pages { get; set; }
+
+    /// <summary>What the page renderer drew in the last frame (the first format's renderer).</summary>
+    public PageStats PageStats => _pageRenderers.Values.FirstOrDefault()?.Stats ?? default;
 
     /// <summary>Drawn over everything else in each frame, captures included; null for none. Development builds set it; a release build never does.</summary>
     public IFrameOverlay? Overlay { get; set; }
@@ -126,7 +147,22 @@ public class Render2DStage : IRenderStage, IDisposable
 
         // A scene stage draws first; the 2D pass then adds to what it left instead of clearing the target.
         var hasScene = AddScenePasses(device, _graph, _pass.Target, target, frame);
-        renderer.BeginFrame(target, new FrameOptions { Clear = hasScene ? null : ClearColor });
+        var pages = Pages is { Any: true } p ? p : null;
+        PageRenderer? pageRenderer = null;
+        var under = false;
+        if (pages is not null)
+        {
+            if (!_pageRenderers.TryGetValue(target.Format, out pageRenderer))
+            {
+                pageRenderer = PageRenderer.Create(device, target.Format, _glyphs, _resources.Art);
+                _pageRenderers[target.Format] = pageRenderer;
+            }
+
+            pages.Prepare(frame.Width, frame.Height, frame.Scale);
+            under = pages.Scopes.UsesUnder;
+        }
+
+        renderer.BeginFrame(target, new FrameOptions { Clear = hasScene || under ? null : ClearColor });
         _draw.Draw(renderer, frame, _text, _resources.Measurer!, _glyphs);
         renderer.Ui.Draw(frame.List, _text, _glyphs, _resources.Art);
         DrawOverUi(renderer, frame);
@@ -137,9 +173,16 @@ public class Render2DStage : IRenderStage, IDisposable
             _overlayCanvas.End();
         }
 
+        if (under)
+        {
+            // Pages that sit beneath the 2D pass clear the target first; the pass then draws over them.
+            pageRenderer!.AddPasses(_graph, _pass.Target, pages!.Screens, pages.Scopes, new PageFrame(frame.Width, frame.Height, frame.Scale, renderer.FrameNumber, PageScopes.Under, hasScene ? null : LinearClear));
+        }
+
         _pass.Renderer = renderer;
-        _pass.Preserve = hasScene;
+        _pass.Preserve = hasScene || under;
         _graph.AddPass(_pass);
+        pageRenderer?.AddPasses(_graph, _pass.Target, pages!.Screens, pages.Scopes, new PageFrame(frame.Width, frame.Height, frame.Scale, renderer.FrameNumber, PageScopes.Over));
         _graph.Execute();
         _pass.Renderer = null;
     }
@@ -213,6 +256,12 @@ public class Render2DStage : IRenderStage, IDisposable
         }
 
         _renderers.Clear();
+        foreach (var p in _pageRenderers.Values)
+        {
+            p.Dispose();
+        }
+
+        _pageRenderers.Clear();
         _graph?.Dispose();
         _graph = null;
         GC.SuppressFinalize(this);

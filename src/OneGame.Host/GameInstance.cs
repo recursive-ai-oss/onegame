@@ -109,7 +109,7 @@ public sealed record CapturedFrame(int Width, int Height, byte[] Rgba, string Re
 /// Each frame handles input, runs one fixed simulation tick and brings the UI up to date. A windowed instance also draws and
 /// presents. Everything the harness does to a game goes through this type.
 /// </summary>
-public sealed class GameInstance : IDisposable
+public sealed partial class GameInstance : IDisposable
 {
     /// <summary>Simulation ticks per second of a realtime run.</summary>
     public const int TickRate = 60;
@@ -153,6 +153,11 @@ public sealed class GameInstance : IDisposable
         HotShaders = new HotShaders();
         Assets = new Assets(definition.CreateAssetSource());
         _stage = definition.CreateRenderStage(new HostResources(haveFonts ? fonts : null, measurer, art, shaders) { HotShaders = HotShaders, Assets = Assets });
+        if (_stage is Render2DStage pageStage)
+        {
+            pageStage.Pages = Pages;
+        }
+
         Platform = PlatformApp.Create(new PlatformOptions
         {
             Backend = options.Headless ? PlatformBackendKind.Headless : options.Backend,
@@ -612,6 +617,7 @@ public sealed class GameInstance : IDisposable
             if (!double.IsNaN(_lastViewTime))
             {
                 Tweens.Advance(now - _lastViewTime);
+                AdvancePages(now - _lastViewTime);
             }
         }
 
@@ -629,6 +635,7 @@ public sealed class GameInstance : IDisposable
         // A style change made since the last frame has to be seen first, so its transition starts before time moves.
         Ui.Update();
         Tweens.Advance(seconds);
+        AdvancePages(seconds);
         Ui.Update();
         Redraw();
     }
@@ -757,6 +764,11 @@ public sealed class GameInstance : IDisposable
         if (e.Kind == PlatformEventKind.GamepadAxisMoved && _stick.OnAxis(e, out var stickNav))
         {
             Ui.Dispatch(stickNav);
+            return;
+        }
+
+        if (RoutePages(e))
+        {
             return;
         }
 

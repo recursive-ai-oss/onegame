@@ -76,6 +76,17 @@ public sealed class PageScreen
         return new PageScreen(null, tree, options);
     }
 
+    /// <summary>A screen that draws a display list built by hand (tests, tools). It lays out nothing and takes no input.</summary>
+    internal static PageScreen FromList(DisplayList list, PageImages? images)
+    {
+        var screen = new PageScreen(null, null, new PageOptions(new PageFonts(new OneGame.Text.FontLibrary())) { Images = images });
+        screen.Draw = new PageDraw(list, images);
+        screen._width = int.MaxValue;
+        screen._height = int.MaxValue;
+        screen._scale = 1f;
+        return screen;
+    }
+
     /// <summary>The name the screen was shown under.</summary>
     public string Name { get; internal set; } = "";
 
@@ -104,7 +115,7 @@ public sealed class PageScreen
     /// <summary>Makes sure the page exists at this size, creating it again when the size or scale changed.</summary>
     internal void Prepare(int width, int height, float scale, double nowMs)
     {
-        if (Draw is not null && width == _width && height == _height && scale == _scale)
+        if (Draw is not null && (_html is null && _tree is null || width == _width && height == _height && scale == _scale))
         {
             return;
         }
@@ -282,7 +293,7 @@ public sealed class PageScreen
     }
 
     /// <summary>Whether a pointer at this device position is over something of the page other than the empty background.</summary>
-    internal bool Covers(float x, float y)
+    public bool Covers(float x, float y)
     {
         if (Interactive is not { } p)
         {
@@ -302,7 +313,7 @@ public sealed class PageScreen
         }
 
         var covers = Covers(x, y);
-        var buttons = action == PointerAction.Down ? (button == 1 ? MouseButtons.Secondary : MouseButtons.Primary) : MouseButtons.None;
+        var buttons = action == PointerAction.Down ? (button == 2 ? MouseButtons.Secondary : button == 1 ? MouseButtons.Auxiliary : MouseButtons.Primary) : MouseButtons.None;
         var outcome = p.HandlePointer(new PointerInput { Action = action, X = x / _scale, Y = y / _scale, Button = button, Buttons = buttons, Time = _now, PointerType = "mouse" });
         Apply(outcome);
         return covers || action == PointerAction.Up && (outcome & InputOutcome.DefaultPrevented) != 0;

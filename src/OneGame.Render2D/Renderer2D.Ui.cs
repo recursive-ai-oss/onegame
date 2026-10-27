@@ -6,7 +6,8 @@ namespace OneGame.Render2D;
 
 public sealed partial class Renderer2D
 {
-    internal int FrameNumber => _frame;
+    /// <summary>The number of the frame being recorded; atlases take it as their clock, so every user of an atlas in a frame must pass the same one.</summary>
+    public int FrameNumber => _frame;
 
     internal int FrameWidth => _width;
 
