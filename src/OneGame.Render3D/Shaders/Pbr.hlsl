@@ -500,7 +500,9 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
     uint slice = (uint)clamp(sl, 0.0, Grid.z - 1.0);
     uint cluster = (slice * (uint)Grid.y + min(t2.y, (uint)Grid.y - 1u)) * (uint)Grid.x + min(t2.x, (uint)Grid.x - 1u);
     uint at = cluster * Counts.z;
-    uint count = Clusters[at];
+    // The cluster pass only runs when the scene has punctual lights; otherwise the buffer holds nothing this frame (never written, or
+    // left over from an earlier scene), and reading a count from it would loop over garbage.
+    uint count = Counts.y > Counts.x ? Clusters[at] : 0u;
     float aoScreen = AmbientOcclusion(i.Pos);
 
     if (StyleA.x > 0.5)

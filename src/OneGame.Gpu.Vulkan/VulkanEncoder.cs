@@ -10,7 +10,10 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
 {
     readonly VulkanDevice _dev;
     VkCommandPool _pool;
-    readonly List<VkCommandBuffer> _all = [];
+    // Sized for a busy frame (two buffers per pass) so a pooled encoder that last recorded a small upload does not grow these on the
+    // first big frame it gets; which encoder a frame gets depends on how fast the GPU retires earlier ones.
+    const int CommandBufferHeadroom = 128;
+    readonly List<VkCommandBuffer> _all = new(CommandBufferHeadroom);
     int _used;
     VkCommandBuffer _cur;
     bool _curOpen;
@@ -25,7 +28,7 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
     VulkanTimestampSet? _endSet;
 
     /// <summary>Command buffers to submit, in order.</summary>
-    internal readonly List<VkCommandBuffer> Done = [];
+    internal readonly List<VkCommandBuffer> Done = new(CommandBufferHeadroom);
 
     internal VulkanDevice Device => _dev;
 

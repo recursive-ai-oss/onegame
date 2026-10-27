@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Drives a running dev build of Solitaire on a device over its live-control socket and prints one JSON result.
 
-  live-check.py ENDPOINT OUTDIR [--serial ADB_SERIAL] [--expect-audio aaudio|audiounit]
+  live-check.py ENDPOINT OUTDIR [--serial ADB_SERIAL] [--expect-audio aaudio|audiounit|alsa|wasapi]
 
 Checks: the window and GPU the game reports, a presented frame (saved as PNG), real finger input when an adb serial is given
 (`adb shell input tap` on the buttons' on-screen positions, so the platform's own touch path runs), a card drawn by finger,
@@ -85,22 +85,21 @@ time.sleep(1.5)
 m.call('step', frames=20)
 dev = (m.call('audio') or {}).get('device', {})
 dev = dict(dev, deviceState=dev.get('deviceState') or dev.get('state'))   # the Linux backend names it `state`
-res['audio'] = {k: dev.get(k) for k in ('backend', 'deviceState', 'framesWritten', 'framesPlayed', 'peakPlayed', 'underruns', 'losses', 'audioThreadAllocatedBytes', 'detail')}
+res['audio'] = {k: dev.get(k) for k in ('backend', 'deviceState', 'framesWritten', 'framesPlayed', 'peakPlayed', 'underruns', 'deviceUnderruns', 'losses', 'audioThreadAllocatedBytes', 'detail')}
 if expect_audio and dev.get('backend') != expect_audio:
     problems.append(f"audio backend {dev.get('backend')} (wanted {expect_audio})")
-# A state of Running proves nothing on its own: the device must have been handed frames and must have taken them.
-# The WASAPI sink has no counters to report (state, frames and peak stay empty), so for it only the backend name is checked.
-if dev.get('backend') in ('wasapi',):
-    res['audio']['note'] = 'this backend does not report device counters'
-else:
-    if dev.get('deviceState') not in ('started', 'Running', 'running'):
-        problems.append(f"audio device not running (state {dev.get('deviceState')})")
-    if not dev.get('framesWritten'):
-        problems.append('no frames were written to the audio device (framesWritten 0)')
-    if not dev.get('framesPlayed'):
-        problems.append('the audio device took no frames (framesPlayed 0)')
-    if not dev.get('peakPlayed'):
-        problems.append('no sound reached the device (peakPlayed 0)')
+# A state of Running proves nothing on its own: the device must have been handed frames and must have taken them. Every backend
+# (ALSA, WASAPI, AAudio, Audio Unit) reports the same counters through the device package, so the check is the same for all of them.
+if dev.get('deviceState') not in ('started', 'Running', 'running'):
+    problems.append(f"audio device not running (state {dev.get('deviceState')})")
+if not dev.get('framesWritten'):
+    problems.append('no frames were written to the audio device (framesWritten 0)')
+if not dev.get('framesPlayed'):
+    problems.append('the audio device took no frames (framesPlayed 0)')
+if not dev.get('peakPlayed'):
+    problems.append('no sound reached the device (peakPlayed 0)')
+if dev.get('underruns') or dev.get('deviceUnderruns'):
+    problems.append(f"audio underruns: output {dev.get('underruns')}, device {dev.get('deviceUnderruns')}")
 
 # A frame as the window presents it.
 png_info, pngs = m.call2('capture_frame', presented=True)

@@ -397,7 +397,9 @@ public class BackgroundTests
         Golden.Note($"backdrop 2048x1152 at 1920x1080, UI scale 1.5: mean diff {mean:F3}, max diff {max}, {over:P3} of channels off by more than 8, edge width {gpuEdge:F2} px (CPU reference {refEdge:F2} px, 1024 px page {cappedEdge:F2} px, page mean diff {cappedMean:F3})");
         Assert.True(mean < 0.5, $"mean difference from the CPU resample is {mean}");
         Assert.True(over < 0.001, $"{over:P3} of channels differ from the CPU resample by more than 8 (max {max})");
-        Assert.True(Math.Abs(gpuEdge - refEdge) < 0.35, $"edge is {gpuEdge} px wide against {refEdge} in the reference");
+        // Not blurrier than the reference. A sampler with a different sub-texel rounding (Intel graphics) can land the step on a pixel
+        // boundary and give a narrower edge, which is as sharp as the image gets, so only the soft side fails.
+        Assert.True(gpuEdge < refEdge + 0.35, $"edge is {gpuEdge} px wide against {refEdge} in the reference");
         Assert.True(cappedEdge > gpuEdge + 0.5, "the sharpness check must be able to tell a 1024 px page from the full image");
         Capture("backdrop-raster-1080p-1.5x", W, H, px);
     }
