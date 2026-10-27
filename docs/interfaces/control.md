@@ -42,6 +42,7 @@ Without `--headless` the game opens a window (Wayland when `WAYLAND_DISPLAY` is 
 | Shaders | `shaders` (hot reload status; recompiles changed shader files first, see `docs/interfaces/render2d.md`) |
 | Rendering | `render_graph` (passes, resources and per-pass GPU time of the last frame; see `render-graph.md`) |
 | 3D | `camera` (read or override the camera), `pick` (entity under a pixel or along a ray), `project` (world point to pixel): `scene3d.md`; `quality` (read or set the renderer's level, SSAO): `render3d.md` |
+| 2D | `draw_view` (what the 2D happy path drew last frame, its camera, screen/world conversion): `render2d.md` |
 | Purchases | `store` (describe, connect, load, buy, finish, restore; script, resolve, revoke, disconnect against the fake store): `store.md` |
 | Audio | `audio` (buses, filters, reverb, limiter, loudness LUFS and dBTP, per-bus loudness, music position, and the `device` section: backend, device state, underruns, frames written and played, peak played; `unlock`, `interrupt` and `suspend` arguments drive the device), `audio_events` (the sounds the game played: sequence, frame, clip name, bus; `since`, `clear`), `audio_capture` (render capture-mode audio, report peak, output and per-bus loudness, write a WAV; see `audio.md`) |
 | Steam Input | `steam_input` (enabled or why not, action sets and their screens, active set, controllers, latest action values, on-screen keyboard; with the stand-in controller also connect, disconnect, press, release, analog; see `steam.md`) |

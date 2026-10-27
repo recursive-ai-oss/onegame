@@ -146,6 +146,57 @@ baseline and calls the delegate only when it is compatible. A compile error or a
 reported by the `shaders` control operation and on standard error. Release builds register the shader and nothing else: the watcher and the
 compiler call are in `OneGame.Control`, which they do not reference. Built-in shaders (`Quad`, `Tile`, `Ui`) are not reloaded.
 
+## The happy path: draw from view code
+
+The layer above `Scene2D` for games that just want things on screen. `Render2DStage` (the default stage) asks every entity that implements
+`IView2D` to draw each frame, then `Draw2D.Describer(world, draw)` for entities that cannot reference the host, and shows the result under the
+UI. No stage of your own:
+
+```csharp
+[Entity]
+public partial class Hero : Entity, IView2D
+{
+    [Synced] public partial Fixed X { get; private set; }
+    [Command] public void Go(Fixed speed) => Speed = speed;            // sim state is fixed-point; the animation is view only
+
+    private SpriteSheet? _sheet;
+    [View]
+    public void Draw(Draw2D d)
+    {
+        _sheet ??= MySheet(d.Renderer!);                                // d.Renderer.CreateTexture(...) -> SpriteSheet.Grid(tex, 16, 16) + AddClip(...)
+        var at = new Vector2(X.ToSingle(), 0);
+        d.Follow(at);                                                   // camera
+        d.Sprite(_sheet, "walk", at, scale: 2, flip: SpriteFlip.Horizontal);
+        d.Text("hero", at - new Vector2(0, 24), 12, anchor: new Vector2(0.5f, 1));
+    }
+}
+```
+
+- **`Draw2D`** (`OneGame.Host`): `Sprite` (texture, source rect, sheet frame, sheet clip, or a low-level `Sprite`; each with rotation, `scale`,
+  `tint`, `origin` as a fraction of the sprite, `flip`, `z`), `FillRect`, `StrokeRect`, `Line`, `FillCircle`, `StrokeCircle`, `Text` (world
+  position, size in world units) and `ScreenText` (pixels). Order is `z`, then call order; text is drawn after all sprites. Shapes are sprites of a
+  1x1 and a 128 px disc texture the stage makes, so they batch with everything else; circles are exact to about a pixel up to a few hundred
+  pixels across. Text is one line (no wrapping), unrotated, in the game's fonts (`family` null = the first); it reaches the screen through
+  `UiCanvas.Text`, which uses the UI's glyph atlas.
+- **View time.** `d.Time` is `(Tick + Alpha) / 60` seconds, `d.DeltaTime` the step since the previous drawn frame. Clips read it, so animation is smooth
+  in play, identical in captures and replays, and frozen while the sim is paused. Pass `clipTime: d.Time - startedAt` to play from a moment.
+- **`SpriteSheet`** (`OneGame.Render2D`): `Grid(texture, w, h, margin, spacing)` or `Frames(texture, rects)`; `AddClip(name, first, count, fps,
+  loop)` or with an explicit frame list; `SpriteClip.FrameAt(seconds)` is a pure function. An unknown clip throws `UnknownClipException`.
+- **`Camera2DRig`** (`d.Camera`): `Zoom`, `Rotation`, `Bounds`, `Smoothing` (time constant in seconds; 0 = exact), `Follow(target, dt)` /
+  `d.Follow(target)`, `Snap`, `WorldToScreen`, `ScreenToWorld`, and `Current(size)` giving the low-level `Camera2D`. Smoothing makes the camera
+  depend on how many frames were drawn, so a capture taken after a jump is not the same as one taken after every tick; keep it at 0 where captures
+  must repeat (the clip and sheet maths are unaffected).
+- **Dropping down.** `d.Scene` is the `Scene2D` of the frame, `d.Layer` the layer new sprites go on (`d.Scene.AddLayer(...)` for parallax), and
+  `d.Sprite(in Sprite)` takes any hand-built sprite with a material. Tilemaps and post chains still go through `DrawOverUi` or the stage's own
+  `Renderer2D`, alongside.
+- **Textures** are the renderer's (`d.Renderer.CreateTexture`); a texture belongs to one renderer, so a game with several targets of different
+  formats creates its sheet per renderer.
+- **Rules.** Draw code is view code: mark it `[View]`; the analyzers keep it from writing synced state, and `Draw2D` has nothing that does. Keep
+  GPU objects in view fields, never synced state. Steady frames allocate nothing (a test measures 60 frames); strings built per frame are yours.
+- **Harness.** Captures and the scenario `capture` expectation show it with the UI. The `draw_view` operation reports the last frame's sprite and
+  text counts, tick, view time and camera, and converts `screen` [x,y] to a world point and `world` [x,y] to a pixel.
+  `tests/Draw2DGame` is the worked example (a walking hero, scenario `01-walk.yaml` with capture references).
+
 ## Plugging into the game host
 
 The host's render stage hands a stage the device, a target and the frame's display list. A stage over this renderer owns the `Renderer2D`, the

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../Draw2DGame/Draw2DGame.csproj" />
+    <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
+    <ProjectReference Include="../../src/OneGame.Live/OneGame.Live.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../Draw2DGame/scenarios/**" CopyToOutputDirectory="PreserveNewest" LinkBase="scenarios" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="OneGame.Testing" />
+  </ItemGroup>
+
+</Project>

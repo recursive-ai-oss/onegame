@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OneGameRoot>$(MSBuildThisFileDirectory)../../</OneGameRoot>
+    <AssemblyName>Draw2DGame</AssemblyName>
+    <RootNamespace>Draw2DGame</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <Compile Include="Sim/*.cs" />
+    <!-- The font travels inside the program, so it runs from any folder. -->
+    <EmbeddedResource Include="$(OneGameRoot)assets/fonts/NotoSans-Regular.ttf" LogicalName="fonts/NotoSans-Regular.ttf" />
+  </ItemGroup>
+
+</Project>

@@ -79,6 +79,46 @@ public sealed class TextQuadBuilder
         return refused;
     }
 
+    /// <summary>Appends the quads of one line of text placed with its top-left corner at a point. Newlines are not broken; the whole string is one line.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="style">Family, size and spacing.</param>
+    /// <param name="x">Left edge in screen pixels.</param>
+    /// <param name="y">Top of the line box in screen pixels.</param>
+    /// <param name="color">Text color (straight alpha).</param>
+    /// <param name="quads">Receives the quads, in draw order.</param>
+    /// <returns>How many glyphs the atlas refused.</returns>
+    public int BuildLine(string text, in TextStyle style, float x, float y, Color color, List<GlyphQuad> quads)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(quads);
+        var refused = 0;
+        _glyphs.Clear();
+        var baseline = _measurer.Place(text, style, 0, text.Length, 0, _glyphs);
+        var originY = MathF.Round(y + baseline);
+        foreach (var g in _glyphs)
+        {
+            var gx = x + g.X;
+            var ix = MathF.Floor(gx);
+            var step = Math.Clamp((int)((gx - ix) * GlyphAtlas.SubpixelSteps), 0, GlyphAtlas.SubpixelSteps - 1);
+            if (_atlas.TryGet(g.FaceId, g.GlyphId, style.Size, step, out var info) != AtlasStatus.Ok)
+            {
+                refused++;
+                continue;
+            }
+
+            if (info.Width == 0)
+            {
+                continue;
+            }
+
+            var x0 = ix + info.OffsetX;
+            var y0 = originY + MathF.Round(g.Y) + info.OffsetY;
+            quads.Add(new GlyphQuad(info.Page, x0, y0, x0 + info.Width, y0 + info.Height, info.U0, info.V0, info.U1, info.V1, color));
+        }
+
+        return refused;
+    }
+
     /// <summary>Appends the quads of every text run of a list, in run order.</summary>
     /// <param name="list">The display list.</param>
     /// <param name="quads">Receives the quads.</param>
