@@ -195,12 +195,20 @@ jobs:
           echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
           echo "$dir" >> "$GITHUB_PATH"
 
-      # NativeAOT links with clang and zlib on Linux.
+      # NativeAOT links with clang and zlib on Linux. The game's capture scenario needs a Vulkan device: the distro's Mesa gives a CPU one (lavapipe).
       - name: Linux packages
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev mesa-vulkan-drivers libvulkan1
+          icd=$(find /usr/share/vulkan/icd.d -name "lvp_icd*.json" | head -1)
+          echo "VK_ICD_FILENAMES=$icd" >> "$GITHUB_ENV"
+          echo "lavapipe: $icd"
+
+      - name: Windows Vulkan loader and lavapipe
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/ci/windows-vulkan.ps1
 
       - name: Pack, install the tool, create, run, test and export a game
         run: bash tools/ci/package-smoke.sh ${{ matrix.target }} "$RUNNER_TEMP/package-smoke"

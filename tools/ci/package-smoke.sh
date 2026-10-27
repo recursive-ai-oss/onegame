@@ -103,11 +103,11 @@ PROPS
 
   step "onegame run --headless --frames 60 --json"
   "$og" run --headless --frames 60 --json | tee "$work/$variant-run.json"
-  grep -q '"ok":true' "$work/$variant-run.json"
+  grep -q '^{"ok":true' "$work/$variant-run.json" || { echo "onegame run failed"; exit 1; }
 
   step "onegame test --json"
   "$og" test --json | tee "$work/$variant-test.json"
-  grep -q '"ok":true' "$work/$variant-test.json"
+  grep -q '^{"ok":true' "$work/$variant-test.json" || { echo "onegame test failed"; exit 1; }
 
   step "onegame export --target $target"
   "$og" export --target "$target" --out "$work/$variant-export" --json | tee "$work/$variant-export.json"
@@ -119,7 +119,7 @@ PROPS
 
   step "run the exported game headless"
   "$exe" --headless --frames 60 --seed 42 --gpu off --json | tee "$work/$variant-exported-run.json"
-  grep -q '"ok":true' "$work/$variant-exported-run.json"
+  grep -q '^{"ok":true' "$work/$variant-exported-run.json" || { echo "the exported game failed"; exit 1; }
 
 }
 
