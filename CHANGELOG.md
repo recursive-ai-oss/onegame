@@ -4,6 +4,12 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-10-28
+
+### Changed
+
+- Solitaire's settings page styles its native controls dark and gold like the kit (dark tracks with a gold fill, gold rings and dots), with CSS on the page only.
+
 ## [1.6.0] - 2026-10-28
 
 Pages: a game screen can be an HTML/CSS page or a style-tree page from OneRender, drawn through the 2D renderer.
