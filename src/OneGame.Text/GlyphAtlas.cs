@@ -41,7 +41,15 @@ public sealed class GlyphAtlas
 
     private readonly record struct Key(int FaceId, int GlyphId, int SizeKey, int Step);
 
+    /// <summary>The first face id handed out by <see cref="RegisterFace"/>; ids below it are the library's own.</summary>
+    public const int ExternalFaceBase = 1 << 20;
+
+    /// <summary>The most faces <see cref="RegisterFace"/> accepts.</summary>
+    public const int MaxExternalFaces = 4096;
+
     private readonly FontLibrary _library;
+    private readonly List<OneFont.FontFace> _external = [];
+    private readonly Dictionary<ulong, int> _externalIds = [];
     private readonly GlyphLimits _limits;
     private readonly AtlasPages _pages;
     private readonly Dictionary<Key, GlyphInfo> _glyphs = [];
@@ -63,6 +71,32 @@ public sealed class GlyphAtlas
 
     /// <summary>Gets the pages. The renderer uploads <see cref="AtlasPage.TakeDirty"/> of each and keeps one texture per page.</summary>
     public AtlasPages Pages => _pages;
+
+    /// <summary>
+    /// Makes a face that is not in the <see cref="FontLibrary"/> drawable (OneRender's display lists carry their own face objects, identified by a
+    /// stable 64-bit key). The same key always gives the same id.
+    /// </summary>
+    /// <param name="key">A key that is equal for equal font files, such as OneRender's <c>FaceKey</c>.</param>
+    /// <param name="face">The face; kept for the atlas's lifetime.</param>
+    /// <returns>A face id for <see cref="TryGet"/>, or -1 when <see cref="MaxExternalFaces"/> faces are already registered.</returns>
+    public int RegisterFace(ulong key, OneFont.FontFace face)
+    {
+        ArgumentNullException.ThrowIfNull(face);
+        if (_externalIds.TryGetValue(key, out var id))
+        {
+            return id;
+        }
+
+        if (_external.Count >= MaxExternalFaces)
+        {
+            return -1;
+        }
+
+        id = ExternalFaceBase + _external.Count;
+        _external.Add(face);
+        _externalIds[key] = id;
+        return id;
+    }
 
     /// <summary>Starts a frame; see <see cref="AtlasPages.BeginFrame"/>.</summary>
     /// <param name="frame">A number that grows with every frame.</param>
@@ -95,7 +129,7 @@ public sealed class GlyphAtlas
             return AtlasStatus.Ok;
         }
 
-        var face = _library.Face(faceId);
+        var face = faceId >= ExternalFaceBase ? _external[faceId - ExternalFaceBase] : _library.Face(faceId);
         if ((uint)glyphId >= (uint)face.GlyphCount)
         {
             return AtlasStatus.UnknownResource;

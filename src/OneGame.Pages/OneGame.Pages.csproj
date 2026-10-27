@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Draws OneRender pages (builder trees and HTML) through the render graph, with input, host scopes and harness support.</Description>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Core/OneGame.Core.csproj" />
+    <ProjectReference Include="../OneGame.Gpu/OneGame.Gpu.csproj" />
+    <ProjectReference Include="../OneGame.Atlas/OneGame.Atlas.csproj" />
+    <ProjectReference Include="../OneGame.Text/OneGame.Text.csproj" />
+    <ProjectReference Include="../OneGame.Render2D/OneGame.Render2D.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="RecursiveAI.OneRender" />
+    <!-- Compiles Shaders/*.hlsl during the build and generates the C# bindings. -->
+    <PackageReference Include="RecursiveAI.OneShader.Build" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneGame.Pages.Tests" />
+  </ItemGroup>
+
+</Project>
