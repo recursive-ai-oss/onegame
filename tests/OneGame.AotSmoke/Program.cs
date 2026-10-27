@@ -471,6 +471,15 @@ if (tweenProblem is not null)
 
 Console.WriteLine("tweens: sequence with parallel colors and vectors, every easing family, parsed CSS timing functions, a style transition");
 
+var pagesProblem = PagesSmoke.Run(device, ReadResource("font.ttf"));
+if (pagesProblem is not null)
+{
+    Console.Error.WriteLine("pages: " + pagesProblem);
+    return 1;
+}
+
+Console.WriteLine("pages: an HTML page with a gradient, a filter and text drawn through the 2D stage");
+
 var render3dProblem = Render3DSmoke.Run(device, ReadResource("fox.glb"));
 if (render3dProblem is not null)
 {

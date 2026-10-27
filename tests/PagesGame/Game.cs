@@ -13,14 +13,14 @@ public sealed class PagesGameDefinition : GameDefinition
 {
     private const string Html = """
         <body style="margin:0;font:16px Body;color:#e8ecf4">
-        <div id="under" style="--host-scope:2;position:absolute;left:150px;top:60px;width:110px;height:70px;background:#c03030"></div>
-        <div id="glow" style="--host-scope:1;position:absolute;left:10px;top:120px;width:90px;height:50px;background:#503010;border-radius:10px"></div>
+        <div id="under" style="--host-scope:2;position:absolute;left:0px;top:20px;width:110px;height:70px;background:#c03030"></div>
+        <div id="glow" style="--host-scope:1;position:absolute;left:10px;top:150px;width:90px;height:40px;background:#503010;border-radius:10px"></div>
         <h1 style="margin:10px;font-size:22px">Pages menu</h1>
-        <button id="start" style="position:absolute;left:10px;top:60px;width:120px;height:36px;border:2px solid #6080c0;border-radius:6px;background:#203050;color:#fff;font:16px Body;transition:background-color 200ms linear">Start</button>
-        <style>#start:hover{background:#4070c0} #start:focus{outline:3px solid #ffd040}</style>
-        <input id="name" type="text" value="" style="position:absolute;left:10px;top:190px;width:160px;height:28px;font:16px Body">
-        <div id="over" style="position:absolute;left:210px;top:100px;width:80px;height:50px;background:rgba(40,160,80,.7)"></div>
-        <p id="status" style="position:absolute;left:10px;top:230px;margin:0">idle</p>
+        <button id="start" style="position:absolute;left:10px;top:105px;width:120px;height:36px;border:2px solid #6080c0;border-radius:6px;background:#203050;color:#fff;font:16px Body;transition:background-color 200ms linear">Start</button>
+        <style>#start:hover{background:#4070c0 !important} #start:focus{outline:3px solid #ffd040}</style>
+        <input id="name" type="text" value="" style="position:absolute;left:10px;top:200px;width:160px;height:28px;font:16px Body">
+        <div id="over" style="position:absolute;left:70px;top:30px;width:80px;height:50px;background:rgba(40,160,80,.7)"></div>
+        <p id="status" style="position:absolute;left:10px;top:235px;margin:0">idle</p>
         </body>
         """;
 
@@ -36,7 +36,7 @@ public sealed class PagesGameDefinition : GameDefinition
     public override void Style(UiTree ui)
     {
         ArgumentNullException.ThrowIfNull(ui);
-        ui.AddStyleSheet(new StyleSheet().Rule("Root", s => s.Background(Color.Rgb(0x14181f)).TextColor(Color.White)));
+        ui.AddStyleSheet(new StyleSheet().Rule("Root", s => s.TextColor(Color.White)));
     }
 
     public override void DefineScreens(ScreenSet screens) => screens.Add("main", game =>

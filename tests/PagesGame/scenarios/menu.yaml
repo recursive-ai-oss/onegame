@@ -1,0 +1,15 @@
+name: a menu drawn as a page is clicked, typed into and captured by name
+window: 320x260
+steps:
+  - expect: {ui: {id: start, text: Start}}
+  - expect: {ui: {id: start, focused: false}}
+  - click: start
+  - expect: {ui: {id: start, focused: true}}
+  - click: start
+  - click: name
+  - type: hello
+  - expect: {ui: {id: name, text: hello, focused: true}}
+  - tweens: settle
+  - expect: {capture: {reference: refs/typed.png, tolerance: 4, max-diff: 0.002}}
+expect:
+  - state: {entity: Meter, property: Score, equals: 2}

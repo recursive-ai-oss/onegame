@@ -17,6 +17,14 @@ public sealed partial class ControlSurface
         return a.Str("selector") is { Length: > 1 } sel && sel[0] == '#' && sel.IndexOfAny([' ', '.', ':', '>', '[']) < 0 ? sel[1..] : null;
     }
 
+    // Pages are created at the window's size on first use, so a query before the first frame sees them.
+    private PageScreen? PageScreenWith(string name)
+    {
+        Game.Ui.Update();
+        Game.Pages.Prepare(Game.Window.Width, Game.Window.Height, Game.UiScale);
+        return Game.Pages.ScreenWith(name);
+    }
+
     private string? PageElementJson(string selector)
     {
         if (selector.Length < 2 || selector[0] != '#')
@@ -25,7 +33,7 @@ public sealed partial class ControlSurface
         }
 
         var name = selector[1..];
-        if (Game.Pages.ScreenWith(name) is not { } screen)
+        if (PageScreenWith(name) is not { } screen)
         {
             return null;
         }

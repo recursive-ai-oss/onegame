@@ -62,6 +62,7 @@ public class RenderTests
         var (max, mean, share) = Shots.Diff(gpu, reference, tolerance);
         Shots.Note($"{name} vs reference: max {max}, mean {mean:F3}, over-{tolerance} {share:P3}");
         Assert.True(share < budget, $"{name}: {share:P3} of pixels differ by more than {tolerance} (max {max})");
+        Shots.Golden(name, w, h, gpu);
     }
 
     [Fact]
@@ -130,6 +131,7 @@ public class ContentTests
         var (max, mean, share) = Shots.Diff(gpu, reference, 12);
         Shots.Note($"images vs reference: max {max}, mean {mean:F3}, over-12 {share:P3}");
         Assert.True(share < 0.02, $"{share:P3} differ (max {max})");
+        Shots.Golden("images", 240, 140, gpu);
         Assert.True(rig.Renderer.Stats.ArtPages > 0);
         Assert.Equal(0, rig.Renderer.Stats.MissingImages);
     }
@@ -151,6 +153,7 @@ public class ContentTests
         var (max, mean, share) = Shots.Diff(gpu, reference, 12);
         Shots.Note($"paths vs reference: max {max}, mean {mean:F3}, over-12 {share:P3}");
         Assert.True(share < 0.04, $"{share:P3} differ (max {max})");
+        Shots.Golden("paths", 200, 110, gpu);
     }
 
     [Fact]

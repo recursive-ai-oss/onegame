@@ -762,7 +762,7 @@ public sealed partial class ControlSurface : IControlEndpoint
 
     private InvokeResult UiInvoke(Args a)
     {
-        if (PageNameOf(a) is { } pageName && Game.Pages.ScreenWith(pageName) is { } invokeScreen && Game.Ui.Find(pageName) is null)
+        if (PageNameOf(a) is { } pageName && PageScreenWith(pageName) is { } invokeScreen && Game.Ui.Find(pageName) is null)
         {
             var clicked = invokeScreen.Click(pageName);
             return new InvokeResult("page:" + pageName, clicked, Game.World.Tick);
@@ -776,7 +776,7 @@ public sealed partial class ControlSurface : IControlEndpoint
 
     private InputResult UiClick(Args a)
     {
-        if (PageNameOf(a) is { } pageName && Game.Pages.ScreenWith(pageName) is { } clickScreen && Game.Ui.Find(pageName) is null)
+        if (PageNameOf(a) is { } pageName && PageScreenWith(pageName) is { } clickScreen && Game.Ui.Find(pageName) is null)
         {
             return PageClick(clickScreen, pageName);
         }

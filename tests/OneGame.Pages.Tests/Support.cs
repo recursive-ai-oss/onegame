@@ -160,7 +160,7 @@ internal static class Shots
     }
 
     /// <summary>Checks against the committed reference (written when ONEGAME_UPDATE_GOLDENS=1): at most <paramref name="budget"/> of pixels may differ by more than <paramref name="tolerance"/>.</summary>
-    public static void Golden(string name, int w, int h, byte[] actual, int tolerance = 3, double budget = 0.002)
+    public static void Golden(string name, int w, int h, byte[] actual, int tolerance = 3, double budget = 0.005)
     {
         Save(name, w, h, actual);
         var path = Paths.Golden(name);

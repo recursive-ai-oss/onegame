@@ -40,6 +40,7 @@
     <ProjectReference Include="../../src/OneGame.Control/OneGame.Control.csproj" />
     <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
     <ProjectReference Include="../../src/OneGame.Host/OneGame.Host.csproj" />
+    <ProjectReference Include="../../src/OneGame.Pages/OneGame.Pages.csproj" />
     <ProjectReference Include="../../src/OneGame.Live/OneGame.Live.csproj" />
     <!-- The headless server host and its live control. The plugin loader (OneGame.Server.Plugins) is CoreCLR-only and stays out. -->
     <ProjectReference Include="../../src/OneGame.Server/OneGame.Server.csproj" />
