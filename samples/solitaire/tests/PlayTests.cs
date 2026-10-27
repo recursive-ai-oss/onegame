@@ -8,6 +8,8 @@ using OneGame.Live;
 using OneGame.Stores;
 using OneGame.Testing;
 
+using Solitaire.Views;
+
 namespace Solitaire.Tests;
 
 /// <summary>A cloud store kept in memory, so the cloud-backed file store can be tested without a store client.</summary>
@@ -262,6 +264,47 @@ public class InputTests
         Assert.Equal("1", client.Get("Table", "Moves"));
         client.Press("Escape").Step(2);
         Assert.Equal("true", client.Get("Table", "Paused"), ignoreCase: true);
+    }
+}
+
+public class SettingsPageTests
+{
+    [Fact]
+    public void TheSettingsPageChangesAndSavesTheProfileAndGoesBack()
+    {
+        using var cluster = TestCluster.Start(new SolitaireGame(), new TestOptions { Seed = 1, Width = 1280, Height = 720 });
+        var client = cluster.Client;
+        client.Step(2);
+        client.Click("settings").Step(3);
+        Assert.Equal("settings", client.Game.CurrentScreen);
+        Assert.True(client.Game.Pages.Get("settings")!.Visible);
+        var profile = Session.For(client.Game).Profile;
+        var before = client.Get("Table", "Moves") + client.Get("Table", "Score") + client.Get("Table", "DrawMode");
+
+        client.Click("draw-3").Click("glyphs-keyboard").Click("auto-finish").Click("music-volume").Step(2);
+        Assert.Equal(3, profile.DrawMode);
+        Assert.Equal(GlyphStyle.Keyboard, profile.Glyphs);
+        Assert.False(profile.AutoFinish);
+        Assert.InRange(profile.MusicVolume, 4, 6);
+        Assert.True(Session.For(client.Game).Data.TryRead(Profile.FileName, 16 * 1024, out var bytes));
+        Assert.True(Profile.TryRead(bytes, out var saved));
+        Assert.Equal(3, saved.DrawMode);
+        Assert.False(saved.AutoFinish);
+        Assert.Equal(before, client.Get("Table", "Moves") + client.Get("Table", "Score") + client.Get("Table", "DrawMode"));   // settings are the player's, not the simulation's
+
+        client.Click("back").Step(2);
+        Assert.Equal("main", client.Game.CurrentScreen);
+        Assert.Null(client.Game.Pages.Get("settings"));
+    }
+
+    [Fact]
+    public void EscapeLeavesTheSettingsPage()
+    {
+        using var cluster = TestCluster.Start(new SolitaireGame(), new TestOptions { Seed = 1, Width = 1280, Height = 720 });
+        var client = cluster.Client;
+        client.Click("settings").Step(3);
+        client.Press("Escape").Step(2);
+        Assert.Equal("main", client.Game.CurrentScreen);
     }
 }
 

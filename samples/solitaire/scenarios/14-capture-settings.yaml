@@ -1,9 +1,7 @@
 name: capture-settings
-description: "The settings screen with the first control focused."
+description: "The settings screen, a page, with the first control focused."
 steps:
   - screen: settings
-  - step: 3
-  - nav: down
   - step: 3
   - expect:
       capture: { reference: refs/settings-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }

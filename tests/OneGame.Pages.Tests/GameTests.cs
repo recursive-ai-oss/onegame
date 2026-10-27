@@ -25,6 +25,7 @@ public class GameTests
         c.Step(2);
         Assert.Equal("0", c.Get("Meter", "Score"));
         c.Call("ui_click", """{"id":"start"}""");
+        c.Step(1);   // a handler sends a command; it runs on the next tick
         Assert.Equal("1", c.Get("Meter", "Score"));
         var q = Query(c, "start");
         Assert.Equal(1, q.GetArrayLength());

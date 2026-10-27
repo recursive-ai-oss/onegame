@@ -60,6 +60,23 @@ public sealed class PageSet
     /// <summary>The page clock in milliseconds of view time.</summary>
     public double NowMs => _nowMs;
 
+    /// <summary>True when an element of a shown HTML page has keyboard focus.</summary>
+    public bool HasFocus
+    {
+        get
+        {
+            foreach (var s in Screens)
+            {
+                if (s.Interactive is { } p && !p.FocusedElement.IsNull)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     /// <summary>True when some screen is shown.</summary>
     public bool Any
     {

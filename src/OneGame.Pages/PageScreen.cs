@@ -157,7 +157,17 @@ public sealed class PageScreen
 
         Creations++;
         Draw = new PageDraw(_html is not null ? _list.Current : Live!.Display.Current, _options.Images);
-        _options.Setup?.Invoke(this);
+        if (_options.Setup is { } setup)
+        {
+            setup(this);
+            if (Interactive is { } made)
+            {
+                // Setup may have set control values or focus; paint them now, so the first frame shows what it made.
+                made.Repaint(_painter, _list, _paint);
+                _list.ClearDamage();
+                Draw = new PageDraw(_list.Current, _options.Images);
+            }
+        }
     }
 
     /// <summary>

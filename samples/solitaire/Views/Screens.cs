@@ -21,6 +21,7 @@ internal static class Screens
 
     public static Element Menu(GameInstance game)
     {
+        SettingsPage.Hide(game);
         var s = Session.For(game);
         var cards = Ui.Row(Suits.Select(id => Ui.Image(id, 40, 40).Size(Length.Ui(40), Length.Ui(40))).ToArray()).Gap(Length.Ui(14));
         var quit = UiKit.Button("Quit", () => game.Window.Close(), "quit");
@@ -51,6 +52,7 @@ internal static class Screens
 
     public static Element Statistics(GameInstance game)
     {
+        SettingsPage.Hide(game);
         var s = Session.For(game);
         var p = s.Profile;
         var rows = new List<GameRecord>();
@@ -131,7 +133,31 @@ internal static class Screens
 
     // ---- settings ----------------------------------------------------------------------------------------------------
 
+    /// <summary>
+    /// The settings screen is a OneRender page (<see cref="SettingsPage"/>) drawn over this felt. Escape with no control focused is the UI
+    /// tree's cancel; with a control focused the page handles it.
+    /// </summary>
     public static Element Settings(GameInstance game)
+    {
+        // OneRender does not run on the browser's .NET runtime yet (it stops in LivePage/InteractivePage creation), so a browser keeps the kit screen.
+        if (OperatingSystem.IsBrowser())
+        {
+            return SettingsKit(game);
+        }
+
+        var s = Session.For(game);
+        SettingsPage.Show(game);
+        var content = Ui.Column();
+        content.On(UiEventKind.Cancel, (_, _) =>
+        {
+            s.Back();
+            return true;
+        });
+        return Page(s, content);
+    }
+
+    // The kit version of the screen, for browsers.
+    private static Element SettingsKit(GameInstance game)
     {
         var s = Session.For(game);
         var p = s.Profile;

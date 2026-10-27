@@ -1,0 +1,15 @@
+name: settings-pad
+description: "A controller alone changes settings on the page: Draw 3, the checkbox off, Music volume up by two."
+steps:
+  - screen: settings
+  - step: 3
+  - nav: down
+  - nav: south
+  - nav: down
+  - nav: south
+  - nav: down
+  - nav: dpad_right
+  - nav: dpad_right
+  - step: 3
+  - expect:
+      capture: { reference: refs/settings-pad-720p.png, size: 1280x720, tolerance: 2, max-diff: 0.001 }

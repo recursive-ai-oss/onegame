@@ -66,7 +66,11 @@ internal sealed class TableView
     private Table T => _s.Table;
 
     /// <summary>Builds the table screen.</summary>
-    public static Element Build(GameInstance game) => new TableView(game).Make();
+    public static Element Build(GameInstance game)
+    {
+        SettingsPage.Hide(game);
+        return new TableView(game).Make();
+    }
 
     private Element Make()
     {

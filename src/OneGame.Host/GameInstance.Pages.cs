@@ -59,6 +59,27 @@ public sealed partial class GameInstance
                 }
 
                 return Pages.Key(KeyNames.ToUiKey(e.Key, shift), null, e.Kind == PlatformEventKind.KeyDown, mods);
+            case PlatformEventKind.GamepadButtonDown when Pages.HasFocus:
+                // A controller drives a page that already has focus the way a keyboard would: the pad moves between controls and
+                // along sliders and radio groups, and the south button presses. Other buttons go on to the game.
+                var (key, padShift) = e.GamepadButton switch
+                {
+                    GamepadButton.DPadDown => ("Tab", false),
+                    GamepadButton.DPadUp => ("Tab", true),
+                    GamepadButton.DPadLeft => ("ArrowLeft", false),
+                    GamepadButton.DPadRight => ("ArrowRight", false),
+                    GamepadButton.South => (" ", false),
+                    _ => (null, false),
+                };
+                if (key is null)
+                {
+                    return false;
+                }
+
+                var padMods = padShift ? OneRender.Interaction.KeyModifiers.Shift : OneRender.Interaction.KeyModifiers.None;
+                var padTook = Pages.Key(key, null, true, padMods);
+                Pages.Key(key, null, false, padMods);
+                return padTook;
             case PlatformEventKind.TextInput when !string.IsNullOrEmpty(e.Text):
                 return Pages.Text(e.Text);
             default:

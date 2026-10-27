@@ -53,7 +53,7 @@ public sealed class PagesGameDefinition : GameDefinition
             Setup = s =>
             {
                 var page = s.Interactive!;
-                page.Events.AddEventListener(EventTarget.Of(page.FindElement("start")), "click", _ => Meter.Of(game.World).Add(1));
+                page.Events.AddEventListener(EventTarget.Of(page.FindElement("start")), "click", _ => Meter.Of(game.World).Send.Add(1));
             },
         }));
         }

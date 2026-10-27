@@ -9,6 +9,7 @@ steps:
   - click: name
   - type: hello
   - expect: {ui: {id: name, text: hello, focused: true}}
+  - step: 2
   - tweens: settle
   - expect: {capture: {reference: refs/typed.png, tolerance: 4, max-diff: 0.002}}
 expect:

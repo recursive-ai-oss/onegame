@@ -30,6 +30,8 @@ DOM handlers are OneRender's own `OneRender.Interaction.EventListener` registere
 | `PageScopes` | `Layer(n, PageScopes.Under \| Over)` and `Additive(n)` for `--host-scope: n`. |
 | `PageRenderer` | The GPU side. `PageRenderer.Create(device, targetFormat, glyphAtlas, artAtlas)`; `AddPasses(graph, target, screens, scopes, PageFrame)` adds the passes for one layer; `Stats` (`PageStats`) says what was drawn. `Render2DStage` owns one per target format and calls it. |
 
+`PageSet.HasFocus` says whether a shown page has a focused element. Whatever `Setup` changes (control values, focus) is painted before the first frame, also after a re-creation.
+
 `PageScreen.Creations` counts how often the page was made. An HTML page cannot resize, so it is created again when the window size or UI scale changes (the viewport is `width / scale` CSS px and OneRender's `DevicePixelRatio` is the scale); focus, scroll and field values are lost then, and `Setup` runs again. A builder page resizes in place.
 
 ## Drawing
@@ -57,6 +59,7 @@ DOM handlers are OneRender's own `OneRender.Interaction.EventListener` registere
 | wheel | `HandleWheel` (scroll containers); taken like pointer events | none |
 | key | `HandleKey`; taken only while an element of the page has focus | none |
 | text | `InsertText` into the focused field | none |
+| gamepad | While an element of a page has focus: d-pad up/down are Shift+Tab/Tab, left/right are the arrow keys, south is Space; other buttons go on to the game. With no focus the pad belongs to the game, so a screen focuses a control from `Setup` to hand the pad over | none |
 
 A builder page draws and can be found by name (`Has`); it takes no input yet, so a game drives its tree itself.
 
@@ -80,4 +83,18 @@ OneRender bounds its own input (depth, items, scopes, SVG size). The adapter add
 
 ## Not built (follow-ups)
 
-Material scopes (a 2D material's pixel shader over a subtree); gamepad and spatial focus navigation; clipboard wiring and IME composition for page fields; pointer, key and name-based click for builder pages; `ui_tree` and `ui_hit` for pages; dirty-region redraw (the walker rebuilds the plan every frame); Metal and WebGPU runs (the shader compiles for both; only Vulkan was run); an `Under` layer on the CPU fallback.
+Material scopes (a 2D material's pixel shader over a subtree); spatial focus navigation (the pad only maps to Tab and arrows); clipboard wiring and IME composition for page fields; pointer, key and name-based click for builder pages; `ui_tree` and `ui_hit` for pages; dirty-region redraw (the walker rebuilds the plan every frame); Metal and WebGPU runs (the shader compiles for both; only Vulkan was run); an `Under` layer on the CPU fallback.
+
+## What is left for a fuller migration from OneGame.UI
+
+Solitaire's settings screen is the one ported screen (`samples/solitaire/Views/SettingsPage.cs`: native radio buttons, checkbox and sliders, kit colours through `KitTokens`). It ran on Linux (lavapipe) with the scenarios and unit tests; its hashes are those of the kit version wherever a scenario does not capture the screen. In order of what blocks the most:
+
+1. **The browser.** OneRender stops in the browser's .NET runtime (Mono interpreter) at `InteractivePage.Create` and at `new LivePage`, on any page, even `<p>hi</p>` or an empty tree: `[MONO] * Assertion: should not be reached at mono/metadata/class-accessors.c:93`, or `memory access out of bounds`, with no managed frame. The adapter's own types are not involved. Needs a repro from OneRender's wasm smoke project that runs the page, then a fix there. Until then browsers keep `OneGame.UI` screens (solitaire does, by `OperatingSystem.IsBrowser()`), and the web check skips the two captures of the ported screen.
+2. **Kit components as pages.** Table (sortable, virtual rows), tabs, dropdown, list, tooltip, dialog with focus trap, text input with the kit's selection rules, scroll view and the input-glyph helper have no page equivalent. HTML covers most with markup; the game-specific parts are focus order, the confirm dialog and controller glyphs. A page kit would be a small package of HTML/CSS fragments plus `Setup` wiring, themed through the same `KitTokens`.
+3. **Live text and attributes on HTML pages.** The OneHtml document is read-only, so a label cannot show a changing number (the settings sliders have only their end labels). Needs OneHtml/OneRender to expose text and class changes on an `InteractivePage`, or the adapter to offer a builder-like patch path. Until then: builder pages for HUDs.
+4. **Input.** Builder pages take no input; IME composition and clipboard for fields; spatial focus navigation (a controller should reach the nearest control in a direction, not tab order); a radio group set from code is not a single tab stop (OneRender reads the `checked` attribute for tab order, not the form state); a visible focus style that the page does not have to write itself.
+5. **Look.** Native form controls keep OneRender's light built-in look (track, unchecked radio and checkbox faces). A dark theme needs `appearance: none` markup or a themed control set. Translucent page pixels blend in linear light with the game, so overlays of a page on the table differ slightly from CSS.
+6. **Harness.** `ui_tree` and `ui_hit` for pages, `theme_lint`, and a scenario `ui:` expectation for a control's checked/value state (a range answers its value as text).
+7. **Performance.** The walker rebuilds the display plan every frame (a steady frame allocates 0 B but does the work); a page with many nodes wants dirty-region redraw. Text reshaping on change allocates in OneRender.
+8. **Platforms.** Metal and WebGPU draws, Windows, iOS and Android hardware, the CPU fallback (no pages are drawn).
+9. **Replacing the UI path.** The kit's tweens, tooltips and the `Style`/`StyleSheet` cascade are OneGame.UI's; pages bring their own CSS cascade and animations. Mixed games need one rule for focus ownership (today: a focused page takes keys and the pad, otherwise the UI tree does) and for which layer draws on top (pages over UI).
