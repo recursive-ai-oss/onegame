@@ -4,6 +4,23 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-28
+
+Pages: a game screen can be an HTML/CSS page or a style-tree page from OneRender, drawn through the 2D renderer.
+
+### Added
+
+- `OneGame.Pages` (a new package): OneRender pages (`PageScreen.FromHtml` / `FromTree`, `game.Pages`) drawn through the render graph. Images, SVG (through the art atlas) and glyphs (through the glyph atlas, sharing faces with the game's text) go through the engine's atlases; host scopes place a page under or over the 2D pass; filters, masks, backdrop filters and blend groups run as render-graph passes. Input (pointer, keyboard, wheel, controller focus) goes to a focused page first, and CSS transitions run on view time. No managed allocation per steady frame.
+- Harness: `pages` control operation; `ui_query`, `ui_click` and `ui_invoke`, and the scenario steps `click:`, `type:` and `ui:`, find page elements by name.
+- Analyzers: lambdas, local functions and method groups registered as OneRender DOM event listeners are checked as view code (OG0008).
+- `GameInstance.Fonts`; `Renderer2D.FrameNumber` is public.
+- User guide: `docs/pages.md`.
+
+### Changed
+
+- Solitaire's settings screen is an HTML page, with live slider readouts; it runs on desktop and in the browser.
+- OneRender 1.1.0 (`SetTextContent` without allocation; class and attribute edits).
+
 ## [1.5.2] - 2026-10-27
 
 Android audio on the device package, and fixes from real Windows hardware.
