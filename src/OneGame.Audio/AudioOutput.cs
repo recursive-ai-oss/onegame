@@ -99,7 +99,7 @@ public sealed partial class AudioOutput : IDisposable
     public bool Metering { get; set; }
 
     /// <summary>The loudness at the output, after the limiter. Safe from any thread; updated once per block while sound is rendering (not while paused).</summary>
-    public LoudnessReading Loudness => _dev is { } d ? new(d.Loudness.MomentaryLufs, d.Loudness.ShortTermLufs, d.Loudness.IntegratedLufs, d.Loudness.TruePeakDbtp, d.Loudness.Frames) : new(
+    public LoudnessReading Loudness => _dev is { } d ? new(d.Loudness.MomentaryLufs, d.Loudness.ShortTermLufs, d.Loudness.IntegratedLufs, d.Loudness.TruePeakDbtp, d.Loudness.FramesMeasured) : new(
         Volatile.Read(ref _momentary), Volatile.Read(ref _shortTerm), Volatile.Read(ref _integrated), Volatile.Read(ref _truePeak), Interlocked.Read(ref _meteredFrames));
 
     /// <summary>Clears the meter's history (integrated loudness, true peak) at the next block, so a new measurement starts clean.</summary>
@@ -179,7 +179,14 @@ public sealed partial class AudioOutput : IDisposable
     public bool Paused
     {
         get => Volatile.Read(ref _paused) != 0;
-        set => Volatile.Write(ref _paused, value ? 1 : 0);
+        set
+        {
+            Volatile.Write(ref _paused, value ? 1 : 0);
+            if (_dev is { } device)
+            {
+                device.Muted = value;
+            }
+        }
     }
 
     /// <summary>Stops the device, as an app does when it leaves the foreground: the mixer is not rendered (its clock holds still), the device is stopped if its sink supports that, and nothing is written until this is cleared again.</summary>
@@ -321,8 +328,6 @@ public sealed partial class AudioOutput : IDisposable
 
         if (_dev is { } manual)
         {
-            // A manual device has no supervisor thread; reopening after a loss and the events happen when we pump it.
-            manual.Pump();
             manual.Advance(frames);
             return;
         }
@@ -343,7 +348,7 @@ public sealed partial class AudioOutput : IDisposable
     /// <summary>For pumped backends (a web page, which has no audio thread): renders as many blocks as the device wants right now. The page calls this from a timer; it does nothing for other backends.</summary>
     public void Pump()
     {
-        if (!(_backend.IsManual || _devBackend is IPumpedDeviceBackend) || _source is null || Status == AudioOutputStatus.Stopped)
+        if (!_backend.IsManual || _source is null || Status == AudioOutputStatus.Stopped)
         {
             return;
         }

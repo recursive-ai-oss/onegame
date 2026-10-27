@@ -359,7 +359,7 @@ public sealed partial class AudioService : IDisposable
         : OperatingSystem.IsLinux() ? new AlsaBackend()
         : OperatingSystem.IsWindows() ? new WasapiBackend()
         : OperatingSystem.IsIOS() || OperatingSystem.IsMacOS() ? new AudioUnitBackend()
-        : OperatingSystem.IsBrowser() ? new WebAudioBackend()
+        : OperatingSystem.IsBrowser() ? new DevicesBackend(new WebAudioDeviceBackend(new JsWebAudioHost()))
         : new NoDeviceBackend();
 
     // A NativeAOT game built for linux-bionic runs on the Linux runtime, where OperatingSystem.IsAndroid() is false; every Android app process

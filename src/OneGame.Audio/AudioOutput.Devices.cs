@@ -29,15 +29,17 @@ public sealed partial class AudioOutput
             Metering = Metering && Format.SampleRate >= LoudnessMeter.MinSampleRate,
             MeasureRenderAllocations = true,
         };
-        var device = Dev.AudioOutputDevice.Open(new DeviceSource(this, source), options, _devBackend!);
+        var device = Dev.AudioOutputDevice.Open(new DeviceSource(source), options, _devBackend!);
         device.Event += OnDeviceEvent;
+        device.Muted = Paused;
         _dev = device;
+        device.Start();
+
+        // The page's timer needs the context the open just created.
         if (_devBackend is IPumpedBackend pumped)
         {
             pumped.SetPump(Pump);
         }
-
-        device.Start();
     }
 
     private void OnDeviceEvent(Dev.DeviceEvent e)
@@ -72,14 +74,10 @@ public sealed partial class AudioOutput
 
     private void PumpDevice(Dev.AudioOutputDevice device)
     {
-        if (_devBackend!.IsManual)
+        var wanted = device.WantedFrames;
+        if (wanted > 0 && !IsDeviceStopped)
         {
-            device.Pump();
-        }
-
-        if (_devBackend is IPumpedDeviceBackend pumped && !IsDeviceStopped)
-        {
-            pumped.PumpNow();
+            device.Advance(wanted);
         }
     }
 
@@ -88,8 +86,8 @@ public sealed partial class AudioOutput
         var d = _dev!;
         var c = d.Counters;
         return new AudioDeviceStatus(
-            BackendName, Status.ToString(), d.State.ToString().ToLowerInvariant(), DeviceName, LastError, Suspended, Paused, c.BufferFrames, c.PeriodFrames, Math.Round(c.LatencyMilliseconds, 2),
-            c.Underruns, c.Underruns, c.DeviceLosses, c.Reopens, Suspensions, c.FramesRendered, c.FramesWritten, c.FramesPlayed, c.PeakPlayed,
+            BackendName, Status.ToString(), (_devBackend as IDeviceStateText)?.StateText ?? d.State.ToString().ToLowerInvariant(), DeviceName, LastError, Suspended, Paused, c.BufferFrames, c.PeriodFrames, Math.Round(c.LatencyMilliseconds, 2),
+            c.Underruns, c.DeviceUnderruns, c.DeviceLosses, c.Reopens, Suspensions, c.FramesRendered, c.FramesWritten, c.FramesPlayed, c.PeakPlayed,
             c.RenderAllocatedBytes, d.Detail);
     }
 
@@ -102,8 +100,8 @@ public sealed partial class AudioOutput
         }
     }
 
-    // The package pulls from this on its device thread. Pause feeds silence and holds the mixer's clock, as the output always did.
-    private sealed class DeviceSource(AudioOutput owner, IAudioRenderSource source) : OneAudio.IAudioSource
+    // The package pulls from this on its device thread. Pause is the device's Muted flag, which holds the mixer's clock as the output always did.
+    private sealed class DeviceSource(IAudioRenderSource source) : OneAudio.IAudioSource
     {
         public int SampleRate => source.SampleRate;
 
@@ -111,20 +109,14 @@ public sealed partial class AudioOutput
 
         public void Render(Span<float> interleaved)
         {
-            if (owner.Paused)
-            {
-                interleaved.Clear();
-                return;
-            }
-
             source.Render(interleaved);
         }
     }
 }
 
-/// <summary>Implemented by a device backend that is pumped by a timer on a page with no audio thread.</summary>
-internal interface IPumpedDeviceBackend
+/// <summary>Implemented by a device backend whose own state words (such as the browser's <c>awaiting_gesture</c>) are what the <c>audio</c> report should show.</summary>
+internal interface IDeviceStateText
 {
-    /// <summary>Renders the frames the device wants right now, on the caller's thread; returns how many.</summary>
-    int PumpNow();
+    /// <summary>The device's state in a few lowercase words.</summary>
+    string StateText { get; }
 }

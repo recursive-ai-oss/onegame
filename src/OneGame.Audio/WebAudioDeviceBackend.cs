@@ -34,38 +34,24 @@ internal interface IWebAudioHost
 }
 
 /// <summary>
-/// Web Audio behind the device package's backend seam. A page has no audio thread: a timer calls <c>AudioOutput.Pump</c>, which calls <see cref="PumpNow"/>,
-/// and the stream renders what the worklet needs through the engine on the page's thread. (The package's manual-stream hook is internal, so the
-/// stream pumps itself; in a browser the package's supervisor thread would still have to be switched off.)
+/// Web Audio behind the device package's backend seam. A page has no audio thread: a timer calls <c>AudioOutput.Pump</c>, which advances the manual device by the
+/// frames the worklet wants, on the page's thread. The package starts no thread for a manual backend.
 /// </summary>
-internal sealed class WebAudioDeviceBackend(IWebAudioHost host) : Dev.IAudioDeviceBackend, IPumpedBackend, IPumpedDeviceBackend
+internal sealed class WebAudioDeviceBackend(IWebAudioHost host) : Dev.IAudioDeviceBackend, IPumpedBackend, IDeviceStateText
 {
     private const int Period = 480;
-    // The engine owns the stream and disposes it; the backend keeps only what the page timer needs.
-    private Func<int, int>? _render;
-    private int _bufferFrames;
 
     public string Name => "webaudio";
 
+    public string StateText => host.State();
+
     public Dev.DeviceBackendKind Kind => Dev.DeviceBackendKind.Custom;
 
-    public bool IsManual => false;
+    public bool IsManual => true;
 
     public bool NotifiesDeviceChanges => false;
 
     public bool IsAvailable => true;
-
-    public int PumpNow()
-    {
-        var render = _render;
-        if (render is null)
-        {
-            return 0;
-        }
-
-        var wanted = _bufferFrames - host.Queued();
-        return wanted < Period ? 0 : render(wanted / Period * Period);
-    }
 
     public IReadOnlyList<Dev.AudioDeviceInfo> List(Dev.DeviceDirection direction) =>
         direction == Dev.DeviceDirection.Output ? [Browser] : [];
@@ -87,17 +73,7 @@ internal sealed class WebAudioDeviceBackend(IWebAudioHost host) : Dev.IAudioDevi
             return false;
         }
 
-        if (host.Rate() != options.SampleRate)
-        {
-            // The device seam requires the asked-for rate. The page's context may run at another; resampling there is not built.
-            reason = $"the browser's audio context runs at {host.Rate()} Hz, not {options.SampleRate} Hz";
-            host.Close();
-            return false;
-        }
-
-        var stream = new WebAudioStream(host, engine, options.SampleRate, options.Channels, Math.Max(host.TargetFrames(), Period * 2));
-        _render = stream.Render;
-        _bufferFrames = stream.BufferFrames;
+        var stream = new WebAudioStream(host, engine, host.Rate(), options.Channels, Math.Max(host.TargetFrames(), Period * 2));
         device = stream;
         return true;
     }
@@ -108,7 +84,7 @@ internal sealed class WebAudioDeviceBackend(IWebAudioHost host) : Dev.IAudioDevi
         new(string.Empty, "Browser default output", Dev.DeviceDirection.Output, true, 0, 0, 0, Dev.DeviceBackendKind.Custom);
 }
 
-internal sealed class WebAudioStream : Dev.IOpenDevice
+internal sealed class WebAudioStream : Dev.IOpenDevice, Dev.IManualDevice
 {
     private readonly IWebAudioHost _host;
     private readonly Dev.IDeviceEngine _engine;
@@ -129,7 +105,8 @@ internal sealed class WebAudioStream : Dev.IOpenDevice
 
     public Dev.AudioDeviceFormat Format { get; }
 
-    public Dev.AudioDeviceInfo? Device => null;
+    // The package compares this with GetDefault to decide whether the default changed; null would read as a change and reopen the context every second.
+    public Dev.AudioDeviceInfo? Device { get; } = new(string.Empty, "Browser default output", Dev.DeviceDirection.Output, true, 0, 0, 0, Dev.DeviceBackendKind.Custom);
 
     public int PeriodFrames => 480;
 
@@ -161,7 +138,16 @@ internal sealed class WebAudioStream : Dev.IOpenDevice
         _host.Close();
     }
 
-    public int Render(int frames)
+    public int WantedFrames
+    {
+        get
+        {
+            var wanted = BufferFrames - _host.Queued();
+            return wanted < 480 ? 0 : wanted / 480 * 480;
+        }
+    }
+
+    public int Advance(int frames)
     {
         if (Volatile.Read(ref _active) == 0)
         {
@@ -183,6 +169,7 @@ internal sealed class WebAudioStream : Dev.IOpenDevice
         if (underruns > _lastUnderruns)
         {
             _engine.NotifyXrun(underruns - _lastUnderruns);
+            _engine.NotifyDeviceUnderruns(underruns);
             _lastUnderruns = underruns;
         }
 
