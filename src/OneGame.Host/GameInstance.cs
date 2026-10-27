@@ -685,8 +685,19 @@ public sealed class GameInstance : IDisposable
         }
     }
 
+    /// <summary>
+    /// Sees every platform event before the game does; returning true consumes it. Development tools use it for their own keys, so
+    /// a toggle never reaches the game. Null in a release build.
+    /// </summary>
+    public PlatformEventFilter? InputFilter { get; set; }
+
     private void Handle(in PlatformEvent e)
     {
+        if (InputFilter is { } filter && filter(e))
+        {
+            return;
+        }
+
         // Actions see every event first so a press shorter than a frame is not lost; a pending rebinding swallows input.
         Actions.KeyboardCaptured = Ui.TextInputArea is not null;
         if (Actions.Observe(e))

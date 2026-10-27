@@ -36,6 +36,7 @@ public class Render2DStage : IRenderStage, IDisposable
     private readonly HashSet<GpuTexture> _seen = [];
     private readonly Render2DPass _pass = new();
     private readonly Draw2D _draw = new();
+    private readonly OverlayCanvas _overlayCanvas = new();
     private RenderGraph? _graph;
 
     /// <summary>Creates the stage over the game's fonts, art and shaders.</summary>
@@ -58,6 +59,9 @@ public class Render2DStage : IRenderStage, IDisposable
     /// (and then <see cref="Draw2D.Describer"/>, for entities that cannot reference the host), and shows the result under the UI.
     /// </summary>
     public Draw2D Draw => _draw;
+
+    /// <summary>Drawn over everything else in each frame, captures included; null for none. Development builds set it; a release build never does.</summary>
+    public IFrameOverlay? Overlay { get; set; }
 
     /// <summary>Where this stage registers materials whose shader files may be edited while the game runs.</summary>
     protected HotShaders HotShaders => _resources.HotShaders;
@@ -126,6 +130,13 @@ public class Render2DStage : IRenderStage, IDisposable
         _draw.Draw(renderer, frame, _text, _resources.Measurer!, _glyphs);
         renderer.Ui.Draw(frame.List, _text, _glyphs, _resources.Art);
         DrawOverUi(renderer, frame);
+        if (Overlay is { } overlay)
+        {
+            _overlayCanvas.Begin(renderer, _text, _glyphs, _resources.Measurer!, frame);
+            overlay.Draw(_overlayCanvas);
+            _overlayCanvas.End();
+        }
+
         _pass.Renderer = renderer;
         _pass.Preserve = hasScene;
         _graph.AddPass(_pass);

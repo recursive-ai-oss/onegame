@@ -100,7 +100,18 @@ public interface IDevTools
 {
     /// <summary>Runs a development command line against a game and returns the exit code.</summary>
     int Run(GameInstance game, GameArgs args, TextWriter output);
+
+    /// <summary>Called for every game started without development options, so tools such as the on-screen overlay work in an ordinary run.</summary>
+    /// <param name="game">The game about to run.</param>
+    void Attach(GameInstance game)
+    {
+    }
 }
+
+/// <summary>A look at a platform event before the game handles it.</summary>
+/// <param name="e">The event.</param>
+/// <returns>True to consume the event.</returns>
+public delegate bool PlatformEventFilter(in PlatformEvent e);
 
 /// <summary>The entry point of a game: parse the command line, create the instance, run it.</summary>
 public static class GameApp
@@ -165,6 +176,7 @@ public static class GameApp
                 return DevTools!().Run(instance, parsed, output);
             }
 
+            DevTools?.Invoke().Attach(instance);
             var frames = parsed.GetInt("frames", 0);
             var untilTick = parsed.GetInt("until-tick", 0);
             if (untilTick > 0 && options.Connect is null)

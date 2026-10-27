@@ -23,6 +23,8 @@ public sealed partial class ControlSurface : IControlEndpoint
     {
         Game = game ?? throw new ArgumentNullException(nameof(game));
         OutputDirectory = Path.GetFullPath(outputDirectory ?? Directory.GetCurrentDirectory());
+        Overlay = DebugOverlay.For(game);
+        Overlay.AudioSource = () => Audio ?? AudioService.Active;
         // Stamp plays from the first one on, not from the first read of the log. A service named later through Audio takes over the clock.
         if (AudioService.Active is { FrameClock: null } newest)
         {
@@ -123,6 +125,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         "shaders" => Json(ShaderCheck(), ControlJson.Default.ShadersResult),
         "assets" => Json(AssetsOp(a), ControlJson.Default.AssetsResult),
         "tweens" => Json(TweensOp(a), ControlJson.Default.TweensResult),
+        "overlay" => Json(OverlayOp(a), ControlJson.Default.OverlayResult),
         "render_graph" => Json(RenderGraphReport(), ControlJson.Default.RenderGraphReport),
         "theme_lint" => Json(ThemeLintCheck(), ControlJson.Default.ThemeLintReport),
         "steam_input" => Json(SteamInputOp(a), ControlJson.Default.SteamInputReport),

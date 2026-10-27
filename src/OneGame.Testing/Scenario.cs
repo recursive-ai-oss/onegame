@@ -107,6 +107,9 @@ public enum StepKind
     /// <summary>Drive the harness's stand-in Steam Input controller (connect, press, release, analog), then run two frames so the game sees it.</summary>
     SteamInput,
 
+    /// <summary>Show (<c>on</c>), hide (<c>off</c>) or flip (<c>toggle</c>) the on-screen debug panel; it is drawn into later captures.</summary>
+    Overlay,
+
     /// <summary>Wait until a node of a process cluster reaches a tick (cluster scenarios only).</summary>
     Wait,
 
@@ -840,6 +843,15 @@ public static class ScenarioParser
                     return v.Kind == YamlNodeKind.Scalar && Text(v, "tweens") == "settle"
                         ? new ScenarioStep(StepKind.Tweens, line) { ControlArgs = "{\"settle\":true}" }
                         : new ScenarioStep(StepKind.Tweens, line) { ControlArgs = ScenarioRunner.Obj(("advance", Number(v, "tweens"))) };
+                case "overlay":
+                    // overlay: on | off | toggle
+                    return Text(v, "overlay") switch
+                    {
+                        "on" or "true" => new ScenarioStep(StepKind.Overlay, line) { ControlArgs = "{\"visible\":true}" },
+                        "off" or "false" => new ScenarioStep(StepKind.Overlay, line) { ControlArgs = "{\"visible\":false}" },
+                        "toggle" => new ScenarioStep(StepKind.Overlay, line) { ControlArgs = "{\"toggle\":true}" },
+                        _ => throw Error(v, "overlay takes on, off or toggle"),
+                    };
                 case "steam-input":
                     var si = Map(v, ["connect", "disconnect", "press", "release", "analog", "x", "y", "controller"], "steam-input");
                     var sj = new List<string>();
@@ -885,7 +897,7 @@ public static class ScenarioParser
                 case "restart":
                     return new ScenarioStep(StepKind.Restart, line) { Node = Text(v, "restart") };
                 default:
-                    throw Error(entry.Key, $"unknown step '{verb}'; use click, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, camera, tweens, steam-input, wait, kill, start, restart or expect");
+                    throw Error(entry.Key, $"unknown step '{verb}'; use click, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, camera, tweens, overlay, steam-input, wait, kill, start, restart or expect");
             }
         }
 

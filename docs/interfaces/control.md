@@ -43,6 +43,7 @@ Without `--headless` the game opens a window (Wayland when `WAYLAND_DISPLAY` is 
 | Rendering | `render_graph` (passes, resources and per-pass GPU time of the last frame; see `render-graph.md`) |
 | 3D | `camera` (read or override the camera), `pick` (entity under a pixel or along a ray), `project` (world point to pixel): `scene3d.md`; `quality` (read or set the renderer's level, SSAO): `render3d.md` |
 | 2D | `draw_view` (what the 2D happy path drew last frame, its camera, screen/world conversion): `render2d.md` |
+| Debug overlay | `overlay` (`visible`, `toggle`, `masked`, `key`, `chord`; returns `visible`, `key`, `chord`, `masked`, `lines`): the on-screen debug panel, F3 or Back+Start; view-only, drawn into captures; scenario step `overlay: on\|off\|toggle`: `driving-a-game.md` |
 | Particles | `particles` (emitters shown in the last drawn frame: name, live, capacity, emitting, spawned, dropped, blend, space, position; `name` filters; draws a frame first when none was drawn at this tick): `particles.md` |
 | Saves, settings | `saves` (list, save, load, quick-save, quick-load, autosave, load-latest, delete, settings-load, settings-save, write-file, delete-file): `storage.md` |
 | Purchases | `store` (describe, connect, load, buy, finish, restore; script, resolve, revoke, disconnect against the fake store): `store.md` |

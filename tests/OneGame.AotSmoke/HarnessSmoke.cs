@@ -64,6 +64,7 @@ internal static class HarnessSmoke
         File.SetLastWriteTimeUtc(hlsl, DateTime.UtcNow.AddSeconds(5));
         var shaders = surface.Call("shaders");
         var themeLint = surface.Call("theme_lint");
+        var overlay = surface.Call("overlay", """{"visible":true,"key":"F4","chord":"Back+Start"}""");
         game.HotShaders.Unregister(registration);
         File.Delete(hlsl);
 
@@ -72,6 +73,7 @@ internal static class HarnessSmoke
             name: smoke
             steps:
               - click: add
+              - overlay: on
               - step: 1
             expect:
               - ui: { id: total, contains: Total }
@@ -134,7 +136,7 @@ internal static class HarnessSmoke
         }
 
         if (!result.Passed || back.Width != 160 || back.Height != 100 || !replay.Ok || tools is null || !tools.Contains("capture_frame", StringComparison.Ordinal)
-            || state.Length == 0 || tree.Length == 0 || !themeLint.Contains("\"checks\"", StringComparison.Ordinal) || applied != 1 || !shaders.Contains("\"changed\":[\"smoke\"]", StringComparison.Ordinal))
+            || state.Length == 0 || tree.Length == 0 || !themeLint.Contains("\"checks\"", StringComparison.Ordinal) || !overlay.Contains("entities", StringComparison.Ordinal) || applied != 1 || !shaders.Contains("\"changed\":[\"smoke\"]", StringComparison.Ordinal))
         {
             Console.Error.WriteLine($"harness smoke failed: scenario={result.Passed} image={back.Width}x{back.Height} replay={replay.Ok}");
             return 1;

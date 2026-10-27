@@ -465,6 +465,9 @@ public sealed class ScenarioRunner
             case StepKind.Tweens:
                 _surface.Call("tweens", s.ControlArgs);
                 break;
+            case StepKind.Overlay:
+                _surface.Call("overlay", s.ControlArgs);
+                break;
             case StepKind.SteamInput:
                 _surface.Call("steam_input", s.ControlArgs);
                 _surface.Call("step", "{\"count\":2}");

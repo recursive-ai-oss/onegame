@@ -21,6 +21,8 @@ internal sealed class DevTools : IDevTools
         "fixture", "screen", "after", "lint-theme", "capture-tolerance", "capture-max-diff", "control",
     ];
 
+    public void Attach(GameInstance game) => DebugOverlay.For(game);
+
     public int Run(GameInstance game, GameArgs args, TextWriter output)
     {
         var json = args.Has("json");
