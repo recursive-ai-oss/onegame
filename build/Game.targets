@@ -55,10 +55,12 @@
     <!-- The generator and analyzers: entity code, and the rules for simulation and view code. -->
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
+  <!-- With central package management (ManagePackageVersionsCentrally in the game's Directory.Packages.props) a PackageReference may not
+       carry a Version (NU1008), so the engine versions go in as VersionOverride, which wins over any PackageVersion the game lists. -->
   <ItemGroup Condition="'$(OneGameRoot)' == '' and '$(OneGameVersion)' != ''">
-    <PackageReference Include="RecursiveAI.OneGame.Host" Version="$(OneGameVersion)" />
-    <PackageReference Include="RecursiveAI.OneGame.Core" Version="$(OneGameVersion)" />
-    <PackageReference Include="RecursiveAI.OneGame.UI" Version="$(OneGameVersion)" />
+    <_OneGamePackage Include="RecursiveAI.OneGame.Host;RecursiveAI.OneGame.Core;RecursiveAI.OneGame.UI" />
+    <_OneGamePackage Include="RecursiveAI.OneGame.Audio" Condition="'$(OneGameAudio)' != 'false'" />
+    <_OneGamePackage Include="RecursiveAI.OneGame.Live" Condition="'$(OneGameDev)' == 'true'" />
   </ItemGroup>
 
   <!-- Sound is part of a game, so a game gets the audio service through the same reference chain as everything else and an export builds without the game naming it.
@@ -66,15 +68,15 @@
   <ItemGroup Condition="'$(OneGameAudio)' != 'false' and '$(OneGameRoot)' != ''">
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Audio/OneGame.Audio.csproj" />
   </ItemGroup>
-  <ItemGroup Condition="'$(OneGameAudio)' != 'false' and '$(OneGameRoot)' == '' and '$(OneGameVersion)' != ''">
-    <PackageReference Include="RecursiveAI.OneGame.Audio" Version="$(OneGameVersion)" />
-  </ItemGroup>
 
   <ItemGroup Condition="'$(OneGameDev)' == 'true' and '$(OneGameRoot)' != ''">
     <ProjectReference Include="$(OneGameRoot)/src/OneGame.Live/OneGame.Live.csproj" />
   </ItemGroup>
-  <ItemGroup Condition="'$(OneGameDev)' == 'true' and '$(OneGameRoot)' == '' and '$(OneGameVersion)' != ''">
-    <PackageReference Include="RecursiveAI.OneGame.Live" Version="$(OneGameVersion)" />
+  <ItemGroup Condition="'@(_OneGamePackage)' != '' and '$(ManagePackageVersionsCentrally)' != 'true'">
+    <PackageReference Include="@(_OneGamePackage)" Version="$(OneGameVersion)" />
+  </ItemGroup>
+  <ItemGroup Condition="'@(_OneGamePackage)' != '' and '$(ManagePackageVersionsCentrally)' == 'true'">
+    <PackageReference Include="@(_OneGamePackage)" VersionOverride="$(OneGameVersion)" />
   </ItemGroup>
   <ItemGroup Condition="'$(OneGameDev)' == 'true'">
     <!-- A shared library (Android) has no application code to run a module initializer from, and an iOS app starts its game late; AndroidEntry.cs and IosEntry.cs enable the tools themselves. -->

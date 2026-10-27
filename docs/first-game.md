@@ -23,6 +23,8 @@ cd mygame
 </Project>
 ```
 
+NuGet central package management works as usual: put `Directory.Packages.props` with `ManagePackageVersionsCentrally` beside the game and list your own packages there. The SDK versions its engine packages itself (as `VersionOverride`), so you don't list them. Leave `CentralPackageVersionOverrideEnabled` at its default (true).
+
 **`Program.cs`**
 
 ```csharp

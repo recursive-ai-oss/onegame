@@ -33,9 +33,14 @@
   </ItemGroup>
   <!-- Without a checkout (a server on the RecursiveAI.OneGame.Sdk package) the libraries come from nuget.org; the Core package carries the generator. -->
   <ItemGroup Condition="'$(OneGameRoot)' == '' and '$(OneGameVersion)' != ''">
-    <PackageReference Include="RecursiveAI.OneGame.Server" Version="$(OneGameVersion)" />
-    <PackageReference Include="RecursiveAI.OneGame.Server.Live" Version="$(OneGameVersion)" />
-    <PackageReference Include="RecursiveAI.OneGame.Core" Version="$(OneGameVersion)" />
+    <_OneGamePackage Include="RecursiveAI.OneGame.Server;RecursiveAI.OneGame.Server.Live;RecursiveAI.OneGame.Core" />
+  </ItemGroup>
+  <!-- Under central package management the version goes in as VersionOverride (a Version attribute is NU1008). -->
+  <ItemGroup Condition="'@(_OneGamePackage)' != '' and '$(ManagePackageVersionsCentrally)' != 'true'">
+    <PackageReference Include="@(_OneGamePackage)" Version="$(OneGameVersion)" />
+  </ItemGroup>
+  <ItemGroup Condition="'@(_OneGamePackage)' != '' and '$(ManagePackageVersionsCentrally)' == 'true'">
+    <PackageReference Include="@(_OneGamePackage)" VersionOverride="$(OneGameVersion)" />
   </ItemGroup>
 
 </Project>

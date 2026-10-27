@@ -78,29 +78,51 @@ dotnet tool install --tool-path "$work/tools" RecursiveAI.OneGame.Cli --version 
 og="$work/tools/onegame"
 "$og" --version --json
 
-step "onegame new mygame"
-"$og" new mygame --json
-cd mygame
-cat mygame.csproj
-ls scenarios
+# The same game twice: once as it is, once under NuGet central package management (a Directory.Packages.props with
+# ManagePackageVersionsCentrally), which rejects a Version on a PackageReference unless the SDK uses VersionOverride.
+og="$work/tools/onegame"
+play() {
+  variant=$1
+  mkdir -p "$work/app-$variant"
+  cp "$work/app/nuget.config" "$work/app-$variant/"
+  if [ "$variant" = cpm ]; then
+    cat > "$work/app-$variant/Directory.Packages.props" <<'PROPS'
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>
+PROPS
+  fi
+  cd "$work/app-$variant"
+  step "onegame new mygame ($variant)"
+  "$og" new mygame --json
+  cd mygame
+  cat mygame.csproj
+  ls scenarios
 
-step "onegame run --headless --frames 60 --json"
-"$og" run --headless --frames 60 --json | tee "$work/run.json"
-grep -q '"ok":true' "$work/run.json"
+  step "onegame run --headless --frames 60 --json"
+  "$og" run --headless --frames 60 --json | tee "$work/$variant-run.json"
+  grep -q '"ok":true' "$work/$variant-run.json"
 
-step "onegame test --json"
-"$og" test --json | tee "$work/test.json"
-grep -q '"ok":true' "$work/test.json"
+  step "onegame test --json"
+  "$og" test --json | tee "$work/$variant-test.json"
+  grep -q '"ok":true' "$work/$variant-test.json"
 
-step "onegame export --target $target"
-"$og" export --target "$target" --out "$work/export" --json | tee "$work/export.json"
-grep -q '"runtime":"nativeaot"' "$work/export.json" || { echo "the export is not NativeAOT"; exit 1; }
-exe=$(ls "$work"/export/*/Mygame.exe "$work"/export/*/Mygame 2>/dev/null | head -1)
-[ -n "$exe" ] || { echo "no Mygame program in the export"; ls -R "$work/export" | head -30; exit 1; }
+  step "onegame export --target $target"
+  "$og" export --target "$target" --out "$work/$variant-export" --json | tee "$work/$variant-export.json"
+  grep -q '"runtime":"nativeaot"' "$work/$variant-export.json" || { echo "the export is not NativeAOT"; exit 1; }
+  exe=$(ls "$work"/$variant-export/*/Mygame.exe "$work"/$variant-export/*/Mygame 2>/dev/null | head -1)
+  [ -n "$exe" ] || { echo "no Mygame program in the export"; ls -R "$work/$variant-export" | head -30; exit 1; }
 
-step "run the exported game headless"
-"$exe" --headless --frames 60 --seed 42 --gpu off --json | tee "$work/exported-run.json"
-grep -q '"ok":true' "$work/exported-run.json"
+  step "run the exported game headless"
+  "$exe" --headless --frames 60 --seed 42 --gpu off --json | tee "$work/$variant-exported-run.json"
+  grep -q '"ok":true' "$work/$variant-exported-run.json"
+
+}
+
+play plain
+play cpm
 
 echo
-echo "package smoke: ok ($count packages, target $target)"
+echo "package smoke: ok ($count packages, target $target, plain and central package management)"
