@@ -37,6 +37,7 @@ steps:
   - action: jump           # an input action by name, as the keyboard would: also {name: move, x: 1, y: 0}, {name: move, state: down|up}
   - pad: { button: south } # the harness's virtual gamepad; also {axis: leftx, value: 1}; press: {key: d, state: down|up} holds a key
   - assets: { reload: art/ship.png }   # check files now / reload one / apply-data (staged YAML); expect with asset: {path, state, version}
+  - overlay: on            # show the debug panel in later captures: on, off or toggle (see Debug overlay below)
   - nav: start             # a controller button: up down left right next previous activate cancel, or any button by name (start, back, west, north, x, y, left_stick...)
 expect:
   - state: { entity: Counter, property: Count, equals: 3 }
@@ -124,6 +125,18 @@ In a development build, a game that registered its material shaders (`docs/inter
 ```
 
 On `incompatible` or `compile_error` the previous shader keeps drawing; fix the file and the next check recovers. A changed cbuffer layout, vertex input or binding needs a rebuild. Exports and Release builds have none of this.
+
+### Debug overlay
+
+A development build of a windowed game has an on-screen panel in the top-right corner. Press **F3**, or hold **Back and Start** on a gamepad, to show or hide it. It lists the frame time (current, min, avg, max over the last 60 frames, with a small bar chart), the tick and entity count, the network round trip, bytes in and out per second and drift when the game is connected with `--connect`, and the audio device's backend, underruns, peak and frames written and played. The panel is drawn over the finished frame and reads only what the `info`, `net_status` and `audio` operations already report, so it changes no state and the hash is the same with it on or off.
+
+```
+ONEGAME_OVERLAY=on ./Shop                              # shown from the first frame
+ONEGAME_OVERLAY_KEY=Backquote ./Shop                   # another key; "none" turns the key off
+ONEGAME_OVERLAY_CHORD=LeftShoulder+RightShoulder ./Shop    # another pad chord; "none" turns it off
+```
+
+A toggle is swallowed, so the game never sees F3. From a scenario or MCP: `overlay: on|off|toggle`, or the `overlay` operation (`visible`, `toggle`, `masked`, `key`, `chord`; it returns the panel's text as `lines`). Captures include the panel while it is shown. A headless run masks every figure that depends on the machine or the moment (frame times, rates, audio counters) as `--`, so a capture is the same everywhere (`masked: false` shows them). The panel needs the default 2D stage, and its text is rebuilt four times a second (about 10 KB allocated at each rebuild, nothing between). Exports and Release builds do not contain it: the export fails with `dev_tools_present` if any program file mentions it.
 
 ## 7. Servers and clusters
 

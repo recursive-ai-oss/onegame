@@ -1,0 +1,9 @@
+name: the debug panel is drawn into captures when switched on and gone when switched off
+window: 480x270
+steps:
+  - reset: {}
+  - step: 3
+  - overlay: on
+  - expect: {capture: {reference: refs/overlay.png, tolerance: 4, max-diff: 0.001}}
+  - overlay: off
+  - expect: {capture: {reference: refs/overlay-off.png, tolerance: 4, max-diff: 0.001}}

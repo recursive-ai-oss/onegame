@@ -427,11 +427,14 @@ internal sealed partial class ExportVerb : IVerb
         return newest;
     }
 
-    /// <summary>Whether any program file in the export mentions the live-control assembly or the shader hot-reload watcher.</summary>
+    /// <summary>Whether any program file in the export mentions the live-control assembly, the shader hot-reload watcher or the on-screen debug panel.</summary>
     private static bool DevToolsPresent(string folder)
     {
         var needle = "OneGame.Live"u8.ToArray();
         var reloader = "ShaderReloader"u8.ToArray();
+        var overlay = "DebugOverlay"u8.ToArray();
+        // The panel's environment variables are string literals, which a native or managed binary stores as UTF-16.
+        var overlayEnv = System.Text.Encoding.Unicode.GetBytes("ONEGAME_OVERLAY");
         foreach (var f in Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly))
         {
             if (f.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) && Path.GetFileName(f).StartsWith("OneGame.Live", StringComparison.Ordinal))
@@ -446,7 +449,7 @@ internal sealed partial class ExportVerb : IVerb
             }
 
             var bytes = File.ReadAllBytes(f);
-            if (bytes.AsSpan().IndexOf(needle) >= 0 || bytes.AsSpan().IndexOf(reloader) >= 0)
+            if (bytes.AsSpan().IndexOf(needle) >= 0 || bytes.AsSpan().IndexOf(reloader) >= 0 || bytes.AsSpan().IndexOf(overlay) >= 0 || bytes.AsSpan().IndexOf(overlayEnv) >= 0)
             {
                 return true;
             }

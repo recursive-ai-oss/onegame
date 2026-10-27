@@ -6,6 +6,7 @@ using OneGame.UI;
 
 namespace OneGame.Control.Tests;
 
+[Collection("AudioService.Active")]
 public class AudioOpTests
 {
     private sealed class QuietGame : GameDefinition
