@@ -103,18 +103,7 @@ public sealed partial class Renderer3D : IDisposable
         // The packed glTF vertex (GltfPrimitive.PackVertices) is what the shader declares; joint indices are two 32-bit words, each holding two 16-bit indices.
         _vertexLayout = ShaderLayouts.Vertex(Pbr.VSMain.Layout);
 
-        _instanceLayout = new VertexBufferLayout
-        {
-            Stride = 64,
-            StepMode = VertexStepMode.Instance,
-            Attributes = new VertexElement[]
-            {
-                new(8, VertexFormat.Float4, 0),
-                new(9, VertexFormat.Float4, 16),
-                new(10, VertexFormat.Float4, 32),
-                new(11, VertexFormat.Float4, 48),
-            },
-        };
+        _instanceLayout = ShaderLayouts.VertexStreams(Pbr.VSInst.Layout, new OneShader.Layouts.VertexStream(0, GltfPrimitive.PackedVertexSize), new OneShader.Layouts.VertexStream(8, 64, OneShader.Layouts.VertexStepMode.Instance))[1];
 
         _envSampler = Own(device.CreateSampler(SamplerDesc.Linear with { MaxLod = 32f }));
         _defaultSampler = Own(device.CreateSampler(new SamplerDesc
