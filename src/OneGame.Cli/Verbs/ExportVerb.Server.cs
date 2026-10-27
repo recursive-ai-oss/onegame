@@ -10,11 +10,11 @@ internal sealed partial class ExportVerb
     /// Packages a dedicated server. A game's own server project (plugin-less) is published NativeAOT; with <c>--plugins</c> the engine's plugin-capable
     /// <c>onegame-server</c> is published framework-dependent (it loads plugin assemblies, so it needs CoreCLR). The report is the one of a game export.
     /// </summary>
-    private static int RunServerExport(ProjectArgs a, bool steam, bool plugins, bool noArchive, bool noAot, bool json, TextWriter output)
+    private static int RunServerExport(ProjectArgs a, bool steam, bool plugins, bool noArchive, bool noAot, bool hostGlibc, bool json, TextWriter output)
     {
         if (steam || a.Game.Count > 0)
         {
-            throw new CliException(ExitCodes.Usage, "bad_args", $"{(steam ? "--steam" : a.Game[0])} does not apply to a server export. Usage: onegame export --server [--plugins] [--project <file>] [--out <dir>] [--no-archive] [--no-aot].");
+            throw new CliException(ExitCodes.Usage, "bad_args", $"{(steam ? "--steam" : a.Game[0])} does not apply to a server export. Usage: onegame export --server [--plugins] [--project <file>] [--out <dir>] [--no-archive] [--no-aot] [--host-glibc] [--sysroot <dir>].");
         }
 
         var target = a.Get("--target") ?? "linux-x64";
@@ -54,6 +54,7 @@ internal sealed partial class ExportVerb
         else
         {
             args.AddRange(["--self-contained", "true", aot ? "-p:OneGameAot=true" : "-p:OneGameTrim=true"]);
+            args.AddRange(LinuxLinkArguments(target, aot, hostGlibc, a.Get("--sysroot"), json, Console.Error));
         }
 
         var run = Proc.Run(Proc.Dotnet, args, project.Directory);

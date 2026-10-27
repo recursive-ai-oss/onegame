@@ -65,7 +65,16 @@ In Steam's depot, set the Linux launch option to `run.sh` (or the program) and t
 
 ## Steam Deck and the Linux runtime
 
-Steam runs Linux games against its Steam Linux Runtime 3 ("sniper"), which has **glibc 2.31**. A program linked on a newer system (Ubuntu 24.04 has 2.39) will not start there: `version 'GLIBC_2.38' not found`. The export reads the version names in the program and warns `glibc_too_new` when it needs more than 2.31. Build the Linux export in Valve's SDK image or on a system with an old enough glibc.
+Steam runs Linux games against its Steam Linux Runtime 3 ("sniper"), which has **glibc 2.31**. A program linked on a newer system (Ubuntu 24.04 has 2.39) will not start there: `version 'GLIBC_2.38' not found`.
+
+A Linux NativeAOT export therefore links against glibc 2.31 by default, on any Linux host, with no container and no manual step. The first export fetches the C library files (Debian 11's `libc6` and `libc6-dev`, about 5 MB, pinned by SHA-256, from Debian's snapshot archive) into `~/.cache/onegame/sysroot/` (`$ONEGAME_CACHE` moves it) and unpacks them with the system `tar` (xz support). They are a build tool: the linker takes symbol versions from them, and nothing from them is copied into the game. The export then reads the version names in the program, and **fails with `glibc_too_new`** if it still needs more than 2.31.
+
+- `--host-glibc` links against this system's own C library instead and only warns. Use it when the program has to run on systems like this one only.
+- `--sysroot <dir>` links against a sysroot of your own (it must hold `usr/lib/x86_64-linux-gnu`); the same check applies.
+- The server export (`--server`) links the same way.
+- Without a network the first export fails with `sysroot_unavailable`; pass `--host-glibc` or export once online.
+
+Building inside Valve's SDK image still works and is the way to test the result against the real runtime:
 
 `tools/steamrt.sh` does that with bubblewrap and Valve's public runtime images (no Steam account or client):
 

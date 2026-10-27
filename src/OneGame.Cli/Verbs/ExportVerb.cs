@@ -17,11 +17,12 @@ internal sealed partial class ExportVerb : IVerb
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
-        var a = new ProjectArgs(args, "--target", "--out", "--steam-redist", "--bundle-id", "--abi", "--package", "--label", "--orientation", "--sdk", "--keystore", "--symbols");
+        var a = new ProjectArgs(args, "--target", "--out", "--steam-redist", "--bundle-id", "--abi", "--package", "--label", "--orientation", "--sdk", "--keystore", "--symbols", "--sysroot");
         var steam = a.Game.Remove("--steam");
         var noArchive = a.Game.Remove("--no-archive");
         var noAot = a.Game.Remove("--no-aot");
         var dev = a.Game.Remove("--dev");
+        var hostGlibc = a.Game.Remove("--host-glibc");
         var server = a.Game.Remove("--server");
         var plugins = a.Game.Remove("--plugins");
         if (plugins && !server)
@@ -31,7 +32,7 @@ internal sealed partial class ExportVerb : IVerb
 
         if (server)
         {
-            return RunServerExport(a, steam, plugins, noArchive, noAot, json, output);
+            return RunServerExport(a, steam, plugins, noArchive, noAot, hostGlibc, json, output);
         }
 
         if (a.Get("--target") == "android")
@@ -61,7 +62,7 @@ internal sealed partial class ExportVerb : IVerb
 
         if (dev || a.Game.Count > 0)
         {
-            throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {(dev ? "--dev (Android and iOS only)" : a.Game[0])}. Usage: onegame export --target linux-x64|win-x64|osx [--steam] [--steam-redist <dir>] [--bundle-id <id>] [--out <dir>] [--no-archive] [--no-aot].");
+            throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {(dev ? "--dev (Android and iOS only)" : a.Game[0])}. Usage: onegame export --target linux-x64|win-x64|osx [--steam] [--steam-redist <dir>] [--bundle-id <id>] [--out <dir>] [--no-archive] [--no-aot] [--host-glibc] [--sysroot <dir>].");
         }
 
         var target = a.Get("--target") ?? (OperatingSystem.IsWindows() ? "win-x64" : OperatingSystem.IsMacOS() ? "osx-arm64" : "linux-x64");
@@ -123,7 +124,8 @@ internal sealed partial class ExportVerb : IVerb
 
         Directory.CreateDirectory(programDir);
         Directory.CreateDirectory(contentDir);
-        Publish(project, target, aot, programDir);
+        var sysrootArgs = LinuxLinkArguments(target, aot, hostGlibc, a.Get("--sysroot"), json, error);
+        Publish(project, target, aot, programDir, sysrootArgs);
 
         // Debug symbols and the XML documentation of the engine assemblies are not part of what ships.
         foreach (var f in Directory.EnumerateFiles(programDir, "*", SearchOption.AllDirectories).ToArray())
@@ -179,8 +181,13 @@ internal sealed partial class ExportVerb : IVerb
 
         if (target == "linux-x64" && NewestGlibc(exe) is { } glibc && glibc > SteamRuntimeGlibc)
         {
-            warnings.Add(new ExportWarning("glibc_too_new",
-                $"{exeName} needs glibc {glibc.Major}.{glibc.Minor}, newer than {SteamRuntimeGlibc.Major}.{SteamRuntimeGlibc.Minor} in Steam's Linux runtime (and so on the Steam Deck). Build on an older system, or inside the Steam Linux Runtime SDK: see docs/exporting.md."));
+            var text = $"{exeName} needs glibc {glibc.Major}.{glibc.Minor}, newer than {SteamRuntimeGlibc.Major}.{SteamRuntimeGlibc.Minor} in Steam's Linux runtime (and so on the Steam Deck).";
+            if (!hostGlibc)
+            {
+                throw new CliException(ExitCodes.BuildFailed, "glibc_too_new", text + " Export without --sysroot (the default links against glibc 2.31), or pass --host-glibc if the program only has to run on systems like this one. See docs/exporting.md.");
+            }
+
+            warnings.Add(new ExportWarning("glibc_too_new", text + " Allowed by --host-glibc: it runs only on systems with at least this glibc."));
         }
 
         if (DevToolsPresent(programDir))
@@ -258,10 +265,36 @@ internal sealed partial class ExportVerb : IVerb
 
     private const UnixFileMode Plain = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead;
 
-    private static void Publish(ProjectRef project, string target, bool aot, string folder)
+    /// <summary>
+    /// The publish arguments that make a Linux NativeAOT program link against glibc 2.31 (the Steam Linux Runtime's), so it runs on the Steam
+    /// Deck and on older distributions. Empty for other targets, for a non-AOT build and for <c>--host-glibc</c>.
+    /// </summary>
+    internal static string[] LinuxLinkArguments(string target, bool aot, bool hostGlibc, string? sysroot, bool json, TextWriter error)
+    {
+        if (target != "linux-x64" || !aot || hostGlibc || !OperatingSystem.IsLinux())
+        {
+            return [];
+        }
+
+        if (sysroot is not null)
+        {
+            var full = Path.GetFullPath(sysroot);
+            if (!Directory.Exists(full))
+            {
+                throw new CliException(ExitCodes.Usage, "bad_args", $"--sysroot {sysroot} is not a folder.");
+            }
+
+            return LinuxSysroot.PublishArguments(full);
+        }
+
+        return LinuxSysroot.PublishArguments(LinuxSysroot.Ensure(line => { if (!json) { error.WriteLine(line); } }));
+    }
+
+    private static void Publish(ProjectRef project, string target, bool aot, string folder, string[] extra)
     {
         List<string> args = ["publish", project.File, "-c", "Release", "-r", target, "--self-contained", "true", "-o", folder, "--nologo", "-v", "q", "-clp:NoSummary",
             "-p:OneGameDev=false", "-p:DebugType=none", "-p:DebugSymbols=false", "-p:GenerateFullPaths=true"];
+        args.AddRange(extra);
         if (aot)
         {
             args.Add("-p:OneGameAot=true");

@@ -115,6 +115,8 @@ PROPS
   exe=$(ls "$work"/$variant-export/*/Mygame.exe "$work"/$variant-export/*/Mygame 2>/dev/null | head -1)
   [ -n "$exe" ] || { echo "no Mygame program in the export"; ls -R "$work/$variant-export" | head -30; exit 1; }
 
+  case "$target" in linux*) step "the export needs glibc 2.31 or older"; bash "$repo/tools/ci/glibc-baseline.sh" "$exe" ;; esac
+
   step "run the exported game headless"
   "$exe" --headless --frames 60 --seed 42 --gpu off --json | tee "$work/$variant-exported-run.json"
   grep -q '"ok":true' "$work/$variant-exported-run.json"

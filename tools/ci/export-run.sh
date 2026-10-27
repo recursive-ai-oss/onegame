@@ -16,4 +16,5 @@ grep -q '"runtime":"nativeaot"' "$out/export-$target-result.json" || { echo "the
 exe=$(ls "$out"/export-"$target"/*/Solitaire.exe "$out"/export-"$target"/*/Solitaire 2>/dev/null | head -1)
 [ -n "$exe" ] || { echo "no Solitaire program in the export"; ls -R "$out/export-$target" | head -30; exit 1; }
 ls -l "$exe"
+case "$target" in linux*) bash "$repo/tools/ci/glibc-baseline.sh" "$exe" ;; esac
 "$exe" --headless --frames 120 --seed 42 --gpu off --json | tee "$out/export-$target.json"
