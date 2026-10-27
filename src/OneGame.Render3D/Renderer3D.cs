@@ -26,6 +26,9 @@ public readonly record struct FrameStats3D(int Objects, int DrawCalls, long Tria
     /// <summary>Copies of batches that survived culling against the camera.</summary>
     public int InstancesDrawn { get; init; }
 
+    /// <summary>Billboard quads drawn (see <see cref="BillboardBatch3D"/>).</summary>
+    public int Billboards { get; init; }
+
     /// <summary>The quality level the frame was drawn at.</summary>
     public QualityLevel Quality { get; init; }
 
@@ -399,6 +402,8 @@ public sealed partial class Renderer3D : IDisposable
         DisposePost();
         DisposeSsao();
         DisposeIbl();
+        _softSpot?.Dispose();
+        _softSpot = null;
         foreach (var p in _pipelines.Values)
         {
             p.Dispose();

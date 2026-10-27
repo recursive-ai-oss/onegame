@@ -17,6 +17,7 @@ public sealed class GeneratedShaders : IShaderSource
     {
         (ShaderNames.Quad, ShaderNames.Vertex) => Code(Quad.VSMain.Stage, Quad.VSMain.EntryPoint, Quad.VSMain.SpirV, Quad.VSMain.Msl, Quad.VSMain.MslFunctionName, Quad.VSMain.Layout, Quad.VSMain.Wgsl, Quad.VSMain.WgslEntryPoint),
         (ShaderNames.Quad, ShaderNames.Sprite) => Code(Quad.PSSprite.Stage, Quad.PSSprite.EntryPoint, Quad.PSSprite.SpirV, Quad.PSSprite.Msl, Quad.PSSprite.MslFunctionName, Quad.PSSprite.Layout, Quad.PSSprite.Wgsl, Quad.PSSprite.WgslEntryPoint),
+        (ShaderNames.Quad, ShaderNames.Additive) => Code(Quad.PSAdditive.Stage, Quad.PSAdditive.EntryPoint, Quad.PSAdditive.SpirV, Quad.PSAdditive.Msl, Quad.PSAdditive.MslFunctionName, Quad.PSAdditive.Layout, Quad.PSAdditive.Wgsl, Quad.PSAdditive.WgslEntryPoint),
         (ShaderNames.Quad, ShaderNames.Blur) => Code(Quad.PSBlur.Stage, Quad.PSBlur.EntryPoint, Quad.PSBlur.SpirV, Quad.PSBlur.Msl, Quad.PSBlur.MslFunctionName, Quad.PSBlur.Layout, Quad.PSBlur.Wgsl, Quad.PSBlur.WgslEntryPoint),
         (ShaderNames.Quad, ShaderNames.Grade) => Code(Quad.PSGrade.Stage, Quad.PSGrade.EntryPoint, Quad.PSGrade.SpirV, Quad.PSGrade.Msl, Quad.PSGrade.MslFunctionName, Quad.PSGrade.Layout, Quad.PSGrade.Wgsl, Quad.PSGrade.WgslEntryPoint),
         (ShaderNames.Tile, ShaderNames.Vertex) => Code(Tile.VSMain.Stage, Tile.VSMain.EntryPoint, Tile.VSMain.SpirV, Tile.VSMain.Msl, Tile.VSMain.MslFunctionName, Tile.VSMain.Layout, Tile.VSMain.Wgsl, Tile.VSMain.WgslEntryPoint),

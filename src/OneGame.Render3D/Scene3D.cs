@@ -251,6 +251,9 @@ public sealed class Scene3D
     /// <summary>Copies of models drawn in bulk (see <see cref="AddInstanced"/>).</summary>
     public List<InstanceBatch3D> Batches { get; } = [];
 
+    /// <summary>Camera-facing quads (particles, glows) drawn after the surfaces; see <see cref="BillboardBatch3D"/>.</summary>
+    public List<BillboardBatch3D> Billboards { get; } = [];
+
     /// <summary>Multisampling: 1 (off), 4 or 8 (a request for 2 uses 4), limited by the device and by <see cref="Quality"/>. 0 (the default) takes the level's own count.</summary>
     public int Samples { get; set; }
 

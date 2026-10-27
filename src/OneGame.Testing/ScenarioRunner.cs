@@ -246,6 +246,44 @@ public sealed class ScenarioRunner
         return new ExpectationResult(index, "sound", e.Line, ok, target, string.Join(", ", wanted), count.ToString(CultureInfo.InvariantCulture) + " plays", ok ? null : string.Join("; ", problems));
     }
 
+    private ExpectationResult CheckParticles(ScenarioExpectation e, int index)
+    {
+        using var doc = JsonDocument.Parse(e.EmitterName is { } n ? _surface.Call("particles", Obj(("name", n))) : _surface.Call("particles"));
+        var live = doc.RootElement.GetProperty("live").GetInt32();
+        var target = e.EmitterName is { } name ? $"particles of {name}" : "particles";
+        var problems = new List<string>();
+        var wanted = new List<string>();
+        if (e.Count is { } exact)
+        {
+            wanted.Add($"exactly {exact}");
+            if (live != exact)
+            {
+                problems.Add($"{target}: {live} alive, expected exactly {exact}");
+            }
+        }
+
+        if (e.Min is { } min)
+        {
+            wanted.Add($"at least {min:0}");
+            if (live < min)
+            {
+                problems.Add($"{target}: {live} alive, expected at least {min:0}");
+            }
+        }
+
+        if (e.Max is { } max)
+        {
+            wanted.Add($"at most {max:0}");
+            if (live > max)
+            {
+                problems.Add($"{target}: {live} alive, expected at most {max:0}");
+            }
+        }
+
+        var ok = problems.Count == 0;
+        return new ExpectationResult(index, "particles", e.Line, ok, target, string.Join(", ", wanted), live.ToString(CultureInfo.InvariantCulture) + " alive", ok ? null : string.Join("; ", problems));
+    }
+
     private sealed record Context(string BaseDir, bool Update);
 
     private static async ValueTask<string?> GuardedAsync(Func<ValueTask> action)
@@ -454,6 +492,7 @@ public sealed class ScenarioRunner
                 ExpectKind.SteamInput => CheckSteamInput(e, index),
                 ExpectKind.Action => CheckAction(e, index),
                 ExpectKind.Sound => CheckSound(e, index),
+                ExpectKind.Particles => CheckParticles(e, index),
                 _ => throw new ControlException("bad_args", "Unknown expectation."),
             };
         }

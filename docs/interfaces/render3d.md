@@ -52,6 +52,10 @@ Harness: control op `quality` (`level`, `ssao`, `ssaoRadius`; returns the settin
 
 `scene.AddInstanced(model, capacity)` returns an `InstanceBatch3D` (`Add/Set/RemoveAt/Clear/Items/Touch`, `Visible`, `CastShadows`, per-copy tint). One instanced draw per primitive; copies are culled on the CPU against the camera and every shadow view, and only visible ones are uploaded (10,000 trees: 3 draws). Limits: rest pose only (no skin, animation, morphs), uniform unmirrored scale, not pickable. Entity views use `SceneWriter.Instance` (`scene3d.md`).
 
+## Billboards
+
+`Scene3D.Billboards` holds `BillboardBatch3D`s: lists of `Billboard3D` camera-facing quads (position, size, rotation, linear RGBA that may exceed 1, texture rectangle, additive flag) over one `BillboardTexture3D` (`renderer.CreateBillboardTexture`, premultiplied in linear light on upload; null shows `renderer.SoftSpot`). They are drawn at the end of the `forward` pass, after blended surfaces: depth tested (`Less`), no depth write, one instanced draw per batch from one shared vertex buffer written once per frame. Blended quads of a batch are sorted far to near by view depth (`Array.Sort` on reused arrays); a batch with only additive quads keeps the caller's order. Blend is `One, OneMinusSrcAlpha` with additive quads writing alpha 0, so both kinds share one pipeline. Quads are not culled, lit, shadowed or pickable, and no depth fade (soft particles) is applied. `FrameStats3D.Billboards` counts them. Shader: `Billboard.hlsl`, layout set 0 = frame constants, set 1 = texture and sampler. Steady frames allocate nothing (test: 2,000 quads in two batches).
+
 ## Conventions
 
 - Matrices are `System.Numerics` (row vectors, right-handed, depth 0..1). Cameras look down their -Z. Panorama: `u = atan2(d.x, -d.z)/2pi + 1 (wrapping)`, `v = acos(d.y)/pi`; `Environment3D.Yaw` turns it.

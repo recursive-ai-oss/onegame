@@ -80,6 +80,10 @@ that uses it stay, and the next frame draws with the new code. The new shader mu
 is the caller's job (`InterfaceCompatibility.Compare`, which the host's hot reload runs). The old pipeline is released after a device wait, so
 use it for development reloads, not per frame. Only materials from `CreateMaterial` can be replaced.
 
+## Additive blending
+
+`renderer.AdditiveMaterial` is a built-in material (pixel entry `PSAdditive` in `Quad.hlsl`): it outputs the premultiplied colour with alpha 0, so with the renderer's `One, OneMinusSrcAlpha` blend the colour is added to the target and the sprite's alpha only scales its brightness. Set it as `Sprite.Material`. Additive sprites batch with each other as any run of equal texture and material; order between them does not matter. Particles use it (`particles.md`).
+
 ## Post-processing
 
 `renderer.CreatePostChain().AddBlur(radius).AddGrade(exposure, contrast, saturation, vignette, tint, tintAmount)` and pass it to

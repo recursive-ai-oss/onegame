@@ -68,6 +68,15 @@ float4 PSSprite(QuadOut i) : SV_Target
     return Tex.Sample(Samp, i.Uv) * i.Color;
 }
 
+// Additive: the premultiplied colour is added to what is already there. With the blend state One, OneMinusSrcAlpha an alpha of zero
+// leaves the destination untouched, so only the colour is written.
+[shader("pixel")]
+float4 PSAdditive(QuadOut i) : SV_Target
+{
+    float4 c = Tex.Sample(Samp, i.Uv) * i.Color;
+    return float4(c.rgb, 0.0);
+}
+
 // Separable blur: nine taps from five linear samples. P[0].xy is the step between taps in uv units (direction / size * radius).
 [shader("pixel")]
 float4 PSBlur(QuadOut i) : SV_Target

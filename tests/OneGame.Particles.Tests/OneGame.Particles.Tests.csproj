@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../ParticleGame/ParticleGame.csproj" />
+    <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
+    <ProjectReference Include="../../src/OneGame.Live/OneGame.Live.csproj" />
+    <ProjectReference Include="../../src/OneGame.Control/OneGame.Control.csproj" />
+    <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../ParticleGame/scenarios2d/**" CopyToOutputDirectory="PreserveNewest" LinkBase="scenarios2d" />
+    <None Include="../ParticleGame/scenarios3d/**" CopyToOutputDirectory="PreserveNewest" LinkBase="scenarios3d" />
+    <None Include="../ParticleGame/scenarios-hash/**" CopyToOutputDirectory="PreserveNewest" LinkBase="scenarios-hash" />
+    <None Include="../ParticleGame/scenarios-hash3d/**" CopyToOutputDirectory="PreserveNewest" LinkBase="scenarios-hash3d" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="OneGame.Testing" />
+  </ItemGroup>
+
+</Project>

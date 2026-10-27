@@ -69,6 +69,8 @@ public sealed partial class SceneWriter
 
     internal void Clear()
     {
+        _emitters.Clear();
+        _emitterRefs.Clear();
         _draws.Clear();
         _lights.Clear();
         _instances.Clear();

@@ -434,6 +434,15 @@ if (draw2dProblem is not null)
 
 Console.WriteLine("draw2d: IView2D entity drawn through the default stage: animated sprite clip, disc, line and text, camera follow");
 
+var particleProblem = ParticleSmoke.Run(device, ReadResource("font.ttf"));
+if (particleProblem is not null)
+{
+    Console.Error.WriteLine("particles: " + particleProblem);
+    return 1;
+}
+
+Console.WriteLine("particles: seeded emitter through Draw2D (additive sprites) and as billboards in the 3D renderer");
+
 var render3dProblem = Render3DSmoke.Run(device, ReadResource("fox.glb"));
 if (render3dProblem is not null)
 {
