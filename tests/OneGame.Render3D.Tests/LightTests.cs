@@ -93,6 +93,36 @@ public class LightTests
     }
 
     [Fact]
+    public void ASceneWithoutPunctualLightsIgnoresTheClustersOfAnEarlierFrame()
+    {
+        // The cluster pass only runs for scenes with point or spot lights. A directional-only frame after a lit one must not read the old
+        // cluster counts (and a first frame must not read memory nobody wrote: that looped over garbage and never finished on lavapipe).
+        var (fresh, freshScene) = Plane.Setup(Plane.Lambert(Albedo), Size, OrthoHeight);
+        float[] want;
+        using (fresh)
+        {
+            freshScene.Lights.Add(Light3D.Directional(new Vector3(0, 0, -1), Vector3.One, 2f));
+            fresh.Target.Render(freshScene);
+            want = Plane.ReadLinear(fresh);
+        }
+
+        var (rig, scene) = Plane.Setup(Plane.Lambert(Albedo), Size, OrthoHeight);
+        using (rig)
+        {
+            scene.Lights.Add(Light3D.Directional(new Vector3(0, 0, -1), Vector3.One, 2f));
+            scene.Lights.Add(Light3D.Point(new Vector3(0.5f, -0.5f, 2f), Vector3.One, 10f));
+            rig.Target.Render(scene);
+            scene.Lights.RemoveAt(1);
+            rig.Target.Render(scene);
+            var got = Plane.ReadLinear(rig);
+            for (var i = 0; i < want.Length; i++)
+            {
+                Assert.True(Math.Abs(got[i] - want[i]) < 1e-3, $"value {i}: {got[i]:F4} after a lit frame, {want[i]:F4} on a fresh renderer");
+            }
+        }
+    }
+
+    [Fact]
     public void RangeWindowFadesLightToZeroAtTheRange()
     {
         var light = Light3D.Point(new Vector3(0, 0, 2f), Vector3.One, 12f, 4f);
