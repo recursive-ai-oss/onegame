@@ -98,6 +98,9 @@ public enum StepKind
     /// <summary>Read changed asset files again (<c>check</c>), swap in staged data (<c>apply-data</c>) or reload one asset (<c>reload: path</c>).</summary>
     Assets,
 
+    /// <summary>Move view time (and with it every tween and UI style transition) forward by a number of seconds, or <c>settle</c> to let them all finish, without running ticks.</summary>
+    Tweens,
+
     /// <summary>Drive the harness's stand-in Steam Input controller (connect, press, release, analog), then run two frames so the game sees it.</summary>
     SteamInput,
 
@@ -234,6 +237,8 @@ public enum ExpectKind
 
     /// <summary>Live particles in the frame just drawn: in total or in the emitter of a given name, exactly, at least or at most.</summary>
     Particles,
+    /// <summary>How many top-level tweens are running (style transitions included).</summary>
+    Tweens,
 }
 
 /// <summary>A check on the game's state. Unset fields are not checked.</summary>
@@ -811,6 +816,11 @@ public static class ScenarioParser
                     return am.TryGetValue("reload", out var reloadNode)
                         ? new ScenarioStep(StepKind.Assets, line) { ControlArgs = ScenarioRunner.Obj(("reload", Text(reloadNode, "reload"))) }
                         : throw Error(v, "assets takes check, apply-data or {reload: path}");
+                case "tweens":
+                    // tweens: 0.25 (seconds of view time) or tweens: settle
+                    return v.Kind == YamlNodeKind.Scalar && Text(v, "tweens") == "settle"
+                        ? new ScenarioStep(StepKind.Tweens, line) { ControlArgs = "{\"settle\":true}" }
+                        : new ScenarioStep(StepKind.Tweens, line) { ControlArgs = ScenarioRunner.Obj(("advance", Number(v, "tweens"))) };
                 case "steam-input":
                     var si = Map(v, ["connect", "disconnect", "press", "release", "analog", "x", "y", "controller"], "steam-input");
                     var sj = new List<string>();
@@ -856,7 +866,7 @@ public static class ScenarioParser
                 case "restart":
                     return new ScenarioStep(StepKind.Restart, line) { Node = Text(v, "restart") };
                 default:
-                    throw Error(entry.Key, $"unknown step '{verb}'; use click, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, camera, steam-input, wait, kill, start, restart or expect");
+                    throw Error(entry.Key, $"unknown step '{verb}'; use click, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, camera, tweens, steam-input, wait, kill, start, restart or expect");
             }
         }
 
@@ -975,6 +985,12 @@ public static class ScenarioParser
                         ActionReleased = axm.TryGetValue("released", out var axr) ? Bool(axr, "released") : null,
                         ActionX = axm.TryGetValue("x", out var axx) ? Number(axx, "x") : axm.TryGetValue("value", out var axv) ? Number(axv, "value") : null,
                         ActionY = axm.TryGetValue("y", out var axy) ? Number(axy, "y") : null,
+                    };
+                case "tweens":
+                    var tw = Map(v, ["active"], "tweens");
+                    return new ScenarioExpectation(ExpectKind.Tweens, line)
+                    {
+                        Count = tw.TryGetValue("active", out var twc) ? Whole(twc, "active") : throw Error(v, "tweens needs the number of running tweens expected: {active: 0}"),
                     };
                 case "steam-input":
                     var six = Map(v, ["set", "controllers", "down", "up", "keyboard"], "steam-input");

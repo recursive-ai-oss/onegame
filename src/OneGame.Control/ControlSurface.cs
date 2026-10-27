@@ -122,6 +122,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         "snapshot_save" => Json(SnapshotSave(a), ControlJson.Default.SnapshotResult),
         "shaders" => Json(ShaderCheck(), ControlJson.Default.ShadersResult),
         "assets" => Json(AssetsOp(a), ControlJson.Default.AssetsResult),
+        "tweens" => Json(TweensOp(a), ControlJson.Default.TweensResult),
         "render_graph" => Json(RenderGraphReport(), ControlJson.Default.RenderGraphReport),
         "theme_lint" => Json(ThemeLintCheck(), ControlJson.Default.ThemeLintReport),
         "steam_input" => Json(SteamInputOp(a), ControlJson.Default.SteamInputReport),

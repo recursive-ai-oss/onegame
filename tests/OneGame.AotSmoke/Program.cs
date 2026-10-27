@@ -443,6 +443,15 @@ if (particleProblem is not null)
 
 Console.WriteLine("particles: seeded emitter through Draw2D (additive sprites) and as billboards in the 3D renderer");
 
+var tweenProblem = TweenSmoke.Run();
+if (tweenProblem is not null)
+{
+    Console.Error.WriteLine("tweens: " + tweenProblem);
+    return 1;
+}
+
+Console.WriteLine("tweens: sequence with parallel colors and vectors, every easing family, parsed CSS timing functions, a style transition");
+
 var render3dProblem = Render3DSmoke.Run(device, ReadResource("fox.glb"));
 if (render3dProblem is not null)
 {

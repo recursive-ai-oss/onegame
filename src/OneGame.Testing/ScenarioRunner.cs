@@ -207,6 +207,13 @@ public sealed class ScenarioRunner
             e.GetProperty("volume").GetSingle(), e.GetProperty("loop").GetBoolean(), e.GetProperty("music").GetBoolean(), e.GetProperty("started").GetBoolean()))];
     }
 
+    private ExpectationResult CheckTweens(ScenarioExpectation e, int index)
+    {
+        using var doc = JsonDocument.Parse(_surface.Call("tweens", "{}"));
+        var active = doc.RootElement.GetProperty("active").GetInt32();
+        return Compare(e, index, "tweens", "running tweens", active.ToString(CultureInfo.InvariantCulture), e.Count!.Value.ToString(CultureInfo.InvariantCulture));
+    }
+
     private ExpectationResult CheckSound(ScenarioExpectation e, int index)
     {
         var events = ReadSounds(out var frame);
@@ -452,6 +459,9 @@ public sealed class ScenarioRunner
             case StepKind.Assets:
                 _surface.Call("assets", s.ControlArgs);
                 break;
+            case StepKind.Tweens:
+                _surface.Call("tweens", s.ControlArgs);
+                break;
             case StepKind.SteamInput:
                 _surface.Call("steam_input", s.ControlArgs);
                 _surface.Call("step", "{\"count\":2}");
@@ -493,6 +503,7 @@ public sealed class ScenarioRunner
                 ExpectKind.Action => CheckAction(e, index),
                 ExpectKind.Sound => CheckSound(e, index),
                 ExpectKind.Particles => CheckParticles(e, index),
+                ExpectKind.Tweens => CheckTweens(e, index),
                 _ => throw new ControlException("bad_args", "Unknown expectation."),
             };
         }

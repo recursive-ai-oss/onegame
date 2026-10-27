@@ -14,6 +14,7 @@ internal static class Harness
         var trusted = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator);
         var list = trusted.Select(p => (MetadataReference)MetadataReference.CreateFromFile(p)).ToList();
         list.Add(MetadataReference.CreateFromFile(typeof(OneGame.Core.Fixed).Assembly.Location));
+        list.Add(MetadataReference.CreateFromFile(typeof(OneGame.Tweens.TweenSet).Assembly.Location));
         return [.. list];
     }
 

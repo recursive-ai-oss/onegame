@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../TweenGame/TweenGame.csproj" />
+    <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
+    <ProjectReference Include="../../src/OneGame.Live/OneGame.Live.csproj" />
+    <!-- Tests may use any package: the guide's code blocks are compiled with Roslyn. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../TweenGame/scenarios/**" CopyToOutputDirectory="PreserveNewest" LinkBase="scenarios" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="OneGame.Testing" />
+  </ItemGroup>
+
+</Project>

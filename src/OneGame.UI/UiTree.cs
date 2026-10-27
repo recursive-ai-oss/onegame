@@ -1,3 +1,5 @@
+using OneGame.Tweens;
+
 namespace OneGame.UI;
 
 /// <summary>
@@ -11,6 +13,7 @@ public sealed partial class UiTree
     private readonly StyleValue[] _scratch = new StyleValue[(int)StyleProp.Count];
     private readonly List<(Rule Rule, int Order)> _matched = [];
     private readonly List<(string Name, StyleValue Value)> _tokens = [];
+    private readonly Dictionary<string, TransitionSpec[]?> _transitionCache = new(StringComparer.Ordinal);
     private readonly FlexEngine _engine;
     private readonly Painter _painter;
     private readonly DisplayList _list = new();
@@ -34,6 +37,12 @@ public sealed partial class UiTree
         _width = 1280;
         _height = 720;
     }
+
+    /// <summary>
+    /// The tweens of this UI, on the UI's clock: style transitions (<c>transition: opacity 150ms</c>) run here, and so do the ones a game starts. Whoever runs the
+    /// frame loop calls <see cref="TweenSet.Advance"/> on it once per frame; the game host does that with the view time that passed.
+    /// </summary>
+    public TweenSet Tweens { get; } = new();
 
     /// <summary>The root element. Its size is the screen size; add the screens as its children.</summary>
     public Element Root { get; }
@@ -377,16 +386,66 @@ public sealed partial class UiTree
         var inherited = false;
         var layout = false;
         var paint = false;
+        var specs = e.Styled ? SpecsFor(scratch[(int)StyleProp.Transition].Text) : null;
+        var running = e.Transitions;
         for (var i = 0; i < scratch.Length; i++)
         {
-            if (!scratch[i].Equals(cur[i]))
+            var target = scratch[i];
+            UiTransition? run = null;
+            if (running is not null)
             {
-                cur[i] = scratch[i];
+                foreach (var t in running)
+                {
+                    if ((int)t.Prop == i && t.Active)
+                    {
+                        run = t;
+                        break;
+                    }
+                }
+            }
+
+            if (run is not null)
+            {
+                if (specs is not null && Pick(specs, i) is not null)
+                {
+                    if (target.Equals(run.To))
+                    {
+                        continue;
+                    }
+                }
+                else
+                {
+                    // The property no longer has a transition: the running one stops and the style takes its value now.
+                    run.Handle.Cancel();
+                    run = null;
+                }
+            }
+
+            if (run is null && target.Equals(cur[i]))
+            {
+                continue;
+            }
+
+            if (specs is not null && StartTransition(e, i, cur[i], target, specs, run))
+            {
+                continue;
+            }
+
+            if (run is not null)
+            {
+                run.Handle.Cancel();
+            }
+
+            if (!target.Equals(cur[i]))
+            {
+                cur[i] = target;
                 paint = true;
                 inherited |= all[i].Inherited;
                 layout |= !all[i].PaintOnly;
             }
         }
+
+        e.Styled = true;
 
         tokensChanged = !SameTokens(e.Tokens);
         if (tokensChanged)
@@ -407,6 +466,83 @@ public sealed partial class UiTree
     }
 
     private static int Specificity((Rule Rule, int Order) m) => m.Rule.Selector.Specificity;
+
+    // The parsed form of a `transition` value, kept by its text so equal values parse once. The cache is bounded in case a game generates many.
+    private TransitionSpec[]? SpecsFor(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return null;
+        }
+
+        if (!_transitionCache.TryGetValue(text, out var specs))
+        {
+            if (_transitionCache.Count >= 256)
+            {
+                _transitionCache.Clear();
+            }
+
+            specs = TransitionParser.Parse(text);
+            _transitionCache[text] = specs;
+        }
+
+        return specs;
+    }
+
+    // The entry that applies to a property: the last one in the list that names it or says `all`.
+    private static TransitionSpec? Pick(TransitionSpec[] specs, int prop)
+    {
+        TransitionSpec? found = null;
+        foreach (var s in specs)
+        {
+            if (s.Prop == prop || s.Prop == -1)
+            {
+                found = s;
+            }
+        }
+
+        return found;
+    }
+
+    // CSS Transitions 3: when a property's computed value changes and the new style has a transition for it with a positive duration plus delay,
+    // the value moves from where it is now to the new one instead of jumping. A change in the middle of a transition starts again from the value it had reached.
+    private bool StartTransition(Element e, int i, in StyleValue from, in StyleValue to, TransitionSpec[] specs, UiTransition? running)
+    {
+        var prop = (StyleProp)i;
+        if (Pick(specs, i) is not { } spec || spec.Duration + spec.Delay <= 0 || from.Equals(to) || !UiTransition.CanBlend(prop, from, to))
+        {
+            return false;
+        }
+
+        var tr = running;
+        if (tr is null)
+        {
+            e.Transitions ??= [];
+            foreach (var t in e.Transitions)
+            {
+                if (t.Prop == prop)
+                {
+                    tr = t;
+                    break;
+                }
+            }
+
+            if (tr is null)
+            {
+                tr = new UiTransition(e, prop);
+                e.Transitions.Add(tr);
+            }
+        }
+        else
+        {
+            tr.Handle.Cancel();
+        }
+
+        tr.From = from;
+        tr.To = to;
+        tr.Handle = Tweens.Custom(tr, spec.Duration).Ease(spec.Ease).Delay(spec.Delay);
+        return true;
+    }
 
     private bool SameTokens((string Name, StyleValue Value)[]? old)
     {
