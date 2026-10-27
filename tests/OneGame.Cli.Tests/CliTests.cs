@@ -19,7 +19,7 @@ public class CliTests
         Assert.Equal(0, code);
         using var doc = JsonDocument.Parse(text);
         Assert.Equal("onegame", doc.RootElement.GetProperty("name").GetString());
-        Assert.Equal("1.2.0", doc.RootElement.GetProperty("version").GetString());
+        Assert.Equal("1.3.0", doc.RootElement.GetProperty("version").GetString());
     }
 
     [Fact]

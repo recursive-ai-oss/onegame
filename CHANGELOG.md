@@ -4,6 +4,24 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-27
+
+Audio devices from the one* audio library, shader layouts from the one* shader library, and user guides for the 1.2 happy paths.
+
+### Changed
+
+- Audio output on Linux, Windows, macOS and iOS runs on `RecursiveAI.OneAudio.Devices` 1.2.1: device-clock frame counters, default-device following, reopen after a lost device. The browser backend plugs into the same device interface as a manually driven device (no threads). `AlsaBackend`, `WasapiBackend` and `AudioUnitBackend` remain as names for the package backends; `device.deviceState` reads `running` or `suspended`. Android keeps its own AAudio path for now.
+- The harness's audio capture runs on the package's manual device; its device report now shows real frames played.
+- OneShader 1.2.0. `ShaderLayouts.Bindings` builds one layout over several entry points with set widening and dynamic bindings, and `ShaderLayouts.Vertex` derives vertex layouts with format overrides; the 2D renderer's binding and vertex tables and the 3D mesh vertex layout are now derived from the shaders.
+
+### Removed
+
+- The engine's own ALSA, WASAPI and Audio Unit/Objective-C output code.
+
+### Added
+
+- User guides: `docs/2d.md`, `docs/input.md`, `docs/assets.md`.
+
 ## [1.2.0] - 2026-10-27
 
 Happy-path layers over the low-level API: a first game now has a moving sprite, action-mapped input and a hot-reloaded asset in about 90 lines.
