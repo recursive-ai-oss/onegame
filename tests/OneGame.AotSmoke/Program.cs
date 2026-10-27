@@ -434,6 +434,15 @@ if (draw2dProblem is not null)
 
 Console.WriteLine("draw2d: IView2D entity drawn through the default stage: animated sprite clip, disc, line and text, camera follow");
 
+var tweenProblem = TweenSmoke.Run();
+if (tweenProblem is not null)
+{
+    Console.Error.WriteLine("tweens: " + tweenProblem);
+    return 1;
+}
+
+Console.WriteLine("tweens: sequence with parallel colors and vectors, every easing family, parsed CSS timing functions, a style transition");
+
 var render3dProblem = Render3DSmoke.Run(device, ReadResource("fox.glb"));
 if (render3dProblem is not null)
 {

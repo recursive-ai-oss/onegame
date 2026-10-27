@@ -392,6 +392,38 @@ public partial class Element
     // ---- dirty tracking ------------------------------------------------------------------------------------------
 
     internal (string Name, StyleValue Value)[]? Tokens;
+
+    // True once the element has been styled, so the first style never animates (CSS Transitions 3: a change needs a before-change style).
+    internal bool Styled;
+
+    // The element's style transitions: one entry per property that ever ran one, reused for the next.
+    internal List<UiTransition>? Transitions;
+
+    // Writes the value a running transition has reached into the computed style, and marks what that moves.
+    internal void SetAnimated(StyleProp prop, in StyleValue value)
+    {
+        var cur = Computed.V;
+        if (cur[(int)prop].Equals(value))
+        {
+            return;
+        }
+
+        cur[(int)prop] = value;
+        var info = PropertyTable.Info(prop);
+        if (info.PaintOnly)
+        {
+            MarkPaint();
+        }
+        else
+        {
+            MarkLayout();
+        }
+
+        if (info.Inherited)
+        {
+            MarkStyle(true);
+        }
+    }
     internal bool StyleDirty;
     internal bool StyleSubtree;
     internal bool DescendantStyleDirty;

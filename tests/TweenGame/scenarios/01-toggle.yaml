@@ -1,0 +1,18 @@
+name: toggling the panel fades, recolors and widens it over 200 ms, and captures at fixed points along the way are stable
+window: 480x270
+steps:
+  - expect: {capture: {reference: refs/before.png, tolerance: 4, max-diff: 0.001}}
+  - click: toggle
+  - tweens: 0.05
+  - expect: {capture: {reference: refs/t050.png, tolerance: 4, max-diff: 0.001}}
+  - tweens: 0.1
+  - expect: {capture: {reference: refs/t150.png, tolerance: 4, max-diff: 0.001}}
+  - expect: {tweens: {active: 3}}
+  - tweens: settle
+  - expect: {tweens: {active: 0}}
+  - expect: {capture: {reference: refs/after.png, tolerance: 4, max-diff: 0.001}}
+  - command: {entity: Meter, name: Add, args: [5]}
+  - step: 3
+  - expect: {tweens: {active: 1}}
+  - tweens: settle
+  - expect: {tweens: {active: 0}}

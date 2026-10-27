@@ -556,6 +556,45 @@ public sealed class GameInstance : IDisposable
     /// </summary>
     public bool Suspended { get; private set; }
 
+    /// <summary>
+    /// The tweens of this game's UI: style transitions and the ones game code starts. The host advances them once per frame by the view time that passed
+    /// (the ticks shown plus <see cref="FrameAlpha"/>, at the simulation's rate), so a stepped run and a recorded one move them the same way and a paused
+    /// or backgrounded game holds them still. Tweens are view-only: nothing here is simulation state, so hashes and replays do not depend on them.
+    /// </summary>
+    public OneGame.Tweens.TweenSet Tweens => Ui.Tweens;
+
+    private double _lastViewTime = double.NaN;
+
+    // View time is the shown tick plus how far past it the frame is. A world that starts over (a lower tick) only moves the baseline.
+    private void AdvanceViewClock()
+    {
+        var now = (World.Tick + FrameAlpha.ToSingle()) / (double)TickRate;
+        if (now > _lastViewTime)
+        {
+            if (!double.IsNaN(_lastViewTime))
+            {
+                Tweens.Advance(now - _lastViewTime);
+            }
+        }
+
+        _lastViewTime = now;
+    }
+
+    /// <summary>
+    /// Moves the tweens (style transitions included) forward by <paramref name="seconds"/> of view time without running the simulation, then lays the UI out again.
+    /// The harness uses it to look at a transition at exact points; a game has no reason to call it.
+    /// </summary>
+    /// <param name="seconds">View time to add; zero or more.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative or not finite.</exception>
+    public void AdvanceView(double seconds)
+    {
+        // A style change made since the last frame has to be seen first, so its transition starts before time moves.
+        Ui.Update();
+        Tweens.Advance(seconds);
+        Ui.Update();
+        Redraw();
+    }
+
     private void DropSwapchain()
     {
         _stage.ReleaseTargets(null);
@@ -600,6 +639,7 @@ public sealed class GameInstance : IDisposable
         }
 
         Frame++;
+        AdvanceViewClock();
         Assets.Update();
         if (Options.Headless)
         {

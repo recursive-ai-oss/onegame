@@ -353,7 +353,12 @@ public sealed class StyleBuilder
     /// <summary>Sets <c>white-space</c>.</summary>
     public StyleBuilder WhiteSpace(WhiteSpace v) => E(StyleProp.WhiteSpace, (int)v);
 
-    /// <summary>Records <c>transition</c> data, such as <c>"opacity 150ms ease-out"</c>. Nothing animates yet; the value is kept for the tween system.</summary>
+    /// <summary>
+    /// Sets <c>transition</c>: when a listed property's value changes (a class switches, a state such as <c>:hover</c> starts to match), the element moves to the new
+    /// value over the time given instead of jumping. A comma-separated list of <c>property duration easing delay</c>, such as <c>"opacity 150ms ease-out, width 0.3s 50ms"</c>;
+    /// the property can be <c>all</c>, and any CSS timing function or <see cref="OneGame.Tweens.Easing"/> name works. Numbers, colors and lengths in one unit animate;
+    /// the first style an element gets never does. The transitions run in <see cref="UiTree.Tweens"/>.
+    /// </summary>
     public StyleBuilder Transition(string v) => T(StyleProp.Transition, v);
 
     // ---- plumbing ------------------------------------------------------------------------------------------------
