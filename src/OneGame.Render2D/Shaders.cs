@@ -10,9 +10,9 @@ namespace OneGame.Render2D;
 /// <param name="MslFunctionName">The function to look up in <paramref name="Msl"/>; defaults to the entry point.</param>
 /// <param name="Wgsl">UTF-8 WGSL source, needed on browser WebGPU. Empty for shaders compiled without it.</param>
 /// <param name="WgslEntryPoint">The entry point name in the WGSL; defaults to the entry point.</param>
-/// <param name="Bindings">The resources of the shader file, with their Metal indices; needed on Metal.</param>
+/// <param name="Layout">The entry point's layout (<c>Shader.Entry.Layout</c> of the generated class); needed on Metal.</param>
 public readonly record struct ShaderCode(ShaderStage Stage, string EntryPoint, ReadOnlyMemory<byte> SpirV,
-    ReadOnlyMemory<byte> Msl = default, string? MslFunctionName = null, OneShader.ResourceBinding[]? Bindings = null,
+    ReadOnlyMemory<byte> Msl = default, string? MslFunctionName = null, OneShader.Layouts.EntryLayout? Layout = null,
     ReadOnlyMemory<byte> Wgsl = default, string? WgslEntryPoint = null)
 {
     /// <summary>The form the graphics layer takes to create a shader on any backend.</summary>
@@ -21,7 +21,7 @@ public readonly record struct ShaderCode(ShaderStage Stage, string EntryPoint, R
         SpirV = SpirV.Span,
         Msl = Msl.Span,
         MslFunctionName = MslFunctionName,
-        Bindings = Bindings,
+        Layout = Layout,
         Wgsl = Wgsl.Span,
         WgslEntryPoint = WgslEntryPoint,
     };

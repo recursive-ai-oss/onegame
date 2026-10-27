@@ -149,54 +149,29 @@ internal sealed class MetalSampler : GpuSampler
     public override void Dispose() => Objc.Release(ref Handle);
 }
 
-/// <summary>Where a shader file's resource sits in each Metal argument table, found by (set, binding).</summary>
+/// <summary>Where an entry point's resources sit in each Metal argument table, found by (set, binding).</summary>
 internal sealed class SlotTable
 {
-    // [set][binding] -> Metal index, or -1.
-    readonly int[][] _index;
+    static readonly OneShader.Layouts.ResourceLayout[] None = [];
+    readonly OneShader.Layouts.ResourceLayout[] _resources;
 
-    public SlotTable(ReadOnlySpan<OneShader.ResourceBinding> bindings)
+    public SlotTable(OneShader.Layouts.EntryLayout? layout) => _resources = layout is null ? None : [.. layout.Resources];
+
+    public static SlotTable Empty { get; } = new(null);
+
+    /// <summary>The Metal index of a resource, or -1 when the entry point does not use it.</summary>
+    public int Lookup(uint set, uint binding)
     {
-        var maxSet = -1;
-        foreach (var b in bindings)
+        foreach (var r in _resources)
         {
-            if (b.MetalIndex != OneShader.ResourceBinding.NoMetalIndex)
+            if (r.Set == set && r.Binding == binding)
             {
-                maxSet = Math.Max(maxSet, (int)b.Set);
+                return r.MetalIndex == OneShader.Layouts.LayoutSlots.None ? -1 : (int)r.MetalIndex;
             }
         }
 
-        _index = new int[maxSet + 1][];
-        for (var s = 0; s <= maxSet; s++)
-        {
-            var maxBinding = -1;
-            foreach (var b in bindings)
-            {
-                if (b.Set == s && b.MetalIndex != OneShader.ResourceBinding.NoMetalIndex)
-                {
-                    maxBinding = Math.Max(maxBinding, (int)b.Binding);
-                }
-            }
-
-            var row = new int[maxBinding + 1];
-            Array.Fill(row, -1);
-            foreach (var b in bindings)
-            {
-                if (b.Set == s && b.MetalIndex != OneShader.ResourceBinding.NoMetalIndex)
-                {
-                    row[b.Binding] = (int)b.MetalIndex;
-                }
-            }
-
-            _index[s] = row;
-        }
+        return -1;
     }
-
-    public static SlotTable Empty { get; } = new(default);
-
-    /// <summary>The Metal index of a resource, or -1 when the shader file does not declare it.</summary>
-    public int Lookup(uint set, uint binding) =>
-        set < _index.Length && binding < _index[set].Length ? _index[set][binding] : -1;
 }
 
 internal sealed class MetalShader : GpuShader

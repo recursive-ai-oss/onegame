@@ -85,14 +85,8 @@ public sealed partial class Renderer3D
         _objectBuffer = Own(device.CreateBuffer(new BufferDesc((ulong)_objectCapacity * GpuDevice.DynamicOffsetAlignment, BufferUsage.Uniform | BufferUsage.CopyDestination) { Label = "3d objects" }));
         _set1 = Own(device.CreateBindGroup(_layout, 1, [BindGroupEntry.ForBuffer(0, _objectBuffer, 0, GpuDevice.DynamicOffsetAlignment)]));
 
-        ReadOnlySpan<ResourceBinding> bindings =
-        [
-            new(0, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Compute),
-            new(0, 1, 1, ResourceKind.ReadOnlyStorageBuffer, ShaderStage.Compute),
-            new(0, 2, 1, ResourceKind.StorageBuffer, ShaderStage.Compute),
-        ];
-        _clusterLayout = Own(device.CreatePipelineLayout(bindings));
-        _clusterCs = Own(device.CreateShader(new ShaderSource(ShaderStage.Compute, Cluster.CSMain.EntryPoint) { SpirV = Cluster.CSMain.SpirV, Wgsl = Cluster.CSMain.Wgsl, WgslEntryPoint = Cluster.CSMain.WgslEntryPoint, Msl = Cluster.CSMain.Msl, MslFunctionName = Cluster.CSMain.MslFunctionName, Bindings = Cluster.Bindings.All, ComputeGroupX = Cluster.CSMain.ThreadGroupSizeX, ComputeGroupY = Cluster.CSMain.ThreadGroupSizeY, ComputeGroupZ = Cluster.CSMain.ThreadGroupSizeZ }));
+        _clusterLayout = Own(device.CreatePipelineLayout(ShaderLayouts.Bindings([Cluster.CSMain.Layout])));
+        _clusterCs = Own(device.CreateShader(new ShaderSource(ShaderStage.Compute, Cluster.CSMain.EntryPoint) { SpirV = Cluster.CSMain.SpirV, Wgsl = Cluster.CSMain.Wgsl, WgslEntryPoint = Cluster.CSMain.WgslEntryPoint, Msl = Cluster.CSMain.Msl, MslFunctionName = Cluster.CSMain.MslFunctionName, Layout = Cluster.CSMain.Layout }));
         _clusterPipeline = Own(device.CreateComputePipeline(new ComputePipelineDesc { Layout = _clusterLayout, Compute = _clusterCs, Label = "cluster lights" }));
         InitShadows();
         InitInstancing();

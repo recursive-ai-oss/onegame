@@ -86,8 +86,8 @@ public sealed class FeatureTests
             d.WriteBuffer(ub, (ulong)i * GpuDevice.DynamicOffsetAlignment, MemoryMarshal.AsBytes<float>(c));
         }
 
-        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, FaceFill.VSMain.EntryPoint) { SpirV = FaceFill.VSMain.SpirV, Wgsl = FaceFill.VSMain.Wgsl, WgslEntryPoint = FaceFill.VSMain.WgslEntryPoint, Msl = FaceFill.VSMain.Msl, MslFunctionName = FaceFill.VSMain.MslFunctionName, Bindings = FaceFill.Bindings.All });
-        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, FaceFill.PSMain.EntryPoint) { SpirV = FaceFill.PSMain.SpirV, Wgsl = FaceFill.PSMain.Wgsl, WgslEntryPoint = FaceFill.PSMain.WgslEntryPoint, Msl = FaceFill.PSMain.Msl, MslFunctionName = FaceFill.PSMain.MslFunctionName, Bindings = FaceFill.Bindings.All });
+        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, FaceFill.VSMain.EntryPoint) { SpirV = FaceFill.VSMain.SpirV, Wgsl = FaceFill.VSMain.Wgsl, WgslEntryPoint = FaceFill.VSMain.WgslEntryPoint, Msl = FaceFill.VSMain.Msl, MslFunctionName = FaceFill.VSMain.MslFunctionName, Layout = FaceFill.VSMain.Layout });
+        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, FaceFill.PSMain.EntryPoint) { SpirV = FaceFill.PSMain.SpirV, Wgsl = FaceFill.PSMain.Wgsl, WgslEntryPoint = FaceFill.PSMain.WgslEntryPoint, Msl = FaceFill.PSMain.Msl, MslFunctionName = FaceFill.PSMain.MslFunctionName, Layout = FaceFill.PSMain.Layout });
         using var fillLayout = d.CreatePipelineLayout([new ResourceBinding(0, 0, 1, ResourceKind.ConstantBuffer, ShaderStage.Pixel) { Dynamic = true }]);
         using var fillGroup = d.CreateBindGroup(fillLayout, 0, [BindGroupEntry.ForBuffer(0, ub, 0, 16)]);
         using var fillPipeline = Fullscreen(d, vs, ps, fillLayout, GpuFormat.Rgba8Unorm);
@@ -104,8 +104,8 @@ public sealed class FeatureTests
 
         d.Submit(enc);
 
-        using var svs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, CubeSample.VSMain.EntryPoint) { SpirV = CubeSample.VSMain.SpirV, Wgsl = CubeSample.VSMain.Wgsl, WgslEntryPoint = CubeSample.VSMain.WgslEntryPoint, Msl = CubeSample.VSMain.Msl, MslFunctionName = CubeSample.VSMain.MslFunctionName, Bindings = CubeSample.Bindings.All });
-        using var sps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, CubeSample.PSMain.EntryPoint) { SpirV = CubeSample.PSMain.SpirV, Wgsl = CubeSample.PSMain.Wgsl, WgslEntryPoint = CubeSample.PSMain.WgslEntryPoint, Msl = CubeSample.PSMain.Msl, MslFunctionName = CubeSample.PSMain.MslFunctionName, Bindings = CubeSample.Bindings.All });
+        using var svs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, CubeSample.VSMain.EntryPoint) { SpirV = CubeSample.VSMain.SpirV, Wgsl = CubeSample.VSMain.Wgsl, WgslEntryPoint = CubeSample.VSMain.WgslEntryPoint, Msl = CubeSample.VSMain.Msl, MslFunctionName = CubeSample.VSMain.MslFunctionName, Layout = CubeSample.VSMain.Layout });
+        using var sps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, CubeSample.PSMain.EntryPoint) { SpirV = CubeSample.PSMain.SpirV, Wgsl = CubeSample.PSMain.Wgsl, WgslEntryPoint = CubeSample.PSMain.WgslEntryPoint, Msl = CubeSample.PSMain.Msl, MslFunctionName = CubeSample.PSMain.MslFunctionName, Layout = CubeSample.PSMain.Layout });
         using var layout = d.CreatePipelineLayout([SampledAt0, SamplerAt1]);
         using var sampler = d.CreateSampler(SamplerDesc.Nearest);
         using var group = d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTexture(0, cube), BindGroupEntry.ForSampler(1, sampler)]);
@@ -148,8 +148,8 @@ public sealed class FeatureTests
             d.WriteTexture(tex, m, 0, data);
         }
 
-        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Sample2D.VSMain.EntryPoint) { SpirV = Sample2D.VSMain.SpirV, Wgsl = Sample2D.VSMain.Wgsl, WgslEntryPoint = Sample2D.VSMain.WgslEntryPoint, Msl = Sample2D.VSMain.Msl, MslFunctionName = Sample2D.VSMain.MslFunctionName, Bindings = Sample2D.Bindings.All });
-        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Sample2D.PSMain.EntryPoint) { SpirV = Sample2D.PSMain.SpirV, Wgsl = Sample2D.PSMain.Wgsl, WgslEntryPoint = Sample2D.PSMain.WgslEntryPoint, Msl = Sample2D.PSMain.Msl, MslFunctionName = Sample2D.PSMain.MslFunctionName, Bindings = Sample2D.Bindings.All });
+        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Sample2D.VSMain.EntryPoint) { SpirV = Sample2D.VSMain.SpirV, Wgsl = Sample2D.VSMain.Wgsl, WgslEntryPoint = Sample2D.VSMain.WgslEntryPoint, Msl = Sample2D.VSMain.Msl, MslFunctionName = Sample2D.VSMain.MslFunctionName, Layout = Sample2D.VSMain.Layout });
+        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Sample2D.PSMain.EntryPoint) { SpirV = Sample2D.PSMain.SpirV, Wgsl = Sample2D.PSMain.Wgsl, WgslEntryPoint = Sample2D.PSMain.WgslEntryPoint, Msl = Sample2D.PSMain.Msl, MslFunctionName = Sample2D.PSMain.MslFunctionName, Layout = Sample2D.PSMain.Layout });
         using var layout = d.CreatePipelineLayout([SampledAt0, SamplerAt1]);
         using var sampler = d.CreateSampler(SamplerDesc.Nearest);
         using var pipeline = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
@@ -179,8 +179,8 @@ public sealed class FeatureTests
 
         d.Submit(enc);
 
-        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Layers.VSMain.EntryPoint) { SpirV = Layers.VSMain.SpirV, Wgsl = Layers.VSMain.Wgsl, WgslEntryPoint = Layers.VSMain.WgslEntryPoint, Msl = Layers.VSMain.Msl, MslFunctionName = Layers.VSMain.MslFunctionName, Bindings = Layers.Bindings.All });
-        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Layers.PSMain.EntryPoint) { SpirV = Layers.PSMain.SpirV, Wgsl = Layers.PSMain.Wgsl, WgslEntryPoint = Layers.PSMain.WgslEntryPoint, Msl = Layers.PSMain.Msl, MslFunctionName = Layers.PSMain.MslFunctionName, Bindings = Layers.Bindings.All });
+        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Layers.VSMain.EntryPoint) { SpirV = Layers.VSMain.SpirV, Wgsl = Layers.VSMain.Wgsl, WgslEntryPoint = Layers.VSMain.WgslEntryPoint, Msl = Layers.VSMain.Msl, MslFunctionName = Layers.VSMain.MslFunctionName, Layout = Layers.VSMain.Layout });
+        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Layers.PSMain.EntryPoint) { SpirV = Layers.PSMain.SpirV, Wgsl = Layers.PSMain.Wgsl, WgslEntryPoint = Layers.PSMain.WgslEntryPoint, Msl = Layers.PSMain.Msl, MslFunctionName = Layers.PSMain.MslFunctionName, Layout = Layers.PSMain.Layout });
         using var layout = d.CreatePipelineLayout([SampledAt0, SamplerAt1]);
         using var sampler = d.CreateSampler(SamplerDesc.Nearest);
         using var group = d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTexture(0, arr), BindGroupEntry.ForSampler(1, sampler)]);
@@ -235,8 +235,8 @@ public sealed class FeatureTests
         enc.GenerateMips(vol);
         d.Submit(enc);
 
-        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Volume.VSMain.EntryPoint) { SpirV = Volume.VSMain.SpirV, Wgsl = Volume.VSMain.Wgsl, WgslEntryPoint = Volume.VSMain.WgslEntryPoint, Msl = Volume.VSMain.Msl, MslFunctionName = Volume.VSMain.MslFunctionName, Bindings = Volume.Bindings.All });
-        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Volume.PSMain.EntryPoint) { SpirV = Volume.PSMain.SpirV, Wgsl = Volume.PSMain.Wgsl, WgslEntryPoint = Volume.PSMain.WgslEntryPoint, Msl = Volume.PSMain.Msl, MslFunctionName = Volume.PSMain.MslFunctionName, Bindings = Volume.Bindings.All });
+        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Volume.VSMain.EntryPoint) { SpirV = Volume.VSMain.SpirV, Wgsl = Volume.VSMain.Wgsl, WgslEntryPoint = Volume.VSMain.WgslEntryPoint, Msl = Volume.VSMain.Msl, MslFunctionName = Volume.VSMain.MslFunctionName, Layout = Volume.VSMain.Layout });
+        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Volume.PSMain.EntryPoint) { SpirV = Volume.PSMain.SpirV, Wgsl = Volume.PSMain.Wgsl, WgslEntryPoint = Volume.PSMain.WgslEntryPoint, Msl = Volume.PSMain.Msl, MslFunctionName = Volume.PSMain.MslFunctionName, Layout = Volume.PSMain.Layout });
         using var layout = d.CreatePipelineLayout([SampledAt0, SamplerAt1]);
         using var sampler = d.CreateSampler(SamplerDesc.Nearest);
         using var group = d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTexture(0, vol), BindGroupEntry.ForSampler(1, sampler)]);
@@ -266,8 +266,8 @@ public sealed class FeatureTests
         }
 
         const uint S = 64;
-        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Triangle.VSMain.EntryPoint) { SpirV = Triangle.VSMain.SpirV, Wgsl = Triangle.VSMain.Wgsl, WgslEntryPoint = Triangle.VSMain.WgslEntryPoint, Msl = Triangle.VSMain.Msl, MslFunctionName = Triangle.VSMain.MslFunctionName, Bindings = Triangle.Bindings.All });
-        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Triangle.PSMain.EntryPoint) { SpirV = Triangle.PSMain.SpirV, Wgsl = Triangle.PSMain.Wgsl, WgslEntryPoint = Triangle.PSMain.WgslEntryPoint, Msl = Triangle.PSMain.Msl, MslFunctionName = Triangle.PSMain.MslFunctionName, Bindings = Triangle.Bindings.All });
+        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Triangle.VSMain.EntryPoint) { SpirV = Triangle.VSMain.SpirV, Wgsl = Triangle.VSMain.Wgsl, WgslEntryPoint = Triangle.VSMain.WgslEntryPoint, Msl = Triangle.VSMain.Msl, MslFunctionName = Triangle.VSMain.MslFunctionName, Layout = Triangle.VSMain.Layout });
+        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Triangle.PSMain.EntryPoint) { SpirV = Triangle.PSMain.SpirV, Wgsl = Triangle.PSMain.Wgsl, WgslEntryPoint = Triangle.PSMain.WgslEntryPoint, Msl = Triangle.PSMain.Msl, MslFunctionName = Triangle.PSMain.MslFunctionName, Layout = Triangle.PSMain.Layout });
         using var layout = d.CreatePipelineLayout([]);
         using var single = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
         using var multi = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm, 4);
@@ -330,10 +330,10 @@ public sealed class FeatureTests
         using var gpu = new GpuFixture();
         var d = gpu.Device;
         using var depth = d.CreateTexture(new TextureDesc(4, 4, GpuFormat.Depth32Float, TextureUsage.RenderTarget | TextureUsage.Sampled));
-        using var depthVs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Shadow.VSDepth.EntryPoint) { SpirV = Shadow.VSDepth.SpirV, Wgsl = Shadow.VSDepth.Wgsl, WgslEntryPoint = Shadow.VSDepth.WgslEntryPoint, Msl = Shadow.VSDepth.Msl, MslFunctionName = Shadow.VSDepth.MslFunctionName, Bindings = Shadow.Bindings.All });
-        using var farVs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Shadow.VSFar.EntryPoint) { SpirV = Shadow.VSFar.SpirV, Wgsl = Shadow.VSFar.Wgsl, WgslEntryPoint = Shadow.VSFar.WgslEntryPoint, Msl = Shadow.VSFar.Msl, MslFunctionName = Shadow.VSFar.MslFunctionName, Bindings = Shadow.Bindings.All });
-        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Shadow.VSMain.EntryPoint) { SpirV = Shadow.VSMain.SpirV, Wgsl = Shadow.VSMain.Wgsl, WgslEntryPoint = Shadow.VSMain.WgslEntryPoint, Msl = Shadow.VSMain.Msl, MslFunctionName = Shadow.VSMain.MslFunctionName, Bindings = Shadow.Bindings.All });
-        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Shadow.PSMain.EntryPoint) { SpirV = Shadow.PSMain.SpirV, Wgsl = Shadow.PSMain.Wgsl, WgslEntryPoint = Shadow.PSMain.WgslEntryPoint, Msl = Shadow.PSMain.Msl, MslFunctionName = Shadow.PSMain.MslFunctionName, Bindings = Shadow.Bindings.All });
+        using var depthVs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Shadow.VSDepth.EntryPoint) { SpirV = Shadow.VSDepth.SpirV, Wgsl = Shadow.VSDepth.Wgsl, WgslEntryPoint = Shadow.VSDepth.WgslEntryPoint, Msl = Shadow.VSDepth.Msl, MslFunctionName = Shadow.VSDepth.MslFunctionName, Layout = Shadow.VSDepth.Layout });
+        using var farVs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Shadow.VSFar.EntryPoint) { SpirV = Shadow.VSFar.SpirV, Wgsl = Shadow.VSFar.Wgsl, WgslEntryPoint = Shadow.VSFar.WgslEntryPoint, Msl = Shadow.VSFar.Msl, MslFunctionName = Shadow.VSFar.MslFunctionName, Layout = Shadow.VSFar.Layout });
+        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Shadow.VSMain.EntryPoint) { SpirV = Shadow.VSMain.SpirV, Wgsl = Shadow.VSMain.Wgsl, WgslEntryPoint = Shadow.VSMain.WgslEntryPoint, Msl = Shadow.VSMain.Msl, MslFunctionName = Shadow.VSMain.MslFunctionName, Layout = Shadow.VSMain.Layout });
+        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Shadow.PSMain.EntryPoint) { SpirV = Shadow.PSMain.SpirV, Wgsl = Shadow.PSMain.Wgsl, WgslEntryPoint = Shadow.PSMain.WgslEntryPoint, Msl = Shadow.PSMain.Msl, MslFunctionName = Shadow.PSMain.MslFunctionName, Layout = Shadow.PSMain.Layout });
         using var emptyLayout = d.CreatePipelineLayout([]);
         using var layout = d.CreatePipelineLayout([SampledAt0, SamplerAt1]);
         using var cmp = d.CreateSampler(SamplerDesc.Nearest with { Compare = CompareFunction.LessEqual });
@@ -379,9 +379,9 @@ public sealed class FeatureTests
         using var gpu = new GpuFixture();
         var d = gpu.Device;
         using var tex = d.CreateTexture(new TextureDesc(16, 16, GpuFormat.Rgba8Unorm, TextureUsage.Storage | TextureUsage.Sampled));
-        using var cs = d.CreateShader(new ShaderSource(ShaderStage.Compute, StorageImage.CSMain.EntryPoint) { SpirV = StorageImage.CSMain.SpirV, Wgsl = StorageImage.CSMain.Wgsl, WgslEntryPoint = StorageImage.CSMain.WgslEntryPoint, Msl = StorageImage.CSMain.Msl, MslFunctionName = StorageImage.CSMain.MslFunctionName, Bindings = StorageImage.Bindings.All, ComputeGroupX = StorageImage.CSMain.ThreadGroupSizeX, ComputeGroupY = StorageImage.CSMain.ThreadGroupSizeY, ComputeGroupZ = StorageImage.CSMain.ThreadGroupSizeZ });
-        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, StorageImage.VSMain.EntryPoint) { SpirV = StorageImage.VSMain.SpirV, Wgsl = StorageImage.VSMain.Wgsl, WgslEntryPoint = StorageImage.VSMain.WgslEntryPoint, Msl = StorageImage.VSMain.Msl, MslFunctionName = StorageImage.VSMain.MslFunctionName, Bindings = StorageImage.Bindings.All });
-        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, StorageImage.PSMain.EntryPoint) { SpirV = StorageImage.PSMain.SpirV, Wgsl = StorageImage.PSMain.Wgsl, WgslEntryPoint = StorageImage.PSMain.WgslEntryPoint, Msl = StorageImage.PSMain.Msl, MslFunctionName = StorageImage.PSMain.MslFunctionName, Bindings = StorageImage.Bindings.All });
+        using var cs = d.CreateShader(new ShaderSource(ShaderStage.Compute, StorageImage.CSMain.EntryPoint) { SpirV = StorageImage.CSMain.SpirV, Wgsl = StorageImage.CSMain.Wgsl, WgslEntryPoint = StorageImage.CSMain.WgslEntryPoint, Msl = StorageImage.CSMain.Msl, MslFunctionName = StorageImage.CSMain.MslFunctionName, Layout = StorageImage.CSMain.Layout });
+        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, StorageImage.VSMain.EntryPoint) { SpirV = StorageImage.VSMain.SpirV, Wgsl = StorageImage.VSMain.Wgsl, WgslEntryPoint = StorageImage.VSMain.WgslEntryPoint, Msl = StorageImage.VSMain.Msl, MslFunctionName = StorageImage.VSMain.MslFunctionName, Layout = StorageImage.VSMain.Layout });
+        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, StorageImage.PSMain.EntryPoint) { SpirV = StorageImage.PSMain.SpirV, Wgsl = StorageImage.PSMain.Wgsl, WgslEntryPoint = StorageImage.PSMain.WgslEntryPoint, Msl = StorageImage.PSMain.Msl, MslFunctionName = StorageImage.PSMain.MslFunctionName, Layout = StorageImage.PSMain.Layout });
         using var computeLayout = d.CreatePipelineLayout([new ResourceBinding(0, 0, 1, ResourceKind.StorageTexture, ShaderStage.Compute)]);
         using var drawLayout = d.CreatePipelineLayout([new ResourceBinding(1, 0, 1, ResourceKind.SampledTexture, ShaderStage.Pixel)]);
         using var computeGroup = d.CreateBindGroup(computeLayout, 0, [BindGroupEntry.ForTexture(0, tex)]);
@@ -438,8 +438,8 @@ public sealed class FeatureTests
         using var iargs = d.CreateBuffer(new BufferDesc(2 * DrawIndexedIndirectArgs.Size, BufferUsage.Indirect | BufferUsage.CopyDestination));
         d.WriteBuffer(iargs, 0, MemoryMarshal.AsBytes<DrawIndexedIndirectArgs>([new(3, 1, 0, 0, 0), new(3, 1, 3, 0, 0)]));
 
-        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Indirect.VSMain.EntryPoint) { SpirV = Indirect.VSMain.SpirV, Wgsl = Indirect.VSMain.Wgsl, WgslEntryPoint = Indirect.VSMain.WgslEntryPoint, Msl = Indirect.VSMain.Msl, MslFunctionName = Indirect.VSMain.MslFunctionName, Bindings = Indirect.Bindings.All });
-        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Indirect.PSMain.EntryPoint) { SpirV = Indirect.PSMain.SpirV, Wgsl = Indirect.PSMain.Wgsl, WgslEntryPoint = Indirect.PSMain.WgslEntryPoint, Msl = Indirect.PSMain.Msl, MslFunctionName = Indirect.PSMain.MslFunctionName, Bindings = Indirect.Bindings.All });
+        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Indirect.VSMain.EntryPoint) { SpirV = Indirect.VSMain.SpirV, Wgsl = Indirect.VSMain.Wgsl, WgslEntryPoint = Indirect.VSMain.WgslEntryPoint, Msl = Indirect.VSMain.Msl, MslFunctionName = Indirect.VSMain.MslFunctionName, Layout = Indirect.VSMain.Layout });
+        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Indirect.PSMain.EntryPoint) { SpirV = Indirect.PSMain.SpirV, Wgsl = Indirect.PSMain.Wgsl, WgslEntryPoint = Indirect.PSMain.WgslEntryPoint, Msl = Indirect.PSMain.Msl, MslFunctionName = Indirect.PSMain.MslFunctionName, Layout = Indirect.PSMain.Layout });
         using var layout = d.CreatePipelineLayout([]);
         using var pipeline = d.CreateGraphicsPipeline(new GraphicsPipelineDesc
         {
@@ -498,8 +498,8 @@ public sealed class FeatureTests
         using var result = d.CreateBuffer(new BufferDesc(64, BufferUsage.Storage | BufferUsage.CopySource | BufferUsage.CopyDestination));
         d.WriteBuffer(argBuf, 0, new byte[DispatchIndirectArgs.Size]);
         d.WriteBuffer(result, 0, new byte[64]);
-        using var csArgs = d.CreateShader(new ShaderSource(ShaderStage.Compute, Indirect.CSArgs.EntryPoint) { SpirV = Indirect.CSArgs.SpirV, Wgsl = Indirect.CSArgs.Wgsl, WgslEntryPoint = Indirect.CSArgs.WgslEntryPoint, Msl = Indirect.CSArgs.Msl, MslFunctionName = Indirect.CSArgs.MslFunctionName, Bindings = Indirect.Bindings.All, ComputeGroupX = Indirect.CSArgs.ThreadGroupSizeX, ComputeGroupY = Indirect.CSArgs.ThreadGroupSizeY, ComputeGroupZ = Indirect.CSArgs.ThreadGroupSizeZ });
-        using var csFill = d.CreateShader(new ShaderSource(ShaderStage.Compute, Indirect.CSFill.EntryPoint) { SpirV = Indirect.CSFill.SpirV, Wgsl = Indirect.CSFill.Wgsl, WgslEntryPoint = Indirect.CSFill.WgslEntryPoint, Msl = Indirect.CSFill.Msl, MslFunctionName = Indirect.CSFill.MslFunctionName, Bindings = Indirect.Bindings.All, ComputeGroupX = Indirect.CSFill.ThreadGroupSizeX, ComputeGroupY = Indirect.CSFill.ThreadGroupSizeY, ComputeGroupZ = Indirect.CSFill.ThreadGroupSizeZ });
+        using var csArgs = d.CreateShader(new ShaderSource(ShaderStage.Compute, Indirect.CSArgs.EntryPoint) { SpirV = Indirect.CSArgs.SpirV, Wgsl = Indirect.CSArgs.Wgsl, WgslEntryPoint = Indirect.CSArgs.WgslEntryPoint, Msl = Indirect.CSArgs.Msl, MslFunctionName = Indirect.CSArgs.MslFunctionName, Layout = Indirect.CSArgs.Layout });
+        using var csFill = d.CreateShader(new ShaderSource(ShaderStage.Compute, Indirect.CSFill.EntryPoint) { SpirV = Indirect.CSFill.SpirV, Wgsl = Indirect.CSFill.Wgsl, WgslEntryPoint = Indirect.CSFill.WgslEntryPoint, Msl = Indirect.CSFill.Msl, MslFunctionName = Indirect.CSFill.MslFunctionName, Layout = Indirect.CSFill.Layout });
         using var argsLayout = d.CreatePipelineLayout([new ResourceBinding(0, 0, 1, ResourceKind.StorageBuffer, ShaderStage.Compute)]);
         using var fillLayout = d.CreatePipelineLayout([new ResourceBinding(0, 1, 1, ResourceKind.StorageBuffer, ShaderStage.Compute)]);
         using var argsGroup = d.CreateBindGroup(argsLayout, 0, [BindGroupEntry.ForBuffer(0, argBuf)]);
@@ -545,8 +545,8 @@ public sealed class FeatureTests
     {
         using var gpu = new GpuFixture();
         var d = gpu.Device;
-        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, PushFill.VSMain.EntryPoint) { SpirV = PushFill.VSMain.SpirV, Wgsl = PushFill.VSMain.Wgsl, WgslEntryPoint = PushFill.VSMain.WgslEntryPoint, Msl = PushFill.VSMain.Msl, MslFunctionName = PushFill.VSMain.MslFunctionName, Bindings = PushFill.Bindings.All });
-        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, PushFill.PSMain.EntryPoint) { SpirV = PushFill.PSMain.SpirV, Wgsl = PushFill.PSMain.Wgsl, WgslEntryPoint = PushFill.PSMain.WgslEntryPoint, Msl = PushFill.PSMain.Msl, MslFunctionName = PushFill.PSMain.MslFunctionName, Bindings = PushFill.Bindings.All, MslPushConstantIndex = (int)PushFill.Bindings.PushConstants.MslIndex, WgslPushGroup = (int)PushFill.Bindings.PushConstants.WgslGroup, WgslPushBinding = (int)PushFill.Bindings.PushConstants.WgslBinding });
+        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, PushFill.VSMain.EntryPoint) { SpirV = PushFill.VSMain.SpirV, Wgsl = PushFill.VSMain.Wgsl, WgslEntryPoint = PushFill.VSMain.WgslEntryPoint, Msl = PushFill.VSMain.Msl, MslFunctionName = PushFill.VSMain.MslFunctionName, Layout = PushFill.VSMain.Layout });
+        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, PushFill.PSMain.EntryPoint) { SpirV = PushFill.PSMain.SpirV, Wgsl = PushFill.PSMain.Wgsl, WgslEntryPoint = PushFill.PSMain.WgslEntryPoint, Msl = PushFill.PSMain.Msl, MslFunctionName = PushFill.PSMain.MslFunctionName, Layout = PushFill.PSMain.Layout });
         Assert.Equal(PushFill.Bindings.PushConstants.Size, (uint)Marshal.SizeOf<PushFill.PushConstants>());
         using var layout = d.CreatePipelineLayout([], new PushConstantRange(PushFill.Bindings.PushConstants.Size, ShaderStage.Pixel));
         using var pipeline = Fullscreen(d, vs, ps, layout, GpuFormat.Rgba8Unorm);
@@ -597,8 +597,8 @@ public sealed class FeatureTests
             textures.Add(t);
         }
 
-        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, TextureArray.VSMain.EntryPoint) { SpirV = TextureArray.VSMain.SpirV, Msl = TextureArray.VSMain.Msl, MslFunctionName = TextureArray.VSMain.MslFunctionName, Bindings = TextureArray.Bindings.All });
-        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, TextureArray.PSMain.EntryPoint) { SpirV = TextureArray.PSMain.SpirV, Msl = TextureArray.PSMain.Msl, MslFunctionName = TextureArray.PSMain.MslFunctionName, Bindings = TextureArray.Bindings.All });
+        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, TextureArray.VSMain.EntryPoint) { SpirV = TextureArray.VSMain.SpirV, Msl = TextureArray.VSMain.Msl, MslFunctionName = TextureArray.VSMain.MslFunctionName, Layout = TextureArray.VSMain.Layout });
+        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, TextureArray.PSMain.EntryPoint) { SpirV = TextureArray.PSMain.SpirV, Msl = TextureArray.PSMain.Msl, MslFunctionName = TextureArray.PSMain.MslFunctionName, Layout = TextureArray.PSMain.Layout });
         using var layout = d.CreatePipelineLayout([new ResourceBinding(0, 0, 4, ResourceKind.SampledTexture, ShaderStage.Pixel), SamplerAt1]);
         using var sampler = d.CreateSampler(SamplerDesc.Nearest);
         using var group = d.CreateBindGroup(layout, 0, [BindGroupEntry.ForTextures(0, textures), BindGroupEntry.ForSampler(1, sampler)]);
@@ -645,8 +645,8 @@ public sealed class FeatureTests
         using var instances = d.CreateBuffer(new BufferDesc((ulong)(inst.Length * 12), BufferUsage.Vertex | BufferUsage.CopyDestination));
         d.WriteBuffer(instances, 0, MemoryMarshal.AsBytes<Instance>(inst));
 
-        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Instanced.VSMain.EntryPoint) { SpirV = Instanced.VSMain.SpirV, Wgsl = Instanced.VSMain.Wgsl, WgslEntryPoint = Instanced.VSMain.WgslEntryPoint, Msl = Instanced.VSMain.Msl, MslFunctionName = Instanced.VSMain.MslFunctionName, Bindings = Instanced.Bindings.All });
-        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Instanced.PSMain.EntryPoint) { SpirV = Instanced.PSMain.SpirV, Wgsl = Instanced.PSMain.Wgsl, WgslEntryPoint = Instanced.PSMain.WgslEntryPoint, Msl = Instanced.PSMain.Msl, MslFunctionName = Instanced.PSMain.MslFunctionName, Bindings = Instanced.Bindings.All });
+        using var vs = d.CreateShader(new ShaderSource(ShaderStage.Vertex, Instanced.VSMain.EntryPoint) { SpirV = Instanced.VSMain.SpirV, Wgsl = Instanced.VSMain.Wgsl, WgslEntryPoint = Instanced.VSMain.WgslEntryPoint, Msl = Instanced.VSMain.Msl, MslFunctionName = Instanced.VSMain.MslFunctionName, Layout = Instanced.VSMain.Layout });
+        using var ps = d.CreateShader(new ShaderSource(ShaderStage.Pixel, Instanced.PSMain.EntryPoint) { SpirV = Instanced.PSMain.SpirV, Wgsl = Instanced.PSMain.Wgsl, WgslEntryPoint = Instanced.PSMain.WgslEntryPoint, Msl = Instanced.PSMain.Msl, MslFunctionName = Instanced.PSMain.MslFunctionName, Layout = Instanced.PSMain.Layout });
         using var layout = d.CreatePipelineLayout([]);
         using var pipeline = d.CreateGraphicsPipeline(new GraphicsPipelineDesc
         {

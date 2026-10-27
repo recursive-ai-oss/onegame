@@ -83,43 +83,30 @@ public sealed partial class Renderer3D
     private void InitIbl()
     {
         var device = Device;
-        const ShaderStage cs = ShaderStage.Compute;
-        ReadOnlySpan<ResourceBinding> ibl =
-        [
-            new(0, 0, 1, ResourceKind.ConstantBuffer, cs),
-            new(0, 1, 1, ResourceKind.SampledTexture, cs),
-            new(0, 2, 1, ResourceKind.Sampler, cs),
-            new(0, 3, 1, ResourceKind.StorageTexture, cs),
-        ];
-        ReadOnlySpan<ResourceBinding> lut =
-        [
-            new(0, 0, 1, ResourceKind.ConstantBuffer, cs),
-            new(0, 1, 1, ResourceKind.StorageTexture, cs),
-        ];
-        _iblLayout = Own(device.CreatePipelineLayout(ibl));
-        _lutLayout = Own(device.CreatePipelineLayout(lut));
+        _iblLayout = Own(device.CreatePipelineLayout(ShaderLayouts.Bindings([IblEquirect.CSMain.Layout, IblPrefilter.CSMain.Layout, IblIrradiance.CSMain.Layout])));
+        _lutLayout = Own(device.CreatePipelineLayout(ShaderLayouts.Bindings([EnvBrdf.CSMain.Layout])));
         _equirectPipeline = Own(device.CreateComputePipeline(new ComputePipelineDesc
         {
             Layout = _iblLayout,
-            Compute = Own(device.CreateShader(new ShaderSource(ShaderStage.Compute, IblEquirect.CSMain.EntryPoint) { SpirV = IblEquirect.CSMain.SpirV, Wgsl = IblEquirect.CSMain.Wgsl, WgslEntryPoint = IblEquirect.CSMain.WgslEntryPoint, Msl = IblEquirect.CSMain.Msl, MslFunctionName = IblEquirect.CSMain.MslFunctionName, Bindings = IblEquirect.Bindings.All, ComputeGroupX = IblEquirect.CSMain.ThreadGroupSizeX, ComputeGroupY = IblEquirect.CSMain.ThreadGroupSizeY, ComputeGroupZ = IblEquirect.CSMain.ThreadGroupSizeZ })),
+            Compute = Own(device.CreateShader(new ShaderSource(ShaderStage.Compute, IblEquirect.CSMain.EntryPoint) { SpirV = IblEquirect.CSMain.SpirV, Wgsl = IblEquirect.CSMain.Wgsl, WgslEntryPoint = IblEquirect.CSMain.WgslEntryPoint, Msl = IblEquirect.CSMain.Msl, MslFunctionName = IblEquirect.CSMain.MslFunctionName, Layout = IblEquirect.CSMain.Layout })),
             Label = "env equirect",
         }));
         _prefilterPipeline = Own(device.CreateComputePipeline(new ComputePipelineDesc
         {
             Layout = _iblLayout,
-            Compute = Own(device.CreateShader(new ShaderSource(ShaderStage.Compute, IblPrefilter.CSMain.EntryPoint) { SpirV = IblPrefilter.CSMain.SpirV, Wgsl = IblPrefilter.CSMain.Wgsl, WgslEntryPoint = IblPrefilter.CSMain.WgslEntryPoint, Msl = IblPrefilter.CSMain.Msl, MslFunctionName = IblPrefilter.CSMain.MslFunctionName, Bindings = IblPrefilter.Bindings.All, ComputeGroupX = IblPrefilter.CSMain.ThreadGroupSizeX, ComputeGroupY = IblPrefilter.CSMain.ThreadGroupSizeY, ComputeGroupZ = IblPrefilter.CSMain.ThreadGroupSizeZ })),
+            Compute = Own(device.CreateShader(new ShaderSource(ShaderStage.Compute, IblPrefilter.CSMain.EntryPoint) { SpirV = IblPrefilter.CSMain.SpirV, Wgsl = IblPrefilter.CSMain.Wgsl, WgslEntryPoint = IblPrefilter.CSMain.WgslEntryPoint, Msl = IblPrefilter.CSMain.Msl, MslFunctionName = IblPrefilter.CSMain.MslFunctionName, Layout = IblPrefilter.CSMain.Layout })),
             Label = "env prefilter",
         }));
         _irradiancePipeline = Own(device.CreateComputePipeline(new ComputePipelineDesc
         {
             Layout = _iblLayout,
-            Compute = Own(device.CreateShader(new ShaderSource(ShaderStage.Compute, IblIrradiance.CSMain.EntryPoint) { SpirV = IblIrradiance.CSMain.SpirV, Wgsl = IblIrradiance.CSMain.Wgsl, WgslEntryPoint = IblIrradiance.CSMain.WgslEntryPoint, Msl = IblIrradiance.CSMain.Msl, MslFunctionName = IblIrradiance.CSMain.MslFunctionName, Bindings = IblIrradiance.Bindings.All, ComputeGroupX = IblIrradiance.CSMain.ThreadGroupSizeX, ComputeGroupY = IblIrradiance.CSMain.ThreadGroupSizeY, ComputeGroupZ = IblIrradiance.CSMain.ThreadGroupSizeZ })),
+            Compute = Own(device.CreateShader(new ShaderSource(ShaderStage.Compute, IblIrradiance.CSMain.EntryPoint) { SpirV = IblIrradiance.CSMain.SpirV, Wgsl = IblIrradiance.CSMain.Wgsl, WgslEntryPoint = IblIrradiance.CSMain.WgslEntryPoint, Msl = IblIrradiance.CSMain.Msl, MslFunctionName = IblIrradiance.CSMain.MslFunctionName, Layout = IblIrradiance.CSMain.Layout })),
             Label = "env irradiance",
         }));
         _lutPipeline = Own(device.CreateComputePipeline(new ComputePipelineDesc
         {
             Layout = _lutLayout,
-            Compute = Own(device.CreateShader(new ShaderSource(ShaderStage.Compute, EnvBrdf.CSMain.EntryPoint) { SpirV = EnvBrdf.CSMain.SpirV, Wgsl = EnvBrdf.CSMain.Wgsl, WgslEntryPoint = EnvBrdf.CSMain.WgslEntryPoint, Msl = EnvBrdf.CSMain.Msl, MslFunctionName = EnvBrdf.CSMain.MslFunctionName, Bindings = EnvBrdf.Bindings.All, ComputeGroupX = EnvBrdf.CSMain.ThreadGroupSizeX, ComputeGroupY = EnvBrdf.CSMain.ThreadGroupSizeY, ComputeGroupZ = EnvBrdf.CSMain.ThreadGroupSizeZ })),
+            Compute = Own(device.CreateShader(new ShaderSource(ShaderStage.Compute, EnvBrdf.CSMain.EntryPoint) { SpirV = EnvBrdf.CSMain.SpirV, Wgsl = EnvBrdf.CSMain.Wgsl, WgslEntryPoint = EnvBrdf.CSMain.WgslEntryPoint, Msl = EnvBrdf.CSMain.Msl, MslFunctionName = EnvBrdf.CSMain.MslFunctionName, Layout = EnvBrdf.CSMain.Layout })),
             Label = "brdf lut",
         }));
         _equirectSampler = Own(device.CreateSampler(SamplerDesc.Linear with { AddressU = AddressMode.Repeat }));

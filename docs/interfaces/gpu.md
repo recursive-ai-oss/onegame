@@ -31,7 +31,7 @@ GpuDevice device = GpuBackends.CreateDevice(new GpuDeviceOptions { Validation = 
 | `CreateBuffer(new BufferDesc(size, usage))` | `BufferUsage`: Vertex, Index, Uniform, Storage, CopySource, CopyDestination. |
 | `CreateTexture(new TextureDesc(w, h, format, usage) { MipLevels, ArrayLayers, SampleCount, Dimension, Depth })` | 2D, 2D array, cube, cube array or 3D (see "Textures"). Formats: R8, Rg8, Rgba8(+Srgb), Bgra8(+Srgb), R16F, Rg16F, Rgba16F, R32F, Rg32F, Rgba32F, R32Uint, Rg11B10F, Rgb10A2, Depth16, Depth32F, Depth32F+Stencil8. `GpuTexture.FullMipCount(w, h[, depth])`. |
 | `CreateSampler(SamplerDesc.Linear / Nearest)` | Filters, address modes (U, V, W), anisotropy, LOD range, and `Compare` for shadow lookups. |
-| `CreateShader(new ShaderSource(stage, entry) { ... })` | One entry point in every form: `SpirV` (Vulkan), `Msl` + `MslFunctionName` (Metal), the file's `Bindings`. `CreateShader(stage, spirv, entryPoint)` takes bare SPIR-V and is Vulkan-only. |
+| `CreateShader(new ShaderSource(stage, entry) { ... })` | One entry point in every form: `SpirV` (Vulkan), `Msl` + `MslFunctionName` (Metal), `Wgsl` (browser), and the entry point's `Layout`. `CreateShader(stage, spirv, entryPoint)` takes bare SPIR-V and is Vulkan-only. |
 | `CreatePipelineLayout(bindings[, new PushConstantRange(size, stages)])` | Groups bindings by set; duplicates from several shaders merge. `ResourceBinding.Dynamic` makes a constant or storage buffer binding take a byte offset at bind time. |
 | `CreateBindGroup(layout, set, entries)` | One entry per binding of the set (`BindGroupEntry.ForBuffer/ForTexture/ForSampler`; `ForTextures/ForSamplers/ForBuffers` for a binding whose `Count` is above 1; `ForTexture(binding, texture, view)` for a mip or layer subset). |
 | `CreateGraphicsPipeline(GraphicsPipelineDesc)` | Vertex layouts (per-vertex and per-instance), topology, cull, blend per target (`BlendState.AlphaBlend/Premultiplied/Additive`), optional depth with bias, `DepthClamp`, sample count. Viewport and scissor are always dynamic. |
@@ -47,13 +47,13 @@ using var vs = device.CreateShader(new ShaderSource(ShaderStage.Vertex, Sprite.V
 {
     SpirV = Sprite.VSMain.SpirV,
     Msl = Sprite.VSMain.Msl, MslFunctionName = Sprite.VSMain.MslFunctionName,
-    Bindings = Sprite.Bindings.All,                      // lets Metal place each (set, binding) at its argument index
+    Layout = Sprite.VSMain.Layout,                       // Metal argument indices, push-constant slot and compute group size
 });
-using var layout = device.CreatePipelineLayout(Sprite.Bindings.All);
+using var layout = device.CreatePipelineLayout(ShaderLayouts.Bindings([Sprite.VSMain.Layout, Sprite.PSMain.Layout]));
 var vertex = new VertexBufferLayout { Stride = (uint)Sprite.VSMain.Stride, Attributes = Sprite.VSMain.Inputs.ToArray() };
 ```
 
-Compute shaders also pass `ComputeGroupX/Y/Z` (the generated `ThreadGroupSize*`), and a shader with a `[[vk::push_constant]]` block passes `MslPushConstantIndex = (int)File.Bindings.PushConstants.MslIndex`. Build the project with `<OneShaderTargets>SpirV;Msl</OneShaderTargets>` (the repository default also adds Wgsl) so both forms exist.
+`Layout` also carries a compute shader's thread-group size and the slot of a `[[vk::push_constant]]` block on Metal and WebGPU, so nothing else is passed. `ShaderLayouts.Bindings(entries, dynamic)` and `ShaderLayouts.PushConstants(entries)` derive the pipeline layout from the entry points that run together: same slot, same kind and count, stages unioned, and `dynamic` names (set, binding) pairs that take a byte offset. Build the project with `<OneShaderTargets>SpirV;Msl</OneShaderTargets>` (the repository default also adds Wgsl) so both forms exist.
 
 A pipeline is immutable. Replacing a shader means making a new pipeline and releasing the old one after `WaitIdle()`; `Renderer2D.ReplaceMaterialShader` does that for hot reload.
 
