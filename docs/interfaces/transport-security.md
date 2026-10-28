@@ -100,10 +100,23 @@ Each is a recommendation, not a decision.
 
 **(c) Browsers.** An https page may not open `ws://` (mixed content; `ws://localhost` is exempt), so a deployed web build needs `wss://`, which means TLS terminated by the host with a certificate (a reverse proxy such as Caddy or nginx with an ACME certificate, or a CDN). The engine's WebSocket listener stays plain TCP behind it.
 
-1. *Noise inside WebSocket for everyone, and wss where the page is https (double encryption):* one code path and one identity model on every platform; client static keys work in browsers, which TLS cannot give. Costs: ChaCha20 and X25519 run in the .NET WebAssembly interpreter (not measured yet; the handshake's four DH operations may take tens of milliseconds and bulk crypto well below native speed, probably still enough for game traffic of tens of KB/s), and an extra layer a proxy cannot inspect.
+1. *Noise inside WebSocket for everyone, and wss where the page is https (double encryption):* one code path and one identity model on every platform; client static keys work in browsers, which TLS cannot give. Costs: ChaCha20 and X25519 run in the .NET WebAssembly interpreter (measured, see §6.1: about 55 MB/s of bulk crypto and a 12 to 15 ms client-side handshake in the interpreter), and an extra layer a proxy cannot inspect.
 2. *wss alone for the web:* TLS authenticates the server through the web PKI and costs nothing in wasm (the browser does it). The browser has no client identity then, so identity would need the auth-blob route only, and the server has two security models to maintain.
 
 **Recommend 1**, with the wasm cost measured at the start of the wiring work; if it proves too slow, switch the web build to option 2 for bulk traffic while keeping the Noise handshake for identity (the handshake hash can be exported as a channel binding). Dev workflow is unaffected (`http://localhost` pages can use `ws://`).
+
+**6.1 Measured in the browser.** Method: the same `OneGame.Core/Crypto` sources built as a `Microsoft.NET.Sdk.WebAssembly` app in Release with the export's settings (interpreter, no AOT, no workload, invariant globalization), served by `tools/web/run-page.mjs` and run in headless Chrome (`--disable-gpu`, no GPU needed), then the same sources as a CoreCLR console app on the same machine minutes apart. Each figure is a loop of at least 1.5 s after a warm-up; "handshake" is both peers in one process, so a client alone pays about half. The host was a busy 32-thread desktop (load average 25 to 40 from other work, Ryzen 9 7950X3D), so treat the ratios as better than the absolute values. Chrome ran three times; the range is shown.
+
+| | Chrome, .NET wasm interpreter | CoreCLR, same host | Ratio |
+|---|---|---|---|
+| ChaCha20-Poly1305 seal, 1200 B | 43,000 to 53,000 /s (52 to 64 MB/s) | 398,000 /s | 8x |
+| open, 1200 B | 53,000 to 54,000 /s | 316,000 /s | 6x |
+| seal, 64 B | 389,000 to 445,000 /s | 2,805,000 /s | 7x |
+| X25519 `Agree` | 405 to 437 /s (2.3 to 2.5 ms) | 2,109 /s (0.47 ms) | 5x |
+| Noise IK handshake, both peers | 28.0 to 29.5 ms | 4.5 ms | 6x |
+| Noise XX handshake, both peers | 23.2 to 24.3 ms | 3.4 ms | 7x |
+
+What it means. A 60 Hz game sends and receives at most 60 packets a second each way, so about 120 AEAD operations a second at roughly 19 to 23 µs each for a full 1200-byte packet: about 0.25 % of one core, and even 10 times that traffic stays near 3 %. The interpreter is not a bulk-crypto problem. A browser client's handshake costs about 12 to 15 ms of main-thread time (four DH operations plus two public-key derivations), once per connection; the native server pays about 2 ms. That is one dropped frame, so do it before gameplay starts or from a worker, and keep the client's own public key cached instead of re-deriving it (saves about 2.4 ms). It does not change the server-browser flow: a list of servers is a directory fetch, and only the chosen server gets a handshake. Not measured: phones' browsers (expect several times slower than this desktop, so a 50 to 100 ms handshake), Safari and Firefox, and the WebSocket path end to end. None of that changes the recommendation, so the wasm cost is not a reason to rely on wss alone.
 
 **(d) Other points found.**
 
