@@ -35,7 +35,7 @@ public sealed class NavPath
 
     internal static NavPath Failed(NavStatus status) => new(status, Fixed.Zero, None);
 
-    internal static NavPath From(GridPath result)
+    internal static NavPath From(GridPath result, Grid grid)
     {
         if (result.Status != PathStatus.Found)
         {
@@ -59,7 +59,9 @@ public sealed class NavPath
             cells[i] = new NavCell(src[i].X, src[i].Y);
         }
 
-        return new NavPath(NavStatus.Found, CostToFixed(result.Cost), cells);
+        // The search library prices the path exactly in Q31.32, which is Fixed's own scale: no rounding on our side.
+        var cost = grid.TryGetFixedCost(src, out var raw) ? Fixed.FromRaw(Math.Min(raw, NavLimits.MaxCoordinateRaw)) : CostToFixed(result.Cost);
+        return new NavPath(NavStatus.Found, cost, cells);
     }
 
     internal static Fixed CostToFixed(double cost)

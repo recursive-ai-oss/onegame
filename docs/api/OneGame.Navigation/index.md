@@ -2,7 +2,7 @@
 
 # OneGame.Navigation
 
-Preview, built on a preview of OnePath: the API may change before it is stable. Pathfinding for deterministic simulations: grid searches on fixed-point positions, budgeted over several ticks, with state that is saved, restored and hashed with the world.
+Preview, built on a preview of OnePath: the API may change before it is stable. Pathfinding for deterministic simulations: grid searches on fixed-point positions, budgeted over several ticks, and crowds with avoidance, with state that is saved, restored and hashed with the world.
 
 **Package:** `RecursiveAI.OneGame.Navigation`
 
@@ -14,9 +14,14 @@ dotnet add package RecursiveAI.OneGame.Navigation --prerelease
 
 | Type | Kind | Description |
 | --- | --- | --- |
+| [`NavAgent`](OneGame.Navigation/NavAgent.md) | struct | One agent of a [`NavCrowd`](OneGame.Navigation/NavCrowd.md) as sim code sees it: fixed-point positions only. |
+| [`NavAgentOptions`](OneGame.Navigation/NavAgentOptions.md) | struct | An agent's settings, in world units and units per second. |
+| [`NavAgentStatus`](OneGame.Navigation/NavAgentStatus.md) | enum | What an agent in a [`NavCrowd`](OneGame.Navigation/NavCrowd.md) is doing. |
 | [`NavAlgorithm`](OneGame.Navigation/NavAlgorithm.md) | enum | Which search a one-shot [`NavGrid.FindPath()`](OneGame.Navigation/NavGrid.md#m-findpath-navcell-navcell-navoptions) runs. |
 | [`NavCell`](OneGame.Navigation/NavCell.md) | struct | A grid cell. |
 | [`NavConvert`](OneGame.Navigation/NavConvert.md) | static class | Converts between [`Fixed`](../OneGame.Core/OneGame.Core/Fixed.md) numbers and doubles, for the cases where a double is unavoidable. |
+| [`NavCrowd`](OneGame.Navigation/NavCrowd.md) | class | A crowd of agents walking a navigation mesh built from a [`NavGrid`](OneGame.Navigation/NavGrid.md), with avoidance of walls and of each other, kept in the world as a hot table so that saves, replays, replicas and the world hash carry it. |
+| [`NavCrowdOptions`](OneGame.Navigation/NavCrowdOptions.md) | struct | Settings of a [`NavCrowd`](OneGame.Navigation/NavCrowd.md). |
 | [`NavDebugLine`](OneGame.Navigation/NavDebugLine.md) | struct | A line of debug geometry in world units. |
 | [`NavDebugRect`](OneGame.Navigation/NavDebugRect.md) | struct | A filled rectangle of debug geometry in world units. |
 | [`NavDebugShapes`](OneGame.Navigation/NavDebugShapes.md) | class | Debug geometry for navigation: blocked cells, costed areas, paths and searches, as plain lines and rectangles in world units. |

@@ -18,8 +18,7 @@ namespace OneGame.Navigation;
 /// </summary>
 public sealed class NavSearcher
 {
-    private AStar<SquareTopology, DefaultStepCost, OctileHeuristic>? _search;
-    private GridSearchBuffers? _buffers;
+    private GridSearch? _search;
     private Grid? _copy;
     private NavGrid? _grid;
     private int _start;
@@ -120,6 +119,11 @@ public sealed class NavSearcher
         }
 
         var result = Run(s, grid, budget);
+        if (result == PathStatus.InProgress)
+        {
+            result = PathStatus.BudgetExhausted;
+        }
+
         var spent = _search?.Iterations ?? s.Spent;
         switch (result)
         {
@@ -159,56 +163,35 @@ public sealed class NavSearcher
             Rebuilds++;
             _copy = Grid.From(grid.Grid.Cells, grid.Width, grid.Height);
             _copy.Areas.CopyFrom(grid.Grid.Areas);
-            var count = grid.Width * grid.Height;
-            if (_buffers is null || _buffers.NodeCapacity < count)
-            {
-                _buffers = new GridSearchBuffers(count);
-            }
-
-            var o = NavGrid.ToGridOptions(s.Options, GridAlgorithm.AStar);
-            var topology = _copy.CreateTopology(o.AgentSize, o.Connectivity, o.Diagonals);
-            _search = new AStar<SquareTopology, DefaultStepCost, OctileHeuristic>(topology, default, new OctileHeuristic(grid.Width, _copy.Areas.MinCost), _buffers);
+            _search = _copy.CreateSearch(NavGrid.ToGridOptions(s.Options, GridAlgorithm.AStar));
             _grid = grid;
             _start = s.Start;
             _goal = s.Goal;
             _options = s.Options;
             _spent = 0;
-            if (!topology.IsWalkable(s.Start))
+            var begun = _search.TryBegin(new Cell(s.Start % grid.Width, s.Start / grid.Width), new Cell(s.Goal % grid.Width, s.Goal / grid.Width));
+            if (begun is PathStatus.StartInvalid or PathStatus.GoalInvalid)
             {
-                return PathStatus.StartInvalid;
+                return begun;
             }
-
-            if (!topology.IsWalkable(s.Goal))
-            {
-                return PathStatus.GoalInvalid;
-            }
-
-            _search.Begin(s.Start, s.Goal);
 
             if (s.Spent > 0)
             {
                 var replay = _search.Step(s.Spent);
-                if (replay != SearchStatus.Running)
+                if (replay != PathStatus.InProgress)
                 {
-                    return ToPathStatus(replay);
+                    return replay;
                 }
             }
         }
 
-        return ToPathStatus(_search.Step(budget));
+        return _search.Step(budget);
     }
-
-    private static PathStatus ToPathStatus(SearchStatus status) => status switch
-    {
-        SearchStatus.Running => PathStatus.BudgetExhausted,
-        SearchStatus.Found => PathStatus.Found,
-        _ => PathStatus.NoPath,
-    };
 
     // Nodes are already row-major cell indices, which is how a state stores a path.
     private int[] Store(out bool tooLong)
     {
-        var length = _search!.PathLength();
+        var length = _search!.PathLength;
         tooLong = length > NavLimits.MaxPathCells;
         if (tooLong)
         {

@@ -4,6 +4,14 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- `OneGame.Navigation`: crowds as synced state. `NavCrowd` is OnePath's crowd (avoidance of walls and of each other) on a mesh built from a `NavGrid`, kept in the world as the hot table `og.nav.crowd`: stepped once per tick, saved, hashed, replayed and replicated with the world, 0 B per step; sim code sees `Fixed`/`FVec2` only (`NavAgent`, `NavAgentOptions`, `NavCrowdOptions`). See `docs/navigation.md` and `examples/crowd`.
+
+### Changed
+
+- `OneGame.Navigation` moves to OnePath 0.4.0-preview.2: searches run on `GridSearch`, path costs are OnePath's exact Q31.32 values, and `NavGrid.Stamp` is `Grid.ContentHash`. A `NavState` saved by 1.12 still loads; its map stamp differs, so a path or search from such a save is found again from where the unit stands.
+
 ## [1.12.0] - 2026-10-28
 
 A 3D animation layer for characters: blend spaces, a state machine animator, root motion and two-bone IK on glTF clips. `RecursiveAI.OneGame.Navigation` moves to 1.12.0-preview.1.

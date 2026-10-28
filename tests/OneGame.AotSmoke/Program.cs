@@ -225,7 +225,7 @@ if (navigationProblem is not null)
     return 1;
 }
 
-Console.WriteLine("ok: navigation: budgeted search, restore mid-search, walk to the goal");
+Console.WriteLine("ok: navigation: budgeted search, restore mid-search, walk to the goal, a crowd through a gap restored mid-walk");
 
 var serverProblem = ServerSmoke.Run();
 if (serverProblem is not null)
