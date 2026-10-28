@@ -146,6 +146,20 @@ jobs:
           ONEGAME_GPU_ADAPTER: software
         run: bash tools/ci/examples.sh "$RUNNER_TEMP/cli/onegame" "$OUT/examples"
 
+      # Baked root motion is fixed-point data made from floats at load time: the numbers must not depend on the CPU or runtime.
+      # WebAssembly (the .NET interpreter under node) is checked on Linux; the linux-arm64 run is by hand under qemu.
+      - name: Root motion bakes to the pinned numbers
+        if: ${{ !cancelled() }}
+        run: bash tools/ci/rootmotion.sh "$RUNNER_TEMP/rootmotion" ${{ matrix.os == 'ubuntu-latest' && '--web' || '' }}
+
+      # Edits to a running game's C# (view, sim, screen, new member, compile error, rude edit) through `onegame run` and live control.
+      - name: Hot reload of game code
+        if: ${{ !cancelled() }}
+        timeout-minutes: 20
+        env:
+          ONEGAME_GPU_ADAPTER: software
+        run: python tools/hot-reload/check.py --onegame "$RUNNER_TEMP/cli/onegame" --engine "$GITHUB_WORKSPACE" --work "$RUNNER_TEMP/hot"
+
       # The shipped program: NativeAOT, no development tools, started headless; its world hash is compared across systems below.
       - name: Export solitaire and run it
         if: ${{ !cancelled() }}
@@ -164,6 +178,8 @@ jobs:
             ${{ runner.temp }}/artifacts/test-logs
             ${{ runner.temp }}/out/cluster
             ${{ runner.temp }}/out/examples
+            ${{ runner.temp }}/hot/run.log
+            ${{ runner.temp }}/rootmotion/*.txt
             ${{ runner.temp }}/out/hashes/*.json
             ${{ runner.temp }}/out/hashes/*.txt
           if-no-files-found: warn

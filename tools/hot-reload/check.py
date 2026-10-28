@@ -14,7 +14,9 @@ edit took effect in the running process with the world kept:
 Usage: tools/hot-reload/check.py --onegame "dotnet /path/onegame.dll" [--engine /path/to/checkout] [--work DIR]
 Exit code 0 when every check passed. Everything it starts is stopped on every way out.
 """
-import argparse, base64, hashlib, json, os, shlex, signal, socket, subprocess, sys, time
+import argparse, base64, hashlib, json, os, shlex, shutil, signal, socket, subprocess, sys, time
+
+WINDOWS = os.name == 'nt'
 
 failed = []
 
@@ -27,9 +29,9 @@ def check(name, ok, detail=''):
 
 class Live:
     def __init__(self, path):
-        self.s = socket.socket(socket.AF_UNIX)
-        self.s.settimeout(30)
-        self.s.connect(path)
+        # Python on Windows has no Unix sockets, so the game listens on a loopback TCP port (debug builds only) everywhere.
+        host, port = path.split(':')[1:]
+        self.s = socket.create_connection((host, int(port)), timeout=30)
         self.f = self.s.makefile('rw', newline='\n')
         self.n = 0
         self.rpc('initialize', {'protocolVersion': '2025-06-18', 'capabilities': {}, 'clientInfo': {'name': 'hot-check', 'version': '1'}})
@@ -70,18 +72,25 @@ def main():
     ap.add_argument('--engine', help='engine checkout to build the game against (omit to use the SDK package)')
     ap.add_argument('--work', default=os.path.join(os.environ.get('TMPDIR', '/tmp'), 'hot-reload-check'))
     a = ap.parse_args()
-    cli = shlex.split(a.onegame)
+    # Windows paths keep their backslashes; quotes are still honoured.
+    cli = [x.strip('"') for x in shlex.split(a.onegame, posix=not WINDOWS)]
     work = os.path.abspath(a.work)
-    subprocess.run(['rm', '-rf', work], check=True)
+    shutil.rmtree(work, ignore_errors=True)
     os.makedirs(work)
     new = cli + ['new', 'hotdemo'] + (['--engine', a.engine] if a.engine else [])
     subprocess.run(new, cwd=work, check=True, stdout=subprocess.DEVNULL)
     game = os.path.join(work, 'hotdemo')
     src = os.path.join(game, 'Game.cs')
-    logf = open(os.path.join(work, 'run.log'), 'w')
+    logf = open(os.path.join(work, 'run.log'), 'w', encoding='utf-8')
     env = dict(os.environ)
-    env.setdefault('VK_ICD_FILENAMES', '/usr/share/vulkan/icd.d/lvp_icd.json')
-    proc = subprocess.Popen(cli + ['run', '--', '--headless'], cwd=game, stdout=logf, stderr=subprocess.STDOUT, env=env, start_new_session=True)
+    if not WINDOWS:
+        env.setdefault('VK_ICD_FILENAMES', '/usr/share/vulkan/icd.d/lvp_icd.json')
+    # Its own process group, so everything the watcher starts can be stopped with it.
+    group = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP} if WINDOWS else {'start_new_session': True}
+    with socket.socket() as probe:
+        probe.bind(('127.0.0.1', 0))
+        port = probe.getsockname()[1]
+    proc = subprocess.Popen(cli + ['run', '--', '--headless', '--realtime', '--live', f'tcp:{port}'], cwd=game, stdout=logf, stderr=subprocess.STDOUT, env=env, **group)
     live = None
     try:
         sock = find_socket(os.path.join(work, 'run.log'), proc)
@@ -102,7 +111,7 @@ def find_socket(log, proc, timeout=240):
     while time.time() - t0 < timeout:
         if proc.poll() is not None:
             raise SystemExit('onegame run exited early with ' + str(proc.returncode))
-        for line in open(log).read().splitlines():
+        for line in open(log, encoding='utf-8', errors='replace').read().splitlines():
             if line.startswith('listening on '):
                 return line[len('listening on '):].split(' (MCP')[0]
         time.sleep(0.5)
@@ -114,16 +123,23 @@ def connect(sock, proc, timeout=240):
     while time.time() - t0 < timeout:
         if proc.poll() is not None:
             raise SystemExit('onegame run exited early with ' + str(proc.returncode))
-        if os.path.exists(sock):
-            try:
-                return Live(sock)
-            except OSError:
-                pass
+        try:
+            return Live(sock)
+        except OSError:
+            pass
         time.sleep(0.5)
     raise SystemExit('the game never listened on ' + sock)
 
 
 def stop(proc):
+    if WINDOWS:
+        # The tree: dotnet watch, the game and the build servers it started.
+        subprocess.run(['taskkill', '/T', '/F', '/PID', str(proc.pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            proc.wait(20)
+        except subprocess.TimeoutExpired:
+            pass
+        return
     if proc.poll() is None:
         try:
             os.killpg(proc.pid, signal.SIGTERM)
@@ -140,9 +156,9 @@ def stop(proc):
 
 
 def edit(src, old, new):
-    text = open(src).read()
+    text = open(src, encoding='utf-8', newline='').read().replace('\r\n', '\n')
     assert old in text, 'scaffold changed: ' + old
-    open(src, 'w').write(text.replace(old, new, 1))
+    open(src, 'w', encoding='utf-8', newline='').write(text.replace(old, new, 1))
 
 
 def wait_for(fn, what, timeout=90):
@@ -258,7 +274,7 @@ def run(live, sock, proc, src, game, work, logf):
         check('rude edit: message names the cause', 'ENC' in (h.get('message') or '') or 'restart' in (h.get('message') or '').lower(), h.get('message'))
         check('rude edit: the restarted game loaded the saved world', h['resumed'] is True and after['tick'] >= before['tick'], f"tick {before['tick']} -> {after['tick']}")
         check('rude edit: entity state carried over (X, Y, Fuel)', e['X'] == before['entities'][0]['X'] and e['Y'] >= before['entities'][0]['Y'] and e['Fuel'] >= fuel, e)
-    log = open(os.path.join(work, 'run.log')).read()
+    log = open(os.path.join(work, 'run.log'), encoding='utf-8', errors='replace').read()
     check('output tells the user what could not be applied', 'cannot be applied to the running game' in log)
 
 

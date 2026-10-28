@@ -1,0 +1,4 @@
+idle ticks=120 total=0,0,0 hash=9cccbb9b79c47545
+walk ticks=60 total=0,0,-4294967296 hash=f4101347b21df775
+run ticks=42 total=0,0,-9080788992 hash=f6c44a171862db5d
+jump ticks=48 total=0,0,-2576980480 hash=186f0ebcae880e45
