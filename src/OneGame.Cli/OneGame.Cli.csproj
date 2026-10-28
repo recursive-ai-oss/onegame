@@ -41,6 +41,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The Java class that wraps Google Play Billing, compiled at export time for games that sell through Play. -->
+    <EmbeddedResource Include="../OneGame.Purchases/Java/dev/onegame/store/PlayBridge.java" LogicalName="java/dev/onegame/store/PlayBridge.java" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="OneGame.Cli.Tests" />
   </ItemGroup>
 

@@ -171,9 +171,9 @@ internal sealed partial class ExportVerb
         string? dex = null;
         if (playBilling)
         {
-            var root = settings.GetValueOrDefault("OneGameRoot") ?? throw new CliException(ExitCodes.RuntimeError, "play_billing_sources", "The Java wrapper for Play Billing comes from the engine sources, so a game that uses it needs OneGameRoot set to an engine checkout (onegame new --engine <checkout>).");
             var buildWork = Directory.CreateDirectory(Path.Combine(work, "play-billing")).FullName;
-            dex = PlayBillingKit.BuildDex(sdk, Path.Combine(Path.GetFullPath(root), "src", "OneGame.Purchases", "Java"), buildWork);
+            // The wrapper class travels inside the tool, so this works from packages with no engine checkout.
+            dex = PlayBillingKit.BuildDex(sdk, PlayBillingKit.ExtractBridgeSources(buildWork), buildWork);
         }
 
         var manifest = Path.Combine(work, "AndroidManifest.xml");
