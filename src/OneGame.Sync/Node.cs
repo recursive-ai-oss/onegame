@@ -314,10 +314,27 @@ public sealed partial class Node
     }
 
     /// <summary>
+    /// Server side, for transports with authentication: the channel's proven identity goes to <paramref name="policy"/>, which returns
+    /// the trust to give it (typically <c>Trust.Player(...).As(registry.PlayerFor(identity.Key, out _))</c>) or null to refuse. A
+    /// refused channel is not attached; the caller closes it. On a link without authentication the identity's key is empty and the
+    /// policy decides whether that is acceptable.
+    /// </summary>
+    /// <param name="channel">The accepted channel.</param>
+    /// <param name="policy">Maps who the peer is to what it may do.</param>
+    /// <param name="name">Name for reports.</param>
+    /// <returns>The connection, or null when the policy refused it.</returns>
+    public Connection? Accept(IMessageChannel channel, Func<PeerIdentity, Trust?> policy, string? name = null)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        var trust = policy(PeerIdentity.Of(channel, name ?? string.Empty));
+        return trust is { } t ? Accept(channel, t, name) : null;
+    }
+
+    /// <summary>
     /// Forgets a connection that has gone away (its transport closed): every scope stops publishing to it and <see cref="Connections"/> no longer lists it.
     /// Commands it already queued still run. Safe to call twice.
     /// </summary>
-    /// <param name="connection">A connection from <see cref="Accept"/> or <c>ConnectTo</c> on this node.</param>
+    /// <param name="connection">A connection from <see cref="Accept(IMessageChannel, Trust, string)"/> or <c>ConnectTo</c> on this node.</param>
     /// <returns>False if it was not (or no longer) attached.</returns>
     public bool Detach(Connection connection)
     {

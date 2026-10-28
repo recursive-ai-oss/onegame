@@ -107,6 +107,7 @@ internal static class GameRunner
 
         var gameArgs = lead(a, project);
         gameArgs.AddRange(a.Game);
+        DevKeys.AddClientArgs(gameArgs);
         if (json)
         {
             gameArgs.Add("--json");

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using Lanterns;
 using OneGame.Core;
@@ -22,6 +23,9 @@ public sealed class Realm
     private const int LeaveEveryTicks = 10;
     private const int GiveUpTicks = 240;
 
+    // Anyone can make keys, so the island remembers only as many players as it has room for.
+    private const int MaxKnownPlayers = 10_000;
+
     private readonly Dictionary<uint, Peer> _peers = [];
     private readonly List<PeerConnection> _accepted = [];
     private readonly List<EntityId> _ids = [];
@@ -31,7 +35,13 @@ public sealed class Realm
     private string? _saveFile;
     private EscrowDriver? _driver;
     private uint _scopeNo;
-    private uint _issued;
+    private uint _anonymous;
+    private PlayerRegistry _players = new(maxPlayers: MaxKnownPlayers);
+    private string? _playersFile;
+    private int _playersSaved;
+    private NetSecurity _peerSecurity = NetSecurity.Insecure;
+    private readonly HashSet<PeerKey> _peerKeys = [];
+    private readonly Dictionary<uint, PeerKey> _peerKeyOf = [];
     private readonly List<Leaver> _leaving = [];
 
     /// <summary>The setup a server program (or a test) passes to the server host. Each call makes an independent server.</summary>
@@ -88,6 +98,13 @@ public sealed class Realm
         {
             Directory.CreateDirectory(dir);
             _saveFile = Path.Combine(dir, "scope" + _scopeNo.ToString(CultureInfo.InvariantCulture) + ".save");
+            _playersFile = Path.Combine(dir, "players" + _scopeNo.ToString(CultureInfo.InvariantCulture) + ".save");
+            if (File.Exists(_playersFile) && PlayerRegistry.TryLoad(File.ReadAllBytes(_playersFile), out var known, MaxKnownPlayers))
+            {
+                _players = known;
+                _playersSaved = known.Count;
+            }
+
             if (File.Exists(_saveFile))
             {
                 var result = _scope.Load(File.ReadAllBytes(_saveFile));
@@ -95,14 +112,31 @@ public sealed class Realm
             }
         }
 
+        // Servers talk to each other over the same secure transport as players do. A server's own key is its identity to its peers, and
+        // the peers' public keys come from the same place their addresses do (peer.key.N, a key or a .pub file); anything else is refused.
+        var own = host.Security ?? NetSecurity.Insecure;
+        if (own.Mode == SecurityMode.Required)
+        {
+            foreach (var (key, value) in options)
+            {
+                if (key.StartsWith("peer.key.", StringComparison.Ordinal) && uint.TryParse(key[9..], NumberStyles.None, CultureInfo.InvariantCulture, out var peerScope))
+                {
+                    _peerKeyOf[peerScope] = ReadKey(value);
+                    _peerKeys.Add(_peerKeyOf[peerScope]);
+                }
+            }
+
+            _peerSecurity = new NetSecurity { GameId = own.GameId + "/peer", ServerKeys = own.ServerKeys, TrustedServerKeys = [.. _peerKeys], Identity = own.ServerKeys[0] };
+        }
+
         if (Option("peers") is { } port)
         {
-            _listener = UdpTransport.Listen(new IPEndPoint(IPAddress.Parse(Option("peers.address") ?? "127.0.0.1"), int.Parse(port, CultureInfo.InvariantCulture)));
+            _listener = UdpTransport.Listen(new IPEndPoint(IPAddress.Parse(Option("peers.address") ?? "127.0.0.1"), int.Parse(port, CultureInfo.InvariantCulture)), new UdpOptions { Security = _peerSecurity });
         }
 
         foreach (var (key, value) in options)
         {
-            if (key.StartsWith("peer.", StringComparison.Ordinal))
+            if (key.StartsWith("peer.", StringComparison.Ordinal) && !key.StartsWith("peer.key.", StringComparison.Ordinal))
             {
                 var scope = uint.Parse(key[5..], CultureInfo.InvariantCulture);
                 if (scope != _scopeNo)
@@ -120,7 +154,6 @@ public sealed class Realm
         }
         else
         {
-            _issued = Island.Of(_scope.World)?.NextPlayer ?? 0;
             host.Authenticate = AdmitPlayer;
             host.ClientLeft += OnClientLeft;
 
@@ -138,7 +171,7 @@ public sealed class Realm
     private void AddPeer(uint scope, string address)
     {
         var uri = new Uri(address);
-        var channel = new PeerChannel(new IPEndPoint(IPAddress.Parse(uri.Host), uri.Port));
+        var channel = new PeerChannel(new IPEndPoint(IPAddress.Parse(uri.Host), uri.Port), PeerSecurityFor(scope));
         var link = _host.Node.ConnectVia(channel, "peer " + scope.ToString(CultureInfo.InvariantCulture));
         var id = new ScopeId(scope);
         var registry = new EntityRegistry();
@@ -156,19 +189,81 @@ public sealed class Realm
         _peers[scope] = new Peer(channel, link, replica);
     }
 
+    // A player is the key that connected: the same key is the same player id after a reconnect, a restart of the player's game, or a
+    // restart of this island (the registry is saved beside the scope). Without a key (an insecure development link) each connection is new.
     private Trust? AdmitPlayer(ClientRequest request)
     {
-        var serial = ++_issued;
-        var player = (_scopeNo * 100_000) + serial;
         var island = Island.Of(_scope.World);
         if (island is null)
         {
             return null;
         }
 
-        _host.SendCommand(_scope.Id, island.Id, "Join", player.ToString(CultureInfo.InvariantCulture), "Player " + serial.ToString(CultureInfo.InvariantCulture));
-        _host.Log.Info($"player {player} joined from {request.Address}");
+        uint serial;
+        var returning = false;
+        if (request.Key is { } key)
+        {
+            if (!_players.TryPlayerFor(key, out serial, out var isNew))
+            {
+                _host.Log.Info($"player from {request.Address} refused: the island knows as many players as it has room for");
+                return null;
+            }
+
+            returning = !isNew;
+        }
+        else
+        {
+            serial = ++_anonymous + MaxKnownPlayers;
+        }
+
+        var player = (_scopeNo * 100_000) + serial;
+        if (returning && IsPresent(player))
+        {
+            // Back before the island removed them: the same player carries on, wherever their entity is now.
+            _leaving.RemoveAll(l => l.Player == player);
+            _host.Log.Info($"player {player} is back from {request.Address}");
+        }
+        else
+        {
+            _host.SendCommand(_scope.Id, island.Id, "Join", player.ToString(CultureInfo.InvariantCulture), "Player " + serial.ToString(CultureInfo.InvariantCulture));
+            _host.Log.Info($"player {player} joined from {request.Address}");
+        }
+
         return Trust.Owner(new ScopeId(Rules.IslandA), new ScopeId(Rules.IslandB), new ScopeId(Rules.Master)).As(player);
+    }
+
+    private bool IsPresent(uint player)
+    {
+        if (FindPlayer(_scope.World, player) is not null)
+        {
+            return true;
+        }
+
+        foreach (var peer in _peers.Values)
+        {
+            if (peer.Replica.State == ReplicaState.Live && FindPlayer(peer.Replica.World, player) is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // A connection to one peer trusts exactly that peer's key.
+    private NetSecurity PeerSecurityFor(uint scope) =>
+        _peerSecurity.Mode == SecurityMode.Insecure
+            ? _peerSecurity
+            : new NetSecurity { GameId = _peerSecurity.GameId, ServerKeys = _peerSecurity.ServerKeys, TrustedServerKeys = _peerKeyOf.TryGetValue(scope, out var k) ? [k] : [], Identity = _peerSecurity.Identity };
+
+    private static PeerKey ReadKey(string text)
+    {
+        if (PeerKey.TryParse(text, out var key))
+        {
+            return key;
+        }
+
+        return PeerKey.Parse(File.ReadAllText(text).Trim());
     }
 
     private void PumpNetwork()
@@ -179,8 +274,15 @@ public sealed class Realm
             while (_listener.TryAccept(out var connection))
             {
                 var peer = new PeerConnection(connection);
+                var accepted = _host.Node.Accept(peer, id => _peerSecurity.Mode == SecurityMode.Insecure || _peerKeys.Contains(id.Key) ? PeerTrust : null, "peer " + connection.RemoteName);
+                if (accepted is null)
+                {
+                    connection.Disconnect(DisconnectReason.Rejected);
+                    continue;
+                }
+
+                peer.Accepted = accepted;
                 _accepted.Add(peer);
-                peer.Accepted = _host.Node.Accept(peer, PeerTrust, "peer " + connection.RemoteName);
             }
 
             for (var i = _accepted.Count - 1; i >= 0; i--)
@@ -360,6 +462,15 @@ public sealed class Realm
 
     private void Save()
     {
+        if (_playersFile is not null && _players.Count != _playersSaved)
+        {
+            // The registry goes to disk before the scope that may hold a new player, so a restart never knows a player without their id.
+            var table = _playersFile + ".tmp";
+            File.WriteAllBytes(table, _players.Save());
+            File.Move(table, _playersFile, true);
+            _playersSaved = _players.Count;
+        }
+
         var bytes = _scope.Save();
         Saves++;
         if (_saveFile is not null)
@@ -373,8 +484,10 @@ public sealed class Realm
     private sealed record Peer(PeerChannel Channel, Link Link, ReplicaScope Replica);
 
     // A connection another server opened to us. When it closes the node is told, so it stops publishing to it.
-    private sealed class PeerConnection(INetConnection inner) : IMessageChannel
+    private sealed class PeerConnection(INetConnection inner) : IAuthenticatedChannel
     {
+        public PeerKey? RemoteKey => inner.RemoteKey;
+
         public Connection? Accepted { get; set; }
 
         public bool IsClosed => inner.State == ConnectionState.Closed;

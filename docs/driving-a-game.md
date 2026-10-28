@@ -168,6 +168,28 @@ onegame mcp --cluster .onegame-cluster             # one MCP server for all node
 
 In C#: `TestCluster.Launch(spec)` returns a `ProcessCluster` (`Call`, `WaitForTick`, `Hashes`, `Run(scenario)`, `Down`). A cluster scenario aims steps and expectations at nodes with `node:`; `wait`, `agree` and `drift` are its own verbs. `docs/interfaces/cluster.md` has the details.
 
+### Keys: networking is encrypted
+
+Every link between a client and a server (and between servers) is encrypted and authenticated. A server has a key pair; a client pins the server's **public** key and keeps its own key, which names the player. Nothing to set up while you develop:
+
+```
+onegame server run --config server/server.yaml --listen udp:7777   # makes a development key on first use and logs a warning
+onegame run -- --connect udp://127.0.0.1:7777                      # pins that key and keeps a development player key
+onegame cluster up --spec cluster.yaml                             # one development key per node, in the cluster's own folder
+```
+
+Development keys live in a per-user folder outside your game (`ONEGAME_KEYS` changes it) and are marked so that a real server refuses them. For a real server:
+
+```
+onegame keys --out ~/secrets --name arena --json    # {"ok":true,"privateFile":".../arena.key","publicFile":".../arena.pub","publicKey":"..."}
+srv/shopServer --listen udp:7777 --key ~/secrets/arena.key --game-id shop/1
+bin/shop --connect udp://host:7777 --server-key <the 43-character public key or the .pub file> --identity me.key --game-id shop/1
+```
+
+**The `.key` file is your secret.** Keep it on the server, outside the repository (`onegame keys` writes a `.gitignore` for `*.key`); `onegame export` refuses to build when a content folder holds one. Ship only the public key in a client build: `NetSecurity.ForClient([PeerKey.Parse("...")], "shop/1", identity)`. A server key can be replaced without a flag day: give the server both keys (`--key new --key old`) and clients both public keys (`--server-key new,old`). A client's key file is the player: keep it in the save folder, and expect that a copy of it is a copy of the player. Servers see a different key for the same player (derived per server), so hosts cannot link a player across servers by their key.
+
+In code, a server reads `ClientRequest.Key` in `ServerHost.Authenticate` and maps it with a `PlayerRegistry` to a player id that survives reconnects (the Lanterns sample does this and saves the table). `NetSecurity.Insecure` and `--insecure` exist for tests and local tools; a real server refuses them unless the process says it is a development run (`ONEGAME_DEV=1`). A server with no key and no development run fails at start with a message that says what to do. A WebSocket server behind `wss://` needs a TLS certificate: that is the operator's step (a reverse proxy that terminates TLS in front of it); the web security wiring is described where the WebSocket transport is documented. If a game checks a Steam or other login ticket, bind it to the session (`INetConnection.ChannelBinding`) as `transport-security.md` section 6 says.
+
 ## 8. Ship it
 
 ```

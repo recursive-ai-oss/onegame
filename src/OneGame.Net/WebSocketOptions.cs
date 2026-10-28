@@ -3,6 +3,9 @@ namespace OneGame.Net;
 /// <summary>Settings for the WebSocket transport (RFC 6455 over plain TCP).</summary>
 public sealed class WebSocketOptions
 {
+    /// <summary>How links are encrypted and authenticated. Required: a transport opened without it throws <see cref="SecurityNotConfiguredException"/>. Use <see cref="NetSecurity.ForServer"/>, <see cref="NetSecurity.ForClient"/> or, for tests and local tools, <see cref="NetSecurity.Insecure"/>.</summary>
+    public NetSecurity? Security { get; init; }
+
     /// <summary>Largest message accepted by Send and from the wire. A longer incoming message closes the connection with code 1009.</summary>
     public int MaxMessageBytes { get; init; } = 1 << 20;
 

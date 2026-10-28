@@ -12,6 +12,9 @@ version=$(sed -n 's|.*<Version>\(1\.[^<]*\)</Version>.*|\1|p' "$repo/Directory.B
 [ -n "$version" ] || { echo "cannot read the engine version from Directory.Build.props"; exit 1; }
 
 unset ONEGAME_ROOT
+# A development run: a server given no key makes a development key for itself (a real server is given one from 'onegame keys').
+export ONEGAME_DEV=1
+export ONEGAME_KEYS="$work/dev-keys"
 rm -rf "$work"
 mkdir -p "$work/feed" "$work/app" "$work/tools"
 work="$(cd "$work" && pwd)"

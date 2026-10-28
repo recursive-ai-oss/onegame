@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using OneGame.Live;
+using OneGame.Net;
 
 namespace OneGame.Server.Live;
 
@@ -45,9 +46,12 @@ public sealed partial class ServerAppJson : JsonSerializerContext
 public static class ServerApp
 {
     private const string Usage = "usage: <server> [--config <server.yaml>] [--name N] [--scope ID[:SEED]]... [--listen udp:PORT|ws:PORT[@ADDRESS]]... [--tick-rate N] [--hash-history N]\n"
-        + "          [--option KEY=VALUE]... [--live [socket]] [--ticks N] [--manual] [--parent PID]\n"
+        + "          [--key FILE]... [--game-id TEXT] [--insecure] [--option KEY=VALUE]... [--live [socket]] [--ticks N] [--manual] [--parent PID]\n"
         + "  --config        the server configuration (YAML); the other options override it\n"
         + "  --listen        accept clients on a reliable-UDP or WebSocket port (0 picks a free one; the bound ports are printed)\n"
+        + "  --key           the server's key file (from 'onegame keys'; repeatable: the first is primary, the rest let clients keep an older key)\n"
+        + "  --game-id       the game and protocol name; clients must use the same\n"
+        + "  --insecure      listen without encryption or authentication (tests and local tools only)\n"
         + "  --option        a KEY=VALUE setting for the game's own server code (repeatable)\n"
         + "  --live          listen for live control (MCP, JSON lines) on a Unix socket; the path is printed in the ready line\n"
         + "  --ticks N       run N ticks as fast as possible, then stop (without --live) or keep serving (with --live)\n"
@@ -78,6 +82,9 @@ public static class ServerApp
             var scopes = new List<ScopeConfig>();
             var listen = new List<ListenConfig>();
             var options = new List<KeyValuePair<string, string>>();
+            var keyFiles = new List<string>();
+            string? gameId = null;
+            var insecure = false;
             for (var i = 0; i < args.Length; i++)
             {
                 string Value() => i + 1 < args.Length ? args[++i] : throw new FormatException(args[i] + " needs a value");
@@ -94,6 +101,15 @@ public static class ServerApp
                         break;
                     case "--listen":
                         listen.Add(ParseListen(Value()));
+                        break;
+                    case "--key":
+                        keyFiles.Add(Value());
+                        break;
+                    case "--game-id":
+                        gameId = Value();
+                        break;
+                    case "--insecure":
+                        insecure = true;
                         break;
                     case "--option":
                         options.Add(ParseOption(Value()));
@@ -139,6 +155,7 @@ public static class ServerApp
                 ClientTrust = baseConfig.ClientTrust,
                 HashHistory = history ?? baseConfig.HashHistory,
                 Options = options.Count > 0 ? options : baseConfig.Options,
+                Security = new SecurityConfig(keyFiles.Count > 0 ? keyFiles : baseConfig.Security.KeyFiles, gameId ?? baseConfig.Security.GameId, insecure || baseConfig.Security.Insecure),
             };
         }
         catch (Exception ex) when (ex is FormatException or ServerConfigException)
@@ -204,6 +221,11 @@ public static class ServerApp
             host.Stop();
             output.WriteLine(JsonSerializer.Serialize(new ServerStoppedLine(true, host.Tick, [.. host.ScopeInfos()]), ServerAppJson.Default.ServerStoppedLine));
             return 0;
+        }
+        catch (SecurityNotConfiguredException ex)
+        {
+            error.WriteLine("error: " + ex.Message);
+            return 2;
         }
         catch (IOException ex)
         {

@@ -25,6 +25,12 @@ public sealed record ListenConfig(string Transport, int Port, string Address);
 /// <param name="Command">Scopes clients may send commands to.</param>
 public sealed record ClientTrustConfig(uint[]? Read, uint[]? Command);
 
+/// <summary>How the server secures its client links (the <c>security:</c> section).</summary>
+/// <param name="KeyFiles">The server's key files (made by <c>onegame keys</c>), primary first; more than one lets the host rotate keys. Relative paths resolve against the configuration file.</param>
+/// <param name="GameId">The game and protocol name clients must use too; any text, empty by default.</param>
+/// <param name="Insecure">True to listen without encryption or authentication (tests and local tools only).</param>
+public sealed record SecurityConfig(IReadOnlyList<string> KeyFiles, string GameId, bool Insecure);
+
 /// <summary>The server configuration file is not valid: the message names the file, the line and what to change.</summary>
 public sealed class ServerConfigException : Exception
 {
@@ -59,7 +65,8 @@ public sealed class ServerConfigException : Exception
 /// </summary>
 public sealed class ServerConfig
 {
-    private static readonly string[] TopKeys = ["name", "tickRate", "maxCatchUp", "scopes", "plugins", "live", "listen", "trust", "hashHistory"];
+    private static readonly string[] TopKeys = ["name", "tickRate", "maxCatchUp", "scopes", "plugins", "live", "listen", "trust", "hashHistory", "security"];
+    private static readonly string[] SecurityKeys = ["key", "game", "insecure"];
     private static readonly string[] ListenKeys = ["transport", "port", "address"];
     private static readonly string[] TrustKeys = ["read", "command"];
     private static readonly string[] ScopeKeys = ["id", "seed"];
@@ -85,6 +92,9 @@ public sealed class ServerConfig
 
     /// <summary>The addresses to listen on for clients; none means a server that only ticks.</summary>
     public IReadOnlyList<ListenConfig> Listen { get; init; } = [];
+
+    /// <summary>How client links are encrypted: the key files, the game id, or an explicit insecure switch. A server that listens with neither fails to start with <see cref="OneGame.Net.SecurityNotConfiguredException"/>.</summary>
+    public SecurityConfig Security { get; init; } = new([], "", false);
 
     /// <summary>What every accepted client may do, unless <see cref="ServerHost.Authenticate"/> decides otherwise.</summary>
     public ClientTrustConfig ClientTrust { get; init; } = new(null, null);
@@ -255,6 +265,36 @@ public sealed class ServerConfig
                 clientTrust = new ClientTrustConfig(r.ScopeList(trustNode, "read", scopes), r.ScopeList(trustNode, "command", scopes));
             }
 
+            var security = new SecurityConfig([], "", false);
+            if (root.TryGetValue("security", out var secNode) && !secNode.IsNull)
+            {
+                r.Check(secNode, SecurityKeys, "security");
+                var keys = new List<string>();
+                if (secNode.TryGetValue("key", out var keyNode) && !keyNode.IsNull)
+                {
+                    if (keyNode.Kind == YamlNodeKind.Sequence)
+                    {
+                        foreach (var k in r.Seq(keyNode, "key"))
+                        {
+                            keys.Add(Resolve(r.TextValue(k, "a key file"), baseDir));
+                            r.Bound(keys.Count, k, "security key");
+                        }
+                    }
+                    else
+                    {
+                        keys.Add(Resolve(r.TextValue(keyNode, "key"), baseDir));
+                    }
+                }
+
+                var insecureText = r.Text(secNode, "insecure");
+                if (insecureText is not (null or "true" or "false"))
+                {
+                    throw r.Error(secNode["insecure"], "insecure must be true or false");
+                }
+
+                security = new SecurityConfig(keys, r.Text(secNode, "game") ?? "", insecureText == "true");
+            }
+
             var history = (int?)r.UInt(root, "hashHistory") ?? 256;
             if (history > 100_000)
             {
@@ -284,9 +324,13 @@ public sealed class ServerConfig
                 Listen = listen,
                 ClientTrust = clientTrust,
                 HashHistory = history,
+                Security = security,
             };
         }
     }
+
+    private static string Resolve(string path, string? baseDir) =>
+        baseDir is null || System.IO.Path.IsPathRooted(path) ? path : System.IO.Path.Combine(baseDir, path);
 
     private sealed class Reader(string? source)
     {

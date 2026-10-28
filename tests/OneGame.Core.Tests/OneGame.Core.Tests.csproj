@@ -9,6 +9,8 @@
   <ItemGroup>
     <!-- Fuzzer seeds and every crash input it ever found; the regression test replays them all. -->
     <None Include="../../testdata/fuzz/**/*.bin" Link="testdata/fuzz/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- RFC and Wycheproof vectors for the crypto primitives. -->
+    <None Include="../../testdata/crypto/*.json" Link="testdata/crypto/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

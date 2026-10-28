@@ -1,3 +1,4 @@
+using OneGame.Core;
 using OneGame.Host;
 using OneGame.Net;
 using OneGame.Server.Plugins;
@@ -24,14 +25,25 @@ public class NetworkTests : IDisposable
         }
     }
 
+    // One server key for the whole class, in a file the way a deployed server has it, read through the configuration's security section.
+    private static readonly (string File, PeerKey Public) ServerKey = MakeKey();
+
+    private static (string, PeerKey) MakeKey()
+    {
+        var keys = KeyStore.Create(Path.Combine(Path.GetTempPath(), "onegame-server-tests-" + Guid.NewGuid().ToString("N")), "server");
+        return (keys.PrivateFile, keys.PublicKey);
+    }
+
+    private static string Secure => $"security:\n  key: {ServerKey.File}\n  game: net/1\n";
+
     private static ServerConfig Config(string extra = "") =>
-        ServerConfig.Parse("name: net\nhashHistory: 512\nscopes: [{ id: 1, seed: 7 }]\nlisten:\n  - { transport: udp, port: 0, address: 127.0.0.1 }\n  - { transport: ws, port: 0, address: 127.0.0.1 }\n" + extra);
+        ServerConfig.Parse("name: net\nhashHistory: 512\nscopes: [{ id: 1, seed: 7 }]\nlisten:\n  - { transport: udp, port: 0, address: 127.0.0.1 }\n  - { transport: ws, port: 0, address: 127.0.0.1 }\n" + Secure + extra);
 
     private static (RemoteSession Session, World World) Connect(ServerHost host, string transport, string name = "c")
     {
         var port = host.Endpoints.First(e => e.Transport == transport).Port;
         var world = host.CreateReplicaWorld(new ScopeId(1));
-        return (new RemoteSession(new ConnectOptions { Address = $"{transport}://127.0.0.1:{port}", Name = name }, world), world);
+        return (new RemoteSession(new ConnectOptions { Address = $"{transport}://127.0.0.1:{port}", Name = name, Security = NetSecurity.ForClient([ServerKey.Public], "net/1") }, world), world);
     }
 
     // One round of the loop a deployed server and client run: both sides pump the network, the server ticks.
@@ -79,6 +91,77 @@ public class NetworkTests : IDisposable
         Assert.True(Matches(host, ws));
         Assert.All(host.Node.Connections, c => Assert.False(c.Trust.Command.Contains(new ScopeId(1))));
         host.Stop();
+    }
+
+    [Fact]
+    public void TheAuthenticationHookSeesTheKeyTheClientProved()
+    {
+        PeerKey? seen = null;
+        var host = new ServerHost(Config()) { Authenticate = request => { seen = request.Key; return Trust.Player(new ScopeId(1)); } };
+        host.Start();
+        var identity = NetKeyPair.Generate();
+        var world = host.CreateReplicaWorld(new ScopeId(1));
+        var port = host.Endpoints.First(e => e.Transport == "udp").Port;
+        var client = new RemoteSession(new ConnectOptions { Address = $"udp://127.0.0.1:{port}", Security = NetSecurity.ForClient([ServerKey.Public], "net/1", identity) }, world);
+        for (var i = 0; i < 100 && seen is null; i++)
+        {
+            Round(host, client);
+        }
+
+        Assert.Equal(NetSecurity.ForClient([ServerKey.Public], "net/1", identity).IdentityKeyFor(ServerKey.Public), seen);
+        host.Stop();
+    }
+
+    [Fact]
+    public void AClientThatTrustsAnotherKeyIsRefusedForGoodAndTheServerWithoutAKeyWillNotStart()
+    {
+        var host = new ServerHost(Config());
+        host.Start();
+        var port = host.Endpoints.First(e => e.Transport == "udp").Port;
+        var wrong = new RemoteSession(new ConnectOptions { Address = $"udp://127.0.0.1:{port}", Security = NetSecurity.ForClient([NetKeyPair.Generate().PublicKey], "net/1") }, host.CreateReplicaWorld(new ScopeId(1)));
+        for (var i = 0; i < 200 && !wrong.IsClosed; i++)
+        {
+            Round(host, wrong);
+        }
+
+        Assert.True(wrong.IsClosed, "a wrong key is a permanent failure, not something to retry for a minute");
+        Assert.Equal(DisconnectReason.HandshakeFailed, wrong.Connection.CloseInfo.Reason);
+        Assert.Empty(host.Clients());
+        host.Stop();
+
+        var keyless = new ServerHost(ServerConfig.Parse("listen:\n  - { transport: udp, port: 0, address: 127.0.0.1 }\n"));
+        var e = Assert.Throws<SecurityNotConfiguredException>(keyless.Start);
+        Assert.Contains("onegame keys", e.Message);
+    }
+
+    [Fact]
+    public void InsecureModeAndDevelopmentKeysNeedADevelopmentRun()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "onegame-dev-keys-" + Guid.NewGuid().ToString("N"));
+        var dev = KeyStore.Create(folder, "dev", development: true);
+        var before = Environment.GetEnvironmentVariable("ONEGAME_DEV");
+        try
+        {
+            Environment.SetEnvironmentVariable("ONEGAME_DEV", null);
+            const string listen = "listen:\n  - { transport: udp, port: 0, address: 127.0.0.1 }\n";
+            Assert.Throws<SecurityNotConfiguredException>(() => new ServerHost(ServerConfig.Parse(listen + "security: { insecure: true }\n")).Start());
+            Assert.Throws<SecurityNotConfiguredException>(() => new ServerHost(ServerConfig.Parse(listen + $"security: {{ key: {dev.PrivateFile} }}\n")).Start());
+
+            Environment.SetEnvironmentVariable("ONEGAME_DEV", "1");
+            var insecure = new ServerHost(ServerConfig.Parse(listen + "security: { insecure: true }\n"));
+            insecure.Start();
+            Assert.Equal(SecurityMode.Insecure, insecure.Security!.Mode);
+            insecure.Stop();
+            var withDev = new ServerHost(ServerConfig.Parse(listen + $"security: {{ key: {dev.PrivateFile} }}\n"));
+            withDev.Start();
+            Assert.Contains(withDev.Log.Tail(200), l => l.Message.Contains("development key", StringComparison.Ordinal));
+            withDev.Stop();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ONEGAME_DEV", before);
+            Directory.Delete(folder, true);
+        }
     }
 
     [Fact]
@@ -170,7 +253,7 @@ public class NetworkTests : IDisposable
     {
         var port = FreePort(transport);
         ServerHost Start() =>
-            new(ServerConfig.Parse($"name: net\nhashHistory: 512\nscopes: [{{ id: 1, seed: 7 }}]\nlisten:\n  - {{ transport: {transport}, port: {port}, address: 127.0.0.1 }}\n"));
+            new(ServerConfig.Parse($"name: net\nhashHistory: 512\nscopes: [{{ id: 1, seed: 7 }}]\nlisten:\n  - {{ transport: {transport}, port: {port}, address: 127.0.0.1 }}\n" + Secure));
 
         var first = Start();
         first.Start();

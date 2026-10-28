@@ -11,6 +11,9 @@ internal static class Wire
     /// <summary>Protocol version, in the high nibble of every datagram's first byte. The low nibble is the kind.</summary>
     public const byte Version = 1;
 
+    /// <summary>Version nibble of secure datagrams (encrypted and authenticated).</summary>
+    public const byte VersionSecure = 2;
+
     public const byte KindRequest = 0;
     public const byte KindChallenge = 1;
     public const byte KindResponse = 2;
@@ -18,6 +21,9 @@ internal static class Wire
     public const byte KindReject = 4;
     public const byte KindData = 5;
     public const byte KindDisconnect = 6;
+
+    /// <summary>A server that does not know a connection proves it restarted: <c>b0, connId u32, token[16]</c>.</summary>
+    public const byte KindReset = 7;
 
     /// <summary>Client handshake datagrams are padded to at least this size, so a reply is always smaller than the request that caused it.</summary>
     public const int MinHandshakeSize = 256;
@@ -29,6 +35,37 @@ internal static class Wire
     public const int DisconnectSize = 1 + 4 + 1 + 1;
 
     public static byte Header(byte kind) => (byte)((Version << 4) | kind);
+
+    public static byte Header(byte kind, bool secure) => (byte)(((secure ? VersionSecure : Version) << 4) | kind);
+
+    /// <summary>Authentication tag added to every secure datagram body.</summary>
+    public const int TagSize = 16;
+
+    /// <summary>Bytes of a secure data datagram that stay in the clear and are authenticated: kind, connection id, packet number.</summary>
+    public const int SecureAadSize = 9;
+
+
+    /// <summary>Secure Response: kind, nonce, cookie, noise length.</summary>
+    public const int SecureResponseHeader = 1 + 8 + CookieSize + 2;
+
+    /// <summary>Secure Accept: kind, nonce, connection id, noise length.</summary>
+    public const int SecureAcceptHeader = 1 + 8 + 4 + 2;
+
+    public const int ResetSize = 1 + 4 + 16;
+
+    /// <summary>Size of <see cref="Bind"/>'s output.</summary>
+    public const int BindSize = 1 + 8 + CookieSize;
+
+    /// <summary>
+    /// The handshake binding: the datagram version, the client nonce and the cookie, so a captured first message only works with the
+    /// cookie it was made for, and a flipped version nibble breaks the handshake instead of going unnoticed.
+    /// </summary>
+    public static void Bind(ulong nonce, ReadOnlySpan<byte> cookie, Span<byte> bind)
+    {
+        bind[0] = VersionSecure;
+        BinaryPrimitives.WriteUInt64LittleEndian(bind[1..], nonce);
+        cookie[..CookieSize].CopyTo(bind[9..]);
+    }
 
     /// <summary>Copies a socket address so it can be kept.</summary>
     public static SocketAddress Clone(SocketAddress a)

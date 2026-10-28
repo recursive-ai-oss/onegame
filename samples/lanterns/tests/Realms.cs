@@ -4,6 +4,7 @@ using Lanterns.Server;
 using Lanterns.Views;
 using OneGame.Core;
 using OneGame.Host;
+using OneGame.Net;
 using OneGame.Server;
 using OneGame.Sync;
 
@@ -14,6 +15,8 @@ internal sealed class Realms : IDisposable
 {
     private readonly int[] _peerPorts = [Free(), Free(), Free()];
     private readonly int[] _listenPorts = [Free(), Free(), Free()]; // fixed per scope, so a restarted server is found where it was
+    private readonly NetKeyPair[] _keys = [NetKeyPair.Generate(), NetKeyPair.Generate(), NetKeyPair.Generate()]; // one per scope
+    private readonly Dictionary<string, NetKeyPair> _identities = [];
     private readonly string? _data;
     private readonly Dictionary<uint, (ServerHost Host, Realm Realm)> _servers = [];
     private readonly List<GameInstance> _clients = [];
@@ -26,6 +29,8 @@ internal sealed class Realms : IDisposable
             Start(scope);
         }
     }
+
+    private const string GameId = "lanterns/test";
 
     public ServerHost A => _servers[Rules.IslandA].Host;
 
@@ -43,6 +48,7 @@ internal sealed class Realms : IDisposable
         foreach (var other in new[] { Rules.IslandA, Rules.IslandB, Rules.Master }.Where(s => s != scope))
         {
             options.Add(new("peer." + other.ToString(CultureInfo.InvariantCulture), "udp://127.0.0.1:" + _peerPorts[other - 1].ToString(CultureInfo.InvariantCulture)));
+            options.Add(new("peer.key." + other.ToString(CultureInfo.InvariantCulture), _keys[other - 1].PublicKey.ToString()));
         }
 
         if (_data is not null)
@@ -59,7 +65,7 @@ internal sealed class Realms : IDisposable
             HashHistory = 64,
         };
         var realm = new Realm();
-        var host = new ServerHost(config, realm.Create(), null, new ServerLog());
+        var host = new ServerHost(config, realm.Create(), null, new ServerLog()) { Security = NetSecurity.ForServer(_keys[scope - 1], GameId) };
         host.Start();
         _servers[scope] = (host, realm);
     }
@@ -72,6 +78,9 @@ internal sealed class Realms : IDisposable
         _servers.Remove(scope);
     }
 
+    /// <summary>A player's key: the same name is the same player on every connection, as a saved key file would make it.</summary>
+    public NetKeyPair Identity(string name) => _identities.TryGetValue(name, out var k) ? k : _identities[name] = NetKeyPair.Generate();
+
     public GameInstance Client(string name, uint island, GpuMode gpu = GpuMode.Off)
     {
         var port = Host(island).Endpoints.First(e => e.Transport == "udp").Port;
@@ -80,7 +89,7 @@ internal sealed class Realms : IDisposable
         {
             Headless = true,
             Gpu = gpu,
-            Connect = new ConnectOptions { Address = "udp://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture), Scope = island, AlsoScopes = also, Name = name },
+            Connect = new ConnectOptions { Address = "udp://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture), Scope = island, AlsoScopes = also, Name = name, Security = NetSecurity.ForClient([_keys[island - 1].PublicKey], GameId, Identity(name)) },
         });
         _clients.Add(game);
         return game;

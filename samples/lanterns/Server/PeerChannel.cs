@@ -15,12 +15,17 @@ internal sealed class PeerChannel : IMessageChannel
     private const int RetryMilliseconds = 250;
 
     private readonly IPEndPoint _endpoint;
+    private readonly UdpOptions _options;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private UdpConnection? _connection;
     private long _nextAttempt;
     private bool _wasConnected;
 
-    public PeerChannel(IPEndPoint endpoint) => _endpoint = endpoint;
+    public PeerChannel(IPEndPoint endpoint, NetSecurity security)
+    {
+        _endpoint = endpoint;
+        _options = new UdpOptions { Security = security };
+    }
 
     /// <summary>True while the handshake is complete and the connection is open.</summary>
     public bool IsConnected => _connection is { State: ConnectionState.Connected };
@@ -37,7 +42,7 @@ internal sealed class PeerChannel : IMessageChannel
             if (_clock.ElapsedMilliseconds >= _nextAttempt)
             {
                 _nextAttempt = _clock.ElapsedMilliseconds + RetryMilliseconds;
-                _connection = UdpTransport.Connect(_endpoint, null, NetClock.System);
+                _connection = UdpTransport.Connect(_endpoint, _options, NetClock.System);
             }
 
             return;

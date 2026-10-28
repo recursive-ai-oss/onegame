@@ -1,5 +1,7 @@
 using System.Net;
+using OneGame.Core;
 using OneGame.Net;
+using OneGame.Sync;
 
 namespace OneGame.Server;
 
@@ -7,7 +9,8 @@ namespace OneGame.Server;
 /// <param name="Name">The name the connection will have in reports (transport and remote address).</param>
 /// <param name="Transport"><c>udp</c> or <c>ws</c>.</param>
 /// <param name="Address">The client's remote address as text.</param>
-public sealed record ClientRequest(string Name, string Transport, string Address);
+/// <param name="Key">The client's authenticated public key (what names a player), or null on an insecure link.</param>
+public sealed record ClientRequest(string Name, string Transport, string Address, PeerKey? Key = null);
 
 /// <summary>A bound listening address.</summary>
 /// <param name="Transport"><c>udp</c> or <c>ws</c>.</param>
@@ -37,7 +40,7 @@ public sealed record ClientInfo(int Id, string Name, string Transport, string Ad
 public sealed record ScopeHashAt(uint Scope, long Tick, string? Hash, string[] Views);
 
 /// <summary>
-/// The server's side of its network clients: listeners, the authentication decision, and <see cref="Node.Accept"/> for every accepted
+/// The server's side of its network clients: listeners, the authentication decision, and <see cref="Node.Accept(IMessageChannel, Trust, string?)"/> for every accepted
 /// connection, so the server node handles it like any other client. Closed connections are unsubscribed from every scope.
 /// </summary>
 internal sealed class ServerNetwork
@@ -64,6 +67,9 @@ internal sealed class ServerNetwork
 
     public int Count => _remotes.Count;
 
+    /// <summary>The security every listener uses; <see cref="Listen"/> throws <see cref="SecurityNotConfiguredException"/> while it is null.</summary>
+    public NetSecurity? Security { get; set; }
+
     public void Listen(ListenConfig config)
     {
         if (!IPAddress.TryParse(config.Address, out var address))
@@ -72,7 +78,9 @@ internal sealed class ServerNetwork
         }
 
         var bind = new IPEndPoint(address, config.Port);
-        INetListener listener = config.Transport == "udp" ? UdpTransport.Listen(bind) : WebSocketTransport.Listen(bind);
+        INetListener listener = config.Transport == "udp"
+            ? UdpTransport.Listen(bind, new UdpOptions { Security = Security })
+            : WebSocketTransport.Listen(bind, new WebSocketOptions { Security = Security });
         _listeners.Add(listener);
         _transports.Add(config.Transport);
         var port = listener.LocalEndPoint is IPEndPoint bound ? bound.Port : config.Port;
@@ -154,7 +162,8 @@ internal sealed class ServerNetwork
 
     private void Admit(INetConnection connection, string transport)
     {
-        var request = new ClientRequest(transport + "://" + connection.RemoteName, transport, connection.RemoteName);
+        // RemoteKey is the key the client proved during the handshake; null only on an Insecure link.
+        var request = new ClientRequest(transport + "://" + connection.RemoteName, transport, connection.RemoteName, connection.RemoteKey);
         var trust = _authenticate(request);
         if (trust is null)
         {

@@ -106,10 +106,16 @@ internal sealed class ReliableCore
     private long _retransmits;
     private long _fragsSent;
 
-    public ReliableCore(UdpOptions options, long now)
+    private readonly int _overhead;
+
+    /// <param name="options">The transport settings.</param>
+    /// <param name="now">The clock at creation.</param>
+    /// <param name="overhead">Bytes a secure connection adds to every datagram after the core has built it (the authentication tag); 0 for plaintext.</param>
+    public ReliableCore(UdpOptions options, long now, int overhead = 0)
     {
         _o = options;
-        _maxFrag = options.Mtu - HeaderSize - RelOverhead;
+        _overhead = overhead;
+        _maxFrag = options.Mtu - HeaderSize - RelOverhead - overhead;
         _slots = new Slot[options.ReceiveWindow];
         _slotMask = options.ReceiveWindow - 1;
         _cwnd = (double)options.MinCongestionWindowPackets * options.Mtu;
@@ -118,7 +124,7 @@ internal sealed class ReliableCore
     }
 
     /// <summary>Largest unreliable message.</summary>
-    public int MaxUnreliableBytes => _o.Mtu - HeaderSize - UnrelOverhead;
+    public int MaxUnreliableBytes => _o.Mtu - HeaderSize - UnrelOverhead - _overhead;
 
     /// <summary>When the last datagram went out, for keepalive.</summary>
     public long LastSend { get; private set; }
@@ -128,6 +134,33 @@ internal sealed class ReliableCore
 
     /// <summary>The peer broke the protocol while delivering buffered data; the connection must close.</summary>
     public bool PendingViolation { get; private set; }
+
+    /// <summary>How many data packets this side has built.</summary>
+    public uint TxPackets => _txPkt;
+
+    /// <summary>
+    /// True if a packet with this number is neither a duplicate nor older than the 64-packet window, so a secure connection can reject
+    /// replays before spending an AEAD operation on them. It changes nothing: the number is only recorded by <see cref="OnPacket"/>.
+    /// </summary>
+    public bool IsFresh(uint pkt)
+    {
+        if (!_rxAny)
+        {
+            return true;
+        }
+
+        var d = (int)(pkt - _rxHighest);
+        if (d > 0)
+        {
+            return true;
+        }
+
+        var back = -(long)d;
+        return back <= 63 && (_rxMask & (1UL << (int)back)) == 0;
+    }
+
+    /// <summary>Makes the next <see cref="Build"/> send a packet even if it carries nothing, so the peer hears from this side at once.</summary>
+    public void ForceSend() => _ackPending = true;
 
     /// <summary>Restarts the keepalive and timeout clocks, when the handshake finishes.</summary>
     public void Touch(long now)
@@ -208,7 +241,7 @@ internal sealed class ReliableCore
     /// </summary>
     public int Build(Span<byte> dst, uint connectionId, long now)
     {
-        var limit = Math.Min(dst.Length, _o.Mtu);
+        var limit = Math.Min(dst.Length, _o.Mtu - _overhead);
         var pos = HeaderSize;
         var frames = 0;
 

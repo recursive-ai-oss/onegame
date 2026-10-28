@@ -32,6 +32,40 @@ public class CliTests
     }
 
     [Fact]
+    public void KeysMakesAKeyPairAndNeverOverwritesOne()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "onegame-keys-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var (code, text) = Run("keys", "--out", folder, "--name", "island", "--json");
+            Assert.Equal(0, code);
+            using var doc = JsonDocument.Parse(text);
+            var root = doc.RootElement;
+            Assert.True(root.GetProperty("ok").GetBoolean());
+            Assert.Equal("island", root.GetProperty("name").GetString());
+            var publicKey = root.GetProperty("publicKey").GetString()!;
+            Assert.Equal(43, publicKey.Length);
+            Assert.Equal(publicKey + "\n", File.ReadAllText(root.GetProperty("publicFile").GetString()!));
+            var privateText = File.ReadAllText(root.GetProperty("privateFile").GetString()!);
+            Assert.Contains("private:", privateText, StringComparison.Ordinal);
+            Assert.DoesNotContain(privateText.Split('\n').First(l => l.StartsWith("private:", StringComparison.Ordinal))[8..].Trim(), text, StringComparison.Ordinal); // the secret never prints
+            Assert.Contains("*.key", File.ReadAllText(Path.Combine(folder, ".gitignore")), StringComparison.Ordinal);
+
+            var (again, error) = Run("keys", "--out", folder, "--name", "island", "--json");
+            Assert.NotEqual(0, again);
+            Assert.Contains("key_exists", error, StringComparison.Ordinal);
+            Assert.Equal(0, Run("keys", "--out", folder, "--name", "island", "--force", "--json").Code);
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+            {
+                Directory.Delete(folder, true);
+            }
+        }
+    }
+
+    [Fact]
     public void UnknownVerbFails()
     {
         var (code, text) = Run("nope", "--json");

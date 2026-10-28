@@ -67,6 +67,7 @@ internal sealed record ClusterTestResult(int Passed, int Failed, ScenarioResult[
 /// <summary>Source-generated JSON metadata; the command line never uses reflection-based serialization.</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(VersionResult))]
+[JsonSerializable(typeof(Verbs.KeysResult))]
 [JsonSerializable(typeof(HelpResult))]
 [JsonSerializable(typeof(ErrorResult))]
 [JsonSerializable(typeof(NewResult))]

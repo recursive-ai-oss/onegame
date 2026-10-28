@@ -15,8 +15,8 @@ public class RemoteNodeTests
         var playerNode = new Node("player", options);
         var scope = authorityNode.AddScope(new ScopeId(1), Scenario.NewAuthority(8, 30));
 
-        var server = UdpTransport.Listen(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), null, clock);
-        var client = UdpTransport.Connect(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), server.LocalEndPointAddress(), null, clock);
+        var server = UdpTransport.Listen(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), Plain.Udp, clock);
+        var client = UdpTransport.Connect(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), server.LocalEndPointAddress(), Plain.Udp, clock);
         using var _ = server;
         INetConnection? accepted = null;
         for (var i = 0; i < 5000 && (accepted is null || client.State != ConnectionState.Connected); i++)

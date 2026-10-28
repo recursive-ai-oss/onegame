@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json.Serialization;
+using OneGame.Core;
 using OneGame.Control;
 
 namespace OneGame.Testing;
@@ -872,6 +873,11 @@ public sealed class ProcessCluster : IDisposable
         if (node.Role == NodeRole.Server)
         {
             args.AddRange(node.Args.Select(a => Expand(a, ports, dir)));
+            if (!args.Contains("--key") && !args.Contains("--insecure"))
+            {
+                args.AddRange(["--key", DevKey(dir, node.Name).PrivateFile]);
+            }
+
             args.AddRange(["--name", node.Name]);
             // Servers bind the loopback address unless ONEGAME_CLUSTER_BIND names another (0.0.0.0 lets a phone on the network join).
             var bind = Environment.GetEnvironmentVariable("ONEGAME_CLUSTER_BIND") is { Length: > 0 } b ? b : "127.0.0.1";
@@ -904,6 +910,21 @@ public sealed class ProcessCluster : IDisposable
             var endpoint = target.Listen.First(e => e.Transport == node.Transport);
             connect = $"{node.Transport}://127.0.0.1:{endpoint.Port.ToString(CultureInfo.InvariantCulture)}";
             args.AddRange(node.Args.Select(a => Expand(a, ports, dir)));
+            if (!args.Contains("--insecure"))
+            {
+                // The client pins the server's key the way a shipped game would, and keeps its own identity for as long as the cluster
+                // lives, so a restarted client is the same player.
+                if (!args.Contains("--server-key"))
+                {
+                    args.AddRange(["--server-key", DevKey(dir, node.Connect!).PublicFile]);
+                }
+
+                if (!args.Contains("--identity"))
+                {
+                    args.AddRange(["--identity", DevKey(dir, node.Name).PrivateFile]);
+                }
+            }
+
             // A client draws on the CPU unless its own arguments ask for a graphics device (a game that shows a 3D scene needs one to capture it).
             args.AddRange(["--headless", .. node.Args.Contains("--gpu") ? Array.Empty<string>() : ["--gpu", "off"], "--name", node.Name, "--connect", connect, "--scope", node.Scope.ToString(CultureInfo.InvariantCulture)]);
             if (node.Net is not null)
@@ -969,6 +990,8 @@ public sealed class ProcessCluster : IDisposable
             info.ArgumentList.Add(a);
         }
 
+        // Cluster nodes are development runs: they may use the development keys made above.
+        info.Environment["ONEGAME_DEV"] = "1";
         var process = Process.Start(info) ?? throw new ClusterException("start_failed", $"Node '{node.Name}' did not start.");
         processes?.Add(process);
         process.StandardInput.Close();
@@ -1123,10 +1146,23 @@ public sealed class ProcessCluster : IDisposable
         foreach (var (name, port) in ports)
         {
             text = text.Replace("{port:" + name + "}", port.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+            if (!name.EndsWith(".peer", StringComparison.Ordinal))
+            {
+                // {key:NAME} is the public key file of server NAME, the way a pinned or master-supplied key reaches another server.
+                var token = "{key:" + name + "}";
+                if (text.Contains(token, StringComparison.Ordinal))
+                {
+                    text = text.Replace(token, DevKey(dir, name).PublicFile, StringComparison.Ordinal);
+                }
+            }
         }
 
         return text;
     }
+
+    // Each node of a cluster gets a development key in the cluster's own folder, made on first use; the folder is the cluster's scratch
+    // space (it is deleted with the cluster), never a game folder.
+    private static KeyFiles DevKey(string dir, string name) => KeyStore.Ensure(Path.Combine(dir, "keys"), name, development: true);
 
     private static string Tail(string log) => File.Exists(log) ? string.Join('\n', ReadLines(log).TakeLast(15)) : "(no output)";
 

@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
+using OneGame.Core;
+using OneGame.Net;
 
 namespace OneGame.Server;
 
@@ -65,6 +67,13 @@ public sealed class ServerHost
     /// request carries only the remote address. Set it before <see cref="Start"/>.
     /// </summary>
     public Func<ClientRequest, Trust?>? Authenticate { get; set; }
+
+    /// <summary>
+    /// How client links are secured. Null (the default) builds it from <see cref="ServerConfig.Security"/> at <see cref="Start"/> (so after
+    /// <c>Start</c> it holds the settings in force, which a game can reuse for its own server-to-server links); set it first to supply keys from code. <see cref="Start"/> throws <see cref="SecurityNotConfiguredException"/> when the server listens and neither this
+    /// nor the configuration names a key or says <c>insecure</c>.
+    /// </summary>
+    public NetSecurity? Security { get; set; }
 
     /// <summary>The addresses the server listens on, with the ports the system picked for configured port 0. Filled by <see cref="Start"/>.</summary>
     public IReadOnlyList<ListenEndpoint> Endpoints => _network.Endpoints;
@@ -137,6 +146,59 @@ public sealed class ServerHost
     /// <summary>True once a stop was requested (the control surface's <c>shutdown</c>).</summary>
     public bool StopRequested { get; private set; }
 
+    // Insecure mode and development keys are for development runs only. A real server cannot be put in either by accident: the command
+    // line and configuration may ask for them only when the process says it is a development run (ONEGAME_DEV=1, which the onegame
+    // tool, clusters and test rigs set). Code that sets ServerHost.Security itself has made the choice in code.
+    private NetSecurity BuildSecurity(SecurityConfig config)
+    {
+        var development = Environment.GetEnvironmentVariable("ONEGAME_DEV") == "1";
+        if (config.Insecure)
+        {
+            return development
+                ? NetSecurity.Insecure
+                : throw new SecurityNotConfiguredException("The server was asked to run insecure (no encryption, no authentication), which is only for development runs. Give it a real key (--key <file>, made with 'onegame keys'), or set ONEGAME_DEV=1 for a development run.");
+        }
+
+        if (config.KeyFiles.Count == 0 && development)
+        {
+            // A development run with no key named uses the per-user development key (the one 'onegame run --connect' pins), made on first use.
+            var made = KeyStore.Ensure(KeyStore.DevelopmentFolder("default"), "server", development: true);
+            Log.Warn($"no server key given: using the development key {made.PrivateFile} (public key {made.PublicKey}); do not run a public server like this.");
+            return NetSecurity.ForServer(NetKeyPair.Load(made.PrivateFile), config.GameId);
+        }
+
+        if (config.KeyFiles.Count == 0)
+        {
+            throw new SecurityNotConfiguredException("The server listens for clients but has no key. Make one with 'onegame keys' and pass --key <file> (or set security: key: in the configuration); use --insecure (security: insecure: true) only for tests and local tools.");
+        }
+
+        var pairs = new List<NetKeyPair>();
+        foreach (var file in config.KeyFiles)
+        {
+            try
+            {
+                var pair = NetKeyPair.Load(file);
+                if (pair.IsDevelopment)
+                {
+                    if (!development)
+                    {
+                        throw new SecurityNotConfiguredException($"'{file}' is a development key and this is not a development run. Make a real key with 'onegame keys', or set ONEGAME_DEV=1.");
+                    }
+
+                    Log.Warn($"using a development key ({file}); do not run a public server with it.");
+                }
+
+                pairs.Add(pair);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or KeyFormatException)
+            {
+                throw new SecurityNotConfiguredException($"Cannot read the server key '{file}': {ex.Message}");
+            }
+        }
+
+        return NetSecurity.ForServer(pairs[0], config.GameId, [.. pairs.Skip(1)]);
+    }
+
     /// <summary>Asks <see cref="Run"/> to finish its current tick and stop.</summary>
     public void RequestStop() => StopRequested = true;
 
@@ -164,6 +226,16 @@ public sealed class ServerHost
             world.AddSystem(systems);
             var id = new ScopeId(sc.Id);
             _scopes.Add(new ServerScope(id, Node.AddScope(id, world), registry, systems, new HashRing(Config.HashHistory)));
+        }
+
+        if (Config.Listen.Count > 0 || Config.Security.KeyFiles.Count > 0 || Security is not null)
+        {
+            Security ??= BuildSecurity(Config.Security);
+            _network.Security = Security;
+            if (_network.Security.Mode == SecurityMode.Insecure)
+            {
+                Log.Warn("client links are NOT encrypted or authenticated (insecure mode). Use this for tests and local tools only.");
+            }
         }
 
         foreach (var listen in Config.Listen)
