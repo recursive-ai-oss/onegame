@@ -43,8 +43,8 @@ public class UdpTests
     {
         var rig = new Rig();
         var serverSocket = rig.Net.CreateSocket();
-        var server = UdpTransport.Listen(serverSocket, null, rig.Clock);
-        var client = UdpTransport.Connect(rig.Net.CreateSocket(), serverSocket.LocalAddress, null, rig.Clock);
+        var server = UdpTransport.Listen(serverSocket, Plain.Udp, rig.Clock);
+        var client = UdpTransport.Connect(rig.Net.CreateSocket(), serverSocket.LocalAddress, Plain.Udp, rig.Clock);
         rig.Pumps.Add(server.Pump);
         rig.Pumps.Add(client.Pump);
         for (var i = 0; i < 20; i++)
@@ -100,7 +100,7 @@ public class UdpTests
     public void OversizeSendsAreRefusedBeforeAnythingIsQueued()
     {
         var rig = new Rig();
-        var (_, client, _) = rig.Connected(new UdpOptions { MaxMessageBytes = 4096 }, new UdpOptions { MaxMessageBytes = 4096 });
+        var (_, client, _) = rig.Connected(new UdpOptions { Security = NetSecurity.Insecure, MaxMessageBytes = 4096 }, new UdpOptions { Security = NetSecurity.Insecure, MaxMessageBytes = 4096 });
         var e = Assert.Throws<MessageTooLargeException>(() => client.Send(new byte[4097]));
         Assert.Equal(4097, e.Size);
         Assert.Equal(4096, e.Limit);
@@ -115,7 +115,7 @@ public class UdpTests
     {
         var rig = new Rig();
         // The sender allows 2 MiB; the receiver only 64 KiB.
-        var (server, client, accepted) = rig.Connected(new UdpOptions { MaxMessageBytes = 64 * 1024 }, new UdpOptions { MaxMessageBytes = 2 << 20 });
+        var (server, client, accepted) = rig.Connected(new UdpOptions { Security = NetSecurity.Insecure, MaxMessageBytes = 64 * 1024 }, new UdpOptions { Security = NetSecurity.Insecure, MaxMessageBytes = 2 << 20 });
         DisconnectInfo? seen = null;
         accepted.Disconnected += (_, info) => seen = info;
         var before = GC.GetTotalMemory(true);
@@ -135,7 +135,7 @@ public class UdpTests
     {
         var rig = new Rig();
         var serverSocket = rig.Net.CreateSocket();
-        var server = UdpTransport.Listen(serverSocket, null, rig.Clock);
+        var server = UdpTransport.Listen(serverSocket, Plain.Udp, rig.Clock);
         var replies = rig.Net.CreateSocket(); // stands in for every spoofed address; it never answers
         var request = new byte[Wire.MinHandshakeSize];
         request[0] = Wire.Header(Wire.KindRequest);
@@ -172,7 +172,7 @@ public class UdpTests
     {
         var rig = new Rig();
         var serverSocket = rig.Net.CreateSocket();
-        var server = UdpTransport.Listen(serverSocket, null, rig.Clock);
+        var server = UdpTransport.Listen(serverSocket, Plain.Udp, rig.Clock);
         var probe = rig.Net.CreateSocket();
         var data = new byte[ReliableCore.HeaderSize + 40];
         data[0] = Wire.Header(Wire.KindData);
@@ -203,9 +203,9 @@ public class UdpTests
     {
         // Real sockets: a second listener binds the port the first one had.
         var firstSocket = new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0));
-        var first = UdpTransport.Listen(firstSocket);
+        var first = UdpTransport.Listen(firstSocket, Plain.Udp);
         var port = ((IPEndPoint)new IPEndPoint(IPAddress.Loopback, 0).Create(firstSocket.LocalAddress)).Port;
-        var options = new UdpOptions { KeepAliveMs = 100, TimeoutMs = 20_000 };
+        var options = new UdpOptions { Security = NetSecurity.Insecure, KeepAliveMs = 100, TimeoutMs = 20_000 };
         var client = UdpTransport.Connect(new IPEndPoint(IPAddress.Loopback, port), options);
         var clock = System.Diagnostics.Stopwatch.StartNew();
         while (client.State != ConnectionState.Connected && clock.ElapsedMilliseconds < 5000)
@@ -219,7 +219,7 @@ public class UdpTests
 
         // The first server dies without a word (its connections are dropped, not disconnected), and a new one starts on the same port.
         firstSocket.Dispose();
-        using var restarted = UdpTransport.Listen(new IPEndPoint(IPAddress.Loopback, port));
+        using var restarted = UdpTransport.Listen(new IPEndPoint(IPAddress.Loopback, port), Plain.Udp);
         clock.Restart();
         while (client.State != ConnectionState.Closed && clock.ElapsedMilliseconds < 5000)
         {
@@ -240,7 +240,7 @@ public class UdpTests
         Assert.True(Wire.AcceptSize < Wire.MinHandshakeSize);
         var rig = new Rig();
         var serverSocket = rig.Net.CreateSocket();
-        var server = UdpTransport.Listen(serverSocket, null, rig.Clock);
+        var server = UdpTransport.Listen(serverSocket, Plain.Udp, rig.Clock);
         var probe = rig.Net.CreateSocket();
         var tooShort = new byte[Wire.MinHandshakeSize - 1];
         tooShort[0] = Wire.Header(Wire.KindRequest);
@@ -261,7 +261,7 @@ public class UdpTests
     public void ConnectingToNobodyTimesOutWithAReason()
     {
         var rig = new Rig();
-        var lonely = UdpTransport.Connect(rig.Net.CreateSocket(), Rig.Address(9), new UdpOptions { ConnectTimeoutMs = 1000 }, rig.Clock);
+        var lonely = UdpTransport.Connect(rig.Net.CreateSocket(), Rig.Address(9), new UdpOptions { Security = NetSecurity.Insecure, ConnectTimeoutMs = 1000 }, rig.Clock);
         DisconnectInfo? info = null;
         lonely.Disconnected += (_, i) => info = i;
         rig.Pumps.Add(lonely.Pump);
@@ -294,7 +294,7 @@ public class UdpTests
     public void AnUnresponsivePeerTimesOutAndIsReported()
     {
         var rig = new Rig();
-        var (server, client, accepted) = rig.Connected(new UdpOptions { TimeoutMs = 2000, KeepAliveMs = 200 }, new UdpOptions { TimeoutMs = 2000, KeepAliveMs = 200 });
+        var (server, client, accepted) = rig.Connected(new UdpOptions { Security = NetSecurity.Insecure, TimeoutMs = 2000, KeepAliveMs = 200 }, new UdpOptions { Security = NetSecurity.Insecure, TimeoutMs = 2000, KeepAliveMs = 200 });
         DisconnectInfo? atServer = null;
         accepted.Disconnected += (_, i) => atServer = i;
         // The client goes silent without a word (the process died).
@@ -310,7 +310,7 @@ public class UdpTests
     public void KeepaliveHoldsAnIdleConnectionOpen()
     {
         var rig = new Rig();
-        var (_, client, accepted) = rig.Connected(new UdpOptions { TimeoutMs = 2000, KeepAliveMs = 300 }, new UdpOptions { TimeoutMs = 2000, KeepAliveMs = 300 });
+        var (_, client, accepted) = rig.Connected(new UdpOptions { Security = NetSecurity.Insecure, TimeoutMs = 2000, KeepAliveMs = 300 }, new UdpOptions { Security = NetSecurity.Insecure, TimeoutMs = 2000, KeepAliveMs = 300 });
         rig.Run(10_000, 20);
         Assert.Equal(ConnectionState.Connected, client.State);
         Assert.Equal(ConnectionState.Connected, accepted.State);
@@ -321,10 +321,10 @@ public class UdpTests
     {
         var rig = new Rig();
         var serverSocket = rig.Net.CreateSocket();
-        var server = UdpTransport.Listen(serverSocket, new UdpOptions { MaxConnections = 1 }, rig.Clock);
+        var server = UdpTransport.Listen(serverSocket, new UdpOptions { Security = NetSecurity.Insecure, MaxConnections = 1 }, rig.Clock);
         rig.Pumps.Add(server.Pump);
-        var a = UdpTransport.Connect(rig.Net.CreateSocket(), serverSocket.LocalAddress, null, rig.Clock);
-        var b = UdpTransport.Connect(rig.Net.CreateSocket(), serverSocket.LocalAddress, null, rig.Clock);
+        var a = UdpTransport.Connect(rig.Net.CreateSocket(), serverSocket.LocalAddress, Plain.Udp, rig.Clock);
+        var b = UdpTransport.Connect(rig.Net.CreateSocket(), serverSocket.LocalAddress, Plain.Udp, rig.Clock);
         rig.Pumps.Add(a.Pump);
         rig.Pumps.Add(b.Pump);
         rig.Run(500);
@@ -341,10 +341,10 @@ public class UdpTests
     {
         var rig = new Rig();
         var serverSocket = rig.Net.CreateSocket();
-        var server = UdpTransport.Listen(serverSocket, null, rig.Clock);
+        var server = UdpTransport.Listen(serverSocket, Plain.Udp, rig.Clock);
         var probe = rig.Net.CreateSocket();
         var request = new byte[Wire.MinHandshakeSize];
-        request[0] = (byte)((Wire.Version + 1) << 4 | Wire.KindRequest);
+        request[0] = (byte)((Wire.VersionSecure + 1) << 4 | Wire.KindRequest);
         probe.Send(request, serverSocket.LocalAddress);
         server.Pump();
         var buf = new byte[64];
@@ -396,9 +396,9 @@ public class UdpTests
     [Fact]
     public void RealSocketsOnLoopbackWork()
     {
-        using var server = UdpTransport.Listen(new IPEndPoint(IPAddress.Loopback, 0));
+        using var server = UdpTransport.Listen(new IPEndPoint(IPAddress.Loopback, 0), Plain.Udp);
         var port = ((IPEndPoint)server.LocalEndPoint).Port;
-        var client = UdpTransport.Connect(new IPEndPoint(IPAddress.Loopback, port));
+        var client = UdpTransport.Connect(new IPEndPoint(IPAddress.Loopback, port), Plain.Udp);
         INetConnection? accepted = null;
         var big = Rig.Pattern(500_000, 5);
         client.Send(big);
@@ -483,8 +483,8 @@ public class UdpTests
     [Fact]
     public void RealSocketsSteadyStateAllocatesNothing()
     {
-        using var server = UdpTransport.Listen(new IPEndPoint(IPAddress.Loopback, 0));
-        var client = UdpTransport.Connect(new IPEndPoint(IPAddress.Loopback, ((IPEndPoint)server.LocalEndPoint).Port));
+        using var server = UdpTransport.Listen(new IPEndPoint(IPAddress.Loopback, 0), Plain.Udp);
+        var client = UdpTransport.Connect(new IPEndPoint(IPAddress.Loopback, ((IPEndPoint)server.LocalEndPoint).Port), Plain.Udp);
         INetConnection? accepted = null;
         var deadline = Environment.TickCount64 + 5000;
         while ((accepted is null || client.State != ConnectionState.Connected) && Environment.TickCount64 < deadline)
@@ -532,7 +532,7 @@ public class UdpTests
     public void BackpressureStallsTheSenderInsteadOfGrowingTheReceiver()
     {
         var rig = new Rig();
-        var (_, client, accepted) = rig.Connected(new UdpOptions { MaxReceiveQueueBytes = 100_000 });
+        var (_, client, accepted) = rig.Connected(new UdpOptions { Security = NetSecurity.Insecure, MaxReceiveQueueBytes = 100_000 });
         for (var i = 0; i < 50; i++)
         {
             client.Send(new byte[50_000]);
@@ -558,7 +558,7 @@ public class UdpTests
     public void ABloatedSendQueueClosesTheConnection()
     {
         var rig = new Rig();
-        var (_, client, _) = rig.Connected(clientOptions: new UdpOptions { MaxMessageBytes = 1 << 20, MaxSendQueueBytes = 2 << 20 });
+        var (_, client, _) = rig.Connected(clientOptions: new UdpOptions { Security = NetSecurity.Insecure, MaxMessageBytes = 1 << 20, MaxSendQueueBytes = 2 << 20 });
         DisconnectInfo? info = null;
         client.Disconnected += (_, i) => info = i;
         for (var i = 0; i < 5; i++)
@@ -573,7 +573,7 @@ public class UdpTests
     [Fact]
     public void BadOptionsAreRefused()
     {
-        Assert.Throws<ArgumentException>(() => UdpTransport.Listen(new Rig().Net.CreateSocket(), new UdpOptions { ReceiveWindow = 100 }));
-        Assert.Throws<ArgumentException>(() => UdpTransport.Listen(new Rig().Net.CreateSocket(), new UdpOptions { Mtu = 100 }));
+        Assert.Throws<ArgumentException>(() => UdpTransport.Listen(new Rig().Net.CreateSocket(), new UdpOptions { Security = NetSecurity.Insecure, ReceiveWindow = 100 }));
+        Assert.Throws<ArgumentException>(() => UdpTransport.Listen(new Rig().Net.CreateSocket(), new UdpOptions { Security = NetSecurity.Insecure, Mtu = 100 }));
     }
 }

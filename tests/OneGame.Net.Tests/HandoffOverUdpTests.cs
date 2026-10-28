@@ -46,8 +46,8 @@ public class HandoffOverUdpTests
         public Pairing Pair()
         {
             NetworkConditions Conditions() => new() { LatencyMs = 80, JitterMs = 8, LossRate = 0.02, Seed = _seed++ };
-            var server = UdpTransport.Listen(new ConditionedDatagramSocket(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), Conditions(), clock), null, clock);
-            var client = UdpTransport.Connect(new ConditionedDatagramSocket(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), Conditions(), clock), server.LocalEndPointAddress(), null, clock);
+            var server = UdpTransport.Listen(new ConditionedDatagramSocket(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), Conditions(), clock), Plain.Udp, clock);
+            var client = UdpTransport.Connect(new ConditionedDatagramSocket(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), Conditions(), clock), server.LocalEndPointAddress(), Plain.Udp, clock);
             _listeners.Add(server);
             _clients.Add(client);
             INetConnection? accepted = null;

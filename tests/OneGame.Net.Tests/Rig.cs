@@ -48,8 +48,8 @@ internal sealed class Rig
     public (UdpListener Server, UdpConnection Client, INetConnection Accepted) Connected(UdpOptions? serverOptions = null, UdpOptions? clientOptions = null, NetworkConditions? conditions = null)
     {
         var serverSocket = Net.CreateSocket();
-        var server = UdpTransport.Listen(Maybe(serverSocket, conditions), serverOptions, Clock);
-        var client = UdpTransport.Connect(Maybe(Net.CreateSocket(), conditions), serverSocket.LocalAddress, clientOptions, Clock);
+        var server = UdpTransport.Listen(Maybe(serverSocket, conditions), serverOptions ?? Plain.Udp, Clock);
+        var client = UdpTransport.Connect(Maybe(Net.CreateSocket(), conditions), serverSocket.LocalAddress, clientOptions ?? Plain.Udp, Clock);
         Pumps.Add(server.Pump);
         Pumps.Add(client.Pump);
         INetConnection? accepted = null;

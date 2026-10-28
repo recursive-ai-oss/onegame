@@ -140,11 +140,11 @@ public class TwoNodeSyncTests
     {
         var r = Play(clock =>
         {
-            var server = UdpTransport.Listen(new ConditionedDatagramSocket(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), Hostile, clock), null, clock);
+            var server = UdpTransport.Listen(new ConditionedDatagramSocket(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), Hostile, clock), Plain.Udp, clock);
             var client = UdpTransport.Connect(
                 new ConditionedDatagramSocket(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), new NetworkConditions { LatencyMs = 150, JitterMs = 30, LossRate = 0.05, DuplicateRate = 0.02, ReorderRate = 0.05, Seed = 12 }, clock),
                 server.LocalEndPointAddress(),
-                null,
+                Plain.Udp,
                 clock);
             INetConnection? accepted = null;
             void Pump()
@@ -214,8 +214,8 @@ public class TwoNodeSyncTests
         {
             var net = new MemoryDatagramNetwork();
             var serverSocket = net.CreateSocket();
-            var server = UdpTransport.Listen(new ConditionedDatagramSocket(serverSocket, Hostile, clock, ownsInner: false), null, clock);
-            var client = UdpTransport.Connect(new ConditionedDatagramSocket(net.CreateSocket(), new NetworkConditions { LatencyMs = 150, JitterMs = 30, LossRate = 0.05, DuplicateRate = 0.02, ReorderRate = 0.05, Seed = 12 }, clock), serverSocket.LocalAddress, null, clock);
+            var server = UdpTransport.Listen(new ConditionedDatagramSocket(serverSocket, Hostile, clock, ownsInner: false), Plain.Udp, clock);
+            var client = UdpTransport.Connect(new ConditionedDatagramSocket(net.CreateSocket(), new NetworkConditions { LatencyMs = 150, JitterMs = 30, LossRate = 0.05, DuplicateRate = 0.02, ReorderRate = 0.05, Seed = 12 }, clock), serverSocket.LocalAddress, Plain.Udp, clock);
             INetConnection? accepted = null;
             void Pump()
             {
