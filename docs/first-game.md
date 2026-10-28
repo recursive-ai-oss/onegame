@@ -189,6 +189,7 @@ The result is a folder and an archive in `./export`: a NativeAOT program, its fo
 
 ## Next
 
+- [api/index.md](api/index.md): the API reference: every public type of every package, with signatures and docs.
 - [pages.md](pages.md): screens written in HTML and CSS through OneRender. [tweens.md](tweens.md), [particles.md](particles.md) and [saves.md](saves.md): animation and style transitions, particle effects, save slots and settings.
 - [driving-a-game.md](driving-a-game.md): scenarios in depth, replays, captures and live control for an agent.
 - [ui-guide.md](ui-guide.md): screens, styling and the component kit.

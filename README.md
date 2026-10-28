@@ -65,6 +65,7 @@ Then read, in order:
 - [docs/ui-guide.md](docs/ui-guide.md): screens, styling and the component kit.
 - [docs/exporting.md](docs/exporting.md): Windows, Linux, macOS, Android, iOS, web and dedicated-server builds.
 - [docs/devices.md](docs/devices.md): checking a build on real phones, tablets, the Steam Deck and gamepads.
+- [docs/api/](docs/api/index.md): the API reference for every package, generated from the built assemblies and their documentation comments: each public type with its members, signatures and docs.
 - `docs/interfaces/`: engine-internal contracts between engine areas, for people working on the engine itself; not the user guide.
 
 ## Samples
@@ -104,8 +105,8 @@ Build output goes to `artifacts/` at the repository root; set `ONEGAME_ARTIFACTS
 - `samples/`: the sample games.
 - `examples/`: small one-feature examples.
 - `build/`: the MSBuild targets games import.
-- `tools/`: CI and device scripts.
-- `docs/`: documentation.
+- `tools/`: CI and device scripts, and `OneGame.ApiDocs`, which writes `docs/api/`.
+- `docs/`: documentation; `docs/api/` is the generated API reference.
 
 ## Build rules
 

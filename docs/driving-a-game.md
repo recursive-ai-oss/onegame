@@ -181,3 +181,7 @@ The JSON lists every file with its size and hash, and the warnings worth acting 
 ## Exit codes
 
 0 ok, 1 a check failed (scenario, replay, tests), 2 bad command line, 3 build failed, 4 could not run, 5 the option needs a Debug build.
+
+## Reference
+
+The API behind these commands is in the reference: [OneGame.Testing](api/OneGame.Testing/index.md) (`TestCluster`, scenarios), [OneGame.Control](api/OneGame.Control/index.md) (operations) and [OneGame.Live](api/OneGame.Live/index.md).
