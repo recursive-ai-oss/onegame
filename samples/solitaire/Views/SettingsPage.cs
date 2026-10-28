@@ -107,19 +107,6 @@ internal static class SettingsPage
 
     private static string Digits(int v) => Numbers[Math.Clamp(v, 0, 10)];
 
-    // OneRender paints native controls in a fixed light look and only takes accent-color. Inverting them with a filter (invert, then hue-rotate
-    // 180 degrees, which keeps hues) turns the white faces and the light track dark; colours drawn on the control (accent, focus ring) are
-    // therefore given in their pre-filter form so they come out as the theme's. The matrix is the CSS hue-rotate(180deg) one, its own inverse.
-    private static Color Prefilter(Color c)
-    {
-        double r = c.R / 255.0, g = c.G / 255.0, b = c.B / 255.0;
-        static byte Out(double v) => (byte)Math.Round(Math.Clamp(1 - v, 0, 1) * 255);
-        return new Color(
-            Out(-0.574 * r + 1.43 * g + 0.144 * b),
-            Out(0.426 * r + 0.43 * g + 0.144 * b),
-            Out(0.426 * r + 1.43 * g - 0.856 * b));
-    }
-
     private static string Hex(Color c) => $"#{c.R:x2}{c.G:x2}{c.B:x2}";
 
     private static string Html(string location)
@@ -136,12 +123,12 @@ internal static class SettingsPage
             .row>.label{width:170px}
             .row>.group{display:flex;align-items:center;gap:16px;flex:1}
             label.opt{display:flex;align-items:center;gap:6px}
-            input{margin:0;filter:invert(1) hue-rotate(180deg);accent-color:@invaccent}
+            input{margin:0;color-scheme:dark;accent-color:@accent}
             input[type=radio],input[type=checkbox]{width:18px;height:18px}
             input[type=range]{flex:1;height:20px}
             .end{color:@dim;font-size:13px}
             .value{width:24px;text-align:right;font-weight:700}
-            input:focus{outline:2px solid @invfocus;outline-offset:2px}
+            input:focus{outline:2px solid @focus;outline-offset:2px}
             #save-location{color:@dim}
             button{font:16px Body;padding:0 16px;height:34px;border:1px solid transparent;border-radius:3px;background:@accent;color:@accentText}
             button:hover{background:@accentHover}
@@ -151,8 +138,6 @@ internal static class SettingsPage
             .Replace("@title", Hex(Theme.Text))
             .Replace("@panel", Hex(t.Panel))
             .Replace("@border", Hex(t.Border))
-            .Replace("@invaccent", Hex(Prefilter(t.Accent)))
-            .Replace("@invfocus", Hex(Prefilter(t.Focus)))
             .Replace("@accentText", Hex(t.AccentText))
             .Replace("@accentHover", Hex(t.AccentHover))
             .Replace("@accent", Hex(t.Accent))
