@@ -59,6 +59,15 @@ public enum DisconnectReason : byte
 
     /// <summary>A message was larger than the limit.</summary>
     MessageTooLarge = 12,
+
+    /// <summary>One side runs with encryption and the other without; neither falls back to the other's mode.</summary>
+    SecurityRequired = 13,
+
+    /// <summary>The secure handshake failed: the server did not recognise the key the client trusts, or the game ids differ.</summary>
+    HandshakeFailed = 14,
+
+    /// <summary>The connection used up its packet numbers (2^32 packets in one direction); connect again for fresh keys.</summary>
+    PacketLimit = 15,
 }
 
 /// <summary>How and why a connection closed.</summary>
@@ -121,8 +130,11 @@ public struct NetStats
 /// own: <see cref="Pump"/> does the socket work, on the caller's thread. The events fire inside <see cref="Pump"/> (or inside
 /// <see cref="Disconnect"/>).
 /// </summary>
-public interface INetConnection : IMessageChannel
+public interface INetConnection : OneGame.Sync.IAuthenticatedChannel
 {
+    /// <summary>True when the link is encrypted and authenticated (<see cref="SecurityMode.Required"/>). Then <see cref="OneGame.Sync.IAuthenticatedChannel.RemoteKey"/> is the peer's proven key once connected.</summary>
+    bool IsEncrypted => false;
+
     /// <summary>Current state.</summary>
     ConnectionState State { get; }
 

@@ -3,6 +3,9 @@ namespace OneGame.Net;
 /// <summary>Settings for the reliable-UDP transport. Both ends should use the same <see cref="MaxMessageBytes"/>; a peer that sends more is disconnected.</summary>
 public sealed class UdpOptions
 {
+    /// <summary>How links are encrypted and authenticated. Required: a transport opened without it throws <see cref="SecurityNotConfiguredException"/>. Use <see cref="NetSecurity.ForServer"/>, <see cref="NetSecurity.ForClient"/> or, for tests and local tools, <see cref="NetSecurity.Insecure"/>.</summary>
+    public NetSecurity? Security { get; init; }
+
     /// <summary>Largest datagram written to the socket, in bytes. 1200 fits every IPv6 path (minimum link MTU 1280). Range 576 to 1472.</summary>
     public int Mtu { get; init; } = 1200;
 

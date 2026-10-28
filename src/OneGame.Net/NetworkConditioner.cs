@@ -198,6 +198,12 @@ public sealed class ConditionedConnection : INetConnection
     public event Action<INetConnection, DisconnectInfo>? Disconnected;
 
     /// <inheritdoc />
+    public bool IsEncrypted => _inner.IsEncrypted;
+
+    /// <inheritdoc />
+    public OneGame.Core.PeerKey? RemoteKey => _inner.RemoteKey;
+
+    /// <inheritdoc />
     public ConnectionState State => _inner.State;
 
     /// <inheritdoc />

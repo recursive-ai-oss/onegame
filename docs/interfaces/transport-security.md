@@ -20,92 +20,116 @@ Nothing calls `System.Security.Cryptography`: phones lack the system library (se
 
 **Tested against** (`tests/OneGame.Core.Tests/CryptoTests.cs`, vectors in `testdata/crypto/`): RFC 8439 block, Poly1305, AEAD and Appendix A.5; RFC 7748 §5.2 (two vectors, 1 and 1000 iterations, and the million-iteration vector on request) and §6.1; RFC 5869 A.1 and A.3; Wycheproof `chacha20_poly1305` (325 cases: 256 valid, 60 invalid, 9 wrong-size refused by argument checks) and `x25519` (518 cases: 264 valid, 254 acceptable including 31 low-order keys with an all-zero secret, which `Agree` reports as false); the Noise vectors published for `Noise_*_25519_ChaChaPoly_SHA256` for all 15 patterns implemented (15 protocols, 90 messages, checking each handshake ciphertext, the handshake hash and the transport messages). Fuzz targets `aead-open` and `noise-read` (seeds in `testdata/fuzz`). Seal/open allocate 0 bytes per packet.
 
-## 2. Protocol choice
 
-Cipher suite is fixed: `25519_ChaChaPoly_SHA256`. No AES-GCM (phones without hardware or a platform provider), no negotiation of primitives, no post-quantum key exchange (Noise rev 34 has none; game traffic is not worth recording for a decade, and this can be revisited when Noise defines it).
+## 2. API (public surface; change only by agreement)
 
-Patterns, recommended:
+Types and where they live:
 
-- **IK** when the client knows the server's static key (pinned or from a directory). One round trip, the client's static key is sent encrypted, the server authenticates the client's key during the handshake. This is the normal case.
-- **XX** when it does not (trust on first use: the client records the key it was shown, as SSH does; direct-connect and development). Three messages, both statics encrypted.
-- Nothing weaker (no NN): an unauthenticated encrypted link is not offered.
-
-Prologue, used by both patterns: `"onegame/2" ‖ gameId ‖ transport tag ‖` (UDP only) `cookie ‖ client nonce`. A handshake therefore only completes between peers of the same game and version, and a captured first message is useless with any other cookie.
-
-## 3. UDP
-
-The cookie exchange stays exactly as it is: Request, Challenge, and an unauthenticated server that stores nothing until the cookie comes back. The version nibble in byte 0 becomes 2 for secure datagrams. Layout changes:
-
-| Kind | v2 layout | Notes |
+| Type | Assembly | What |
 |---|---|---|
-| 0 Request | unchanged (padded to 256) | Cheap to answer, as now. |
-| 1 Challenge | unchanged | |
-| 2 Response | `b0, nonce, cookie[16], noise msg 1`, padded to ≥ 256 | IK message 1 is `e, es, s, ss`, payload = hello (limits, no secrets, see §6). The server checks the cookie first (one HMAC), then spends two DH operations. |
-| 3 Accept | `b0, nonce, connId u32, noise msg 2` | IK message 2 is `e, ee, se`; the payload carries the server's reset token (§3.4). The server splits immediately and creates the connection, but keeps msg 2 to repeat it if the Response repeats, until the first authenticated Data arrives. |
-| 5 Data | `b0, connId u32, packetNo u64, AEAD(frames ‖ acks) ‖ tag[16]` | `b0 ‖ connId ‖ packetNo` is the associated data. The ack base, SACK and window fields now travel inside the ciphertext. |
-| 6 Disconnect | same form as Data (an authenticated frame inside) | |
-| XX | Response carries msg 1 (`e`), Accept carries msg 2, and a new kind 7 `Finish (c→s)` carries msg 3, which the server needs before it considers the connection confirmed. |
+| `PeerKey` | Core | A 32-byte public key; text form is 43 characters of base64url. `Parse`, `TryParse`, `Bytes`, `IsEmpty`, equality. |
+| `NetKeyPair` | Core | `Generate()`, `FromPrivateKey`, `Load(path)`/`Save(path)` (a text file with `private:` and `public:` lines, mode 0600 where the platform has modes), `PublicKey`. The private half never prints. **It is the developer's secret.** |
+| `KeyFormatException` | Core | A key or key file is malformed. |
+| `SecurityMode` | Net | `Required` (default) or `Insecure`. No `Optional`, no fallback. |
+| `NetSecurity` | Net | Passed as `UdpOptions.Security` / `WebSocketOptions.Security`. `ForServer(key, gameId, more...)`, `ForClient(serverKeys, gameId, identity?)`, `Insecure`, `AlsoTrusting(keys)` (a server that also connects to other servers). Properties: `Mode`, `GameId`, `ServerKeys` (a server's key pairs, primary first), `TrustedServerKeys` (a client's accepted server keys, preferred first), `Identity` (the client's key pair). |
+| `SecurityNotConfiguredException` | Net | A transport opened with `Security == null`, a Required listener with no server key, or a Required client with no trusted key. The message names the fix. |
+| `INetConnection.IsEncrypted`, `.RemoteKey` | Net / Sync | `RemoteKey` (from `IAuthenticatedChannel`) is the peer's authenticated key once connected, null on an `Insecure` link. Both are default interface members (false / null). |
+| `DisconnectReason.SecurityRequired`, `HandshakeFailed`, `PacketLimit` | Net | One side is Insecure and the other Required; the server does not know the key the client trusts, or the game ids differ; the packet-number space is used up. |
+| `IAuthenticatedChannel`, `PeerIdentity`, `Node.Accept(channel, policy)` | Sync | The hook that turns a proven key into a `Trust`. `policy(PeerIdentity)` returns the trust, or null to refuse; null means the caller closes the channel. `PeerIdentity.Key` is empty on an unauthenticated link. |
+| `PlayerRegistry` | Sync | Maps a `PeerKey` to a stable player id (`PlayerFor(key, out isNew)`), saved with the game's data (`Save`, `TryLoad`). A reconnect with the same key is the same player. |
 
-**3.1 Nonces.** Each direction has its own key (Split), and the 64-bit `packetNo` is the Noise nonce (4 zero bytes ‖ little-endian counter). A sender never reuses a number; it closes the connection at 2^40 packets (never reached in practice) instead of wrapping. The 4-byte packet number of v1 grows to 8 so the nonce is explicit and no reconstruction logic is needed.
+Typical server and client:
 
-**3.2 Replay window.** The receiver keeps the highest authenticated number and a 256-bit bitmap (the reliability layer can have more than the current 64 packets in flight at high bandwidth). Order of checks, as in RFC 4303 §3.4.3: reject a number already seen or older than the window before decrypting (cheap), decrypt, and only after the tag verifies mark it seen. Anything failing is dropped without a reply and without changing state, so garbage and replays cost one AEAD attempt. Datagrams outside the window are lost to the reliability layer, which resends.
+```csharp
+var key = NetKeyPair.Load("server.key");                          // made by `onegame keys`
+var listener = UdpTransport.Listen(bind, new UdpOptions { Security = NetSecurity.ForServer(key, "my-game/1") });
+var players = new PlayerRegistry();
+// each frame, for every connection the listener accepted:
+var connection = node.Accept(channel, id => Trust.Player(scope).As(players.PlayerFor(id.Key, out _)));
 
-**3.3 Rekeying.** Not built. Forward secrecy comes from the per-connection ephemeral keys; a session that must outlive that reconnects (and resumes, §5). Bit 3 of `b0` is reserved as a key-phase bit so a Noise `Rekey` scheme can be added without another wire version. Hard limit instead: 2^40 packets per direction.
+var me = File.Exists("me.key") ? NetKeyPair.Load("me.key") : NetKeyPair.Generate();   // keep it in the game's save folder
+var udp = UdpTransport.Connect(endpoint, new UdpOptions { Security = NetSecurity.ForClient([PeerKey.Parse("...")], "my-game/1", me) });
+```
 
-**3.4 Disconnects and restarts.** An unauthenticated Disconnect would let a path attacker kill any connection, so v2 ignores it. The one case that needs it, "the server restarted and no longer knows this connection", uses a stateless reset in the style of RFC 9000 §10.3: the server derives `token = HMAC-SHA-256(HKDF(serverStaticPrivate, "reset"), connId)[..16]`, tells the client in the encrypted Accept payload, and answers unknown-connection Data with a datagram ending in that token. The token survives restarts because it comes from the static key. Forging a reset requires the token, so the attacker gains nothing they could not get by dropping packets.
+**What a channel implementation must do** (UDP does it in `UdpConnection`/`UdpListener`; the WebSocket transport follows the same rules):
 
-**3.5 Cost.** Overhead is 29 bytes (header 13 + tag 16) against 23 today, so frame payload shrinks by 6 bytes inside the 1200-byte MTU. Server cost per accepted handshake is about four X25519 operations (≈0.3 ms each in a release build on this host) after the cookie has proven the source address; the per-source and global handshake rate limits (new `MaxHandshakesPerSecond`) bound what an attacker with real addresses can burn. Seal plus open of a 1200-byte packet takes about 4 µs (about 290 MB/s per operation on one core, measured on a loaded host).
+1. On `Listen`/`Connect`, call `NetSecurity.RequireForListening(options.Security, nameof(Options))` / `RequireForConnecting(...)`. They throw `SecurityNotConfiguredException` and return the settings. For `Insecure` keep today's plaintext behaviour exactly.
+2. In `Required` mode run `SecureHandshake` (internal, `OneGame.Net`): `Client(security, keyIndex, bind)` then `WriteFirst`/`ReadReply`, or `Server(security, bind)` then `ReadFirst`/`WriteReply`, then `Finish(out send, out receive)`. The handshake is Noise IK with prologue `"onegame/2" 00 gameId 00 bind`; `bind` is transport-specific data both ends know (UDP: client nonce and cookie; WebSocket: empty). A client with several trusted keys passes the next `keyIndex` after a `HandshakeFailed` rejection.
+3. Encrypt every byte after the handshake with the two `NoiseCipherState`s (counter = Noise nonce, never reused; `Rekey` is not used). `IsEncrypted` is true, and `RemoteKey` is set **before** `Connected` fires on the client and before `TryAccept` hands the connection out on the server.
+4. Never act on unauthenticated bytes beyond the handshake itself. A message that fails authentication is dropped and changes no state (UDP) or closes the connection (a stream).
+5. A `Required` end that meets an `Insecure` peer (or the reverse) closes with `SecurityRequired` (or `VersionMismatch` where only the version is visible). Never fall back.
+6. Handshake work is rate limited (`MaxHandshakesPerSecond`) before any DH operation.
+7. A graceful close is authenticated; an unauthenticated close or reset is reported as a drop (`ByRemote = false`).
 
-## 4. WebSocket
+## 3. Protocol choice
+
+Cipher suite is fixed: `25519_ChaChaPoly_SHA256`. No AES-GCM, no negotiation of primitives, no post-quantum exchange (Noise rev 34 has none).
+
+**Only IK.** The client always knows the server's key (pinned, or from the master or a directory), so there is one round trip, the client's static key travels encrypted in message 1, and the server authenticates the client's key during the handshake. There is no XX and no trust-on-first-use (decision (b)). A client with no identity key gets a fresh one per connection object, so it is anonymous but still encrypted and authenticated *to* the server.
+
+Prologue: `"onegame/2" 00 gameId 00 bind`, so a handshake only completes between peers of the same game and protocol, and (UDP) a captured first message is useless with any other cookie or client nonce.
+
+## 4. UDP
+
+The cookie exchange is unchanged: Request, Challenge, and a server that stores nothing until the cookie comes back. The version nibble of byte 0 is 2 for secure datagrams and 1 for plaintext, and a peer never answers a version it does not run in kind.
+
+| Kind | Secure layout (version 2) | Notes |
+|---|---|---|
+| 0 Request | `b0, nonce u64`, padded to ≥ 256 | As today. |
+| 1 Challenge | `b0, nonce, cookie[16]` | As today. |
+| 2 Response | `b0, nonce, cookie[16], len u16, noise msg 1`, padded to ≥ 256 | `bind = nonce ‖ cookie`. The server checks the cookie (one HMAC) and the handshake rate limit before the DH work. |
+| 3 Accept | `b0, nonce, connId u32, len u16, noise msg 2` | Payload of msg 2 is the 16-byte reset token (§4.4). Repeated, byte for byte, if the Response repeats. |
+| 4 Reject | `b0, nonce, reason` | `SecurityRequired` (plaintext Request to a Required server, answered in the Request's version), `HandshakeFailed` (no server key matched or wrong game id), `ServerFull`, `VersionMismatch`. Unauthenticated, so it can only end a connect attempt, which an attacker on the path can do by dropping packets anyway. |
+| 5 Data | `b0, connId u32, packetNo u32, AEAD(ackBase u32, sack u64, window u16, frames…) ‖ tag[16]` | The first 9 bytes are the associated data. Nonce = the packet number, in a per-direction key. The acks are inside the ciphertext. |
+| 6 Disconnect | `b0, connId u32, AEAD(reason, code) ‖ tag[16]` | Sent three times, authenticated with nonce 2^32 (a number no packet can use). An unauthenticated Disconnect is ignored. |
+| 7 Reset | `b0, connId u32, token[16]` | See §4.4. |
+
+**4.1 Nonces and the packet limit.** Each direction has its own key (Split). The existing 32-bit packet number is the Noise nonce (four zero bytes, then the counter as a little-endian 64-bit value), unique per packet. A connection closes with `PacketLimit` after `UdpOptions.MaxPacketsPerKey` packets in one direction (default 2^32 − 2^16, about 50 days at 1000 packets a second); the client reconnects, which makes new keys. This replaces the design's 8-byte packet number: it saves 4 bytes on every packet, and the limit is enforced, not assumed.
+
+**4.2 Replay window.** The reliability layer's 64-packet window drops duplicates and stale numbers. For a secure connection it is checked *before* decrypting (a cheap reject) and the packet is marked seen *only after* the tag verified, so a forged or replayed packet changes no state. Anything that fails is dropped without a reply.
+
+**4.3 Who counts as connected.** The server creates the connection when message 1 authenticates but does not hand it out (`TryAccept`) until the first authenticated Data packet arrives; the client sends one at once after Accept. A replayed message 1 (the cookie is valid for 20 s) therefore creates a connection nobody can use, which times out unseen, and cannot evict a live session.
+
+**4.4 Restarts and stateless reset.** A server that no longer knows a connection id answers Data for it with Reset: `token = HMAC(key derived from its primary private key, connId)[..16]`, which the client received in the encrypted Accept. The client closes with `Shutdown` only for a Reset whose token it holds (constant-time compare). The token survives a restart because it comes from the static key, and an attacker without it cannot forge one.
+
+**4.5 Rekeying.** Not built; forward secrecy is the per-connection ephemeral key, and `PacketLimit` bounds key use. **4.6 Handshake rate limit.** `UdpOptions.MaxHandshakesPerSecond` (default 200, per listener) is checked after the cookie and before any DH: excess Responses are dropped, not queued. **4.7 Cost.** Overhead is 16 bytes (the tag) per packet; the payload of a full packet shrinks by 16, and `MaxUnreliableBytes` shrinks with it.
+
+## 5. WebSocket
 
 Noise runs inside the WebSocket as binary messages. TCP supplies ordering and address validation, so no cookie, packet number or replay window is needed; the Noise counter is implicit and a lost or reordered record cannot happen without breaking the stream (it fails authentication and the connection closes).
 
-- The first binary message each way is the handshake (client msg 1, server msg 2, and for XX client msg 3), prefixed with one byte naming pattern and version. The server's subprotocol or URL path may also carry the game id; the prologue binds it either way.
-- After the handshake each Noise message (≤ 65535 bytes) is one WebSocket message: `AEAD(flag ‖ chunk)`, flag 0 = last chunk, 1 = more. A logical message over 65 KB is split into chunks; the receiver enforces `MaxMessageBytes` on the running total before it buffers anything. Pings and pongs stay WebSocket-level and cost nothing; they carry no data.
-- A WebSocket Close frame is not authenticated (any TCP-level attacker can inject one). A graceful close is therefore an authenticated record (`flag 2`) followed by the Close frame; a bare Close or a reset is reported as an abnormal, unauthenticated end, which game code must treat like a drop and reconnect from.
-- Handshake DoS: the existing `MaxPendingHandshakes` and `HandshakeTimeoutMs` cap sockets that have not completed the Noise handshake; the same per-source rate limit applies to the DH work.
+- The first binary message each way is the handshake (client msg 1, server msg 2), `bind` empty. The server's path or subprotocol may carry the game id; the prologue binds it either way.
+- After the handshake each Noise message (≤ 65535 bytes) is one WebSocket message: `AEAD(flag ‖ chunk)`, flag 0 = last chunk, 1 = more, 2 = graceful close. The receiver enforces `MaxMessageBytes` on the running total before it buffers anything.
+- A WebSocket Close frame is not authenticated. A graceful close is an authenticated record (flag 2) followed by the Close frame; a bare Close or reset is reported as a drop (`ByRemote = false`).
+- `MaxPendingHandshakes`, `HandshakeTimeoutMs` and `MaxHandshakesPerSecond` bound the sockets and DH work of unfinished handshakes.
+- On an https page the browser needs `wss://`: the host terminates TLS in front of the plain listener (see the user guide, operator steps). Noise runs inside it regardless.
 
-## 5. Identity across reconnects, and `Trust.Who`
+## 6. Identity across reconnects, and `Trust.Who`
 
-After the handshake the transport exposes `RemoteStatic` (32 bytes, authenticated, because only the holder of the private key could complete `ss`/`se`). The sync layer's `Trust` (`Who.Player`, `Who.Team`, `Own`, …) is still decided by the game's policy, never by the transport. New seam (stage 2): `Node.Accept(channel, Func<PeerIdentity, Trust?>)`, called once with `RemoteStatic` (and, for XX, whether the key is new). The policy returns the connection's `Trust` or null to refuse. The default policy maps a key to a player through a small registry the game owns (the master in a multi-server game), assigning a fresh player id on first sight.
+After the handshake `INetConnection.RemoteKey` is the peer's authenticated static key. The transport never decides trust; the game does, in the `Node.Accept` policy (or `ServerHost.Authenticate`, whose `ClientRequest` now carries `Key`). The usual policy maps the key to a player with `PlayerRegistry` and returns `Trust.Player(...).As(playerId)`.
 
-Reconnect then works by key: a client with the same static key resolves to the same player, and the server can reattach the new connection to the entity the old one owned (today a reconnecting client comes back as a new player; this removes that). Rules that keep it safe:
+A reconnect (`RemoteSession` opens a new connection with the same `NetSecurity.Identity`) resolves to the same key and so to the same player id, and the server can hand the new connection the entity the old one owned. Rules:
 
-- Identity is bound only after the first authenticated Data packet (or XX msg 3), never at msg 1, because msg 1 alone can be replayed by a path attacker within the cookie epoch; this prevents replaying a captured msg 1 to evict a live session.
-- One live session per player: a new authenticated session for a player replaces the old connection after the old one has been silent for a short grace period (or at once if it is already closed).
-- The static key is a device credential, not an account. Proving that a key belongs to a Steam or store account is a game-level step: the client sends its platform auth blob (for example a Steam session ticket) as the first encrypted application message after the handshake, and the policy verifies it. It is deliberately not in msg 1, whose payload has no forward secrecy under IK (a later leak of the server key exposes it).
-- A client key lives in the game's save storage. A browser build keeps it only where persistent storage exists; until then web identity lasts one page load.
+- Identity binds only to a connection that has delivered an authenticated Data packet (§4.3), never at message 1.
+- One live session per player: a new session for a player replaces the old connection.
+- The key is a device credential, not an account. A game that needs an account sends its platform login blob (for example a Steam ticket) as the first encrypted application message and verifies it in the policy; it is deliberately not in message 1, whose payload has no forward secrecy toward a later leak of the server key.
+- A client key belongs in the game's save storage. A browser keeps it only where persistent storage exists; otherwise web identity lasts one page load.
 
-Alternatives considered and set aside: server-issued resumption tickets (need the ticket key shared by every server in the game and an expiry clock, so reconnects between servers become a key-distribution problem; a static client key is stateless and already crosses servers); a pre-shared secret per player (needs a secure channel to hand it out, which is the problem being solved).
+Set aside: server-issued resumption tickets (need a ticket key shared by every server and a clock) and per-player shared secrets (need a secure channel to hand them out).
 
-## 6. Decisions
+## 7. Decisions
 
-Each is a recommendation, not a decision.
+**(a) [PM] Compatibility: negotiation by mode, no downgrade.** Default `Required`; `Insecure` is explicit and named, for tests and development tools. A Required end never falls back and a mismatch closes with `SecurityRequired`. There is no `Optional` rollout mode: no released game uses onegame networking, so a rollout window protects nobody. Opening a transport without settings throws `SecurityNotConfiguredException`. This breaks 1.9 clients and servers on purpose (CHANGELOG says so). In-process single-player and `TestCluster`'s in-memory channels are not network paths and are unaffected.
 
-**(a) Compatibility with released 1.x clients and servers.**
+**(b) [PM] Keys: pinned, or from the master or directory, as a set per server; no trust on first use.** A client holds the acceptable public keys per server (a rotation overlaps: the server adds a pair, clients get the new key, the old pair is removed later), pinned in a first-party build or handed out with the server list by the master. No known-hosts store. Development and LAN stay zero-ceremony because the tools make keys and hand them over the same way a pinned key travels: `onegame run --connect`, `onegame cluster`, process clusters, `TestCluster` over real transport and the samples generate keys automatically (§9). `onegame keys` makes key files. The private key is the developer's secret.
 
-1. *Hard version bump:* v2 only; a v1 peer gets `Reject(VersionMismatch)` (already defined). Simplest and no downgrade, but every deployed game must update clients and servers in lockstep.
-2. *Negotiation with a policy:* the server accepts v1 and v2 (`Security = Optional`), a client tries v2 and may fall back to v1 only if its own policy allows. A forged Reject is a downgrade attack, so the fallback is off by default on the client.
-3. *Plaintext as an explicit opt-in mode:* `Security.Insecure`, for tests, loopback and LAN prototypes.
+**(c) [PM] Browsers: Noise inside WebSocket everywhere, plus `wss://` on https pages.** One code path and one identity model on every platform; TLS gives browsers nothing for client identity. The certificate for `wss://` is an operator step (the "Operating a server" section of the user guide). The interpreter cost was measured (§7.1) and is not a reason to drop it.
 
-**Recommend 2 plus 3.** Server `Required` by default, with `Optional` as a rollout window that games turn on for one release and then remove; client `RequireSecurity = true` by default; `Insecure` is a named value, easy to grep for. For **existing games' default**: the library default is `Required`, and listening or connecting without keys configured throws a typed `SecurityNotConfiguredException` whose message names the fix. That is a loud failure on first run after upgrading, rather than a quiet plaintext default. In-process single-player and `TestCluster`'s in-memory channels are not network paths and are unaffected; UDP/WebSocket tests choose `Insecure` explicitly.
+**(d) [PM] Agreed:** handshake rate limiting, login blobs in the first encrypted message, per-page-load web identity, and the packet-size budget (16 bytes per UDP packet, see §4.7).
 
-**(b) Server keys: who has them and how clients learn them.**
+Other points. IK message 1 has no forward secrecy toward a later leak of the server's static key (the client's static key is exposed), so nothing secret goes in it. Unauthenticated bytes remain only in Request, Challenge, Reject, and Reset (checked by token); none leads to state or key exposure. No wall clock is used (the cookie epoch is the transport's monotonic clock). Entropy on the web comes from `Entropy.Use` over `crypto.getRandomValues`, which the browser backend installs before the first connection. Out of scope: Steam relay and lobbies, signed directory entries, post-quantum exchange.
 
-1. *Pinned in the client build:* the game ships its servers' public keys. Strongest and simplest for first-party servers. Does not scale to third-party hosts (each has its own key, shipped before the host exists).
-2. *Handed out by the master / a directory:* the server list carries `(address, public key)` and is fetched over a link the client already trusts (pinned master key). A third-party host registers its public key with the master; no certificates and no signing primitive needed, and rotation is a directory update. Requires the master to be the root of trust (it already is for shared economies).
-3. *Keyless anonymous mode (XX, trust on first use):* the client remembers the key it saw per `host:port`; a changed key is a loud error. Protects against passive and later active attackers, not first contact. For direct connect, LAN and development.
-
-**Recommend 1 for first-party, 2 for hosted servers, 3 as the explicit fallback.** A client holds a set of acceptable keys per server (so a host can rotate with overlap). `onegame run` and `onegame new` generate development keys under the game's folder so samples run unconfigured, and the server key file is the only thing a host or game developer must manage: generate (`onegame keys`), keep the private half off the client, publish the public half. A compromised server key means rotating it in the directory or the client build; there is no revocation list, expiry or wall-clock dependency.
-
-**(c) Browsers.** An https page may not open `ws://` (mixed content; `ws://localhost` is exempt), so a deployed web build needs `wss://`, which means TLS terminated by the host with a certificate (a reverse proxy such as Caddy or nginx with an ACME certificate, or a CDN). The engine's WebSocket listener stays plain TCP behind it.
-
-1. *Noise inside WebSocket for everyone, and wss where the page is https (double encryption):* one code path and one identity model on every platform; client static keys work in browsers, which TLS cannot give. Costs: ChaCha20 and X25519 run in the .NET WebAssembly interpreter (measured, see §6.1: about 55 MB/s of bulk crypto and a 12 to 15 ms client-side handshake in the interpreter), and an extra layer a proxy cannot inspect.
-2. *wss alone for the web:* TLS authenticates the server through the web PKI and costs nothing in wasm (the browser does it). The browser has no client identity then, so identity would need the auth-blob route only, and the server has two security models to maintain.
-
-**Recommend 1**, with the wasm cost measured at the start of the wiring work; if it proves too slow, switch the web build to option 2 for bulk traffic while keeping the Noise handshake for identity (the handshake hash can be exported as a channel binding). Dev workflow is unaffected (`http://localhost` pages can use `ws://`).
-
-**6.1 Measured in the browser.** Method: the same `OneGame.Core/Crypto` sources built as a `Microsoft.NET.Sdk.WebAssembly` app in Release with the export's settings (interpreter, no AOT, no workload, invariant globalization), served by `tools/web/run-page.mjs` and run in headless Chrome (`--disable-gpu`, no GPU needed), then the same sources as a CoreCLR console app on the same machine minutes apart. Each figure is a loop of at least 1.5 s after a warm-up; "handshake" is both peers in one process, so a client alone pays about half. The host was a busy 32-thread desktop (load average 25 to 40 from other work, Ryzen 9 7950X3D), so treat the ratios as better than the absolute values. Chrome ran three times; the range is shown.
+**7.1 Measured in the browser.** Method: the same `OneGame.Core/Crypto` sources built as a `Microsoft.NET.Sdk.WebAssembly` app in Release with the export's settings (interpreter, no AOT, no workload, invariant globalization), served by `tools/web/run-page.mjs` and run in headless Chrome (`--disable-gpu`, no GPU needed), then the same sources as a CoreCLR console app on the same machine minutes apart. Each figure is a loop of at least 1.5 s after a warm-up; "handshake" is both peers in one process, so a client alone pays about half. The host was a busy 32-thread desktop (load average 25 to 40 from other work, Ryzen 9 7950X3D), so treat the ratios as better than the absolute values. Chrome ran three times; the range is shown.
 
 | | Chrome, .NET wasm interpreter | CoreCLR, same host | Ratio |
 |---|---|---|---|
@@ -129,7 +153,8 @@ What it means. A 60 Hz game sends and receives at most 60 packets a second each 
 - *Interop with plaintext tooling:* Wireshark and the conditioner see ciphertext. Tests that need to see frames use `Insecure`; the harness's own `net` op reports counters, not payloads, so it is unaffected.
 - *Out of scope here:* Steam relay and lobbies; signed directory entries or certificates (Ed25519); post-quantum exchange.
 
-## 7. What a path attacker can still do afterwards
+
+## 8. What a path attacker can still do afterwards
 
 - Read the addresses, ports, packet sizes and timing; see that a game handshake happens (the first two datagrams are cleartext) and the connection id. Padding hides handshake sizes only.
 - Drop, delay, reorder or duplicate datagrams (duplicates are discarded by the replay window); block a connection entirely; cause a failed connect by forging Reject or Challenge.
@@ -140,6 +165,13 @@ What it means. A 60 Hz game sends and receives at most 60 packets a second each 
 
 It can no longer: read or alter payloads, inject or replay packets into a connection, hijack a session or an identity (binding needs the first authenticated packet, which needs the client's ephemeral key), or learn a player's identity from the handshake without the server's static private key (IK) or at all (XX, from msg 3).
 
-## 8. For the reviewer
+## 9. Keys and tooling
+
+- `onegame keys [--out <dir>] [--name <name>] [--json]` writes `<name>.key` (private, mode 0600) and `<name>.pub` (public, one line) and prints the public key. It never overwrites an existing key unless `--force`. JSON: `{"name":..., "privateFile":..., "publicFile":..., "publicKey":...}`.
+- **The private key is the developer's secret.** Keep server keys on the server only, outside the repository (the tool writes a `.gitignore` line beside them); ship only the public key in a client build or a server list. Anyone holding a server's private key can impersonate that server to every client that trusts its public key. A client's key names a player: keep it in the game's save folder.
+- **Zero-ceremony development.** `onegame run --connect`, `onegame cluster` and process clusters, `TestCluster` over real transport and the samples create keys under the project's `artifacts/keys` (or the cluster's working folder) on first use and give each process its public keys the same way a pinned or master-supplied key would arrive: servers take `--key <file>` and clients `--server-key <public key or .pub file>` (several allowed, for rotation). Nothing here is a different code path from production; only who generated the key differs.
+- **First-party builds** pin the public key in the client (`NetSecurity.ForClient([PeerKey.Parse("...")], "my-game/1")`). **Hosted servers** list their public key with the master or directory that already hands out addresses, and the client takes the key from the same entry. A server key set (`ServerKeys`) lets the host rotate without a flag day.
+
+## 10. For the reviewer
 
 Read in this order: `Noise.cs` against spec §5 (state machine, DH order for `es`/`se`, pre-messages, `Split`, failure handling), `ChaCha20Poly1305.cs` (`Open` checks the tag before it decrypts and zeroes the output on failure; in-place use; counters), `X25519.cs` (limb bounds in `Mul` and `Carry`: sums stay under 2^63 because every `Add`/`Sub` carries; `Store`'s canonical reduction), and the cases the vector tests cannot reach: the explicit-counter methods, the 2^64 - 1 counter reservation, `NoiseHandshake` misuse (wrong turn, missing keys throw `InvalidOperationException`/`ArgumentException`; wire errors return false). The fuzz targets are `aead-open` (any bytes; failure must zero the output; seal/open must round trip) and `noise-read` (honest handshake up to a chosen stage, then arbitrary bytes for the next message).
