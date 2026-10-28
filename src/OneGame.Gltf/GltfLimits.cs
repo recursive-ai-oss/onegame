@@ -3,7 +3,7 @@ namespace OneGame.Gltf;
 /// <summary>Upper bounds the importer enforces before it allocates. The defaults suit content from a server; raise them for trusted tools.</summary>
 public sealed class GltfLimits
 {
-    /// <summary>The largest file (or GLB) read, in bytes.</summary>
+    /// <summary>The largest file (or GLB) read, in bytes (default 256 MiB).</summary>
     public long MaxFileBytes { get; init; } = 256L << 20;
 
     /// <summary>The largest JSON text, in bytes.</summary>
@@ -27,7 +27,7 @@ public sealed class GltfLimits
     /// <summary>The most accessors.</summary>
     public int MaxAccessors { get; init; } = 100_000;
 
-    /// <summary>The most nodes.</summary>
+    /// <summary>The most nodes in the file.</summary>
     public int MaxNodes { get; init; } = 100_000;
 
     /// <summary>The deepest node tree.</summary>

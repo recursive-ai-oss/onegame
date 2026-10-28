@@ -23,12 +23,12 @@ public readonly record struct ResourceBinding(uint Set, uint Binding, uint Count
 
 /// <summary>Small constant data written straight into the command stream with <c>SetPushConstants</c>.</summary>
 /// <param name="Size">Bytes, a multiple of 4 and at most <see cref="GpuDevice.MaxPushConstantBytes"/>.</param>
-/// <param name="Stages">Stages that read it.</param>
+/// <param name="Stages">Stages that read it. Declare only those that do; the range must match the shaders.</param>
 public readonly record struct PushConstantRange(uint Size, ShaderStage Stages);
 
 /// <summary>Describes a buffer to create.</summary>
-/// <param name="Size">Size in bytes.</param>
-/// <param name="Usage">Allowed uses.</param>
+/// <param name="Size">Size in bytes. Uniform and storage buffers bound with a dynamic offset need their slices aligned to <see cref="GpuDevice.DynamicOffsetAlignment"/>.</param>
+/// <param name="Usage">Every use the buffer will have, combined: a vertex buffer you upload to is <c>Vertex | CopyDestination</c>. A use not listed here is a validation error.</param>
 public readonly record struct BufferDesc(ulong Size, BufferUsage Usage)
 {
     /// <summary>Optional name shown in debugging tools.</summary>
@@ -36,10 +36,10 @@ public readonly record struct BufferDesc(ulong Size, BufferUsage Usage)
 }
 
 /// <summary>Describes a texture to create: 2D, 2D array, cube, cube array or 3D.</summary>
-/// <param name="Width">Width in texels.</param>
-/// <param name="Height">Height in texels.</param>
-/// <param name="Format">Pixel format.</param>
-/// <param name="Usage">Allowed uses.</param>
+/// <param name="Width">Width of mip level 0 in texels; at least 1.</param>
+/// <param name="Height">Height of mip level 0 in texels; at least 1.</param>
+/// <param name="Format">Pixel format. The <c>Srgb</c> formats decode to linear light when sampled and encode when rendered into; the others store values as they are.</param>
+/// <param name="Usage">Every use the texture will have, combined: a sampled image you upload to is <c>Sampled | CopyDestination</c>; an offscreen target you read back is <c>RenderTarget | CopySource</c>.</param>
 public readonly record struct TextureDesc(uint Width, uint Height, GpuFormat Format, TextureUsage Usage)
 {
     /// <summary>Number of mip levels; 1 by default. <see cref="GpuTexture.FullMipCount(uint, uint)"/> computes the full chain.</summary>
@@ -67,19 +67,19 @@ public readonly record struct TextureDesc(uint Width, uint Height, GpuFormat For
 /// <summary>Describes a sampler to create.</summary>
 public readonly record struct SamplerDesc
 {
-    /// <summary>Filter when magnifying.</summary>
+    /// <summary>Filter when a texel covers more than one pixel (the texture is magnified). <c>Nearest</c> gives hard pixels, <c>Linear</c> smooths them.</summary>
     public FilterMode MagFilter { get; init; }
 
-    /// <summary>Filter when minifying.</summary>
+    /// <summary>Filter when a pixel covers more than one texel (the texture is minified).</summary>
     public FilterMode MinFilter { get; init; }
 
-    /// <summary>Filter between mip levels.</summary>
+    /// <summary>How two mip levels are blended; <c>Linear</c> is trilinear filtering, <c>Nearest</c> picks the closer level.</summary>
     public FilterMode MipFilter { get; init; }
 
-    /// <summary>Addressing in U.</summary>
+    /// <summary>What a read outside 0..1 in U (horizontal) returns.</summary>
     public AddressMode AddressU { get; init; }
 
-    /// <summary>Addressing in V.</summary>
+    /// <summary>What a read outside 0..1 in V (vertical) returns.</summary>
     public AddressMode AddressV { get; init; }
 
     /// <summary>Addressing in W (3D and cube textures).</summary>
@@ -91,10 +91,10 @@ public readonly record struct SamplerDesc
     /// </summary>
     public CompareFunction? Compare { get; init; }
 
-    /// <summary>Lowest mip level sampled.</summary>
+    /// <summary>Lowest (largest) mip level the sampler may read; 0 by default.</summary>
     public float MinLod { get; init; }
 
-    /// <summary>Highest mip level sampled.</summary>
+    /// <summary>Highest (smallest) mip level the sampler may read. The default allows every level the texture has.</summary>
     public float MaxLod { get; init; }
 
     /// <summary>Creates a sampler description with nearest filtering, clamped edges, no anisotropy and every mip level available.</summary>
@@ -117,7 +117,7 @@ public readonly record struct SamplerDesc
 /// <summary>Blend settings for one of color or alpha.</summary>
 /// <param name="Source">Factor for the source value.</param>
 /// <param name="Destination">Factor for the destination value.</param>
-/// <param name="Operation">How the two combine.</param>
+/// <param name="Operation">How the weighted source and destination combine; <c>Add</c> for ordinary blending.</param>
 public readonly record struct BlendComponent(BlendFactor Source, BlendFactor Destination, BlendOperation Operation);
 
 /// <summary>Blending of one color target.</summary>

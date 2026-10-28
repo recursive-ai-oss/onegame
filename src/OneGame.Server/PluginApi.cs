@@ -32,6 +32,26 @@ public sealed class ServerPluginAttribute(Type entryType, int apiVersion = Plugi
 /// and finally <see cref="Unload"/>. State belongs in entities, so it survives a reload; keep nothing in static fields, threads, timers
 /// or event subscriptions, because the assembly can only be unloaded once nothing outside it refers to it.
 /// </summary>
+/// <example>
+/// A plugin that adds an entity type to a running server. Build it as a class library (<c>OneGameKind</c> <c>Plugin</c> in the SDK), then point a
+/// server configuration's <c>plugins:</c> list at the dll; rebuild it and use the <c>plugin_reload</c> operation to hot-reload it.
+/// <code>
+/// [assembly: ServerPlugin(typeof(Pulse.PulsePlugin))]
+///
+/// namespace Pulse;
+///
+/// public sealed class PulsePlugin : ServerPlugin
+/// {
+///     public override void Load(PluginContext context)
+///     {
+///         context.AddEntity&lt;Counter&gt;();
+///         context.Log("step is " + context.SettingInt("step", 1));
+///     }
+///
+///     public override void Seed(PluginScope scope) =&gt; scope.World.Add(new Counter());
+/// }
+/// </code>
+/// </example>
 public abstract class ServerPlugin
 {
     /// <summary>Registers the plugin's entity types and systems and reads its settings. Do not touch scopes here: this also runs on reload, and a failure here leaves the world untouched.</summary>

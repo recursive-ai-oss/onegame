@@ -41,6 +41,25 @@ public readonly record struct FrameStats3D(int Objects, int DrawCalls, long Tria
 /// (<see cref="Render"/>): cluster light assignment, one forward pass for opaque, masked and blended surfaces plus the backdrop, a bloom
 /// chain, and tone mapping into the target. See <c>docs/interfaces/render3d.md</c>.
 /// </summary>
+/// <remarks>
+/// Games that use entities and <c>IView3D</c> never create one: <c>Render3DStage</c> owns it. Create one directly for tools, tests and
+/// custom pipelines. Dispose uploaded models before the renderer.
+/// </remarks>
+/// <example>
+/// Load a glTF file, light it and capture one frame without a window:
+/// <code>
+/// using var device = GpuBackends.CreateDevice(new GpuDeviceOptions { ApplicationName = "viewer" });
+/// using var renderer = new Renderer3D(device);
+/// using var model = renderer.Upload(GltfLoader.LoadFile("models/DamagedHelmet.glb"));
+///
+/// var scene = new Scene3D { Camera = Camera3D.Orbit(Vector3.Zero, distance: 3f, yawDegrees: 30f, pitchDegrees: 15f) };
+/// scene.Add(model);
+/// scene.Lights.Add(Light3D.Directional(new Vector3(-0.4f, -1f, -0.5f), new Vector3(1f, 0.96f, 0.9f), lux: 3f));
+///
+/// using var target = new Offscreen3D(renderer, 800, 600);
+/// byte[] rgba = target.Capture(scene);    // 800 * 600 * 4 bytes, top row first
+/// </code>
+/// </example>
 public sealed partial class Renderer3D : IDisposable
 {
     /// <summary>Most punctual lights one frame uses; extra lights are ignored.</summary>

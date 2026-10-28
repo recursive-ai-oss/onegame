@@ -9,6 +9,18 @@ namespace OneGame.Testing;
 /// delivers the frames to every client and records every scope's hash, so a test can compare hash sequences between runs, check that
 /// replicas never drift, and reload plugins in the middle of a run.
 /// </summary>
+/// <example>
+/// <code>
+/// var config = ServerConfig.Parse("name: test\ntickRate: 60\nscopes:\n  - { id: 1, seed: 11 }\n");
+/// using var server = new TestServer(config, new ServerSetup { RegisterEntities = MyGame.EntityTypes.Register });
+/// var client = server.AddClient("alice", new ScopeId(1));
+/// server.Step(3);
+/// client.Send(new EntityId(1), "Add", "4");
+/// server.Step(5);
+/// Assert.Empty(server.CheckSync());   // the replica equals the authority
+/// Assert.Equal(0, server.DriftCount);
+/// </code>
+/// </example>
 public sealed class TestServer : IDisposable
 {
     private readonly List<ServerTestClient> _clients = [];

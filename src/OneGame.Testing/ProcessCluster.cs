@@ -119,6 +119,24 @@ public sealed partial class ClusterJson : JsonSerializerContext
 /// Every node is told to watch the process that started it (<c>--parent</c>), so a crashed test leaves nothing running. <see cref="Down"/>
 /// stops the nodes by pid and checks that none is left.
 /// </remarks>
+/// <example>
+/// Start a spec file, run a scenario whose steps are aimed at nodes, check that every client's replica agrees with its server, and
+/// stop everything:
+/// <code>
+/// using var cluster = TestCluster.Launch(ClusterSpec.Load("cluster.yaml"));
+/// var pids = cluster.Pids.ToArray();
+/// var result = cluster.Run("cluster/play.yaml");
+/// Assert.True(result.Passed);
+///
+/// var report = cluster.Hashes();
+/// Assert.True(report.Ok, string.Join("; ", report.Problems));
+///
+/// cluster.Kill("islandA");     // crash a server...
+/// cluster.Start("islandA");    // ...and bring it back
+/// cluster.Down();
+/// Assert.All(pids, pid =&gt; Assert.False(ProcessCluster.IsAlive(pid)));
+/// </code>
+/// </example>
 public sealed class ProcessCluster : IDisposable
 {
     private ClusterState _state;
@@ -145,7 +163,7 @@ public sealed class ProcessCluster : IDisposable
         _ownsDir = ownsDir;
     }
 
-    /// <summary>The nodes as started.</summary>
+    /// <summary>The nodes as started: name, role, process id, live-control socket, log file and the addresses servers listen on. The same data is in <c>cluster.json</c> in <see cref="Dir"/>.</summary>
     public ClusterState State => _state;
 
     /// <summary>The folder with logs, sockets and <c>cluster.json</c>. A folder the cluster made itself (no <c>Dir</c> in the spec) is deleted by <see cref="Down"/>.</summary>
@@ -350,7 +368,8 @@ public sealed class ProcessCluster : IDisposable
         }
     }
 
-    /// <summary>Runs a control operation on a node and returns its JSON.</summary>
+    /// <summary>Runs a control operation on one node (any operation <see cref="Operations"/> lists) and returns its JSON.</summary>
+    /// <exception cref="ClusterException">There is no node of that name, or its process cannot be reached.</exception>
     /// <param name="node">The node's name.</param>
     /// <param name="op">The operation (see the control layer's table, or the server's).</param>
     /// <param name="argsJson">A JSON object, or null.</param>
@@ -361,12 +380,15 @@ public sealed class ProcessCluster : IDisposable
     /// <summary>The names of the operations a node offers.</summary>
     public IReadOnlyList<string> Operations(string node) => Client(node).Tools();
 
-    /// <summary>The node's state as recorded.</summary>
+    /// <summary>The node's recorded state: process id, socket, log file, listening addresses.</summary>
+    /// <exception cref="ClusterException">There is no node of that name (code <c>no_node</c>).</exception>
     /// <exception cref="ClusterException">No such node.</exception>
     public NodeState Node(string name) =>
         _state.Nodes.FirstOrDefault(n => n.Name == name) ?? throw new ClusterException("no_node", $"There is no node '{name}'. Nodes: {string.Join(", ", _state.Nodes.Select(n => n.Name))}.");
 
-    /// <summary>The last lines of a node's output.</summary>
+    /// <summary>The last lines of a node's console output, for a failure message. Read it when a node did not come up or went away.</summary>
+    /// <param name="node">The node's name.</param>
+    /// <param name="lines">How many lines from the end; 40 by default.</param>
     public string LogTail(string node, int lines = 40)
     {
         var file = Node(node).Log;
@@ -685,7 +707,8 @@ public sealed class ProcessCluster : IDisposable
     /// <summary>Runs a scenario against the cluster: steps and expectations aimed at nodes, in order.</summary>
     public ScenarioResult Run(Scenario scenario) => new ClusterScenarioRunner(this).Run(scenario);
 
-    /// <summary>Reads and runs a scenario file against the cluster.</summary>
+    /// <summary>Reads a scenario file and runs it against the cluster. Steps and expectations name the node they aim at (<c>node: bot1</c>).</summary>
+    /// <exception cref="ScenarioException">The file does not parse.</exception>
     public ScenarioResult Run(string scenarioPath) => Run(ScenarioParser.Load(scenarioPath));
 
     /// <summary>Stops every node (asking first, then killing what does not stop), checks that none is left, and removes the sockets.</summary>

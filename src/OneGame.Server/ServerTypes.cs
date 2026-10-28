@@ -3,10 +3,10 @@ namespace OneGame.Server;
 /// <summary>Where a server is in its life.</summary>
 public enum ServerState
 {
-    /// <summary>Built, not started.</summary>
+    /// <summary>Built, not started: <see cref="ServerHost.Start"/> has not been called.</summary>
     Created,
 
-    /// <summary>Started and ticking.</summary>
+    /// <summary>Started: scopes exist and ticks may run.</summary>
     Running,
 
     /// <summary>Stopping: no more ticks, plugins being released.</summary>

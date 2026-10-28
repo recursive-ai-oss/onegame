@@ -14,6 +14,13 @@ namespace OneGame.Server.Plugins;
 /// This is the only assembly that uses runtime reflection; it is CoreCLR-only and is never part of a NativeAOT publish.
 /// </para>
 /// </summary>
+/// <example>
+/// <code>
+/// var host = new ServerHost(ServerConfig.Load("server.yaml"), setup: null, loader: new PluginLoader());
+/// host.Start();                                    // loads the plugins the configuration lists
+/// host.ReloadPlugin("pulse");                      // after rebuilding pulse's dll
+/// </code>
+/// </example>
 public sealed class PluginLoader : IPluginLoader
 {
     private const long MaxAssemblyBytes = 256L * 1024 * 1024;

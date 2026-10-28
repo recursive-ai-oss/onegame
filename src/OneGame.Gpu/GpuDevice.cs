@@ -10,6 +10,20 @@ namespace OneGame.Gpu;
 /// Conventions that hold on every backend: clip space has +Y up and depth 0..1; framebuffer origin is the top-left;
 /// resource states and barriers are handled by the backend.
 /// </remarks>
+/// <example>
+/// Clear an offscreen image and read it back. The device is the low-level layer; most games draw through the 2D and 3D renderers, which use it.
+/// <code>
+/// using var device = GpuBackends.CreateDevice();
+/// using var target = device.CreateTexture(new TextureDesc(8, 8, GpuFormat.Rgba8Unorm, TextureUsage.RenderTarget | TextureUsage.CopySource));
+///
+/// var commands = device.BeginCommands();
+/// commands.BeginRenderPass(ColorAttachment.Clear(target, 1f, 0.5f, 0f, 1f)).EndPass();
+/// device.Submit(commands);
+///
+/// var pixels = new byte[8 * 8 * 4];
+/// device.ReadTexture(target, mipLevel: 0, layer: 0, pixels);   // waits for the GPU; rows are tightly packed
+/// </code>
+/// </example>
 public abstract class GpuDevice : IDisposable
 {
     /// <summary>The adapter this device runs on.</summary>
@@ -30,16 +44,25 @@ public abstract class GpuDevice : IDisposable
     /// <summary>Optional features and limits of this device.</summary>
     public abstract GpuCapabilities Capabilities { get; }
 
-    /// <summary>Creates a buffer. Contents are undefined until written.</summary>
+    /// <summary>Creates a buffer. Contents are undefined until written with <see cref="WriteBuffer"/>.</summary>
+    /// <param name="desc">Size and allowed uses.</param>
+    /// <exception cref="GpuOutOfMemoryException">The device has no memory left.</exception>
     public abstract GpuBuffer CreateBuffer(in BufferDesc desc);
 
-    /// <summary>Creates a texture. Contents are undefined until written or rendered.</summary>
+    /// <summary>Creates a texture. Contents are undefined until written (<see cref="WriteTexture(GpuTexture, uint, uint, ReadOnlySpan{byte})"/>) or rendered into.</summary>
+    /// <param name="desc">Size, format, mip levels and allowed uses.</param>
+    /// <exception cref="GpuOutOfMemoryException">The device has no memory left.</exception>
+    /// <exception cref="GpuUnsupportedException">The format or usage is not supported by this device.</exception>
     public abstract GpuTexture CreateTexture(in TextureDesc desc);
 
-    /// <summary>Creates a sampler.</summary>
+    /// <summary>Creates a sampler: how a shader filters and wraps texture reads.</summary>
+    /// <param name="desc">Filters, addressing and level-of-detail range.</param>
     public abstract GpuSampler CreateSampler(in SamplerDesc desc);
 
     /// <summary>Creates a shader from SPIR-V code (4-byte aligned words, little-endian).</summary>
+    /// <param name="stage">The shader stage.</param>
+    /// <param name="spirv">The SPIR-V module.</param>
+    /// <param name="entryPoint">The entry point's name.</param>
     public abstract GpuShader CreateShader(ShaderStage stage, ReadOnlySpan<byte> spirv, string entryPoint);
 
     /// <summary>
@@ -76,25 +99,40 @@ public abstract class GpuDevice : IDisposable
     /// <summary>Creates a bind group for one set of a pipeline layout. Entries must cover every binding of that set.</summary>
     public abstract GpuBindGroup CreateBindGroup(GpuPipelineLayout layout, uint setIndex, ReadOnlySpan<BindGroupEntry> entries);
 
-    /// <summary>Creates a graphics pipeline.</summary>
+    /// <summary>Creates a graphics pipeline: shaders, vertex layout, blend, depth and target formats fixed together. Create pipelines once and reuse them.</summary>
+    /// <param name="desc">The pipeline description.</param>
+    /// <exception cref="GpuException">The shaders and layout do not agree, or the backend rejected the description.</exception>
     public abstract GpuGraphicsPipeline CreateGraphicsPipeline(GraphicsPipelineDesc desc);
 
     /// <summary>Creates a compute pipeline.</summary>
+    /// <param name="desc">The compute shader and layout.</param>
     public abstract GpuComputePipeline CreateComputePipeline(ComputePipelineDesc desc);
 
-    /// <summary>Creates a swapchain on a native window.</summary>
+    /// <summary>Creates a swapchain: the images presented to a native window.</summary>
+    /// <param name="surface">The window, from the platform layer.</param>
+    /// <param name="desc">Initial size, format and presentation pacing.</param>
+    /// <exception cref="GpuUnsupportedException">The adapter cannot present to this window.</exception>
     public abstract GpuSwapchain CreateSwapchain(in SurfaceSource surface, in SwapchainDesc desc);
 
-    /// <summary>Starts recording commands.</summary>
+    /// <summary>Starts recording commands. Nothing runs until the encoder is passed to <see cref="Submit"/>.</summary>
     public abstract GpuCommandEncoder BeginCommands();
 
     /// <summary>Queues recorded commands. Pending uploads run first. Waits when too many submissions are still in flight.</summary>
+    /// <param name="commands">The encoder from <see cref="BeginCommands"/>; it is finished by this call and cannot be reused.</param>
+    /// <exception cref="GpuDeviceLostException">The driver reset or the GPU was removed.</exception>
     public abstract void Submit(GpuCommandEncoder commands);
 
     /// <summary>Queues a copy of bytes into a buffer; it runs before the next submitted commands.</summary>
+    /// <param name="buffer">The destination; it needs <see cref="BufferUsage.CopyDestination"/>.</param>
+    /// <param name="offset">Byte offset into the buffer.</param>
+    /// <param name="data">The bytes.</param>
     public abstract void WriteBuffer(GpuBuffer buffer, ulong offset, ReadOnlySpan<byte> data);
 
     /// <summary>Queues a copy of tightly packed rows into a whole texture mip level (all slices of a volume); it runs before the next submitted commands.</summary>
+    /// <param name="texture">The destination; it needs <see cref="TextureUsage.CopyDestination"/>.</param>
+    /// <param name="mipLevel">The mip level.</param>
+    /// <param name="layer">The array layer or cube face.</param>
+    /// <param name="data">Exactly <see cref="LevelByteSize(GpuFormat, uint, uint, uint)"/> bytes for the level.</param>
     public abstract void WriteTexture(GpuTexture texture, uint mipLevel, uint layer, ReadOnlySpan<byte> data);
 
     /// <summary>
@@ -103,10 +141,17 @@ public abstract class GpuDevice : IDisposable
     /// </summary>
     public abstract void WriteTexture(GpuTexture texture, in TextureRegion region, ReadOnlySpan<byte> data);
 
-    /// <summary>Waits for all submitted work, then copies buffer bytes to <paramref name="destination"/>.</summary>
+    /// <summary>Waits for all submitted work, then copies buffer bytes to <paramref name="destination"/>. Blocks, so keep it for tools and tests.</summary>
+    /// <param name="buffer">The source; it needs <see cref="BufferUsage.CopySource"/>.</param>
+    /// <param name="offset">Byte offset into the buffer.</param>
+    /// <param name="destination">Receives the bytes; its length is the amount read.</param>
     public abstract void ReadBuffer(GpuBuffer buffer, ulong offset, Span<byte> destination);
 
-    /// <summary>Waits for all submitted work, then copies a texture mip level into <paramref name="destination"/> with tightly packed rows.</summary>
+    /// <summary>Waits for all submitted work, then copies a texture mip level into <paramref name="destination"/> with tightly packed rows. Blocks, so keep it for tools and tests.</summary>
+    /// <param name="texture">The source; it needs <see cref="TextureUsage.CopySource"/>.</param>
+    /// <param name="mipLevel">The mip level.</param>
+    /// <param name="layer">The array layer or cube face.</param>
+    /// <param name="destination">Receives <see cref="LevelByteSize(GpuFormat, uint, uint, uint)"/> bytes.</param>
     public abstract void ReadTexture(GpuTexture texture, uint mipLevel, uint layer, Span<byte> destination);
 
     /// <summary>

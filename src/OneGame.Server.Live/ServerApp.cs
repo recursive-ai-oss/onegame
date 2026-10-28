@@ -29,6 +29,19 @@ public sealed partial class ServerAppJson : JsonSerializerContext
 /// live control, run until stopped. A game's server project calls <c>ServerApp.Run(setup, args)</c> with the game's entity types; the
 /// <c>onegame-server</c> tool calls it with a plugin loader and no game types.
 /// </summary>
+/// <example>
+/// A complete server program (<c>Program.cs</c> of a project with <c>OneGameKind</c> <c>Server</c>):
+/// <code>
+/// return ServerApp.Run(
+///     new ServerSetup
+///     {
+///         RegisterEntities = OneGame.Generated.MyGameServer.EntityTypes.Register,
+///         SeedWorld = (world, scope) =&gt; world.Add(new Counter()),
+///     },
+///     args);
+/// </code>
+/// Run it with <c>--config server.yaml --live</c>; <c>onegame server run</c> does the same.
+/// </example>
 public static class ServerApp
 {
     private const string Usage = "usage: <server> [--config <server.yaml>] [--name N] [--scope ID[:SEED]]... [--listen udp:PORT|ws:PORT[@ADDRESS]]... [--tick-rate N] [--hash-history N]\n"
@@ -41,7 +54,7 @@ public static class ServerApp
         + "  --manual        do not tick on the clock; only the 'step' operation advances the server\n"
         + "  --parent PID    stop when that process is gone";
 
-    /// <summary>Runs a server process and returns its exit code.</summary>
+    /// <summary>Runs a server process until it is told to stop and returns its exit code: 0 for a clean stop, non-zero (with a message on standard error) for a bad command line or configuration.</summary>
     /// <param name="setup">The game's entity types and world setup, or null for a server that only runs plugins.</param>
     /// <param name="args">The command line.</param>
     /// <param name="loader">Loads plugins; null for a server that cannot (a NativeAOT build).</param>

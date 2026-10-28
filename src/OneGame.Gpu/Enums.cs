@@ -77,15 +77,15 @@ public enum TextureUsage
 {
     /// <summary>No usage.</summary>
     None = 0,
-    /// <summary>Sampled in shaders.</summary>
+    /// <summary>Read by shaders through a sampler (<c>Texture2D.Sample</c>).</summary>
     Sampled = 1,
     /// <summary>Written by shaders as a storage image.</summary>
     Storage = 2,
-    /// <summary>Rendered into as a color or depth attachment.</summary>
+    /// <summary>Drawn into as a color or depth attachment of a render pass.</summary>
     RenderTarget = 4,
-    /// <summary>Source of copies and readback.</summary>
+    /// <summary>Source of copies and of <see cref="GpuDevice.ReadTexture"/>.</summary>
     CopySource = 8,
-    /// <summary>Destination of copies and uploads.</summary>
+    /// <summary>Destination of copies and of <c>WriteTexture</c> uploads.</summary>
     CopyDestination = 16,
 }
 
@@ -103,9 +103,9 @@ public enum BufferUsage
     Uniform = 4,
     /// <summary>Storage buffer, readable and writable by shaders.</summary>
     Storage = 8,
-    /// <summary>Source of copies and readback.</summary>
+    /// <summary>Source of copies and of <see cref="GpuDevice.ReadBuffer"/>.</summary>
     CopySource = 16,
-    /// <summary>Destination of copies and uploads.</summary>
+    /// <summary>Destination of copies and of <see cref="GpuDevice.WriteBuffer"/> uploads.</summary>
     CopyDestination = 32,
     /// <summary>Holds indirect draw or dispatch arguments.</summary>
     Indirect = 64,
@@ -294,18 +294,18 @@ public enum ColorWriteMask
 /// <summary>Texture filtering.</summary>
 public enum FilterMode
 {
-    /// <summary>Nearest texel.</summary>
+    /// <summary>Take the nearest texel: hard edges, right for pixel art.</summary>
     Nearest,
-    /// <summary>Linear interpolation.</summary>
+    /// <summary>Blend the neighbouring texels: smooth.</summary>
     Linear,
 }
 
 /// <summary>Texture coordinate handling outside 0..1.</summary>
 public enum AddressMode
 {
-    /// <summary>Clamp to the edge texel.</summary>
+    /// <summary>Reads outside 0..1 return the edge texel.</summary>
     ClampToEdge,
-    /// <summary>Repeat.</summary>
+    /// <summary>The texture tiles.</summary>
     Repeat,
     /// <summary>Repeat, mirroring every other tile.</summary>
     MirrorRepeat,

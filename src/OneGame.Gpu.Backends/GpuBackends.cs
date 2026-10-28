@@ -9,6 +9,18 @@ namespace OneGame.Gpu;
 /// <c>ONEGAME_GPU_BACKEND</c> environment variable (<c>vulkan</c>, <c>metal</c> or <c>auto</c>) overrides it, for example to run the
 /// Vulkan backend through a loader on a Mac.
 /// </summary>
+/// <example>
+/// <code>
+/// if (!GpuBackends.IsAvailable)
+/// {
+///     Console.WriteLine(GpuBackends.UnavailableReason);   // for example no Vulkan driver
+///     return;
+/// }
+///
+/// using var device = GpuBackends.CreateDevice(new GpuDeviceOptions { ApplicationName = "my tool" });
+/// Console.WriteLine($"{device.Backend} on {device.Adapter.Name}");
+/// </code>
+/// </example>
 public static class GpuBackends
 {
     /// <summary>The backend this process uses: <c>ONEGAME_GPU_BACKEND</c> when set, otherwise the platform's own.</summary>
@@ -53,8 +65,7 @@ public static class GpuBackends
 
     /// <summary>Creates a device on the selected backend.</summary>
     /// <param name="options">Device options; <see cref="GpuDeviceOptions.Adapter"/> and <c>ONEGAME_GPU_ADAPTER</c> choose the adapter.</param>
-    /// <exception cref="GpuUnsupportedException">The backend is not available on this machine.</exception>
-    /// <exception cref="GpuUnsupportedException">The backend is not available, or it is WebGPU, which can only be created asynchronously: use <see cref="CreateDeviceAsync"/>.</exception>
+    /// <exception cref="GpuUnsupportedException">The backend is not available on this machine, or it is WebGPU, which can only be created asynchronously: use <see cref="CreateDeviceAsync"/>.</exception>
     public static GpuDevice CreateDevice(GpuDeviceOptions? options = null) =>
         Selected == GpuBackend.WebGpu
             ? throw new GpuUnsupportedException("A browser creates its WebGPU device asynchronously: use GpuBackends.CreateDeviceAsync.")

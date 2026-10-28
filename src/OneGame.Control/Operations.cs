@@ -41,10 +41,14 @@ public interface IControlEndpoint
     string Instructions { get; }
 
     /// <summary>Runs an operation; <paramref name="argsJson"/> is a JSON object or null.</summary>
+    /// <param name="op">The operation's name.</param>
+    /// <param name="argsJson">The arguments as a JSON object, or null.</param>
     /// <exception cref="ControlException">The operation is unknown, its arguments are wrong, or it failed.</exception>
     ControlResult Invoke(string op, string? argsJson = null);
 
     /// <summary>Runs an operation; operations that wait for the graphics device finish here without blocking the caller.</summary>
+    /// <param name="op">The operation's name.</param>
+    /// <param name="argsJson">The arguments as a JSON object, or null.</param>
     ValueTask<ControlResult> InvokeAsync(string op, string? argsJson = null) => ValueTask.FromResult(Invoke(op, argsJson));
 }
 
@@ -53,12 +57,33 @@ public interface IControlEndpoint
 /// <param name="Png">PNG bytes of a captured frame, when the operation made one.</param>
 public sealed record ControlResult(string Json, byte[]? Png = null);
 
-/// <summary>Result of <c>info</c>. <c>Drift</c> counts drift reports filed by the local replica; it must stay 0.</summary>
+/// <summary>Result of <c>info</c>, the operation to call first: which game this is, where it is in time, and what it is drawing with.</summary>
+/// <param name="Game">The game's name.</param>
+/// <param name="Tick">The world's simulation tick.</param>
+/// <param name="Frame">Frames run (a frame is one tick plus UI and drawing).</param>
+/// <param name="Hash">The state hash of all synced state, 16 hex digits.</param>
+/// <param name="Width">Window width in pixels.</param>
+/// <param name="Height">Window height in pixels.</param>
+/// <param name="Scale">The UI scale in effect.</param>
+/// <param name="Headless">True when there is no window (tests and servers).</param>
+/// <param name="Screen">The name of the open UI screen, or null.</param>
+/// <param name="Entities">How many entities the world holds.</param>
+/// <param name="Screens">Names that <c>screen_open</c> accepts.</param>
+/// <param name="Fixtures">Names that <c>fixture_load</c> accepts.</param>
+/// <param name="Stage">The name of the render stage drawing the game.</param>
+/// <param name="Adapter">The graphics adapter's name, or null when drawing on the CPU.</param>
+/// <param name="Drift">Drift reports filed by the local replica; it must stay 0.</param>
+/// <param name="Backend">The platform backend, such as <c>headless</c>, <c>x11</c> or <c>wayland</c> (the platform backend's name in lower case).</param>
+/// <param name="Presented">Frames presented to the window so far.</param>
+/// <param name="ScaleOverride">The UI scale set by <c>ui_scale</c>, or null when the scale follows the window.</param>
 public sealed record InfoResult(
     string Game, long Tick, long Frame, string Hash, int Width, int Height, float Scale, bool Headless, string? Screen,
     int Entities, string[] Screens, string[] Fixtures, string Stage, string? Adapter, int Drift, string Backend, long Presented, float? ScaleOverride = null);
 
 /// <summary>Result of <c>ui_scale</c>: the scale in effect, the override (null when following the window) and the window's own scale.</summary>
+/// <param name="Scale">The UI scale in effect.</param>
+/// <param name="Override">The scale set by this operation, or null when the UI follows the window's scale.</param>
+/// <param name="WindowScale">The window's own scale factor (HiDPI).</param>
 public sealed record UiScaleResult(float Scale, float? Override, float WindowScale);
 
 /// <summary>Result of <c>net_wait</c>: whether the tick was reached before the timeout, and where the replica is.</summary>
@@ -74,43 +99,97 @@ public sealed record NetWaitResult(bool Reached, long Tick, string Hash);
 public sealed record NetDivergeResult(string Entity, long Tick, string Hash);
 
 /// <summary>Result of <c>clipboard_get</c> and <c>clipboard_set</c>. <c>Text</c> is null when the clipboard holds no text.</summary>
+/// <param name="Text">The clipboard text, or null.</param>
+/// <param name="Ok">True when the clipboard is supported and the call worked.</param>
 public sealed record ClipboardResult(string? Text, bool Ok);
 
-/// <summary>Result of <c>step</c>, <c>hash</c> and the operations that change the world.</summary>
+/// <summary>Result of <c>step</c>, <c>hash</c> and the operations that change the world (<c>screen_open</c>, <c>fixture_load</c>, <c>reset</c>, <c>snapshot_load</c>).</summary>
+/// <param name="Frame">Frames run so far.</param>
+/// <param name="Tick">The world's tick afterwards.</param>
+/// <param name="Hash">The state hash afterwards; equal hashes at equal ticks mean equal state.</param>
 public sealed record StateResult(long Frame, long Tick, string Hash);
 
-/// <summary>Result of <c>state_patch</c>.</summary>
+/// <summary>Result of <c>state_patch</c>: a synced property written directly, bypassing commands (for building a situation in a test).</summary>
+/// <param name="Entity">The entity patched, as <c>Type#id</c> (or <c>Table[row]</c> for a hot table).</param>
+/// <param name="Property">The property.</param>
+/// <param name="Value">The value now stored, as text.</param>
+/// <param name="Hash">The state hash after the patch.</param>
 public sealed record PatchResult(string Entity, string Property, string Value, string Hash);
 
 /// <summary>Result of <c>command_send</c>: <c>Queued</c> means it runs on the next tick.</summary>
+/// <param name="Entity">The entity addressed, as <c>Type#id</c>.</param>
+/// <param name="Command">The command name.</param>
+/// <param name="Status">What became of it: the command status's name, <c>Queued</c> when accepted. An unknown command or arguments that do not fit are errors instead.</param>
 public sealed record SendResult(string Entity, string Command, string Status);
 
-/// <summary>One entity type's commands.</summary>
+/// <summary>One entity type's commands, as <c>commands_list</c> reports them (shown with the first entity of that type).</summary>
+/// <param name="Entity">The entity, as <c>Type#id</c>.</param>
+/// <param name="Type">The entity type name.</param>
+/// <param name="Commands">Each command with its parameter signature.</param>
 public sealed record CommandsResult(string Entity, string Type, string[] Commands);
 
-/// <summary>Result of the input operations.</summary>
+/// <summary>Result of the input operations (<c>input_key</c>, <c>input_pointer</c>, <c>ui_click</c> and the like).</summary>
+/// <param name="Focused">The focused UI element, or null.</param>
+/// <param name="Hovered">The element under the pointer, or null.</param>
+/// <param name="Tick">The world's tick; input is applied at the next frame, so step to see its effect.</param>
 public sealed record InputResult(string? Focused, string? Hovered, long Tick);
 
-/// <summary>Result of <c>ui_invoke</c>.</summary>
+/// <summary>Result of <c>ui_invoke</c>: the element's default action run without pointer events.</summary>
+/// <param name="Target">The element, as its id or description.</param>
+/// <param name="Invoked">True when the element had an action to run.</param>
+/// <param name="Tick">The world's tick.</param>
 public sealed record InvokeResult(string Target, bool Invoked, long Tick);
 
-/// <summary>Result of <c>ui_hit</c>.</summary>
+/// <summary>Result of <c>ui_hit</c>: the element a pointer event at a position would reach.</summary>
+/// <param name="Element">The element's description, or null when nothing is there.</param>
+/// <param name="Id">Its id, or null.</param>
 public sealed record HitResult(string? Element, string? Id);
 
-/// <summary>Result of <c>capture_frame</c>.</summary>
+/// <summary>Result of <c>capture_frame</c>. The PNG itself travels beside the JSON (<see cref="ControlResult.Png"/>) or in <paramref name="Path"/>.</summary>
+/// <param name="Path">The file written under the output folder, or null when none was asked for.</param>
+/// <param name="Width">Pixel width.</param>
+/// <param name="Height">Pixel height.</param>
+/// <param name="Scale">The UI scale used.</param>
+/// <param name="Sha256">Hash of the PNG bytes; the same state on the same renderer gives the same hash.</param>
+/// <param name="Renderer">What drew it, such as <c>2d</c> or <c>cpu</c>.</param>
+/// <param name="Tick">The world's tick when it was taken.</param>
+/// <param name="Hash">The state hash when it was taken.</param>
 public sealed record CaptureResult(string? Path, int Width, int Height, float Scale, string Sha256, string Renderer, long Tick, string Hash);
 
 /// <summary>One frame of a captured sequence.</summary>
+/// <param name="File">The PNG's file name, relative to the sequence folder.</param>
+/// <param name="Tick">The world's tick for this frame.</param>
+/// <param name="Hash">The state hash at that tick.</param>
+/// <param name="Sha256">Hash of the PNG bytes.</param>
 public sealed record SequenceFrame(string File, long Tick, string Hash, string Sha256);
 
 /// <summary>The manifest of a captured sequence (also written to <c>manifest.json</c> beside the frames).</summary>
+/// <param name="Game">The game's name.</param>
+/// <param name="Width">Pixel width of each frame.</param>
+/// <param name="Height">Pixel height of each frame.</param>
+/// <param name="Scale">The UI scale.</param>
+/// <param name="Fps">Frames per second of the playback the sequence is meant for.</param>
+/// <param name="TicksPerFrame">Simulation ticks between captured frames.</param>
+/// <param name="Renderer">What drew the frames.</param>
+/// <param name="Frames">The frames in order.</param>
 public sealed record SequenceManifest(
     string Game, int Width, int Height, float Scale, int Fps, int TicksPerFrame, string Renderer, SequenceFrame[] Frames);
 
-/// <summary>Result of <c>capture_sequence</c>.</summary>
+/// <summary>Result of <c>capture_sequence</c>: a folder of numbered PNGs and a manifest.</summary>
+/// <param name="Directory">The folder written, under the output folder.</param>
+/// <param name="Manifest">The manifest file's path.</param>
+/// <param name="Frames">How many frames were captured.</param>
+/// <param name="Width">Pixel width of each frame.</param>
+/// <param name="Height">Pixel height of each frame.</param>
+/// <param name="Fps">Playback frames per second.</param>
 public sealed record SequenceResult(string Directory, string Manifest, int Frames, int Width, int Height, int Fps);
 
-/// <summary>Result of <c>snapshot_save</c>.</summary>
+/// <summary>Result of <c>snapshot_save</c>: the world written as a snapshot, which <c>snapshot_load</c> (or a scenario's <c>snapshot</c> step) restores exactly.</summary>
+/// <param name="Path">The file written under the output folder, or null when the snapshot came back inline.</param>
+/// <param name="Bytes">The snapshot's size.</param>
+/// <param name="Base64">The snapshot as base64 when no path was given, otherwise null.</param>
+/// <param name="Hash">The state hash at the time.</param>
+/// <param name="Tick">The world's tick at the time.</param>
 public sealed record SnapshotResult(string? Path, int Bytes, string? Base64, string Hash, long Tick);
 
 /// <summary>Result of <c>audio_capture</c>: what the capture sink holds after the advance.</summary>
