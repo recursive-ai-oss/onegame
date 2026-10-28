@@ -96,13 +96,34 @@ The cookie exchange is unchanged: Request, Challenge, and a server that stores n
 
 ## 5. WebSocket
 
-Noise runs inside the WebSocket as binary messages. TCP supplies ordering and address validation, so no cookie, packet number or replay window is needed; the Noise counter is implicit and a lost or reordered record cannot happen without breaking the stream (it fails authentication and the connection closes).
+Noise runs inside WebSocket binary messages, on the desktop socket and on the browser's WebSocket alike (`SecureConnection` in `OneGame.Net` wraps any `INetConnection` that keeps message boundaries; `WebSocketTransport.Listen/Connect` apply it, and `WebSocketTransport.Secure` applies it to a connection something else opened, which is how the browser client uses it). TCP supplies ordering, so no packet number or replay window is needed: the Noise counter is implicit, and a record that is lost, repeated, reordered or injected fails authentication and ends the connection.
 
-- The first binary message each way is the handshake (client msg 1, server msg 2), `bind` empty. The server's path or subprotocol may carry the game id; the prologue binds it either way.
-- After the handshake each Noise message (≤ 65535 bytes) is one WebSocket message: `AEAD(flag ‖ chunk)`, flag 0 = last chunk, 1 = more, 2 = graceful close. The receiver enforces `MaxMessageBytes` on the running total before it buffers anything.
-- A WebSocket Close frame is not authenticated. A graceful close is an authenticated record (flag 2) followed by the Close frame; a bare Close or reset is reported as a drop (`ByRemote = false`).
-- `MaxPendingHandshakes`, `HandshakeTimeoutMs` and `MaxHandshakesPerSecond` bound the sockets and DH work of unfinished handshakes.
-- On an https page the browser needs `wss://`: the host terminates TLS in front of the plain listener (see the user guide, operator steps). Noise runs inside it regardless.
+**Messages**, one per WebSocket message:
+
+1. *Challenge* (server to client, sent as soon as the socket is open): `0x21 ‖ nonce[16]`. `0x21` is the version byte (version 2, WebSocket). Nothing else comes from the server until the client has proved a live key.
+2. *First* (client to server): `0x21 ‖ Noise IK message 1` (97 bytes). The prologue's `bind` is `"ws" ‖ 0x21 ‖ nonce`, so the version byte, the transport and the challenge are all inside the handshake hash. A flipped version byte, another game id, another challenge or a wrong key all fail the same way.
+3. *Reply* (server to client): `0x21 ‖ Noise IK message 2` (49 bytes).
+4. *Confirm* (client to server): the first record, flag 3, empty. The server hands the connection to the application (`TryAccept`, then `Node.Accept`) only when this decrypts.
+5. *Records*: each message is `AEAD(flag ‖ chunk)`, at most 65535 bytes in all, so a chunk is at most 65518 bytes. Flag 0 ends a logical message, 1 continues it, 2 is a graceful close carrying the `DisconnectReason`, 3 is the confirm.
+
+**Rules that hold after the tag verifies** (an authenticated peer still sends untrusted bytes):
+
+- A continuation (flag 1) must carry at least one byte, and a last chunk (flag 0) may be empty only when nothing is pending, so a stream of empty records cannot keep the receiver busy without making progress.
+- The running total of a logical message is checked against `MaxMessageBytes` before the chunk is appended; the limit is enforced from the first chunk, never from a length the peer claims.
+- A close record inside an unfinished message is a truncation and ends the connection with `ProtocolViolation`. Nothing is read after a close record. Flag 3 anywhere but first, and any unknown flag, end the connection.
+- The link underneath is told its message limit (record size plus tag), so an oversized record is refused by the frame parser before it is stored. `permessage-deflate` and every other extension are never negotiated; frames with reserved bits are refused.
+
+**Closing.** A WebSocket Close frame is not authenticated, so a graceful close is a flag-2 record followed by the Close frame. A connection that ends without one (a bare Close frame, a reset, a timeout) reports `TransportError`, code 1006, `ByRemote = false`: game code treats it as a drop and reconnects. Records that arrived before the close are still delivered, and the close record's reason is read first.
+
+**Policy.** A Required end meeting an Insecure peer never falls back. A Required client sends nothing before the challenge arrives; an Insecure server never sends one, so the client times out (`ConnectTimeout`) or, if the first message is game data, closes with `SecurityRequired`. A Required server whose first message is not `0x21 ‖ …` closes with `SecurityRequired` and never reads it as game data. A key the server does not recognise, or a different game id, closes with `HandshakeFailed`; a client with more than one trusted key then tries the next on a fresh connection (the same rotation as UDP). An Insecure *listener* cannot tell a Required client's challenge-less silence from an idle one and will hand its first bytes to the game as an unreadable message: the sync layer drops those, and the client times out.
+
+**Handshake budgets** (`WebSocketOptions.MaxPendingHandshakes`, `MaxPendingHandshakesPerSource`, `MaxHandshakesPerSecond`, `HandshakeTimeoutMs`). Capacity is checked before anything is computed: sockets in the handshake are limited in total and per source (an IPv4 address, or an IPv6 /64, so one prefix is one source), and they do not count against `MaxConnections`. The key agreement for a first message is charged to a per-second budget *before* it runs, with a separate allowance of the same size for sources that confirmed a session in the last ten minutes, so a flood of strangers cannot lock out returning players. Over budget the socket is closed unanswered.
+
+**How each review finding was handled on this side.** M1 (replayable first message, connection surfaced too early): the server challenge makes every first message single-use, the connection is surfaced only after the confirm, and the server sends only the challenge and the reply before that. M2 (handshake CPU): the budgets above; the per-handshake static-key derivation in `NoiseHandshake` is outside this transport. M5 (version byte not authenticated, downgrade): the version byte and transport tag are in the prologue and there is no fallback. L9 (record framing): the rules above. N5: the record parser is fuzzed twice, with garbage records and with records sealed under the real key (`net-ws-secure-records`, `net-ws-secure-authenticated`), plus the handshake messages (`net-ws-secure-handshake`).
+
+**https pages and web hosting.** A browser page served over https may only open `wss://`. The engine's listener stays plain TCP; the operator terminates TLS in front of it with a certificate for the game's host name (a reverse proxy such as Caddy or nginx with an ACME certificate, or a CDN that proxies WebSockets) and forwards to the listener, for example `wss://play.example.com/` to `ws://127.0.0.1:7777`. Noise runs inside it regardless, so the proxy sees only ciphertext, and the client still pins the server's public key: TLS gets the page past mixed-content rules, and the key is what authenticates the server. `http://localhost` pages may use `ws://`. Set `WebSocketOptions.AllowedOrigins` to the page's origin; a proxy must pass `Origin` through.
+
+**A development web client against `onegame cluster`.** The page takes the same options as a native client, through its `args` query parameter: `index.html?args=--connect%20ws://127.0.0.1:PORT%20--server-key%20PUBLICKEY%20--game-id%20GAME`, with the server started as `--key <file> --game-id GAME`. A cluster makes the key on first use and prints the public key; use it in the page URL. A page has no key storage yet, so its identity (a fresh key pair per page load) lasts one page load.
 
 ## 6. Identity across reconnects, and `Trust.Who`
 
