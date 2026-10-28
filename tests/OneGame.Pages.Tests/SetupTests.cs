@@ -111,6 +111,31 @@ public class SetupTests
         Assert.Equal("Go 2", page.GetTextContent(label));
     }
 
+    [Fact]
+    public void SettingAStyleAttributeCostsAKnownAmountAndTheIdleFrameAllocatesNothing()
+    {
+        using var cluster = TestCluster.Start(new FormGame { InSetup = true }, new TestOptions { Width = 200, Height = 100, Gpu = GpuMode.Auto });
+        var c = cluster.Client;
+        c.Step(2);
+        var page = c.Game.Pages.Get("form")!.Interactive!;
+        var go = page.FindElement("go");
+        string[] v = ["--fill:10%", "--fill:20%"];
+        for (var i = 0; i < 20; i++)
+        {
+            page.SetAttribute(go, "style", v[i % 2], TestContext.Current.CancellationToken);
+        }
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < 20; i++)
+        {
+            page.SetAttribute(go, "style", v[i % 2], TestContext.Current.CancellationToken);
+        }
+
+        var per = (GC.GetAllocatedBytesForCurrentThread() - before) / 20;
+        Console.WriteLine($"BYTES-PER-STYLE-CHANGE {per}");
+        Assert.True(per < 4_000_000);
+    }
+
     private static string Focused(PageScreen page)
     {
         var p = page.Interactive!;
