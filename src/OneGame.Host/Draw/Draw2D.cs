@@ -153,6 +153,12 @@ public sealed partial class Draw2D
     /// </summary>
     public Action<World, Draw2D>? Describer { get; set; }
 
+    /// <summary>
+    /// True while the development overlay is showing. A view that can draw debug geometry (navigation paths, colliders, grids) checks it
+    /// and draws only then; release builds never set it, so such drawing costs nothing there. Not state: reading it in a view is safe.
+    /// </summary>
+    public bool DebugVisible { get; set; }
+
     internal void Draw(Renderer2D renderer, in FrameInfo frame, TextQuadBuilder text, FontTextMeasurer measurer, GlyphAtlas glyphs)
     {
         Begin(renderer, frame);

@@ -9,6 +9,7 @@ Each folder is a complete game of a few dozen lines that shows one feature on th
 | [tween](tween) | A tween started from a button, and a `transition` style on a class change ([docs/tweens.md](../docs/tweens.md)) | 43 lines |
 | [particles](particles) | A spark emitter and a burst when the state changes ([docs/particles.md](../docs/particles.md)) | 72 lines |
 | [saves](saves) | A save slot and a typed settings file ([docs/saves.md](../docs/saves.md)) | 45 lines |
+| [pathing](pathing) | Two units path round walls on a grid: searches spread over ticks, state synced and restored with the world, re-search when the map changes, paths drawn by the debug overlay ([docs/navigation.md](../docs/navigation.md)) | 270 lines |
 | [networked-counter](networked-counter) | One shared `Sim.cs`, a server and two clients on real sockets, replicas equal to the server ([docs/driving-a-game.md](../docs/driving-a-game.md), section 7) | 23 + 14 + 12 lines |
 
 ## Run one

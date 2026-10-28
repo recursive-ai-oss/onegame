@@ -32,8 +32,7 @@ done
 ls "$work/feed"/*.nupkg | sed 's|.*/||'
 count=$(ls "$work/feed"/*.nupkg | wc -l | tr -d ' ')
 echo "$count packages"
-wrong=$(ls "$work/feed"/*.nupkg | grep -v "\.$version\.nupkg$" || true)
-[ -z "$wrong" ] || { echo "packages not at $version:"; echo "$wrong"; exit 1; }
+"$(command -v python3 || command -v python)" "$repo/tools/ci/check-packages.py" "$work/feed" "$version"
 
 step "no dependency outside the one* family"
 py=$(command -v python3 || command -v python)

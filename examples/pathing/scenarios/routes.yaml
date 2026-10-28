@@ -1,0 +1,17 @@
+name: routes
+description: Two units search a few iterations per tick, then walk round the walls to the far side. The wagon is two cells wide and takes the wider way.
+window: 320x180
+steps:
+  - command: { entity: Unit#1, name: Spawn, args: [0, 5, 1] }
+  - command: { entity: Unit#2, name: Spawn, args: [0, 9, 2] }
+  - command: { entity: Unit#1, name: GoTo, args: [19, 5] }
+  - command: { entity: Unit#2, name: GoTo, args: [18, 9] }
+  - step: 2
+  # The search is budgeted: after two ticks it is still working.
+  - expect:
+      state: { entity: Unit#1, property: Nav.status, equals: Searching }
+  - step: 400
+expect:
+  - state: { entity: Unit#1, property: Nav.status, equals: Arrived }
+  - state: { entity: Unit#2, property: Nav.status, equals: Arrived }
+  - state: { entity: Unit#1, property: "Position[0]", equals: 152 }

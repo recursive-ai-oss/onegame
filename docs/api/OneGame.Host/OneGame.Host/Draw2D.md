@@ -46,6 +46,7 @@ public void Draw(Draw2D d)
 | [`Alpha`](#m-alpha) | How far past [`Draw2D.Tick`](Draw2D.md#m-tick) the frame is, from 0 to just under 1, for blending a moving thing between ticks. |
 | [`Assets`](#m-assets) | The game's assets, where [`Draw2D.Texture()`](Draw2D.md#m-texture-string-texturefilter) and the path overloads of [`Draw2D.Sprite()`](Draw2D.md#m-sprite-string-vector2-float-float-color-vector2-spriteflip-float) load from. |
 | [`Camera`](#m-camera) | The camera. |
+| [`DebugVisible`](#m-debugvisible) | True while the development overlay is showing. |
 | [`DeltaTime`](#m-deltatime) | View time since the previous drawn frame, in seconds; zero when the same moment is drawn twice or time went backwards. |
 | [`Describer`](#m-describer) | Draws the shapes of entities that cannot reference the host (a shared rules assembly): called with the world being drawn, after the [`IView2D`](IView2D.md) entities. |
 | [`Entity`](#m-entity) | The entity being asked to draw, or default for drawing done outside an entity. |
@@ -90,6 +91,16 @@ public Camera2DRig Camera { get; }
 The camera. It remembers where it is between frames; call [`Draw2D.Follow()`](Draw2D.md#m-follow-vector2) or set its properties from view code.
 
 **Type:** [`Camera2DRig`](../../OneGame.Render2D/OneGame.Render2D/Camera2DRig.md)
+
+### <a id="m-debugvisible"></a>DebugVisible
+
+```csharp
+public bool DebugVisible { get; set; }
+```
+
+True while the development overlay is showing. A view that can draw debug geometry (navigation paths, colliders, grids) checks it and draws only then; release builds never set it, so such drawing costs nothing there. Not state: reading it in a view is safe.
+
+**Type:** `bool`
 
 ### <a id="m-deltatime"></a>DeltaTime
 

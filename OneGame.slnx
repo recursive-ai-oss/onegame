@@ -14,6 +14,7 @@
     <Project Path="src/OneGame.Gpu.WebGpu/OneGame.Gpu.WebGpu.csproj" />
     <Project Path="src/OneGame.Host/OneGame.Host.csproj" />
     <Project Path="src/OneGame.Live/OneGame.Live.csproj" />
+    <Project Path="src/OneGame.Navigation/OneGame.Navigation.csproj" />
     <Project Path="src/OneGame.Net/OneGame.Net.csproj" />
     <Project Path="src/OneGame.Pages/OneGame.Pages.csproj" />
     <Project Path="src/OneGame.Particles/OneGame.Particles.csproj" />
@@ -36,6 +37,7 @@
   <Folder Name="/examples/">
     <Project Path="examples/input-actions/InputActionsExample.csproj" />
     <Project Path="examples/networked-counter/NetworkedCounterExample.csproj" />
+    <Project Path="examples/pathing/PathingExample.csproj" />
     <Project Path="examples/networked-counter/server/NetworkedCounterExampleServer.csproj" />
     <Project Path="examples/particles/ParticlesExample.csproj" />
     <Project Path="examples/saves/SavesExample.csproj" />
@@ -68,6 +70,7 @@
     <Project Path="tests/OneGame.Gpu.Tests/OneGame.Gpu.Tests.csproj" />
     <Project Path="tests/OneGame.Gpu.Vulkan.Tests/OneGame.Gpu.Vulkan.Tests.csproj" />
     <Project Path="tests/OneGame.Gpu.WebRunner/OneGame.Gpu.WebRunner.csproj" />
+    <Project Path="tests/OneGame.Navigation.Tests/OneGame.Navigation.Tests.csproj" />
     <Project Path="tests/OneGame.Net.Tests/OneGame.Net.Tests.csproj" />
     <Project Path="tests/OneGame.Platform.Tests/OneGame.Platform.Tests.csproj" />
     <Project Path="tests/OneGame.Purchases.Tests/OneGame.Purchases.Tests.csproj" />

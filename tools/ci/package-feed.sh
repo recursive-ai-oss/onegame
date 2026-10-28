@@ -17,8 +17,7 @@ pack_feed() {
   done)
   count=$(ls "$work/feed"/*.nupkg | wc -l | tr -d ' ')
   echo "$count packages"
-  wrong=$(ls "$work/feed"/*.nupkg | grep -v "\.$version\.nupkg$" || true)
-  [ -z "$wrong" ] || { echo "packages not at $version:"; echo "$wrong"; return 1; }
+  python3 "$(dirname "${BASH_SOURCE[0]:-$0}")/check-packages.py" "$work/feed" "$version" || return 1
 }
 
 write_nuget_config() {

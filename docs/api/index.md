@@ -19,8 +19,9 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Gpu.Metal](OneGame.Gpu.Metal/index.md) | 1 | 1 | 3 | Metal backend of the graphics layer. |
 | [RecursiveAI.OneGame.Gpu.Vulkan](OneGame.Gpu.Vulkan/index.md) | 1 | 2 | 4 | Vulkan backend of the graphics layer. |
 | [RecursiveAI.OneGame.Gpu.WebGpu](OneGame.Gpu.WebGpu/index.md) | 1 | 1 | 3 | WebGPU backend of the graphics layer, for the browser. |
-| [RecursiveAI.OneGame.Host](OneGame.Host/index.md) | 1 | 60 | 496 | The game host: window, input, fixed-step simulation, UI and render stage for one game, windowed or headless. |
+| [RecursiveAI.OneGame.Host](OneGame.Host/index.md) | 1 | 60 | 497 | The game host: window, input, fixed-step simulation, UI and render stage for one game, windowed or headless. |
 | [RecursiveAI.OneGame.Live](OneGame.Live/index.md) | 1 | 3 | 12 | Development-build tools of a running game: live control over MCP, scenario runs, captures and replays. Release builds do not reference this project. |
+| [RecursiveAI.OneGame.Navigation](OneGame.Navigation/index.md) | 1 | 16 | 116 | Pathfinding for deterministic simulations: grid searches on fixed-point positions, budgeted over several ticks, with state that is saved, restored and hashed with the world. |
 | [RecursiveAI.OneGame.Net](OneGame.Net/index.md) | 1 | 28 | 227 | Network transports behind the message-channel seam: reliable UDP, WebSocket, and a network conditioner for tests. |
 | [RecursiveAI.OneGame.Pages](OneGame.Pages/index.md) | 2 | 34 | 245 | Draws OneRender pages (builder trees and HTML) through the render graph, with input, host scopes and harness support. |
 | [RecursiveAI.OneGame.Particles](OneGame.Particles/index.md) | 1 | 8 | 72 | Particle emitters: a seedable, allocation-free simulation for sparks, smoke, dust and trails, drawn by the 2D and 3D renderers. |
