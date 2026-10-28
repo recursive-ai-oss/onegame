@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-10-28
+
+Crowds as synced state in `RecursiveAI.OneGame.Navigation` (1.13.0-preview.1, still a preview on a preview of OnePath). The other packages have no API changes.
+
 ### Added
 
 - `OneGame.Navigation`: crowds as synced state. `NavCrowd` is OnePath's crowd (avoidance of walls and of each other) on a mesh built from a `NavGrid`, kept in the world as the hot table `og.nav.crowd`: stepped once per tick, saved, hashed, replayed and replicated with the world, 0 B per step; sim code sees `Fixed`/`FVec2` only (`NavAgent`, `NavAgentOptions`, `NavCrowdOptions`). See `docs/navigation.md` and `examples/crowd`.
@@ -11,6 +15,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 ### Changed
 
 - `OneGame.Navigation` moves to OnePath 0.4.0-preview.3: searches run on `GridSearch`, path costs are OnePath's exact Q31.32 values, and `NavGrid.Stamp` is `Grid.ContentHash`. A `NavState` saved by 1.12 still loads; its map stamp differs, so a path or search from such a save is found again from where the unit stands.
+- CI checks that root motion bakes to the same fixed-point numbers on Linux, Windows and WebAssembly, and runs the hot reload check on Windows as well as Linux.
 
 ## [1.12.0] - 2026-10-28
 
