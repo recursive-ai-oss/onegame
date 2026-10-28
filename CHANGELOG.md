@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Fixed
+
+- Process clusters (`OneGame.Testing`) no longer fail when a server's port is taken between choosing it and binding it, or when a long test process runs out of fresh port numbers: a start that loses the race or finds no free port is retried on new ports, a restarted node retries its own port, and a cluster gives its ports back when it goes down. `onegame web` picks another port when its listener's port is taken.
+
 ## [1.7.0] - 2026-10-28
 
 Every export works from packages: a game made by `onegame new` from the installed tool exports for the web, Android (with Google Play Billing), iOS and the plugin-capable server with no engine checkout.
