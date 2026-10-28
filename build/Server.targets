@@ -6,6 +6,8 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <!-- A server plugin (OneGameKind Plugin in the SDK) is a class library the plugin host loads. It is not published NativeAOT. -->
+    <OutputType Condition="'$(OneGameKind)' == 'Plugin'">Library</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>

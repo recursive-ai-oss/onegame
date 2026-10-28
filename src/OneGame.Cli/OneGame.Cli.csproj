@@ -24,6 +24,22 @@
     <ProjectReference Include="../OneGame.Testing/OneGame.Testing.csproj" />
   </ItemGroup>
 
+  <!-- The plugin-capable server host (onegame-server) travels inside the tool package, in server-host/, so 'onegame server run' and
+       the plugin export work from the installed tool. It is published framework-dependent: it loads plugin assemblies. -->
+  <ItemGroup Condition="'$(_IsPacking)' == 'true'">
+    <ProjectReference Include="../OneGame.Server.Runner/OneGame.Server.Runner.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+  <Target Name="OneGamePackServerHost" BeforeTargets="_GetPackageFiles;GenerateNuspec" Condition="'$(_IsPacking)' == 'true'">
+    <PropertyGroup>
+      <_ServerHostDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'server-host'))</_ServerHostDir>
+    </PropertyGroup>
+    <MSBuild Projects="../OneGame.Server.Runner/OneGame.Server.Runner.csproj" Targets="Publish" Properties="Configuration=Release;PublishDir=$(_ServerHostDir);NoRestore=true;SelfContained=false;DebugType=none;DebugSymbols=false" />
+    <ItemGroup>
+      <_ServerHostFile Include="$(_ServerHostDir)**" Exclude="$(_ServerHostDir)onegame-server;$(_ServerHostDir)**/*.pdb;$(_ServerHostDir)**/*.xml" />
+      <None Include="@(_ServerHostFile)" Pack="true" PackagePath="tools/$(TargetFramework)/any/server-host/%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <!-- Where this build of the tool came from, so 'onegame new' can find the engine sources when it is not run from inside them. The installed tool package carries none: a game it creates uses the SDK package. -->
     <AssemblyMetadata Include="OneGameRoot" Value="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))" Condition="'$(ContinuousIntegrationBuild)' != 'true' and '$(_IsPacking)' != 'true'" />

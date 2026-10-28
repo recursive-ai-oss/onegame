@@ -10,7 +10,7 @@ onegame export --target osx --json                   # ./export/<game>-<version>
 
 Options: `--target linux|win|osx` (default: the host's; `linux-x64` and `win-x64` also work), `--steam`, `--steam-redist <dir>`, `--out <dir>` (default `<project>/export`), `--project <dir|csproj>`, `--no-archive`, `--no-aot`. The version in the names is the project's `<Version>` (1.0.0 when unset). The JSON result is in `docs/interfaces/control.md`; read its `warnings`.
 
-Desktop exports work for a game created with `onegame new` from the installed tool, with no engine checkout: the `RecursiveAI.OneGame.Sdk` package carries the export targets. The web export, Play Billing in an Android build and `--server --plugins` read engine sources and still need a game created with `--engine <checkout>`; the Android and iOS entry files ship in the SDK package, but those two exports have only been run from a checkout.
+Desktop exports work for a game created with `onegame new` from the installed tool, with no engine checkout: the `RecursiveAI.OneGame.Sdk` package carries the export targets. The web export and Play Billing in an Android build read engine sources and still need a game created with `--engine <checkout>`; the Android and iOS entry files ship in the SDK package, but those two exports have only been run from a checkout.
 
 Branching on the platform: ask `OneGame.Platform.RunningOn` (`Android`, `IOS`, `Browser`, `Phone`, `Mobile`, `Desktop`), not `OperatingSystem.IsAndroid()`, which is false in a NativeAOT Android build (it runs on the Linux runtime). A scenario capture compares against `name-mobile.png` beside `name.png` on a phone or in a page when that file exists.
 
@@ -48,7 +48,9 @@ The Linux archive is a `.tar.gz` with one top folder, owner root, a fixed timest
 
 ## Dedicated servers
 
-`onegame export --server [--project <server project>] [--out <dir>]` packages a game's server project (a project importing `build/Server.targets`, made by `onegame new <name> --server`): NativeAOT for linux-x64, the same folder, archive and JSON report as a game export, with `renderer: "none"`, no fonts or Steam, and a `run.sh`. The server keeps its live-control socket (an operator interface on a local Unix socket, mode 0600). `--plugins` packages the engine's plugin-capable `onegame-server` instead: framework-dependent CoreCLR (`runtime: coreclr-framework-dependent`), started by `run.sh` through the installed `dotnet`. Servers export for linux-x64 only.
+`onegame export --server [--project <server project>] [--out <dir>]` packages a game's server project (a project importing `build/Server.targets`, made by `onegame new <name> --server`): NativeAOT for linux-x64, the same folder, archive and JSON report as a game export, with `renderer: "none"`, no fonts or Steam, and a `run.sh`. The server keeps its live-control socket (an operator interface on a local Unix socket, mode 0600). `--plugins` packages the plugin-capable `onegame-server` instead: framework-dependent CoreCLR (`runtime: coreclr-framework-dependent`), started by `run.sh` through the installed `dotnet`. The installed tool carries that host in its own `server-host/` folder, so this works with no engine checkout; `onegame server run` uses the same copy. Servers export for linux-x64 only.
+
+A game made with `onegame new <name> --server` also gets `plugin/`, a server plugin on the same simulation file (`Sim.cs`): `dotnet build plugin -c Release`, then `onegame server run --config plugin/server.yaml --live`, or run the exported host: `<export>/run.sh --config plugin/server.yaml`. The host has no game types of its own; the plugin registers them (`AddEntity<Counter>()`), so a client that knows `Counter` connects and follows it. `tools/ci/package-smoke-server.sh` runs this whole path from packages alone, including an exported client that agrees with the plugin host's hash.
 
 ## Steam
 

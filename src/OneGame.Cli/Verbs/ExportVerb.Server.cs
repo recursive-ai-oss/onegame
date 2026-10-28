@@ -25,7 +25,9 @@ internal sealed partial class ExportVerb
 
         var clock = Stopwatch.StartNew();
         var warnings = new List<ExportWarning>();
-        var project = plugins ? FindRunner() : Projects.FindServer(a.Get("--project"));
+        // The plugin host ships inside the tool package; a tool built from a checkout publishes the runner project instead.
+        var packagedHost = plugins ? PackagedHost() : null;
+        var project = plugins ? (packagedHost is null ? FindRunner() : new ProjectRef(packagedHost, Path.Combine(packagedHost, "onegame-server.dll"), "onegame-server")) : Projects.FindServer(a.Get("--project"));
         var aot = !plugins && OperatingSystem.IsLinux() && !noAot;
         if (!plugins && !aot)
         {
@@ -34,7 +36,7 @@ internal sealed partial class ExportVerb
                 : "NativeAOT for linux-x64 needs a Linux host; this is a self-contained, trimmed CoreCLR build."));
         }
 
-        var props = ReadProperties(project);
+        (string AssemblyName, string Version) props = packagedHost is null ? ReadProperties(project) : ("onegame-server", Program.GetVersion());
         var exeName = props.AssemblyName;
         var folderName = $"{project.Name}-{props.Version}-{target}";
         var outRoot = Path.GetFullPath(a.Get("--out") ?? Path.Combine(plugins ? Directory.GetCurrentDirectory() : project.Directory, "export"));
@@ -57,7 +59,7 @@ internal sealed partial class ExportVerb
             args.AddRange(LinuxLinkArguments(target, aot, hostGlibc, a.Get("--sysroot"), json, Console.Error));
         }
 
-        var run = Proc.Run(Proc.Dotnet, args, project.Directory);
+        var run = packagedHost is null ? Proc.Run(Proc.Dotnet, args, project.Directory) : CopyPackagedHost(packagedHost, folder);
         if (run.ExitCode != 0)
         {
             var errors = BuildOutput.Parse(run.Output + "\n" + run.Error).Where(d => d.Severity == "error").Take(8)
@@ -86,7 +88,7 @@ internal sealed partial class ExportVerb
         }
 
         var exe = Path.Combine(folder, exeName);
-        if (!File.Exists(exe))
+        if (!File.Exists(exe) && !(plugins && File.Exists(exe + ".dll")))
         {
             throw new CliException(ExitCodes.BuildFailed, "no_executable", $"The publish did not produce {exeName}.");
         }
@@ -108,7 +110,10 @@ internal sealed partial class ExportVerb
         if (!OperatingSystem.IsWindows())
         {
             File.SetUnixFileMode(launcher, Executable);
-            File.SetUnixFileMode(exe, Executable);
+            if (File.Exists(exe))
+            {
+                File.SetUnixFileMode(exe, Executable);
+            }
         }
 
         var files = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
@@ -139,6 +144,25 @@ internal sealed partial class ExportVerb
         }
 
         return ExitCodes.Ok;
+    }
+
+    /// <summary>The plugin host that came in the tool package (<c>server-host/</c> beside the tool), or null for a tool built from a checkout.</summary>
+    internal static string? PackagedHost()
+    {
+        var dir = Path.Combine(AppContext.BaseDirectory, "server-host");
+        return File.Exists(Path.Combine(dir, "onegame-server.dll")) ? dir : null;
+    }
+
+    private static ProcessResult CopyPackagedHost(string host, string folder)
+    {
+        foreach (var f in Directory.EnumerateFiles(host, "*", SearchOption.AllDirectories))
+        {
+            var to = Path.Combine(folder, Path.GetRelativePath(host, f));
+            Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+            File.Copy(f, to, true);
+        }
+
+        return new ProcessResult(0, "", "");
     }
 
     /// <summary>The engine's plugin-capable server host project, found from the tool's own checkout.</summary>

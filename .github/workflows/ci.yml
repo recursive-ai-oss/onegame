@@ -213,6 +213,37 @@ jobs:
       - name: Pack, install the tool, create, run, test and export a game
         run: bash tools/ci/package-smoke.sh ${{ matrix.target }} "$RUNNER_TEMP/package-smoke"
 
+  # A game server built from packages alone: new --server, run it, export it NativeAOT and as the plugin host, start the host with the
+  # game's plugin and let an exported client connect and agree with it.
+  packages-server:
+    name: packages-server
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build output goes outside the checkout
+        run: echo "ONEGAME_ARTIFACTS=$RUNNER_TEMP/artifacts" >> "$GITHUB_ENV"
+
+      - name: Install .NET
+        run: |
+          dir="$RUNNER_TEMP/dotnet"
+          curl -fsSL --retry 3 https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+          bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile global.json --install-dir "$dir"
+          echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+          echo "$dir" >> "$GITHUB_PATH"
+
+      # NativeAOT links with clang and zlib.
+      - name: Linux packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+
+      - name: Pack, install the tool, create, run and export a game server
+        run: bash tools/ci/package-smoke-server.sh "$RUNNER_TEMP/package-smoke-server"
+
   # The same scenarios and the same exported game must end in the same world hash on every system.
   same-hashes:
     needs: check

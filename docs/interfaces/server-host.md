@@ -47,3 +47,5 @@ A plugin is a class library referencing `OneGame.Server` and the generator, with
 ## Consumers
 
 Dedicated-server export uses `ServerHost` directly: a plugin-less game server references `OneGame.Server` (and optionally `OneGame.Server.Live`) and publishes NativeAOT; a plugin host references `OneGame.Server.Plugins` and runs on CoreCLR (`onegame-server` is the ready-made one).
+
+The tool package (`RecursiveAI.OneGame.Cli`) carries `onegame-server` and its libraries in `tools/net10.0/any/server-host/` (published framework-dependent when the tool is packed). `onegame server run` and `onegame export --server --plugins` use that copy when it is beside the tool, and the runner project of a checkout otherwise. `onegame new <name> --server` writes `plugin/` (OneGameKind `Plugin`: a library on `build/Server.targets`) beside `server/`.
