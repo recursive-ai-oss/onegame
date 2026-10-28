@@ -4,6 +4,28 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-28
+
+Encrypted, authenticated network links: every UDP and WebSocket connection is encrypted and the server is authenticated by its key, and a player keeps their identity across reconnects.
+
+**Networking in 1.10 does not interoperate with 1.9 or earlier.** Every transport now needs a `Security` setting; use `NetSecurity.Insecure` only for tests and local tools.
+
+### Added
+
+- Encrypted, authenticated UDP and WebSocket links built on the Noise Protocol Framework (`Noise_IK_25519_ChaChaPoly_SHA256`) inside the existing cookie handshake, with ChaCha20-Poly1305 packets and records, authenticated disconnects, handshake rate limits per source and replay protection. X25519, ChaCha20-Poly1305 and HKDF are managed code in `OneGame.Core`, so links work everywhere the transport runs, including Android, iOS and the browser. Each UDP packet grows by 16 bytes. Design and threat model: [docs/interfaces/transport-security.md](docs/interfaces/transport-security.md).
+- `NetSecurity` (`ForServer`, `ForClient`, `Insecure`, `AlsoTrusting`) on `UdpOptions.Security`, `WebSocketOptions.Security` and `ConnectOptions.Security`; `NetKeyPair`, `PeerKey`, `PeerIdentity`, `INetConnection.ChannelBinding` (for binding a login ticket to the session) and `PlayerRegistry`, which maps a client key to a player id that survives reconnects.
+- `onegame keys` makes a key pair (`.key` private, `.pub` public). Server flags `--key` (repeatable, for rotation) and `--game-id`; client flags `--server-key` (several allowed), `--identity`, `--server-id` and `--game-id`. Both accept `--insecure`, which needs a development run (`ONEGAME_DEV=1`).
+- Development runs need no setup: `onegame run --connect`, `onegame server run`, `onegame cluster`, test clusters and the samples make development keys and pass them on. Release builds refuse development keys and insecure links.
+- A client's key is derived per server, so servers cannot link a player by key. `NetSecurity.ServerId` keeps a player's identity on a server across that server's key rotation.
+- Fuzz targets for the handshake, AEAD open, encrypted UDP datagrams and secure WebSocket records. Test vectors from RFC 7748, 8439 and 5869, Project Wycheproof and the Noise vectors.
+
+### Changed
+
+- `WebSocketTransport.Listen` and `Connect` return interfaces.
+- `onegame export` refuses to build when a content folder holds a private key file.
+- Lanterns runs encrypted over UDP and WebSocket, and identifies players by key.
+- OneRender, OneRender.Image and OneRender.Fonts 1.3.1 (with OneHtml 1.5.1). Settings slider thumbs have hover and active states, and pointer moves over a page allocate nothing.
+
 ## [1.9.0] - 2026-10-28
 
 Hot reload of game code: edit C# while the game runs and keep the world.
