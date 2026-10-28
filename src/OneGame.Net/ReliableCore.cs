@@ -135,6 +135,9 @@ internal sealed class ReliableCore
     /// <summary>The peer broke the protocol while delivering buffered data; the connection must close.</summary>
     public bool PendingViolation { get; private set; }
 
+    /// <summary>The largest reassembly buffer this core ever held for an incoming message (tests check it stays under the receive limit).</summary>
+    public int PeakAssemblyBytes { get; private set; }
+
     /// <summary>How many data packets this side has built.</summary>
     public uint TxPackets => _txPkt;
 
@@ -695,6 +698,8 @@ internal sealed class ReliableCore
             NetBuffers.Return(_asm);
             _asm = bigger;
         }
+
+        PeakAssemblyBytes = Math.Max(PeakAssemblyBytes, _asm!.Length);
     }
 
     private ulong BuildSack()

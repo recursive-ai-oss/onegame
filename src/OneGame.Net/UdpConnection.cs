@@ -152,6 +152,8 @@ public sealed class UdpConnection : INetConnection
         }
     }
 
+    internal int PeakAssemblyBytes => _core.PeakAssemblyBytes;
+
     /// <summary>Largest message <see cref="SendUnreliable"/> accepts.</summary>
     public int MaxUnreliableBytes => _core.MaxUnreliableBytes;
 

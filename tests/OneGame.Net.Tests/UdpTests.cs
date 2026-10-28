@@ -118,7 +118,6 @@ public class UdpTests
         var (server, client, accepted) = rig.Connected(new UdpOptions { Security = NetSecurity.Insecure, MaxMessageBytes = 64 * 1024 }, new UdpOptions { Security = NetSecurity.Insecure, MaxMessageBytes = 2 << 20 });
         DisconnectInfo? seen = null;
         accepted.Disconnected += (_, info) => seen = info;
-        var before = GC.GetTotalMemory(true);
         client.Send(new byte[1 << 20]);
         rig.RunUntil(() => seen is not null, 10_000);
         Assert.Equal(DisconnectReason.ProtocolViolation, seen!.Value.Reason);
@@ -126,7 +125,9 @@ public class UdpTests
         rig.RunUntil(() => client.State == ConnectionState.Closed, 5000);
         Assert.Equal(DisconnectReason.ProtocolViolation, client.CloseInfo.Reason);
         Assert.True(client.CloseInfo.ByRemote);
-        Assert.True(GC.GetTotalMemory(true) - before < 4 << 20, "the receiver must not hold the oversize message");
+        // Measured on the receiver itself: a process-wide heap delta also counts the sender's copy, pooled buffers and parallel tests.
+        var peak = ((UdpConnection)accepted).PeakAssemblyBytes;
+        Assert.True(peak <= (64 * 1024) + 2048, $"the receiver must not hold the oversize message (reassembly peaked at {peak} bytes)");
         Assert.Equal(0, server.ConnectionCount);
     }
 
