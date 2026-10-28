@@ -76,6 +76,10 @@ internal sealed class NewVerb : IVerb
             files[$"server/{name}-server.csproj"] = Templates.ServerCsproj(root, sdkVersion, cls);
             files["server/Program.cs"] = Templates.ServerProgram(cls);
             files["server/server.yaml"] = Templates.ServerConfig(name);
+            // A server plugin, for the plugin-capable host ('onegame export --server --plugins'), and the configuration that loads it.
+            files[$"plugin/{name}-plugin.csproj"] = Templates.PluginCsproj(root, sdkVersion, cls);
+            files["plugin/Plugin.cs"] = Templates.PluginSource(cls);
+            files["plugin/server.yaml"] = Templates.PluginConfig(name, cls);
         }
 
         foreach (var (relative, text) in files)
@@ -178,7 +182,7 @@ internal static class Templates
         : $"\n  <!-- Target framework, analyzers, references, and (in Debug builds only) the development tools: live control, scenarios, capture. -->\n  <Import Project=\"$(OneGameRoot)/build/{kind}.targets\" />\n";
 
     private static string ServerExclusion(bool withServer) => withServer
-        ? "\n<!-- The server project in server/ has its own Program. -->\n<ItemGroup>\n  <Compile Remove=\"server/**\" />\n</ItemGroup>\n"
+        ? "\n<!-- The server project in server/ has its own Program. -->\n<ItemGroup>\n  <Compile Remove=\"server/**\" />\n  <Compile Remove=\"plugin/**\" />\n</ItemGroup>\n"
         : "";
 
     public static string ServerCsproj(string? engine, string sdkVersion, string id) => $"""
@@ -198,6 +202,61 @@ internal static class Templates
 
         </Project>
 
+        """;
+
+    public static string PluginCsproj(string? engine, string sdkVersion, string id) => $"""
+        <Project Sdk="{Sdk(engine, sdkVersion)}">
+          <PropertyGroup>
+        {Root(engine)}    <AssemblyName>{id}Plugin</AssemblyName>
+            <RootNamespace>{id}Plugin</RootNamespace>
+            <!-- A server plugin is a library the plugin host loads: build it, then point a server configuration at the dll. -->
+            <OneGameKind>Plugin</OneGameKind>
+            <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+          </PropertyGroup>
+        {(engine is null ? "" : "\n  <Import Project=\"$(OneGameRoot)/build/Server.targets\" />\n")}
+          <ItemGroup>
+            <Compile Include="Plugin.cs" />
+            <!-- The simulation the game, the server and the plugin share. -->
+            <Compile Include="../Sim.cs" Link="Sim.cs" />
+          </ItemGroup>
+        </Project>
+        """;
+
+    public static string PluginSource(string id) => $$"""
+        using OneGame.Server;
+        using {{id}};
+
+        [assembly: ServerPlugin(typeof({{id}}Plugin.CounterPlugin))]
+
+        namespace {{id}}Plugin;
+
+        /// <summary>The plugin's entry point. It adds the game's Counter entity (from ../Sim.cs, shared with the game and the server) to a running server
+        /// that was not built with it, so a client that knows Counter can connect and follow it.</summary>
+        public sealed class CounterPlugin : ServerPlugin
+        {
+            /// <inheritdoc />
+            public override void Load(PluginContext context)
+            {
+                context.AddEntity<Counter>();
+                context.Log("counter plugin ready");
+            }
+
+            /// <inheritdoc />
+            public override void Seed(PluginScope scope) => scope.World.Add(new Counter());
+        }
+
+        """;
+
+    public static string PluginConfig(string name, string id) => $$"""
+        # Run with: onegame server run --config plugin/server.yaml --live   (build the plugin first: dotnet build plugin -c Release)
+        name: {{name}}-plugins
+        tickRate: 60
+        scopes:
+          - { id: 1, seed: 1 }
+        listen:
+          - { transport: udp, port: 7777 }
+        plugins:
+          - { name: pulse, path: bin/Release/net10.0/{{id}}Plugin.dll, scopes: [1] }
         """;
 
     public static string ServerProgram(string id) => $$"""

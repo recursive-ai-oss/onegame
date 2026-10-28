@@ -244,10 +244,16 @@ internal sealed class ServerVerb : IVerb
         var info = new ProcessStartInfo { UseShellExecute = false };
         if (runner is null)
         {
+            // Beside the tool, or in server-host/ where the tool package carries it.
             var beside = Path.Combine(AppContext.BaseDirectory, "onegame-server.dll");
+            var packaged = ExportVerb.PackagedHost();
             if (File.Exists(beside))
             {
                 runner = beside;
+            }
+            else if (packaged is not null)
+            {
+                runner = Path.Combine(packaged, "onegame-server.dll");
             }
         }
 
