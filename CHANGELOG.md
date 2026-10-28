@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-10-28
+
+A 3D animation layer for characters: blend spaces, a state machine animator, root motion and two-bone IK on glTF clips. `RecursiveAI.OneGame.Navigation` moves to 1.12.0-preview.1.
+
 ### Added
 
 - 3D animation layer in `OneGame.Gltf`: `Rig`, pose blending with masks (`PoseBlend`, `PoseMask`), `Crossfade`, 1D and 2D blend spaces, `Motion`s, two-bone IK (`TwoBoneIk`), and an `Animator` with parameters, triggers, states and transitions (conditions, exit time, crossfade). `SceneWriter.Model(name, transform, pose)` draws a model in an animated pose. See `docs/animation.md` and `examples/character`.
