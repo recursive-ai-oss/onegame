@@ -213,6 +213,39 @@ jobs:
       - name: Pack, install the tool, create, run, test and export a game
         run: bash tools/ci/package-smoke.sh ${{ matrix.target }} "$RUNNER_TEMP/package-smoke"
 
+  # A game exported for the web from packages alone: the tool brings the page and script files, the SDK package the libraries. The
+  # exported page starts in headless Chrome and its scenarios end in the same world hashes as the desktop run.
+  packages-web:
+    name: packages web
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build output goes outside the checkout
+        run: echo "ONEGAME_ARTIFACTS=$RUNNER_TEMP/artifacts" >> "$GITHUB_ENV"
+
+      - name: Install .NET
+        run: |
+          dir="$RUNNER_TEMP/dotnet"
+          curl -fsSL --retry 3 https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+          bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile global.json --install-dir "$dir"
+          echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+          echo "$dir" >> "$GITHUB_PATH"
+
+      # The desktop run of the game's capture scenario needs a Vulkan device: the distro's Mesa gives a CPU one (lavapipe). The runner has Chrome and node.
+      - name: Vulkan CPU driver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mesa-vulkan-drivers libvulkan1
+          icd=$(find /usr/share/vulkan/icd.d -name "lvp_icd*.json" | head -1)
+          echo "VK_ICD_FILENAMES=$icd" >> "$GITHUB_ENV"
+
+      - name: Pack, install the tool, create a game, export it for the web and run it in Chrome
+        run: bash tools/ci/package-smoke-web.sh "$RUNNER_TEMP/package-smoke-web"
+
   # The same scenarios and the same exported game must end in the same world hash on every system.
   same-hashes:
     needs: check
