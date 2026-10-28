@@ -8,7 +8,9 @@ Per sample: find the device, make a development provisioning profile for it (the
 builds the profile, so Xcode is never opened), export a device build, sign it, install it, run the scenario folder on the device
 and compare every scenario's state hash with a run on this Mac, then (Solitaire) drive the running game over live control: a
 presented frame, touch injected into the platform's queue, the audio device and background-and-back. Lanterns also joins a cluster
-as a client of servers on this Mac. Packages are removed at the end unless --keep.
+as a client of servers on this Mac. Everything the run starts is undone on every way out (finish, failure, Ctrl-C, SIGTERM): the
+commands it is running, the game it launched, the keep-alive loop and the packages it installed (unless --keep). The signing keychain
+of ios-signing.sh is a deliberate, reusable asset and stays.
 
 Environment: ONEGAME (the onegame command), IOS_BUNDLE_PREFIX (default dev.onegame; use ids the account may register),
 IOS_IDENTITY (a codesigning identity; default: the one the profile lists), IOS_PROFILE_DIR (ready-made <bundle id>.mobileprovision
@@ -16,7 +18,7 @@ files, used instead of the API), ASC_KEY_FILE / ASC_KEY_ID / ASC_ISSUER_ID (the 
 and CAPTURE_MAX_DIFF (default 0.005): a device GPU draws edges differently from the software renderer the references came from, so
 captures get a per-channel tolerance and a budget of differing pixels; state hashes must match exactly regardless.
 Written for the Python and bash that ship with macOS."""
-import argparse, json, os, plistlib, re, shlex, subprocess, sys, time
+import argparse, atexit, json, os, plistlib, re, shlex, signal, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
@@ -40,13 +42,65 @@ def fail(m):
     fails.append(m); say('FAIL ' + m)
 
 
+# --- teardown: runs once on every way out (normal end, sys.exit, Ctrl-C, SIGTERM) and touches only what this run started ---
+D = None            # the device id, once found
+children = []       # commands this run is waiting for
+live_pids = []      # game processes this run launched on the device
+bundles = []        # packages this run tried to install
+keepalive = None    # the tunnel keep-alive loop
+torn = False
+
+
+def stop(p):
+    """Stops a process this script started (by its Popen handle, never by name)."""
+    if p is not None and p.poll() is None:
+        p.terminate()
+        try:
+            p.wait(5)
+        except subprocess.TimeoutExpired:
+            p.kill()
+
+
+def teardown(runner=None):
+    global torn, keepalive
+    if torn:
+        return
+    torn = True
+    call = runner or (lambda cmd: subprocess.run(cmd, capture_output=True, text=True, timeout=60))
+    for c in list(children):
+        stop(c)
+    stop(keepalive); keepalive = None
+    if D:
+        for pid in live_pids:
+            call(['xcrun', 'devicectl', 'device', 'process', 'terminate', '--device', D, '--pid', str(pid)])
+        if not args.keep:
+            for b in bundles:
+                call(['xcrun', 'devicectl', 'device', 'uninstall', 'app', '--device', D, b])
+
+
+def _exit_on(signum, _frame):
+    sys.exit(128 + signum)
+
+
+atexit.register(teardown)   # Ctrl-C raises KeyboardInterrupt and leaves through here too
+for _sig in (signal.SIGTERM, signal.SIGHUP):
+    signal.signal(_sig, _exit_on)
+
+
 def run(cmd, cwd=None, timeout=600, env=None):
     e = dict(os.environ, **(env or {}))
+    p = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=e)
+    children.append(p)
     try:
-        p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, env=e)
-        return p.returncode, (p.stdout or '') + (p.stderr or '')
-    except subprocess.TimeoutExpired as ex:
-        return 124, (ex.stdout.decode() if isinstance(ex.stdout, bytes) else ex.stdout or '') + '\n[timed out]'
+        out, _ = p.communicate(timeout=timeout)
+        return p.returncode, out or ''
+    except subprocess.TimeoutExpired:
+        p.kill()
+        out, _ = p.communicate()
+        return 124, (out or '') + '\n[timed out]'
+    finally:
+        if p.poll() is not None:   # still running means we were interrupted: the teardown stops it
+            children.remove(p)
 
 
 def last_json(text, start='{"ok"'):
@@ -224,7 +278,6 @@ def copy_from(bundle, src, dest):
 
 # --- 3. samples ---
 samples = (args.samples or ','.join(['solitaire', 'lanterns'] + (['bricks'] if os.path.isdir(os.path.join(ROOT, 'samples', 'bricks')) else []))).split(',')
-bundles = []
 for s in samples:
     sd = os.path.join(ROOT, 'samples', s)
     if not os.path.isdir(sd):
@@ -238,7 +291,7 @@ for s in samples:
     if rc != 0 or not ex.get('app'):
         fail(f'{s} export: {o.strip()[-300:]}'); continue
     say(f'{s}: sign and install')
-    bundles.append(bundle)
+    bundles.append(bundle)   # from here on the teardown removes it
     if not sign_and_install(ex['app'], bundle, ex['entitlements']):
         continue
 
@@ -285,6 +338,7 @@ for s in samples:
         rc, o = launch(bundle, ['--live', f'tcp:*:{port}', '--realtime', '--seed', '1'], console=False, jsonout=os.path.join(W, 'launch.json'))
         try:
             pid = json.load(open(os.path.join(W, 'launch.json')))['result']['process']['processIdentifier']
+            live_pids.append(pid)
         except (OSError, ValueError, KeyError):
             pid = None
         addr = dev.get('tunnelAddress')
@@ -300,9 +354,9 @@ for s in samples:
             time.sleep(4)
             # CoreDevice closes the device tunnel when nothing uses it, which cuts the game's live-control connection; a cheap call
             # every few seconds keeps it open for the length of the check.
-            keep = subprocess.Popen(['bash', '-c', f'while :; do xcrun devicectl device info lockState --device {D} >/dev/null 2>&1; sleep 3; done'])
+            keepalive = subprocess.Popen(['bash', '-c', f'while :; do xcrun devicectl device info lockState --device {D} >/dev/null 2>&1; sleep 3; done'])
             rc, o = run([PYTHON, os.path.join(HERE, 'live-check.py'), f'[{addr}]:{port}', os.path.join(W, 'live'), '--expect-audio', 'audiounit'], timeout=180)
-            keep.terminate()
+            stop(keepalive); keepalive = None
             open(os.path.join(W, 'live.json'), 'w').write(o)
             try:
                 d = json.loads(o.strip().splitlines()[-1])
@@ -312,6 +366,7 @@ for s in samples:
             except (ValueError, KeyError, IndexError):
                 fail('solitaire live: ' + o.strip()[-300:])
             run(['xcrun', 'devicectl', 'device', 'process', 'terminate', '--device', D, '--pid', str(pid)], timeout=30)
+            live_pids.remove(pid)
 
     if s == 'lanterns' and not args.no_cluster:
         host = args.lan_host
@@ -333,7 +388,5 @@ for s in samples:
                 fail('lanterns cluster: ' + o.strip()[-300:].replace('\n', ' '))
 
 # --- 4. clean up ---
-if not args.keep:
-    for b in bundles:
-        run(['xcrun', 'devicectl', 'device', 'uninstall', 'app', '--device', D, b], timeout=60)
+teardown()
 verdict(0, f"{dev['model']} iOS {dev['os']}")

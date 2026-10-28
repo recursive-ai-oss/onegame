@@ -6,6 +6,8 @@ The two samples run on the Android emulator, the iOS Simulator and in Chrome wit
 
 `tools/devices/` holds a script per kind of device. Each finds the device, builds what it needs, installs and runs the samples (Bricks too, once it is in the tree), compares every scenario's state hash with a run on the computer, takes a frame, checks sound through the `audio` operation, exercises touch or pad input where a script can, prints one verdict line and cleans up. Details of each step are in the script's header; per-step JSON lands in `$ONEGAME_ARTIFACTS/device-<kind>/`.
 
+Cleanup runs on every way out of a script: finish, failure, Ctrl-C and SIGTERM. Each script stops exactly what it started (by process id, unit or package name it created, never by program name or port): the games and apps it launched, the packages it installed (unless `--keep`), port forwards to the live-control port that appeared during the run, ssh tunnels, transient units and scheduled tasks, and the commands it was waiting for. Settings it changed (Android's stay-awake) are put back. Steam on the Deck is never stopped or restarted. `ios-signing.sh` keeps its signing keychain on purpose; it is reused. Shared helpers for the bash scripts are in `tools/devices/teardown.sh`.
+
 | Device | Command | Needs |
 |---|---|---|
 | Android phone | `tools/devices/android.sh [--serial S]` | USB debugging on, `adb`, the Android SDK and NDK the export uses; the phone on the same network as the computer for Lanterns (`--lan-host` if the guess is wrong) |

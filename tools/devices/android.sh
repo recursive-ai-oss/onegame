@@ -8,7 +8,9 @@
 # every scenario's state hash with a desktop run, then (Solitaire) drive the running game over live control: a presented frame,
 # real finger taps through `adb shell input tap`, the audio device (backend, frames played, peak after a draw) and home-and-back.
 # Lanterns also joins a cluster as a client of servers on this computer over the network. Samples that are not in the tree
-# (Bricks, before it lands) are skipped. Packages are uninstalled at the end unless --keep.
+# (Bricks, before it lands) are skipped.
+# Everything the run starts is undone on every way out (finish, failure, Ctrl-C, SIGTERM): the games, the port forwards to the
+# live-control port, the packages it installed (unless --keep) and the stay-awake setting; background commands it started are stopped.
 #
 # Environment: ONEGAME (the onegame command; default `onegame`), ANDROID_SERIAL, CAPTURE_TOLERANCE (default 48) and
 # CAPTURE_MAX_DIFF (default 0.02): a phone's GPU draws edges differently from the software renderer the references came from,
@@ -17,6 +19,7 @@
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
+. "$HERE/teardown.sh"
 ONEGAME=${ONEGAME:-onegame}
 SAMPLES=; LAN=; OUT=; CLUSTER=1; KEEP=; WAIT=30; SERIAL=${ANDROID_SERIAL:-}
 while [ $# -gt 0 ]; do case $1 in
@@ -34,7 +37,22 @@ print("" if d is None else d)' "$@"; }
 lastjson() { python3 -c 'import sys,json
 t=open(sys.argv[1],errors="replace").read(); i=t.find("{\"ok\"")
 print(t[i:] if i>=0 else "{}")' "$1"; }
-FAILS=(); NOTES=()
+FAILS=(); NOTES=(); PKGS=(); INSTALLED=(); FWD0=; TORN=; STAYON=
+# Teardown: idempotent, and it only touches what this run started (packages it installed, forwards that appeared during the run).
+TEARDOWN() {
+  [ -n "$TORN" ] && return 0; TORN=1
+  killjobs
+  [ -n "${SERIAL:-}" ] || return 0
+  local p l
+  for p in ${INSTALLED[@]+"${INSTALLED[@]}"}; do adb -s "$SERIAL" shell am force-stop "$p" >/dev/null 2>&1; done
+  adb -s "$SERIAL" forward --list 2>/dev/null | awk -v s="$SERIAL" '$1==s && $3=="tcp:7878" {print $2" "$3}' | while read -r l; do
+    printf '%s\n' "$FWD0" | grep -qxF "$l" || adb -s "$SERIAL" forward --remove "${l% *}" >/dev/null 2>&1
+  done
+  if [ -z "$KEEP" ]; then for p in ${INSTALLED[@]+"${INSTALLED[@]}"}; do adb -s "$SERIAL" uninstall "$p" >/dev/null 2>&1; done; fi
+  [ -n "$STAYON" ] && adb -s "$SERIAL" shell settings put global stay_on_while_plugged_in "$STAY0" >/dev/null 2>&1
+  return 0
+}
+trap TEARDOWN EXIT; trap 'exit 130' INT; trap 'exit 143' TERM
 fail() { FAILS+=("$1"); say "FAIL $1"; }
 
 # --- 1. the device ---
@@ -54,6 +72,7 @@ if [ -z "$SERIAL" ] || ! adb -s "$SERIAL" get-state 2>/dev/null | grep -q device
   exit 1
 fi
 export ANDROID_SERIAL=$SERIAL
+FWD0=$(adb -s "$SERIAL" forward --list 2>/dev/null | awk -v s="$SERIAL" '$1==s {print $2" "$3}')
 A() { adb -s "$SERIAL" "$@"; }
 MODEL=$(A shell getprop ro.product.model | tr -d '\r'); ABI=$(A shell getprop ro.product.cpu.abi | tr -d '\r')
 SDK=$(A shell getprop ro.build.version.sdk | tr -d '\r'); SOC=$(A shell getprop ro.board.platform | tr -d '\r')
@@ -62,8 +81,8 @@ say "device $SERIAL: $MODEL abi=$ABI sdk=$SDK soc=$SOC ${VK:-no vulkan feature}"
 case $ABI in arm64-v8a|x86_64) ;; *) echo "ANDROID FAIL unsupported ABI $ABI (the export builds arm64-v8a and x86_64)"; exit 1;; esac
 [ -n "$VK" ] || fail "no Vulkan feature reported"
 
-# A dark or locked screen stops the game from starting; stay awake while the checks run (undone at the end).
-A shell svc power stayon usb >/dev/null 2>&1; A shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1; A shell wm dismiss-keyguard >/dev/null 2>&1
+# A dark or locked screen stops the game from starting; stay awake while the checks run (put back at the end).
+STAYON=1; STAY0=$(A shell settings get global stay_on_while_plugged_in | tr -d '\r'); A shell svc power stayon usb >/dev/null 2>&1; A shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1; A shell wm dismiss-keyguard >/dev/null 2>&1
 
 # Reaching this computer from the phone: the address of this computer on the phone's network.
 if [ -z "$LAN" ] && [ -n "$CLUSTER" ]; then
@@ -79,22 +98,22 @@ fi
 # --- 2. samples ---
 [ -n "$SAMPLES" ] || { SAMPLES="solitaire,lanterns"; [ -d "$ROOT/samples/bricks" ] && SAMPLES="$SAMPLES,bricks"; }
 declare -A SUMMARY
-PKGS=()
 for S in ${SAMPLES//,/ }; do
   D=$ROOT/samples/$S
   [ -d "$D" ] || { NOTES+=("$S not in this tree"); continue; }
   W=$OUT/$S; mkdir -p "$W"
   say "$S: export ($ABI)"
-  (cd "$D" && $ONEGAME export --target android --abi "$ABI" --dev --json --out "$W/export") > "$W/export.log" 2>&1 || { fail "$S export"; tail -c 400 "$W/export.log" >&2; continue; }
+  (cd "$D" && $ONEGAME export --target android --abi "$ABI" --dev --json --out "$W/export") > "$W/export.log" 2>&1 & waitjob $! || { fail "$S export"; tail -c 400 "$W/export.log" >&2; continue; }
   lastjson "$W/export.log" > "$W/export.json"
   APK=$(jget "$W/export.json" apk); PKG=$(jget "$W/export.json" package); PKGS+=("$PKG")
   say "$S: install $PKG"
+  INSTALLED+=("$PKG")   # from here on the teardown removes it
   A uninstall "$PKG" >/dev/null 2>&1   # an older build signed with another debug key would refuse the update
-  (cd "$D" && $ONEGAME android install "$APK" --json) > "$W/install.log" 2>&1 || { fail "$S install$(grep -q USER_RESTRICTED "$W/install.log" && echo ' (the phone blocks installs over USB: Developer options > Install via USB)')"; tail -c 400 "$W/install.log" >&2; continue; }
+  (cd "$D" && $ONEGAME android install "$APK" --json) > "$W/install.log" 2>&1 & waitjob $! || { fail "$S install$(grep -q USER_RESTRICTED "$W/install.log" && echo ' (the phone blocks installs over USB: Developer options > Install via USB)')"; tail -c 400 "$W/install.log" >&2; continue; }
   say "$S: desktop reference run"
-  (cd "$D" && $ONEGAME test --no-unit --json) > "$W/desktop.json" 2>&1 || NOTES+=("$S: desktop reference run failed")
+  (cd "$D" && $ONEGAME test --no-unit --json) > "$W/desktop.json" 2>&1 & waitjob $! || NOTES+=("$S: desktop reference run failed")
   say "$S: scenarios on the device"
-  (cd "$D" && $ONEGAME android test --scenario scenarios --package "$PKG" --timeout 900 --json -- --capture-tolerance "$TOL" --capture-max-diff "$MAXD") > "$W/device.json" 2>&1
+  (cd "$D" && $ONEGAME android test --scenario scenarios --package "$PKG" --timeout 900 --json -- --capture-tolerance "$TOL" --capture-max-diff "$MAXD") > "$W/device.json" 2>&1 & waitjob $!
   CMP=$(python3 "$HERE/compare-hashes.py" "$W/desktop.json" "$W/device.json" 2>&1 | tail -1)
   echo "$CMP" > "$W/compare.json"
   H=$(echo "$CMP" | jget - hashEqual 2>/dev/null); N=$(echo "$CMP" | jget - scenarios 2>/dev/null)
@@ -118,7 +137,8 @@ except Exception as e:
 PY
 )
       SUMMARY[$S]="${SUMMARY[$S]} $LIVE"
-      (cd "$D" && $ONEGAME android stop --package "$PKG" --json) >/dev/null 2>&1
+      # not `android stop`: it removes every forward on the adb server, not only ours
+      A shell am force-stop "$PKG" >/dev/null 2>&1; A forward --remove "tcp:${EP##*:}" >/dev/null 2>&1
     else
       fail "solitaire live: no endpoint"
     fi
@@ -126,9 +146,9 @@ PY
 
   if [ "$S" = lanterns ] && [ -n "$CLUSTER" ]; then
     say "lanterns: servers on $LAN, bot on the phone"
-    (cd "$D" && dotnet publish Server/Lanterns.Server.csproj -c Debug -o bin -v quiet -clp:NoSummary && dotnet publish Lanterns.csproj -c Debug -o bin -v quiet -clp:NoSummary) > "$W/publish.log" 2>&1 || fail "lanterns desktop build"
+    (cd "$D" && dotnet publish Server/Lanterns.Server.csproj -c Debug -o bin -v quiet -clp:NoSummary && dotnet publish Lanterns.csproj -c Debug -o bin -v quiet -clp:NoSummary) > "$W/publish.log" 2>&1 & waitjob $! || fail "lanterns desktop build"
     (cd "$D" && ONEGAME_CLUSTER_BIND=0.0.0.0 LANTERNS_HOST=$LAN LANTERNS_TIMEOUT=${LANTERNS_TIMEOUT:-400} ONEGAME="$ONEGAME" \
-       $ONEGAME cluster test cluster/play-android.yaml --spec cluster-android.yaml --json) > "$W/cluster.log" 2>&1
+       $ONEGAME cluster test cluster/play-android.yaml --spec cluster-android.yaml --json) > "$W/cluster.log" 2>&1 & waitjob $!
     CJ=$(lastjson "$W/cluster.log"); echo "$CJ" > "$W/cluster.json"
     if [ "$(echo "$CJ" | jget - ok 2>/dev/null)" = True ]; then
       SUMMARY[$S]="${SUMMARY[$S]} cluster=agree+0drift via $LAN"
@@ -139,10 +159,7 @@ PY
 done
 
 # --- 3. clean up ---
-$ONEGAME android stop --json >/dev/null 2>&1
-if [ -z "$KEEP" ]; then for p in "${PKGS[@]}"; do A uninstall "$p" >/dev/null 2>&1; done; fi
-A forward --remove-all >/dev/null 2>&1
-A shell svc power stayon false >/dev/null 2>&1
+TEARDOWN
 
 # --- 4. verdict ---
 STATUS=PASS; [ ${#FAILS[@]} -gt 0 ] && STATUS=FAIL
