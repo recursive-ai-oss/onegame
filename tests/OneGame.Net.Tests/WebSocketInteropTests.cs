@@ -31,7 +31,7 @@ public class WebSocketInteropTests
     public async Task AThirdPartyClientTalksToOurServer()
     {
         Assert.SkipUnless(Python is not null, "ONEGAME_WS_PYTHON is not set");
-        using var server = WebSocketTransport.Listen(new IPEndPoint(IPAddress.Loopback, 0));
+        using var server = WebSocketTransport.ListenPlain(new IPEndPoint(IPAddress.Loopback, 0));
         var port = ((IPEndPoint)server.LocalEndPoint).Port;
         using var peer = Start("client", port.ToString(System.Globalization.CultureInfo.InvariantCulture));
         var stdout = peer.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
@@ -82,7 +82,7 @@ public class WebSocketInteropTests
             Assert.True(File.Exists(portFile), "the peer did not start");
             Thread.Sleep(50);
             var port = int.Parse(File.ReadAllText(portFile), System.Globalization.CultureInfo.InvariantCulture);
-            var client = WebSocketTransport.Connect(new IPEndPoint(IPAddress.Loopback, port));
+            var client = WebSocketTransport.ConnectPlain(new IPEndPoint(IPAddress.Loopback, port));
             for (var i = 0; i < Sizes.Length; i++)
             {
                 client.Send(Rig.Pattern(Sizes[i], i));

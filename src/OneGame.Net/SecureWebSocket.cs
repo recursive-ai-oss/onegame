@@ -1,129 +1,220 @@
+using System.Linq;
 using System.Net;
 using OneGame.Core;
 
 namespace OneGame.Net;
 
 /// <summary>
-/// What a secure message link needs: this side's static private key, the game it belongs to (bound into the handshake, so peers of
-/// different games never complete one) and, on a client, the server keys it accepts.
+/// Bounds the key-agreement work a WebSocket listener does for sockets that have not proved anything yet. A source is an IPv4
+/// address or an IPv6 /64, so a host with a whole prefix is one source. Sources that completed an authenticated session recently
+/// have their own lane, so a flood of strangers cannot lock out returning players.
 /// </summary>
-internal sealed class WsSecurity
+internal sealed class HandshakeBudget
 {
-    /// <summary>Names the game and its wire version; part of the handshake prologue.</summary>
-    public required byte[] GameId { get; init; }
+    private const long KnownTtlMs = 10 * 60 * 1000;
+    private readonly NetClock _clock;
+    private readonly int _perSecond;
+    private readonly int _perSource;
+    private readonly Dictionary<string, int> _pendingBySource = [];
+    private readonly Dictionary<string, long> _known = [];
+    private long _window;
+    private int _strangers;
+    private int _returning;
 
-    /// <summary>This side's static private key (32 bytes).</summary>
-    public required byte[] StaticPrivate { get; init; }
-
-    /// <summary>Client only: the server public keys it will talk to. One key uses the one-round-trip IK pattern, several use XX and check the server's key against the set.</summary>
-    public IReadOnlyList<byte[]> ServerKeys { get; init; } = [];
-
-    /// <summary>The public key for a private key.</summary>
-    internal static byte[] PublicKeyOf(byte[] privateKey)
+    public HandshakeBudget(NetClock clock, int perSecond, int perSource)
     {
-        var pub = new byte[32];
-        X25519.PublicKey(privateKey, pub);
-        return pub;
+        _clock = clock;
+        _perSecond = perSecond;
+        _perSource = perSource;
+        _window = clock.NowMs;
     }
 
-    /// <summary>Largest logical message, checked on the running total of chunks before anything is buffered.</summary>
-    public int MaxMessageBytes { get; init; } = 1 << 20;
+    /// <summary>The source key of a peer address: the IPv4 address, or the first 64 bits of an IPv6 address.</summary>
+    public static string SourceOf(string remoteName)
+    {
+        if (!IPEndPoint.TryParse(remoteName, out var ep))
+        {
+            return remoteName;
+        }
 
-    /// <summary>The Noise handshake must finish within this long of the connection starting.</summary>
-    public int HandshakeTimeoutMs { get; init; } = 5000;
+        var bytes = ep.Address.GetAddressBytes();
+        return bytes.Length == 16 ? Convert.ToHexString(bytes.AsSpan(0, 8)) : ep.Address.ToString();
+    }
 
-    /// <summary>Listener only: sockets allowed to sit in the Noise handshake at once.</summary>
-    public int MaxPendingHandshakes { get; init; } = 32;
+    private void Roll()
+    {
+        var now = _clock.NowMs;
+        if (now - _window >= 1000)
+        {
+            _window = now;
+            _strangers = 0;
+            _returning = 0;
+        }
+    }
 
-    /// <summary>Listener only: handshakes started per second across all sources; more are closed unanswered, so the key agreement work stays bounded.</summary>
-    public int MaxHandshakesPerSecond { get; init; } = 200;
+    /// <summary>Called before a socket is given a handshake. False: close it unanswered.</summary>
+    public bool TryOpen(string source)
+    {
+        Roll();
+        _pendingBySource.TryGetValue(source, out var n);
+        if (n >= _perSource)
+        {
+            return false;
+        }
+
+        _pendingBySource[source] = n + 1;
+        return true;
+    }
+
+    /// <summary>Called when a handshake ends, either way.</summary>
+    public void Close(string source)
+    {
+        if (_pendingBySource.TryGetValue(source, out var n))
+        {
+            if (n <= 1)
+            {
+                _ = _pendingBySource.Remove(source);
+            }
+            else
+            {
+                _pendingBySource[source] = n - 1;
+            }
+        }
+    }
+
+    /// <summary>Called before any DH work for a first handshake message. False: drop the connection without spending it.</summary>
+    public bool TryCharge(string source)
+    {
+        Roll();
+        if (_known.TryGetValue(source, out var seen) && _clock.NowMs - seen < KnownTtlMs)
+        {
+            return ++_returning <= _perSecond;
+        }
+
+        return ++_strangers <= _perSecond;
+    }
+
+    /// <summary>A session from this source proved its key.</summary>
+    public void Confirmed(string source)
+    {
+        if (_known.Count > 4096 && !_known.ContainsKey(source))
+        {
+            var now = _clock.NowMs;
+            foreach (var k in _known.Where(p => now - p.Value >= KnownTtlMs).Select(p => p.Key).ToList())
+            {
+                _ = _known.Remove(k);
+            }
+
+            if (_known.Count > 4096)
+            {
+                return;
+            }
+        }
+
+        _known[source] = _clock.NowMs;
+    }
 }
 
 /// <summary>
-/// Noise inside WebSocket binary messages. The first message each way is the handshake; after it every WebSocket message is one
-/// record, <c>AEAD(flag ‖ chunk)</c> with at most 65535 bytes, the counter implicit (TCP keeps order, so any lost, repeated,
-/// reordered or injected record fails authentication and ends the connection). Flag 0 ends a logical message, 1 continues it, 2 is
-/// an authenticated close carrying the reason. A WebSocket Close frame alone proves nothing, so a connection that ends without
-/// flag 2 reports an abnormal end (<see cref="DisconnectReason.TransportError"/>, code 1006).
+/// Noise inside WebSocket binary messages (see <c>transport-security.md</c>, WebSocket). The server speaks first with a
+/// <em>challenge</em>: the version byte and 16 random bytes. The client's handshake message binds the challenge, the transport tag and
+/// the version byte into the Noise prologue, so a captured first message is worthless on any other connection (there is no cookie
+/// on TCP; this gives the same freshness without a round trip the client would not wait for anyway). The server does not surface
+/// the connection, and sends nothing, until the client's first record (a confirm) decrypts: a replayed first message never gets an
+/// application-level connection. After the handshake every message is one record <c>AEAD(flag ‖ chunk)</c> of at most 65535 bytes
+/// with an implicit counter; any record that is lost, repeated, reordered or injected fails authentication and ends the connection.
+/// Flags: 0 ends a logical message, 1 continues it (never empty), 2 is a graceful close carrying the reason (nothing may follow it,
+/// and it may not interrupt a message), 3 is the client's confirm (once, first). A WebSocket Close frame alone proves nothing, so a
+/// connection that ends without flag 2 reports an unauthenticated end (<see cref="DisconnectReason.TransportError"/>, code 1006).
 /// </summary>
 /// <remarks>It wraps any <see cref="INetConnection"/> that keeps message boundaries, so the desktop socket and the browser's WebSocket share it.</remarks>
 internal sealed class SecureConnection : INetConnection
 {
-    internal const byte VersionNibble = 0x20;
-    internal const byte PatternIk = 1;
-    internal const byte PatternXx = 2;
+    internal const byte VersionByte = 0x21;
+    internal const int NonceSize = 16;
     internal const int MaxRecord = 65535;
     internal const int MaxChunk = MaxRecord - 16 - 1;
     internal const byte FlagLast = 0;
     internal const byte FlagMore = 1;
     internal const byte FlagClose = 2;
-    private const int MaxHandshakeMessage = 1024;
+    internal const byte FlagConfirm = 3;
+    private const int MaxHandshakeMessage = 1 + SecureHandshake.FirstMessageOverhead;
 
-    private readonly INetConnection _inner;
-    private readonly WsSecurity _sec;
+    private readonly NetSecurity _security;
     private readonly NetClock _clock;
     private readonly bool _client;
-    private readonly long _start;
+    private readonly int _maxMessage;
+    private readonly int _timeoutMs;
+    private readonly Func<INetConnection>? _open;
+    private readonly HandshakeBudget? _budget;
+    private readonly string _source = "";
     private readonly Queue<byte[]> _early = new();
-    private NoiseHandshake? _hs;
+    private readonly Queue<byte[]> _backlog = new();
+    private INetConnection _inner;
+    private SecureHandshake? _hs;
     private NoiseCipherState? _send;
     private NoiseCipherState? _recv;
     private byte[]? _sbuf;
     private byte[]? _rbuf;
     private byte[]? _asm;
+    private byte[] _nonce = new byte[NonceSize];
     private int _asmLen;
     private bool _asmDone;
-    private readonly Queue<byte[]> _backlog = new();
+    private long _start;
+    private int _keyIndex;
+    private int _keysTried;
     private ConnectionState _state = ConnectionState.Connecting;
     private Stage _stage;
-    private byte _pattern;
     private bool _localClose;
     private bool _authClose;
+    private bool _confirmed;
     private DisconnectReason _peerReason;
     private DisconnectReason _failReason;
+    private PeerKey _remote;
     private long _messagesSent;
     private long _messagesReceived;
 
     private enum Stage : byte
     {
         ClientAwaitInner,
-        ClientAwaitMsg2,
-        ServerAwaitMsg1,
-        ServerAwaitMsg3,
+        ClientAwaitChallenge,
+        ClientAwaitReply,
+        ServerAwaitFirst,
+        ServerAwaitConfirm,
         Open,
         Dead,
     }
 
-    private SecureConnection(INetConnection inner, WsSecurity security, NetClock clock, bool client)
+    private SecureConnection(INetConnection inner, Func<INetConnection>? open, NetSecurity security, WebSocketOptions o, NetClock clock, HandshakeBudget? budget)
     {
         _inner = inner;
-        _sec = security;
+        _open = open;
+        _security = security;
         _clock = clock;
-        _client = client;
+        _client = open is not null;
+        _maxMessage = o.MaxMessageBytes;
+        _timeoutMs = o.HandshakeTimeoutMs;
+        _budget = budget;
         _start = clock.NowMs;
-        _stage = client ? Stage.ClientAwaitInner : Stage.ServerAwaitMsg1;
-        if (security.StaticPrivate.Length != 32)
-        {
-            throw new ArgumentException("The static private key must be 32 bytes.", nameof(security));
-        }
-
-        if (client && security.ServerKeys.Count == 0)
-        {
-            throw new ArgumentException("A client needs at least one server public key.", nameof(security));
-        }
-
+        _stage = _client ? Stage.ClientAwaitInner : Stage.ServerAwaitFirst;
         _inner.Disconnected += OnInnerClosed;
-        if (_inner.State == ConnectionState.Closed)
+        if (!_client)
         {
-            OnInnerClosed(_inner, _inner.CloseInfo);
+            _source = HandshakeBudget.SourceOf(inner.RemoteName);
+            // The challenge is the only thing the server sends before the client has proved a key.
+            Entropy.Fill(_nonce);
+            var challenge = new byte[1 + NonceSize];
+            challenge[0] = VersionByte;
+            _nonce.CopyTo(challenge, 1);
+            _inner.Send(challenge);
         }
     }
 
-    /// <summary>Wraps a connection this side opened.</summary>
-    internal static SecureConnection ForClient(INetConnection inner, WsSecurity security, NetClock clock) => new(inner, security, clock, true);
+    /// <summary>Opens a connection with <paramref name="open"/> and secures it; a rejected key is retried on a fresh connection with the next trusted key.</summary>
+    internal static SecureConnection ForClient(Func<INetConnection> open, NetSecurity security, WebSocketOptions o, NetClock clock) => new(open(), open, security, o, clock, null);
 
     /// <summary>Wraps a connection a listener accepted.</summary>
-    internal static SecureConnection ForServer(INetConnection inner, WsSecurity security, NetClock clock) => new(inner, security, clock, false);
+    internal static SecureConnection ForServer(INetConnection inner, NetSecurity security, WebSocketOptions o, NetClock clock, HandshakeBudget budget) => new(inner, null, security, o, clock, budget);
 
     /// <inheritdoc />
     public event Action<INetConnection>? Connected;
@@ -141,6 +232,12 @@ internal sealed class SecureConnection : INetConnection
     public string RemoteName => _inner.RemoteName;
 
     /// <inheritdoc />
+    public bool IsEncrypted => true;
+
+    /// <inheritdoc />
+    public PeerKey? RemoteKey => _remote.IsEmpty ? null : _remote;
+
+    /// <inheritdoc />
     public NetStats Stats
     {
         get
@@ -152,18 +249,15 @@ internal sealed class SecureConnection : INetConnection
         }
     }
 
-    /// <summary>The peer's static public key, authenticated by the handshake; empty until it completes.</summary>
-    internal byte[] RemoteStatic { get; private set; } = [];
-
-    /// <summary>True once the handshake finished and records flow.</summary>
+    /// <summary>True once the handshake finished and (on a server) the client's confirm arrived.</summary>
     internal bool IsOpen => _stage == Stage.Open;
 
     /// <inheritdoc />
     public void Send(ReadOnlySpan<byte> message)
     {
-        if (message.Length > _sec.MaxMessageBytes)
+        if (message.Length > _maxMessage)
         {
-            throw new MessageTooLargeException(message.Length, _sec.MaxMessageBytes);
+            throw new MessageTooLargeException(message.Length, _maxMessage);
         }
 
         if (_state == ConnectionState.Connecting)
@@ -221,6 +315,7 @@ internal sealed class SecureConnection : INetConnection
     }
 
     // Takes the next whole message out of the inner link's records. Only this method decrypts what arrives after the handshake.
+    // Authenticated peers still send untrusted bytes: every rule below holds after the tag verifies.
     private bool Read(out ReadOnlySpan<byte> message)
     {
         message = default;
@@ -230,12 +325,7 @@ internal sealed class SecureConnection : INetConnection
             _asmLen = 0;
         }
 
-        if (_stage != Stage.Open)
-        {
-            return false;
-        }
-
-        while (_inner.TryReceive(out var record))
+        while (_stage == Stage.Open && !_authClose && _inner.TryReceive(out var record))
         {
             if (record.Length is < 1 + NoiseCipherState.TagSize or > MaxRecord)
             {
@@ -246,7 +336,7 @@ internal sealed class SecureConnection : INetConnection
             var plainLength = record.Length - NoiseCipherState.TagSize;
             if (!_recv!.Decrypt(default, record, _rbuf.AsSpan(0, plainLength)))
             {
-                // Tampered, replayed, injected, reordered or from another key: all the same to us, and fatal.
+                // Tampered, repeated, injected, reordered or from another key: all the same to us, and fatal.
                 Fail(DisconnectReason.ProtocolViolation);
                 return false;
             }
@@ -260,9 +350,10 @@ internal sealed class SecureConnection : INetConnection
                     message = body;
                     return true;
                 case FlagLast or FlagMore:
-                    if ((long)_asmLen + body.Length > _sec.MaxMessageBytes)
+                    // A continuation must carry bytes, so a stream of empty records cannot keep us busy without progress.
+                    if (body.Length == 0 || (long)_asmLen + body.Length > _maxMessage)
                     {
-                        Fail(DisconnectReason.MessageTooLarge);
+                        Fail(body.Length == 0 ? DisconnectReason.ProtocolViolation : DisconnectReason.MessageTooLarge);
                         return false;
                     }
 
@@ -276,13 +367,14 @@ internal sealed class SecureConnection : INetConnection
                     }
 
                     break;
-                case FlagClose:
+                case FlagClose when _asmLen == 0:
                     _authClose = true;
-                    _state = ConnectionState.Closing;
                     _peerReason = body.Length == 1 ? (DisconnectReason)body[0] : DisconnectReason.Normal;
+                    _state = ConnectionState.Closing;
                     _inner.Disconnect(DisconnectReason.Normal);
                     return false;
                 default:
+                    // A close inside an unfinished message is a truncation; a repeated confirm or unknown flag is a violation.
                     Fail(DisconnectReason.ProtocolViolation);
                     return false;
             }
@@ -340,12 +432,12 @@ internal sealed class SecureConnection : INetConnection
         }
 
         _inner.Pump();
-        if (_state == ConnectionState.Closed || _stage == Stage.Open || _stage == Stage.Dead)
+        if (_state == ConnectionState.Closed || _stage is Stage.Open or Stage.Dead)
         {
             return;
         }
 
-        if (_clock.NowMs - _start >= _sec.HandshakeTimeoutMs)
+        if (_clock.NowMs - _start >= _timeoutMs)
         {
             Fail(DisconnectReason.ConnectTimeout);
             return;
@@ -356,28 +448,35 @@ internal sealed class SecureConnection : INetConnection
             case Stage.ClientAwaitInner:
                 if (_inner.State == ConnectionState.Connected)
                 {
-                    StartClient();
+                    _stage = Stage.ClientAwaitChallenge;
                 }
 
                 break;
-            case Stage.ClientAwaitMsg2:
-                if (_inner.TryReceive(out var m2))
+            case Stage.ClientAwaitChallenge:
+                if (_inner.TryReceive(out var challenge))
                 {
-                    ClientMsg2(m2);
+                    ClientChallenge(challenge);
                 }
 
                 break;
-            case Stage.ServerAwaitMsg1:
-                if (_inner.TryReceive(out var m1))
+            case Stage.ClientAwaitReply:
+                if (_inner.TryReceive(out var reply))
                 {
-                    ServerMsg1(m1);
+                    ClientReply(reply);
                 }
 
                 break;
-            case Stage.ServerAwaitMsg3:
-                if (_inner.TryReceive(out var m3))
+            case Stage.ServerAwaitFirst:
+                if (_inner.TryReceive(out var first))
                 {
-                    ServerMsg3(m3);
+                    ServerFirst(first);
+                }
+
+                break;
+            case Stage.ServerAwaitConfirm:
+                if (_inner.TryReceive(out var confirm))
+                {
+                    ServerConfirm(confirm);
                 }
 
                 break;
@@ -386,125 +485,144 @@ internal sealed class SecureConnection : INetConnection
         }
     }
 
-    private byte[] Prologue(byte pattern)
+    // The prologue's transport-specific part: the transport tag, the version byte (so a flipped version or a replay on another
+    // connection fails the handshake like a wrong key) and the server's challenge.
+    private static byte[] Bind(ReadOnlySpan<byte> nonce)
     {
-        var tag = "onegame/2/ws"u8;
-        var p = new byte[tag.Length + 1 + 1 + _sec.GameId.Length];
-        tag.CopyTo(p);
-        p[tag.Length] = pattern;
-        p[tag.Length + 1] = (byte)_sec.GameId.Length;
-        _sec.GameId.CopyTo(p, tag.Length + 2);
-        return p;
+        var bind = new byte[2 + 1 + NonceSize];
+        bind[0] = (byte)'w';
+        bind[1] = (byte)'s';
+        bind[2] = VersionByte;
+        nonce.CopyTo(bind.AsSpan(3));
+        return bind;
     }
 
-    private void StartClient()
+    private void ClientChallenge(ReadOnlySpan<byte> m)
     {
-        // One pinned key: IK, a single round trip. A set: XX, and the key the server proves is checked against the set.
-        _pattern = _sec.ServerKeys.Count == 1 ? PatternIk : PatternXx;
-        _hs = _pattern == PatternIk
-            ? new NoiseHandshake(NoisePattern.IK, true, Prologue(_pattern), _sec.StaticPrivate, _sec.ServerKeys[0])
-            : new NoiseHandshake(NoisePattern.XX, true, Prologue(_pattern), _sec.StaticPrivate, default);
-        var msg = new byte[1 + MaxHandshakeMessage];
-        msg[0] = (byte)(VersionNibble | _pattern);
-        var n = _hs.WriteMessage(default, msg.AsSpan(1));
-        _inner.Send(msg.AsSpan(0, 1 + n));
-        _stage = Stage.ClientAwaitMsg2;
-    }
-
-    private void ClientMsg2(ReadOnlySpan<byte> m2)
-    {
-        if (m2.Length > MaxHandshakeMessage || !_hs!.ReadMessage(m2, new byte[MaxHandshakeMessage], out _))
+        if (m.Length != 1 + NonceSize || m[0] != VersionByte)
         {
-            // A plaintext reply from an Insecure server lands here too, which is the downgrade refusal: nothing was ever sent in clear.
-            Fail(DisconnectReason.Rejected);
+            // An Insecure server's first message is game data, not a challenge: refuse, having sent nothing in clear.
+            Fail(DisconnectReason.SecurityRequired);
             return;
         }
 
-        if (_pattern == PatternXx)
+        _hs = SecureHandshake.Client(_security, _keyIndex, Bind(m[1..]));
+        var msg = new byte[MaxHandshakeMessage];
+        msg[0] = VersionByte;
+        var n = _hs.WriteFirst(default, msg.AsSpan(1));
+        _inner.Send(msg.AsSpan(0, 1 + n));
+        _stage = Stage.ClientAwaitReply;
+    }
+
+    private void ClientReply(ReadOnlySpan<byte> m)
+    {
+        if (m.Length < 1 || m[0] != VersionByte)
         {
-            var remote = _hs.RemoteStatic;
-            var known = false;
-            foreach (var k in _sec.ServerKeys)
-            {
-                known |= remote.SequenceEqual(k);
-            }
+            Fail(DisconnectReason.SecurityRequired);
+            return;
+        }
 
-            if (!known)
-            {
-                Fail(DisconnectReason.Rejected);
-                return;
-            }
-
-            var m3 = new byte[MaxHandshakeMessage];
-            var n = _hs.WriteMessage(default, m3);
-            _inner.Send(m3.AsSpan(0, n));
+        if (m.Length > 1 + SecureHandshake.ReplyOverhead || !_hs!.ReadReply(m[1..], new byte[SecureHandshake.ReplyOverhead], out _))
+        {
+            Rejected(DisconnectReason.HandshakeFailed);
+            return;
         }
 
         Complete();
+        FlushEarly();
     }
 
-    private void ServerMsg1(ReadOnlySpan<byte> m1)
+    // The server did not accept the key we tried. With more trusted keys, start over on a fresh connection with the next one.
+    private void Rejected(DisconnectReason reason)
     {
-        if (m1.Length < 1 || (m1[0] & 0xF0) != VersionNibble)
+        if (_client && _keysTried + 1 < _security.TrustedServerKeys.Count)
         {
-            // Not a secure handshake: a plaintext client, or an older one. The server never answers or reads it as game data.
-            Fail(m1.Length >= 1 ? DisconnectReason.Rejected : DisconnectReason.ProtocolViolation);
+            _keysTried++;
+            _keyIndex = (_keyIndex + 1) % _security.TrustedServerKeys.Count;
+            _hs = null;
+            var old = _inner;
+            old.Disconnected -= OnInnerClosed;
+            old.Disconnect(DisconnectReason.Normal);
+            _inner = _open!();
+            _inner.Disconnected += OnInnerClosed;
+            _stage = Stage.ClientAwaitInner;
+            _start = _clock.NowMs;
             return;
         }
 
-        _pattern = (byte)(m1[0] & 0x0F);
-        if (_pattern is not (PatternIk or PatternXx) || m1.Length > 1 + MaxHandshakeMessage)
+        Fail(reason);
+    }
+
+    private void ServerFirst(ReadOnlySpan<byte> m1)
+    {
+        if (m1.Length < 1 || m1[0] != VersionByte)
+        {
+            // Not a secure handshake: a plaintext client or another version. Nothing is answered or read as game data.
+            Fail(DisconnectReason.SecurityRequired);
+            return;
+        }
+
+        // Cheap checks first; only then spend key agreement, and only within the budget.
+        if (m1.Length != 1 + SecureHandshake.FirstMessageOverhead || !_budget!.TryCharge(_source))
+        {
+            Fail(m1.Length == 1 + SecureHandshake.FirstMessageOverhead ? DisconnectReason.ServerFull : DisconnectReason.HandshakeFailed);
+            return;
+        }
+
+        _hs = SecureHandshake.Server(_security, Bind(_nonce));
+        if (!_hs.ReadFirst(m1[1..], new byte[SecureHandshake.FirstMessageOverhead], out _))
+        {
+            Fail(DisconnectReason.HandshakeFailed);
+            return;
+        }
+
+        var msg = new byte[1 + SecureHandshake.ReplyOverhead];
+        msg[0] = VersionByte;
+        var n = _hs.WriteReply(default, msg.AsSpan(1));
+        _inner.Send(msg.AsSpan(0, 1 + n));
+        Complete();
+        _stage = Stage.ServerAwaitConfirm;
+    }
+
+    private void ServerConfirm(ReadOnlySpan<byte> record)
+    {
+        if (record.Length != 1 + NoiseCipherState.TagSize || !_recv!.Decrypt(default, record, _rbuf.AsSpan(0, 1)) || _rbuf![0] != FlagConfirm)
         {
             Fail(DisconnectReason.ProtocolViolation);
             return;
         }
 
-        _hs = new NoiseHandshake(_pattern == PatternIk ? NoisePattern.IK : NoisePattern.XX, false, Prologue(_pattern), _sec.StaticPrivate, default);
-        if (!_hs.ReadMessage(m1[1..], new byte[MaxHandshakeMessage], out _))
-        {
-            Fail(DisconnectReason.Rejected);
-            return;
-        }
-
-        var msg = new byte[MaxHandshakeMessage];
-        var n = _hs.WriteMessage(default, msg);
-        _inner.Send(msg.AsSpan(0, n));
-        if (_hs.IsComplete)
-        {
-            Complete();
-        }
-        else
-        {
-            _stage = Stage.ServerAwaitMsg3;
-        }
+        // Only now is the peer known to be live, so only now does the application hear of it.
+        _confirmed = true;
+        _stage = Stage.Open;
+        _state = ConnectionState.Connected;
+        _budget!.Close(_source);
+        _budget.Confirmed(_source);
     }
 
-    private void ServerMsg3(ReadOnlySpan<byte> m3)
-    {
-        if (m3.Length > MaxHandshakeMessage || !_hs!.ReadMessage(m3, new byte[MaxHandshakeMessage], out _))
-        {
-            Fail(DisconnectReason.Rejected);
-            return;
-        }
-
-        Complete();
-    }
-
+    // Splits the handshake into the two record ciphers and records who the peer is. On a server the connection stays in its
+    // handshake state until the confirm arrives.
     private void Complete()
     {
-        // The peer's static key is authenticated now: only its holder could finish the key agreements that mix it in.
-        RemoteStatic = _hs!.RemoteStatic.ToArray();
-        _hs.Split(out _send, out _recv);
+        _remote = _hs!.Remote;
+        _hs.Finish(out _send, out _recv);
         _hs = null;
         _sbuf = NetBuffers.Rent(MaxRecord);
         _rbuf = NetBuffers.Rent(MaxRecord);
-        _stage = Stage.Open;
-        _state = ConnectionState.Connected;
         if (_client)
         {
+            // The confirm tells the server the key exchange came from a live client, so it can surface the connection. It goes
+            // out before the application can send anything.
+            _sbuf[0] = FlagConfirm;
+            SealAndSend(1);
+            _stage = Stage.Open;
+            _state = ConnectionState.Connected;
             Connected?.Invoke(this);
         }
+    }
 
+    private void FlushEarly()
+    {
         while (_early.Count > 0 && _state == ConnectionState.Connected)
         {
             Send(_early.Dequeue());
@@ -520,7 +638,6 @@ internal sealed class SecureConnection : INetConnection
 
         _failReason = reason;
         _stage = Stage.Dead;
-        _hs?.Destroy();
         _hs = null;
         _inner.Disconnect(reason);
         if (_state != ConnectionState.Closed)
@@ -531,8 +648,15 @@ internal sealed class SecureConnection : INetConnection
 
     private void OnInnerClosed(INetConnection inner, DisconnectInfo info)
     {
-        if (_state == ConnectionState.Closed)
+        if (_state == ConnectionState.Closed || inner != _inner)
         {
+            return;
+        }
+
+        // A server that refuses our key closes the socket during the handshake; with another key to try, try it.
+        if (_client && _stage == Stage.ClientAwaitReply && _failReason == DisconnectReason.None && !_localClose && _keysTried + 1 < _security.TrustedServerKeys.Count)
+        {
+            Rejected(DisconnectReason.HandshakeFailed);
             return;
         }
 
@@ -546,6 +670,7 @@ internal sealed class SecureConnection : INetConnection
             }
         }
 
+        var handshaking = _stage is Stage.ClientAwaitInner or Stage.ClientAwaitChallenge or Stage.ClientAwaitReply or Stage.ServerAwaitFirst or Stage.ServerAwaitConfirm;
         _state = ConnectionState.Closed;
         _stage = Stage.Dead;
         if (_failReason != DisconnectReason.None)
@@ -560,18 +685,26 @@ internal sealed class SecureConnection : INetConnection
         {
             CloseInfo = info;
         }
+        else if (handshaking && info.Reason is DisconnectReason.SecurityRequired or DisconnectReason.HandshakeFailed or DisconnectReason.ServerFull)
+        {
+            CloseInfo = info;
+        }
         else
         {
             // Nothing authenticated ended this: a bare Close frame, a reset or a timeout. Game code treats it as a drop.
             CloseInfo = info.Reason is DisconnectReason.Timeout or DisconnectReason.ConnectTimeout or DisconnectReason.TransportError
                 ? info
-                : new DisconnectInfo(DisconnectReason.TransportError, true, 1006);
+                : new DisconnectInfo(DisconnectReason.TransportError, false, 1006);
         }
 
-        _hs?.Destroy();
         _hs = null;
         _send?.Clear();
         _recv?.Clear();
+        if (!_confirmed)
+        {
+            _budget?.Close(_source);
+        }
+
         if (_sbuf is not null)
         {
             NetBuffers.Return(_sbuf);
@@ -595,24 +728,25 @@ internal sealed class SecureConnection : INetConnection
     }
 }
 
-/// <summary>A listener whose connections complete the Noise handshake before the application sees them.</summary>
+/// <summary>A listener whose connections complete the Noise handshake and the client's confirm before the application sees them.</summary>
 internal sealed class SecureListener : INetListener
 {
     private readonly INetListener _inner;
-    private readonly WsSecurity _sec;
+    private readonly NetSecurity _sec;
+    private readonly WebSocketOptions _o;
     private readonly NetClock _clock;
+    private readonly HandshakeBudget _budget;
     private readonly List<SecureConnection> _pending = [];
     private readonly List<SecureConnection> _open = [];
     private readonly Queue<SecureConnection> _accepted = new();
-    private long _windowStart;
-    private int _windowCount;
 
-    internal SecureListener(INetListener inner, WsSecurity security, NetClock clock)
+    internal SecureListener(INetListener inner, NetSecurity security, WebSocketOptions options, NetClock clock)
     {
         _inner = inner;
         _sec = security;
+        _o = options;
         _clock = clock;
-        _windowStart = clock.NowMs;
+        _budget = new HandshakeBudget(clock, options.MaxHandshakesPerSecond, options.MaxPendingHandshakesPerSource);
     }
 
     /// <inheritdoc />
@@ -641,24 +775,17 @@ internal sealed class SecureListener : INetListener
     public void Pump()
     {
         _inner.Pump();
-        var now = _clock.NowMs;
-        if (now - _windowStart >= 1000)
-        {
-            _windowStart = now;
-            _windowCount = 0;
-        }
-
         while (_inner.TryAccept(out var raw))
         {
-            // The budget bounds DH work an attacker can ask for with fresh sockets; over it, the socket is closed without a reply.
-            if (_pending.Count >= _sec.MaxPendingHandshakes || _windowCount >= _sec.MaxHandshakesPerSecond)
+            // Capacity is checked before anything is computed: unconfirmed sockets have their own small budget, per source and
+            // in total, and do not count against MaxConnections.
+            if (_pending.Count >= _o.MaxPendingHandshakes || !_budget.TryOpen(HandshakeBudget.SourceOf(raw.RemoteName)))
             {
                 raw.Disconnect(DisconnectReason.ServerFull);
                 continue;
             }
 
-            _windowCount++;
-            _pending.Add(SecureConnection.ForServer(raw, _sec, _clock));
+            _pending.Add(SecureConnection.ForServer(raw, _sec, _o, _clock, _budget));
         }
 
         for (var i = 0; i < _pending.Count; i++)

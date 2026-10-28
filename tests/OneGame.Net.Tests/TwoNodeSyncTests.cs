@@ -177,10 +177,10 @@ public class TwoNodeSyncTests
     {
         var r = Play(clock =>
         {
-            var inner = WebSocketTransport.Listen(new IPEndPoint(IPAddress.Loopback, 0), null, clock);
+            var inner = WebSocketTransport.ListenPlain(new IPEndPoint(IPAddress.Loopback, 0), null, clock);
             var server = new ConditionedListener(inner, Hostile, clock);
             var client = new ConditionedConnection(
-                WebSocketTransport.Connect((IPEndPoint)inner.LocalEndPoint, null, clock),
+                WebSocketTransport.ConnectPlain((IPEndPoint)inner.LocalEndPoint, null, clock),
                 new NetworkConditions { LatencyMs = 150, JitterMs = 30, LossRate = 0.05, DuplicateRate = 0.02, ReorderRate = 0.05, Seed = 12 },
                 clock);
             INetConnection? accepted = null;
