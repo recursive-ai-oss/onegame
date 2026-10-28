@@ -40,6 +40,7 @@ Without `--headless` the game opens a window (Wayland when `WAYLAND_DISPLAY` is 
 | Output | `snapshot_save`, `capture_frame`, `capture_sequence` |
 | Theme | `theme_lint` (WCAG AA contrast of the kit theme in effect, as a report; `docs/interfaces/ui-kit.md`) |
 | Shaders | `shaders` (hot reload status; recompiles changed shader files first, see `docs/interfaces/render2d.md`) |
+| Code hot reload | `hot_reload` (edits applied by `onegame run`, the last edit's state and message, restarts, `replaySafe`; see `docs/hot-reload.md`) |
 | Rendering | `render_graph` (passes, resources and per-pass GPU time of the last frame; see `render-graph.md`) |
 | 3D | `camera` (read or override the camera), `pick` (entity under a pixel or along a ray), `project` (world point to pixel): `scene3d.md`; `quality` (read or set the renderer's level, SSAO): `render3d.md` |
 | 2D | `draw_view` (what the 2D happy path drew last frame, its camera, screen/world conversion): `render2d.md` |

@@ -11,7 +11,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Atlas](OneGame.Atlas/index.md) | 1 | 14 | 111 | Atlas pages and the SVG and image atlas for the 2D renderer. |
 | [RecursiveAI.OneGame.Audio](OneGame.Audio/index.md) | 1 | 57 | 445 | Audio device output and the audio service that drives a mixer. |
 | [RecursiveAI.OneGame.Cli](OneGame.Cli/index.md) | 0 | 0 | 0 | The onegame command: create, build, run, test, capture and replay games. |
-| [RecursiveAI.OneGame.Control](OneGame.Control/index.md) | 1 | 51 | 426 | The control layer shared by the command line, the test API and live control. |
+| [RecursiveAI.OneGame.Control](OneGame.Control/index.md) | 1 | 52 | 440 | The control layer shared by the command line, the test API and live control. |
 | [RecursiveAI.OneGame.Core](OneGame.Core/index.md) | 2 | 60 | 506 | Entity runtime: fixed-point numbers, random streams and the attributes that declare entities. |
 | [RecursiveAI.OneGame.Gltf](OneGame.Gltf/index.md) | 1 | 45 | 286 | glTF 2.0 import: scenes, meshes, materials, skins and animations, safe on untrusted input. |
 | [RecursiveAI.OneGame.Gpu](OneGame.Gpu/index.md) | 2 | 91 | 574 | Graphics API abstraction and render graph. |
@@ -19,7 +19,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Gpu.Metal](OneGame.Gpu.Metal/index.md) | 1 | 1 | 3 | Metal backend of the graphics layer. |
 | [RecursiveAI.OneGame.Gpu.Vulkan](OneGame.Gpu.Vulkan/index.md) | 1 | 2 | 4 | Vulkan backend of the graphics layer. |
 | [RecursiveAI.OneGame.Gpu.WebGpu](OneGame.Gpu.WebGpu/index.md) | 1 | 1 | 3 | WebGPU backend of the graphics layer, for the browser. |
-| [RecursiveAI.OneGame.Host](OneGame.Host/index.md) | 1 | 60 | 494 | The game host: window, input, fixed-step simulation, UI and render stage for one game, windowed or headless. |
+| [RecursiveAI.OneGame.Host](OneGame.Host/index.md) | 1 | 60 | 495 | The game host: window, input, fixed-step simulation, UI and render stage for one game, windowed or headless. |
 | [RecursiveAI.OneGame.Live](OneGame.Live/index.md) | 1 | 3 | 12 | Development-build tools of a running game: live control over MCP, scenario runs, captures and replays. Release builds do not reference this project. |
 | [RecursiveAI.OneGame.Net](OneGame.Net/index.md) | 1 | 25 | 184 | Network transports behind the message-channel seam: reliable UDP, WebSocket, and a network conditioner for tests. |
 | [RecursiveAI.OneGame.Pages](OneGame.Pages/index.md) | 2 | 34 | 245 | Draws OneRender pages (builder trees and HTML) through the render graph, with input, host scopes and harness support. |

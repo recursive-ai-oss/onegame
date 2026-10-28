@@ -13,7 +13,7 @@ internal sealed record ProjectRef(string Directory, string File, string Name);
 internal sealed class ProjectArgs
 {
     private static readonly string[] WithValue = ["--project"];
-    private static readonly string[] Flags = ["--release", "--no-build"];
+    private static readonly string[] Flags = ["--release", "--no-build", "--hot", "--no-hot"];
 
     public ProjectArgs(string[] args, params string[] extraWithValue)
     {

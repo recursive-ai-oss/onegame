@@ -139,6 +139,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         "ui_hit" => Json(UiHit(a), ControlJson.Default.HitResult),
         "snapshot_save" => Json(SnapshotSave(a), ControlJson.Default.SnapshotResult),
         "shaders" => Json(ShaderCheck(), ControlJson.Default.ShadersResult),
+        "hot_reload" => Json(HotReload(), ControlJson.Default.HotReloadResult),
         "assets" => Json(AssetsOp(a), ControlJson.Default.AssetsResult),
         "tweens" => Json(TweensOp(a), ControlJson.Default.TweensResult),
         "pages" => new ControlResult(PagesOp()),
@@ -940,6 +941,7 @@ public sealed partial class ControlSurface : IControlEndpoint
     {
         Reloader.Poll();
         AssetWatcher.Poll();
+        PollHotReload();
     }
 
     private ShaderReloader? _reloader;

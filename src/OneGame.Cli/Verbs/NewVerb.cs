@@ -516,7 +516,7 @@ internal static class Templates
 
         Fly the ship with WASD, the arrow keys or a gamepad's left stick; Space or the pad's south button boosts. The keys are the default bindings declared in `DefineActions`.
 
-        **Hot reload.** Run `onegame run` and, while the window is open, edit `art/ship.png` in any image editor and save: the ship changes in the next frame, and the game keeps running. (A broken file keeps the old picture and reports the error; fix it and it loads.) In a test the same thing is `- assets: { reload: art/ship.png }`.
+        **Hot reload.** Run `onegame run` and, while the window is open, edit `art/ship.png` in any image editor and save: the ship changes in the next frame, and the game keeps running. (A broken file keeps the old picture and reports the error; fix it and it loads.) In a test the same thing is `- assets: { reload: art/ship.png }`. The C# hot-reloads too: change the speed in `OnTick` or the text in `Label` in `Game.cs`, save, and the running ship changes while it keeps its place (see the engine's `docs/hot-reload.md`; `onegame run --no-hot` turns it off).
 
         The capture scenario `scenarios/ship-looks-right.yaml` needs a Vulkan driver (a software one is fine) to draw the frame it compares with `scenarios/refs/ship.png`; after you change how the ship looks, run `onegame test --update-references` and look at the new reference.
 

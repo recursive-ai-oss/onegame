@@ -231,6 +231,7 @@ public sealed record BusLoudnessStatus(int Index, string? Name, OneGame.Audio.Lo
 [JsonSerializable(typeof(NetWaitResult))]
 [JsonSerializable(typeof(NetDivergeResult))]
 [JsonSerializable(typeof(ShadersResult))]
+[JsonSerializable(typeof(HotReloadResult))]
 [JsonSerializable(typeof(AssetsResult))]
 [JsonSerializable(typeof(TweensResult))]
 [JsonSerializable(typeof(OverlayResult))]
@@ -316,6 +317,9 @@ public static partial class ControlOps
             """{"type":"object","properties":{"path":{"type":"string"},"base64":{"type":"string"}}}""", true),
         new("shaders",
             "Hot-reload status of the game's registered shaders. Checks their files first: a changed one is recompiled and, when its interface still matches, swapped in; otherwise the old shader keeps running and the state says why (compile_error with file and line, or incompatible).",
+            NoArgs, true),
+        new("hot_reload",
+            "Development hot reload status. A game started by 'onegame run' applies code edits while it runs: active, how many edits were applied (applied) and which types they changed, the state of the last one (applied, rude = needs a restart, error = does not compile, restarted = restarted after a rude edit with the world kept) and its message, and replaySafe (false once an edit was applied: recordings made across an edit and hashes compared with a clean run will not reproduce). Shows a pending edit first.",
             NoArgs, true),
         new("render_graph",
             "Describe the render graph of the last frame drawn: every pass in order (type, what it reads and writes, whether it was culled, GPU time in microseconds when measured), every texture and buffer (format, size, lifetime, which allocation it shares), and totals (memory in use versus memory without sharing). Draws one frame offscreen first if none was drawn. Fails with 'no_graph' without a graphics device.",

@@ -134,7 +134,7 @@ public sealed partial class GameInstance : IDisposable
 
     private const int MinFrameMilliseconds = 4;
 
-    private readonly ScreenSet _screenSet = new();
+    private ScreenSet _screenSet = new();
     private readonly FixtureSet _fixtureSet = new();
     private readonly EntityRegistry _registry = new();
     private readonly IRenderStage _stage;
@@ -569,6 +569,20 @@ public sealed partial class GameInstance : IDisposable
         Ui.Root.Clear();
         Ui.Root.Add(build(this));
         CurrentScreen = name;
+    }
+
+    /// <summary>
+    /// Declares the screens again from the game's current code and rebuilds the open screen, so an edit to <see cref="GameDefinition.DefineScreens"/>
+    /// shows on the next frame. Development hot reload calls it after it applies an edit; the world is not touched. The screen's own UI state
+    /// (focus, scroll position, typed text) starts over.
+    /// </summary>
+    public void RefreshScreens()
+    {
+        var screens = new ScreenSet();
+        Definition.DefineScreens(screens);
+        _screenSet = screens;
+        var current = CurrentScreen;
+        OpenScreen(current is not null && screens.Names.Contains(current) ? current : screens.Names.Contains("main") ? "main" : screens.Names.Count > 0 ? screens.Names[0] : throw new InvalidOperationException($"{Definition.Name} declares no screens. Add one named \"main\" in DefineScreens."));
     }
 
     /// <summary>Resizes the window (or the virtual window of a headless run) and lets the UI lay out at the new size.</summary>

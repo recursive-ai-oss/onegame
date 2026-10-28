@@ -101,7 +101,7 @@ Debug builds listen on a local socket: `onegame run -- --live` (add `--realtime`
 { "mcpServers": { "shop": { "command": "onegame", "args": ["mcp", "--project", "."] } } }
 ```
 
-`--project` starts the game and bridges to it; `--socket <path>` attaches to a given one; with neither, the bridge attaches to the only live game. Tools: `info`, `hash`, `state_query`, `state_patch`, `commands_list`, `command_send`, `input_pointer`, `input_key`, `input_text`, `input_composition`, `clipboard_get`, `clipboard_set`, `input_nav`, `step`, `ui_tree`, `ui_query`, `ui_invoke`, `ui_click`, `ui_hit`, `screen_open`, `fixture_load`, `reset`, `snapshot_save`, `snapshot_load`, `capture_frame`, `capture_sequence`, `shaders`, `quit`. A typical session: `info` → `state_query` → `ui_click` → `step 10` → `ui_tree` → `capture_frame`. Errors come back as `{"error":{"code","message"}}` with a stable code. Release builds contain none of this.
+`--project` starts the game and bridges to it; `--socket <path>` attaches to a given one; with neither, the bridge attaches to the only live game. Tools: `info`, `hash`, `state_query`, `state_patch`, `commands_list`, `command_send`, `input_pointer`, `input_key`, `input_text`, `input_composition`, `clipboard_get`, `clipboard_set`, `input_nav`, `step`, `ui_tree`, `ui_query`, `ui_invoke`, `ui_click`, `ui_hit`, `screen_open`, `fixture_load`, `reset`, `snapshot_save`, `snapshot_load`, `capture_frame`, `capture_sequence`, `shaders`, `hot_reload`, `quit`. A typical session: `info` → `state_query` → `ui_click` → `step 10` → `ui_tree` → `capture_frame`. Errors come back as `{"error":{"code","message"}}` with a stable code. Release builds contain none of this.
 
 ## 6. Run it in a window
 

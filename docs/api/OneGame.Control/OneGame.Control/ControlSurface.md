@@ -131,8 +131,10 @@ The game's purchase service, for the `store` operation. Defaults to the most rec
 | [`Call(string, string?)`](#m-call-string-string) | Runs an operation and returns its JSON text. |
 | [`Invoke(string, string?)`](#m-invoke-string-string) | Runs an operation. |
 | [`InvokeAsync(string, string?)`](#m-invokeasync-string-string) | Runs an operation like [`ControlSurface.Invoke()`](ControlSurface.md#m-invoke-string-string). |
+| [`PollHotReload()`](#m-pollhotreload) | Shows an applied code edit: declares the screens again from the new code and rebuilds the open one, and starts a new segment in a running session recording (an edit may have changed the simulation, so the recording continues from the state the edit met). |
 | [`PollShaders()`](#m-pollshaders) | Checks the registered shader files and the loaded asset files for edits, as the `shaders` and `assets` operations do. |
 | [`ResolveEntityId(string)`](#m-resolveentityid-string) | Finds an entity by numeric id, type name or `Type#n`, as operations do. |
+| [`ResumeFromHotRestart()`](#m-resumefromhotrestart) | After `onegame run` restarted the game for an edit that could not be applied live, loads the world it saved first (named by `ONEGAME_HOT_RESUME`), through the generated snapshot migrations, so play continues from the same state. |
 
 ### <a id="m-call-string-string"></a>Call(string, string?)
 
@@ -191,6 +193,14 @@ Runs an operation like [`ControlSurface.Invoke()`](ControlSurface.md#m-invoke-st
 
 - [`ControlException`](ControlException.md): The operation is unknown, its arguments are wrong, or it failed.
 
+### <a id="m-pollhotreload"></a>PollHotReload()
+
+```csharp
+public void PollHotReload();
+```
+
+Shows an applied code edit: declares the screens again from the new code and rebuilds the open one, and starts a new segment in a running session recording (an edit may have changed the simulation, so the recording continues from the state the edit met). The game's loop calls it every frame, next to [`ControlSurface.PollShaders()`](ControlSurface.md#m-pollshaders); it does nothing when no edit arrived.
+
 ### <a id="m-pollshaders"></a>PollShaders()
 
 ```csharp
@@ -216,3 +226,13 @@ Finds an entity by numeric id, type name or `Type#n`, as operations do.
 **Exceptions**
 
 - [`ControlException`](ControlException.md): There is no such entity.
+
+### <a id="m-resumefromhotrestart"></a>ResumeFromHotRestart()
+
+```csharp
+public bool ResumeFromHotRestart();
+```
+
+After `onegame run` restarted the game for an edit that could not be applied live, loads the world it saved first (named by `ONEGAME_HOT_RESUME`), through the generated snapshot migrations, so play continues from the same state. Does nothing otherwise.
+
+**Returns:** `bool` — Whether a saved world was loaded.

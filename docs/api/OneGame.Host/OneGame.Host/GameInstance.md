@@ -536,6 +536,7 @@ Raised after the world is replaced by a reset, a fixture or a snapshot load. Rec
 | [`LoadSnapshot(ReadOnlySpan<byte>)`](#m-loadsnapshot-readonlyspan-byte) | Replaces the world with the state in a save (see [`SaveFile`](../../OneGame.Sync/OneGame.Sync/SaveFile.md)). |
 | [`OpenScreen(string)`](#m-openscreen-string) | Replaces the UI with a declared screen. |
 | [`Redraw()`](#m-redraw) | Draws and presents the current state in a windowed instance. |
+| [`RefreshScreens()`](#m-refreshscreens) | Declares the screens again from the game's current code and rebuilds the open screen, so an edit to [`GameDefinition.DefineScreens()`](GameDefinition.md#m-definescreens-screenset) shows on the next frame. |
 | [`Replay(SessionRecording)`](#m-replay-sessionrecording) | Replays every segment of a session, each on a fresh world, and stops at the first divergence. |
 | [`Replay(Recording, Action<World>?)`](#m-replay-recording-action-world) | Replays a recording on a fresh world built like the game's and compares the hashes. |
 | [`Reset(ulong?)`](#m-reset-ulong) | Starts a new game: a fresh world filled by [`GameDefinition.Setup()`](GameDefinition.md#m-setup-world), optionally with a different seed. |
@@ -761,6 +762,14 @@ public void Redraw();
 ```
 
 Draws and presents the current state in a windowed instance. Does nothing in a headless one.
+
+### <a id="m-refreshscreens"></a>RefreshScreens()
+
+```csharp
+public void RefreshScreens();
+```
+
+Declares the screens again from the game's current code and rebuilds the open screen, so an edit to [`GameDefinition.DefineScreens()`](GameDefinition.md#m-definescreens-screenset) shows on the next frame. Development hot reload calls it after it applies an edit; the world is not touched. The screen's own UI state (focus, scroll position, typed text) starts over.
 
 ### <a id="m-replay-sessionrecording"></a>Replay(SessionRecording)
 
