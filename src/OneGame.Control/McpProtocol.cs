@@ -7,6 +7,13 @@ namespace OneGame.Control;
 /// The Model Context Protocol (https://modelcontextprotocol.io, revision 2025-06-18) for one game: JSON-RPC 2.0 messages in, messages out.
 /// Every control operation is a tool of the same name. The class knows nothing about sockets; <c>OneGame.Live</c> moves the messages.
 /// </summary>
+/// <example>
+/// <code>
+/// var mcp = new McpProtocol(new ControlSurface(game));
+/// mcp.Handle("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}""");
+/// string? reply = mcp.Handle("""{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"info","arguments":{}}}""");
+/// </code>
+/// </example>
 public sealed class McpProtocol
 {
     /// <summary>The newest protocol revision this server speaks.</summary>
@@ -18,12 +25,15 @@ public sealed class McpProtocol
     private readonly IControlEndpoint _surface;
 
     /// <summary>Creates the protocol handler for a game's control surface.</summary>
+    /// <param name="surface">The game's control surface.</param>
     public McpProtocol(ControlSurface surface)
         : this((IControlEndpoint)surface)
     {
     }
 
     /// <summary>Creates the protocol handler for any control endpoint, such as a server's.</summary>
+    /// <param name="endpoint">The endpoint whose operations become MCP tools.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="endpoint"/> is null.</exception>
     public McpProtocol(IControlEndpoint endpoint)
     {
         _surface = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
@@ -33,9 +43,11 @@ public sealed class McpProtocol
     /// Handles one JSON-RPC message (one line of the stdio transport). Returns the response message, or null for a notification.
     /// Never throws on bad input: malformed messages get a JSON-RPC error.
     /// </summary>
+    /// <param name="message">One JSON-RPC message.</param>
     public string? Handle(string message) => HandleAsync(message).AsTask().GetAwaiter().GetResult();
 
     /// <summary>Like <see cref="Handle"/>, for hosts that cannot block while a tool waits for the graphics device (a browser page).</summary>
+    /// <param name="message">One JSON-RPC message.</param>
     public async ValueTask<string?> HandleAsync(string message)
     {
         ArgumentNullException.ThrowIfNull(message);

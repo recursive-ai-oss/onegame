@@ -11,6 +11,16 @@ namespace OneGame.Control;
 /// The control layer: every operation of <see cref="ControlOps"/> run against one <see cref="GameInstance"/>. The command line, the test
 /// API and live control (MCP) all call <see cref="Invoke"/>; none of them reaches into the game any other way.
 /// </summary>
+/// <example>
+/// <code>
+/// var control = new ControlSurface(game, outputDirectory: "artifacts");
+/// string info = control.Call("info");                                   // JSON text
+/// control.Call("command_send", """{"entity":"Court","command":"Launch"}""");
+/// control.Call("step", """{"frames":20}""");
+/// var shot = control.Invoke("capture_frame", """{"size":"720p","path":"after.png"}""");
+/// Console.WriteLine(shot.Json);                                         // path, size, sha256, tick, hash
+/// </code>
+/// </example>
 public sealed partial class ControlSurface : IControlEndpoint
 {
     private const int MaxSnapshotBytes = 64 * 1024 * 1024;
@@ -45,10 +55,14 @@ public sealed partial class ControlSurface : IControlEndpoint
     public string OutputDirectory { get; }
 
     /// <summary>Runs an operation and returns its JSON text.</summary>
+    /// <param name="op">The operation's name; <see cref="Operations"/> lists them.</param>
+    /// <param name="argsJson">The arguments as a JSON object, or null for none.</param>
     /// <exception cref="ControlException">The operation is unknown, its arguments are wrong, or it failed.</exception>
     public string Call(string op, string? argsJson = null) => Invoke(op, argsJson).Json;
 
-    /// <summary>Runs an operation. <paramref name="argsJson"/> is a JSON object (or null for none).</summary>
+    /// <summary>Runs an operation. <paramref name="argsJson"/> is a JSON object (or null for none). Use this over <see cref="Call"/> to get the PNG bytes of a capture.</summary>
+    /// <param name="op">The operation's name.</param>
+    /// <param name="argsJson">The arguments as a JSON object, or null for none.</param>
     /// <exception cref="ControlException">The operation is unknown, its arguments are wrong, or it failed.</exception>
     public ControlResult Invoke(string op, string? argsJson = null) => InvokeAsync(op, argsJson).AsTask().GetAwaiter().GetResult();
 
@@ -56,6 +70,8 @@ public sealed partial class ControlSurface : IControlEndpoint
     /// Runs an operation like <see cref="Invoke"/>. Operations that read pixels back from the graphics device can take a while on a
     /// platform that cannot block (a browser page), so they finish here; everything else completes before this returns.
     /// </summary>
+    /// <param name="op">The operation's name.</param>
+    /// <param name="argsJson">The arguments as a JSON object, or null for none.</param>
     /// <exception cref="ControlException">The operation is unknown, its arguments are wrong, or it failed.</exception>
     public async ValueTask<ControlResult> InvokeAsync(string op, string? argsJson = null)
     {

@@ -51,15 +51,29 @@ public sealed class Light3D
     /// <summary>Spot: angle in radians from the axis at which the light reaches zero.</summary>
     public float OuterConeAngle { get; set; } = MathF.PI / 4f;
 
-    /// <summary>A directional light.</summary>
+    /// <summary>A directional light: parallel rays, like the sun.</summary>
+    /// <param name="direction">The way the light travels (from the light toward the scene); need not be normalized.</param>
+    /// <param name="color">Linear RGB, each channel 0 to 1.</param>
+    /// <param name="lux">Intensity in lux (the <c>onegame view</c> default is 3).</param>
     public static Light3D Directional(Vector3 direction, Vector3 color, float lux) =>
         new() { Kind = LightKind.Directional, Direction = direction, Color = color, Intensity = lux };
 
-    /// <summary>A point light.</summary>
+    /// <summary>A point light: radiates equally in every direction.</summary>
+    /// <param name="position">World position.</param>
+    /// <param name="color">Linear RGB.</param>
+    /// <param name="candela">Intensity in candela; the lit surface receives candela divided by distance squared.</param>
+    /// <param name="range">Distance in world units at which the light fades to zero; 0 for no limit.</param>
     public static Light3D Point(Vector3 position, Vector3 color, float candela, float range = 0f) =>
         new() { Kind = LightKind.Point, Position = position, Color = color, Intensity = candela, Range = range };
 
-    /// <summary>A spot light.</summary>
+    /// <summary>A spot light: a point light limited to a cone.</summary>
+    /// <param name="position">World position.</param>
+    /// <param name="direction">The cone's axis, from the light toward the scene.</param>
+    /// <param name="color">Linear RGB.</param>
+    /// <param name="candela">Intensity in candela.</param>
+    /// <param name="innerCone">Angle in radians from the axis inside which the light is at full strength.</param>
+    /// <param name="outerCone">Angle in radians from the axis at which it reaches zero; at least <paramref name="innerCone"/>.</param>
+    /// <param name="range">Distance at which the light fades to zero; 0 for no limit.</param>
     public static Light3D Spot(Vector3 position, Vector3 direction, Vector3 color, float candela, float innerCone, float outerCone, float range = 0f) =>
         new() { Kind = LightKind.Spot, Position = position, Direction = direction, Color = color, Intensity = candela, InnerConeAngle = innerCone, OuterConeAngle = outerCone, Range = range };
 

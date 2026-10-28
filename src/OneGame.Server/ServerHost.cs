@@ -9,7 +9,19 @@ namespace OneGame.Server;
 /// It starts from a <see cref="ServerConfig"/>, loads plugins through an <see cref="IPluginLoader"/> (when the host has one), keeps
 /// ticking when a plugin fails, and can load, hot-reload and unload plugins while it runs. Everything runs on the thread that calls
 /// <see cref="StepOnce"/>, <see cref="Advance"/> or <see cref="Run"/>: plugin operations are plain calls between ticks.
+/// Most servers do not build one by hand: <c>ServerApp.Run</c> in <c>OneGame.Server.Live</c> does, and adds the command line and live control.
 /// </summary>
+/// <example>
+/// Host a scope in-process, tick it and read its state:
+/// <code>
+/// var config = ServerConfig.Parse("name: arena\ntickRate: 60\nscopes:\n  - { id: 1, seed: 42 }\n");
+/// var host = new ServerHost(config, new ServerSetup { RegisterEntities = MyGame.EntityTypes.Register });
+/// host.Start();
+/// host.Step(120);                                   // two seconds of ticks
+/// Console.WriteLine(host.Scopes[0].World.Tick);     // 120
+/// host.Stop();
+/// </code>
+/// </example>
 public sealed class ServerHost
 {
     private readonly ServerSetup _setup;
@@ -104,7 +116,7 @@ public sealed class ServerHost
     /// <summary>Where the server is in its life.</summary>
     public ServerState State { get; private set; } = ServerState.Created;
 
-    /// <summary>Ticks run so far.</summary>
+    /// <summary>Ticks run so far, counted from <see cref="Start"/>. Each hosted scope's own world tick is in <see cref="ServerScope.World"/>.</summary>
     public long Tick { get; private set; }
 
     /// <summary>The fixed-step driver that turns elapsed time into ticks.</summary>
@@ -209,7 +221,8 @@ public sealed class ServerHost
         _network.PumpOutbound();
     }
 
-    /// <summary>Runs <paramref name="ticks"/> ticks.</summary>
+    /// <summary>Runs <paramref name="ticks"/> ticks back to back, as fast as possible with no clock. Tests use this; <see cref="Run"/> paces by the clock.</summary>
+    /// <exception cref="InvalidOperationException">The server is not running.</exception>
     /// <param name="ticks">How many.</param>
     public void Step(int ticks)
     {
@@ -280,7 +293,7 @@ public sealed class ServerHost
         Log.Info("server stopped");
     }
 
-    /// <summary>Snapshots of every scope.</summary>
+    /// <summary>A summary of every hosted scope: tick, state hash, entity count and subscribers. Cheap enough to poll.</summary>
     public IReadOnlyList<ScopeInfo> ScopeInfos()
     {
         var list = new List<ScopeInfo>(_scopes.Count);

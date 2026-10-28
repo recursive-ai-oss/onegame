@@ -46,6 +46,9 @@ public sealed class Camera3D
     }
 
     /// <summary>A camera at <paramref name="eye"/> looking at <paramref name="target"/>.</summary>
+    /// <param name="eye">World position of the camera.</param>
+    /// <param name="target">The point it looks at.</param>
+    /// <param name="up">Which way is up, usually <see cref="Vector3.UnitY"/>.</param>
     public static Camera3D LookAt(Vector3 eye, Vector3 target, Vector3 up)
     {
         var view = Matrix4x4.CreateLookAt(eye, target, up);
@@ -57,6 +60,10 @@ public sealed class Camera3D
     /// A camera on a sphere around <paramref name="target"/>. Yaw 0 and pitch 0 look from +Z towards -Z (the front of a glTF model);
     /// positive yaw moves the camera towards +X, positive pitch raises it.
     /// </summary>
+    /// <param name="target">The point the camera looks at.</param>
+    /// <param name="distance">Distance from the target in world units (metres for glTF models).</param>
+    /// <param name="yawDegrees">Angle around the vertical axis, in degrees.</param>
+    /// <param name="pitchDegrees">Angle above the horizon, in degrees.</param>
     public static Camera3D Orbit(Vector3 target, float distance, float yawDegrees, float pitchDegrees)
     {
         var yaw = yawDegrees * MathF.PI / 180f;

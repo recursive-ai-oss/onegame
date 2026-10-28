@@ -383,7 +383,27 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
     public double? ActionY { get; init; }
 }
 
-/// <summary>A scenario: where to start, what to do, and what must hold afterwards.</summary>
+/// <summary>
+/// A scenario: where to start, what to do, and what must hold afterwards. Scenarios are normally YAML files read with
+/// <see cref="ScenarioParser"/> and run with <see cref="TestCluster.Run(string, ScenarioRunOptions?)"/> or <c>onegame test</c>; the same
+/// record can be built in code.
+/// </summary>
+/// <example>
+/// A scenario file. Steps run in order; an <c>expect</c> step checks at that moment, the final <c>expect</c> list after the last step:
+/// <code>
+/// name: buy-sword
+/// steps:
+///   - fixture: rich-player
+///   - click: shop-open
+///   - step: 2
+///   - click: buy-sword
+///   - step: 1
+///   - capture: { path: shop.png, size: 1280x720 }
+/// expect:
+///   - state: { entity: Player, property: Gold, equals: 50 }
+///   - ui: { id: sword-owned, visible: true }
+/// </code>
+/// </example>
 public sealed record Scenario
 {
     /// <summary>The scenario's name.</summary>
@@ -420,7 +440,8 @@ public static class ScenarioParser
     private const int MaxBytes = 1024 * 1024;
     private static readonly string[] TopKeys = ["name", "description", "fixture", "snapshot", "window", "seed", "steps", "expect"];
 
-    /// <summary>Reads a scenario file.</summary>
+    /// <summary>Reads a scenario file (at most 1 MiB).</summary>
+    /// <param name="path">The <c>.yaml</c> file.</param>
     /// <exception cref="ScenarioException">The file is not a valid scenario.</exception>
     public static Scenario Load(string path)
     {

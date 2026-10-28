@@ -63,14 +63,29 @@ public sealed record NodeSpec
     public bool Release { get; init; }
 }
 
-/// <summary>The nodes of a process cluster and how long to wait for them.</summary>
+/// <summary>
+/// The nodes of a process cluster and how long to wait for them. Usually read from a YAML file (<see cref="Load"/>); the file lists
+/// <c>nodes</c>, each a <c>server</c> (listens, owns scopes) or a <c>client</c> (a game connected to one).
+/// </summary>
+/// <example>
+/// <code>
+/// var spec = ClusterSpec.Parse("""
+///     name: duel
+///     nodes:
+///       - { name: server, role: server, exe: bin/GameServer, listen: udp+ws, scopes: [{ id: 1, seed: 1 }] }
+///       - { name: alice, role: client, exe: bin/Game, connect: server, transport: udp, scope: 1 }
+///       - { name: bob, role: client, exe: bin/Game, connect: server, transport: ws, scope: 1, net: "latency=80,loss=0.02" }
+///     """);
+/// using var cluster = TestCluster.Launch(spec);
+/// </code>
+/// </example>
 public sealed record ClusterSpec
 {
     private static readonly string[] TopKeys = ["name", "dir", "startupTimeout", "nodes"];
     private static readonly string[] NodeKeys = ["name", "role", "exe", "args", "listen", "scopes", "tickRate", "manual", "connect", "transport", "scope", "net", "release"];
     private static readonly string[] ScopeKeys = ["id", "seed"];
 
-    /// <summary>The cluster's name.</summary>
+    /// <summary>The cluster's name; used in log and folder names.</summary>
     public string Name { get; init; } = "cluster";
 
     /// <summary>Where logs, sockets, generated files and <c>cluster.json</c> go. A fresh temporary folder when null.</summary>
@@ -82,7 +97,8 @@ public sealed record ClusterSpec
     /// <summary>The nodes. Servers start first, then clients in order.</summary>
     public IReadOnlyList<NodeSpec> Nodes { get; init; } = [];
 
-    /// <summary>Reads a spec file.</summary>
+    /// <summary>Reads a spec YAML file (at most 1 MiB). Relative <c>exe</c> and <c>dir</c> paths resolve against the file's folder.</summary>
+    /// <param name="path">The spec file.</param>
     /// <exception cref="ScenarioException">The file is not a valid cluster spec.</exception>
     public static ClusterSpec Load(string path)
     {

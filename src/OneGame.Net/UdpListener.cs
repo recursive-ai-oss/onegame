@@ -261,7 +261,28 @@ public sealed class UdpListener : INetListener
     }
 }
 
-/// <summary>Creates reliable-UDP listeners and connections.</summary>
+/// <summary>
+/// Creates reliable-UDP listeners and connections. Nothing runs on its own: call <see cref="INetConnection.Pump"/> on connections you
+/// opened and <see cref="INetListener.Pump"/> on listeners, from the thread that owns them (a game loop).
+/// </summary>
+/// <example>
+/// <code>
+/// using var listener = UdpTransport.Listen(new IPEndPoint(IPAddress.Loopback, 0));
+/// var port = ((IPEndPoint)listener.LocalEndPoint).Port;
+/// using var client = (UdpConnection)UdpTransport.Connect(new IPEndPoint(IPAddress.Loopback, port));
+/// client.Send("hello"u8);
+/// INetConnection? server = null;
+/// while (server is null)
+/// {
+///     client.Pump();
+///     listener.Pump();
+///     if (listener.TryAccept(out var accepted)) { server = accepted; }
+/// }
+///
+/// listener.Pump();
+/// if (server.TryReceive(out var message)) { Console.WriteLine(System.Text.Encoding.UTF8.GetString(message)); }
+/// </code>
+/// </example>
 public static class UdpTransport
 {
     /// <summary>Starts listening on an operating-system socket.</summary>
@@ -272,6 +293,9 @@ public static class UdpTransport
         => new(new SystemDatagramSocket(bind), true, options ?? new UdpOptions(), clock ?? NetClock.System);
 
     /// <summary>Starts listening on a given socket (a memory or conditioned one). The listener does not dispose it.</summary>
+    /// <param name="socket">The datagram socket, for example a <see cref="ConditionedDatagramSocket"/> that adds latency and loss in a test.</param>
+    /// <param name="options">Protocol settings; defaults if null.</param>
+    /// <param name="clock">Time source; the real clock if null.</param>
     public static UdpListener Listen(IDatagramSocket socket, UdpOptions? options = null, NetClock? clock = null)
         => new(socket, false, options ?? new UdpOptions(), clock ?? NetClock.System);
 
@@ -287,6 +311,10 @@ public static class UdpTransport
     }
 
     /// <summary>Connects through a given socket (a memory or conditioned one). The connection disposes it when it closes.</summary>
+    /// <param name="socket">The datagram socket to send through.</param>
+    /// <param name="remote">The server's address.</param>
+    /// <param name="options">Protocol settings; defaults if null.</param>
+    /// <param name="clock">Time source; the real clock if null.</param>
     public static UdpConnection Connect(IDatagramSocket socket, SocketAddress remote, UdpOptions? options = null, NetClock? clock = null)
     {
         ArgumentNullException.ThrowIfNull(socket);

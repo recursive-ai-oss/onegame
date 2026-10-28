@@ -1,6 +1,21 @@
 namespace OneGame.Gltf;
 
-/// <summary>Imports glTF 2.0 files (<c>.gltf</c> and <c>.glb</c>) into a <see cref="GltfModel"/>.</summary>
+/// <summary>
+/// Imports glTF 2.0 files (<c>.gltf</c> and <c>.glb</c>) into a <see cref="GltfModel"/>: meshes, metal/rough materials, textures, skins,
+/// animations, cameras and punctual lights. The import is CPU-side and does not need a graphics device; hand the model to
+/// <c>Renderer3D.Upload</c> to draw it, or read its meshes directly. Input is untrusted: every count and size is checked against
+/// <see cref="GltfLimits"/> before anything is allocated, and a bad file throws <see cref="GltfException"/> rather than crashing.
+/// </summary>
+/// <example>
+/// <code>
+/// GltfModel model = GltfLoader.LoadFile("models/Box.glb");
+/// Console.WriteLine($"{model.Meshes.Length} meshes, {model.Materials.Length} materials");
+/// foreach (var warning in model.Warnings)
+/// {
+///     Console.WriteLine($"{warning.Code}: {warning.Message}");   // something unsupported was skipped
+/// }
+/// </code>
+/// </example>
 public static class GltfLoader
 {
     /// <summary>Imports a file already in memory.</summary>

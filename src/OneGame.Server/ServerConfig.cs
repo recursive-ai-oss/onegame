@@ -71,13 +71,13 @@ public sealed class ServerConfig
     /// <summary>The server's name, used for the node and in logs.</summary>
     public string Name { get; init; } = "server";
 
-    /// <summary>Ticks per second.</summary>
+    /// <summary>Simulation ticks per second (default 60). Every hosted scope steps at this rate; clients see the same rate in their replicas.</summary>
     public int TickRate { get; init; } = 60;
 
     /// <summary>The most ticks run for one pass of the loop when the server falls behind; the rest are dropped.</summary>
     public int MaxCatchUp { get; init; } = 5;
 
-    /// <summary>The scopes to host.</summary>
+    /// <summary>The scopes this server is authority for (default: one scope, id 1, seed 1). Each has its own world and random streams, seeded from <see cref="ScopeConfig.Seed"/>.</summary>
     public IReadOnlyList<ScopeConfig> Scopes { get; init; } = [new ScopeConfig(1, 1)];
 
     /// <summary>The plugins to load, in order.</summary>

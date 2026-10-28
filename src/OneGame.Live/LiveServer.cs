@@ -7,8 +7,22 @@ namespace OneGame.Live;
 /// <summary>
 /// The listener of a development build: a local socket that speaks MCP (newline-delimited JSON-RPC, the protocol's stdio framing) to
 /// one agent at a time or several in turn. Connections are read on background threads, but every request runs on the thread that calls
-/// <see cref="Pump"/>, the game's own, so the simulation never sees a second thread.
+/// <see cref="Pump"/>, the game's own, so the simulation never sees a second thread. Only development builds contain it; a game started
+/// with <c>onegame run --live</c> already hosts one.
 /// </summary>
+/// <example>
+/// Hosting live control in a custom game loop:
+/// <code>
+/// using var live = new LiveServer(new ControlSurface(game));
+/// live.Start(LiveServer.DefaultPath());
+/// while (running)
+/// {
+///     live.Pump();            // run requests that arrived, on this thread
+///     game.Step(1);
+///     live.WaitForWork(5);    // or sleep until the next frame
+/// }
+/// </code>
+/// </example>
 public sealed class LiveServer : IDisposable
 {
     /// <summary>Longest request line accepted, in bytes.</summary>
@@ -23,12 +37,15 @@ public sealed class LiveServer : IDisposable
     private Thread? _acceptor;
 
     /// <summary>Creates a server for a game's control surface. Nothing listens until <see cref="Start"/>.</summary>
+    /// <param name="surface">The game's control surface.</param>
     public LiveServer(ControlSurface surface)
         : this((IControlEndpoint)surface)
     {
     }
 
     /// <summary>Creates a server for any control endpoint, such as a game server's. Nothing listens until <see cref="Start"/>.</summary>
+    /// <param name="endpoint">The endpoint whose operations are served.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="endpoint"/> is null.</exception>
     public LiveServer(IControlEndpoint endpoint)
     {
         ArgumentNullException.ThrowIfNull(endpoint);
@@ -55,6 +72,9 @@ public sealed class LiveServer : IDisposable
     }
 
     /// <summary>Starts listening on a Unix domain socket at <paramref name="path"/>.</summary>
+    /// <param name="path">The socket file; see <see cref="DefaultPath"/>. An old file at the path is replaced. <c>tcp:HOST:PORT</c> listens on TCP instead, for a game on a device; that listener has no authentication, so use it on test devices only.</param>
+    /// <exception cref="ArgumentException"><paramref name="path"/> is empty.</exception>
+    /// <exception cref="InvalidOperationException">The server is already listening.</exception>
     /// <exception cref="IOException">The socket could not be created.</exception>
     public void Start(string path)
     {
@@ -251,7 +271,9 @@ public sealed class LiveServer : IDisposable
         return count;
     }
 
-    /// <summary>Waits up to <paramref name="milliseconds"/> for a request to arrive.</summary>
+    /// <summary>Waits up to <paramref name="milliseconds"/> for a request to arrive, so a loop can sleep without adding latency.</summary>
+    /// <param name="milliseconds">The longest wait.</param>
+    /// <returns>True when a request arrived.</returns>
     public bool WaitForWork(int milliseconds) => _work.Wait(milliseconds);
 
     /// <inheritdoc />

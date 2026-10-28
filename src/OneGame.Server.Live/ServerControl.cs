@@ -7,13 +7,21 @@ namespace OneGame.Server.Live;
 /// <remarks><c>Listen</c> is where the server accepts clients (ports resolved) and <c>Clients</c> how many are connected.</remarks>
 public sealed record ServerInfoResult(string Name, string State, long Tick, int TickRate, ScopeInfo[] Scopes, PluginInfo[] Plugins, PluginLoadFailure[] LoadFailures, ListenEndpoint[] Listen, int Clients);
 
-/// <summary>Result of <c>hash</c> and <c>step</c>.</summary>
+/// <summary>Result of <c>hash</c> and <c>step</c>: the server tick and each scope's tick and state hash. Compare the hashes with a client's view to check for drift.</summary>
+/// <param name="Tick">The server's tick count.</param>
+/// <param name="Scopes">One entry per hosted scope.</param>
 public sealed record ServerStateResult(long Tick, ScopeInfo[] Scopes);
 
-/// <summary>Result of <c>command_send</c>.</summary>
+/// <summary>Result of <c>command_send</c> on a server: the command is queued for the next tick, trusted as if the host sent it.</summary>
+/// <param name="Scope">The scope id.</param>
+/// <param name="Entity">The entity id in that scope.</param>
+/// <param name="Command">The command name.</param>
+/// <param name="Status">The command status's name, <c>Queued</c> when accepted.</param>
 public sealed record ServerSendResult(uint Scope, ulong Entity, string Command, string Status);
 
-/// <summary>Result of <c>shutdown</c>.</summary>
+/// <summary>Result of <c>shutdown</c>: the server finishes its current tick, then stops.</summary>
+/// <param name="Stopping">True once the stop was requested.</param>
+/// <param name="Tick">The tick the server was at.</param>
 public sealed record ShutdownResult(bool Stopping, long Tick);
 
 /// <summary>Source-generated JSON metadata for server control results.</summary>
