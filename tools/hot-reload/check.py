@@ -29,9 +29,9 @@ def check(name, ok, detail=''):
 
 class Live:
     def __init__(self, path):
-        self.s = socket.socket(socket.AF_UNIX)
-        self.s.settimeout(30)
-        self.s.connect(path)
+        # Python on Windows has no Unix sockets, so the game listens on a loopback TCP port (debug builds only) everywhere.
+        host, port = path.split(':')[1:]
+        self.s = socket.create_connection((host, int(port)), timeout=30)
         self.f = self.s.makefile('rw', newline='\n')
         self.n = 0
         self.rpc('initialize', {'protocolVersion': '2025-06-18', 'capabilities': {}, 'clientInfo': {'name': 'hot-check', 'version': '1'}})
@@ -87,7 +87,10 @@ def main():
         env.setdefault('VK_ICD_FILENAMES', '/usr/share/vulkan/icd.d/lvp_icd.json')
     # Its own process group, so everything the watcher starts can be stopped with it.
     group = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP} if WINDOWS else {'start_new_session': True}
-    proc = subprocess.Popen(cli + ['run', '--', '--headless'], cwd=game, stdout=logf, stderr=subprocess.STDOUT, env=env, **group)
+    with socket.socket() as probe:
+        probe.bind(('127.0.0.1', 0))
+        port = probe.getsockname()[1]
+    proc = subprocess.Popen(cli + ['run', '--', '--headless', '--realtime', '--live', f'tcp:{port}'], cwd=game, stdout=logf, stderr=subprocess.STDOUT, env=env, **group)
     live = None
     try:
         sock = find_socket(os.path.join(work, 'run.log'), proc)
@@ -120,11 +123,10 @@ def connect(sock, proc, timeout=240):
     while time.time() - t0 < timeout:
         if proc.poll() is not None:
             raise SystemExit('onegame run exited early with ' + str(proc.returncode))
-        if os.path.exists(sock):
-            try:
-                return Live(sock)
-            except OSError:
-                pass
+        try:
+            return Live(sock)
+        except OSError:
+            pass
         time.sleep(0.5)
     raise SystemExit('the game never listened on ' + sock)
 
