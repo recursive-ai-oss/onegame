@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
+using OneGame.Core;
+using OneGame.Net;
 
 namespace OneGame.Server;
 
@@ -65,6 +67,16 @@ public sealed class ServerHost
     /// request carries only the remote address. Set it before <see cref="Start"/>.
     /// </summary>
     public Func<ClientRequest, Trust?>? Authenticate { get; set; }
+
+    /// <summary>
+    /// How client links are secured. Null (the default) builds it from <see cref="ServerConfig.Security"/> at <see cref="Start"/>; set it first
+    /// to supply keys from code. <see cref="Start"/> throws <see cref="SecurityNotConfiguredException"/> when the server listens and neither this
+    /// nor the configuration names a key or says <c>insecure</c>.
+    /// </summary>
+    public NetSecurity? Security { get; set; }
+
+    /// <summary>Maps each connecting client's authenticated key to a stable player id (see <see cref="ClientRequest.Key"/>); a game's <see cref="Authenticate"/> hook may use it.</summary>
+    public PlayerRegistry Players { get; } = new();
 
     /// <summary>The addresses the server listens on, with the ports the system picked for configured port 0. Filled by <see cref="Start"/>.</summary>
     public IReadOnlyList<ListenEndpoint> Endpoints => _network.Endpoints;
@@ -137,6 +149,34 @@ public sealed class ServerHost
     /// <summary>True once a stop was requested (the control surface's <c>shutdown</c>).</summary>
     public bool StopRequested { get; private set; }
 
+    private static NetSecurity BuildSecurity(SecurityConfig config)
+    {
+        if (config.Insecure)
+        {
+            return NetSecurity.Insecure;
+        }
+
+        if (config.KeyFiles.Count == 0)
+        {
+            throw new SecurityNotConfiguredException("The server listens for clients but has no key. Make one with 'onegame keys' and pass --key <file> (or set security: key: in the configuration); use --insecure (security: insecure: true) only for tests and local tools.");
+        }
+
+        var pairs = new List<NetKeyPair>();
+        foreach (var file in config.KeyFiles)
+        {
+            try
+            {
+                pairs.Add(NetKeyPair.Load(file));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or KeyFormatException)
+            {
+                throw new SecurityNotConfiguredException($"Cannot read the server key '{file}': {ex.Message}");
+            }
+        }
+
+        return NetSecurity.ForServer(pairs[0], config.GameId, [.. pairs.Skip(1)]);
+    }
+
     /// <summary>Asks <see cref="Run"/> to finish its current tick and stop.</summary>
     public void RequestStop() => StopRequested = true;
 
@@ -164,6 +204,11 @@ public sealed class ServerHost
             world.AddSystem(systems);
             var id = new ScopeId(sc.Id);
             _scopes.Add(new ServerScope(id, Node.AddScope(id, world), registry, systems, new HashRing(Config.HashHistory)));
+        }
+
+        if (Config.Listen.Count > 0)
+        {
+            _network.Security = Security ?? BuildSecurity(Config.Security);
         }
 
         foreach (var listen in Config.Listen)

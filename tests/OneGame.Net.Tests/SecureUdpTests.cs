@@ -305,6 +305,47 @@ public class SecureUdpTests
         Assert.Equal(ConnectionState.Connecting, client.State);
     }
 
+    // Review L1/L7: a datagram that looks like the reply but is not authentic must not kill the handshake the real reply is waiting for.
+    [Fact]
+    public void AForgedAuthenticLookingAcceptDoesNotSpoilTheRealOne()
+    {
+        var p = Pair.Make(connect: false);
+        var injected = 0;
+        p.ServerTap.Attack = d =>
+        {
+            if ((d[0] & 0xF) == Wire.KindAccept && injected++ == 0)
+            {
+                var forged = (byte[])d.Clone();
+                forged[^1] ^= 1;
+                p.Rig.Net.Inject(forged, p.ServerTap.LocalAddress, p.ClientTap.LocalAddress);
+            }
+
+            return d;
+        };
+        Assert.True(p.Rig.RunUntil(() => (p.Accepted ??= p.Server.TryAccept(out var a) ? a : null) is not null && p.Client.State == ConnectionState.Connected, 20_000));
+        Assert.Equal(1, injected);
+        Assert.Equal(ServerKey.PublicKey, p.Client.RemoteKey);
+    }
+
+    // Review M2: one source cannot use the shared handshake budget, and the others still get in.
+    [Fact]
+    public void OneSourceHasItsOwnHandshakeBudget()
+    {
+        var rig = new Rig();
+        var serverSocket = rig.Net.CreateSocket();
+        var server = UdpTransport.Listen(serverSocket, new UdpOptions { Security = NetSecurity.ForServer(ServerKey, "test/1"), MaxHandshakesPerSourcePerSecond = 2 }, rig.Clock);
+        rig.Pumps.Add(server.Pump);
+        var clients = Enumerable.Range(0, 8).Select(_ => UdpTransport.Connect(rig.Net.CreateSocket(), serverSocket.LocalAddress, Client(NetKeyPair.Generate()), rig.Clock)).ToList();
+        foreach (var c in clients)
+        {
+            rig.Pumps.Add(c.Pump);
+        }
+
+        rig.Run(300);
+        Assert.True(server.HandshakesRateLimited > 0);
+        Assert.True(rig.RunUntil(() => clients.All(c => c.State == ConnectionState.Connected), 20_000), "clients retry and all get in");
+    }
+
     [Fact]
     public void NoKeysIsATypedErrorAndInsecureIsExplicit()
     {
@@ -386,6 +427,7 @@ public class SecureUdpTests
         // An attacker replays the captured Response from the client's address while the cookie is still valid.
         p.Rig.Net.Inject(response, p.ClientTap.LocalAddress, p.ServerTap.LocalAddress);
         p.Server.Pump();
+        Assert.Equal(0, p.Server.ConnectionCount); // the ended handshake is remembered, so the replay does not even start one
         Assert.False(p.Server.TryAccept(out _));
         p.Rig.Run(6000);
         Assert.False(p.Server.TryAccept(out _));
@@ -397,7 +439,7 @@ public class SecureUdpTests
     {
         var rig = new Rig();
         var serverSocket = rig.Net.CreateSocket();
-        var server = UdpTransport.Listen(serverSocket, new UdpOptions { Security = NetSecurity.ForServer(ServerKey, "test/1"), MaxHandshakesPerSecond = 3 }, rig.Clock);
+        var server = UdpTransport.Listen(serverSocket, new UdpOptions { Security = NetSecurity.ForServer(ServerKey, "test/1"), MaxHandshakesPerSecond = 3, ReservedHandshakesPerSecond = 0 }, rig.Clock);
         rig.Pumps.Add(server.Pump);
         var clients = Enumerable.Range(0, 12).Select(_ => UdpTransport.Connect(rig.Net.CreateSocket(), serverSocket.LocalAddress, Client(NetKeyPair.Generate()), rig.Clock)).ToList();
         foreach (var c in clients)

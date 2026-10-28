@@ -433,10 +433,210 @@ public class CryptoTests
         a.Encrypt([], [8], one);
         Assert.True(b.Decrypt([], one, back));
         Assert.Equal(8, back[0]);
-        // Explicit counters seal and open without moving the implicit one.
-        a.SealAt(5000, [], [9], one);
-        Assert.True(b.OpenAt(5000, [], one, back));
-        Assert.False(b.OpenAt(5001, [], one, back));
+    }
+
+    // Review M3: a cipher with no key never passes plaintext and never says a message is authentic.
+    [Fact]
+    public void ACipherWithoutAKeyFailsClosed()
+    {
+        var c = new NoiseCipherState();
+        var output = new byte[1 + 16];
+        Assert.Throws<InvalidOperationException>(() => c.Encrypt([], [1], output));
+        Assert.False(c.Decrypt([], new byte[17], new byte[1]));
+        Assert.Throws<InvalidOperationException>(c.Rekey);
+        c.Initialize(new byte[32]);
+        c.Clear();
+        Assert.Throws<InvalidOperationException>(() => c.Encrypt([], [1], output));
+        Assert.False(c.Decrypt([], new byte[17], new byte[1]));
+        Assert.Throws<ArgumentException>(() => c.Initialize(new byte[16]));
+    }
+
+    // Review M8: the counter limit and Rekey are pinned by known answers, not only by "both sides agree".
+    [Fact]
+    public void RekeyAndCounterExhaustionAreChecked()
+    {
+        var key = Enumerable.Range(1, 32).Select(i => (byte)i).ToArray();
+        var rekeyed = new NoiseCipherState();
+        rekeyed.Initialize(key);
+        rekeyed.Rekey();
+
+        // REKEY (spec §4.2): the new key is the first 32 bytes of the encryption of 32 zeros at counter 2^64 - 1.
+        var nonce = new byte[12];
+        Array.Fill(nonce, (byte)0xff, 4, 8);
+        var expected = new byte[48];
+        ChaCha20Poly1305.Seal(key, nonce, default, new byte[32], expected);
+        var reference = new NoiseCipherState();
+        reference.Initialize(expected.AsSpan(0, 32));
+        var a = new byte[17];
+        var b = new byte[17];
+        rekeyed.Encrypt([], [5], a);
+        reference.Encrypt([], [5], b);
+        Assert.Equal(b, a);
+
+        // The last usable counter is 2^64 - 2; after it Encrypt throws and Decrypt refuses.
+        var last = new NoiseCipherState();
+        last.Initialize(key);
+        last.SetNonceForTest(NoiseCipherState.MaxNonce);
+        last.Encrypt([], [1], a);
+        Assert.Throws<InvalidOperationException>(() => last.Encrypt([], [1], a));
+        var peer = new NoiseCipherState();
+        peer.Initialize(key);
+        peer.SetNonceForTest(NoiseCipherState.MaxNonce + 1);
+        Assert.False(peer.Decrypt([], a, new byte[1]));
+    }
+
+    // Review L1/L7: one bad datagram or one small buffer must not wreck a handshake.
+    [Fact]
+    public void AHandshakeSurvivesForgedRepliesOnAForkAndSmallBuffers()
+    {
+        var serverKey = new byte[32];
+        serverKey[0] = 7;
+        var serverPublic = new byte[32];
+        X25519.PublicKey(serverKey, serverPublic);
+        var clientKey = new byte[32];
+        clientKey[0] = 9;
+        var client = new NoiseHandshake(NoisePattern.IK, true, [1], clientKey, serverPublic);
+        var server = new NoiseHandshake(NoisePattern.IK, false, [1], serverKey, []);
+        var buffer = new byte[200];
+        var tooSmall = new byte[40];
+        Assert.Throws<ArgumentException>(() => client.WriteMessage([], tooSmall)); // e fits, es and s do not
+        Assert.Throws<InvalidOperationException>(() => client.WriteMessage([], buffer)); // and the handshake is over, not half-mutated
+
+        client = new NoiseHandshake(NoisePattern.IK, true, [1], clientKey, serverPublic);
+        var n = client.WriteMessage([], buffer);
+        var plain = new byte[64];
+        Assert.True(server.ReadMessage(buffer.AsSpan(0, n), plain, out _));
+        var reply = new byte[100];
+        var m = server.WriteMessage([1, 2, 3], reply);
+        var forged = reply.AsSpan(0, m).ToArray();
+        forged[40] ^= 1;
+        var fork = client.Fork();
+        Assert.False(fork.ReadMessage(forged, plain, out _));
+        fork = client.Fork();
+        Assert.True(fork.ReadMessage(reply.AsSpan(0, m), plain, out var length)); // the original client is untouched by the failed fork
+        Assert.Equal(3, length);
+        Assert.True(client.ReadMessage(reply.AsSpan(0, m), plain, out _));
+    }
+
+    [Fact]
+    public void DatagramSenderNeverReusesANumberAndReceiverOwnsTheWindow()
+    {
+        var key = new byte[32];
+        key[0] = 1;
+        NoiseCipherState Fresh()
+        {
+            var c = new NoiseCipherState();
+            c.Initialize(key);
+            return c;
+        }
+
+        var sender = new DatagramSender(Fresh(), 1000);
+        var receiver = new DatagramReceiver(Fresh());
+        var one = new byte[1 + 16];
+        var plain = new byte[1];
+        sender.Seal(0, [], [7], one);
+        Assert.Throws<InvalidOperationException>(() => sender.Seal(0, [], [8], one)); // the same number twice: refused
+        sender.Seal(5, [], [7], one);
+        Assert.Throws<InvalidOperationException>(() => sender.Seal(3, [], [8], one)); // going backwards: refused
+        Assert.Throws<InvalidOperationException>(() => sender.Seal(1000, [], [8], one)); // at the limit
+        Assert.Throws<InvalidOperationException>(() => sender.Seal(ulong.MaxValue, [], [8], one));
+        Assert.Equal(6UL, sender.Next);
+
+        Assert.True(receiver.Open(5, [], one, plain));
+        Assert.False(receiver.Open(5, [], one, plain)); // replay
+        Assert.False(receiver.Open(6, [], one, plain)); // wrong number for this ciphertext
+        sender.Seal(6, [], [9], one);
+        Assert.True(receiver.Open(6, [], one, plain));
+        Assert.Equal(9, plain[0]);
+        sender.Seal(100, [], [1], one);
+        Assert.True(receiver.Open(100, [], one, plain));
+        Assert.False(receiver.IsFresh(30)); // older than the 64-packet window
+        Assert.True(receiver.IsFresh(60));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new DatagramSender(Fresh(), (1UL << 32) + 1));
+
+        var close = new byte[2 + 16];
+        sender.SealClose([4], [1, 2], close);
+        Assert.True(receiver.OpenClose([4], close, new byte[2]));
+        Assert.False(receiver.OpenClose([5], close, new byte[2]));
+    }
+
+    // Review M8: the final reduction of Poly1305 (h >= p) is only reached by crafted inputs; compare with a big-integer reference.
+    [Fact]
+    public void Poly1305MatchesABigIntegerReferenceOnEdgeInputs()
+    {
+        var p = (System.Numerics.BigInteger.One << 130) - 5;
+        static byte[] Tag(byte[] key, byte[] message)
+        {
+            var poly = new ChaCha20Poly1305.Poly1305(key);
+            poly.Update(message);
+            var tag = new byte[16];
+            poly.Finish(tag);
+            return tag;
+        }
+
+        byte[] Reference(byte[] key, byte[] message)
+        {
+            var r = new System.Numerics.BigInteger(key.AsSpan(0, 16), isUnsigned: true);
+            r &= System.Numerics.BigInteger.Parse("0ffffffc0ffffffc0ffffffc0fffffff", System.Globalization.NumberStyles.HexNumber);
+            var s = new System.Numerics.BigInteger(key.AsSpan(16, 16), isUnsigned: true);
+            var h = System.Numerics.BigInteger.Zero;
+            for (var i = 0; i < message.Length; i += 16)
+            {
+                var n = Math.Min(16, message.Length - i);
+                var block = new byte[n + 1];
+                message.AsSpan(i, n).CopyTo(block);
+                block[n] = 1;
+                h = (h + new System.Numerics.BigInteger(block, isUnsigned: true)) * r % p;
+            }
+
+            var tag = ((h + s) & ((System.Numerics.BigInteger.One << 128) - 1)).ToByteArray(isUnsigned: true);
+            return [.. tag, .. new byte[16 - tag.Length]];
+        }
+
+        // RFC 8439 A.3 #5: r = 2, s = 0, message = 16 bytes of ff gives h = 2^129 - 1, times 2, reduced = 3.
+        var k5 = new byte[32];
+        k5[0] = 2;
+        Assert.Equal("03000000000000000000000000000000", Convert.ToHexStringLower(Tag(k5, Enumerable.Repeat((byte)0xff, 16).ToArray())));
+
+        var rng = new Random(8439);
+        var count = 0;
+        foreach (var rByte in new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x0f, 0xff })
+        {
+            foreach (var fill in new byte[] { 0xff, 0xfb, 0xfe, 0xfd, 0xf0, 0x00, 0x01 })
+            {
+                for (var blocks = 1; blocks <= 4; blocks++)
+                {
+                    foreach (var tail in new[] { 0, 1, 7 })
+                    {
+                        var key = new byte[32];
+                        key[0] = rByte;
+                        if ((count & 1) == 1)
+                        {
+                            rng.NextBytes(key.AsSpan(16));
+                        }
+
+                        var message = new byte[(blocks * 16) + tail];
+                        Array.Fill(message, fill);
+                        if (message.Length > 20)
+                        {
+                            message[17] ^= (byte)count;
+                        }
+
+                        Assert.Equal(Convert.ToHexStringLower(Reference(key, message)), Convert.ToHexStringLower(Tag(key, message)));
+                        count++;
+                    }
+                }
+            }
+        }
+
+        for (var i = 0; i < 300; i++)
+        {
+            var key = new byte[32];
+            rng.NextBytes(key);
+            var message = new byte[rng.Next(0, 200)];
+            rng.NextBytes(message);
+            Assert.Equal(Convert.ToHexStringLower(Reference(key, message)), Convert.ToHexStringLower(Tag(key, message)));
+        }
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System.Buffers;
 using OneGame.Core;
+using OneGame.Net;
 using OneGame.Gpu;
 using OneGame.Platform;
 
@@ -128,7 +129,7 @@ public delegate bool PlatformEventFilter(in PlatformEvent e);
 /// </example>
 public static class GameApp
 {
-    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "also-scopes", "name", "net", "realtime", "until-tick", "no-present", "persist-data", "data"];
+    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "also-scopes", "name", "net", "realtime", "until-tick", "no-present", "persist-data", "data", "server-key", "identity", "insecure", "game-id"];
 
     /// <summary>
     /// Set by development builds before <see cref="Run(GameDefinition, string[])"/> so the extra options work. A release build leaves it
@@ -230,6 +231,81 @@ public static class GameApp
         }
     }
 
+    // --server-key takes public keys or .pub files (comma separated, preferred first). --identity names this player's key file: used if it
+    // exists, made and saved if not, so the same file is the same player on every run. Without --server-key the connection fails with a
+    // typed error that says how to get one; --insecure is the explicit opt-out for tests and local tools.
+    private static NetSecurity? ParseSecurity(GameArgs a)
+    {
+        if (a.Has("insecure"))
+        {
+            return NetSecurity.Insecure;
+        }
+
+        var trusted = new List<PeerKey>();
+        if (a.Get("server-key") is { } list)
+        {
+            foreach (var item in list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                trusted.Add(ReadPublicKey(item));
+            }
+        }
+
+        NetKeyPair? identity = null;
+        if (a.Get("identity") is { } file)
+        {
+            try
+            {
+                if (File.Exists(file))
+                {
+                    identity = NetKeyPair.Load(file);
+                }
+                else
+                {
+                    identity = NetKeyPair.Generate();
+                    identity.Save(file);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or KeyFormatException)
+            {
+                throw new FormatException($"--identity '{file}': {ex.Message}");
+            }
+        }
+
+        return NetSecurity.ForClient(trusted, a.Get("game-id") ?? "", identity);
+    }
+
+    private static PeerKey ReadPublicKey(string text)
+    {
+        if (PeerKey.TryParse(text, out var key))
+        {
+            return key;
+        }
+
+        try
+        {
+            // A .pub file holds the key on one line; a .key file also holds the private half, and its public line is used.
+            foreach (var line in File.ReadAllLines(text))
+            {
+                var t = line.Trim();
+                if (t.StartsWith("public:", StringComparison.Ordinal))
+                {
+                    t = t[7..].Trim();
+                }
+
+                if (t.Length > 0 && t[0] != '#' && !t.StartsWith("private:", StringComparison.Ordinal))
+                {
+                    return PeerKey.Parse(t);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or KeyFormatException)
+        {
+            throw new FormatException($"--server-key '{text}' is neither a public key (43 characters) nor a readable key file: {ex.Message}");
+        }
+
+        throw new FormatException($"--server-key '{text}' holds no public key.");
+    }
+
     private static GameOptions ParseOptions(GameArgs a)
     {
         var o = new GameOptions { Headless = a.Has("headless") };
@@ -308,12 +384,13 @@ public static class GameApp
                     AlsoScopes = a.Get("also-scopes") is { } also ? [.. also.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(t => uint.Parse(t, CultureInfo.InvariantCulture))] : [],
                     Name = a.Get("name") ?? "client",
                     Conditions = a.Get("net") is { } net ? RemoteSession.ParseConditions(net) : null,
+                    Security = ParseSecurity(a),
                 },
             };
         }
-        else if (a.Has("scope") || a.Has("also-scopes") || a.Has("net") || a.Has("name"))
+        else if (a.Has("scope") || a.Has("also-scopes") || a.Has("net") || a.Has("name") || a.Has("server-key") || a.Has("identity") || a.Has("insecure") || a.Has("game-id"))
         {
-            throw new FormatException("--scope, --also-scopes, --name and --net only apply with --connect <address>.");
+            throw new FormatException("--scope, --also-scopes, --name, --net, --server-key, --identity, --insecure and --game-id only apply with --connect <address>.");
         }
 
         return a.Get("gpu") switch

@@ -41,11 +41,14 @@ public sealed class UdpConnection : INetConnection
     private int _keyIndex;
     private int _keysRejected;
     private SecureHandshake? _handshake;
-    private NoiseCipherState? _send;
-    private NoiseCipherState? _receive;
+    private DatagramSender? _send;
+    private DatagramReceiver? _receive;
     private readonly byte[]? _resetToken;
     private byte[]? _acceptDatagram;
     private bool _confirmed = true;
+
+    // Listener bookkeeping: true from the secure handshake until the first authenticated packet (or the connection's end).
+    internal bool IsUnconfirmed { get; set; }
 
     // Client end.
     internal UdpConnection(IDatagramSocket socket, bool ownsSocket, SocketAddress remote, UdpOptions options, NetClock clock)
@@ -101,11 +104,12 @@ public sealed class UdpConnection : INetConnection
             _remoteKey = secrets.RemoteKey;
             _acceptDatagram = secrets.AcceptDatagram;
             _confirmed = false; // handed out only after the first authenticated packet
+            IsUnconfirmed = true;
         }
     }
 
     // What a listener hands a server end once the handshake succeeded.
-    internal sealed record ServerSecrets(NoiseCipherState Send, NoiseCipherState Receive, PeerKey RemoteKey, byte[] AcceptDatagram);
+    internal sealed record ServerSecrets(DatagramSender Send, DatagramReceiver Receive, PeerKey RemoteKey, byte[] AcceptDatagram);
 
     private PeerKey? _remoteKey;
 
@@ -313,7 +317,7 @@ public sealed class UdpConnection : INetConnection
             {
                 // Only the holder of the session key can close it; a forged or replayed-from-elsewhere datagram fails here.
                 Span<byte> body = stackalloc byte[2];
-                if (_receive!.OpenAt(Wire.DisconnectNonce, d[..5], d[5..], body))
+                if (_receive!.OpenClose(d[..5], d[5..], body))
                 {
                     Close((DisconnectReason)body[0], byRemote: true, body[1], notify: false);
                 }
@@ -365,13 +369,13 @@ public sealed class UdpConnection : INetConnection
         }
 
         Span<byte> payload = stackalloc byte[length];
-        if (!_handshake.ReadReply(d.Slice(Wire.SecureAcceptHeader, length), payload, out var n) || n != 16)
+        if (!_handshake.ReadReply(d.Slice(Wire.SecureAcceptHeader, length), payload, out var n) || n != 20 || BinaryPrimitives.ReadUInt32LittleEndian(payload[16..]) != BinaryPrimitives.ReadUInt32LittleEndian(d[9..]))
         {
             return false;
         }
 
         payload[..16].CopyTo(_resetToken);
-        _handshake.Finish(out _send, out _receive);
+        _handshake.Finish((ulong)_o.MaxPacketsPerKey + 1, out _send, out _receive);
         _remoteKey = _handshake.Remote;
         _handshake = null;
         return true;
@@ -381,7 +385,7 @@ public sealed class UdpConnection : INetConnection
     private void OnSecureData(ReadOnlySpan<byte> d, long now)
     {
         var pkt = BinaryPrimitives.ReadUInt32LittleEndian(d[5..]);
-        if (!_core.IsFresh(pkt))
+        if (!_receive!.IsFresh(pkt))
         {
             return; // a replay or a very old packet: no decryption spent
         }
@@ -389,7 +393,7 @@ public sealed class UdpConnection : INetConnection
         var bodyLength = d.Length - Wire.SecureAadSize - Wire.TagSize;
         var plain = _plain!;
         d[..Wire.SecureAadSize].CopyTo(plain);
-        if (!_receive!.OpenAt(pkt, d[..Wire.SecureAadSize], d[Wire.SecureAadSize..], plain.AsSpan(Wire.SecureAadSize, bodyLength)))
+        if (!_receive!.Open(pkt, d[..Wire.SecureAadSize], d[Wire.SecureAadSize..], plain.AsSpan(Wire.SecureAadSize, bodyLength)))
         {
             return;
         }
@@ -426,7 +430,7 @@ public sealed class UdpConnection : INetConnection
                 if (!_confirmed)
                 {
                     // A handshake nobody followed up (a replayed first message, a vanished client): drop it without a word.
-                    if (now - _created >= _o.ConnectTimeoutMs)
+                    if (now - _created >= _o.UnconfirmedTimeoutMs)
                     {
                         Close(DisconnectReason.ConnectTimeout, byRemote: false, 0, notify: false);
                     }
@@ -478,7 +482,7 @@ public sealed class UdpConnection : INetConnection
     {
         _tx[0] = Wire.Header(Wire.KindData, secure: true);
         var pkt = BinaryPrimitives.ReadUInt32LittleEndian(_tx.AsSpan(5));
-        _send!.SealAt(pkt, _tx.AsSpan(0, Wire.SecureAadSize), _tx.AsSpan(Wire.SecureAadSize, n - Wire.SecureAadSize), _tx.AsSpan(Wire.SecureAadSize, n - Wire.SecureAadSize + Wire.TagSize));
+        _send!.Seal(pkt, _tx.AsSpan(0, Wire.SecureAadSize), _tx.AsSpan(Wire.SecureAadSize, n - Wire.SecureAadSize), _tx.AsSpan(Wire.SecureAadSize, n - Wire.SecureAadSize + Wire.TagSize));
         return n + Wire.TagSize;
     }
 
@@ -512,7 +516,7 @@ public sealed class UdpConnection : INetConnection
             {
                 if (_msg1Length == 0)
                 {
-                    Span<byte> bind = stackalloc byte[8 + Wire.CookieSize];
+                    Span<byte> bind = stackalloc byte[Wire.BindSize];
                     Wire.Bind(_nonce, _cookie, bind);
                     _handshake = SecureHandshake.Client(_security, _keyIndex, bind);
                     _msg1Length = _handshake.WriteFirst(default, _msg1!);
@@ -545,7 +549,7 @@ public sealed class UdpConnection : INetConnection
                 Span<byte> body = stackalloc byte[2];
                 body[0] = (byte)reason;
                 body[1] = (byte)code;
-                _send!.SealAt(Wire.DisconnectNonce, d[..5], body, d.Slice(5, 2 + Wire.TagSize));
+                _send!.SealClose(d[..5], body, d.Slice(5, 2 + Wire.TagSize));
                 length = 5 + 2 + Wire.TagSize;
             }
             else
