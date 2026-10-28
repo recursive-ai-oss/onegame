@@ -376,6 +376,7 @@ Every public type in every package, in alphabetical order.
 | [`IAudioSink`](OneGame.Audio/OneGame.Audio/IAudioSink.md) | interface | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | Where the output stage's final float samples go. |
 | [`IAudioSinkControl`](OneGame.Audio/OneGame.Audio/IAudioSinkControl.md) | interface | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | Implemented by sinks whose device can be stopped and started again, as a phone does when the app leaves the foreground. |
 | [`IAudioSinkDiagnostics`](OneGame.Audio/OneGame.Audio/IAudioSinkDiagnostics.md) | interface | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | Implemented by sinks that can describe their device. |
+| [`IAuthenticatedChannel`](OneGame.Sync/OneGame.Sync/IAuthenticatedChannel.md) | interface | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | A channel whose far end proved who it is during the transport handshake. |
 | [`IblEquirect`](OneGame.Render3D/OneGame.Render3D.Shaders/IblEquirect.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
 | [`IblEquirect.Bindings`](OneGame.Render3D/OneGame.Render3D.Shaders/IblEquirect.Bindings.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
 | [`IblEquirect.Bindings.Equirect`](OneGame.Render3D/OneGame.Render3D.Shaders/IblEquirect.Bindings.Equirect.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
@@ -461,9 +462,12 @@ Every public type in every package, in alphabetical order.
 | [`JointIndices`](OneGame.Gltf/OneGame.Gltf/JointIndices.md) | struct | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Four joint indices of a skinned vertex. |
 | [`JsonOut`](OneGame.Core/OneGame.Core/JsonOut.md) | class | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | A small JSON writer for state dumps. |
 | [`Key`](OneGame.Platform/OneGame.Platform/Key.md) | enum | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | A physical key, named by its position on a US keyboard, not by the character the current layout gives it. |
+| [`KeyFiles`](OneGame.Core/OneGame.Core/KeyFiles.md) | record | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | The files of one named key: the private key file and the one-line public key file beside it. |
+| [`KeyFormatException`](OneGame.Core/OneGame.Core/KeyFormatException.md) | class | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | A key or key file was malformed. |
 | [`KeyModifiers`](OneGame.Platform/OneGame.Platform/KeyModifiers.md) | enum | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | Modifier keys held while an event happened. |
 | [`KeyModifiers`](OneGame.UI/OneGame.UI/KeyModifiers.md) | enum | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | Modifier keys held during a key event. |
 | [`KeyNames`](OneGame.Host/OneGame.Host/KeyNames.md) | static class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | Key names: the platform's physical [`Key`](OneGame.Platform/OneGame.Platform/Key.md) to the DOM-style key strings the UI uses, and back. |
+| [`KeyStore`](OneGame.Core/OneGame.Core/KeyStore.md) | static class | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Makes and finds key files. |
 | [`KitArt`](OneGame.UI.Kit/OneGame.UI.Kit/KitArt.md) | static class | `OneGame.UI.Kit` | [OneGame.UI.Kit](OneGame.UI.Kit/index.md) | The SVG art that ships with the kit: a frame for [`UiKit.Frame()`](OneGame.UI.Kit/OneGame.UI.Kit/UiKit.md#m-frame-string-float-element), sort arrows, a drop-down chevron, a check mark, and input glyphs for keyboard, mouse and gamepad. |
 | [`KitArtAsset`](OneGame.UI.Kit/OneGame.UI.Kit/KitArtAsset.md) | struct | `OneGame.UI.Kit` | [OneGame.UI.Kit](OneGame.UI.Kit/index.md) | One piece of vector art the kit uses: the asset id, the SVG source, and the nine-slice inset (0 for none) in the SVG's own pixels. |
 | [`KitContrast`](OneGame.UI.Kit/OneGame.UI.Kit/KitContrast.md) | static class | `OneGame.UI.Kit` | [OneGame.UI.Kit](OneGame.UI.Kit/index.md) | Color contrast as WCAG 2.x defines it (Understanding SC 1.4.3 and 1.4.11): relative luminance of sRGB, and the ratio `(L1 + 0.05) / (L2 + 0.05)`. |
@@ -517,7 +521,9 @@ Every public type in every package, in alphabetical order.
 | [`NavDirection`](OneGame.UI/OneGame.UI/NavDirection.md) | enum | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | A direction for [`UiEventKind.Navigate`](OneGame.UI/OneGame.UI/UiEventKind.md#m-navigate). |
 | [`NetClock`](OneGame.Net/OneGame.Net/NetClock.md) | class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | The time source transports use for timeouts, retransmission and the conditioner. |
 | [`NetDivergeResult`](OneGame.Control/OneGame.Control/NetDivergeResult.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | Result of `net_diverge`: which entity was corrupted in the local replica. |
+| [`NetKeyPair`](OneGame.Core/OneGame.Core/NetKeyPair.md) | class | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | An X25519 key pair: a server's identity or a client's. |
 | [`NetModule`](OneGame.Net/OneGame.Net/NetModule.md) | static class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | Identifies the Net assembly. |
+| [`NetSecurity`](OneGame.Net/OneGame.Net/NetSecurity.md) | class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | How a transport secures its links, passed as `UdpOptions.Security` or `WebSocketOptions.Security`. |
 | [`NetStats`](OneGame.Net/OneGame.Net/NetStats.md) | struct | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | Counters and estimates for one connection. |
 | [`NetStatus`](OneGame.Host/OneGame.Host/NetStatus.md) | record | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | A snapshot of a client's connection, for `net_status`. |
 | [`NetWaitResult`](OneGame.Control/OneGame.Control/NetWaitResult.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | Result of `net_wait`: whether the tick was reached before the timeout, and where the replica is. |
@@ -638,6 +644,8 @@ Every public type in every package, in alphabetical order.
 | [`Pbr.VSOutlineInst`](OneGame.Render3D/OneGame.Render3D.Shaders/Pbr.VSOutlineInst.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
 | [`Pbr.VSOutlineInst.Vertex`](OneGame.Render3D/OneGame.Render3D.Shaders/Pbr.VSOutlineInst.Vertex.md) | struct | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
 | [`Pbr.VSSky`](OneGame.Render3D/OneGame.Render3D.Shaders/Pbr.VSSky.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
+| [`PeerIdentity`](OneGame.Sync/OneGame.Sync/PeerIdentity.md) | struct | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | Who is on the other end of an accepted channel, as far as the transport can prove. |
+| [`PeerKey`](OneGame.Core/OneGame.Core/PeerKey.md) | struct | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | A 32-byte X25519 public key. |
 | [`PickHit`](OneGame.Host/OneGame.Host/PickHit.md) | struct | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | What a pick found. |
 | [`PickRay`](OneGame.Host/OneGame.Host/PickRay.md) | struct | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | A ray in world space. |
 | [`PickResult`](OneGame.Control/OneGame.Control/PickResult.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | Result of `pick`: what is under a pixel, or along a ray. |
@@ -654,6 +662,7 @@ Every public type in every package, in alphabetical order.
 | [`PlatformOptions`](OneGame.Platform/OneGame.Platform/PlatformOptions.md) | record | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | Options for [`PlatformApp.Create()`](OneGame.Platform/OneGame.Platform/PlatformApp.md#m-create-platformoptions). |
 | [`PlayBillingBackend`](OneGame.Purchases/OneGame.Purchases/PlayBillingBackend.md) | class | `OneGame.Purchases` | [OneGame.Purchases](OneGame.Purchases/index.md) | Google Play Billing on Android. |
 | [`PlayedSound`](OneGame.Audio/OneGame.Audio/PlayedSound.md) | record | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | One sound the game asked the service to start, as the event log keeps it. |
+| [`PlayerRegistry`](OneGame.Sync/OneGame.Sync/PlayerRegistry.md) | class | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | Gives each authenticated key a stable small player id, so a client that reconnects (a new connection, the same key) is the same player. |
 | [`PlayOptions`](OneGame.Audio/OneGame.Audio/PlayOptions.md) | struct | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | How to play a [`Sound`](OneGame.Audio/OneGame.Audio/Sound.md). |
 | [`PluginApi`](OneGame.Server/OneGame.Server/PluginApi.md) | static class | `OneGame.Server` | [OneGame.Server](OneGame.Server/index.md) | The version of the plugin API a host speaks. |
 | [`PluginConfig`](OneGame.Server/OneGame.Server/PluginConfig.md) | record | `OneGame.Server` | [OneGame.Server](OneGame.Server/index.md) | One plugin the server loads at start. |
@@ -779,6 +788,9 @@ Every public type in every package, in alphabetical order.
 | [`ScopeSpec`](OneGame.Testing/OneGame.Testing/ScopeSpec.md) | record | `OneGame.Testing` | [OneGame.Testing](OneGame.Testing/index.md) | A scope a server node hosts. |
 | [`ScreenSet`](OneGame.Host/OneGame.Host/ScreenSet.md) | class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | The named screens of a game. |
 | [`ScrollView`](OneGame.UI.Kit/OneGame.UI.Kit/ScrollView.md) | class | `OneGame.UI.Kit` | [OneGame.UI.Kit](OneGame.UI.Kit/index.md) | A scrolling container with scroll bars (kind `ScrollView`, role `scrollview`). |
+| [`SecurityConfig`](OneGame.Server/OneGame.Server/SecurityConfig.md) | record | `OneGame.Server` | [OneGame.Server](OneGame.Server/index.md) | How the server secures its client links (the `security:` section). |
+| [`SecurityMode`](OneGame.Net/OneGame.Net/SecurityMode.md) | enum | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | Whether a transport encrypts and authenticates its links. |
+| [`SecurityNotConfiguredException`](OneGame.Net/OneGame.Net/SecurityNotConfiguredException.md) | class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | A transport was opened without saying how its links are secured, or with keys that do not fit what it was asked to do. |
 | [`SendResult`](OneGame.Control/OneGame.Control/SendResult.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | Result of `command_send`: `Queued` means it runs on the next tick. |
 | [`SequenceFrame`](OneGame.Control/OneGame.Control/SequenceFrame.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | One frame of a captured sequence. |
 | [`SequenceManifest`](OneGame.Control/OneGame.Control/SequenceManifest.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | The manifest of a captured sequence (also written to `manifest.json` beside the frames). |

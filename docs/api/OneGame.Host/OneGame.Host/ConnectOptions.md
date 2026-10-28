@@ -37,6 +37,7 @@ public ConnectOptions();
 | [`Reconnect`](#m-reconnect) | When the connection closes for any reason but a refusal or a version mismatch (the server died, restarted or timed out), keep trying to connect again and resubscribe to every followed scope; the replicas are rebuilt from fresh snapshots. |
 | [`ReconnectWindowMs`](#m-reconnectwindowms) | How long to keep trying after the connection was lost before the session counts as closed for good. |
 | [`Scope`](#m-scope) | The scope to subscribe to. |
+| [`Security`](#m-security) | How the link is secured: `NetSecurity.ForClient(serverPublicKeys, gameId, identity)`, or `NetSecurity.Insecure` for tests and local tools. |
 
 ### <a id="m-address"></a>Address
 
@@ -107,3 +108,13 @@ public uint Scope { get; init; }
 The scope to subscribe to.
 
 **Type:** `uint`
+
+### <a id="m-security"></a>Security
+
+```csharp
+public NetSecurity? Security { get; init; }
+```
+
+How the link is secured: `NetSecurity.ForClient(serverPublicKeys, gameId, identity)`, or `NetSecurity.Insecure` for tests and local tools. Required: a session opened with null throws [`SecurityNotConfiguredException`](../../OneGame.Net/OneGame.Net/SecurityNotConfiguredException.md). A client with no identity key gets one for the life of the session, so a reconnect is the same player; keep an identity file (`NetKeyPair.Load`) for the same player across runs.
+
+**Type:** [`NetSecurity`](../../OneGame.Net/OneGame.Net/NetSecurity.md)?

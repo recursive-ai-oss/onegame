@@ -58,6 +58,7 @@ Creates a server. Nothing runs until [`ServerHost.Start()`](ServerHost.md#m-star
 | [`Log`](#m-log) | The log. |
 | [`Node`](#m-node) | The node that is authority for every hosted scope. |
 | [`Scopes`](#m-scopes) | The hosted scopes in id order of declaration. |
+| [`Security`](#m-security) | How client links are secured. |
 | [`State`](#m-state) | Where the server is in its life. |
 | [`StopRequested`](#m-stoprequested) | True once a stop was requested (the control surface's `shutdown`). |
 | [`Tick`](#m-tick) | Ticks run so far, counted from [`ServerHost.Start()`](ServerHost.md#m-start). |
@@ -151,6 +152,16 @@ public IReadOnlyList<ServerScope> Scopes { get; }
 The hosted scopes in id order of declaration.
 
 **Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`ServerScope`](ServerScope.md)&gt;
+
+### <a id="m-security"></a>Security
+
+```csharp
+public NetSecurity? Security { get; set; }
+```
+
+How client links are secured. Null (the default) builds it from [`ServerConfig.Security`](ServerConfig.md#m-security) at [`ServerHost.Start()`](ServerHost.md#m-start) (so after `Start` it holds the settings in force, which a game can reuse for its own server-to-server links); set it first to supply keys from code. [`ServerHost.Start()`](ServerHost.md#m-start) throws [`SecurityNotConfiguredException`](../../OneGame.Net/OneGame.Net/SecurityNotConfiguredException.md) when the server listens and neither this nor the configuration names a key or says `insecure`.
+
+**Type:** [`NetSecurity`](../../OneGame.Net/OneGame.Net/NetSecurity.md)?
 
 ### <a id="m-state"></a>State
 

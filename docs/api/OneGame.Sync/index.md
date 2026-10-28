@@ -63,6 +63,7 @@ dotnet add package RecursiveAI.OneGame.Sync
 | [`EscrowTrade`](OneGame.Sync/EscrowTrade.md) | class | A trade between two scopes, as the coordinator records it. |
 | [`FixedStepDriver`](OneGame.Sync/FixedStepDriver.md) | class | Turns variable frame times into a fixed number of simulation ticks. |
 | [`FollowTarget`](OneGame.Sync/FollowTarget.md) | record | Where a node should subscribe to follow entities that moved to another scope: a link to the node that holds it and an empty replica world. |
+| [`IAuthenticatedChannel`](OneGame.Sync/IAuthenticatedChannel.md) | interface | A channel whose far end proved who it is during the transport handshake. |
 | [`IEscrowHandler`](OneGame.Sync/IEscrowHandler.md) | interface | The game's side of an escrow: how value leaves and enters its holdings. |
 | [`IMessageChannel`](OneGame.Sync/IMessageChannel.md) | interface | One end of a message pipe between two nodes. |
 | [`Link`](OneGame.Sync/Link.md) | class | The client end of a connection to another node: where a node sends subscriptions and commands, and receives snapshots and frames. |
@@ -70,6 +71,8 @@ dotnet add package RecursiveAI.OneGame.Sync
 | [`LoggedCommand`](OneGame.Sync/LoggedCommand.md) | record | A command that entered an authority from outside its tick. |
 | [`Loopback`](OneGame.Sync/Loopback.md) | static class | In-process transport: two channel ends joined by byte queues that frame messages with a length prefix, so receivers see exactly the bytes a socket would deliver. |
 | [`Node`](OneGame.Sync/Node.md) | class | A participant: it holds the scopes it is authority for, the replicas it subscribes to, and the connections that carry both. |
+| [`PeerIdentity`](OneGame.Sync/PeerIdentity.md) | struct | Who is on the other end of an accepted channel, as far as the transport can prove. |
+| [`PlayerRegistry`](OneGame.Sync/PlayerRegistry.md) | class | Gives each authenticated key a stable small player id, so a client that reconnects (a new connection, the same key) is the same player. |
 | [`Prediction`](OneGame.Sync/Prediction.md) | class | Client-side prediction for one replica. |
 | [`PredictionOptions`](OneGame.Sync/PredictionOptions.md) | class | Settings for a replica's prediction ([`ReplicaScope.EnablePrediction()`](OneGame.Sync/ReplicaScope.md#m-enableprediction-world-predictionoptions)). |
 | [`ProtocolError`](OneGame.Sync/ProtocolError.md) | struct | A message from a peer that could not be applied; the replica asked for a fresh snapshot. |

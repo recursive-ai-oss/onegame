@@ -64,6 +64,7 @@ The most scopes or plugins a file may declare; a bound so a hostile file cannot 
 | [`Options`](#m-options) | Free-form `key=value` settings for the game's own server code (the command line's `--option key=value`), for example the addresses of other servers to connect to. |
 | [`Plugins`](#m-plugins) | The plugins to load, in order. |
 | [`Scopes`](#m-scopes) | The scopes this server is authority for (default: one scope, id 1, seed 1). |
+| [`Security`](#m-security) | How client links are encrypted: the key files, the game id, or an explicit insecure switch. |
 | [`TickRate`](#m-tickrate) | Simulation ticks per second (default 60). |
 
 ### <a id="m-clienttrust"></a>ClientTrust
@@ -155,6 +156,16 @@ public IReadOnlyList<ScopeConfig> Scopes { get; init; }
 The scopes this server is authority for (default: one scope, id 1, seed 1). Each has its own world and random streams, seeded from [`ScopeConfig.Seed`](ScopeConfig.md#m-seed).
 
 **Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`ScopeConfig`](ScopeConfig.md)&gt;
+
+### <a id="m-security"></a>Security
+
+```csharp
+public SecurityConfig Security { get; init; }
+```
+
+How client links are encrypted: the key files, the game id, or an explicit insecure switch. A server that listens with neither fails to start with [`SecurityNotConfiguredException`](../../OneGame.Net/OneGame.Net/SecurityNotConfiguredException.md).
+
+**Type:** [`SecurityConfig`](SecurityConfig.md)
 
 ### <a id="m-tickrate"></a>TickRate
 

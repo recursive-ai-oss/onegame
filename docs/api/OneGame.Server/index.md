@@ -36,6 +36,7 @@ dotnet add package RecursiveAI.OneGame.Server
 | [`ScopeConfig`](OneGame.Server/ScopeConfig.md) | record | One scope the server hosts. |
 | [`ScopeHashAt`](OneGame.Server/ScopeHashAt.md) | record | The recorded hash of one scope at one tick. |
 | [`ScopeInfo`](OneGame.Server/ScopeInfo.md) | record | A snapshot of one scope. |
+| [`SecurityConfig`](OneGame.Server/SecurityConfig.md) | record | How the server secures its client links (the `security:` section). |
 | [`ServerConfig`](OneGame.Server/ServerConfig.md) | class | The server configuration. |
 | [`ServerConfigException`](OneGame.Server/ServerConfigException.md) | class | The server configuration file is not valid: the message names the file, the line and what to change. |
 | [`ServerHost`](OneGame.Server/ServerHost.md) | class | A headless game server: one node hosting one or more authority scopes on a fixed-step driver, with no window, GPU or audio. |

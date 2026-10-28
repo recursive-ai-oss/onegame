@@ -28,3 +28,6 @@ Why a connection ended. Values travel on the wire, so they never change meaning.
 | <a id="m-transporterror"></a>`TransportError` | `10` | The operating system reported a socket failure. |
 | <a id="m-shutdown"></a>`Shutdown` | `11` | The peer is shutting down. |
 | <a id="m-messagetoolarge"></a>`MessageTooLarge` | `12` | A message was larger than the limit. |
+| <a id="m-securityrequired"></a>`SecurityRequired` | `13` | One side runs with encryption and the other without; neither falls back to the other's mode. |
+| <a id="m-handshakefailed"></a>`HandshakeFailed` | `14` | The secure handshake failed: the server did not recognise the key the client trusts, or the game ids differ. |
+| <a id="m-packetlimit"></a>`PacketLimit` | `15` | The connection used up its packet numbers (2^32 packets in one direction); connect again for fresh keys. |

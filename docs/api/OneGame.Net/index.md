@@ -28,8 +28,11 @@ dotnet add package RecursiveAI.OneGame.Net
 | [`MessageTooLargeException`](OneGame.Net/MessageTooLargeException.md) | class | A message was larger than the configured maximum, so it was refused before anything was queued. |
 | [`NetClock`](OneGame.Net/NetClock.md) | class | The time source transports use for timeouts, retransmission and the conditioner. |
 | [`NetModule`](OneGame.Net/NetModule.md) | static class | Identifies the Net assembly. |
+| [`NetSecurity`](OneGame.Net/NetSecurity.md) | class | How a transport secures its links, passed as `UdpOptions.Security` or `WebSocketOptions.Security`. |
 | [`NetStats`](OneGame.Net/NetStats.md) | struct | Counters and estimates for one connection. |
 | [`NetworkConditions`](OneGame.Net/NetworkConditions.md) | class | What a bad network does to traffic. |
+| [`SecurityMode`](OneGame.Net/SecurityMode.md) | enum | Whether a transport encrypts and authenticates its links. |
+| [`SecurityNotConfiguredException`](OneGame.Net/SecurityNotConfiguredException.md) | class | A transport was opened without saying how its links are secured, or with keys that do not fit what it was asked to do. |
 | [`SystemDatagramSocket`](OneGame.Net/SystemDatagramSocket.md) | class | A non-blocking operating-system UDP socket. |
 | [`UdpConnection`](OneGame.Net/UdpConnection.md) | class | One reliable-UDP connection, either the client end made by [`UdpTransport.Connect()`](OneGame.Net/UdpTransport.md#m-connect-ipendpoint-udpoptions-netclock) or a server end handed out by a [`UdpListener`](OneGame.Net/UdpListener.md). |
 | [`UdpListener`](OneGame.Net/UdpListener.md) | class | The server end of the reliable-UDP transport. |

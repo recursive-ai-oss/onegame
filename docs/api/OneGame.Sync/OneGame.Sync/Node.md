@@ -177,6 +177,7 @@ Raised when the node subscribed to a scope by itself, through [`Node.FollowResol
 | Member | Description |
 | --- | --- |
 | [`Accept(IMessageChannel, Trust, string?)`](#m-accept-imessagechannel-trust-string) | Server side: a channel accepted from a listener becomes a connection with the given trust. |
+| [`Accept(IMessageChannel, Func<PeerIdentity, Trust?>, string?)`](#m-accept-imessagechannel-func-peeridentity-trust-string) | Server side, for transports with authentication: the channel's proven identity goes to `policy`, which returns the trust to give it (typically `Trust.Player(...).As(registry.PlayerFor(identity.Key, out _))`) or null to refuse. |
 | [`AddScope(ScopeId, World)`](#m-addscope-scopeid-world) | Makes this node the authority of a scope. |
 | [`ConnectTo(Node, Trust, string?)`](#m-connectto-node-trust-string) | Connects this node to `server` over a loopback pair. |
 | [`ConnectTo(Node, Trust, IMessageChannel, IMessageChannel, string?)`](#m-connectto-node-trust-imessagechannel-imessagechannel-string) | Connects this node to `server` over two channel ends the caller made. |
@@ -206,6 +207,22 @@ Server side: a channel accepted from a listener becomes a connection with the gi
 - `name` (`string?`): Name for reports.
 
 **Returns:** [`Connection`](Connection.md)
+
+### <a id="m-accept-imessagechannel-func-peeridentity-trust-string"></a>Accept(IMessageChannel, Func&lt;PeerIdentity, Trust?&gt;, string?)
+
+```csharp
+public Connection? Accept(IMessageChannel channel, Func<PeerIdentity, Trust?> policy, string? name = null);
+```
+
+Server side, for transports with authentication: the channel's proven identity goes to `policy`, which returns the trust to give it (typically `Trust.Player(...).As(registry.PlayerFor(identity.Key, out _))`) or null to refuse. A refused channel is not attached; the caller closes it. On a link without authentication the identity's key is empty and the policy decides whether that is acceptable.
+
+**Parameters**
+
+- `channel` ([`IMessageChannel`](IMessageChannel.md)): The accepted channel.
+- `policy` ([`Func`](https://learn.microsoft.com/dotnet/api/system.func-2)&lt;[`PeerIdentity`](PeerIdentity.md), [`Trust`](Trust.md)?&gt;): Maps who the peer is to what it may do.
+- `name` (`string?`): Name for reports.
+
+**Returns:** [`Connection`](Connection.md)? — The connection, or null when the policy refused it.
 
 ### <a id="m-addscope-scopeid-world"></a>AddScope(ScopeId, World)
 

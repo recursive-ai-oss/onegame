@@ -4,10 +4,10 @@
 
 **Namespace:** `OneGame.Net`  
 **Package:** [`RecursiveAI.OneGame.Net`](../index.md)  
-**Implements:** [`INetConnection`](INetConnection.md), [`IMessageChannel`](../../OneGame.Sync/OneGame.Sync/IMessageChannel.md)
+**Implements:** [`INetConnection`](INetConnection.md), [`IAuthenticatedChannel`](../../OneGame.Sync/OneGame.Sync/IAuthenticatedChannel.md), [`IMessageChannel`](../../OneGame.Sync/OneGame.Sync/IMessageChannel.md)
 
 ```csharp
-public sealed class UdpConnection : INetConnection, IMessageChannel
+public sealed class UdpConnection : INetConnection, IAuthenticatedChannel, IMessageChannel
 ```
 
 One reliable-UDP connection, either the client end made by [`UdpTransport.Connect()`](UdpTransport.md#m-connect-ipendpoint-udpoptions-netclock) or a server end handed out by a [`UdpListener`](UdpListener.md). Messages are whole, ordered and reliable; unreliable messages are available beside them.
@@ -16,11 +16,24 @@ One reliable-UDP connection, either the client end made by [`UdpTransport.Connec
 
 | Member | Description |
 | --- | --- |
+| [`ChannelBinding`](#m-channelbinding) | A 32-byte value both ends derive from the handshake (Noise's handshake hash) and nobody else can: it names this one encrypted session. |
 | [`CloseInfo`](#m-closeinfo) | Why the connection closed; [`DisconnectReason.None`](DisconnectReason.md#m-none) until then. |
+| [`IsEncrypted`](#m-isencrypted) | True when the link is encrypted and authenticated ([`SecurityMode.Required`](SecurityMode.md#m-required)). |
 | [`MaxUnreliableBytes`](#m-maxunreliablebytes) | Largest message [`UdpConnection.SendUnreliable()`](UdpConnection.md#m-sendunreliable-readonlyspan-byte) accepts. |
+| [`RemoteKey`](#m-remotekey) | The peer's authenticated public key, or null on a link without authentication (an `Insecure` transport, a loopback). |
 | [`RemoteName`](#m-remotename) | The peer's address, as text, for logs. |
 | [`State`](#m-state) | Current state. |
 | [`Stats`](#m-stats) | A snapshot of the counters. |
+
+### <a id="m-channelbinding"></a>ChannelBinding
+
+```csharp
+public ReadOnlyMemory<byte> ChannelBinding { get; }
+```
+
+A 32-byte value both ends derive from the handshake (Noise's handshake hash) and nobody else can: it names this one encrypted session. A game that checks a platform or login proof (a Steam ticket, a token) must bind the proof to this value and to the server's public key, or a malicious server could pass the proof on to another server and pose as the player there. Empty on an insecure link and before the handshake finishes.
+
+**Type:** [`ReadOnlyMemory`](https://learn.microsoft.com/dotnet/api/system.readonlymemory-1)`<byte>`
 
 ### <a id="m-closeinfo"></a>CloseInfo
 
@@ -32,6 +45,16 @@ Why the connection closed; [`DisconnectReason.None`](DisconnectReason.md#m-none)
 
 **Type:** [`DisconnectInfo`](DisconnectInfo.md)
 
+### <a id="m-isencrypted"></a>IsEncrypted
+
+```csharp
+public bool IsEncrypted { get; }
+```
+
+True when the link is encrypted and authenticated ([`SecurityMode.Required`](SecurityMode.md#m-required)). Then [`IAuthenticatedChannel.RemoteKey`](../../OneGame.Sync/OneGame.Sync/IAuthenticatedChannel.md#m-remotekey) is the peer's proven key once connected.
+
+**Type:** `bool`
+
 ### <a id="m-maxunreliablebytes"></a>MaxUnreliableBytes
 
 ```csharp
@@ -41,6 +64,16 @@ public int MaxUnreliableBytes { get; }
 Largest message [`UdpConnection.SendUnreliable()`](UdpConnection.md#m-sendunreliable-readonlyspan-byte) accepts.
 
 **Type:** `int`
+
+### <a id="m-remotekey"></a>RemoteKey
+
+```csharp
+public PeerKey? RemoteKey { get; }
+```
+
+The peer's authenticated public key, or null on a link without authentication (an `Insecure` transport, a loopback).
+
+**Type:** [`PeerKey`](../../OneGame.Core/OneGame.Core/PeerKey.md)?
 
 ### <a id="m-remotename"></a>RemoteName
 

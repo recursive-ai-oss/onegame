@@ -4,10 +4,10 @@
 
 **Namespace:** `OneGame.Net`  
 **Package:** [`RecursiveAI.OneGame.Net`](../index.md)  
-**Implements:** [`INetConnection`](INetConnection.md), [`IMessageChannel`](../../OneGame.Sync/OneGame.Sync/IMessageChannel.md)
+**Implements:** [`INetConnection`](INetConnection.md), [`IAuthenticatedChannel`](../../OneGame.Sync/OneGame.Sync/IAuthenticatedChannel.md), [`IMessageChannel`](../../OneGame.Sync/OneGame.Sync/IMessageChannel.md)
 
 ```csharp
-public sealed class WebSocketConnection : INetConnection, IMessageChannel
+public sealed class WebSocketConnection : INetConnection, IAuthenticatedChannel, IMessageChannel
 ```
 
 A WebSocket connection (RFC 6455) over a non-blocking TCP socket, client or server end. Messages are binary frames; long ones go out as continuation frames so a ping or close can overtake them. There are no threads: [`WebSocketConnection.Pump()`](WebSocketConnection.md#m-pump) reads and writes what the socket allows.

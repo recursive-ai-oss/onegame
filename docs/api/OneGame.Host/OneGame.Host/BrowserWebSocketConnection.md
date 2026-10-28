@@ -4,10 +4,10 @@
 
 **Namespace:** `OneGame.Host`  
 **Package:** [`RecursiveAI.OneGame.Host`](../index.md)  
-**Implements:** [`INetConnection`](../../OneGame.Net/OneGame.Net/INetConnection.md), [`IMessageChannel`](../../OneGame.Sync/OneGame.Sync/IMessageChannel.md)
+**Implements:** [`INetConnection`](../../OneGame.Net/OneGame.Net/INetConnection.md), [`IAuthenticatedChannel`](../../OneGame.Sync/OneGame.Sync/IAuthenticatedChannel.md), [`IMessageChannel`](../../OneGame.Sync/OneGame.Sync/IMessageChannel.md)
 
 ```csharp
-public sealed class BrowserWebSocketConnection : INetConnection, IMessageChannel
+public sealed class BrowserWebSocketConnection : INetConnection, IAuthenticatedChannel, IMessageChannel
 ```
 
 A client connection over the browser's WebSocket, behind the same interface as the native transports, so a web build subscribes to a server's scopes exactly like a desktop client does. Messages are binary and whole; the browser handles framing and ping/pong.

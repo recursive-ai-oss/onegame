@@ -20,6 +20,8 @@ The server end of the reliable-UDP transport. A client's first datagram only ear
 | [`ConnectionCount`](#m-connectioncount) | Connections currently alive (connected or closing). |
 | [`Connections`](#m-connections) | The live connections, oldest first. |
 | [`DatagramsIgnored`](#m-datagramsignored) | Datagrams ignored: wrong version, too short, unknown connection, wrong source, or a bad cookie. |
+| [`HandshakesFailed`](#m-handshakesfailed) | Secure handshakes that failed to authenticate (a key the server does not hold, another game id, damage). |
+| [`HandshakesRateLimited`](#m-handshakesratelimited) | Secure handshakes dropped because more than [`UdpOptions.MaxHandshakesPerSecond`](UdpOptions.md#m-maxhandshakespersecond) arrived in a second. |
 | [`LocalEndPoint`](#m-localendpoint) | The address the listener is bound to. |
 | [`PendingHandshakes`](#m-pendinghandshakes) | Handshakes the server holds state for right now. |
 
@@ -60,6 +62,26 @@ public long DatagramsIgnored { get; }
 ```
 
 Datagrams ignored: wrong version, too short, unknown connection, wrong source, or a bad cookie.
+
+**Type:** `long`
+
+### <a id="m-handshakesfailed"></a>HandshakesFailed
+
+```csharp
+public long HandshakesFailed { get; }
+```
+
+Secure handshakes that failed to authenticate (a key the server does not hold, another game id, damage).
+
+**Type:** `long`
+
+### <a id="m-handshakesratelimited"></a>HandshakesRateLimited
+
+```csharp
+public long HandshakesRateLimited { get; }
+```
+
+Secure handshakes dropped because more than [`UdpOptions.MaxHandshakesPerSecond`](UdpOptions.md#m-maxhandshakespersecond) arrived in a second.
 
 **Type:** `long`
 

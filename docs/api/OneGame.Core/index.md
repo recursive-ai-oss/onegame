@@ -37,10 +37,15 @@ dotnet add package RecursiveAI.OneGame.Core
 | [`ISimSystem`](OneGame.Core/ISimSystem.md) | interface | Sim logic that is not tied to one entity. |
 | [`ISyncValue<TSelf>`](OneGame.Core/ISyncValue-1.md) | interface | A value type with a binary codec. |
 | [`JsonOut`](OneGame.Core/JsonOut.md) | class | A small JSON writer for state dumps. |
+| [`KeyFiles`](OneGame.Core/KeyFiles.md) | record | The files of one named key: the private key file and the one-line public key file beside it. |
+| [`KeyFormatException`](OneGame.Core/KeyFormatException.md) | class | A key or key file was malformed. |
+| [`KeyStore`](OneGame.Core/KeyStore.md) | static class | Makes and finds key files. |
 | [`MigrateAttribute`](OneGame.Core/MigrateAttribute.md) | attribute | Marks a static method on an entity that loads state saved at an older schema version into the current layout: `static void Name(ref SyncReader old, MyEntity entity)`. |
 | [`MutatesStateAttribute`](OneGame.Core/MutatesStateAttribute.md) | attribute | Marks a method that changes simulation state. |
+| [`NetKeyPair`](OneGame.Core/NetKeyPair.md) | class | An X25519 key pair: a server's identity or a client's. |
 | [`NotInWorldException`](OneGame.Core/NotInWorldException.md) | class | Thrown when an entity that is not in a world is asked to do something that needs one. |
 | [`OwnerKeyAttribute`](OneGame.Core/OwnerKeyAttribute.md) | attribute | Marks the synced [`UInt32`](https://learn.microsoft.com/dotnet/api/system.uint32) or [`Int32`](https://learn.microsoft.com/dotnet/api/system.int32) property that says which player owns the entity. |
+| [`PeerKey`](OneGame.Core/PeerKey.md) | struct | A 32-byte X25519 public key. |
 | [`ReplicaWriteException`](OneGame.Core/ReplicaWriteException.md) | class | Thrown when code changes state on a replica. |
 | [`Rng`](OneGame.Core/Rng.md) | class | A named, seedable random stream (xoshiro256\*\*). |
 | [`RngStreams`](OneGame.Core/RngStreams.md) | class | The world's random streams, found by name. |

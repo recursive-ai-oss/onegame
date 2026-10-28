@@ -33,13 +33,16 @@ public WebSocketOptions();
 | [`Host`](#m-host) | Client only: the Host header; the remote address if null. |
 | [`KeepAliveMs`](#m-keepalivems) | Send a ping after this long without hearing anything. |
 | [`MaxConnections`](#m-maxconnections) | Listener only: connections allowed at once. |
+| [`MaxHandshakesPerSecond`](#m-maxhandshakespersecond) | Listener with security: handshakes started per second (counted when the client's first message arrives, before any key agreement). |
 | [`MaxHeaderBytes`](#m-maxheaderbytes) | Largest HTTP header block accepted during the opening handshake. |
 | [`MaxMessageBytes`](#m-maxmessagebytes) | Largest message accepted by Send and from the wire. |
 | [`MaxPendingHandshakes`](#m-maxpendinghandshakes) | Listener only: sockets allowed to sit in the opening handshake at once. |
+| [`MaxPendingHandshakesPerSource`](#m-maxpendinghandshakespersource) | Listener with security: sockets from one source (an IPv4 address or an IPv6 /64) allowed to sit in the handshake at once. |
 | [`MaxReceiveQueueBytes`](#m-maxreceivequeuebytes) | Most completed-message bytes waiting for TryReceive. |
 | [`MaxSendQueueBytes`](#m-maxsendqueuebytes) | Most message bytes queued for sending. |
 | [`Path`](#m-path) | Client only: the request path. |
 | [`ReceiveBufferBytes`](#m-receivebufferbytes) | Size of the read buffer. |
+| [`Security`](#m-security) | How links are encrypted and authenticated. |
 | [`SendFragmentBytes`](#m-sendfragmentbytes) | Largest frame payload this side writes. |
 | [`TimeoutMs`](#m-timeoutms) | Close with [`DisconnectReason.Timeout`](DisconnectReason.md#m-timeout) after this long without hearing anything. |
 
@@ -103,6 +106,16 @@ Listener only: connections allowed at once.
 
 **Type:** `int`
 
+### <a id="m-maxhandshakespersecond"></a>MaxHandshakesPerSecond
+
+```csharp
+public int MaxHandshakesPerSecond { get; init; }
+```
+
+Listener with security: handshakes started per second (counted when the client's first message arrives, before any key agreement). Sources that confirmed a session recently have a separate allowance of the same size. More are closed unanswered.
+
+**Type:** `int`
+
 ### <a id="m-maxheaderbytes"></a>MaxHeaderBytes
 
 ```csharp
@@ -130,6 +143,16 @@ public int MaxPendingHandshakes { get; init; }
 ```
 
 Listener only: sockets allowed to sit in the opening handshake at once. More are closed on accept.
+
+**Type:** `int`
+
+### <a id="m-maxpendinghandshakespersource"></a>MaxPendingHandshakesPerSource
+
+```csharp
+public int MaxPendingHandshakesPerSource { get; init; }
+```
+
+Listener with security: sockets from one source (an IPv4 address or an IPv6 /64) allowed to sit in the handshake at once.
 
 **Type:** `int`
 
@@ -172,6 +195,16 @@ public int ReceiveBufferBytes { get; init; }
 Size of the read buffer.
 
 **Type:** `int`
+
+### <a id="m-security"></a>Security
+
+```csharp
+public NetSecurity? Security { get; init; }
+```
+
+How links are encrypted and authenticated. Required: a transport opened without it throws [`SecurityNotConfiguredException`](SecurityNotConfiguredException.md). Use [`NetSecurity.ForServer()`](NetSecurity.md#m-forserver-netkeypair-string-netkeypair), [`NetSecurity.ForClient()`](NetSecurity.md#m-forclient-ienumerable-peerkey-string-netkeypair) or, for tests and local tools, [`NetSecurity.Insecure`](NetSecurity.md#m-insecure).
+
+**Type:** [`NetSecurity`](NetSecurity.md)?
 
 ### <a id="m-sendfragmentbytes"></a>SendFragmentBytes
 

@@ -4,10 +4,10 @@
 
 **Namespace:** `OneGame.Net`  
 **Package:** [`RecursiveAI.OneGame.Net`](../index.md)  
-**Implements:** [`IMessageChannel`](../../OneGame.Sync/OneGame.Sync/IMessageChannel.md)
+**Implements:** [`IAuthenticatedChannel`](../../OneGame.Sync/OneGame.Sync/IAuthenticatedChannel.md), [`IMessageChannel`](../../OneGame.Sync/OneGame.Sync/IMessageChannel.md)
 
 ```csharp
-public interface INetConnection : IMessageChannel
+public interface INetConnection : IAuthenticatedChannel, IMessageChannel
 ```
 
 One live connection to a peer. Messages are whole, ordered and reliable ([`IMessageChannel`](../../OneGame.Sync/OneGame.Sync/IMessageChannel.md)). Nothing happens on its own: [`INetConnection.Pump()`](INetConnection.md#m-pump) does the socket work, on the caller's thread. The events fire inside [`INetConnection.Pump()`](INetConnection.md#m-pump) (or inside [`INetConnection.Disconnect()`](INetConnection.md#m-disconnect-disconnectreason-bool)).
@@ -16,10 +16,22 @@ One live connection to a peer. Messages are whole, ordered and reliable ([`IMess
 
 | Member | Description |
 | --- | --- |
+| [`ChannelBinding`](#m-channelbinding) | A 32-byte value both ends derive from the handshake (Noise's handshake hash) and nobody else can: it names this one encrypted session. |
 | [`CloseInfo`](#m-closeinfo) | Why the connection closed; [`DisconnectReason.None`](DisconnectReason.md#m-none) until then. |
+| [`IsEncrypted`](#m-isencrypted) | True when the link is encrypted and authenticated ([`SecurityMode.Required`](SecurityMode.md#m-required)). |
 | [`RemoteName`](#m-remotename) | The peer's address, as text, for logs. |
 | [`State`](#m-state) | Current state. |
 | [`Stats`](#m-stats) | A snapshot of the counters. |
+
+### <a id="m-channelbinding"></a>ChannelBinding
+
+```csharp
+ReadOnlyMemory<byte> ChannelBinding { get; }
+```
+
+A 32-byte value both ends derive from the handshake (Noise's handshake hash) and nobody else can: it names this one encrypted session. A game that checks a platform or login proof (a Steam ticket, a token) must bind the proof to this value and to the server's public key, or a malicious server could pass the proof on to another server and pose as the player there. Empty on an insecure link and before the handshake finishes.
+
+**Type:** [`ReadOnlyMemory`](https://learn.microsoft.com/dotnet/api/system.readonlymemory-1)`<byte>`
 
 ### <a id="m-closeinfo"></a>CloseInfo
 
@@ -30,6 +42,16 @@ DisconnectInfo CloseInfo { get; }
 Why the connection closed; [`DisconnectReason.None`](DisconnectReason.md#m-none) until then.
 
 **Type:** [`DisconnectInfo`](DisconnectInfo.md)
+
+### <a id="m-isencrypted"></a>IsEncrypted
+
+```csharp
+bool IsEncrypted { get; }
+```
+
+True when the link is encrypted and authenticated ([`SecurityMode.Required`](SecurityMode.md#m-required)). Then [`IAuthenticatedChannel.RemoteKey`](../../OneGame.Sync/OneGame.Sync/IAuthenticatedChannel.md#m-remotekey) is the peer's proven key once connected.
+
+**Type:** `bool`
 
 ### <a id="m-remotename"></a>RemoteName
 
