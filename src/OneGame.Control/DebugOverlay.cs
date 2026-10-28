@@ -43,6 +43,7 @@ public sealed class DebugOverlay : IFrameOverlay
     private double _rateIn;
     private double _rateOut;
     private bool _drawn;
+    private bool _visible;
     private bool _hasNet;
     private bool _hasAudio;
     private int _shape = -1;
@@ -69,8 +70,19 @@ public sealed class DebugOverlay : IFrameOverlay
         }
     }
 
-    /// <summary>Whether the panel is shown.</summary>
-    public bool Visible { get; set; }
+    /// <summary>Whether the panel is shown. While it is, <see cref="Draw2D.DebugVisible"/> is true so views draw their debug geometry too.</summary>
+    public bool Visible
+    {
+        get => _visible;
+        set
+        {
+            _visible = value;
+            if (_game.Stage is Render2DStage stage)
+            {
+                stage.Draw.DebugVisible = value;
+            }
+        }
+    }
 
     /// <summary>The key that toggles the panel, or null for none. F3 by default.</summary>
     public Key? ToggleKey { get; set; } = Key.F3;

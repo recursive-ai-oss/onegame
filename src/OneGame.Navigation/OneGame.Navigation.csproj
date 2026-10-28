@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Pathfinding for deterministic simulations: grid searches on fixed-point positions, budgeted over several ticks, with state that is saved, restored and hashed with the world.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Core/OneGame.Core.csproj" />
+    <PackageReference Include="RecursiveAI.OnePath" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="OneGame.Core" />
+    <InternalsVisibleTo Include="OneGame.Navigation.Tests" />
+  </ItemGroup>
+
+</Project>

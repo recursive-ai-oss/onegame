@@ -209,6 +209,15 @@ if (purchasesProblem is not null)
 
 Console.WriteLine("ok: purchases over the fake store, and the platform without a store");
 
+var navigationProblem = NavigationSmoke.Run();
+if (navigationProblem is not null)
+{
+    Console.Error.WriteLine("navigation smoke failed: " + navigationProblem);
+    return 1;
+}
+
+Console.WriteLine("ok: navigation: budgeted search, restore mid-search, walk to the goal");
+
 var serverProblem = ServerSmoke.Run();
 if (serverProblem is not null)
 {

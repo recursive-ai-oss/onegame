@@ -37,6 +37,7 @@
     <EmbeddedResource Include="../../testdata/gltf/Box/glTF-Embedded/Box.gltf" LogicalName="box.gltf" />
     <ProjectReference Include="../../src/OneGame.Steam/OneGame.Steam.csproj" />
     <ProjectReference Include="../../src/OneGame.Purchases/OneGame.Purchases.csproj" />
+    <ProjectReference Include="../../src/OneGame.Navigation/OneGame.Navigation.csproj" />
     <ProjectReference Include="../../src/OneGame.Control/OneGame.Control.csproj" />
     <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
     <ProjectReference Include="../../src/OneGame.Host/OneGame.Host.csproj" />

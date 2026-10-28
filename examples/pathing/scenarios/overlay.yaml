@@ -1,0 +1,13 @@
+name: overlay
+description: The development overlay (F3) draws what navigation sees on top of the game - blocked cells, the grid outline, each unit's path with the walked part grey - and does not touch the state hash.
+window: 320x180
+steps:
+  - command: { entity: Unit#1, name: Spawn, args: [0, 5, 1] }
+  - command: { entity: Unit#2, name: Spawn, args: [0, 9, 2] }
+  - command: { entity: Unit#1, name: GoTo, args: [19, 5] }
+  - command: { entity: Unit#2, name: GoTo, args: [18, 9] }
+  - step: 45
+  - overlay: on
+  - step: 1
+expect:
+  - capture: { reference: refs/overlay.png, tolerance: 48, max-diff: 0.01 }

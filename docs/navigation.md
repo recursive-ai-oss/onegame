@@ -1,0 +1,80 @@
+# Navigation
+
+`OneGame.Navigation` finds paths on a grid for units whose positions are `Fixed` numbers, in a way that is the same on every node, keeps its state in the world (so saves, replays and replicas carry it), and spreads long searches over ticks. It is built on [OnePath](https://www.nuget.org/packages/RecursiveAI.OnePath): grids, A\*, jump point search, Theta\* and the repairing search come from there. Reference it from a game with `RecursiveAI.OneGame.Navigation` (in a checkout: a project reference to `src/OneGame.Navigation`). The example `examples/pathing` shows all of it in one file.
+
+```csharp
+using OneGame.Navigation;
+```
+
+Everything you call from sim code takes and returns onegame types (`Fixed`, `FVec2`, `NavCell`), and the assembly is marked `[SimSafe]`, so the sim analyzers accept it. You never write a `double`.
+
+## The map: `NavGrid`
+
+```csharp
+var map = NavGrid.FromText("""
+    ........
+    .######.
+    .#....#.
+    .#.##.#.
+    ...#....
+    """, new NavSpace(new FVec2(-160, -88), Fixed.FromInt(16)));   // top-left corner and cell size in world units
+
+map.SetBlocked(3, 2, true);          // edit from sim code only
+map.SetAreaCost(1, 3);               // area 1 costs three times open ground
+map.TryGetCell(position, out var cell);
+FVec2 centre = map.CellCenter(cell); // exact: origin + cell * size + size / 2, in integers
+```
+
+`.` is open, `#` a wall, `1` to `9` a costed area. The grid is level data: build it the same way on every node, from the level and from synced state (the example's `Terrain` entity owns its world's map and rebuilds it from a synced list of walls). Editing it outside the tick, or differently on two nodes, is the same bug as any other desync.
+
+**One-shot search.** `map.FindPath(from, to, options)` runs a whole search in the call and returns a `NavPath` (`Status`, `Cost`, `Cells`, `CopyPoints`). Use it for tools, level checks and anything that is not a per-tick unit. `NavOptions` sets the moves (`Eight` without corner cutting, `Four`, `EightNoSqueeze`), the unit's width in cells and, for one-shot searches, `AStar`, `Jps` or `ThetaStar`.
+
+## A unit's navigation: `NavState`, `NavSearcher`, `Follow`
+
+`NavState` is a synced value: what the unit asked for, how far the search got and the path. `NavSearcher` runs the search a few iterations per tick and is a cache you keep in a non-synced field.
+
+```csharp
+[Entity]
+public partial class Unit : Entity
+{
+    [Synced] public partial FVec2 Position { get; private set; }
+    [Synced] public partial NavState Nav { get; private set; }
+
+    private readonly NavSearcher _searcher = new();
+
+    [Command]
+    public void GoTo(int x, int y) =>
+        Nav = _searcher.Begin(Map, Position, Map.CellCenter(new NavCell(x, y)));
+
+    protected override void OnTick()
+    {
+        var nav = Nav;
+        if (_searcher.Advance(ref nav, Map, budget: 200)) { Nav = nav; }   // search a little; store only when it changed
+        if (nav.Status == NavStatus.Found)
+        {
+            var p = Position;
+            Nav = nav.Follow(Map, ref p, Fixed.FromInt(2));                // walk 2 units, turn at waypoints, Arrived at the end
+            Position = p;
+        }
+    }
+}
+```
+
+- **Statuses:** `Idle`, `Searching`, `Found`, `NoPath`, `StartInvalid`, `GoalInvalid`, `Arrived`. A unit wider than one cell is placed by its top-left cell; a goal too close to the edge for its width is `GoalInvalid`.
+- **Budget.** `Advance(ref state, map, budget)` spends at most `budget` search iterations (queue pops; counted, never timed). Any split of the same total gives the same search, so the budget changes when the path arrives, never which path it is. A tick that stays in the search allocates 64 bytes (OnePath's per-call result); a tick that finishes copies the path out once; walking and idle ticks allocate nothing.
+- **The map changed.** `NavState` remembers `NavGrid.Stamp`, a hash of every cell and area cost. When it differs, a `Found`, `NoPath` or `Searching` state restarts from `Start`, which follows the unit as it passes waypoints. This also catches a change made before a restore.
+- **Save, restore, replicas, drift.** Because `Nav` is synced state it goes through snapshots, deltas and the world hash like any property. A restore needs nothing else: a search in progress is stored as its start, goal and iterations spent, and the searcher rebuilds the identical search by replaying those iterations when it meets a state it does not recognise (`NavSearcher.Rebuilds` counts that). A replica shows the path and never searches.
+- **Hostile saves.** `NavState.Read` rejects impossible values (it never throws), and `Advance` and `Follow` drop a state whose cells do not fit the grid (`StartInvalid`, `GoalInvalid`, `NoPath`) rather than reading outside it.
+- **Memory.** A searcher works on a private copy of the map (one byte per cell) made when a search starts, so edits mid-search cannot give a path through half a change, and there is nothing to dispose. Many units searching at once on a very large map cost that much each; for crowds of units heading for one place, a flow field (`NavGrid.Grid.CreateFlowField`, OnePath) is the better tool, and is not wrapped yet.
+
+## Range
+
+Positions are limited to ±2^21 (2,097,152) world units, so every `Fixed` in range is exactly a double (32 + 21 bits fit in 53) and the search library gives the same answer everywhere. A position or grid outside that range throws `NavRangeException` with a message saying so; nothing is clamped or rounded silently. `NavConvert.ToDouble` and `FromDouble` are the checked conversions for the rare place a double is needed (`FromDouble` rounds to the nearest `Fixed`, ties to even). Cell centres and cell lookups use integer arithmetic only. A `Cost` over 2^21 is capped at 2^21.
+
+## Seeing it
+
+While the debug overlay is on (F3, or `overlay: on` in a scenario) `Draw2D.DebugVisible` is true, and a view can collect `NavDebugShapes` (`AddGrid`, `AddPath`) and draw the rectangles and lines it holds with the 2D calls (the example does, in 20 lines). Release builds never set the flag. `state_query` shows any unit's `Nav` as JSON (`status`, `start`, `goal`, `spent`, `next`, `path`).
+
+## Not covered yet
+
+Hex and voxel grids, navigation meshes, crowds with avoidance and flow fields are OnePath features that have no wrapper here: they need either doubles in state (crowds, meshes) or their own save formats. Reach them through `NavGrid.Grid` outside sim code, or ask for the wrapper.

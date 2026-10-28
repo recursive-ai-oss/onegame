@@ -1,0 +1,25 @@
+name: reroute
+description: Walls dropped across the gap the scout is heading for make its path stale. It notices, searches again from where it stands, and arrives by the long way.
+window: 320x180
+steps:
+  - command: { entity: Unit#1, name: Spawn, args: [0, 5, 1] }
+  - command: { entity: Unit#1, name: GoTo, args: [19, 5] }
+  - step: 60
+  - expect:
+      state: { entity: Unit#1, property: Nav.status, equals: Found }
+  - expect:
+      state: { entity: Unit#1, property: "Nav.path.count", equals: 22 }
+  - command: { entity: Terrain, name: Toggle, args: [10, 9] }
+  - command: { entity: Terrain, name: Toggle, args: [10, 10] }
+  - step: 1
+  # The old path went through the gap; the map changed, so the search restarts.
+  - expect:
+      state: { entity: Unit#1, property: Nav.status, equals: Searching }
+  - step: 100
+  # The new path starts where the unit stood when it noticed (the last cell it had reached) and goes north round the walls instead of through the gap.
+  - expect:
+      state: { entity: Unit#1, property: "Nav.path.count", equals: 19 }
+  - step: 800
+expect:
+  - state: { entity: Unit#1, property: Nav.status, equals: Arrived }
+  - state: { entity: Terrain, property: "Walls.count", equals: 2 }
