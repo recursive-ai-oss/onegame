@@ -27,3 +27,4 @@ OG0019 | OneGame | Error | View reads a member that replicas never receive
 OG0020 | OneGame | Error | Predicted command reads a member the replica does not hold
 OG0021 | OneGame | Error | Predicted command draws a random number without saying so
 OG0022 | OneGame | Error | Predicted command writes a hidden member
+OG0023 | OneGame | Error | Animation playback in sim code

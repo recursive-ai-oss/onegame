@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneGame.Gltf/OneGame.Gltf.csproj" />
+    <!-- The character example is the game the determinism tests run, headless, through the same harness as a scenario. -->
+    <ProjectReference Include="../../examples/character/CharacterExample.csproj" />
+    <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
+    <ProjectReference Include="../../src/OneGame.Live/OneGame.Live.csproj" />
+    <ProjectReference Include="../../src/OneGame.Gpu.Backends/OneGame.Gpu.Backends.csproj" />
+    <ProjectReference Include="../../src/OneGame.Render3D/OneGame.Render3D.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../examples/character/scenarios/**" CopyToOutputDirectory="PreserveNewest" LinkBase="scenarios" />
+    <Using Include="OneGame.Testing" />
+    <Using Include="CharacterExample" />
+  </ItemGroup>
+
+</Project>

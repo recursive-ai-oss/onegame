@@ -1,0 +1,35 @@
+name: walk-run-jump
+description: The figure stands, walks, runs and jumps. The sim moves it by the baked root motion of the clip it plays, and the jump starts from a trigger the view derives from the jump counter.
+window: 640x360
+steps:
+  - step: 30
+  - expect:
+      capture: { reference: refs/idle.png, tolerance: 6, max-diff: 0.002 }
+  # Two walk cycles of exactly one metre each.
+  - command: { entity: Hero, name: SetGait, args: [1] }
+  - step: 120
+  - expect:
+      state: { entity: Hero, property: "Transform.position[2]", min: -2.0001, max: -1.9999 }
+  - expect:
+      capture: { reference: refs/walk.png, tolerance: 6, max-diff: 0.002 }
+  # One run cycle (0.7 s = 42 ticks).
+  - command: { entity: Hero, name: SetGait, args: [2] }
+  - step: 84
+  - expect:
+      state: { entity: Hero, property: "Transform.position[2]", min: -6.24, max: -6.21 }
+  - expect:
+      capture: { reference: refs/run.png, tolerance: 6, max-diff: 0.002 }
+  - command: { entity: Hero, name: SetGait, args: [0] }
+  - step: 30
+  # A jump: up half a metre at the top of the arc, back on the ground after 48 ticks.
+  - command: { entity: Hero, name: Jump }
+  - step: 28
+  - expect:
+      state: { entity: Hero, property: "Transform.position[1]", min: 0.45, max: 0.51 }
+  - expect:
+      capture: { reference: refs/jump.png, tolerance: 6, max-diff: 0.002 }
+  - step: 30
+  - expect:
+      state: { entity: Hero, property: Airborne, equals: false }
+  - expect:
+      state: { entity: Hero, property: "Transform.position[1]", min: -0.0001, max: 0.0001 }

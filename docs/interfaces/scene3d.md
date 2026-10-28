@@ -26,6 +26,7 @@ An entity that implements `IView3D` is asked once per drawn frame, in entity ord
 | Call | Meaning |
 |---|---|
 | `Model(name, transform, pickable = true)` / `Model(name, transform, extraScale)` | a model of the `ModelLibrary`; unknown names throw `UnknownModelException` listing the known ones |
+| `Model(name, transform, pose, pickable = true)` | a model in an animated pose (an `Animator`'s `Pose`, or one you blend yourself), copied when the frame is built: see [../animation.md](../animation.md) |
 | `Instance(name, transform, tint = null)` | one copy among many of a static model: all copies of a model in a frame become one instanced batch (culled, shadowed, one draw per primitive); rest pose, uniform scale, not pickable |
 | `PointLight`, `SpotLight`, `DirectionalLight` | lights (a transform gives position and facing; `Light3D` units) |
 | `Camera(transform, fovDegrees, priority, near, far, orthoHeight)` | offers a camera; highest `priority` wins, first on a tie; with none the `SceneView3D.DefaultCamera` is used |
@@ -42,7 +43,7 @@ A game whose entities live in a library that cannot reference the host (a rules 
 
 ## Picking and projection
 
-`view.Pick(x, y, width, height)` / `view.Cast(ray)`: nearest pickable model along the ray, tested triangle by triangle at the rest pose (broad phase on the model's box), both sides. Result `PickHit(Entity, Model, Distance, Point)`. Animation and skinning are not applied to the test. `TryProject(point, w, h, out pixel, out depth)` is false for points behind the camera or outside the near/far planes; pixels have the origin at the top left.
+`view.Pick(x, y, width, height)` / `view.Cast(ray)`: nearest pickable model along the ray, tested triangle by triangle at the rest pose (broad phase on the model's box), both sides. Result `PickHit(Entity, Model, Distance, Point)`. Animation and skinning are not applied to the test (a posed model is tested at its rest pose). `TryProject(point, w, h, out pixel, out depth)` is false for points behind the camera or outside the near/far planes; pixels have the origin at the top left.
 
 ## World-anchored UI
 

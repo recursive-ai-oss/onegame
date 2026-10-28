@@ -35,6 +35,7 @@
     <ProjectReference Include="../../src/OneGame.Render3D/OneGame.Render3D.csproj" />
     <EmbeddedResource Include="../../testdata/gltf/Fox/glTF-Binary/Fox.glb" LogicalName="fox.glb" />
     <EmbeddedResource Include="../../testdata/gltf/Box/glTF-Embedded/Box.gltf" LogicalName="box.gltf" />
+    <EmbeddedResource Include="../../examples/character/models/figure.glb" LogicalName="figure.glb" />
     <ProjectReference Include="../../src/OneGame.Steam/OneGame.Steam.csproj" />
     <ProjectReference Include="../../src/OneGame.Purchases/OneGame.Purchases.csproj" />
     <ProjectReference Include="../../src/OneGame.Navigation/OneGame.Navigation.csproj" />

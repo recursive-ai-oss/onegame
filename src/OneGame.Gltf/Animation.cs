@@ -235,6 +235,33 @@ public sealed class NodePose
     /// <summary>Morph weights per node (empty when the node has no morph targets).</summary>
     public float[][] Weights { get; }
 
+    /// <summary>Copies every value of another pose of the same model into this one, without allocating.</summary>
+    /// <param name="other">The pose to copy.</param>
+    public void CopyFrom(NodePose other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        if (other.Translation.Length != Translation.Length)
+        {
+            throw new ArgumentException("The poses belong to models with different node counts.", nameof(other));
+        }
+
+        Array.Copy(other.Translation, Translation, Translation.Length);
+        Array.Copy(other.Rotation, Rotation, Rotation.Length);
+        Array.Copy(other.Scale, Scale, Scale.Length);
+        for (var i = 0; i < Weights.Length; i++)
+        {
+            var src = other.Weights[i];
+            if (Weights[i] is { } dst && dst.Length == src.Length)
+            {
+                Array.Copy(src, dst, src.Length);
+            }
+            else
+            {
+                Weights[i] = (float[])src.Clone();
+            }
+        }
+    }
+
     /// <summary>Computes every node's transform to the model's root space.</summary>
     /// <param name="model">The model this pose came from.</param>
     /// <param name="world">Receives one matrix per node (row-vector convention: child = local * parent).</param>

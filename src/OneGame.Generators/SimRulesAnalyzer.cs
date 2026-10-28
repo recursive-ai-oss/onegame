@@ -37,7 +37,7 @@ public sealed class SimRulesAnalyzer : DiagnosticAnalyzer
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(
         Rules.FloatInState, Rules.FloatInSim, Rules.UnorderedIteration, Rules.Clock, Rules.Threads, Rules.InputOutput,
-        Rules.UnnamedRandom, Rules.ViewWrites, Rules.NoCodec, Rules.ExternalApi, Rules.Culture, Rules.ViewReadsUnreceived);
+        Rules.UnnamedRandom, Rules.ViewWrites, Rules.NoCodec, Rules.ExternalApi, Rules.Culture, Rules.ViewReadsUnreceived, Rules.AnimationInSim);
 
     /// <inheritdoc />
     public override void Initialize(AnalysisContext context)

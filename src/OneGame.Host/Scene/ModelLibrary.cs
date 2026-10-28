@@ -96,6 +96,13 @@ public sealed class ModelLibrary : IDisposable
 
         public Model3D? Gpu { get; set; }
 
+        /// <summary>True once any frame drew this model in an explicit pose.</summary>
+        public bool Posed { get; set; }
+
+        private NodePose? _rest;
+
+        public NodePose Rest => _rest ??= Source.CreateRestPose();
+
         public List<ModelInstance3D> Pool { get; } = [];
 
         public int Used { get; set; }

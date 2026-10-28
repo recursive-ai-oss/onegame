@@ -27,6 +27,9 @@ Every public type in every package, in alphabetical order.
 | [`AnimationInterpolation`](OneGame.Gltf/OneGame.Gltf/AnimationInterpolation.md) | enum | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | How values between two keys are computed. |
 | [`AnimationPath`](OneGame.Gltf/OneGame.Gltf/AnimationPath.md) | enum | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Which node property a channel animates. |
 | [`AnimationSampler`](OneGame.Gltf/OneGame.Gltf/AnimationSampler.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Keys and values of one animated property. |
+| [`Animator`](OneGame.Gltf/OneGame.Gltf/Animator.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | The happy path for animating a character: states that play clips or blends, parameters that steer them, transitions with crossfades, and the finished [`Animator.Pose`](OneGame.Gltf/OneGame.Gltf/Animator.md#m-pose) to hand to the scene. |
+| [`AnimState`](OneGame.Gltf/OneGame.Gltf/AnimState.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | One state of an [`Animator`](OneGame.Gltf/OneGame.Gltf/Animator.md): a motion and how it plays. |
+| [`AnimTransition`](OneGame.Gltf/OneGame.Gltf/AnimTransition.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | A rule for leaving one state for another. |
 | [`AppLifecycleState`](OneGame.Platform/OneGame.Platform/AppLifecycleState.md) | enum | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | What [`PlatformEventKind.AppLifecycle`](OneGame.Platform/OneGame.Platform/PlatformEventKind.md#m-applifecycle) reports. |
 | [`ArtAtlas`](OneGame.Atlas/OneGame.Atlas/ArtAtlas.md) | class | `OneGame.Atlas` | [OneGame.Atlas](OneGame.Atlas/index.md) | SVG and image atlas. |
 | [`ArtAtlasSizes`](OneGame.Text/OneGame.Text/ArtAtlasSizes.md) | class | `OneGame.Text` | [OneGame.Text](OneGame.Text/index.md) | Lets the UI ask an [`ArtAtlas`](OneGame.Atlas/OneGame.Atlas/ArtAtlas.md) how big its art is: assign it to [`UiTree.ArtSizes`](OneGame.UI/OneGame.UI/UiTree.md#m-artsizes). |
@@ -96,6 +99,10 @@ Every public type in every package, in alphabetical order.
 | [`BlendComponent`](OneGame.Gpu/OneGame.Gpu/BlendComponent.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Blend settings for one of color or alpha. |
 | [`BlendFactor`](OneGame.Gpu/OneGame.Gpu/BlendFactor.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Factor applied to a blend operand. |
 | [`BlendOperation`](OneGame.Gpu/OneGame.Gpu/BlendOperation.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Operation combining the blended source and destination. |
+| [`BlendSpace1D`](OneGame.Gltf/OneGame.Gltf/BlendSpace1D.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | A line of poses along one value, for example speed: idle at 0, walk at 1, run at 2. |
+| [`BlendSpace1DMotion`](OneGame.Gltf/OneGame.Gltf/BlendSpace1DMotion.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Clips blended along one input, for example speed. |
+| [`BlendSpace2D`](OneGame.Gltf/OneGame.Gltf/BlendSpace2D.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | A plane of poses, for example direction by speed. |
+| [`BlendSpace2DMotion`](OneGame.Gltf/OneGame.Gltf/BlendSpace2DMotion.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Clips blended over a plane, for example direction by speed. |
 | [`BlendState`](OneGame.Gpu/OneGame.Gpu/BlendState.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Blending of one color target. |
 | [`BoxSizing`](OneGame.UI/OneGame.UI/BoxSizing.md) | enum | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | The `box-sizing` property. |
 | [`BrowserByteStore`](OneGame.Host/OneGame.Host/BrowserByteStore.md) | class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | The browser's IndexedDB as an [`IByteStore`](OneGame.Core/OneGame.Storage/IByteStore.md). |
@@ -126,6 +133,7 @@ Every public type in every package, in alphabetical order.
 | [`ClientTrustConfig`](OneGame.Server/OneGame.Server/ClientTrustConfig.md) | record | `OneGame.Server` | [OneGame.Server](OneGame.Server/index.md) | What clients may do on this server. |
 | [`ClipboardResult`](OneGame.Control/OneGame.Control/ClipboardResult.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | Result of `clipboard_get` and `clipboard_set`. |
 | [`ClipboardSelection`](OneGame.Platform/OneGame.Platform/ClipboardSelection.md) | enum | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | Which system selection a clipboard call talks to. |
+| [`ClipMotion`](OneGame.Gltf/OneGame.Gltf/ClipMotion.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | A single clip. |
 | [`CloudFile`](OneGame.Steam/OneGame.Stores/CloudFile.md) | struct | `OneGame.Stores` | [OneGame.Steam](OneGame.Steam/index.md) | One cloud file. |
 | [`CloudQuota`](OneGame.Steam/OneGame.Stores/CloudQuota.md) | struct | `OneGame.Stores` | [OneGame.Steam](OneGame.Steam/index.md) | Cloud storage quota in bytes. |
 | [`Cluster`](OneGame.Render3D/OneGame.Render3D.Shaders/Cluster.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
@@ -158,6 +166,7 @@ Every public type in every package, in alphabetical order.
 | [`CommandsResult`](OneGame.Control/OneGame.Control/CommandsResult.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | One entity type's commands, as `commands_list` reports them (shown with the first entity of that type). |
 | [`CommandStatus`](OneGame.Core/OneGame.Core/CommandStatus.md) | enum | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | What happened to a command when it was sent. |
 | [`CommandVerdict`](OneGame.Sync/OneGame.Sync/CommandVerdict.md) | enum | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | How a command sent from a replica ended. |
+| [`Compare`](OneGame.Gltf/OneGame.Gltf/Compare.md) | enum | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | How a float parameter is compared in a transition condition. |
 | [`CompareFunction`](OneGame.Gpu/OneGame.Gpu/CompareFunction.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Comparison used by depth tests. |
 | [`ComputedStyle`](OneGame.UI/OneGame.UI/ComputedStyle.md) | class | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | The resolved value of every style property of one element, after the cascade, inheritance and theme tokens. |
 | [`ComputePipelineDesc`](OneGame.Gpu/OneGame.Gpu/ComputePipelineDesc.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Describes a compute pipeline. |
@@ -178,6 +187,7 @@ Every public type in every package, in alphabetical order.
 | [`ControlSurface`](OneGame.Control/OneGame.Control/ControlSurface.md) | class | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | The control layer: every operation of [`ControlOps`](OneGame.Control/OneGame.Control/ControlOps.md) run against one [`GameInstance`](OneGame.Host/OneGame.Host/GameInstance.md). |
 | [`CoreModule`](OneGame.Core/OneGame.Core/CoreModule.md) | static class | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Identifies the Core assembly; a placeholder until its first feature lands. |
 | [`CornerRadii`](OneGame.UI/OneGame.UI/CornerRadii.md) | struct | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | Four corner radii in pixels. |
+| [`Crossfade`](OneGame.Gltf/OneGame.Gltf/Crossfade.md) | struct | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | A crossfade clock: how much of the new pose shows, over a duration. |
 | [`CullMode`](OneGame.Gpu/OneGame.Gpu/CullMode.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Which triangle faces are discarded. |
 | [`CursorShape`](OneGame.UI/OneGame.UI/CursorShape.md) | enum | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | The `cursor` property: a hint for the platform layer. |
 | [`DebugOverlay`](OneGame.Control/OneGame.Control/DebugOverlay.md) | class | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | The on-screen debug panel of development builds: frame time, entity count, network figures when the game is connected, and the audio device's counters. |
@@ -511,6 +521,7 @@ Every public type in every package, in alphabetical order.
 | [`ModelLibrary`](OneGame.Host/OneGame.Host/ModelLibrary.md) | class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | The models a game's entities can show, by name. |
 | [`MonospaceTextMeasurer`](OneGame.UI/OneGame.UI/MonospaceTextMeasurer.md) | class | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | A deterministic [`ITextMeasurer`](OneGame.UI/OneGame.UI/ITextMeasurer.md) where every character is `0.6 × size + letter-spacing` wide and a line is `1.2 × size` tall unless the style sets a line height. |
 | [`MorphTarget`](OneGame.Gltf/OneGame.Gltf/MorphTarget.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Per-vertex deltas of one morph target. |
+| [`Motion`](OneGame.Gltf/OneGame.Gltf/Motion.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Something that produces a pose from a phase: one clip, or a blend of clips chosen by inputs. |
 | [`MouseButton`](OneGame.Platform/OneGame.Platform/MouseButton.md) | enum | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | A mouse or pointer button. |
 | [`MusicOptions`](OneGame.Audio/OneGame.Audio/MusicOptions.md) | struct | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | How to start a music track. |
 | [`MusicStatus`](OneGame.Audio/OneGame.Audio/MusicStatus.md) | record | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | The playing music track. |
@@ -694,6 +705,8 @@ Every public type in every package, in alphabetical order.
 | [`PluginState`](OneGame.Server/OneGame.Server/PluginState.md) | enum | `OneGame.Server` | [OneGame.Server](OneGame.Server/index.md) | Whether a loaded plugin is running. |
 | [`Png`](OneGame.Host/OneGame.Host/Png.md) | static class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | PNG reading and writing for captures, through OneImage. |
 | [`PointerEvents`](OneGame.UI/OneGame.UI/PointerEvents.md) | enum | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | The `pointer-events` property. |
+| [`PoseBlend`](OneGame.Gltf/OneGame.Gltf/PoseBlend.md) | static class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Combines poses. |
+| [`PoseMask`](OneGame.Gltf/OneGame.Gltf/PoseMask.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Per-node weights that limit how much of a blend applies: for example only the upper body of a character. |
 | [`PositionedGlyph`](OneGame.Text/OneGame.Text/PositionedGlyph.md) | struct | `OneGame.Text` | [OneGame.Text](OneGame.Text/index.md) | One glyph with its pen position, ready to look up in the glyph atlas. |
 | [`PositionMode`](OneGame.UI/OneGame.UI/PositionMode.md) | enum | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | The `position` property. |
 | [`Post`](OneGame.Render3D/OneGame.Render3D.Shaders/Post.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
@@ -772,8 +785,11 @@ Every public type in every package, in alphabetical order.
 | [`ResourceKind`](OneGame.Gpu/OneGame.Gpu/ResourceKind.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Kind of a shader resource binding. |
 | [`ResourceReport`](OneGame.Gpu/OneGame.Gpu.Graph/ResourceReport.md) | record | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | One texture or buffer of the last frame. |
 | [`ReverbOptions`](OneGame.Audio/OneGame.Audio/ReverbOptions.md) | struct | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | A reverb insert on a bus: the bus signal becomes `Dry * signal + Wet * reverb`. |
+| [`Rig`](OneGame.Gltf/OneGame.Gltf/Rig.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | A model's skeleton for animation: its rest pose, node lookup by name and clip lookup by name. |
 | [`Rng`](OneGame.Core/OneGame.Core/Rng.md) | class | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | A named, seedable random stream (xoshiro256\*\*). |
 | [`RngStreams`](OneGame.Core/OneGame.Core/RngStreams.md) | class | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | The world's random streams, found by name. |
+| [`RootMotion`](OneGame.Gltf/OneGame.Gltf/RootMotion.md) | static class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Turns a clip's root bone movement into numbers the sim can use. |
+| [`RootMotionTrack`](OneGame.Core/OneGame.Core/RootMotionTrack.md) | class | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | The movement of an animation's root bone, one fixed-point step per simulation tick. |
 | [`RunningOn`](OneGame.Platform/OneGame.Platform/RunningOn.md) | static class | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | Which kind of system the game is running on. |
 | [`SamplerDesc`](OneGame.Gpu/OneGame.Gpu/SamplerDesc.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Describes a sampler to create. |
 | [`SaveFile`](OneGame.Sync/OneGame.Sync/SaveFile.md) | static class | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | Save files: a header (format, seed, tick, hashes, schema versions) followed by a world snapshot. |
@@ -1013,6 +1029,7 @@ Every public type in every package, in alphabetical order.
 | [`TweenInfo`](OneGame.UI/OneGame.Tweens/TweenInfo.md) | struct | `OneGame.Tweens` | [OneGame.UI](OneGame.UI/index.md) | A running tween as the harness lists it (see [`TweenSet.Snapshot()`](OneGame.UI/OneGame.Tweens/TweenSet.md#m-snapshot-list-tweeninfo)). |
 | [`TweenSet`](OneGame.UI/OneGame.Tweens/TweenSet.md) | class | `OneGame.Tweens` | [OneGame.UI](OneGame.UI/index.md) | A set of tweens that all run on one clock. |
 | [`TweensResult`](OneGame.Control/OneGame.Control/TweensResult.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | Result of the `tweens` operation. |
+| [`TwoBoneIk`](OneGame.Gltf/OneGame.Gltf/TwoBoneIk.md) | static class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Two-bone inverse kinematics for a leg or an arm: turns the upper and middle joints so the end joint reaches a target. |
 | [`UdpConnection`](OneGame.Net/OneGame.Net/UdpConnection.md) | class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | One reliable-UDP connection, either the client end made by [`UdpTransport.Connect()`](OneGame.Net/OneGame.Net/UdpTransport.md#m-connect-ipendpoint-udpoptions-netclock) or a server end handed out by a [`UdpListener`](OneGame.Net/OneGame.Net/UdpListener.md). |
 | [`UdpListener`](OneGame.Net/OneGame.Net/UdpListener.md) | class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | The server end of the reliable-UDP transport. |
 | [`UdpOptions`](OneGame.Net/OneGame.Net/UdpOptions.md) | class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | Settings for the reliable-UDP transport. |
@@ -1038,6 +1055,7 @@ Every public type in every package, in alphabetical order.
 | [`UiTree`](OneGame.UI/OneGame.UI/UiTree.md) | class | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | A UI: a root element, the style sheets that apply to it, the screen size and scale, and the per-frame pipeline (bindings, then style, then layout, then the display list). |
 | [`UiTreeException`](OneGame.UI/OneGame.UI/UiTreeException.md) | class | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | A tree operation was invalid (adding an element that already has a parent, or creating a cycle). |
 | [`UnavailableStore`](OneGame.Purchases/OneGame.Purchases/UnavailableStore.md) | class | `OneGame.Purchases` | [OneGame.Purchases](OneGame.Purchases/index.md) | A store that is not there: connecting fails with [`StoreErrorKind.Unavailable`](OneGame.Purchases/OneGame.Purchases/StoreErrorKind.md#m-unavailable) and says why. |
+| [`UnknownAnimatorNameException`](OneGame.Gltf/OneGame.Gltf/UnknownAnimatorNameException.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | A parameter, state or clip name an [`Animator`](OneGame.Gltf/OneGame.Gltf/Animator.md) does not have. |
 | [`UnknownClipException`](OneGame.Render2D/OneGame.Render2D/UnknownClipException.md) | class | `OneGame.Render2D` | [OneGame.Render2D](OneGame.Render2D/index.md) | A clip name that a [`SpriteSheet`](OneGame.Render2D/OneGame.Render2D/SpriteSheet.md) does not have. |
 | [`UnknownModelException`](OneGame.Host/OneGame.Host/UnknownModelException.md) | class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | A model name that no [`ModelLibrary`](OneGame.Host/OneGame.Host/ModelLibrary.md) entry has. |
 | [`UnloadResult`](OneGame.Server/OneGame.Server/UnloadResult.md) | record | `OneGame.Server` | [OneGame.Server](OneGame.Server/index.md) | The result of an unload. |

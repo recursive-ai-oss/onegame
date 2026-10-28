@@ -132,6 +132,19 @@ public sealed class SceneView3D : IDisposable
             }
 
             entry.Used++;
+            if (d.Pose is { } pose)
+            {
+                instance.Pose.CopyFrom(pose);
+                instance.UpdateTransforms();
+                entry.Posed = true;
+            }
+            else if (entry.Posed)
+            {
+                // The pooled instance may still hold an animated pose from an earlier frame.
+                instance.Pose.CopyFrom(entry.Rest);
+                instance.UpdateTransforms();
+            }
+
             instance.Transform = d.World;
             instance.Visible = true;
         }

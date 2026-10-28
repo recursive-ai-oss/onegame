@@ -14,12 +14,22 @@ dotnet add package RecursiveAI.OneGame.Gltf
 
 | Type | Kind | Description |
 | --- | --- | --- |
+| [`AnimState`](OneGame.Gltf/AnimState.md) | class | One state of an [`Animator`](OneGame.Gltf/Animator.md): a motion and how it plays. |
+| [`AnimTransition`](OneGame.Gltf/AnimTransition.md) | class | A rule for leaving one state for another. |
 | [`AnimationChannel`](OneGame.Gltf/AnimationChannel.md) | class | Connects a sampler to a node property. |
 | [`AnimationClip`](OneGame.Gltf/AnimationClip.md) | class | An animation clip: channels that drive node properties over time. |
 | [`AnimationInterpolation`](OneGame.Gltf/AnimationInterpolation.md) | enum | How values between two keys are computed. |
 | [`AnimationPath`](OneGame.Gltf/AnimationPath.md) | enum | Which node property a channel animates. |
 | [`AnimationSampler`](OneGame.Gltf/AnimationSampler.md) | class | Keys and values of one animated property. |
+| [`Animator`](OneGame.Gltf/Animator.md) | class | The happy path for animating a character: states that play clips or blends, parameters that steer them, transitions with crossfades, and the finished [`Animator.Pose`](OneGame.Gltf/Animator.md#m-pose) to hand to the scene. |
+| [`BlendSpace1D`](OneGame.Gltf/BlendSpace1D.md) | class | A line of poses along one value, for example speed: idle at 0, walk at 1, run at 2. |
+| [`BlendSpace1DMotion`](OneGame.Gltf/BlendSpace1DMotion.md) | class | Clips blended along one input, for example speed. |
+| [`BlendSpace2D`](OneGame.Gltf/BlendSpace2D.md) | class | A plane of poses, for example direction by speed. |
+| [`BlendSpace2DMotion`](OneGame.Gltf/BlendSpace2DMotion.md) | class | Clips blended over a plane, for example direction by speed. |
 | [`ClearcoatInfo`](OneGame.Gltf/ClearcoatInfo.md) | class | KHR\_materials\_clearcoat. |
+| [`ClipMotion`](OneGame.Gltf/ClipMotion.md) | class | A single clip. |
+| [`Compare`](OneGame.Gltf/Compare.md) | enum | How a float parameter is compared in a transition condition. |
+| [`Crossfade`](OneGame.Gltf/Crossfade.md) | struct | A crossfade clock: how much of the new pose shows, over a duration. |
 | [`GltfAlphaMode`](OneGame.Gltf/GltfAlphaMode.md) | enum | How the alpha of the base colour is used. |
 | [`GltfBounds`](OneGame.Gltf/GltfBounds.md) | struct | An axis-aligned box. |
 | [`GltfCamera`](OneGame.Gltf/GltfCamera.md) | class | A perspective or orthographic camera. |
@@ -51,11 +61,18 @@ dotnet add package RecursiveAI.OneGame.Gltf
 | [`IndexWidth`](OneGame.Gltf/IndexWidth.md) | enum | The index width chosen by [`GltfPrimitive.PackIndices()`](OneGame.Gltf/GltfPrimitive.md#m-packindices-indexwidth). |
 | [`JointIndices`](OneGame.Gltf/JointIndices.md) | struct | Four joint indices of a skinned vertex. |
 | [`MorphTarget`](OneGame.Gltf/MorphTarget.md) | class | Per-vertex deltas of one morph target. |
+| [`Motion`](OneGame.Gltf/Motion.md) | class | Something that produces a pose from a phase: one clip, or a blend of clips chosen by inputs. |
 | [`NodePose`](OneGame.Gltf/NodePose.md) | class | The animatable state of every node: translation, rotation, scale and morph weights. |
+| [`PoseBlend`](OneGame.Gltf/PoseBlend.md) | static class | Combines poses. |
+| [`PoseMask`](OneGame.Gltf/PoseMask.md) | class | Per-node weights that limit how much of a blend applies: for example only the upper body of a character. |
+| [`Rig`](OneGame.Gltf/Rig.md) | class | A model's skeleton for animation: its rest pose, node lookup by name and clip lookup by name. |
+| [`RootMotion`](OneGame.Gltf/RootMotion.md) | static class | Turns a clip's root bone movement into numbers the sim can use. |
 | [`SheenInfo`](OneGame.Gltf/SheenInfo.md) | class | KHR\_materials\_sheen. |
 | [`SpecularInfo`](OneGame.Gltf/SpecularInfo.md) | class | KHR\_materials\_specular. |
 | [`TangentMode`](OneGame.Gltf/TangentMode.md) | enum | When tangents are generated. |
 | [`TextureRef`](OneGame.Gltf/TextureRef.md) | class | A reference from a material slot to a texture. |
 | [`TextureTransform`](OneGame.Gltf/TextureTransform.md) | struct | A KHR\_texture\_transform: offset, rotation and scale of the texture coordinates. |
 | [`TransmissionInfo`](OneGame.Gltf/TransmissionInfo.md) | class | KHR\_materials\_transmission. |
+| [`TwoBoneIk`](OneGame.Gltf/TwoBoneIk.md) | static class | Two-bone inverse kinematics for a leg or an arm: turns the upper and middle joints so the end joint reaches a target. |
+| [`UnknownAnimatorNameException`](OneGame.Gltf/UnknownAnimatorNameException.md) | class | A parameter, state or clip name an [`Animator`](OneGame.Gltf/Animator.md) does not have. |
 | [`VolumeInfo`](OneGame.Gltf/VolumeInfo.md) | class | KHR\_materials\_volume. |

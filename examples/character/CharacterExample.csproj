@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>CharacterExample</AssemblyName>
+    <RootNamespace>CharacterExample</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Target framework, analyzers, engine references and, in Debug builds only, the development tools (live control, scenarios, capture). -->
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+
+  <ItemGroup>
+    <!-- The art maker is its own program (art/), not part of the game. -->
+    <Compile Remove="art/**" />
+    <!-- The models and the font travel inside the program, so it runs from any folder. -->
+    <EmbeddedResource Include="models/*.glb" LogicalName="models/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="$(OneGameRoot)assets/fonts/NotoSans-Regular.ttf" LogicalName="fonts/NotoSans-Regular.ttf" />
+  </ItemGroup>
+
+</Project>

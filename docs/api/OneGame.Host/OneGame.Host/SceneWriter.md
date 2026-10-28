@@ -94,6 +94,7 @@ View time in seconds: the shown tick and fraction at the simulation's rate. Part
 | [`Instance(string, in Matrix4x4, Vector4?)`](#m-instance-string-matrix4x4-vector4) | Shows one copy of a static model among many at a world matrix; see the [`Transform3`](../../OneGame.Core/OneGame.Core/Transform3.md) form. |
 | [`Model(string, Transform3, bool)`](#m-model-string-transform3-bool) | Shows a model from the [`ModelLibrary`](ModelLibrary.md) at a transform. |
 | [`Model(string, in Matrix4x4, bool)`](#m-model-string-matrix4x4-bool) | Shows a model at a world matrix. |
+| [`Model(string, Transform3, NodePose, bool)`](#m-model-string-transform3-nodepose-bool) | Shows a model in an animated pose, for example `Animator.Pose`. |
 | [`Model(string, Transform3, float, bool)`](#m-model-string-transform3-float-bool) | Shows a model with an extra view-only scale on top of its transform, for a pulse or a hover highlight. |
 | [`Particles(ParticleEmitter, Transform3, BillboardTexture3D?)`](#m-particles-particleemitter-transform3-billboardtexture3d) | Shows a particle emitter at an entity transform's position; see [`SceneWriter.Particles()`](SceneWriter.md#m-particles-particleemitter-vector3-billboardtexture3d). |
 | [`Particles(ParticleEmitter, Vector3, BillboardTexture3D?)`](#m-particles-particleemitter-vector3-billboardtexture3d) | Shows a particle emitter in the scene as camera-facing quads. |
@@ -231,6 +232,25 @@ Shows a model at a world matrix. For view code that animates with floats; synced
 - `model` (`string`): The name the model was added under.
 - `world` ([`Matrix4x4`](https://learn.microsoft.com/dotnet/api/system.numerics.matrix4x4)): Where it is (row vectors, +Y up).
 - `pickable` (`bool`): Whether `pick` can hit it.
+
+**Exceptions**
+
+- [`UnknownModelException`](UnknownModelException.md): The library has no such model.
+
+### <a id="m-model-string-transform3-nodepose-bool"></a>Model(string, Transform3, NodePose, bool)
+
+```csharp
+public void Model(string model, Transform3 transform, NodePose pose, bool pickable = true);
+```
+
+Shows a model in an animated pose, for example `Animator.Pose`. The pose is copied when the frame is built, so the caller keeps its buffer.
+
+**Parameters**
+
+- `model` (`string`): The name the model was added under.
+- `transform` ([`Transform3`](../../OneGame.Core/OneGame.Core/Transform3.md)): Where it is.
+- `pose` ([`NodePose`](../../OneGame.Gltf/OneGame.Gltf/NodePose.md)): The node pose to draw (from the same model's rig).
+- `pickable` (`bool`): Whether `pick` can hit it (tested at the rest pose).
 
 **Exceptions**
 
