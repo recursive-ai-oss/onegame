@@ -52,9 +52,12 @@ public abstract class Entity
     public abstract void ReadState(ref SyncReader reader);
 
     /// <summary>Replaces all synced state from a given schema version, running the author's migration for older versions. On error the reader holds the reason.</summary>
+    /// <param name="schemaVersion">The schema version the bytes were written with.</param>
+    /// <param name="reader">Reads the saved bytes; check its error afterwards.</param>
     public abstract void ReadState(uint schemaVersion, ref SyncReader reader);
 
     /// <summary>Writes a delta holding the properties changed since <see cref="ClearDirty"/>.</summary>
+    /// <param name="writer">Receives the bytes.</param>
     public abstract void WriteDirtyDelta(SyncWriter writer);
 
     /// <summary>Writes a delta that turns <paramref name="baseline"/> into this entity's state.</summary>
@@ -62,6 +65,7 @@ public abstract class Entity
     public abstract bool WriteDeltaFrom(Entity baseline, SyncWriter writer);
 
     /// <summary>Applies a delta. All values are decoded before any is stored, so an error leaves the entity unchanged. Applied properties become dirty, so a relay can forward them.</summary>
+    /// <param name="reader">Reads a delta from <see cref="WriteDirtyDelta"/> or <see cref="WriteMaskedDelta"/>; check its error afterwards.</param>
     public abstract void ApplyDelta(ref SyncReader reader);
 
     /// <summary>Writes a delta holding exactly the properties in <paramref name="mask"/>, whatever their dirty state. With the visible mask of an audience it is that audience's full view of the entity.</summary>
@@ -77,6 +81,9 @@ public abstract class Entity
     /// Which of this entity's properties (bit i = property i) an audience may receive. Returns false when the entity as a whole is
     /// hidden from it. Entities without visibility rules show everything to everyone.
     /// </summary>
+    /// <param name="audience">The subscriber's player and team.</param>
+    /// <param name="mask">Bit i set when property i may be sent to the audience.</param>
+    /// <returns>False when the whole entity is hidden from the audience.</returns>
     public virtual bool TryGetVisibleMask(in Audience audience, out ulong mask)
     {
         mask = FullMask;
@@ -108,9 +115,11 @@ public abstract class Entity
     public virtual bool IsOwnerOnlyCommand(uint commandId) => false;
 
     /// <summary>True when the command is marked <c>Predicted</c>.</summary>
+    /// <param name="commandId">The command's generated id.</param>
     public virtual bool IsPredictedCommand(uint commandId) => false;
 
     /// <summary>True when the command is marked <c>Predicted</c> with <c>UsesRandom</c>.</summary>
+    /// <param name="commandId">The command's generated id.</param>
     public virtual bool PredictedCommandUsesRandom(uint commandId) => false;
 
     /// <summary>Makes this entity's synced state equal to <paramref name="source"/>'s (same type). The generator overrides it to assign fields directly; the default goes through the encoded form.</summary>
@@ -141,6 +150,7 @@ public abstract class Entity
     internal ulong NormalizeMask(ulong mask) => (mask & FullMask) == FullMask ? ulong.MaxValue : mask & FullMask;
 
     /// <summary>Writes the entity as a JSON object.</summary>
+    /// <param name="json">Receives the object.</param>
     public abstract void WriteJson(JsonOut json);
 
     /// <summary>Sets a scalar synced property from text, for the state-patch harness. Returns false if the name is unknown, the type is not a scalar, or the text does not parse.</summary>
@@ -157,6 +167,8 @@ public abstract class Entity
     public virtual CommandStatus SendFromText(string commandName, string[] arguments) => CommandStatus.UnknownCommand;
 
     /// <summary>Runs the handler for a command. Returns <see cref="CommandStatus.Executed"/>, <see cref="CommandStatus.Rejected"/>, <see cref="CommandStatus.UnknownCommand"/> or <see cref="CommandStatus.Malformed"/>.</summary>
+    /// <param name="commandId">The command's generated id.</param>
+    /// <param name="arguments">Reads the encoded arguments.</param>
     protected abstract CommandStatus ExecuteCommand(uint commandId, ref SyncReader arguments);
 
     /// <summary>
@@ -187,6 +199,7 @@ public abstract class Entity
     /// Hash of what an audience sees of this entity: with every property visible it equals <see cref="ComputeHash"/>, otherwise it
     /// covers the type, the id and only the visible properties. A replica computes the same value with <see cref="ComputeViewHash()"/>.
     /// </summary>
+    /// <param name="visibleMask">Bit i set for each property the audience may see.</param>
     public ulong ComputeViewHash(ulong visibleMask)
     {
         var mask = NormalizeMask(visibleMask);
@@ -243,6 +256,9 @@ public abstract class Entity
     }
 
     /// <summary>Sends the command whose arguments are in the writer from <see cref="BeginCommand"/>.</summary>
+    /// <param name="commandId">The command's generated id.</param>
+    /// <param name="arguments">The writer returned by <see cref="BeginCommand"/>, holding the encoded arguments.</param>
+    /// <returns>What became of the command; see <see cref="CommandStatus"/>.</returns>
     protected CommandStatus SendCommand(uint commandId, SyncWriter arguments)
         => World!.Submit(Id, commandId, arguments.Written);
 }

@@ -45,8 +45,8 @@ internal struct IosEvent
 
 /// <summary>
 /// The iOS app: UIKit on the process's main thread, the game on a thread of its own. The main thread runs <c>UIApplicationMain</c>; its
-/// delegate callbacks (scene lifecycle, touches, key presses, text input, layout) only queue <see cref="IosEvent"/>s. The game thread
-/// owns the <see cref="PlatformApp"/> and turns the queue into platform events in <see cref="IosBackend"/>'s pump, so game code never
+/// delegate callbacks (scene lifecycle, touches, key presses, text input, layout) only queue events for the game thread. The game thread
+/// owns the <see cref="PlatformApp"/> and turns the queue into platform events in the iOS backend's pump, so game code never
 /// touches UIKit and UIKit never calls into game code.
 /// </summary>
 /// <remarks>

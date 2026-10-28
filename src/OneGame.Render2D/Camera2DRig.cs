@@ -8,6 +8,16 @@ namespace OneGame.Render2D;
 /// view state (it remembers where it is between frames) and is never part of the simulation. <see cref="Camera2D"/> remains the low-level
 /// value the renderer takes; <see cref="Current"/> gives it.
 /// </summary>
+/// <example>
+/// <code>
+/// var camera = new Camera2DRig { Zoom = 2, Smoothing = 0.2f, Bounds = new Rect(0, 0, 1600, 900) };
+/// camera.Snap(start);                                  // jump to the start without easing
+/// camera.Follow(playerPosition, seconds);              // each frame; seconds from the view's clock
+/// var screen = new Vector2(1280, 720);
+/// Vector2 onScreen = camera.WorldToScreen(enemyPosition, screen);
+/// Vector2 underMouse = camera.ScreenToWorld(mouse, screen);
+/// </code>
+/// </example>
 public sealed class Camera2DRig
 {
     private Vector2 _position;

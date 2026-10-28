@@ -70,6 +70,8 @@ public static class StoreNames
     }
 
     /// <summary>Turns any text into a valid name part by replacing other characters with <c>_</c> (for a game's name in a folder).</summary>
+    /// <param name="text">Any non-empty text.</param>
+    /// <returns>The text with each disallowed character replaced.</returns>
     public static string Sanitize(string text)
     {
         ArgumentException.ThrowIfNullOrEmpty(text);
