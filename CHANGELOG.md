@@ -10,7 +10,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Changed
 
-- `OneGame.Navigation` moves to OnePath 0.4.0-preview.2: searches run on `GridSearch`, path costs are OnePath's exact Q31.32 values, and `NavGrid.Stamp` is `Grid.ContentHash`. A `NavState` saved by 1.12 still loads; its map stamp differs, so a path or search from such a save is found again from where the unit stands.
+- `OneGame.Navigation` moves to OnePath 0.4.0-preview.3: searches run on `GridSearch`, path costs are OnePath's exact Q31.32 values, and `NavGrid.Stamp` is `Grid.ContentHash`. A `NavState` saved by 1.12 still loads; its map stamp differs, so a path or search from such a save is found again from where the unit stands.
 
 ## [1.12.0] - 2026-10-28
 
