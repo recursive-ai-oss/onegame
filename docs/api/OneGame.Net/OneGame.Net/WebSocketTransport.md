@@ -30,7 +30,7 @@ Connects to a WebSocket server. The connection starts in [`ConnectionState.Conne
 **Parameters**
 
 - `remote` ([`IPEndPoint`](https://learn.microsoft.com/dotnet/api/system.net.ipendpoint)): The server's address.
-- `options` ([`WebSocketOptions`](WebSocketOptions.md)?): Settings; [`WebSocketOptions.Security`](WebSocketOptions.md#m-security) is required ([`NetSecurity.ForClient()`](NetSecurity.md#m-forclient-ienumerable-peerkey-string-netkeypair), or [`NetSecurity.Insecure`](NetSecurity.md#m-insecure) for tests and local tools).
+- `options` ([`WebSocketOptions`](WebSocketOptions.md)?): Settings; [`WebSocketOptions.Security`](WebSocketOptions.md#m-security) is required ([`NetSecurity.ForClient()`](NetSecurity.md#m-forclient-ienumerable-peerkey-string-netkeypair-string), or [`NetSecurity.Insecure`](NetSecurity.md#m-insecure) for tests and local tools).
 - `clock` ([`NetClock`](NetClock.md)?): Time source; the real clock if null.
 
 **Returns:** [`INetConnection`](INetConnection.md)

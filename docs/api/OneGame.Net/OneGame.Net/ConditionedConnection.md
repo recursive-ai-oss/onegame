@@ -36,7 +36,7 @@ Wraps `inner`.
 
 | Member | Description |
 | --- | --- |
-| [`ChannelBinding`](#m-channelbinding) | A 32-byte value both ends derive from the handshake (Noise's handshake hash) and nobody else can: it names this one encrypted session. |
+| [`ChannelBinding`](#m-channelbinding) | A 32-byte value both ends derive from the handshake (Noise's handshake hash): it names this one encrypted session, and a fresh server ephemeral key makes it unique to it. |
 | [`CloseInfo`](#m-closeinfo) | Why the connection closed; [`DisconnectReason.None`](DisconnectReason.md#m-none) until then. |
 | [`IsEncrypted`](#m-isencrypted) | True when the link is encrypted and authenticated ([`SecurityMode.Required`](SecurityMode.md#m-required)). |
 | [`RemoteKey`](#m-remotekey) | The peer's authenticated public key, or null on a link without authentication (an `Insecure` transport, a loopback). |
@@ -50,7 +50,7 @@ Wraps `inner`.
 public ReadOnlyMemory<byte> ChannelBinding { get; }
 ```
 
-A 32-byte value both ends derive from the handshake (Noise's handshake hash) and nobody else can: it names this one encrypted session. A game that checks a platform or login proof (a Steam ticket, a token) must bind the proof to this value and to the server's public key, or a malicious server could pass the proof on to another server and pose as the player there. Empty on an insecure link and before the handshake finishes.
+A 32-byte value both ends derive from the handshake (Noise's handshake hash): it names this one encrypted session, and a fresh server ephemeral key makes it unique to it. It is **public, not a secret**: anyone who watched the handshake can compute it, so never use it as a key or a MAC key. A game that checks a platform or login proof (a Steam ticket, a token) must bind the proof to this value and to the server's public key, or a malicious server could pass the proof on to another server and pose as the player there. Empty on an insecure link and before the handshake finishes.
 
 **Type:** [`ReadOnlyMemory`](https://learn.microsoft.com/dotnet/api/system.readonlymemory-1)`<byte>`
 

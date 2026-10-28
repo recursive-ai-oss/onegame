@@ -43,6 +43,7 @@ The shareable half.
 | Member | Description |
 | --- | --- |
 | [`DeriveFor(PeerKey)`](#m-derivefor-peerkey) | A key pair derived from this one for one server: HKDF-SHA-256 of the private key with the server's public key as salt. |
+| [`DeriveFor(string)`](#m-derivefor-string) | A key pair derived from this one for a server that is named rather than keyed: the same derivation as [`NetKeyPair.DeriveFor()`](NetKeyPair.md#m-derivefor-peerkey) with the server's stable name in place of its key. |
 | [`FromFileText(string)`](#m-fromfiletext-string) | Reads the text written by [`NetKeyPair.ToFileText()`](NetKeyPair.md#m-tofiletext). |
 | [`FromPrivateKey(ReadOnlySpan<byte>)`](#m-fromprivatekey-readonlyspan-byte) | Rebuilds a key pair from its private key bytes. |
 | [`Generate()`](#m-generate) | Makes a new random key pair from [`Entropy`](Entropy.md). |
@@ -63,6 +64,20 @@ A key pair derived from this one for one server: HKDF-SHA-256 of the private key
 **Parameters**
 
 - `server` ([`PeerKey`](PeerKey.md)): The server's public key.
+
+**Returns:** [`NetKeyPair`](NetKeyPair.md)
+
+### <a id="m-derivefor-string"></a>DeriveFor(string)
+
+```csharp
+public NetKeyPair DeriveFor(string serverId);
+```
+
+A key pair derived from this one for a server that is named rather than keyed: the same derivation as [`NetKeyPair.DeriveFor()`](NetKeyPair.md#m-derivefor-peerkey) with the server's stable name in place of its key. A server that rotates its key keeps its name, so its players keep their keys.
+
+**Parameters**
+
+- `serverId` (`string`): The server's stable name. Make it unique to that server (for example `"eu-1.my-game"`): two servers with the same name could link a player.
 
 **Returns:** [`NetKeyPair`](NetKeyPair.md)
 

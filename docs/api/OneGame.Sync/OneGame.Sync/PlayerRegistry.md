@@ -11,6 +11,8 @@ public sealed class PlayerRegistry
 
 Gives each authenticated key a stable small player id, so a client that reconnects (a new connection, the same key) is the same player. The ids are what [`Trust.As()`](Trust.md#m-as-uint-uint) takes. A game owns one registry per authority and saves it with its own data ([`PlayerRegistry.Save()`](PlayerRegistry.md#m-save)), or the ids start over when the process does.
 
+A key proves a key, not a person: anyone can make keys at will, and a handshake with a fresh key succeeds. So the registry is bounded, and it forgets the right keys. A key is *provisional* when first seen and becomes *active* when the game calls [`PlayerRegistry.Activate()`](PlayerRegistry.md#m-activate-uint) for something a spammer cannot mass-produce (the player played for a while, finished the tutorial, linked a platform account). When the registry is full, a new key replaces the oldest provisional one; active players are never replaced, so key spam cannot lock real players out, and cannot take away anyone who earned a place. A returning provisional key that was forgotten simply gets a new id.
+
 ## Constructors
 
 | Member | Description |
@@ -28,13 +30,25 @@ Creates an empty registry that hands out ids from `firstId` upward.
 **Parameters**
 
 - `firstId` (`uint`): The first player id; ids start at 1 by default because 0 means no player.
-- `maxPlayers` (`int`): How many keys it will remember. Anyone can make keys at will, so a server should set this to what its game can hold; [`PlayerRegistry.TryPlayerFor()`](PlayerRegistry.md#m-tryplayerfor-peerkey-uint-bool) then refuses new keys instead of growing without bound.
+- `maxPlayers` (`int`): How many keys it will remember. Set it to what the game can hold. When it is reached, a new key replaces the oldest provisional one; if every key is active, [`PlayerRegistry.TryPlayerFor()`](PlayerRegistry.md#m-tryplayerfor-peerkey-uint-bool) refuses and [`PlayerRegistry.PlayerFor()`](PlayerRegistry.md#m-playerfor-peerkey-bool) throws [`PlayerRegistryFullException`](PlayerRegistryFullException.md).
 
 ## Properties
 
 | Member | Description |
 | --- | --- |
-| [`Count`](#m-count) | Players known so far. |
+| [`ActiveCount`](#m-activecount) | Players that were activated. |
+| [`Count`](#m-count) | Players known so far, provisional and active. |
+| [`Version`](#m-version) | Counts every change that [`PlayerRegistry.Save()`](PlayerRegistry.md#m-save) would write, so a game can tell whether the registry needs saving. |
+
+### <a id="m-activecount"></a>ActiveCount
+
+```csharp
+public int ActiveCount { get; }
+```
+
+Players that were activated.
+
+**Type:** `int`
 
 ### <a id="m-count"></a>Count
 
@@ -42,20 +56,60 @@ Creates an empty registry that hands out ids from `firstId` upward.
 public int Count { get; }
 ```
 
-Players known so far.
+Players known so far, provisional and active.
 
 **Type:** `int`
+
+### <a id="m-version"></a>Version
+
+```csharp
+public long Version { get; }
+```
+
+Counts every change that [`PlayerRegistry.Save()`](PlayerRegistry.md#m-save) would write, so a game can tell whether the registry needs saving.
+
+**Type:** `long`
 
 ## Methods
 
 | Member | Description |
 | --- | --- |
-| [`PlayerFor(PeerKey, out bool)`](#m-playerfor-peerkey-bool) | The player of `key`, adding it on first sight. |
-| [`Save()`](#m-save) | Serialises the registry: next id, count, then (id, key) pairs in id order. |
+| [`Activate(uint)`](#m-activate-uint) | Marks a player as one worth keeping: it is never replaced to make room for a new key. |
+| [`IsActive(uint)`](#m-isactive-uint) | Whether the player was activated. |
+| [`PlayerFor(PeerKey, out bool)`](#m-playerfor-peerkey-bool) | The player of `key`, adding it (provisionally) on first sight; the registry never holds more than its limit. |
+| [`Save()`](#m-save) | Serialises the registry: next id, count, then (id, key, active) entries in id order. |
 | [`TryGetKey(uint, out PeerKey)`](#m-trygetkey-uint-peerkey) | The key a player id was issued to. |
 | [`TryGetPlayer(PeerKey, out uint)`](#m-trygetplayer-peerkey-uint) | The player of `key` if it has been seen. |
 | [`TryLoad(ReadOnlySpan<byte>, out PlayerRegistry, int)`](#m-tryload-readonlyspan-byte-playerregistry-int) | Reads what [`PlayerRegistry.Save()`](PlayerRegistry.md#m-save) wrote. |
-| [`TryPlayerFor(PeerKey, out uint, out bool)`](#m-tryplayerfor-peerkey-uint-bool) | Like [`PlayerRegistry.PlayerFor()`](PlayerRegistry.md#m-playerfor-peerkey-bool), but returns false instead of adding a key when the registry already holds its maximum. |
+| [`TryPlayerFor(PeerKey, out uint, out bool)`](#m-tryplayerfor-peerkey-uint-bool) | The player of `key`, adding it (provisionally) on first sight. |
+
+### <a id="m-activate-uint"></a>Activate(uint)
+
+```csharp
+public bool Activate(uint player);
+```
+
+Marks a player as one worth keeping: it is never replaced to make room for a new key. Call it when the player has done something a spammer cannot do at scale.
+
+**Parameters**
+
+- `player` (`uint`): A player id from this registry.
+
+**Returns:** `bool` — True if the player exists (activating twice is fine).
+
+### <a id="m-isactive-uint"></a>IsActive(uint)
+
+```csharp
+public bool IsActive(uint player);
+```
+
+Whether the player was activated.
+
+**Parameters**
+
+- `player` (`uint`): A player id.
+
+**Returns:** `bool`
 
 ### <a id="m-playerfor-peerkey-bool"></a>PlayerFor(PeerKey, out bool)
 
@@ -63,7 +117,7 @@ Players known so far.
 public uint PlayerFor(PeerKey key, out bool isNew);
 ```
 
-The player of `key`, adding it on first sight.
+The player of `key`, adding it (provisionally) on first sight; the registry never holds more than its limit.
 
 **Parameters**
 
@@ -75,6 +129,7 @@ The player of `key`, adding it on first sight.
 **Exceptions**
 
 - [`ArgumentException`](https://learn.microsoft.com/dotnet/api/system.argumentexception): `key` is empty (an unauthenticated peer has no identity to register).
+- [`PlayerRegistryFullException`](PlayerRegistryFullException.md): The registry is full of active players; use [`PlayerRegistry.TryPlayerFor()`](PlayerRegistry.md#m-tryplayerfor-peerkey-uint-bool) to refuse the key instead.
 
 ### <a id="m-save"></a>Save()
 
@@ -82,7 +137,7 @@ The player of `key`, adding it on first sight.
 public byte[] Save();
 ```
 
-Serialises the registry: next id, count, then (id, key) pairs in id order.
+Serialises the registry: next id, count, then (id, key, active) entries in id order.
 
 **Returns:** `byte[]`
 
@@ -138,7 +193,7 @@ Reads what [`PlayerRegistry.Save()`](PlayerRegistry.md#m-save) wrote. A damaged 
 public bool TryPlayerFor(PeerKey key, out uint player, out bool isNew);
 ```
 
-Like [`PlayerRegistry.PlayerFor()`](PlayerRegistry.md#m-playerfor-peerkey-bool), but returns false instead of adding a key when the registry already holds its maximum.
+The player of `key`, adding it (provisionally) on first sight. Returns false instead of adding a key when the registry is full of active players.
 
 **Parameters**
 
@@ -147,3 +202,7 @@ Like [`PlayerRegistry.PlayerFor()`](PlayerRegistry.md#m-playerfor-peerkey-bool),
 - `isNew` (`bool`): True if this call added the player.
 
 **Returns:** `bool`
+
+**Exceptions**
+
+- [`ArgumentException`](https://learn.microsoft.com/dotnet/api/system.argumentexception): `key` is empty (an unauthenticated peer has no identity to register).

@@ -37,7 +37,7 @@ Connects an empty replica world to a server and subscribes to the scope. Pump it
 | --- | --- |
 | [`Connection`](#m-connection) | The transport connection. |
 | [`DriftReports`](#m-driftreports) | Drift reports the replica filed. |
-| [`IsClosed`](#m-isclosed) | True once the transport connection has closed and the session will not try again (the server refused it, the window ran out, or reconnecting is off). |
+| [`IsClosed`](#m-isclosed) | True once the transport connection has closed and the session is not trying (the server refused it, the window ran out, or reconnecting is off). |
 | [`IsReconnecting`](#m-isreconnecting) | True while the connection is lost and the session is trying to get it back ([`ConnectOptions.Reconnect`](ConnectOptions.md#m-reconnect)). |
 | [`Link`](#m-link) | The link to the server, for subscribing to more scopes later. |
 | [`Node`](#m-node) | The client's node. |
@@ -73,7 +73,7 @@ Drift reports the replica filed.
 public bool IsClosed { get; }
 ```
 
-True once the transport connection has closed and the session will not try again (the server refused it, the window ran out, or reconnecting is off).
+True once the transport connection has closed and the session is not trying (the server refused it, the window ran out, or reconnecting is off). After repeated unauthenticated refusals it is true for a minute, then the session tries again.
 
 **Type:** `bool`
 

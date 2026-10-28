@@ -29,11 +29,13 @@ public WebSocketOptions();
 | --- | --- |
 | [`AllowedOrigins`](#m-allowedorigins) | Listener only: if set, a browser's Origin header must be one of these (compared ignoring case). |
 | [`CloseTimeoutMs`](#m-closetimeoutms) | How long to wait for the peer's close frame before closing the socket anyway. |
+| [`FirstMessageTimeoutMs`](#m-firstmessagetimeoutms) | Listener with security: a socket must send its first handshake message within this long of connecting, or it is closed. |
 | [`HandshakeTimeoutMs`](#m-handshaketimeoutms) | The TCP connect and the opening handshake must finish within this long. |
 | [`Host`](#m-host) | Client only: the Host header; the remote address if null. |
 | [`KeepAliveMs`](#m-keepalivems) | Send a ping after this long without hearing anything. |
 | [`MaxConnections`](#m-maxconnections) | Listener only: connections allowed at once. |
 | [`MaxHandshakesPerSecond`](#m-maxhandshakespersecond) | Listener with security: handshakes started per second (counted when the client's first message arrives, before any key agreement). |
+| [`MaxHandshakesPerSourcePerSecond`](#m-maxhandshakespersourcepersecond) | Listener with security: handshakes one source (an IPv4 address or an IPv6 /64) may start per second, so one host cannot use up the shared budget. |
 | [`MaxHeaderBytes`](#m-maxheaderbytes) | Largest HTTP header block accepted during the opening handshake. |
 | [`MaxMessageBytes`](#m-maxmessagebytes) | Largest message accepted by Send and from the wire. |
 | [`MaxPendingHandshakes`](#m-maxpendinghandshakes) | Listener only: sockets allowed to sit in the opening handshake at once. |
@@ -63,6 +65,16 @@ public int CloseTimeoutMs { get; init; }
 ```
 
 How long to wait for the peer's close frame before closing the socket anyway.
+
+**Type:** `int`
+
+### <a id="m-firstmessagetimeoutms"></a>FirstMessageTimeoutMs
+
+```csharp
+public int FirstMessageTimeoutMs { get; init; }
+```
+
+Listener with security: a socket must send its first handshake message within this long of connecting, or it is closed. Sockets that have not spoken yet are also the first to be dropped when the pending queue is full.
 
 **Type:** `int`
 
@@ -113,6 +125,16 @@ public int MaxHandshakesPerSecond { get; init; }
 ```
 
 Listener with security: handshakes started per second (counted when the client's first message arrives, before any key agreement). Sources that confirmed a session recently have a separate allowance of the same size. More are closed unanswered.
+
+**Type:** `int`
+
+### <a id="m-maxhandshakespersourcepersecond"></a>MaxHandshakesPerSourcePerSecond
+
+```csharp
+public int MaxHandshakesPerSourcePerSecond { get; init; }
+```
+
+Listener with security: handshakes one source (an IPv4 address or an IPv6 /64) may start per second, so one host cannot use up the shared budget. Behind a TLS-terminating proxy every client has the proxy's address, so the per-source limits cap all players together: raise this and [`WebSocketOptions.MaxPendingHandshakesPerSource`](WebSocketOptions.md#m-maxpendinghandshakespersource) to the totals you want (up to [`WebSocketOptions.MaxHandshakesPerSecond`](WebSocketOptions.md#m-maxhandshakespersecond) and [`WebSocketOptions.MaxPendingHandshakes`](WebSocketOptions.md#m-maxpendinghandshakes)) and keep the proxy's own connection limits.
 
 **Type:** `int`
 
@@ -202,7 +224,7 @@ Size of the read buffer.
 public NetSecurity? Security { get; init; }
 ```
 
-How links are encrypted and authenticated. Required: a transport opened without it throws [`SecurityNotConfiguredException`](SecurityNotConfiguredException.md). Use [`NetSecurity.ForServer()`](NetSecurity.md#m-forserver-netkeypair-string-netkeypair), [`NetSecurity.ForClient()`](NetSecurity.md#m-forclient-ienumerable-peerkey-string-netkeypair) or, for tests and local tools, [`NetSecurity.Insecure`](NetSecurity.md#m-insecure).
+How links are encrypted and authenticated. Required: a transport opened without it throws [`SecurityNotConfiguredException`](SecurityNotConfiguredException.md). Use [`NetSecurity.ForServer()`](NetSecurity.md#m-forserver-netkeypair-string-netkeypair), [`NetSecurity.ForClient()`](NetSecurity.md#m-forclient-ienumerable-peerkey-string-netkeypair-string) or, for tests and local tools, [`NetSecurity.Insecure`](NetSecurity.md#m-insecure).
 
 **Type:** [`NetSecurity`](NetSecurity.md)?
 

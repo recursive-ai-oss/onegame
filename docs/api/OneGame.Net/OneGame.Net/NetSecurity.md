@@ -12,7 +12,7 @@ public sealed class NetSecurity
 How a transport secures its links, passed as `UdpOptions.Security` or `WebSocketOptions.Security`. A transport opened without one throws [`SecurityNotConfiguredException`](SecurityNotConfiguredException.md): there is no silent plaintext default.
 
 - **Server:**[`NetSecurity.ForServer()`](NetSecurity.md#m-forserver-netkeypair-string-netkeypair) with the server's key pair. Clients pin its [`NetKeyPair.PublicKey`](../../OneGame.Core/OneGame.Core/NetKeyPair.md#m-publickey).
-- **Client:**[`NetSecurity.ForClient()`](NetSecurity.md#m-forclient-ienumerable-peerkey-string-netkeypair) with the server public keys it trusts (a set, so a server can rotate keys) and optionally a key pair that names this player.
+- **Client:**[`NetSecurity.ForClient()`](NetSecurity.md#m-forclient-ienumerable-peerkey-string-netkeypair-string) with the server public keys it trusts (a set, so a server can rotate keys) and optionally a key pair that names this player.
 - **Tests and local tools:**[`NetSecurity.Insecure`](NetSecurity.md#m-insecure).
 
 The handshake is Noise IK (`Noise_IK_25519_ChaChaPoly_SHA256`): the client already knows the server's key, so it is one round trip, and the client's key is sent encrypted. See `docs/interfaces/transport-security.md`.
@@ -37,7 +37,8 @@ public NetSecurity();
 | [`Identity`](#m-identity) | Client side: the key pair that names this player. |
 | [`Insecure`](#m-insecure) | Plaintext links, for tests and local tools. |
 | [`Mode`](#m-mode) | Required or Insecure. |
-| [`PerServerIdentity`](#m-perserveridentity) | Client side: when true (the default of [`NetSecurity.ForClient()`](NetSecurity.md#m-forclient-ienumerable-peerkey-string-netkeypair)), the key a server sees is derived from [`NetSecurity.Identity`](NetSecurity.md#m-identity) and that server's public key ([`NetKeyPair.DeriveFor()`](../../OneGame.Core/OneGame.Core/NetKeyPair.md#m-derivefor-peerkey)), so two servers cannot tell they are talking to the same player by comparing keys. |
+| [`PerServerIdentity`](#m-perserveridentity) | Client side: when true (the default of [`NetSecurity.ForClient()`](NetSecurity.md#m-forclient-ienumerable-peerkey-string-netkeypair-string)), the key a server sees is derived from [`NetSecurity.Identity`](NetSecurity.md#m-identity) and that server's public key ([`NetKeyPair.DeriveFor()`](../../OneGame.Core/OneGame.Core/NetKeyPair.md#m-derivefor-peerkey)), so two servers cannot tell they are talking to the same player by comparing keys. |
+| [`ServerId`](#m-serverid) | Client side: a stable name for the server being connected to, kept when the server rotates its key. |
 | [`ServerKeys`](#m-serverkeys) | Server (listener) side: the key pairs this server answers as. |
 | [`TrustedServerKeys`](#m-trustedserverkeys) | Client (connecting) side: the server public keys this client accepts, in order of preference. |
 
@@ -87,9 +88,19 @@ Required or Insecure.
 public bool PerServerIdentity { get; init; }
 ```
 
-Client side: when true (the default of [`NetSecurity.ForClient()`](NetSecurity.md#m-forclient-ienumerable-peerkey-string-netkeypair)), the key a server sees is derived from [`NetSecurity.Identity`](NetSecurity.md#m-identity) and that server's public key ([`NetKeyPair.DeriveFor()`](../../OneGame.Core/OneGame.Core/NetKeyPair.md#m-derivefor-peerkey)), so two servers cannot tell they are talking to the same player by comparing keys. Server-to-server links turn it off, because peers name each other by their real keys.
+Client side: when true (the default of [`NetSecurity.ForClient()`](NetSecurity.md#m-forclient-ienumerable-peerkey-string-netkeypair-string)), the key a server sees is derived from [`NetSecurity.Identity`](NetSecurity.md#m-identity) and that server's public key ([`NetKeyPair.DeriveFor()`](../../OneGame.Core/OneGame.Core/NetKeyPair.md#m-derivefor-peerkey)), so two servers cannot tell they are talking to the same player by comparing keys. Server-to-server links turn it off, because peers name each other by their real keys.
 
 **Type:** `bool`
+
+### <a id="m-serverid"></a>ServerId
+
+```csharp
+public string? ServerId { get; init; }
+```
+
+Client side: a stable name for the server being connected to, kept when the server rotates its key. With it, the key the server sees for this player comes from the name instead of the server's current public key, so a rotation does not turn every player into a new player. Without it the derivation uses the key, and rotating a server key gives every player a new identity there. Use one name per server (a list of servers shares one security setting only when they share one name), and never change it.
+
+**Type:** `string?`
 
 ### <a id="m-serverkeys"></a>ServerKeys
 
@@ -116,7 +127,7 @@ Client (connecting) side: the server public keys this client accepts, in order o
 | Member | Description |
 | --- | --- |
 | [`AlsoTrusting(IEnumerable<PeerKey>)`](#m-alsotrusting-ienumerable-peerkey) | The same settings for a server that also connects to other servers (a game's own servers talking to each other). |
-| [`ForClient(IEnumerable<PeerKey>, string, NetKeyPair?)`](#m-forclient-ienumerable-peerkey-string-netkeypair) | Settings for a connecting client. |
+| [`ForClient(IEnumerable<PeerKey>, string, NetKeyPair?, string?)`](#m-forclient-ienumerable-peerkey-string-netkeypair-string) | Settings for a connecting client. |
 | [`ForServer(NetKeyPair, string, NetKeyPair[])`](#m-forserver-netkeypair-string-netkeypair) | Settings for a listening server. |
 | [`IdentityKeyFor(PeerKey)`](#m-identitykeyfor-peerkey) | The key a server with public key `serverKey` sees for this client: what that server's player registry is keyed by. |
 
@@ -134,10 +145,10 @@ The same settings for a server that also connects to other servers (a game's own
 
 **Returns:** [`NetSecurity`](NetSecurity.md)
 
-### <a id="m-forclient-ienumerable-peerkey-string-netkeypair"></a>ForClient(IEnumerable&lt;PeerKey&gt;, string, NetKeyPair?)
+### <a id="m-forclient-ienumerable-peerkey-string-netkeypair-string"></a>ForClient(IEnumerable&lt;PeerKey&gt;, string, NetKeyPair?, string?)
 
 ```csharp
-public static NetSecurity ForClient(IEnumerable<PeerKey> serverKeys, string gameId = "", NetKeyPair? identity = null);
+public static NetSecurity ForClient(IEnumerable<PeerKey> serverKeys, string gameId = "", NetKeyPair? identity = null, string? serverId = null);
 ```
 
 Settings for a connecting client.
@@ -147,6 +158,7 @@ Settings for a connecting client.
 - `serverKeys` ([`IEnumerable`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1)&lt;[`PeerKey`](../../OneGame.Core/OneGame.Core/PeerKey.md)&gt;): The server public keys this client trusts, preferred first.
 - `gameId` (`string`): The game and protocol name both ends use.
 - `identity` ([`NetKeyPair`](../../OneGame.Core/OneGame.Core/NetKeyPair.md)?): This player's key pair, kept between runs; null for a fresh one per connection.
+- `serverId` (`string?`): A stable name for the server that survives key rotation; see [`NetSecurity.ServerId`](NetSecurity.md#m-serverid).
 
 **Returns:** [`NetSecurity`](NetSecurity.md)
 

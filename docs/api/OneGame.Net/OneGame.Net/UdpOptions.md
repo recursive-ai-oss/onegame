@@ -257,7 +257,7 @@ Listener only: an extra per-second budget kept for sources that recently complet
 public NetSecurity? Security { get; init; }
 ```
 
-How links are encrypted and authenticated. Required: a transport opened without it throws [`SecurityNotConfiguredException`](SecurityNotConfiguredException.md). Use [`NetSecurity.ForServer()`](NetSecurity.md#m-forserver-netkeypair-string-netkeypair), [`NetSecurity.ForClient()`](NetSecurity.md#m-forclient-ienumerable-peerkey-string-netkeypair) or, for tests and local tools, [`NetSecurity.Insecure`](NetSecurity.md#m-insecure).
+How links are encrypted and authenticated. Required: a transport opened without it throws [`SecurityNotConfiguredException`](SecurityNotConfiguredException.md). Use [`NetSecurity.ForServer()`](NetSecurity.md#m-forserver-netkeypair-string-netkeypair), [`NetSecurity.ForClient()`](NetSecurity.md#m-forclient-ienumerable-peerkey-string-netkeypair-string) or, for tests and local tools, [`NetSecurity.Insecure`](NetSecurity.md#m-insecure).
 
 **Type:** [`NetSecurity`](NetSecurity.md)?
 

@@ -34,7 +34,7 @@ public ConnectOptions();
 | [`AlsoScopes`](#m-alsoscopes) | More scopes to follow over the same connection, for a server that serves several (its own, and others it relays). |
 | [`Conditions`](#m-conditions) | Network conditions to apply to this client's traffic (latency, loss, ...), or null for the real network as it is. |
 | [`Name`](#m-name) | The name this client has in reports. |
-| [`Reconnect`](#m-reconnect) | When the connection closes for any reason but a refusal or a version mismatch (the server died, restarted or timed out), keep trying to connect again and resubscribe to every followed scope; the replicas are rebuilt from fresh snapshots. |
+| [`Reconnect`](#m-reconnect) | When the connection closes (the server died, restarted or timed out), keep trying to connect again and resubscribe to every followed scope; the replicas are rebuilt from fresh snapshots. |
 | [`ReconnectWindowMs`](#m-reconnectwindowms) | How long to keep trying after the connection was lost before the session counts as closed for good. |
 | [`Scope`](#m-scope) | The scope to subscribe to. |
 | [`Security`](#m-security) | How the link is secured: `NetSecurity.ForClient(serverPublicKeys, gameId, identity)`, or `NetSecurity.Insecure` for tests and local tools. |
@@ -85,7 +85,7 @@ The name this client has in reports.
 public bool Reconnect { get; init; }
 ```
 
-When the connection closes for any reason but a refusal or a version mismatch (the server died, restarted or timed out), keep trying to connect again and resubscribe to every followed scope; the replicas are rebuilt from fresh snapshots. On by default.
+When the connection closes (the server died, restarted or timed out), keep trying to connect again and resubscribe to every followed scope; the replicas are rebuilt from fresh snapshots. On by default. A refusal the server made over the encrypted link (kicked, not admitted, wrong version) is final. A refusal that arrived before the link was authenticated (a Reject datagram, a failed handshake) could have been forged by anyone on the path, so it only counts when the next three fresh attempts are refused too; the session then reports [`RemoteSession.IsClosed`](RemoteSession.md#m-isclosed) and tries again after a minute.
 
 **Type:** `bool`
 

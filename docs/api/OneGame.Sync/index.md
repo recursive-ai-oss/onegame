@@ -73,6 +73,7 @@ dotnet add package RecursiveAI.OneGame.Sync
 | [`Node`](OneGame.Sync/Node.md) | class | A participant: it holds the scopes it is authority for, the replicas it subscribes to, and the connections that carry both. |
 | [`PeerIdentity`](OneGame.Sync/PeerIdentity.md) | struct | Who is on the other end of an accepted channel, as far as the transport can prove. |
 | [`PlayerRegistry`](OneGame.Sync/PlayerRegistry.md) | class | Gives each authenticated key a stable small player id, so a client that reconnects (a new connection, the same key) is the same player. |
+| [`PlayerRegistryFullException`](OneGame.Sync/PlayerRegistryFullException.md) | class | The registry holds as many players as it may and every one of them has been activated, so there is nobody to forget. |
 | [`Prediction`](OneGame.Sync/Prediction.md) | class | Client-side prediction for one replica. |
 | [`PredictionOptions`](OneGame.Sync/PredictionOptions.md) | class | Settings for a replica's prediction ([`ReplicaScope.EnablePrediction()`](OneGame.Sync/ReplicaScope.md#m-enableprediction-world-predictionoptions)). |
 | [`ProtocolError`](OneGame.Sync/ProtocolError.md) | struct | A message from a peer that could not be applied; the replica asked for a fresh snapshot. |
