@@ -37,6 +37,80 @@ public class ClusterTests
     }
 
     [Fact]
+    public void AServerWhosePortWasTakenBeforeItBoundIsStartedAgainOnOtherPorts()
+    {
+        // Hold a port on both protocols, as another process would, and hand it out as the server's port once.
+        using var udp = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 0));
+        var taken = ((System.Net.IPEndPoint)udp.Client.LocalEndPoint!).Port;
+        using var tcp = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, taken);
+        tcp.Start();
+        var handed = 0;
+        ProcessCluster.PortSource = () =>
+        {
+            if (handed++ == 0)
+            {
+                return taken;
+            }
+
+            using var probe = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+            probe.Start();
+            return ((System.Net.IPEndPoint)probe.LocalEndpoint).Port;
+        };
+        try
+        {
+            using var cluster = TestCluster.Launch(Spec("race", Fixture.ServerNode("srv", tickRate: 120), Fixture.ClientNode("p1", "srv")));
+            Assert.True(handed > 2, "the start should have asked for new ports after the first attempt failed");
+            Assert.True(cluster.Hashes().Ok);
+        }
+        finally
+        {
+            ProcessCluster.PortSource = null;
+        }
+    }
+
+    [Fact]
+    public void ManyClustersOneAfterAnotherNeverRunOutOfPorts()
+    {
+        // Each cluster takes 2 ports per server; 105 clusters is past the 200 numbers the picker tries before giving up. Ports of
+        // clusters that are down must be free to use again, so the set of reserved numbers stays empty.
+        var baseline = ProcessCluster.IssuedCount;
+        for (var i = 0; i < 105; i++)
+        {
+            var spec = Spec("seq", Fixture.ServerNode("srv", tickRate: 120));
+            using var cluster = TestCluster.Launch(spec);
+        }
+
+        Assert.Equal(baseline, ProcessCluster.IssuedCount);
+    }
+
+    [Fact]
+    public void AStartThatFindsNoFreePortWaitsAndTriesAgain()
+    {
+        var calls = 0;
+        ProcessCluster.PortSource = () =>
+        {
+            if (calls++ == 0)
+            {
+                throw new ClusterException("no_port", "Could not find a free port for a server.");
+            }
+
+            using var probe = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+            probe.Start();
+            return ((System.Net.IPEndPoint)probe.LocalEndpoint).Port;
+        };
+        try
+        {
+            using var cluster = TestCluster.Launch(Spec("noport", Fixture.ServerNode("srv", tickRate: 120)));
+            Assert.True(calls > 2);
+            Assert.True(cluster.Hashes().Ok);
+        }
+        finally
+        {
+            ProcessCluster.PortSource = null;
+        }
+    }
+
+    [Fact]
     public void TwoClientsOverUdpAndWebSocketStayInSyncThroughALossyNetwork()
     {
         var spec = Spec(
