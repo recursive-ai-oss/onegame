@@ -95,6 +95,8 @@ Starts connecting. Ends with a [`StoreEventKind.Connected`](StoreEventKind.md#m-
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-finish-purchasetransaction-productkind"></a>Finish(PurchaseTransaction, ProductKind)
 
 ```csharp

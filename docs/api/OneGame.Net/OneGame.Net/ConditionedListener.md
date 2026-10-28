@@ -84,6 +84,8 @@ Handshakes the server holds state for right now. Always 0 for UDP, whose handsha
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-pump"></a>Pump()
 
 ```csharp

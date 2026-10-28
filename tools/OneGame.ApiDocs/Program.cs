@@ -168,7 +168,7 @@ static class Program
             else if (!File.ReadAllBytes(full).AsSpan().SequenceEqual(want)) { Console.Error.WriteLine("differs: docs/api/" + kv.Key); diffs++; }
         }
         foreach (string s in StaleFiles(outDir, files)) { Console.Error.WriteLine("stale: " + Path.GetRelativePath(outDir, s)); diffs++; }
-        if (diffs > 0) Console.Error.WriteLine($"{diffs} file(s) out of date: run `dotnet run --project tools/OneGame.ApiDocs -c Release -- --out docs/api` after a Release build and commit the result.");
+        if (diffs > 0) Console.Error.WriteLine($"{diffs} file(s) differ. Fix: build in Release, run `dotnet run --project tools/OneGame.ApiDocs -c Release -- --out docs/api` and commit docs/api.");
         return diffs == 0 ? 0 : 1;
     }
 

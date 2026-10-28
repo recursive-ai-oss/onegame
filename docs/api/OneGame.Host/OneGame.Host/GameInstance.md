@@ -659,6 +659,8 @@ Describes the render graph of the last frame the render stage drew (passes, reso
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-draininput"></a>DrainInput()
 
 ```csharp

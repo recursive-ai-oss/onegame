@@ -94,3 +94,5 @@ Number of mip levels of the specular cube (roughness = mip / (count - 1)).
 ```csharp
 public void Dispose();
 ```
+
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).

@@ -15,6 +15,9 @@ sealed class Doc
     public List<XElement> Examples = [];
     public List<XElement> SeeAlso = [];
 
+    /// <summary>For an <c>inheritdoc</c> whose source is outside the engine: the member it implements or overrides.</summary>
+    public Inherited? Source;
+
     public bool IsEmpty => Summary is null && Remarks is null && Returns is null && Value is null && Params.Count == 0 && Exceptions.Count == 0 && Examples.Count == 0;
 
     public static Doc From(XElement member)
@@ -54,6 +57,9 @@ sealed class Doc
     }
 }
 
+/// <summary>A member of a .NET or sibling-library type that an engine member implements or overrides.</summary>
+sealed record Inherited(string TypeKey, string TypeDisplay, string Member, bool IsInterface, bool IsConstructor);
+
 /// <summary>Finds a documented member's doc, following <c>inheritdoc</c> to the base type or interface it comes from.</summary>
 sealed class DocLookup(Dictionary<string, XElement> xml, Dictionary<string, TypeInfo> typesByKey)
 {
@@ -89,8 +95,12 @@ sealed class DocLookup(Dictionary<string, XElement> xml, Dictionary<string, Type
                 if (src is not null) result.FillFrom(src);
                 else
                 {
-                    UnresolvedInheritDoc++;
-                    UnresolvedInheritDocIds.Add(id);
+                    result.Source = member is null ? null : External(type, member);
+                    if (result.Source is null)
+                    {
+                        UnresolvedInheritDoc++;
+                        UnresolvedInheritDocIds.Add(id);
+                    }
                 }
             }
         }
@@ -155,4 +165,84 @@ sealed class DocLookup(Dictionary<string, XElement> xml, Dictionary<string, Type
 
     static bool SameParams(MemberInfo a, MemberInfo b) =>
         a.Params.Count == b.Params.Count && a.Params.Zip(b.Params).All(p => DocId.Of(p.First.Type.Sig) == DocId.Of(p.Second.Type.Sig));
+
+    // The first ancestor outside the engine (base class, then interfaces, then object) that has a member of this name and arity.
+    // Names are looked up in the runtime's own libraries; that only reads member names, nothing from the engine is loaded.
+    Inherited? External(TypeInfo type, MemberInfo member)
+    {
+        if (member.Kind == MemberKind.Constructor) return new Inherited(type.Key, type.DisplayName, type.Names[^1], false, true);
+        string name = member.Kind == MemberKind.Property && member.Name.StartsWith("this[", StringComparison.Ordinal) ? "Item" : member.Name;
+        var seen = new HashSet<string>(StringComparer.Ordinal) { type.Key };
+        var queue = new Queue<TypeSig>();
+        void Enqueue(TypeInfo x)
+        {
+            if (x.Base is not null) queue.Enqueue(x.Base);
+            foreach (TypeSig i in x.Interfaces) queue.Enqueue(i);
+        }
+        Enqueue(type);
+        var external = new List<(TypeSig Sig, string Key)>();
+        while (queue.Count > 0)
+        {
+            TypeSig s = queue.Dequeue();
+            string? key = s switch { NamedSig n => n.Key, GenericSig g => g.Def.Key, _ => null };
+            if (key is null || !seen.Add(key)) continue;
+            if (typesByKey.TryGetValue(key, out TypeInfo? ours)) Enqueue(ours);
+            else external.Add((s, key));
+        }
+        if (!seen.Contains("System.Object")) external.Add((new NamedSig("System", ["Object"], false), "System.Object"));
+        foreach ((TypeSig sig, string key) in external)
+        {
+            Type? t = FindRuntimeType(key);
+            if (t is null || !HasMember(t, name, member.Params, member.Kind)) continue;
+            return new Inherited(key, DisplayOf(sig, key), name, t.IsInterface, false);
+        }
+        // A sibling library's type cannot be inspected here; when it is the only candidate it is the source.
+        var siblings = external.Where(e => e.Key.StartsWith("One", StringComparison.Ordinal) && !e.Key.StartsWith("OneGame.", StringComparison.Ordinal)).ToList();
+        if (siblings.Count == 1) return new Inherited(siblings[0].Key, DisplayOf(siblings[0].Sig, siblings[0].Key), name, true, false);
+        return null;
+    }
+
+    static string DisplayOf(TypeSig sig, string key)
+    {
+        string plain = TypeText.Plain(new TypeUse(sig, null, 0, null));
+        return key == "System.Object" ? "Object" : plain;
+    }
+
+    static readonly string[] RuntimeAssemblies =
+    [
+        "", ", System.Private.CoreLib", ", System.Collections", ", System.Linq", ", System.Text.Json", ", System.Runtime",
+        ", System.Memory", ", System.ObjectModel", ", System.Collections.Concurrent", ", System.Collections.Immutable",
+    ];
+
+    static Type? FindRuntimeType(string key)
+    {
+        foreach (string a in RuntimeAssemblies)
+        {
+            Type? t = Type.GetType(key + a, false);
+            if (t is not null) return t;
+        }
+        return null;
+    }
+
+    static bool HasMember(Type t, string name, List<ParamInfo> ps, MemberKind kind)
+    {
+        const System.Reflection.BindingFlags all = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic |
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static;
+        if (kind == MemberKind.Property)
+            return t.GetProperties(all).Any(p => p.Name == name && p.GetIndexParameters().Length == ps.Count);
+        if (kind == MemberKind.Event) return t.GetEvents(all).Any(e => e.Name == name);
+        return t.GetMethods(all).Any(m => m.Name == name && SameShape(m.GetParameters(), ps));
+    }
+
+    // Same number of parameters, and a parameter of type object only matches object: Equals(Fixed) is IEquatable's, Equals(object) is the base class's.
+    static bool SameShape(System.Reflection.ParameterInfo[] actual, List<ParamInfo> ps)
+    {
+        if (actual.Length != ps.Count) return false;
+        for (int i = 0; i < actual.Length; i++)
+        {
+            bool wantObject = ps[i].Type.Sig is NamedSig { Key: "System.Object" };
+            if (wantObject != (actual[i].ParameterType == typeof(object))) return false;
+        }
+        return true;
+    }
 }

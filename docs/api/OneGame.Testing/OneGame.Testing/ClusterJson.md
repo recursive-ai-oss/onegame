@@ -26,11 +26,15 @@ Source-generated JSON for the cluster's files and reports.
 public ClusterJson();
 ```
 
+Creates a new instance.
+
 ### <a id="m-ctor-jsonserializeroptions"></a>ClusterJson(JsonSerializerOptions)
 
 ```csharp
 public ClusterJson(JsonSerializerOptions options);
 ```
+
+Creates a new instance.
 
 **Parameters**
 
@@ -316,6 +320,8 @@ Defines the source generated JSON serialization contract metadata for a given ty
 ```csharp
 public override JsonTypeInfo? GetTypeInfo(Type type);
 ```
+
+Overrides [`JsonSerializerContext.GetTypeInfo()`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.jsonserializercontext.gettypeinfo).
 
 **Parameters**
 

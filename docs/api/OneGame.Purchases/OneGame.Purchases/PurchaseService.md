@@ -186,6 +186,8 @@ A snapshot for logs and the harness.
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-finish-purchasetransaction"></a>Finish(PurchaseTransaction)
 
 ```csharp

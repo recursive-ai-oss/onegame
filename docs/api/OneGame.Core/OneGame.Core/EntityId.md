@@ -87,6 +87,8 @@ The raw number.
 public int CompareTo(EntityId other);
 ```
 
+Implements [`IComparable<EntityId>.CompareTo()`](https://learn.microsoft.com/dotnet/api/system.icomparable-1.compareto).
+
 **Parameters**
 
 - `other` ([`EntityId`](EntityId.md))
@@ -98,6 +100,8 @@ public int CompareTo(EntityId other);
 ```csharp
 public bool Equals(EntityId other);
 ```
+
+Implements [`IEquatable<EntityId>.Equals()`](https://learn.microsoft.com/dotnet/api/system.iequatable-1.equals).
 
 **Parameters**
 
@@ -111,6 +115,8 @@ public bool Equals(EntityId other);
 public override bool Equals(object? obj);
 ```
 
+Overrides [`ValueType.Equals()`](https://learn.microsoft.com/dotnet/api/system.valuetype.equals).
+
 **Parameters**
 
 - `obj` (`object?`)
@@ -122,6 +128,8 @@ public override bool Equals(object? obj);
 ```csharp
 public override int GetHashCode();
 ```
+
+Overrides [`ValueType.GetHashCode()`](https://learn.microsoft.com/dotnet/api/system.valuetype.gethashcode).
 
 **Returns:** `int`
 
@@ -144,6 +152,8 @@ Reads a value written by [`ISyncValue<TSelf>.Write()`](ISyncValue-1.md#m-write-s
 ```csharp
 public override string ToString();
 ```
+
+Overrides [`ValueType.ToString()`](https://learn.microsoft.com/dotnet/api/system.valuetype.tostring).
 
 **Returns:** `string`
 

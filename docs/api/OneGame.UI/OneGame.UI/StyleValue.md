@@ -28,6 +28,8 @@ A value for a style property or a theme token: a length, a number, a color, a ke
 public bool Equals(StyleValue other);
 ```
 
+Implements [`IEquatable<StyleValue>.Equals()`](https://learn.microsoft.com/dotnet/api/system.iequatable-1.equals).
+
 **Parameters**
 
 - `other` ([`StyleValue`](StyleValue.md))
@@ -40,6 +42,8 @@ public bool Equals(StyleValue other);
 public override bool Equals(object? obj);
 ```
 
+Overrides [`ValueType.Equals()`](https://learn.microsoft.com/dotnet/api/system.valuetype.equals).
+
 **Parameters**
 
 - `obj` (`object?`)
@@ -51,6 +55,8 @@ public override bool Equals(object? obj);
 ```csharp
 public override int GetHashCode();
 ```
+
+Overrides [`ValueType.GetHashCode()`](https://learn.microsoft.com/dotnet/api/system.valuetype.gethashcode).
 
 **Returns:** `int`
 

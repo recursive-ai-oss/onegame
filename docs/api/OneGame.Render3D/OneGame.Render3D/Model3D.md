@@ -74,6 +74,8 @@ Number of triangles drawn per frame at rest.
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-setstyle-materialstyle3d"></a>SetStyle(MaterialStyle3D)
 
 ```csharp

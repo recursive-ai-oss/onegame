@@ -291,6 +291,8 @@ Stops measuring a bus and frees its slot.
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-durationseconds-object"></a>DurationSeconds(object)
 
 ```csharp

@@ -144,6 +144,8 @@ Discards everything captured so far.
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-write-readonlyspan-float"></a>Write(ReadOnlySpan&lt;float&gt;)
 
 ```csharp

@@ -131,6 +131,8 @@ The handle of an address, if it is registered.
 public bool TryGetImage(string address, out ImageInfo image);
 ```
 
+Implements `IImageSource.TryGetImage()`.
+
 **Parameters**
 
 - `address` (`string`)

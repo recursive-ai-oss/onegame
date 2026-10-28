@@ -74,3 +74,5 @@ Creates a renderer for targets of one format.
 ```csharp
 public void Dispose();
 ```
+
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).

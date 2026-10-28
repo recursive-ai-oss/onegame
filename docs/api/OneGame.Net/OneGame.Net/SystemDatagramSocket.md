@@ -60,6 +60,8 @@ The address this socket receives on.
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-receive-span-byte-socketaddress"></a>Receive(Span&lt;byte&gt;, SocketAddress)
 
 ```csharp

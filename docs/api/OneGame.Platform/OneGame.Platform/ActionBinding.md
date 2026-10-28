@@ -80,6 +80,8 @@ A short label for a binding list, such as `W A S D` or `Space`.
 public bool Equals(ActionBinding other);
 ```
 
+Implements [`IEquatable<ActionBinding>.Equals()`](https://learn.microsoft.com/dotnet/api/system.iequatable-1.equals).
+
 **Parameters**
 
 - `other` ([`ActionBinding`](ActionBinding.md))
@@ -92,6 +94,8 @@ public bool Equals(ActionBinding other);
 public override bool Equals(object? obj);
 ```
 
+Overrides [`ValueType.Equals()`](https://learn.microsoft.com/dotnet/api/system.valuetype.equals).
+
 **Parameters**
 
 - `obj` (`object?`)
@@ -103,6 +107,8 @@ public override bool Equals(object? obj);
 ```csharp
 public override int GetHashCode();
 ```
+
+Overrides [`ValueType.GetHashCode()`](https://learn.microsoft.com/dotnet/api/system.valuetype.gethashcode).
 
 **Returns:** `int`
 

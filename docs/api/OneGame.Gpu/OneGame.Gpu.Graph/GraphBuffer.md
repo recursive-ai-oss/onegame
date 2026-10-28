@@ -42,6 +42,8 @@ False for `default`.
 public bool Equals(GraphBuffer other);
 ```
 
+Implements [`IEquatable<GraphBuffer>.Equals()`](https://learn.microsoft.com/dotnet/api/system.iequatable-1.equals).
+
 **Parameters**
 
 - `other` ([`GraphBuffer`](GraphBuffer.md))
@@ -54,6 +56,8 @@ public bool Equals(GraphBuffer other);
 public override bool Equals(object? obj);
 ```
 
+Overrides [`ValueType.Equals()`](https://learn.microsoft.com/dotnet/api/system.valuetype.equals).
+
 **Parameters**
 
 - `obj` (`object?`)
@@ -65,6 +69,8 @@ public override bool Equals(object? obj);
 ```csharp
 public override int GetHashCode();
 ```
+
+Overrides [`ValueType.GetHashCode()`](https://learn.microsoft.com/dotnet/api/system.valuetype.gethashcode).
 
 **Returns:** `int`
 

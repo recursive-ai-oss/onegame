@@ -58,4 +58,6 @@ The id.
 public override string ToString();
 ```
 
+Overrides [`ValueType.ToString()`](https://learn.microsoft.com/dotnet/api/system.valuetype.tostring).
+
 **Returns:** `string`

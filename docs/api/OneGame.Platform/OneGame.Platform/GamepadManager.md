@@ -42,6 +42,8 @@ Mappings used to find a device's layout. Devices with no entry get the kernel's 
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-rescan"></a>Rescan()
 
 ```csharp

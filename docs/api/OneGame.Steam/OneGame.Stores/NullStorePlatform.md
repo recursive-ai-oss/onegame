@@ -181,6 +181,8 @@ Why the store is not connected, in plain words for logs. Null when [`IStorePlatf
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-pump"></a>Pump()
 
 ```csharp

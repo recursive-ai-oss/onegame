@@ -101,6 +101,8 @@ A path in a private per-user folder for a game process to listen on.
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-pump"></a>Pump()
 
 ```csharp

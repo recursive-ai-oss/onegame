@@ -66,6 +66,8 @@ The folder operations write to.
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-launch-clusterspec-int"></a>Launch(ClusterSpec, int?)
 
 ```csharp
