@@ -40,6 +40,7 @@ public sealed class NavCrowd : IHotTable
     private readonly Visibility _visibility;
     private readonly double _dt;
     private readonly int _maxStateBytes;
+    private readonly double _snapDistance;
     private Agent[] _list = [];
     private Crowd _crowd;
     private byte[] _scratch = new byte[1024];
@@ -97,6 +98,7 @@ public sealed class NavCrowd : IHotTable
             OriginZ = origin.Y,
         };
         _mesh = NavMesh.Build2D(walkable, map.Width, map.Height, cellSize, origin, settings);
+        _snapDistance = cellSize * (map.Width + map.Height);
         _crowdOptions = new CrowdOptions { MaxAgents = maxAgents, MaxThreads = 1 };
         _crowd = _mesh.CreateCrowd(_crowdOptions);
         DefaultAgent = new NavAgentOptions
@@ -180,7 +182,7 @@ public sealed class NavCrowd : IHotTable
     /// <summary>Adds an agent with <see cref="DefaultAgent"/> at the walkable point nearest to a position.</summary>
     /// <param name="position">Where to put it.</param>
     /// <param name="id">The agent's number.</param>
-    /// <returns>False when the crowd is full or no walkable ground is near.</returns>
+    /// <returns>False when the crowd is full or the map has no walkable ground.</returns>
     /// <exception cref="NavRangeException">The position is beyond ±2^21 units.</exception>
     /// <exception cref="ReplicaWriteException">The world is a replica.</exception>
     public bool TryAdd(FVec2 position, out int id) => TryAdd(position, DefaultAgent, out id);
@@ -189,7 +191,7 @@ public sealed class NavCrowd : IHotTable
     /// <param name="position">Where to put it.</param>
     /// <param name="options">Its settings.</param>
     /// <param name="id">The agent's number.</param>
-    /// <returns>False when the crowd is full or no walkable ground is near.</returns>
+    /// <returns>False when the crowd is full or the map has no walkable ground.</returns>
     /// <exception cref="NavRangeException">The position is beyond ±2^21 units.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A setting is out of range.</exception>
     /// <exception cref="ReplicaWriteException">The world is a replica.</exception>
@@ -204,16 +206,13 @@ public sealed class NavCrowd : IHotTable
             return false;
         }
 
-        Agent agent;
-        try
+        // Snap to the nearest walkable point anywhere on the map first, so the add below always finds ground.
+        if (!_mesh.TrySamplePosition(p, _snapDistance, out var ground))
         {
-            agent = _crowd.Add(p, o);
-        }
-        catch (InvalidOperationException)
-        {
-            return false; // no walkable polygon near
+            return false;
         }
 
+        var agent = _crowd.Add(ground, o);
         if (agent.Id > int.MaxValue)
         {
             _crowd.Remove(agent);

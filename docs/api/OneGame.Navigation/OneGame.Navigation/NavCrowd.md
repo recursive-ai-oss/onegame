@@ -330,7 +330,7 @@ Adds an agent with [`NavCrowd.DefaultAgent`](NavCrowd.md#m-defaultagent) at the 
 - `position` ([`FVec2`](../../OneGame.Core/OneGame.Core/FVec2.md)): Where to put it.
 - `id` (`int`): The agent's number.
 
-**Returns:** `bool` — False when the crowd is full or no walkable ground is near.
+**Returns:** `bool` — False when the crowd is full or the map has no walkable ground.
 
 **Exceptions**
 
@@ -351,7 +351,7 @@ Adds an agent at the walkable point nearest to a position.
 - `options` ([`NavAgentOptions`](NavAgentOptions.md)): Its settings.
 - `id` (`int`): The agent's number.
 
-**Returns:** `bool` — False when the crowd is full or no walkable ground is near.
+**Returns:** `bool` — False when the crowd is full or the map has no walkable ground.
 
 **Exceptions**
 
