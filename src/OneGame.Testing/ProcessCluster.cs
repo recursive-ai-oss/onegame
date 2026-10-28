@@ -168,23 +168,40 @@ public sealed class ProcessCluster : IDisposable
         var dir = Path.GetFullPath(spec.Dir ?? Path.Combine(Path.GetTempPath(), "onegame-cluster-" + Guid.NewGuid().ToString("N")[..8]));
         Directory.CreateDirectory(dir);
         var parent = parentPid ?? Environment.ProcessId;
+        var stateFile = Path.Combine(dir, "cluster.json");
+        // A port number cannot be reserved for a child process: between choosing it and the child binding it, any other process may take it.
+        // So a node that finds its port taken ends with an address-in-use error, and the whole start is repeated with new numbers.
+        for (var attempt = 1; ; attempt++)
+        {
+            var ports = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var n in spec.Nodes.Where(n => n.Role == NodeRole.Server))
+            {
+                ports[n.Name] = (PortSource ?? FreePort)();
+                ports[n.Name + ".peer"] = (PortSource ?? FreePort)(); // a second port per server, for servers that talk to each other privately
+            }
+
+            try
+            {
+                return StartAll(spec, dir, parent, stateFile, ports);
+            }
+            catch (ClusterException ex) when (attempt < 5 && IsAddressInUse(ex))
+            {
+                // Everything started so far was stopped by StartAll; try again with other ports.
+            }
+        }
+    }
+
+    private static ProcessCluster StartAll(ClusterSpec spec, string dir, int parent, string stateFile, Dictionary<string, int> ports)
+    {
         var started = new List<NodeState>();
         var processes = new List<Process>();
-        var stateFile = Path.Combine(dir, "cluster.json");
-        var ports = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var n in spec.Nodes.Where(n => n.Role == NodeRole.Server))
-        {
-            ports[n.Name] = FreePort();
-            ports[n.Name + ".peer"] = FreePort(); // a second port per server, for servers that talk to each other privately
-        }
         ProcessCluster? cluster = null;
         try
         {
             foreach (var node in spec.Nodes.Where(n => n.Role == NodeRole.Server).Concat(spec.Nodes.Where(n => n.Role == NodeRole.Client)))
             {
-                var (state, process) = StartProcess(spec, node, dir, parent, started, ports);
+                var (state, _) = StartProcess(spec, node, dir, parent, started, ports, processes);
                 started.Add(state);
-                processes.Add(process);
                 WriteState(new ClusterState(spec.Name, dir, Environment.ProcessId, [.. started]), stateFile);
             }
 
@@ -201,6 +218,13 @@ public sealed class ProcessCluster : IDisposable
             throw;
         }
     }
+
+    // The text a node's log ends with when it could not bind: Linux/macOS "Address already in use" (errno 98/48), Windows WSAEADDRINUSE 10048.
+    private static bool IsAddressInUse(ClusterException ex)
+        => ex.Code == "start_failed"
+           && (ex.Message.Contains("Address already in use", StringComparison.OrdinalIgnoreCase)
+               || ex.Message.Contains("only one usage of each socket address", StringComparison.OrdinalIgnoreCase)
+               || ex.Message.Contains("AddressAlreadyInUse", StringComparison.Ordinal));
 
     /// <summary>Finds the nodes of a cluster that another process started, from its <c>cluster.json</c>.</summary>
     /// <param name="stateFile">The file, or the folder that holds it.</param>
@@ -279,7 +303,22 @@ public sealed class ProcessCluster : IDisposable
         }
 
         var spec = _spec!;
-        var (state, _) = StartProcess(spec, spec.Nodes.First(x => x.Name == node), _state.Dir, _parent, [.. _state.Nodes], _ports!);
+        // The node keeps its old port, because its peers were told it. A killed process's socket can take a moment to be released, or another
+        // process may hold the number briefly, so a bind failure is retried for a few seconds before it is reported.
+        NodeState state;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                (state, _) = StartProcess(spec, spec.Nodes.First(x => x.Name == node), _state.Dir, _parent, [.. _state.Nodes], _ports!);
+                break;
+            }
+            catch (ClusterException ex) when (attempt < 10 && IsAddressInUse(ex))
+            {
+                Thread.Sleep(500);
+            }
+        }
+
         _state = _state with { Nodes = [.. _state.Nodes.Select(x => x.Name == node ? state : x)] };
         WriteState(_state, _stateFile);
     }
@@ -785,7 +824,7 @@ public sealed class ProcessCluster : IDisposable
 
     // ---- processes ----
 
-    private static (NodeState State, Process Process) StartProcess(ClusterSpec spec, NodeSpec node, string dir, int parent, List<NodeState> started, Dictionary<string, int> ports)
+    private static (NodeState State, Process Process) StartProcess(ClusterSpec spec, NodeSpec node, string dir, int parent, List<NodeState> started, Dictionary<string, int> ports, List<Process>? processes = null)
     {
         var socket = Path.Combine(dir, node.Name + ".sock");
         var log = Path.Combine(dir, node.Name + ".log");
@@ -892,6 +931,7 @@ public sealed class ProcessCluster : IDisposable
         }
 
         var process = Process.Start(info) ?? throw new ClusterException("start_failed", $"Node '{node.Name}' did not start.");
+        processes?.Add(process);
         process.StandardInput.Close();
         if (OperatingSystem.IsWindows())
         {
@@ -980,6 +1020,9 @@ public sealed class ProcessCluster : IDisposable
 
     private static System.Net.IPAddress ServerBindAddress()
         => System.Net.IPAddress.TryParse(Environment.GetEnvironmentVariable("ONEGAME_CLUSTER_BIND"), out var a) ? a : System.Net.IPAddress.Loopback;
+
+    // Lets a test hand out a port that is already taken, to prove a start survives losing the race for one.
+    internal static Func<int>? PortSource { get; set; }
 
     private static int FreePort()
     {

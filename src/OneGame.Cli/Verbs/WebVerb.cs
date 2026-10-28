@@ -44,10 +44,10 @@ internal sealed class WebVerb : IVerb
         folder = Path.GetFullPath(folder);
         var chrome = FindChrome();
         // Browser storage belongs to an origin, port included: a run that must find an earlier run's files names its port.
-        var port = a.Get("--port") is { } given ? int.Parse(given, CultureInfo.InvariantCulture) : FreePort();
-        using var listener = new HttpListener();
-        listener.Prefixes.Add($"http://127.0.0.1:{port}/");
-        listener.Start();
+        // Without --port, the listener itself binds a port picked just before; if another process took it in between, pick again.
+        var fixedPort = a.Get("--port") is { } given ? int.Parse(given, CultureInfo.InvariantCulture) : (int?)null;
+        var (listener, port) = StartListener(fixedPort);
+        using var listenerScope = listener;
         // A given profile folder is kept between runs (IndexedDB lives in it): the way to prove a save survives a restart of the page.
         var keepProfile = a.Get("--profile") is not null;
         var profile = keepProfile ? Path.GetFullPath(a.Get("--profile")!) : Path.Combine(Path.GetTempPath(), "onegame-chrome-" + Environment.ProcessId);
@@ -222,6 +222,25 @@ internal sealed class WebVerb : IVerb
         }
 
         throw new CliException(ExitCodes.Usage, "no_browser", "No Chrome found. Install Chrome or Chromium, or set ONEGAME_CHROME to its path.");
+    }
+
+    private static (HttpListener Listener, int Port) StartListener(int? fixedPort)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            var port = fixedPort ?? FreePort();
+            var listener = new HttpListener();
+            listener.Prefixes.Add($"http://127.0.0.1:{port}/");
+            try
+            {
+                listener.Start();
+                return (listener, port);
+            }
+            catch (HttpListenerException) when (fixedPort is null && attempt < 5)
+            {
+                listener.Close();
+            }
+        }
     }
 
     private static int FreePort()

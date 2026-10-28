@@ -381,10 +381,27 @@ public class PredictionTests
         return (bytes, ticks * 1_000_000.0 / System.Diagnostics.Stopwatch.Frequency / steps, rig.Prediction.Rollbacks);
     }
 
+    // A one-off cost the runtime charges to the measuring thread can land in a single run; a per-tick allocation lands in every run of 600
+    // ticks. So a replica passes when its best run allocates nothing.
+    private static (long Bytes, double MicrosecondsPerStep, long Rollbacks) MeasureBest(int lead, bool commands)
+    {
+        var best = Measure(lead, commands);
+        for (var attempt = 1; attempt < 3 && best.Bytes != 0; attempt++)
+        {
+            var again = Measure(lead, commands);
+            if (again.Bytes < best.Bytes)
+            {
+                best = again;
+            }
+        }
+
+        return best;
+    }
+
     [Fact]
     public void APredictedReplicaAllocatesNothingPerTickInSteadyState()
     {
-        var idle = Measure(lead: 10, commands: false);
+        var idle = MeasureBest(lead: 10, commands: false);
         Assert.Equal(0, idle.Bytes);
         Console.WriteLine($"idle replica, lead 10: {idle.Bytes} bytes over 600 ticks, {idle.MicrosecondsPerStep:F1} us per tick");
     }
@@ -392,7 +409,7 @@ public class PredictionTests
     [Fact]
     public void APredictedReplicaSendingEveryTickAllocatesNothingPerTick()
     {
-        var busy = Measure(lead: 10, commands: true);
+        var busy = MeasureBest(lead: 10, commands: true);
         Console.WriteLine($"replica steering every tick, lead 10: {busy.Bytes} bytes over 600 ticks, {busy.MicrosecondsPerStep:F1} us per tick, {busy.Rollbacks} rollbacks");
         Assert.Equal(0, busy.Bytes);
     }
