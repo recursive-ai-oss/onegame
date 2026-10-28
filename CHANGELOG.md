@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Changed
+
+- `OneGame.Navigation` moves to OnePath 1.0.0-rc.1, whose public API is frozen for 1.0. Search and crowd results and saved bytes are unchanged. `NavCrowd` reads agents with `Crowd.CopyAgents(Span<Agent>)`, treats any `OnePathFormatException` from a bad crowd state as a refused snapshot, and `TryAdd` snaps to the nearest walkable point of the whole map (it used to refuse a spot too far from ground).
+
 ## [1.13.0] - 2026-10-28
 
 Crowds as synced state in `RecursiveAI.OneGame.Navigation` (1.13.0-preview.1, still a preview on a preview of OnePath). The other packages have no API changes.

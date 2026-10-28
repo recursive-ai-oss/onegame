@@ -40,7 +40,8 @@ public sealed class NavCrowd : IHotTable
     private readonly Visibility _visibility;
     private readonly double _dt;
     private readonly int _maxStateBytes;
-    private readonly List<Agent> _list = [];
+    private readonly double _snapDistance;
+    private Agent[] _list = [];
     private Crowd _crowd;
     private byte[] _scratch = new byte[1024];
     private NavAgent[] _views = new NavAgent[16];
@@ -97,6 +98,7 @@ public sealed class NavCrowd : IHotTable
             OriginZ = origin.Y,
         };
         _mesh = NavMesh.Build2D(walkable, map.Width, map.Height, cellSize, origin, settings);
+        _snapDistance = cellSize * (map.Width + map.Height);
         _crowdOptions = new CrowdOptions { MaxAgents = maxAgents, MaxThreads = 1 };
         _crowd = _mesh.CreateCrowd(_crowdOptions);
         DefaultAgent = new NavAgentOptions
@@ -180,7 +182,7 @@ public sealed class NavCrowd : IHotTable
     /// <summary>Adds an agent with <see cref="DefaultAgent"/> at the walkable point nearest to a position.</summary>
     /// <param name="position">Where to put it.</param>
     /// <param name="id">The agent's number.</param>
-    /// <returns>False when the crowd is full or no walkable ground is near.</returns>
+    /// <returns>False when the crowd is full or the map has no walkable ground.</returns>
     /// <exception cref="NavRangeException">The position is beyond ±2^21 units.</exception>
     /// <exception cref="ReplicaWriteException">The world is a replica.</exception>
     public bool TryAdd(FVec2 position, out int id) => TryAdd(position, DefaultAgent, out id);
@@ -189,7 +191,7 @@ public sealed class NavCrowd : IHotTable
     /// <param name="position">Where to put it.</param>
     /// <param name="options">Its settings.</param>
     /// <param name="id">The agent's number.</param>
-    /// <returns>False when the crowd is full or no walkable ground is near.</returns>
+    /// <returns>False when the crowd is full or the map has no walkable ground.</returns>
     /// <exception cref="NavRangeException">The position is beyond ±2^21 units.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A setting is out of range.</exception>
     /// <exception cref="ReplicaWriteException">The world is a replica.</exception>
@@ -204,16 +206,13 @@ public sealed class NavCrowd : IHotTable
             return false;
         }
 
-        Agent agent;
-        try
+        // Snap to the nearest walkable point anywhere on the map first, so the add below always finds ground.
+        if (!_mesh.TrySamplePosition(p, _snapDistance, out var ground))
         {
-            agent = _crowd.Add(p, o);
-        }
-        catch (InvalidOperationException)
-        {
-            return false; // no walkable polygon near
+            return false;
         }
 
+        var agent = _crowd.Add(ground, o);
         if (agent.Id > int.MaxValue)
         {
             _crowd.Remove(agent);
@@ -356,7 +355,7 @@ public sealed class NavCrowd : IHotTable
         {
             _crowd.RestoreState(bytes); // all or nothing
         }
-        catch (NavMeshFormatException)
+        catch (OnePathFormatException)
         {
             reader.Fail(SyncError.InvalidValue);
             return;
@@ -470,9 +469,12 @@ public sealed class NavCrowd : IHotTable
     // round-to-nearest-even (NavConvert.FromDouble): a pure function of values that are bit-identical on every platform.
     private void Sync()
     {
-        _list.Clear();
-        _crowd.CopyAgents(_list);
-        _count = _list.Count;
+        if (_list.Length < _crowd.Count)
+        {
+            _list = new Agent[Math.Max(_crowd.Count, _list.Length * 2)];
+        }
+
+        _count = _crowd.CopyAgents(_list);
         if (_views.Length < _count)
         {
             _views = new NavAgent[Math.Max(_count, _views.Length * 2)];
@@ -499,10 +501,10 @@ public sealed class NavCrowd : IHotTable
 
     private static NavAgentStatus Status(Agent a) => a.State switch
     {
-        RecursiveAI.OnePath.Crowds.Corridors.FollowerState.Moving or RecursiveAI.OnePath.Crowds.Corridors.FollowerState.OffMeshLink => NavAgentStatus.Walking,
-        RecursiveAI.OnePath.Crowds.Corridors.FollowerState.Arrived => a.ReachedTarget ? NavAgentStatus.Arrived : NavAgentStatus.ArrivedShort,
-        RecursiveAI.OnePath.Crowds.Corridors.FollowerState.Stuck => NavAgentStatus.Stuck,
-        RecursiveAI.OnePath.Crowds.Corridors.FollowerState.NoPath => NavAgentStatus.NoPath,
+        FollowerState.Moving or FollowerState.OffMeshLink => NavAgentStatus.Walking,
+        FollowerState.Arrived => a.ReachedTarget ? NavAgentStatus.Arrived : NavAgentStatus.ArrivedShort,
+        FollowerState.Stuck => NavAgentStatus.Stuck,
+        FollowerState.NoPath => NavAgentStatus.NoPath,
         _ => NavAgentStatus.Idle,
     };
 }
