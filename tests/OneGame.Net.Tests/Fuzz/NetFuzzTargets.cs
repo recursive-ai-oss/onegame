@@ -31,7 +31,7 @@ public static class NetFuzzTargets
         return b;
     }
 
-    private static readonly UdpOptions Small = new() { MaxMessageBytes = 8192, MaxSendQueueBytes = 64 * 1024, MaxReceiveQueueBytes = 32 * 1024, ReceiveWindow = 16 };
+    private static readonly UdpOptions Small = new() { Security = NetSecurity.Insecure, MaxMessageBytes = 8192, MaxSendQueueBytes = 64 * 1024, MaxReceiveQueueBytes = 32 * 1024, ReceiveWindow = 16 };
 
     private static byte[] Packet(int messages, int size, int seed, out ReliableCore core)
     {

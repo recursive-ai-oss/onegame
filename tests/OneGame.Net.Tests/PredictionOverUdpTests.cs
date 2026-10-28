@@ -26,9 +26,9 @@ public class PredictionOverUdpTests
         var playerNode = new Node("player", options);
         var scope = authorityNode.AddScope(new ScopeId(1), Track.NewAuthority());
 
-        var server = UdpTransport.Listen(new ConditionedDatagramSocket(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), Hostile(21), clock), null, clock);
+        var server = UdpTransport.Listen(new ConditionedDatagramSocket(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), Hostile(21), clock), Plain.Udp, clock);
         var client = UdpTransport.Connect(
-            new ConditionedDatagramSocket(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), Hostile(22), clock), server.LocalEndPointAddress(), null, clock);
+            new ConditionedDatagramSocket(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), Hostile(22), clock), server.LocalEndPointAddress(), Plain.Udp, clock);
         using var listener = server;
         INetConnection? accepted = null;
         for (var i = 0; i < 20000 && (accepted is null || client.State != ConnectionState.Connected); i++)

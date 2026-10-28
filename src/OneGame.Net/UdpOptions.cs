@@ -3,6 +3,9 @@ namespace OneGame.Net;
 /// <summary>Settings for the reliable-UDP transport. Both ends should use the same <see cref="MaxMessageBytes"/>; a peer that sends more is disconnected.</summary>
 public sealed class UdpOptions
 {
+    /// <summary>How links are encrypted and authenticated. Required: a transport opened without it throws <see cref="SecurityNotConfiguredException"/>. Use <see cref="NetSecurity.ForServer"/>, <see cref="NetSecurity.ForClient"/> or, for tests and local tools, <see cref="NetSecurity.Insecure"/>.</summary>
+    public NetSecurity? Security { get; init; }
+
     /// <summary>Largest datagram written to the socket, in bytes. 1200 fits every IPv6 path (minimum link MTU 1280). Range 576 to 1472.</summary>
     public int Mtu { get; init; } = 1200;
 
@@ -48,6 +51,15 @@ public sealed class UdpOptions
     /// </summary>
     public int MinCongestionWindowPackets { get; init; } = 12;
 
+    /// <summary>
+    /// A secure connection closes with <see cref="DisconnectReason.PacketLimit"/> after sending this many packets in one direction,
+    /// because the 32-bit packet number is the encryption nonce and must never repeat. The client then connects again (new keys).
+    /// </summary>
+    public uint MaxPacketsPerKey { get; init; } = uint.MaxValue - 65_535;
+
+    /// <summary>Listener only: secure handshakes the server will start per second. Each costs about four X25519 operations, so excess requests are dropped (clients retry) instead of queued.</summary>
+    public int MaxHandshakesPerSecond { get; init; } = 200;
+
     /// <summary>Most datagrams read from one socket per pump, so a flood cannot starve the game loop.</summary>
     public int MaxDatagramsPerPump { get; init; } = 4096;
 
@@ -63,6 +75,8 @@ public sealed class UdpOptions
         Check(ConnectRetryMs >= 10 && ConnectTimeoutMs >= ConnectRetryMs, nameof(ConnectTimeoutMs), "must be at least ConnectRetryMs, which must be at least 10");
         Check(MinRtoMs >= 1 && MaxRtoMs >= MinRtoMs, nameof(MaxRtoMs), "must be at least MinRtoMs");
         Check(MinCongestionWindowPackets is >= 2 and <= 1024, nameof(MinCongestionWindowPackets), "must be 2 to 1024");
+        Check(MaxHandshakesPerSecond >= 1, nameof(MaxHandshakesPerSecond), "must be positive");
+        Check(MaxPacketsPerKey >= 1024, nameof(MaxPacketsPerKey), "must be at least 1024");
         Check(MaxDatagramsPerPump >= 1, nameof(MaxDatagramsPerPump), "must be positive");
     }
 
