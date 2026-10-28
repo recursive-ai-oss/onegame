@@ -90,18 +90,30 @@ cd mygame
 step "onegame export --target ios-simulator"
 "$og" export --target ios-simulator --dev --out "$work/export" --json | tee "$work/export.json"
 grep -q '^{"ok":true' "$work/export.json" || { echo "the export failed"; exit 1; }
-app=$(ls -d "$work"/export/*.app | head -1)
+app=$(find "$work/export" -maxdepth 2 -name "*.app" | head -1)
 [ -d "$app" ] || { echo "no .app in the export"; ls -R "$work/export" | head -20; exit 1; }
 echo "$app"
+for f in art/ship.png fonts/NotoSans-Regular.ttf; do [ -f "$app/$f" ] || { echo "the game's $f is not in the app"; exit 1; }; done
 
-# Only the state-only scenario: a capture needs a GPU, which a hosted Mac has no driver for.
+# The state scenario only: the look scenario needs a rendered frame (a capture loads the picture), and a hosted Mac may give the
+# Simulator no GPU. The content check above (art and font inside the app) stands in for it.
 mkdir -p "$work/scn"
 cp scenarios/steer-ship.yaml "$work/scn/"
 
-step "scenario hash on the Mac"
+step "scenarios on the Mac"
 "$og" test --scenario "$work/scn" --no-unit --json | tee "$work/mac-test.json"
-want=$(grep -o '"hash":"[0-9a-f]*"' "$work/mac-test.json" | head -1)
-[ -n "$want" ] || { echo "no hash from the Mac run"; exit 1; }
+
+# Prints "name hash passed" per scenario from either tool's JSON.
+summary() {
+  python3 - "$1" "$2" <<'PY'
+import json, sys
+t = open(sys.argv[1], errors="replace").read()
+d = json.loads(t[t.find('{"ok"'):])
+node = d["scenarios"] if sys.argv[2] == "mac" else d["result"]
+for s in sorted(node["scenarios"], key=lambda s: s["name"]):
+    print(s["name"], s["hash"], s["passed"])
+PY
+}
 
 device=
 cleanup() {
@@ -123,10 +135,11 @@ xcrun simctl bootstatus "$device" -b >/dev/null
 echo "simulator $device ($runtime)"
 
 step "onegame ios test (scenario in the Simulator)"
-"$og" ios test --device "$device" --app "$(ls -d "$work"/export/*.app | head -1)" --scenario "$work/scn" --json | tee "$work/sim-test.json"
-got=$(grep -oE 'hash[^0-9a-f]{1,8}[0-9a-f]{16}' "$work/sim-test.json" | head -1 | grep -oE '[0-9a-f]{16}$' || true)
-echo "mac: $want   simulator: $got"
-echo "$want" | grep -q "$got" && [ -n "$got" ] || { echo "state hash differs between the Mac and the Simulator"; exit 1; }
+"$og" ios test --device "$device" --app "$app" --scenario "$work/scn" --json | tee "$work/sim-test.json"
+summary "$work/mac-test.json" mac | tee "$work/mac.txt"
+summary "$work/sim-test.json" sim | tee "$work/sim.txt"
+grep -q False "$work/mac.txt" "$work/sim.txt" && { echo "a scenario failed"; exit 1; }
+cmp "$work/mac.txt" "$work/sim.txt" || { echo "state hashes differ between the Mac and the Simulator"; exit 1; }
 
 echo
 echo "ios package smoke: ok ($count packages; Simulator app from packages alone, same hash as the Mac)"

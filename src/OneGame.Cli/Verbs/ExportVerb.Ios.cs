@@ -83,15 +83,17 @@ internal sealed partial class ExportVerb
             }
         }
 
-        // The bundle: the program, its property list, and nothing else. The game's art, fonts and shaders are inside the executable.
+        // The bundle: the program, its property list and the game's content folders (art, fonts, data), which the game finds beside the program.
         var app = Path.Combine(folder, props.AssemblyName + ".app");
         Directory.CreateDirectory(app);
+        var contentWarnings = new List<ExportWarning>();
+        ExportAssets.Copy(project.Directory, app, [], contentWarnings);
         File.Copy(executable, Path.Combine(app, props.AssemblyName));
         File.SetUnixFileMode(Path.Combine(app, props.AssemblyName), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute | UnixFileMode.GroupRead | UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
         File.WriteAllText(Path.Combine(app, "Info.plist"), IosInfoPlist(bundleId, label, props.Version, props.AssemblyName, orientation, simulator, dev, sdkName, sdkVersion), new UTF8Encoding(false));
         File.WriteAllText(Path.Combine(app, "PkgInfo"), "APPL????", new UTF8Encoding(false));
 
-        var warnings = new List<ExportWarning>();
+        var warnings = new List<ExportWarning>(contentWarnings);
         string signing;
         string[] needs = [];
         string? entitlements = null;

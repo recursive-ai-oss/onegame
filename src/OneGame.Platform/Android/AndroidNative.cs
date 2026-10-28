@@ -116,6 +116,20 @@ internal static unsafe partial class AndroidNative
     [LibraryImport(Android)]
     public static partial void ALooper_wake(nint looper);
 
+    // ---- assets (asset_manager.h) ----
+
+    [LibraryImport(Android, StringMarshalling = StringMarshalling.Utf8)]
+    public static partial nint AAssetManager_open(nint manager, string filename, int mode);
+
+    [LibraryImport(Android)]
+    public static partial long AAsset_getLength64(nint asset);
+
+    [LibraryImport(Android)]
+    public static partial int AAsset_read(nint asset, byte* buffer, nuint count);
+
+    [LibraryImport(Android)]
+    public static partial void AAsset_close(nint asset);
+
     // ---- input queue and events ----
 
     [LibraryImport(Android)]

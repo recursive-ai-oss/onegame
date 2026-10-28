@@ -89,6 +89,7 @@ export_apk() {
   grep -q '^{"ok":true' "$work/$variant-export.json" || { echo "the export failed"; exit 1; }
   apk=$(ls "$work/$variant-export"/*.apk)
   unzip -l "$apk" | grep -E 'lib/.*\.so|classes\.dex' || true
+  unzip -l "$apk" | grep -q 'assets/art/ship.png' || { echo "the game's art is not in the APK"; exit 1; }
   unzip -l "$apk" | grep -q 'lib/arm64-v8a/' || { echo "no arm64-v8a library"; exit 1; }
   unzip -l "$apk" | grep -q 'lib/x86_64/' || { echo "no x86_64 library"; exit 1; }
   if [ "$variant" = billing ]; then
