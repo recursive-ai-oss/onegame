@@ -261,6 +261,24 @@ public sealed class NetKeyPair
         return pair;
     }
 
+    /// <summary>
+    /// A key pair derived from this one for a server that is named rather than keyed: the same derivation as <see cref="DeriveFor(PeerKey)"/>
+    /// with the server's stable name in place of its key. A server that rotates its key keeps its name, so its players keep their keys.
+    /// </summary>
+    /// <param name="serverId">The server's stable name. Make it unique to that server (for example <c>"eu-1.my-game"</c>): two servers with the same name could link a player.</param>
+    public NetKeyPair DeriveFor(string serverId)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(serverId);
+        Span<byte> prk = stackalloc byte[32];
+        Span<byte> derived = stackalloc byte[32];
+        Hkdf.Extract(Encoding.UTF8.GetBytes(serverId), _private, prk);
+        Hkdf.Expand(prk, "onegame per-server-name client key v1"u8, derived);
+        var pair = new NetKeyPair(derived.ToArray()) { IsDevelopment = IsDevelopment };
+        ChaCha20Poly1305.Wipe(prk);
+        ChaCha20Poly1305.Wipe(derived);
+        return pair;
+    }
+
     internal ReadOnlySpan<byte> Private => _private;
 
     /// <summary>The key's text form is its public key; the private half never prints.</summary>

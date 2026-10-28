@@ -119,12 +119,14 @@ public class NetworkTests : IDisposable
         host.Start();
         var port = host.Endpoints.First(e => e.Transport == "udp").Port;
         var wrong = new RemoteSession(new ConnectOptions { Address = $"udp://127.0.0.1:{port}", Security = NetSecurity.ForClient([NetKeyPair.Generate().PublicKey], "net/1") }, host.CreateReplicaWorld(new ScopeId(1)));
-        for (var i = 0; i < 200 && !wrong.IsClosed; i++)
+        var deadline = Environment.TickCount64 + 15_000;
+        while (Environment.TickCount64 < deadline && !wrong.IsClosed)
         {
             Round(host, wrong);
         }
 
-        Assert.True(wrong.IsClosed, "a wrong key is a permanent failure, not something to retry for a minute");
+        // The server says "I do not know that key" without proof, so the client asks three times before it reports the refusal.
+        Assert.True(wrong.IsClosed, "a wrong key is reported as closed once three fresh attempts were refused");
         Assert.Equal(DisconnectReason.HandshakeFailed, wrong.Connection.CloseInfo.Reason);
         Assert.Empty(host.Clients());
         host.Stop();

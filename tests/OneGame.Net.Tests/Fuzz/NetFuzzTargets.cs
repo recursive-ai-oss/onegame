@@ -16,6 +16,7 @@ public static class NetFuzzTargets
         new FuzzTargets.Target("net-udp-packet", RunPacket, UdpSeeds),
         new FuzzTargets.Target("net-reassembler", RunStream, StreamSeeds),
         new FuzzTargets.Target("net-udp-endpoints", RunEndpoints, EndpointSeeds),
+        new FuzzTargets.Target("net-udp-secure", RunSecureUdp, SecureUdpSeeds),
         new FuzzTargets.Target("net-ws-frames", RunFrames, FrameSeeds),
         new FuzzTargets.Target("net-ws-handshake", RunHandshake, HandshakeSeeds),
         new FuzzTargets.Target("net-ws-secure-handshake", RunSecureHandshake, SecureHandshakeSeeds),
@@ -189,6 +190,165 @@ public static class NetFuzzTargets
 
         // A seed may legitimately close the connection (the disconnect seed does); surviving the input is the pass condition.
         return true;
+    }
+
+    // ---- Secure UDP: a Required listener and a Required client, with datagrams injected at every stage of the handshake. ----
+
+    private static readonly NetKeyPair SecureServerKey = NetKeyPair.FromPrivateKey(Pat(32, 71));
+    private static readonly NetKeyPair SecurePlayerKey = NetKeyPair.FromPrivateKey(Pat(32, 72));
+
+    private static UdpOptions SecureServerOptions() => new() { Security = new NetSecurity { GameId = "fuzz/1", ServerKeys = [SecureServerKey] }, MaxMessageBytes = 8192, ReceiveWindow = 16 };
+
+    private static UdpOptions SecureClientOptions() => new() { Security = NetSecurity.ForClient([SecureServerKey.PublicKey], "fuzz/1", SecurePlayerKey), MaxMessageBytes = 8192, ReceiveWindow = 16 };
+
+    // Layout: pre-steps (how far the handshake got before the first injection), flags (bit 0: the server stops answering, so the
+    // client stays in Connecting), then items of selector, u16 length, body. Selector bit 0: send to the server (else to the client);
+    // bit 1: from the client's own address (else from a stranger / from the server); bit 2: put the client's nonce in bytes 1..8;
+    // bit 3: put the live connection id in bytes 1..4.
+    private static byte[] SecureItem(byte selector, byte[] body)
+    {
+        var item = new byte[3 + body.Length];
+        item[0] = selector;
+        BinaryPrimitives.WriteUInt16LittleEndian(item.AsSpan(1), (ushort)body.Length);
+        body.CopyTo(item, 3);
+        return item;
+    }
+
+    private static IEnumerable<byte[]> SecureUdpSeeds()
+    {
+        // Real traffic of one handshake and a few data packets, recorded from both ends.
+        var clock = new ManualNetClock();
+        var net = new MemoryDatagramNetwork();
+        var serverSocket = net.CreateSocket();
+        var serverTap = new RecordingSocket(serverSocket);
+        var clientTap = new RecordingSocket(net.CreateSocket());
+        using var server = UdpTransport.Listen(serverTap, SecureServerOptions(), clock);
+        var client = UdpTransport.Connect(clientTap, serverSocket.LocalAddress, SecureClientOptions(), clock);
+        client.Send(Pat(40, 3));
+        for (var i = 0; i < 60; i++)
+        {
+            clock.Advance(5);
+            server.Pump();
+            client.Pump();
+        }
+
+        client.Disconnect();
+        var toServer = clientTap.Sent;
+        var toClient = serverTap.Sent;
+        foreach (var d in toServer.Take(6))
+        {
+            yield return [.. new byte[] { 0, 0 }, .. SecureItem(0b1101, d)];
+        }
+
+        foreach (var d in toClient.Take(6))
+        {
+            yield return [.. new byte[] { 0, 1 }, .. SecureItem(0b1100, d)];
+            yield return [.. new byte[] { 6, 0 }, .. SecureItem(0b1100, d)];
+        }
+
+        yield return [.. new byte[] { 0, 1 }, .. SecureItem(0b0100, [Wire.Header(Wire.KindAccept, secure: true), 0, 0, 0, 0, 0, 0, 0, 0])];
+        yield return [.. new byte[] { 0, 1 }, .. SecureItem(0b0100, [Wire.Header(Wire.KindReject, secure: true), 0, 0, 0, 0, 0, 0, 0, 0, (byte)DisconnectReason.HandshakeFailed])];
+    }
+
+    // Keeps a copy of every datagram sent through it, to make seeds from real traffic.
+    private sealed class RecordingSocket(IDatagramSocket inner) : IDatagramSocket
+    {
+        public List<byte[]> Sent { get; } = [];
+
+        public System.Net.SocketAddress LocalAddress => inner.LocalAddress;
+
+        public void Send(ReadOnlySpan<byte> datagram, System.Net.SocketAddress destination)
+        {
+            Sent.Add(datagram.ToArray());
+            inner.Send(datagram, destination);
+        }
+
+        public int Receive(Span<byte> buffer, System.Net.SocketAddress from) => inner.Receive(buffer, from);
+
+        public void Dispose() => inner.Dispose();
+    }
+
+    private static bool RunSecureUdp(byte[] input)
+    {
+        if (input.Length < 2)
+        {
+            return false;
+        }
+
+        var clock = new ManualNetClock();
+        var net = new MemoryDatagramNetwork();
+        var serverSocket = net.CreateSocket();
+        var clientSocket = net.CreateSocket();
+        var stranger = net.CreateSocket();
+        using var server = UdpTransport.Listen(serverSocket, SecureServerOptions(), clock);
+        var client = UdpTransport.Connect(clientSocket, serverSocket.LocalAddress, SecureClientOptions(), clock);
+        var silent = (input[1] & 1) != 0;
+
+        void Step()
+        {
+            clock.Advance(5);
+            if (!silent)
+            {
+                server.Pump();
+            }
+
+            client.Pump();
+            while (server.TryAccept(out var c))
+            {
+                while (c.TryReceive(out _))
+                {
+                }
+            }
+
+            while (client.TryReceive(out _))
+            {
+            }
+        }
+
+        for (var i = 0; i < input[0] % 40; i++)
+        {
+            Step();
+        }
+
+        var pos = 2;
+        var any = false;
+        while (pos + 3 <= input.Length)
+        {
+            var selector = input[pos];
+            var len = Math.Min(BinaryPrimitives.ReadUInt16LittleEndian(input.AsSpan(pos + 1)), input.Length - pos - 3);
+            var datagram = input.AsSpan(pos + 3, len).ToArray();
+            pos += 3 + len;
+            any = true;
+            if ((selector & 4) != 0 && datagram.Length >= 9)
+            {
+                BinaryPrimitives.WriteUInt64LittleEndian(datagram.AsSpan(1), client.Nonce);
+            }
+
+            if ((selector & 8) != 0 && datagram.Length >= 5)
+            {
+                var id = client.ConnectionId != 0 ? client.ConnectionId : server.Connections.Count > 0 ? server.Connections[0].ConnectionId : 0;
+                BinaryPrimitives.WriteUInt32LittleEndian(datagram.AsSpan(1), id);
+            }
+
+            if ((selector & 1) != 0)
+            {
+                net.Inject(datagram, (selector & 2) != 0 ? clientSocket.LocalAddress : stranger.LocalAddress, serverSocket.LocalAddress);
+            }
+            else
+            {
+                net.Inject(datagram, serverSocket.LocalAddress, clientSocket.LocalAddress);
+            }
+
+            Step();
+        }
+
+        for (var i = 0; i < 20; i++)
+        {
+            Step();
+        }
+
+        client.Disconnect();
+        return any;
     }
 
     private static IEnumerable<byte[]> FrameSeeds()

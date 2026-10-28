@@ -379,7 +379,7 @@ public sealed class UdpListener : INetListener
     private UdpConnection.ServerSecrets? Handshake(ReadOnlySpan<byte> d, ulong nonce, uint id, ReadOnlySpan<byte> cookie)
     {
         var length = BinaryPrimitives.ReadUInt16LittleEndian(d[(9 + Wire.CookieSize)..]);
-        if (length < SecureHandshake.FirstMessageOverhead || length > d.Length - Wire.SecureResponseHeader)
+        if (length != SecureHandshake.FirstMessageOverhead || length > d.Length - Wire.SecureResponseHeader)
         {
             return null;
         }
@@ -511,6 +511,11 @@ public sealed class UdpListener : INetListener
         public static SourceKey Of(SocketAddress a)
         {
             var ip = ((IPEndPoint)new IPEndPoint(IPAddress.Any, 0).Create(a)).Address;
+            if (ip.IsIPv4MappedToIPv6)
+            {
+                ip = ip.MapToIPv4(); // a dual-mode socket shows IPv4 peers this way; they must not all count as one IPv6 network
+            }
+
             Span<byte> bytes = stackalloc byte[16];
             if (!ip.TryWriteBytes(bytes, out var n))
             {

@@ -15,17 +15,23 @@ internal sealed class HandshakeBudget
     private readonly NetClock _clock;
     private readonly int _perSecond;
     private readonly int _perSource;
+    private readonly int _perSourceRate;
     private readonly Dictionary<string, int> _pendingBySource = [];
+    private readonly Dictionary<string, int> _chargedBySource = [];
     private readonly Dictionary<string, long> _known = [];
     private long _window;
     private int _strangers;
     private int _returning;
 
-    public HandshakeBudget(NetClock clock, int perSecond, int perSource)
+    // Sources counted in one second; a spray of spoofed or fresh addresses cannot grow the table past this.
+    private const int MaxSourcesPerWindow = 8192;
+
+    public HandshakeBudget(NetClock clock, int perSecond, int perSource, int perSourcePerSecond = 10)
     {
         _clock = clock;
         _perSecond = perSecond;
         _perSource = perSource;
+        _perSourceRate = perSourcePerSecond;
         _window = clock.NowMs;
     }
 
@@ -37,8 +43,10 @@ internal sealed class HandshakeBudget
             return remoteName;
         }
 
-        var bytes = ep.Address.GetAddressBytes();
-        return bytes.Length == 16 ? Convert.ToHexString(bytes.AsSpan(0, 8)) : ep.Address.ToString();
+        // A dual-mode socket shows IPv4 peers as ::ffff:a.b.c.d; without unmapping them all share one /64.
+        var address = ep.Address.IsIPv4MappedToIPv6 ? ep.Address.MapToIPv4() : ep.Address;
+        var bytes = address.GetAddressBytes();
+        return bytes.Length == 16 ? Convert.ToHexString(bytes.AsSpan(0, 8)) : address.ToString();
     }
 
     private void Roll()
@@ -49,6 +57,7 @@ internal sealed class HandshakeBudget
             _window = now;
             _strangers = 0;
             _returning = 0;
+            _chargedBySource.Clear();
         }
     }
 
@@ -82,10 +91,21 @@ internal sealed class HandshakeBudget
         }
     }
 
-    /// <summary>Called before any DH work for a first handshake message. False: drop the connection without spending it.</summary>
+    /// <summary>
+    /// Called before any DH work for a first handshake message. False: drop the connection without spending it. One source may start
+    /// only so many handshakes a second whatever lane it is in, so a single host cannot use up the shared budget (and a host that
+    /// completed one session cannot drain the lane kept for returning players).
+    /// </summary>
     public bool TryCharge(string source)
     {
         Roll();
+        _chargedBySource.TryGetValue(source, out var mine);
+        if (mine >= _perSourceRate || (mine == 0 && _chargedBySource.Count >= MaxSourcesPerWindow))
+        {
+            return false;
+        }
+
+        _chargedBySource[source] = mine + 1;
         if (_known.TryGetValue(source, out var seen) && _clock.NowMs - seen < KnownTtlMs)
         {
             return ++_returning <= _perSecond;
@@ -145,6 +165,8 @@ internal sealed class SecureConnection : INetConnection
     private readonly bool _client;
     private readonly int _maxMessage;
     private readonly int _timeoutMs;
+    private readonly int _firstMessageMs;
+    private bool _slotReleased;
     private readonly Func<INetConnection>? _open;
     private readonly HandshakeBudget? _budget;
     private readonly string _source = "";
@@ -194,6 +216,7 @@ internal sealed class SecureConnection : INetConnection
         _client = open is not null;
         _maxMessage = o.MaxMessageBytes;
         _timeoutMs = o.HandshakeTimeoutMs;
+        _firstMessageMs = o.FirstMessageTimeoutMs;
         _budget = budget;
         _start = clock.NowMs;
         _stage = _client ? Stage.ClientAwaitInner : Stage.ServerAwaitFirst;
@@ -254,6 +277,15 @@ internal sealed class SecureConnection : INetConnection
 
     /// <summary>True once the handshake finished and (on a server) the client's confirm arrived.</summary>
     internal bool IsOpen => _stage == Stage.Open;
+
+    /// <summary>Server side: nothing has arrived from the peer yet but the socket is open (a stalled or slow client).</summary>
+    internal bool AwaitingFirstMessage => _stage == Stage.ServerAwaitFirst;
+
+    /// <summary>The source (IPv4 address or IPv6 /64) this server-side connection counts against.</summary>
+    internal string Source => _source;
+
+    /// <summary>Server side: gives up on a connection that has not spoken, to make room for another.</summary>
+    internal void Evict() => Fail(DisconnectReason.ServerFull);
 
     /// <inheritdoc />
     public void Send(ReadOnlySpan<byte> message)
@@ -440,7 +472,7 @@ internal sealed class SecureConnection : INetConnection
             return;
         }
 
-        if (_clock.NowMs - _start >= _timeoutMs)
+        if (_clock.NowMs - _start >= _timeoutMs || (_stage == Stage.ServerAwaitFirst && _clock.NowMs - _start >= _firstMessageMs))
         {
             Fail(DisconnectReason.ConnectTimeout);
             return;
@@ -599,8 +631,8 @@ internal sealed class SecureConnection : INetConnection
         _confirmed = true;
         _stage = Stage.Open;
         _state = ConnectionState.Connected;
-        _budget!.Close(_source);
-        _budget.Confirmed(_source);
+        ReleaseSlot();
+        _budget!.Confirmed(_source);
     }
 
     // Splits the handshake into the two record ciphers and records who the peer is. On a server the connection stays in its
@@ -643,10 +675,24 @@ internal sealed class SecureConnection : INetConnection
         _failReason = reason;
         _stage = Stage.Dead;
         _hs = null;
+        if (!_confirmed)
+        {
+            ReleaseSlot(); // a socket that is closing no longer holds a place in the handshake queue
+        }
+
         _inner.Disconnect(reason);
         if (_state != ConnectionState.Closed)
         {
             _state = ConnectionState.Closing;
+        }
+    }
+
+    private void ReleaseSlot()
+    {
+        if (!_slotReleased && _budget is not null)
+        {
+            _slotReleased = true;
+            _budget.Close(_source);
         }
     }
 
@@ -706,7 +752,7 @@ internal sealed class SecureConnection : INetConnection
         _recv?.Clear();
         if (!_confirmed)
         {
-            _budget?.Close(_source);
+            ReleaseSlot();
         }
 
         if (_sbuf is not null)
@@ -750,7 +796,7 @@ internal sealed class SecureListener : INetListener
         _sec = security;
         _o = options;
         _clock = clock;
-        _budget = new HandshakeBudget(clock, options.MaxHandshakesPerSecond, options.MaxPendingHandshakesPerSource);
+        _budget = new HandshakeBudget(clock, options.MaxHandshakesPerSecond, options.MaxPendingHandshakesPerSource, options.MaxHandshakesPerSourcePerSecond);
     }
 
     /// <inheritdoc />
@@ -783,7 +829,7 @@ internal sealed class SecureListener : INetListener
         {
             // Capacity is checked before anything is computed: unconfirmed sockets have their own small budget, per source and
             // in total, and do not count against MaxConnections.
-            if (_pending.Count >= _o.MaxPendingHandshakes || !_budget.TryOpen(HandshakeBudget.SourceOf(raw.RemoteName)))
+            if (!TryAdmit(HandshakeBudget.SourceOf(raw.RemoteName)))
             {
                 raw.Disconnect(DisconnectReason.ServerFull);
                 continue;
@@ -815,6 +861,39 @@ internal sealed class SecureListener : INetListener
                 _open.RemoveAt(i--);
             }
         }
+    }
+
+    // A full queue (in total or for one source) makes room by dropping the oldest socket that has not said anything yet, so idle sockets
+    // cannot keep everyone else out. Sockets that already sent their first message are mid-handshake and are not touched.
+    private bool TryAdmit(string source)
+    {
+        if (_pending.Count >= _o.MaxPendingHandshakes && !EvictStalled(null))
+        {
+            return false;
+        }
+
+        if (_budget.TryOpen(source))
+        {
+            return true;
+        }
+
+        return EvictStalled(source) && _budget.TryOpen(source);
+    }
+
+    private bool EvictStalled(string? source)
+    {
+        for (var i = 0; i < _pending.Count; i++)
+        {
+            var c = _pending[i];
+            if (c.AwaitingFirstMessage && (source is null || c.Source == source))
+            {
+                _pending.RemoveAt(i);
+                c.Evict();
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <inheritdoc />

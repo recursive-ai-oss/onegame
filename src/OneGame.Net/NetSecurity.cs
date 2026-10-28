@@ -73,15 +73,25 @@ public sealed class NetSecurity
 
     /// <summary>
     /// Client side: when true (the default of <see cref="ForClient"/>), the key a server sees is derived from <see cref="Identity"/> and
-    /// that server's public key (<see cref="NetKeyPair.DeriveFor"/>), so two servers cannot tell they are talking to the same player by
+    /// that server's public key (<see cref="NetKeyPair.DeriveFor(PeerKey)"/>), so two servers cannot tell they are talking to the same player by
     /// comparing keys. Server-to-server links turn it off, because peers name each other by their real keys.
     /// </summary>
     public bool PerServerIdentity { get; init; }
 
+    /// <summary>
+    /// Client side: a stable name for the server being connected to, kept when the server rotates its key. With it, the key the server
+    /// sees for this player comes from the name instead of the server's current public key, so a rotation does not turn every player
+    /// into a new player. Without it the derivation uses the key, and rotating a server key gives every player a new identity there.
+    /// Use one name per server (a list of servers shares one security setting only when they share one name), and never change it.
+    /// </summary>
+    public string? ServerId { get; init; }
+
     /// <summary>The key a server with public key <paramref name="serverKey"/> sees for this client: what that server's player registry is keyed by. Empty when there is no <see cref="Identity"/> yet.</summary>
     /// <param name="serverKey">The server's public key.</param>
     public PeerKey IdentityKeyFor(PeerKey serverKey) =>
-        Identity is null ? default : PerServerIdentity ? Identity.DeriveFor(serverKey).PublicKey : Identity.PublicKey;
+        Identity is null ? default : PerServerIdentity ? DerivedIdentity(Identity, serverKey).PublicKey : Identity.PublicKey;
+
+    internal NetKeyPair DerivedIdentity(NetKeyPair root, PeerKey serverKey) => string.IsNullOrEmpty(ServerId) ? root.DeriveFor(serverKey) : root.DeriveFor(ServerId);
 
     /// <summary>Settings for a listening server.</summary>
     /// <param name="key">The server's key pair (its private half is a secret).</param>
@@ -97,15 +107,16 @@ public sealed class NetSecurity
     /// <param name="serverKeys">The server public keys this client trusts, preferred first.</param>
     /// <param name="gameId">The game and protocol name both ends use.</param>
     /// <param name="identity">This player's key pair, kept between runs; null for a fresh one per connection.</param>
-    public static NetSecurity ForClient(IEnumerable<PeerKey> serverKeys, string gameId = "", NetKeyPair? identity = null)
+    /// <param name="serverId">A stable name for the server that survives key rotation; see <see cref="ServerId"/>.</param>
+    public static NetSecurity ForClient(IEnumerable<PeerKey> serverKeys, string gameId = "", NetKeyPair? identity = null, string? serverId = null)
     {
         ArgumentNullException.ThrowIfNull(serverKeys);
-        return new NetSecurity { GameId = gameId, TrustedServerKeys = [.. serverKeys], Identity = identity, PerServerIdentity = true };
+        return new NetSecurity { GameId = gameId, TrustedServerKeys = [.. serverKeys], Identity = identity, PerServerIdentity = true, ServerId = serverId };
     }
 
     /// <summary>The same settings for a server that also connects to other servers (a game's own servers talking to each other).</summary>
     /// <param name="trusted">Public keys of the servers this one connects to.</param>
-    public NetSecurity AlsoTrusting(IEnumerable<PeerKey> trusted) => new() { Mode = Mode, GameId = GameId, ServerKeys = ServerKeys, Identity = Identity, PerServerIdentity = PerServerIdentity, TrustedServerKeys = [.. TrustedServerKeys, .. trusted] };
+    public NetSecurity AlsoTrusting(IEnumerable<PeerKey> trusted) => new() { Mode = Mode, GameId = GameId, ServerKeys = ServerKeys, Identity = Identity, PerServerIdentity = PerServerIdentity, ServerId = ServerId, TrustedServerKeys = [.. TrustedServerKeys, .. trusted] };
 
     internal static NetSecurity RequireForListening(NetSecurity? security, string owner)
     {

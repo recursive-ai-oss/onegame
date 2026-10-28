@@ -9,7 +9,30 @@ internal static class NetSmoke
 {
     public static string? Run()
     {
-        return Udp() ?? WebSocket();
+        return Udp() ?? WebSocket() ?? Identities();
+    }
+
+    // Server names, the canonical-key rule and the player registry's keep-or-forget policy, which a game uses on every connection.
+    private static string? Identities()
+    {
+        var root = NetKeyPair.Generate();
+        var named = NetSecurity.ForClient([NetKeyPair.Generate().PublicKey, NetKeyPair.Generate().PublicKey], "smoke", root, serverId: "eu-1.smoke");
+        if (named.IdentityKeyFor(named.TrustedServerKeys[0]) != named.IdentityKeyFor(named.TrustedServerKeys[1]) || root.DeriveFor("a").PublicKey == root.DeriveFor("b").PublicKey)
+        {
+            return "a server name did not give a stable identity";
+        }
+
+        var players = new OneGame.Sync.PlayerRegistry(maxPlayers: 3);
+        var first = players.PlayerFor(root.PublicKey, out _);
+        _ = players.Activate(first);
+        for (var i = 0; i < 10; i++)
+        {
+            _ = players.PlayerFor(NetKeyPair.Generate().PublicKey, out _);
+        }
+
+        return players.Count == 3 && players.TryGetPlayer(root.PublicKey, out var again) && again == first && OneGame.Sync.PlayerRegistry.TryLoad(players.Save(), out var loaded, 3) && loaded.IsActive(first)
+            ? null
+            : "the player registry forgot an active player";
     }
 
     private static string? Udp()

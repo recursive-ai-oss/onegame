@@ -21,6 +21,9 @@ public sealed class Realm
 {
     private const int SaveEveryTicks = 2;
     private const int LeaveEveryTicks = 10;
+
+    // A key is only a key: anyone can make thousands. A player is kept for good once they have stayed this long, which a spray of fresh keys cannot do at scale.
+    private const int ActivateAfterTicks = 600;
     private const int GiveUpTicks = 240;
 
     // Anyone can make keys, so the island remembers only as many players as it has room for.
@@ -38,7 +41,8 @@ public sealed class Realm
     private uint _anonymous;
     private PlayerRegistry _players = new(maxPlayers: MaxKnownPlayers);
     private string? _playersFile;
-    private int _playersSaved;
+    private long _playersSaved = -1;
+    private readonly Dictionary<uint, long> _probation = [];
     private NetSecurity _peerSecurity = NetSecurity.Insecure;
     private readonly HashSet<PeerKey> _peerKeys = [];
     private readonly Dictionary<uint, PeerKey> _peerKeyOf = [];
@@ -102,7 +106,7 @@ public sealed class Realm
             if (File.Exists(_playersFile) && PlayerRegistry.TryLoad(File.ReadAllBytes(_playersFile), out var known, MaxKnownPlayers))
             {
                 _players = known;
-                _playersSaved = known.Count;
+                _playersSaved = known.Version;
             }
 
             if (File.Exists(_saveFile))
@@ -210,6 +214,10 @@ public sealed class Realm
             }
 
             returning = !isNew;
+            if (!_players.IsActive(serial))
+            {
+                _ = _probation.TryAdd(serial, _host.Tick);
+            }
         }
         else
         {
@@ -314,6 +322,7 @@ public sealed class Realm
             if (host.Tick % LeaveEveryTicks == 0)
             {
                 RemoveLeavers();
+                ActivateSettled();
             }
         }
 
@@ -342,6 +351,37 @@ public sealed class Realm
         if (_ids.Count > 0 && _peers.TryGetValue(dest, out var peer) && peer.Channel.IsConnected && peer.Replica.State == ReplicaState.Live)
         {
             _scope.BeginTransfer(peer.Link, new ScopeId(dest), _ids);
+        }
+    }
+
+    // Players who stayed long enough stop being replaceable in the registry.
+    private void ActivateSettled()
+    {
+        if (_probation.Count == 0)
+        {
+            return;
+        }
+
+        List<uint>? done = null;
+        foreach (var (serial, since) in _probation)
+        {
+            if (_host.Tick - since >= ActivateAfterTicks)
+            {
+                if (IsPresent((_scopeNo * 100_000) + serial))
+                {
+                    _ = _players.Activate(serial);
+                }
+
+                (done ??= []).Add(serial);
+            }
+        }
+
+        if (done is not null)
+        {
+            foreach (var serial in done)
+            {
+                _ = _probation.Remove(serial);
+            }
         }
     }
 
@@ -462,13 +502,13 @@ public sealed class Realm
 
     private void Save()
     {
-        if (_playersFile is not null && _players.Count != _playersSaved)
+        if (_playersFile is not null && _players.Version != _playersSaved)
         {
             // The registry goes to disk before the scope that may hold a new player, so a restart never knows a player without their id.
             var table = _playersFile + ".tmp";
             File.WriteAllBytes(table, _players.Save());
             File.Move(table, _playersFile, true);
-            _playersSaved = _players.Count;
+            _playersSaved = _players.Version;
         }
 
         var bytes = _scope.Save();

@@ -290,7 +290,7 @@ public sealed class UdpConnection : INetConnection
                 _haveCookie = true;
                 SendHandshake(now);
                 break;
-            case Wire.KindAccept when _from is not null && State == ConnectionState.Connecting && BinaryPrimitives.ReadUInt64LittleEndian(d[1..]) == _nonce:
+            case Wire.KindAccept when _from is not null && State == ConnectionState.Connecting && d.Length >= Wire.AcceptSize && BinaryPrimitives.ReadUInt64LittleEndian(d[1..]) == _nonce:
                 if (_secure ? d.Length >= Wire.SecureAcceptHeader && OnSecureAccept(d) : d.Length >= Wire.AcceptSize)
                 {
                     _connectionId = BinaryPrimitives.ReadUInt32LittleEndian(d[9..]);
@@ -375,10 +375,14 @@ public sealed class UdpConnection : INetConnection
         }
 
         Span<byte> payload = stackalloc byte[length];
-        if (!_handshake.ReadReply(d.Slice(Wire.SecureAcceptHeader, length), payload, out var n) || n != 20 || BinaryPrimitives.ReadUInt32LittleEndian(payload[16..]) != BinaryPrimitives.ReadUInt32LittleEndian(d[9..]))
+        // The reply authenticates, and the connection id in the clear header has to match the one inside it. Only then is it taken:
+        // a path attacker who rewrote the clear id must not use up the handshake the real reply needs.
+        if (!_handshake.PeekReply(d.Slice(Wire.SecureAcceptHeader, length), payload, out var n) || n != 20 || BinaryPrimitives.ReadUInt32LittleEndian(payload[16..]) != BinaryPrimitives.ReadUInt32LittleEndian(d[9..]))
         {
             return false;
         }
+
+        _handshake.CommitReply();
 
         payload[..16].CopyTo(_resetToken);
         _handshake.Finish((ulong)_o.MaxPacketsPerKey + 1, out _send, out _receive);

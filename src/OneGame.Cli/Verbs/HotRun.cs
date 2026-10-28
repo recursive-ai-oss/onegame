@@ -67,6 +67,11 @@ internal static partial class HotRun
         List<string> args = ["watch", "--verbose", "--project", project.File, "run", "-c", a.Configuration, "--no-launch-profile", "--"];
         args.AddRange(gameArgs);
         var info = Proc.Start(Proc.Dotnet, args, project.Directory);
+        if (gameArgs.Contains("--insecure"))
+        {
+            info.Environment["ONEGAME_DEV"] = "1";
+        }
+
         info.Environment["ONEGAME_HOT_STATUS"] = statusFile;
         info.Environment["ONEGAME_HOT_RESUME"] = resumeFile;
         info.Environment["DOTNET_WATCH_SUPPRESS_EMOJIS"] = "1";

@@ -129,7 +129,7 @@ public delegate bool PlatformEventFilter(in PlatformEvent e);
 /// </example>
 public static class GameApp
 {
-    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "also-scopes", "name", "net", "realtime", "until-tick", "no-present", "persist-data", "data", "server-key", "identity", "insecure", "game-id"];
+    private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "also-scopes", "name", "net", "realtime", "until-tick", "no-present", "persist-data", "data", "server-key", "identity", "insecure", "game-id", "server-id"];
 
     /// <summary>
     /// Set by development builds before <see cref="Run(GameDefinition, string[])"/> so the extra options work. A release build leaves it
@@ -238,6 +238,13 @@ public static class GameApp
     {
         if (a.Has("insecure"))
         {
+            // A command line can reach a shipped game from outside (a launch link, a shortcut), so dropping encryption is for development runs only,
+            // the same rule a server follows.
+            if (Environment.GetEnvironmentVariable("ONEGAME_DEV") != "1")
+            {
+                throw new FormatException("--insecure turns off encryption and authentication and is only for development runs (set ONEGAME_DEV=1, which 'onegame run' does). Pin the server's key with --server-key <public key or .pub file> instead.");
+            }
+
             return NetSecurity.Insecure;
         }
 
@@ -271,7 +278,7 @@ public static class GameApp
             }
         }
 
-        return NetSecurity.ForClient(trusted, a.Get("game-id") ?? "", identity);
+        return NetSecurity.ForClient(trusted, a.Get("game-id") ?? "", identity, a.Get("server-id"));
     }
 
     private static PeerKey ReadPublicKey(string text)
@@ -388,9 +395,9 @@ public static class GameApp
                 },
             };
         }
-        else if (a.Has("scope") || a.Has("also-scopes") || a.Has("net") || a.Has("name") || a.Has("server-key") || a.Has("identity") || a.Has("insecure") || a.Has("game-id"))
+        else if (a.Has("scope") || a.Has("also-scopes") || a.Has("net") || a.Has("name") || a.Has("server-key") || a.Has("identity") || a.Has("insecure") || a.Has("game-id") || a.Has("server-id"))
         {
-            throw new FormatException("--scope, --also-scopes, --name, --net, --server-key, --identity, --insecure and --game-id only apply with --connect <address>.");
+            throw new FormatException("--scope, --also-scopes, --name, --net, --server-key, --identity, --server-id, --insecure and --game-id only apply with --connect <address>.");
         }
 
         return a.Get("gpu") switch

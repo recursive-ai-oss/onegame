@@ -28,10 +28,29 @@ public readonly record struct PeerIdentity(PeerKey Key, string Address)
         => new(channel is IAuthenticatedChannel { RemoteKey: { } key } ? key : default, address);
 }
 
+/// <summary>The registry holds as many players as it may and every one of them has been activated, so there is nobody to forget.</summary>
+public sealed class PlayerRegistryFullException : InvalidOperationException
+{
+    /// <summary>Creates the exception.</summary>
+    /// <param name="limit">The registry's limit.</param>
+    public PlayerRegistryFullException(int limit)
+        : base($"The player registry holds {limit} activated players and cannot admit another key. Raise maxPlayers or use TryPlayerFor to refuse new keys.")
+    {
+    }
+}
+
 /// <summary>
 /// Gives each authenticated key a stable small player id, so a client that reconnects (a new connection, the same key) is the same
 /// player. The ids are what <see cref="Trust.As(uint, uint)"/> takes. A game owns one registry per authority and saves it with its
 /// own data (<see cref="Save"/>), or the ids start over when the process does.
+/// <para>
+/// A key proves a key, not a person: anyone can make keys at will, and a handshake with a fresh key succeeds. So the registry is
+/// bounded, and it forgets the right keys. A key is <em>provisional</em> when first seen and becomes <em>active</em> when the game calls
+/// <see cref="Activate(uint)"/> for something a spammer cannot mass-produce (the player played for a while, finished the tutorial,
+/// linked a platform account). When the registry is full, a new key replaces the oldest provisional one; active players are never
+/// replaced, so key spam cannot lock real players out, and cannot take away anyone who earned a place. A returning provisional key
+/// that was forgotten simply gets a new id.
+/// </para>
 /// </summary>
 public sealed class PlayerRegistry
 {
@@ -39,12 +58,14 @@ public sealed class PlayerRegistry
 
     private readonly Dictionary<PeerKey, uint> _byKey = [];
     private readonly Dictionary<uint, PeerKey> _byPlayer = [];
+    private readonly HashSet<uint> _active = [];
+    private readonly Queue<uint> _provisional = new(); // oldest first; entries that were activated or forgotten are skipped when they reach the front
     private readonly int _maxPlayers;
     private uint _next;
 
     /// <summary>Creates an empty registry that hands out ids from <paramref name="firstId"/> upward.</summary>
     /// <param name="firstId">The first player id; ids start at 1 by default because 0 means no player.</param>
-    /// <param name="maxPlayers">How many keys it will remember. Anyone can make keys at will, so a server should set this to what its game can hold; <see cref="TryPlayerFor"/> then refuses new keys instead of growing without bound.</param>
+    /// <param name="maxPlayers">How many keys it will remember. Set it to what the game can hold. When it is reached, a new key replaces the oldest provisional one; if every key is active, <see cref="TryPlayerFor"/> refuses and <see cref="PlayerFor"/> throws <see cref="PlayerRegistryFullException"/>.</param>
     public PlayerRegistry(uint firstId = 1, int maxPlayers = DefaultMaxPlayers)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(maxPlayers, 1);
@@ -52,48 +73,105 @@ public sealed class PlayerRegistry
         _maxPlayers = maxPlayers;
     }
 
-    /// <summary>Like <see cref="PlayerFor"/>, but returns false instead of adding a key when the registry already holds its maximum.</summary>
+    /// <summary>Counts every change that <see cref="Save"/> would write, so a game can tell whether the registry needs saving.</summary>
+    public long Version { get; private set; }
+
+    /// <summary>Players known so far, provisional and active.</summary>
+    public int Count => _byKey.Count;
+
+    /// <summary>Players that were activated.</summary>
+    public int ActiveCount => _active.Count;
+
+    /// <summary>
+    /// The player of <paramref name="key"/>, adding it (provisionally) on first sight. Returns false instead of adding a key when the
+    /// registry is full of active players.
+    /// </summary>
     /// <param name="key">An authenticated key.</param>
     /// <param name="player">The player id when this returns true.</param>
     /// <param name="isNew">True if this call added the player.</param>
-    public bool TryPlayerFor(PeerKey key, out uint player, out bool isNew)
-    {
-        if (!key.IsEmpty && !_byKey.ContainsKey(key) && _byKey.Count >= _maxPlayers)
-        {
-            player = 0;
-            isNew = false;
-            return false;
-        }
-
-        player = PlayerFor(key, out isNew);
-        return true;
-    }
-
-    /// <summary>Players known so far.</summary>
-    public int Count => _byKey.Count;
-
-    /// <summary>The player of <paramref name="key"/>, adding it on first sight.</summary>
-    /// <param name="key">An authenticated key.</param>
-    /// <param name="isNew">True if this call added the player.</param>
     /// <exception cref="ArgumentException"><paramref name="key"/> is empty (an unauthenticated peer has no identity to register).</exception>
-    public uint PlayerFor(PeerKey key, out bool isNew)
+    public bool TryPlayerFor(PeerKey key, out uint player, out bool isNew)
     {
         if (key.IsEmpty)
         {
             throw new ArgumentException("an unauthenticated peer has no key to register", nameof(key));
         }
 
-        if (_byKey.TryGetValue(key, out var id))
+        if (_byKey.TryGetValue(key, out player))
         {
             isNew = false;
-            return id;
+            return true;
+        }
+
+        while (_byKey.Count >= _maxPlayers)
+        {
+            if (!ForgetOldestProvisional())
+            {
+                player = 0;
+                isNew = false;
+                return false;
+            }
         }
 
         isNew = true;
-        id = _next++;
-        _byKey.Add(key, id);
-        _byPlayer.Add(id, key);
-        return id;
+        player = _next++;
+        _byKey.Add(key, player);
+        _byPlayer.Add(player, key);
+        _provisional.Enqueue(player);
+        Version++;
+        return true;
+    }
+
+    /// <summary>The player of <paramref name="key"/>, adding it (provisionally) on first sight; the registry never holds more than its limit.</summary>
+    /// <param name="key">An authenticated key.</param>
+    /// <param name="isNew">True if this call added the player.</param>
+    /// <exception cref="ArgumentException"><paramref name="key"/> is empty (an unauthenticated peer has no identity to register).</exception>
+    /// <exception cref="PlayerRegistryFullException">The registry is full of active players; use <see cref="TryPlayerFor"/> to refuse the key instead.</exception>
+    public uint PlayerFor(PeerKey key, out bool isNew)
+        => TryPlayerFor(key, out var player, out isNew) ? player : throw new PlayerRegistryFullException(_maxPlayers);
+
+    /// <summary>
+    /// Marks a player as one worth keeping: it is never replaced to make room for a new key. Call it when the player has done something
+    /// a spammer cannot do at scale.
+    /// </summary>
+    /// <param name="player">A player id from this registry.</param>
+    /// <returns>True if the player exists (activating twice is fine).</returns>
+    public bool Activate(uint player)
+    {
+        if (!_byPlayer.ContainsKey(player))
+        {
+            return false;
+        }
+
+        if (_active.Add(player))
+        {
+            Version++;
+        }
+
+        return true;
+    }
+
+    /// <summary>Whether the player was activated.</summary>
+    /// <param name="player">A player id.</param>
+    public bool IsActive(uint player) => _active.Contains(player);
+
+    // Makes room by forgetting the oldest key nobody activated.
+    private bool ForgetOldestProvisional()
+    {
+        while (_provisional.TryDequeue(out var id))
+        {
+            if (_active.Contains(id) || !_byPlayer.TryGetValue(id, out var key))
+            {
+                continue;
+            }
+
+            _ = _byPlayer.Remove(id);
+            _ = _byKey.Remove(key);
+            Version++;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>The player of <paramref name="key"/> if it has been seen.</summary>
@@ -106,12 +184,14 @@ public sealed class PlayerRegistry
     /// <param name="key">The key when this returns true.</param>
     public bool TryGetKey(uint player, out PeerKey key) => _byPlayer.TryGetValue(player, out key);
 
-    /// <summary>Serialises the registry: next id, count, then (id, key) pairs in id order.</summary>
+    private const int EntrySize = 4 + PeerKey.Size + 1;
+
+    /// <summary>Serialises the registry: next id, count, then (id, key, active) entries in id order.</summary>
     public byte[] Save()
     {
         var ids = _byPlayer.Keys.ToArray();
         Array.Sort(ids);
-        var bytes = new byte[8 + (ids.Length * (4 + PeerKey.Size))];
+        var bytes = new byte[8 + (ids.Length * EntrySize)];
         BinaryPrimitives.WriteUInt32LittleEndian(bytes, _next);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), (uint)ids.Length);
         var pos = 8;
@@ -119,7 +199,8 @@ public sealed class PlayerRegistry
         {
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(pos), id);
             _byPlayer[id].Bytes.CopyTo(bytes.AsSpan(pos + 4));
-            pos += 4 + PeerKey.Size;
+            bytes[pos + 4 + PeerKey.Size] = _active.Contains(id) ? (byte)1 : (byte)0;
+            pos += EntrySize;
         }
 
         return bytes;
@@ -132,14 +213,14 @@ public sealed class PlayerRegistry
     public static bool TryLoad(ReadOnlySpan<byte> data, out PlayerRegistry registry, int maxPlayers = DefaultMaxPlayers)
     {
         registry = null!;
-        if (data.Length < 8)
+        if (data.Length < 8 || maxPlayers < 1)
         {
             return false;
         }
 
         var next = BinaryPrimitives.ReadUInt32LittleEndian(data);
         var count = BinaryPrimitives.ReadUInt32LittleEndian(data[4..]);
-        if (count > DefaultMaxPlayers || data.Length != 8 + ((long)count * (4 + PeerKey.Size)))
+        if (count > DefaultMaxPlayers || data.Length != 8 + ((long)count * EntrySize))
         {
             return false;
         }
@@ -150,14 +231,24 @@ public sealed class PlayerRegistry
         {
             var id = BinaryPrimitives.ReadUInt32LittleEndian(data[pos..]);
             var key = new PeerKey(data.Slice(pos + 4, PeerKey.Size));
-            if (id == 0 || id >= next || r._byPlayer.ContainsKey(id) || r._byKey.ContainsKey(key))
+            var flag = data[pos + 4 + PeerKey.Size];
+            if (id == 0 || id >= next || flag > 1 || r._byPlayer.ContainsKey(id) || r._byKey.ContainsKey(key))
             {
                 return false;
             }
 
             r._byKey.Add(key, id);
             r._byPlayer.Add(id, key);
-            pos += 4 + PeerKey.Size;
+            if (flag == 1)
+            {
+                _ = r._active.Add(id);
+            }
+            else
+            {
+                r._provisional.Enqueue(id); // ids only grow, so the order they were issued in is the order they were first seen
+            }
+
+            pos += EntrySize;
         }
 
         registry = r;

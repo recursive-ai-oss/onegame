@@ -37,7 +37,7 @@ public class SecureWebSocketTests
         Assert.True(c.IsOpen && s.IsOpen);
         Assert.True(c.IsEncrypted && s.IsEncrypted);
         Assert.Equal(ServerKey.PublicKey, c.RemoteKey);
-        Assert.Equal(PlayerKey.PublicKey, s.RemoteKey);
+        Assert.Equal(SecureRig.ClientSec().IdentityKeyFor(ServerKey.PublicKey), s.RemoteKey);
         Assert.Equal(32, c.ChannelBinding.Length);
         Assert.True(c.ChannelBinding.Span.SequenceEqual(s.ChannelBinding.Span)); // both ends name the same session
         var sizes = new[] { 0, 1, 1000, SecureConnection.MaxChunk - 1, SecureConnection.MaxChunk, SecureConnection.MaxChunk + 1, 2 * SecureConnection.MaxChunk, 700_000 };
@@ -83,7 +83,7 @@ public class SecureWebSocketTests
         h.Record(SecureConnection.FlagConfirm, default);
         h.Server.Pump();
         Assert.True(h.Server.IsOpen);
-        Assert.Equal(PlayerKey.PublicKey, h.Server.RemoteKey);
+        Assert.Equal(SecureRig.ClientSec().IdentityKeyFor(ServerKey.PublicKey), h.Server.RemoteKey);
     }
 
     [Fact]
@@ -383,7 +383,7 @@ public class SecureWebSocketTests
             return acceptFn() is not null && client.State == ConnectionState.Connected;
         });
         var accepted = acceptFn()!;
-        Assert.Equal(PlayerKey.PublicKey, accepted.RemoteKey);
+        Assert.Equal(SecureRig.ClientSec().IdentityKeyFor(ServerKey.PublicKey), accepted.RemoteKey);
         Assert.True(accepted.IsEncrypted && client.IsEncrypted);
         Spin(() =>
         {

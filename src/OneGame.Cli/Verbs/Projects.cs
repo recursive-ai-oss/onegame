@@ -178,7 +178,9 @@ internal static class Projects
     {
         List<string> args = ["run", "--no-build", "--project", project.File, "-c", configuration, "--"];
         args.AddRange(gameArgs);
-        var result = Proc.Run(Proc.Dotnet, args, project.Directory, line => stream?.WriteLine(line));
+        // Asking this tool to run a game insecurely is the explicit development choice; the game itself refuses --insecure otherwise.
+        var environment = args.Contains("--insecure") ? new Dictionary<string, string> { ["ONEGAME_DEV"] = "1" } : null;
+        var result = Proc.Run(Proc.Dotnet, args, project.Directory, line => stream?.WriteLine(line), environment);
         return (result.ExitCode, result.Output, result.Error);
     }
 

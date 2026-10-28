@@ -136,8 +136,9 @@ public interface INetConnection : OneGame.Sync.IAuthenticatedChannel
     bool IsEncrypted => false;
 
     /// <summary>
-    /// A 32-byte value both ends derive from the handshake (Noise's handshake hash) and nobody else can: it names this one encrypted
-    /// session. A game that checks a platform or login proof (a Steam ticket, a token) must bind the proof to this value and to the
+    /// A 32-byte value both ends derive from the handshake (Noise's handshake hash): it names this one encrypted session, and a
+    /// fresh server ephemeral key makes it unique to it. It is <b>public, not a secret</b>: anyone who watched the handshake can compute it,
+    /// so never use it as a key or a MAC key. A game that checks a platform or login proof (a Steam ticket, a token) must bind the proof to this value and to the
     /// server's public key, or a malicious server could pass the proof on to another server and pose as the player there. Empty on an
     /// insecure link and before the handshake finishes.
     /// </summary>

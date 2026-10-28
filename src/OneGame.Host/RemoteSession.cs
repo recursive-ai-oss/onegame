@@ -31,8 +31,11 @@ public sealed record ConnectOptions
     public NetworkConditions? Conditions { get; init; }
 
     /// <summary>
-    /// When the connection closes for any reason but a refusal or a version mismatch (the server died, restarted or timed out), keep trying to
-    /// connect again and resubscribe to every followed scope; the replicas are rebuilt from fresh snapshots. On by default.
+    /// When the connection closes (the server died, restarted or timed out), keep trying to connect again and resubscribe to every followed
+    /// scope; the replicas are rebuilt from fresh snapshots. On by default. A refusal the server made over the encrypted link (kicked, not
+    /// admitted, wrong version) is final. A refusal that arrived before the link was authenticated (a Reject datagram, a failed handshake)
+    /// could have been forged by anyone on the path, so it only counts when the next three fresh attempts are refused too; the session then
+    /// reports <see cref="RemoteSession.IsClosed"/> and tries again after a minute.
     /// </summary>
     public bool Reconnect { get; init; } = true;
 
@@ -112,6 +115,7 @@ public sealed class RemoteSession
             Connection = Open(Transport, endpoint, options.Conditions, _security);
         }
 
+        Connection.Connected += OnConnected;
         Node = new Node(options.Name);
         var link = Node.ConnectVia(Connection);
         Link = link;
@@ -144,10 +148,10 @@ public sealed class RemoteSession
     public int Reconnects { get; private set; }
 
     /// <summary>True while the connection is lost and the session is trying to get it back (<see cref="ConnectOptions.Reconnect"/>).</summary>
-    public bool IsReconnecting => Connection.State == ConnectionState.Closed && _lostAt >= 0 && !GaveUp;
+    public bool IsReconnecting => Connection.State == ConnectionState.Closed && _lostAt >= 0 && !GaveUp && _refusedUntil == 0 && !_permanent;
 
-    /// <summary>True once the transport connection has closed and the session will not try again (the server refused it, the window ran out, or reconnecting is off).</summary>
-    public bool IsClosed => Connection.State == ConnectionState.Closed && (!Options.Reconnect || _permanent || GaveUp);
+    /// <summary>True once the transport connection has closed and the session is not trying (the server refused it, the window ran out, or reconnecting is off). After repeated unauthenticated refusals it is true for a minute, then the session tries again.</summary>
+    public bool IsClosed => Connection.State == ConnectionState.Closed && (!Options.Reconnect || _permanent || GaveUp || _refusedUntil > 0);
 
     private bool GaveUp => _lostAt >= 0 && Environment.TickCount64 - _lostAt > Options.ReconnectWindowMs;
 
@@ -185,16 +189,40 @@ public sealed class RemoteSession
         }
 
         var now = Environment.TickCount64;
+        if (_refusedUntil > 0)
+        {
+            if (now < _refusedUntil)
+            {
+                return;
+            }
+
+            // The pause is over: a refusal nobody could prove is not held against the server for ever.
+            _refusedUntil = 0;
+            _refusals = 0;
+            _lostAt = now;
+            _nextAttempt = now;
+            _backoffMs = 250;
+        }
+
         if (_lostAt < 0)
         {
             _lostAt = now;
             _nextAttempt = now;
             _backoffMs = 250;
-            var reason = Connection.CloseInfo.Reason;
-            if (_closedByUs || reason is DisconnectReason.Rejected or DisconnectReason.VersionMismatch or DisconnectReason.Kicked or DisconnectReason.SecurityRequired or DisconnectReason.HandshakeFailed)
+            if (_closedByUs || (Refusal(Connection.CloseInfo.Reason) && (_wasConnected || !IsSecure)))
             {
+                // Said over a link that proved who it was talking to (or a link that never claimed to): final.
                 _permanent = true;
                 return;
+            }
+
+            if (Refusal(Connection.CloseInfo.Reason))
+            {
+                NoteUnprovenRefusal(now);
+                if (_refusedUntil > 0)
+                {
+                    return;
+                }
             }
         }
 
@@ -219,6 +247,9 @@ public sealed class RemoteSession
             var fresh = _candidate;
             _candidate = null;
             Connection = fresh;
+            Connection.Connected += OnConnected;
+            _wasConnected = true;
+            _refusals = 0;
             Reconnects++;
             _lostAt = -1;
             Node.Reconnect(Link, fresh);
@@ -227,16 +258,44 @@ public sealed class RemoteSession
         {
             var reason = _candidate.CloseInfo.Reason;
             _candidate = null;
-            if (reason is DisconnectReason.Rejected or DisconnectReason.VersionMismatch or DisconnectReason.Kicked or DisconnectReason.SecurityRequired or DisconnectReason.HandshakeFailed)
-            {
-                _permanent = true;
-                return;
-            }
-
             _backoffMs = Math.Min(_backoffMs * 2, 2000);
             _nextAttempt = now + _backoffMs;
+            if (Refusal(reason))
+            {
+                if (!IsSecure)
+                {
+                    _permanent = true;
+                    return;
+                }
+
+                NoteUnprovenRefusal(now);
+            }
         }
     }
+
+    // Reasons a server gives when it will not have this client. Over an unauthenticated exchange (a Reject datagram, a bad handshake
+    // reply) anyone on the path can forge them, so they only count once they repeat; see NoteUnprovenRefusal.
+    private static bool Refusal(DisconnectReason reason) => reason is DisconnectReason.Rejected or DisconnectReason.VersionMismatch or DisconnectReason.Kicked or DisconnectReason.SecurityRequired or DisconnectReason.HandshakeFailed;
+
+    private bool IsSecure => _security is { Mode: SecurityMode.Required };
+
+    private void OnConnected(INetConnection connection) => _wasConnected = true;
+
+    // The same refusal on three fresh attempts in a row means the server really does not accept this client (a wrong key, another game
+    // version). The session then reports closed and stays quiet for a minute before it tries again, so a forged packet cannot end it for good.
+    private void NoteUnprovenRefusal(long now)
+    {
+        if (++_refusals >= RefusalsBeforePause)
+        {
+            _refusedUntil = now + RefusalPauseMs;
+        }
+    }
+
+    private const int RefusalsBeforePause = 3;
+    private const int RefusalPauseMs = 60_000;
+    private int _refusals;
+    private long _refusedUntil;
+    private bool _wasConnected;
 
     private readonly IPEndPoint _endpoint;
     private INetConnection? _candidate;
@@ -249,7 +308,7 @@ public sealed class RemoteSession
     // A client without an identity key gets one now and keeps it for every reconnect of this session: the server names the player by it.
     private static NetSecurity? WithIdentity(NetSecurity? security) =>
         security is { Mode: SecurityMode.Required, Identity: null, TrustedServerKeys.Count: > 0 }
-            ? new NetSecurity { GameId = security.GameId, TrustedServerKeys = security.TrustedServerKeys, Identity = NetKeyPair.Generate(), PerServerIdentity = security.PerServerIdentity }
+            ? new NetSecurity { GameId = security.GameId, TrustedServerKeys = security.TrustedServerKeys, Identity = NetKeyPair.Generate(), PerServerIdentity = security.PerServerIdentity, ServerId = security.ServerId }
             : security;
     private bool _closedByUs;
 

@@ -33,6 +33,19 @@ public sealed class WebSocketOptions
     /// <summary>Listener with security: handshakes started per second (counted when the client's first message arrives, before any key agreement). Sources that confirmed a session recently have a separate allowance of the same size. More are closed unanswered.</summary>
     public int MaxHandshakesPerSecond { get; init; } = 200;
 
+    /// <summary>
+    /// Listener with security: handshakes one source (an IPv4 address or an IPv6 /64) may start per second, so one host cannot use up the
+    /// shared budget. Behind a TLS-terminating proxy every client has the proxy's address, so the per-source limits cap all players
+    /// together: raise this and <see cref="MaxPendingHandshakesPerSource"/> to the totals you want (up to <see cref="MaxHandshakesPerSecond"/> and <see cref="MaxPendingHandshakes"/>) and keep the proxy's own connection limits.
+    /// </summary>
+    public int MaxHandshakesPerSourcePerSecond { get; init; } = 10;
+
+    /// <summary>
+    /// Listener with security: a socket must send its first handshake message within this long of connecting, or it is closed. Sockets that
+    /// have not spoken yet are also the first to be dropped when the pending queue is full.
+    /// </summary>
+    public int FirstMessageTimeoutMs { get; init; } = 2000;
+
     /// <summary>Listener with security: sockets from one source (an IPv4 address or an IPv6 /64) allowed to sit in the handshake at once.</summary>
     public int MaxPendingHandshakesPerSource { get; init; } = 4;
 
@@ -70,6 +83,7 @@ public sealed class WebSocketOptions
         MaxConnections = MaxConnections,
         MaxPendingHandshakes = MaxPendingHandshakes,
         HandshakeTimeoutMs = HandshakeTimeoutMs,
+        FirstMessageTimeoutMs = FirstMessageTimeoutMs,
         KeepAliveMs = KeepAliveMs,
         TimeoutMs = TimeoutMs,
         CloseTimeoutMs = CloseTimeoutMs,
@@ -88,6 +102,7 @@ public sealed class WebSocketOptions
         Check(MaxHeaderBytes >= 512 && MaxHeaderBytes <= ReceiveBufferBytes, nameof(MaxHeaderBytes), "must be 512 up to ReceiveBufferBytes");
         Check(MaxConnections >= 1 && MaxPendingHandshakes >= 1, nameof(MaxConnections), "and MaxPendingHandshakes must be positive");
         Check(MaxHandshakesPerSecond >= 1 && MaxPendingHandshakesPerSource >= 1, nameof(MaxHandshakesPerSecond), "and MaxPendingHandshakesPerSource must be positive");
+        Check(MaxHandshakesPerSourcePerSecond >= 1 && FirstMessageTimeoutMs >= 1, nameof(MaxHandshakesPerSourcePerSecond), "and FirstMessageTimeoutMs must be positive");
         Check(HandshakeTimeoutMs >= 1 && CloseTimeoutMs >= 1, nameof(HandshakeTimeoutMs), "and CloseTimeoutMs must be positive");
         Check(KeepAliveMs >= 10 && TimeoutMs > KeepAliveMs, nameof(TimeoutMs), "must exceed KeepAliveMs, which must be at least 10");
         Check(Path.Length > 0 && Path[0] == '/' && !Path.Contains(' ', StringComparison.Ordinal) && !Path.Contains('\r', StringComparison.Ordinal) && !Path.Contains('\n', StringComparison.Ordinal), nameof(Path), "must start with '/' and contain no spaces or line breaks");

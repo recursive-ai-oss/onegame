@@ -16,9 +16,18 @@ internal static class Proc
     public static string Dotnet => Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") is { Length: > 0 } host ? host : "dotnet";
 
     /// <summary>Runs a program to completion, capturing its output.</summary>
-    public static ProcessResult Run(string file, IEnumerable<string> args, string workingDirectory, Action<string>? onOutputLine = null)
+    public static ProcessResult Run(string file, IEnumerable<string> args, string workingDirectory, Action<string>? onOutputLine = null, IReadOnlyDictionary<string, string>? environment = null)
     {
-        using var p = new Process { StartInfo = Start(file, args, workingDirectory) };
+        var start = Start(file, args, workingDirectory);
+        if (environment is not null)
+        {
+            foreach (var (name, value) in environment)
+            {
+                start.Environment[name] = value;
+            }
+        }
+
+        using var p = new Process { StartInfo = start };
         var output = new StringBuilder();
         var error = new StringBuilder();
         p.OutputDataReceived += (_, e) =>

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using OneGame.Cli.Verbs;
+using OneGame.Core;
 
 namespace OneGame.Cli.Tests;
 
@@ -49,6 +50,36 @@ public sealed class ExportTests : IDisposable
         Assert.DoesNotContain("scenarios/", reasons.Keys);
         Assert.DoesNotContain("bin/", reasons.Keys);
         Assert.Empty(warnings);
+    }
+
+    // A client build holds only a server's public key. A private key file in a content folder is stopped, whatever it is called.
+    [Theory]
+    [InlineData("data/server.key")]
+    [InlineData("data/notes.yaml")]
+    [InlineData("art/oops.svg")]
+    public void APrivateKeyFileInAContentFolderStopsTheExport(string relative)
+    {
+        var pair = NetKeyPair.Generate();
+        Make("proj/" + relative, pair.ToFileText());
+        Directory.CreateDirectory(Path.Combine(_root, "out"));
+
+        var e = Assert.Throws<CliException>(() => ExportAssets.Copy(Path.Combine(_root, "proj"), Path.Combine(_root, "out"), [], []));
+        Assert.Equal("key_in_export", e.Code);
+        Assert.Contains(relative, e.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(pair.ToFileText().Split('\n').First(l => l.StartsWith("private:", StringComparison.Ordinal))[8..].Trim(), e.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ADevelopmentKeyFileIsStoppedAndAPublicKeyShips()
+    {
+        Make("proj/data/dev.key", NetKeyPair.GenerateDevelopment().ToFileText());
+        Directory.CreateDirectory(Path.Combine(_root, "out"));
+        Assert.Equal("key_in_export", Assert.Throws<CliException>(() => ExportAssets.Copy(Path.Combine(_root, "proj"), Path.Combine(_root, "out"), [], [])).Code);
+
+        File.Delete(Path.Combine(_root, "proj/data/dev.key"));
+        Make("proj/data/server.pub", NetKeyPair.Generate().PublicKey + "\n");
+        ExportAssets.Copy(Path.Combine(_root, "proj"), Path.Combine(_root, "out"), [], []);
+        Assert.True(File.Exists(Path.Combine(_root, "out/data/server.pub")));
     }
 
     [Fact]

@@ -44,7 +44,7 @@ internal sealed class SecureHandshake
     {
         var h = new SecureHandshake(security, bind);
         h._serverKey = security.TrustedServerKeys[keyIndex % security.TrustedServerKeys.Count];
-        h._identity = security.Identity is null ? NetKeyPair.Generate() : security.PerServerIdentity ? security.Identity.DeriveFor(h._serverKey) : security.Identity;
+        h._identity = security.Identity is null ? NetKeyPair.Generate() : security.PerServerIdentity ? security.DerivedIdentity(security.Identity, h._serverKey) : security.Identity;
         return h;
     }
 
@@ -79,6 +79,15 @@ internal sealed class SecureHandshake
             var noise = new NoiseHandshake(NoisePattern.IK, false, _prologue, key.Private, default, key.PublicKey.Bytes);
             if (noise.ReadMessage(message, payload, out payloadLength))
             {
+                if (!IsCanonical(noise.RemoteStatic))
+                {
+                    // X25519 ignores the top bit and reduces mod 2^255-19, so one private key could present several different 32-byte
+                    // names and become several players. Only the one canonical spelling is accepted (RFC 7748 section 5).
+                    noise.Destroy();
+                    payloadLength = 0;
+                    return false;
+                }
+
                 _noise = noise;
                 UsedServerKey = key;
                 Remote = new PeerKey(noise.RemoteStatic);
@@ -91,25 +100,78 @@ internal sealed class SecureHandshake
         return false;
     }
 
+    // True for a little-endian value below 2^255 - 19.
+    internal static bool IsCanonical(ReadOnlySpan<byte> key)
+    {
+        if (key.Length != 32 || (key[31] & 0x80) != 0)
+        {
+            return false;
+        }
+
+        if (key[31] != 0x7f || key[0] < 0xed)
+        {
+            return true;
+        }
+
+        for (var i = 1; i < 31; i++)
+        {
+            if (key[i] != 0xff)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Server: writes message 2 and returns its length.</summary>
     public int WriteReply(ReadOnlySpan<byte> payload, Span<byte> output) => _noise!.WriteMessage(payload, output);
 
-    /// <summary>Client: reads message 2. False if it does not authenticate (the server does not hold the key we trusted, or the message was altered).</summary>
+    /// <summary>
+    /// Client: reads message 2. False if it does not authenticate (the server does not hold the key we trusted, or the message was altered).
+    /// Nothing changes on false, so the real reply can still arrive.
+    /// </summary>
     public bool ReadReply(ReadOnlySpan<byte> message, Span<byte> payload, out int payloadLength)
     {
+        if (!PeekReply(message, payload, out payloadLength))
+        {
+            return false;
+        }
+
+        CommitReply();
+        return true;
+    }
+
+    /// <summary>
+    /// Client: reads message 2 without committing to it. A transport that carries more than the Noise message (a connection id) checks
+    /// that too, and calls <see cref="CommitReply"/> only if it holds; otherwise the handshake is still waiting for the real reply.
+    /// </summary>
+    public bool PeekReply(ReadOnlySpan<byte> message, Span<byte> payload, out int payloadLength)
+    {
         // Read on a fork: a datagram that fails to authenticate (forged or damaged) must not spoil the handshake the real reply needs.
+        _peeked?.Destroy();
         var fork = _noise!.Fork();
         if (!fork.ReadMessage(message, payload, out payloadLength))
         {
             fork.Destroy();
+            _peeked = null;
             return false;
         }
 
-        _noise.Destroy();
-        _noise = fork;
-        Remote = _serverKey;
+        _peeked = fork;
         return true;
     }
+
+    /// <summary>Client: takes the reply <see cref="PeekReply"/> read.</summary>
+    public void CommitReply()
+    {
+        _noise!.Destroy();
+        _noise = _peeked;
+        _peeked = null;
+        Remote = _serverKey;
+    }
+
+    private NoiseHandshake? _peeked;
 
     /// <summary>For stream transports (WebSocket): the two record ciphers, with the implicit Noise counters. Call once, after both messages.</summary>
     public void Finish(out NoiseCipherState send, out NoiseCipherState receive)
@@ -123,6 +185,8 @@ internal sealed class SecureHandshake
     {
         _noise?.Destroy();
         _noise = null;
+        _peeked?.Destroy();
+        _peeked = null;
     }
 
     /// <summary>The ciphers for this side: what it sends with and what it receives with. Call once, after both messages.</summary>
