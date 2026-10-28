@@ -38,6 +38,8 @@ public class SecureWebSocketTests
         Assert.True(c.IsEncrypted && s.IsEncrypted);
         Assert.Equal(ServerKey.PublicKey, c.RemoteKey);
         Assert.Equal(PlayerKey.PublicKey, s.RemoteKey);
+        Assert.Equal(32, c.ChannelBinding.Length);
+        Assert.True(c.ChannelBinding.Span.SequenceEqual(s.ChannelBinding.Span)); // both ends name the same session
         var sizes = new[] { 0, 1, 1000, SecureConnection.MaxChunk - 1, SecureConnection.MaxChunk, SecureConnection.MaxChunk + 1, 2 * SecureConnection.MaxChunk, 700_000 };
         for (var i = 0; i < sizes.Length; i++)
         {
