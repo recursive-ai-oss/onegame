@@ -405,7 +405,7 @@ public sealed class UdpListener : INetListener
         BinaryPrimitives.WriteUInt32LittleEndian(accept.AsSpan(9), id);
         BinaryPrimitives.WriteUInt16LittleEndian(accept.AsSpan(13), (ushort)n);
         hs.Finish((ulong)_o.MaxPacketsPerKey + 1, out var send, out var receive);
-        return new UdpConnection.ServerSecrets(send, receive, hs.Remote, accept.AsSpan(0, Wire.SecureAcceptHeader + n).ToArray());
+        return new UdpConnection.ServerSecrets(send, receive, hs.Remote, accept.AsSpan(0, Wire.SecureAcceptHeader + n).ToArray(), hs.ChannelBinding);
     }
 
     // Budgets: one per source (an IPv4 address or an IPv6 /64), one shared by strangers, and one reserved for sources that completed a

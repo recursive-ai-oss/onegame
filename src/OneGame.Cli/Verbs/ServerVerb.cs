@@ -286,6 +286,9 @@ internal sealed class ServerVerb : IVerb
             }
         }
 
+        // This command is a development tool: a server it starts may use a development key or --insecure.
+        DevKeys.AddServerArgs(pass);
+        info.Environment["ONEGAME_DEV"] = "1";
         foreach (var a in pass)
         {
             info.ArgumentList.Add(a);

@@ -54,6 +54,9 @@ internal sealed class SecureHandshake
     /// <summary>The peer's authenticated static public key: the client's on a server, the server's on a client. Empty until known.</summary>
     public PeerKey Remote { get; private set; }
 
+    /// <summary>The handshake hash of the finished handshake (see <see cref="INetConnection.ChannelBinding"/>); empty before <see cref="Finish"/>.</summary>
+    public byte[] ChannelBinding { get; private set; } = [];
+
     /// <summary>On a server, the key pair the client chose; null before <see cref="ReadFirst"/> succeeds.</summary>
     public NetKeyPair? UsedServerKey { get; private set; }
 
@@ -114,7 +117,8 @@ internal sealed class SecureHandshake
     /// <param name="packetLimit">The most packets one key may send.</param>
     public void Finish(ulong packetLimit, out DatagramSender send, out DatagramReceiver receive)
     {
-        _noise!.Split(out var s, out var r);
+        ChannelBinding = _noise!.HandshakeHash.ToArray();
+        _noise.Split(out var s, out var r);
         send = new DatagramSender(s, packetLimit);
         receive = new DatagramReceiver(r);
     }

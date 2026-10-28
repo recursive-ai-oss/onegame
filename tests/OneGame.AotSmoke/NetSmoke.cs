@@ -14,9 +14,12 @@ internal static class NetSmoke
     private static string? Udp()
     {
         var clock = new ManualNetClock();
+        // The encrypted path: keys, the Noise handshake, AEAD packets and the identity the server learns, all under NativeAOT.
+        var serverKey = OneGame.Core.NetKeyPair.Generate();
+        var playerKey = OneGame.Core.NetKeyPair.Generate();
         var conditions = new NetworkConditions { LatencyMs = 20, JitterMs = 5, LossRate = 0.1, Seed = 3 };
-        using var server = UdpTransport.Listen(new ConditionedDatagramSocket(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), conditions, clock), Plain.Udp, clock);
-        var client = UdpTransport.Connect((IPEndPoint)server.LocalEndPoint, Plain.Udp, clock);
+        using var server = UdpTransport.Listen(new ConditionedDatagramSocket(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), conditions, clock), new UdpOptions { Security = NetSecurity.ForServer(serverKey, "smoke/1") }, clock);
+        var client = UdpTransport.Connect((IPEndPoint)server.LocalEndPoint, new UdpOptions { Security = NetSecurity.ForClient([serverKey.PublicKey], "smoke/1", playerKey) }, clock);
         INetConnection? accepted = null;
         var payload = new byte[5000];
         new Random(1).NextBytes(payload);
@@ -41,8 +44,9 @@ internal static class NetSmoke
             Thread.Sleep(0);
         }
 
+        var known = accepted is { IsEncrypted: true } && accepted.RemoteKey == playerKey.PublicKey && client.RemoteKey == serverKey.PublicKey;
         client.Disconnect();
-        return echoed ? null : "udp echo failed";
+        return !echoed ? "udp echo failed" : known ? null : "the secure link did not authenticate both ends";
     }
 
     private static string? WebSocket()

@@ -65,12 +65,14 @@ internal static class ServerSmoke
                 }
             },
         };
-        var config = ServerConfig.Parse("name: net\nhashHistory: 64\nscopes: [{ id: 1, seed: 3 }]\nlisten:\n  - { transport: udp, port: 0, address: 127.0.0.1 }\n");
+        var keys = OneGame.Core.KeyStore.Create(Path.Combine(Path.GetTempPath(), "onegame-aot-smoke-" + Guid.NewGuid().ToString("N")), "server");
+        var security = $"security:\n  key: {keys.PrivateFile}\n  game: smoke/1\n";
+        var config = ServerConfig.Parse("name: net\nhashHistory: 64\nscopes: [{ id: 1, seed: 3 }]\nlisten:\n  - { transport: udp, port: 0, address: 127.0.0.1 }\n" + security);
         var host = new ServerHost(config, setup);
         host.Start();
         var port = host.Endpoints[0].Port;
         var session = new OneGame.Host.RemoteSession(
-            new OneGame.Host.ConnectOptions { Address = $"udp://127.0.0.1:{port}", Name = "smoke", Conditions = OneGame.Host.RemoteSession.ParseConditions("latency=0,loss=0") },
+            new OneGame.Host.ConnectOptions { Address = $"udp://127.0.0.1:{port}", Name = "smoke", Security = OneGame.Net.NetSecurity.ForClient([keys.PublicKey], "smoke/1"), Conditions = OneGame.Host.RemoteSession.ParseConditions("latency=0,loss=0") },
             host.CreateReplicaWorld(new ScopeId(1)));
         for (var i = 0; i < 300; i++)
         {
@@ -87,7 +89,7 @@ internal static class ServerSmoke
         host.Stop();
 
         // The server goes away and comes back on the same port: the client notices, connects again and resubscribes.
-        var again = new ServerHost(ServerConfig.Parse($"name: net\nhashHistory: 64\nscopes: [{{ id: 1, seed: 3 }}]\nlisten:\n  - {{ transport: udp, port: {port}, address: 127.0.0.1 }}\n"), setup);
+        var again = new ServerHost(ServerConfig.Parse($"name: net\nhashHistory: 64\nscopes: [{{ id: 1, seed: 3 }}]\nlisten:\n  - {{ transport: udp, port: {port}, address: 127.0.0.1 }}\n" + security), setup);
         var clock = System.Diagnostics.Stopwatch.StartNew();
         while (!session.IsReconnecting && clock.ElapsedMilliseconds < 10_000)
         {

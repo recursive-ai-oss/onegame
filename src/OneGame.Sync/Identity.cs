@@ -35,17 +35,38 @@ public readonly record struct PeerIdentity(PeerKey Key, string Address)
 /// </summary>
 public sealed class PlayerRegistry
 {
-    private const int MaxPlayers = 1 << 22;
+    private const int DefaultMaxPlayers = 1 << 22;
 
     private readonly Dictionary<PeerKey, uint> _byKey = [];
     private readonly Dictionary<uint, PeerKey> _byPlayer = [];
+    private readonly int _maxPlayers;
     private uint _next;
 
     /// <summary>Creates an empty registry that hands out ids from <paramref name="firstId"/> upward.</summary>
     /// <param name="firstId">The first player id; ids start at 1 by default because 0 means no player.</param>
-    public PlayerRegistry(uint firstId = 1)
+    /// <param name="maxPlayers">How many keys it will remember. Anyone can make keys at will, so a server should set this to what its game can hold; <see cref="TryPlayerFor"/> then refuses new keys instead of growing without bound.</param>
+    public PlayerRegistry(uint firstId = 1, int maxPlayers = DefaultMaxPlayers)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxPlayers, 1);
         _next = Math.Max(1u, firstId);
+        _maxPlayers = maxPlayers;
+    }
+
+    /// <summary>Like <see cref="PlayerFor"/>, but returns false instead of adding a key when the registry already holds its maximum.</summary>
+    /// <param name="key">An authenticated key.</param>
+    /// <param name="player">The player id when this returns true.</param>
+    /// <param name="isNew">True if this call added the player.</param>
+    public bool TryPlayerFor(PeerKey key, out uint player, out bool isNew)
+    {
+        if (!key.IsEmpty && !_byKey.ContainsKey(key) && _byKey.Count >= _maxPlayers)
+        {
+            player = 0;
+            isNew = false;
+            return false;
+        }
+
+        player = PlayerFor(key, out isNew);
+        return true;
     }
 
     /// <summary>Players known so far.</summary>
@@ -107,7 +128,8 @@ public sealed class PlayerRegistry
     /// <summary>Reads what <see cref="Save"/> wrote. A damaged or oversize file returns false and changes nothing.</summary>
     /// <param name="data">The saved bytes.</param>
     /// <param name="registry">The registry when this returns true.</param>
-    public static bool TryLoad(ReadOnlySpan<byte> data, out PlayerRegistry registry)
+    /// <param name="maxPlayers">The limit the loaded registry keeps (see the constructor).</param>
+    public static bool TryLoad(ReadOnlySpan<byte> data, out PlayerRegistry registry, int maxPlayers = DefaultMaxPlayers)
     {
         registry = null!;
         if (data.Length < 8)
@@ -117,12 +139,12 @@ public sealed class PlayerRegistry
 
         var next = BinaryPrimitives.ReadUInt32LittleEndian(data);
         var count = BinaryPrimitives.ReadUInt32LittleEndian(data[4..]);
-        if (count > MaxPlayers || data.Length != 8 + ((long)count * (4 + PeerKey.Size)))
+        if (count > DefaultMaxPlayers || data.Length != 8 + ((long)count * (4 + PeerKey.Size)))
         {
             return false;
         }
 
-        var r = new PlayerRegistry(next);
+        var r = new PlayerRegistry(next, maxPlayers);
         var pos = 8;
         for (var i = 0; i < count; i++)
         {

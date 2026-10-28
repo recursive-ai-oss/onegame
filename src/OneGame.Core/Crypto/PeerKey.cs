@@ -109,6 +109,8 @@ public readonly struct PeerKey : IEquatable<PeerKey>
 /// </summary>
 public sealed class NetKeyPair
 {
+    private const string DevelopmentMark = "# DEV KEY";
+
     private readonly byte[] _private;
 
     private NetKeyPair(byte[] privateKey)
@@ -121,6 +123,20 @@ public sealed class NetKeyPair
 
     /// <summary>The shareable half.</summary>
     public PeerKey PublicKey { get; }
+
+    /// <summary>
+    /// True for a key made by the development tools (<c>onegame run</c>, clusters, samples). The mark is in the key file, and a server
+    /// refuses to start with such a key unless it is told it is a development run, so a dev key cannot quietly become a production key.
+    /// </summary>
+    public bool IsDevelopment { get; private set; }
+
+    /// <summary>Makes a new random key pair marked <see cref="IsDevelopment"/>.</summary>
+    public static NetKeyPair GenerateDevelopment()
+    {
+        var pair = Generate();
+        pair.IsDevelopment = true;
+        return pair;
+    }
 
     /// <summary>Makes a new random key pair from <see cref="Entropy"/>.</summary>
     public static NetKeyPair Generate()
@@ -151,10 +167,15 @@ public sealed class NetKeyPair
         ArgumentNullException.ThrowIfNull(text);
         string? priv = null;
         string? pub = null;
+        var development = false;
         foreach (var raw in text.Split('\n'))
         {
             var line = raw.Trim();
-            if (line.StartsWith("private:", StringComparison.Ordinal))
+            if (line.StartsWith(DevelopmentMark, StringComparison.Ordinal))
+            {
+                development = true;
+            }
+            else if (line.StartsWith("private:", StringComparison.Ordinal))
             {
                 priv = line[8..].Trim();
             }
@@ -169,7 +190,7 @@ public sealed class NetKeyPair
             throw new KeyFormatException("a key file needs a 'private:' line with 43 characters of base64url");
         }
 
-        var pair = new NetKeyPair(privateKey.Bytes.ToArray());
+        var pair = new NetKeyPair(privateKey.Bytes.ToArray()) { IsDevelopment = development };
         if (pub is not null && (!PeerKey.TryParse(pub, out var declared) || declared != pair.PublicKey))
         {
             throw new KeyFormatException("the 'public:' line does not belong to the private key");
@@ -187,6 +208,11 @@ public sealed class NetKeyPair
     public string ToFileText()
     {
         var sb = new StringBuilder();
+        if (IsDevelopment)
+        {
+            sb.Append(DevelopmentMark).Append(" - made for local development; never use it on a real server\n");
+        }
+
         sb.Append("# onegame private key. SECRET: anyone who has this file can pose as the owner. Do not commit it or ship it in a client build.\n");
         sb.Append("private: ").Append(new PeerKey(_private)).Append('\n');
         sb.Append("public: ").Append(PublicKey).Append('\n');
