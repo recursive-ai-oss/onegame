@@ -30,7 +30,7 @@ public sealed partial class ServerAppJson : JsonSerializerContext
 /// <c>onegame-server</c> tool calls it with a plugin loader and no game types.
 /// </summary>
 /// <example>
-/// A complete server program (<c>Program.cs</c> of a project with <c>OneGameKind</c> <c>Server</c>):
+/// A complete server program (<c>Program.cs</c> of a project with <c>OneGameKind</c> set to <c>Server</c>):
 /// <code>
 /// return ServerApp.Run(
 ///     new ServerSetup
