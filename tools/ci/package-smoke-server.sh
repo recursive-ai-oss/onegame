@@ -62,7 +62,7 @@ cat > nuget.config <<EOF
 EOF
 
 step "dotnet tool install RecursiveAI.OneGame.Cli $version"
-dotnet tool install --tool-path "$work/tools" RecursiveAI.OneGame.Cli --version "$version"
+dotnet tool install --tool-path "$work/tools" --configfile "$work/app/nuget.config" RecursiveAI.OneGame.Cli --version "$version"
 og="$work/tools/onegame"
 
 step "onegame new mygame --server"

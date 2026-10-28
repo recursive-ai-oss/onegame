@@ -60,7 +60,7 @@
 
   <!-- The engine (libraries and the onegame command) carries the release version; samples keep their own. -->
   <PropertyGroup Condition="$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)').StartsWith('$(_SrcRoot)'))">
-    <Version>1.6.1</Version>
+    <Version>1.7.0</Version>
   </PropertyGroup>
 
   <!-- Only the engine libraries under src/ are packages. The sample games and the tools are built, not published to nuget.org. -->

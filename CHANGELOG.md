@@ -4,6 +4,22 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-28
+
+Every export works from packages: a game made by `onegame new` from the installed tool exports for the web, Android (with Google Play Billing), iOS and the plugin-capable server with no engine checkout.
+
+### Added
+
+- `onegame new --server` also writes `plugin/`, a server plugin project (the SDK's new `OneGameKind` `Plugin`) and a configuration that loads it.
+- CI jobs `packages-web`, `packages-android`, `packages-ios` and `packages-server` build each export from packages alone; the web page and the iOS Simulator app end in the same world hashes as the desktop run, and an exported client agrees with the exported plugin host.
+
+### Changed
+
+- The `onegame` tool carries the web page and script files, the Play Billing Java wrapper and the plugin-capable server host (`server-host/`), so `onegame export --target web`, `onegame web test`, `export --target android` with `AndroidPlayBilling`, `onegame server run` and `export --server --plugins` no longer need an engine checkout.
+- Web, Android and iOS exports pack the game's `fonts/`, `art/` and `data/` folders with the same filter as the desktop export, and the game reads them as loose files (the web page and the APK unpack them at start), so games that load files from disk run unchanged on every target.
+- Device scripts in `tools/devices/` tear down everything they start on finish, failure, Ctrl-C and SIGTERM (apps, installed packages, port forwards, tunnels, transient units, background commands); `android.sh` no longer removes every forward on the adb server and restores the stay-awake setting.
+- The package smoke scripts install the tool from the local feed explicitly.
+
 ## [1.6.1] - 2026-10-28
 
 ### Changed
