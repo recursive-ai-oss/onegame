@@ -435,7 +435,7 @@ public class CryptoTests
         Assert.Equal(8, back[0]);
     }
 
-    // Review M3: a cipher with no key never passes plaintext and never says a message is authentic.
+    // a cipher with no key never passes plaintext and never says a message is authentic.
     [Fact]
     public void ACipherWithoutAKeyFailsClosed()
     {
@@ -451,7 +451,7 @@ public class CryptoTests
         Assert.Throws<ArgumentException>(() => c.Initialize(new byte[16]));
     }
 
-    // Review M8: the counter limit and Rekey are pinned by known answers, not only by "both sides agree".
+    // the counter limit and Rekey are pinned by known answers, not only by "both sides agree".
     [Fact]
     public void RekeyAndCounterExhaustionAreChecked()
     {
@@ -485,7 +485,7 @@ public class CryptoTests
         Assert.False(peer.Decrypt([], a, new byte[1]));
     }
 
-    // Review L1/L7: one bad datagram or one small buffer must not wreck a handshake.
+    // one bad datagram or one small buffer must not wreck a handshake.
     [Fact]
     public void AHandshakeSurvivesForgedRepliesOnAForkAndSmallBuffers()
     {
@@ -560,7 +560,7 @@ public class CryptoTests
         Assert.False(receiver.OpenClose([5], close, new byte[2]));
     }
 
-    // Review M8: the final reduction of Poly1305 (h >= p) is only reached by crafted inputs; compare with a big-integer reference.
+    // the final reduction of Poly1305 (h >= p) is only reached by crafted inputs; compare with a big-integer reference.
     [Fact]
     public void Poly1305MatchesABigIntegerReferenceOnEdgeInputs()
     {

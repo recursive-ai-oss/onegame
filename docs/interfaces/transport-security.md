@@ -1,11 +1,11 @@
 # Transport security
 
-Status: the primitives, the Noise core and the UDP wiring are built and tested; servers, game clients, the `onegame` tool, clusters and the Lanterns sample use them. The WebSocket side is described in the WebSocket section of this file by whoever builds it. Section 11 lists what an independent review of the design found and what was done about each finding. `transport.md` has the datagram layouts.
+Status: the primitives, the Noise core, and the UDP and WebSocket links (desktop and browser) are built and tested; servers, game clients, the `onegame` tool, clusters and the Lanterns sample use them. Section 11 lists what an independent review of the design found and what was done about each finding. `transport.md` has the datagram layouts.
 
 ## 1. What exists (`src/OneGame.Core/Crypto`, all `internal`)
 
 | File | What | Specification |
-|---|---|---|
+|---|---|
 | `X25519.cs` | `PublicKey`, `Agree` (false for an all-zero result) | RFC 7748 §5, §6.1 |
 | `ChaCha20Poly1305.cs` | `Seal`/`Open` into a caller buffer, in place allowed, zero allocation | RFC 8439 §2 |
 | `Hkdf.cs` | `Extract`/`Expand`, and the Noise HKDF | RFC 5869; Noise §4.3 |
@@ -26,7 +26,7 @@ Nothing calls `System.Security.Cryptography`: phones lack the system library (se
 Types and where they live:
 
 | Type | Assembly | What |
-|---|---|---|
+|---|---|
 | `PeerKey` | Core | A 32-byte public key; text form is 43 characters of base64url. `Parse`, `TryParse`, `Bytes`, `IsEmpty`, equality. |
 | `NetKeyPair` | Core | `Generate()`, `FromPrivateKey`, `Load(path)`/`Save(path)` (a text file with `private:` and `public:` lines, mode 0600 where the platform has modes), `PublicKey`. The private half never prints. **It is the developer's secret.** |
 | `KeyFormatException` | Core | A key or key file is malformed. |
@@ -78,7 +78,7 @@ Prologue: `"onegame/2" 00 gameId 00 bind`, so a handshake only completes between
 The cookie exchange is unchanged: Request, Challenge, and a server that stores nothing until the cookie comes back. The version nibble of byte 0 is 2 for secure datagrams and 1 for plaintext, and a peer never answers a version it does not run in kind.
 
 | Kind | Secure layout (version 2) | Notes |
-|---|---|---|
+|---|---|
 | 0 Request | `b0, nonce u64`, padded to ≥ 256 | As today. |
 | 1 Challenge | `b0, nonce, cookie[16]` | As today. |
 | 2 Response | `b0, nonce, cookie[16], len u16, noise msg 1`, padded to ≥ 256 | `bind = nonce ‖ cookie`. The server checks the cookie (one HMAC) and the handshake rate limit before the DH work. |
@@ -147,20 +147,20 @@ Set aside: server-issued resumption tickets (need a ticket key shared by every s
 
 ## 7. Decisions
 
-**(a) [PM] Compatibility: negotiation by mode, no downgrade.** Default `Required`; `Insecure` is explicit and named, for tests and development tools. A Required end never falls back and a mismatch closes with `SecurityRequired`. There is no `Optional` rollout mode: no released game uses onegame networking, so a rollout window protects nobody. Opening a transport without settings throws `SecurityNotConfiguredException`. This breaks 1.9 clients and servers on purpose (CHANGELOG says so). In-process single-player and `TestCluster`'s in-memory channels are not network paths and are unaffected.
+**(a) Compatibility: negotiation by mode, no downgrade.** Default `Required`; `Insecure` is explicit and named, for tests and development tools. A Required end never falls back and a mismatch closes with `SecurityRequired`. There is no `Optional` rollout mode: no released game uses onegame networking, so a rollout window protects nobody. Opening a transport without settings throws `SecurityNotConfiguredException`. This breaks 1.9 clients and servers on purpose (CHANGELOG says so). In-process single-player and `TestCluster`'s in-memory channels are not network paths and are unaffected.
 
-**(b) [PM] Keys: pinned, or from the master or directory, as a set per server; no trust on first use.** A client holds the acceptable public keys per server (a rotation overlaps: the server adds a pair, clients get the new key, the old pair is removed later), pinned in a first-party build or handed out with the server list by the master. No known-hosts store. Development and LAN stay zero-ceremony because the tools make keys and hand them over the same way a pinned key travels: `onegame run --connect`, `onegame cluster`, process clusters, `TestCluster` over real transport and the samples generate keys automatically (§9). `onegame keys` makes key files. The private key is the developer's secret.
+**(b) Keys: pinned, or from the master or directory, as a set per server; no trust on first use.** A client holds the acceptable public keys per server (a rotation overlaps: the server adds a pair, clients get the new key, the old pair is removed later), pinned in a first-party build or handed out with the server list by the master. No known-hosts store. Development and LAN stay zero-ceremony because the tools make keys and hand them over the same way a pinned key travels: `onegame run --connect`, `onegame cluster`, process clusters, `TestCluster` over real transport and the samples generate keys automatically (§9). `onegame keys` makes key files. The private key is the developer's secret.
 
-**(c) [PM] Browsers: Noise inside WebSocket everywhere, plus `wss://` on https pages.** One code path and one identity model on every platform; TLS gives browsers nothing for client identity. The certificate for `wss://` is an operator step (the "Operating a server" section of the user guide). The interpreter cost was measured (§7.1) and is not a reason to drop it.
+**(c) Browsers: Noise inside WebSocket everywhere, plus `wss://` on https pages.** One code path and one identity model on every platform; TLS gives browsers nothing for client identity. The certificate for `wss://` is an operator step (the "Operating a server" section of the user guide). The interpreter cost was measured (§7.1) and is not a reason to drop it.
 
-**(d) [PM] Agreed:** handshake rate limiting, login blobs in the first encrypted message, per-page-load web identity, and the packet-size budget (16 bytes per UDP packet, see §4.7).
+**(d) Also settled:** handshake rate limiting, login blobs in the first encrypted message, per-page-load web identity, and the packet-size budget (16 bytes per UDP packet, see §4.7).
 
 Other points. IK message 1 has no forward secrecy toward a later leak of the server's static key (the client's static key is exposed), so nothing secret goes in it. Unauthenticated bytes remain only in Request, Challenge, Reject, and Reset (checked by token); none leads to state or key exposure. No wall clock is used (the cookie epoch is the transport's monotonic clock). Entropy on the web comes from `Entropy.Use` over `crypto.getRandomValues`, which the browser backend installs before the first connection. Out of scope: Steam relay and lobbies, signed directory entries, post-quantum exchange.
 
 **7.1 Measured in the browser.** Method: the same `OneGame.Core/Crypto` sources built as a `Microsoft.NET.Sdk.WebAssembly` app in Release with the export's settings (interpreter, no AOT, no workload, invariant globalization), served by `tools/web/run-page.mjs` and run in headless Chrome (`--disable-gpu`, no GPU needed), then the same sources as a CoreCLR console app on the same machine minutes apart. Each figure is a loop of at least 1.5 s after a warm-up; "handshake" is both peers in one process, so a client alone pays about half. The host was a busy 32-thread desktop (load average 25 to 40 from other work, Ryzen 9 7950X3D), so treat the ratios as better than the absolute values. Chrome ran three times; the range is shown.
 
 | | Chrome, .NET wasm interpreter | CoreCLR, same host | Ratio |
-|---|---|---|---|
+|---|---|
 | ChaCha20-Poly1305 seal, 1200 B | 43,000 to 53,000 /s (52 to 64 MB/s) | 398,000 /s | 8x |
 | open, 1200 B | 53,000 to 54,000 /s | 316,000 /s | 6x |
 | seal, 64 B | 389,000 to 445,000 /s | 2,805,000 /s | 7x |
@@ -209,26 +209,26 @@ It can no longer: read or alter payloads, inject or replay packets into a connec
 
 Read in this order: `Noise.cs` against spec §5 (state machine, DH order for `es`/`se`, pre-messages, `Split`, failure handling), `ChaCha20Poly1305.cs` (`Open` checks the tag before it decrypts and zeroes the output on failure; in-place use; counters), `X25519.cs` (limb bounds in `Mul` and `Carry`: sums stay under 2^63 because every `Add`/`Sub` carries; `Store`'s canonical reduction), and the cases the vector tests cannot reach: the explicit-counter methods, the 2^64 - 1 counter reservation, `NoiseHandshake` misuse (wrong turn, missing keys throw `InvalidOperationException`/`ArgumentException`; wire errors return false). The fuzz targets are `aead-open` (any bytes; failure must zero the output; seal/open must round trip) and `noise-read` (honest handshake up to a chosen stage, then arbitrary bytes for the next message).
 
-## 11. Independent review of the design and primitives: findings and what was done
+## 11. Independent review: findings and what was done
 
-An independent reviewer read the primitives and the design (no bugs found in X25519, ChaCha20-Poly1305, HKDF or the Noise state machine). Their findings, by id:
+An independent reviewer read the primitives and the design (no bugs found in X25519, ChaCha20-Poly1305, HKDF or the Noise state machine). Their findings and what was done about each:
 
-| Id | Finding | Done |
-|---|---|---|
-| H1 | A platform ticket sent to a host is replayable by that host | Section 6: proofs are bound to `ChannelBinding` and the server key, or linked once through the master. `ChannelBinding` is public API. The engine does not verify tickets. |
-| M1 | IK message 1 replay; surfacing a connection too early; unconfirmed handshakes | UDP: connections surface and send only after the first authenticated packet; separate unconfirmed budget (total and per source, short timeout, not counted against `MaxConnections`); tombstones for the cookie lifetime; capacity checked before any DH. **WebSocket part is the WebSocket work's.** |
-| M2 | Handshake CPU; weak limits; recomputed public key | The server's public key is computed once (also the client's); per-source budgets with IPv6 /64 grouping, a shared cap and a reserved share for recently confirmed sources; the cheap checks come first; the doc no longer says "about four" (a server handshake is five DH operations). |
-| M3 | A keyless cipher fails open | `NoiseCipherState` throws on `Encrypt` and returns false on `Decrypt` with no key; pass-through exists only inside `NoiseHandshake`. Test. |
-| M4 | Caller-chosen counters; counter 2^64-1 | `SealAt`/`OpenAt` are gone. `DatagramSender` owns the numbers (strictly increasing, one use each, limit below 2^32, so 2^64-1 is unreachable); `DatagramReceiver` owns the replay window. Every transmission, retransmissions included, has a new packet number. Tests. |
-| M5 | Downgrade and `Insecure` | No `Optional`. A client with a trusted key never falls back (a Required end rejects the other version). The datagram version is in the prologue (`Wire.Bind`); the Noise pattern name is already in the handshake hash. `Insecure` and development keys need `ONEGAME_DEV=1` when asked for by flag or configuration, and log a warning at every start (section 9). The WebSocket pattern byte is the WebSocket work's. |
-| M6 | Development keys becoming production keys | Dev keys live in a per-user folder or a cluster's working folder, never a game folder; they carry a `# DEV KEY` mark that real servers refuse; `export` refuses private key files in content folders; docs say clients pin public keys only. |
-| M7 | One static client key links a player across servers; first-sight registry unbounded | Per-server derived client key (`PerServerIdentity`, default for `ForClient`). `PlayerRegistry` has a size limit (`TryPlayerFor`). Rotation and revocation of a client key are not built (documented). |
-| M8 | Poly1305 reduction untested; surviving mutants | A big-integer reference test with crafted edge inputs (RFC 8439 A.3 #5 pinned: tag 3), known-answer `Rekey`, counter exhaustion, fail-closed ciphers. The early-exit tag compare is covered only by the explicit timing check (`ConstantTimeSmokeCheck`), which still is not in the default run. |
-| L1, L7 | A half-written or failed handshake is stuck | A write that fails on buffer size marks the handshake failed; the client reads the server's reply on a fork, so a forged or damaged reply is thrown away and the real one is still accepted. Tests. |
-| L2, L4, L5 | Key length; partial overlap; output not zeroed | Fixed (key must be 32 bytes; shifted overlap throws; `Open` zeroes the output on every false). |
-| L6 | Accept's connection id outside the transcript | The id is also inside the encrypted message 2; the client compares. |
-| L8 | Reset details | Constant-time compare, per-second limit on resets, a live id is never answered with a token (as before). A separate random reset key (instead of one derived from the static key) is deferred. |
-| N1, N4 | Doc accuracy; key rotation under IK | Fixed above and in section 9. |
-| N2 | `Entropy.Use` is process-wide | Plugins are trusted by the operator; anything in the process can replace the random source. Said here. |
-| Deferred | L3 (stack residue of temporaries in `Mul`/`Invert`, `_ePriv` kept until `Split`), L10 (`SetEphemeralForTest` is compiled in, `internal` to the engine and its tests), L9 and the WebSocket framing findings (WebSocket work) | Low risk: each needs a memory-read primitive or a test-only call. |
+| Finding | Done |
+|---|---|
+| A platform ticket sent to a host is replayable by that host | Section 6: proofs are bound to `ChannelBinding` and the server key, or linked once through the master. `ChannelBinding` is public API. The engine does not verify tickets. |
+| IK message 1 replay; surfacing a connection too early; unconfirmed handshakes | UDP: connections surface and send only after the first authenticated packet; separate unconfirmed budget (total and per source, short timeout, not counted against `MaxConnections`); tombstones for the cookie lifetime; capacity checked before any DH. WebSocket: a server challenge bound into the prologue and a confirm record before the connection surfaces (section 5). |
+| Handshake CPU; weak limits; recomputed public key | The server's public key is computed once (also the client's); per-source budgets with IPv6 /64 grouping, a shared cap and a reserved share for recently confirmed sources; the cheap checks come first; the doc no longer says "about four" (a server handshake is five DH operations). |
+| A keyless cipher fails open | `NoiseCipherState` throws on `Encrypt` and returns false on `Decrypt` with no key; pass-through exists only inside `NoiseHandshake`. Test. |
+| Caller-chosen counters; counter 2^64-1 | `SealAt`/`OpenAt` are gone. `DatagramSender` owns the numbers (strictly increasing, one use each, limit below 2^32, so 2^64-1 is unreachable); `DatagramReceiver` owns the replay window. Every transmission, retransmissions included, has a new packet number. Tests. |
+| Downgrade and `Insecure` | No `Optional`. A client with a trusted key never falls back (a Required end rejects the other version). The datagram version is in the prologue (`Wire.Bind`); the Noise pattern name is already in the handshake hash. `Insecure` and development keys need `ONEGAME_DEV=1` when asked for by flag or configuration, and log a warning at every start (section 9). On WebSocket the record version byte and the server challenge are in the prologue (section 5). |
+| Development keys becoming production keys | Dev keys live in a per-user folder or a cluster's working folder, never a game folder; they carry a `# DEV KEY` mark that real servers refuse; `export` refuses private key files in content folders; docs say clients pin public keys only. |
+| One static client key links a player across servers; first-sight registry unbounded | Per-server derived client key (`PerServerIdentity`, default for `ForClient`). `PlayerRegistry` has a size limit (`TryPlayerFor`). Rotation and revocation of a client key are not built (documented). |
+| Poly1305 reduction untested; surviving mutants | A big-integer reference test with crafted edge inputs (RFC 8439 A.3 #5 pinned: tag 3), known-answer `Rekey`, counter exhaustion, fail-closed ciphers. The early-exit tag compare is covered only by the explicit timing check (`ConstantTimeSmokeCheck`), which still is not in the default run. |
+| A half-written or failed handshake is stuck | A write that fails on buffer size marks the handshake failed; the client reads the server's reply on a fork, so a forged or damaged reply is thrown away and the real one is still accepted. Tests. |
+| Key length; partial overlap; output not zeroed | Fixed (key must be 32 bytes; shifted overlap throws; `Open` zeroes the output on every false). |
+| Accept's connection id outside the transcript | The id is also inside the encrypted message 2; the client compares. |
+| Reset details | Constant-time compare, per-second limit on resets, a live id is never answered with a token (as before). A separate random reset key (instead of one derived from the static key) is deferred. |
+| Doc accuracy; key rotation under IK | Fixed above and in section 9. |
+| `Entropy.Use` is process-wide | Plugins are trusted by the operator; anything in the process can replace the random source. Said here. |
+| Deferred: stack residue of secrets (temporaries in `Mul`/`Invert`, `_ePriv` kept until `Split`), a test-only hook (`SetEphemeralForTest` is compiled in, `internal` to the engine and its tests)| Low risk: each needs a memory-read primitive or a test-only call. |
 

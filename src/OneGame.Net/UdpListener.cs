@@ -395,7 +395,7 @@ public sealed class UdpListener : INetListener
         }
 
         // The reply's encrypted payload is the reset token and the connection id: the id is also in the clear header, and the client
-        // compares the two, so a path attacker cannot steer the client to a connection id the server did not choose (review L6).
+        // compares the two, so a path attacker cannot steer the client to a connection id the server did not choose.
         var accept = new byte[Wire.SecureAcceptHeader + SecureHandshake.ReplyOverhead + 20];
         Span<byte> payload = stackalloc byte[20];
         SecureHandshake.ResetToken(_security.ServerKeys[0], id, payload[..16]);

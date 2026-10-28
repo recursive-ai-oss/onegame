@@ -85,7 +85,7 @@ public class SecureUdpTests
         }
     }
 
-    // Review M7: hosts cannot link a player across servers by their key, and a server still sees the same key every time.
+    // hosts cannot link a player across servers by their key, and a server still sees the same key every time.
     [Fact]
     public void AClientShowsEachServerADifferentKeyThatStaysTheSameForThatServer()
     {
@@ -330,7 +330,7 @@ public class SecureUdpTests
         Assert.Equal(ConnectionState.Connecting, client.State);
     }
 
-    // Review L1/L7: a datagram that looks like the reply but is not authentic must not kill the handshake the real reply is waiting for.
+    // a datagram that looks like the reply but is not authentic must not kill the handshake the real reply is waiting for.
     [Fact]
     public void AForgedAuthenticLookingAcceptDoesNotSpoilTheRealOne()
     {
@@ -352,7 +352,7 @@ public class SecureUdpTests
         Assert.Equal(ServerKey.PublicKey, p.Client.RemoteKey);
     }
 
-    // Review M2: one source cannot use the shared handshake budget, and the others still get in.
+    // one source cannot use the shared handshake budget, and the others still get in.
     [Fact]
     public void OneSourceHasItsOwnHandshakeBudget()
     {
