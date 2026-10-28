@@ -235,6 +235,9 @@ internal sealed class SecureConnection : INetConnection
     public bool IsEncrypted => true;
 
     /// <inheritdoc />
+    public ReadOnlyMemory<byte> ChannelBinding { get; private set; }
+
+    /// <inheritdoc />
     public PeerKey? RemoteKey => _remote.IsEmpty ? null : _remote;
 
     /// <inheritdoc />
@@ -606,6 +609,7 @@ internal sealed class SecureConnection : INetConnection
     {
         _remote = _hs!.Remote;
         _hs.Finish(out _send, out _recv);
+        ChannelBinding = _hs.ChannelBinding;
         _hs = null;
         _sbuf = NetBuffers.Rent(MaxRecord);
         _rbuf = NetBuffers.Rent(MaxRecord);

@@ -86,6 +86,16 @@ public class SecureUdpTests
     }
 
     [Fact]
+    public void BothEndsOfASessionShareAChannelBindingNobodyElseHas()
+    {
+        var p = Pair.Make();
+        Assert.Equal(32, p.Client.ChannelBinding.Length);
+        Assert.True(p.Client.ChannelBinding.Span.SequenceEqual(p.Accepted!.ChannelBinding.Span));
+        var q = Pair.Make();
+        Assert.False(p.Client.ChannelBinding.Span.SequenceEqual(q.Client.ChannelBinding.Span));
+    }
+
+    [Fact]
     public void ASecureConnectionKnowsWhoIsOnTheOtherEnd()
     {
         var p = Pair.Make();

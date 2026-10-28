@@ -48,6 +48,7 @@ internal static partial class HotRun
         status.Write("idle", null);
 
         var gameArgs = new List<string>(a.Game);
+        DevKeys.AddClientArgs(gameArgs);
         if (!gameArgs.Contains("--live") && !gameArgs.Any(g => g.StartsWith("--live=", StringComparison.Ordinal)))
         {
             // The wrapper needs the live socket to save the world before a restart, and a hot game runs on its own.

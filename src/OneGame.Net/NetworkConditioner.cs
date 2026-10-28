@@ -204,6 +204,9 @@ public sealed class ConditionedConnection : INetConnection
     public OneGame.Core.PeerKey? RemoteKey => _inner.RemoteKey;
 
     /// <inheritdoc />
+    public ReadOnlyMemory<byte> ChannelBinding => _inner.ChannelBinding;
+
+    /// <inheritdoc />
     public ConnectionState State => _inner.State;
 
     /// <inheritdoc />

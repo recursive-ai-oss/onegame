@@ -135,6 +135,14 @@ public interface INetConnection : OneGame.Sync.IAuthenticatedChannel
     /// <summary>True when the link is encrypted and authenticated (<see cref="SecurityMode.Required"/>). Then <see cref="OneGame.Sync.IAuthenticatedChannel.RemoteKey"/> is the peer's proven key once connected.</summary>
     bool IsEncrypted => false;
 
+    /// <summary>
+    /// A 32-byte value both ends derive from the handshake (Noise's handshake hash) and nobody else can: it names this one encrypted
+    /// session. A game that checks a platform or login proof (a Steam ticket, a token) must bind the proof to this value and to the
+    /// server's public key, or a malicious server could pass the proof on to another server and pose as the player there. Empty on an
+    /// insecure link and before the handshake finishes.
+    /// </summary>
+    ReadOnlyMemory<byte> ChannelBinding => default;
+
     /// <summary>Current state.</summary>
     ConnectionState State { get; }
 

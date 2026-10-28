@@ -102,6 +102,7 @@ public sealed class UdpConnection : INetConnection
             _send = secrets.Send;
             _receive = secrets.Receive;
             _remoteKey = secrets.RemoteKey;
+            ChannelBinding = secrets.ChannelBinding;
             _acceptDatagram = secrets.AcceptDatagram;
             _confirmed = false; // handed out only after the first authenticated packet
             IsUnconfirmed = true;
@@ -109,7 +110,7 @@ public sealed class UdpConnection : INetConnection
     }
 
     // What a listener hands a server end once the handshake succeeded.
-    internal sealed record ServerSecrets(DatagramSender Send, DatagramReceiver Receive, PeerKey RemoteKey, byte[] AcceptDatagram);
+    internal sealed record ServerSecrets(DatagramSender Send, DatagramReceiver Receive, PeerKey RemoteKey, byte[] AcceptDatagram, byte[] ChannelBinding);
 
     private PeerKey? _remoteKey;
 
@@ -118,6 +119,9 @@ public sealed class UdpConnection : INetConnection
 
     /// <inheritdoc />
     public PeerKey? RemoteKey => _remoteKey;
+
+    /// <inheritdoc />
+    public ReadOnlyMemory<byte> ChannelBinding { get; private set; }
 
     // Server end: raised once, when the first authenticated packet shows the client holds its keys.
     internal event Action<UdpConnection>? Confirmed;
@@ -377,6 +381,7 @@ public sealed class UdpConnection : INetConnection
         payload[..16].CopyTo(_resetToken);
         _handshake.Finish((ulong)_o.MaxPacketsPerKey + 1, out _send, out _receive);
         _remoteKey = _handshake.Remote;
+        ChannelBinding = _handshake.ChannelBinding;
         _handshake = null;
         return true;
     }

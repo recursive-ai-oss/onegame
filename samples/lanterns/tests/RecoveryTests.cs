@@ -15,7 +15,7 @@ public class RecoveryTests
     }
 
     [Fact]
-    public void AClientWhoseIslandIsKilledReconnectsWhenItIsBackAndAgreesWithItAgain()
+    public void AClientWhoseIslandIsKilledReconnectsAsTheSamePlayerWhenItIsBackAndAgreesWithItAgain()
     {
         var data = Path.Combine(Path.GetTempPath(), "lanterns-recovery-" + Guid.NewGuid().ToString("N"));
         try
@@ -32,15 +32,17 @@ public class RecoveryTests
             Assert.False(game.Remote!.IsClosed);
 
             r.Start(Rules.IslandA); // from its last save
-            r.RunUntil(() => game.Remote!.Reconnects == 1 && s.Me is not null && s.Me.Owner != before, 30_000, "the client to be back as a new player", why: () => game.Remote!.Status().Replica);
+            r.RunUntil(() => game.Remote!.Reconnects == 1 && s.Me is not null && game.Replica.State == ReplicaState.Live, 30_000, "the client to be back", why: () => game.Remote!.Status().Replica);
             r.Run(40);
             Assert.Equal(ReplicaState.Live, game.Replica.State);
             Assert.True(Agrees(r, Rules.IslandA, game), "the client differs from its restarted island");
             Assert.Empty(game.DriftReports);
 
-            // The player the old connection had is gone: one player on the islands, the one this connection holds.
-            r.RunUntil(() => r.Players().Count() == 1, 20_000, "the old player to be removed", why: () => string.Join(",", r.Players().Select(p => p.Owner)));
-            Assert.Equal(s.Me!.Owner, r.Players().Single().Owner);
+            // The key is the player: the client is the same player as before the restart, and is not removed as a leaver afterwards
+            // (the island marked everyone it restored as a leaver until they show up again; running past that window proves it was cleared).
+            Assert.Equal(before, s.Me!.Owner);
+            r.Run(400);
+            Assert.Equal(before, Assert.Single(r.Players()).Owner);
         }
         finally
         {

@@ -15,6 +15,14 @@ public class ClusterTests
         return File.Exists(path) ? path : throw new FileNotFoundException(path + " is not built; build the test project first.");
     }
 
+    // "peer.2=udp://127.0.0.1:{port:islandB.peer}" is followed by "peer.key.2={key:islandB}": a peer's key travels with its address.
+    private static string PeerKey(string peer)
+    {
+        var scope = peer[5..peer.IndexOf('=', StringComparison.Ordinal)];
+        var name = peer[(peer.IndexOf("{port:", StringComparison.Ordinal) + 6)..peer.IndexOf(".peer}", StringComparison.Ordinal)];
+        return $"peer.key.{scope}={{key:{name}}}";
+    }
+
     internal static NodeSpec Server(string name, string listen, uint scope, params string[] peers) => new()
     {
         Name = name,
@@ -22,7 +30,7 @@ public class ClusterTests
         Exe = Program("Lanterns.Server", "LanternsServer"),
         Listen = listen,
         Scopes = [new ScopeSpec(scope, scope)],
-        Args = ["--option", $"peers={{port:{name}.peer}}", .. peers.SelectMany(p => new[] { "--option", p }), "--option", "data={dir}/data"],
+        Args = ["--option", $"peers={{port:{name}.peer}}", .. peers.SelectMany(p => new[] { "--option", p, "--option", PeerKey(p) }), "--option", "data={dir}/data"],
     };
 
     internal static ClusterSpec Spec(string name) => new()

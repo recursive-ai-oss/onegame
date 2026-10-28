@@ -69,14 +69,11 @@ public sealed class ServerHost
     public Func<ClientRequest, Trust?>? Authenticate { get; set; }
 
     /// <summary>
-    /// How client links are secured. Null (the default) builds it from <see cref="ServerConfig.Security"/> at <see cref="Start"/>; set it first
-    /// to supply keys from code. <see cref="Start"/> throws <see cref="SecurityNotConfiguredException"/> when the server listens and neither this
+    /// How client links are secured. Null (the default) builds it from <see cref="ServerConfig.Security"/> at <see cref="Start"/> (so after
+    /// <c>Start</c> it holds the settings in force, which a game can reuse for its own server-to-server links); set it first to supply keys from code. <see cref="Start"/> throws <see cref="SecurityNotConfiguredException"/> when the server listens and neither this
     /// nor the configuration names a key or says <c>insecure</c>.
     /// </summary>
     public NetSecurity? Security { get; set; }
-
-    /// <summary>Maps each connecting client's authenticated key to a stable player id (see <see cref="ClientRequest.Key"/>); a game's <see cref="Authenticate"/> hook may use it.</summary>
-    public PlayerRegistry Players { get; } = new();
 
     /// <summary>The addresses the server listens on, with the ports the system picked for configured port 0. Filled by <see cref="Start"/>.</summary>
     public IReadOnlyList<ListenEndpoint> Endpoints => _network.Endpoints;
@@ -149,11 +146,17 @@ public sealed class ServerHost
     /// <summary>True once a stop was requested (the control surface's <c>shutdown</c>).</summary>
     public bool StopRequested { get; private set; }
 
-    private static NetSecurity BuildSecurity(SecurityConfig config)
+    // Insecure mode and development keys are for development runs only. A real server cannot be put in either by accident: the command
+    // line and configuration may ask for them only when the process says it is a development run (ONEGAME_DEV=1, which the onegame
+    // tool, clusters and test rigs set). Code that sets ServerHost.Security itself has made the choice in code.
+    private NetSecurity BuildSecurity(SecurityConfig config)
     {
+        var development = Environment.GetEnvironmentVariable("ONEGAME_DEV") == "1";
         if (config.Insecure)
         {
-            return NetSecurity.Insecure;
+            return development
+                ? NetSecurity.Insecure
+                : throw new SecurityNotConfiguredException("The server was asked to run insecure (no encryption, no authentication), which is only for development runs. Give it a real key (--key <file>, made with 'onegame keys'), or set ONEGAME_DEV=1 for a development run.");
         }
 
         if (config.KeyFiles.Count == 0)
@@ -166,7 +169,18 @@ public sealed class ServerHost
         {
             try
             {
-                pairs.Add(NetKeyPair.Load(file));
+                var pair = NetKeyPair.Load(file);
+                if (pair.IsDevelopment)
+                {
+                    if (!development)
+                    {
+                        throw new SecurityNotConfiguredException($"'{file}' is a development key and this is not a development run. Make a real key with 'onegame keys', or set ONEGAME_DEV=1.");
+                    }
+
+                    Log.Warn($"using a development key ({file}); do not run a public server with it.");
+                }
+
+                pairs.Add(pair);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or KeyFormatException)
             {
@@ -206,9 +220,14 @@ public sealed class ServerHost
             _scopes.Add(new ServerScope(id, Node.AddScope(id, world), registry, systems, new HashRing(Config.HashHistory)));
         }
 
-        if (Config.Listen.Count > 0)
+        if (Config.Listen.Count > 0 || Config.Security.KeyFiles.Count > 0 || Security is not null)
         {
-            _network.Security = Security ?? BuildSecurity(Config.Security);
+            Security ??= BuildSecurity(Config.Security);
+            _network.Security = Security;
+            if (_network.Security.Mode == SecurityMode.Insecure)
+            {
+                Log.Warn("client links are NOT encrypted or authenticated (insecure mode). Use this for tests and local tools only.");
+            }
         }
 
         foreach (var listen in Config.Listen)
