@@ -30,6 +30,12 @@ public sealed class WebSocketOptions
     /// <summary>Listener only: sockets allowed to sit in the opening handshake at once. More are closed on accept.</summary>
     public int MaxPendingHandshakes { get; init; } = 32;
 
+    /// <summary>Listener with security: handshakes started per second (counted when the client's first message arrives, before any key agreement). Sources that confirmed a session recently have a separate allowance of the same size. More are closed unanswered.</summary>
+    public int MaxHandshakesPerSecond { get; init; } = 200;
+
+    /// <summary>Listener with security: sockets from one source (an IPv4 address or an IPv6 /64) allowed to sit in the handshake at once.</summary>
+    public int MaxPendingHandshakesPerSource { get; init; } = 4;
+
     /// <summary>The TCP connect and the opening handshake must finish within this long.</summary>
     public int HandshakeTimeoutMs { get; init; } = 5000;
 
@@ -51,6 +57,27 @@ public sealed class WebSocketOptions
     /// <summary>Listener only: if set, a browser's Origin header must be one of these (compared ignoring case). Requests without an Origin header (non-browser clients) are always accepted.</summary>
     public IReadOnlyList<string>? AllowedOrigins { get; init; }
 
+    // The options of the link underneath a secure one: records are at most 65535 bytes, so that bounds its messages.
+    internal WebSocketOptions ForInner() => new()
+    {
+        Security = NetSecurity.Insecure,
+        MaxMessageBytes = Math.Min(SecureConnection.MaxRecord, MaxMessageBytes + 17),
+        MaxSendQueueBytes = MaxSendQueueBytes,
+        MaxReceiveQueueBytes = MaxReceiveQueueBytes,
+        SendFragmentBytes = SendFragmentBytes,
+        ReceiveBufferBytes = ReceiveBufferBytes,
+        MaxHeaderBytes = MaxHeaderBytes,
+        MaxConnections = MaxConnections,
+        MaxPendingHandshakes = MaxPendingHandshakes,
+        HandshakeTimeoutMs = HandshakeTimeoutMs,
+        KeepAliveMs = KeepAliveMs,
+        TimeoutMs = TimeoutMs,
+        CloseTimeoutMs = CloseTimeoutMs,
+        Path = Path,
+        Host = Host,
+        AllowedOrigins = AllowedOrigins,
+    };
+
     internal void Validate()
     {
         Check(MaxMessageBytes is >= 1 and <= (64 << 20), nameof(MaxMessageBytes), "must be 1 to 64 MiB");
@@ -60,6 +87,7 @@ public sealed class WebSocketOptions
         Check(ReceiveBufferBytes >= 1024, nameof(ReceiveBufferBytes), "must be at least 1024");
         Check(MaxHeaderBytes >= 512 && MaxHeaderBytes <= ReceiveBufferBytes, nameof(MaxHeaderBytes), "must be 512 up to ReceiveBufferBytes");
         Check(MaxConnections >= 1 && MaxPendingHandshakes >= 1, nameof(MaxConnections), "and MaxPendingHandshakes must be positive");
+        Check(MaxHandshakesPerSecond >= 1 && MaxPendingHandshakesPerSource >= 1, nameof(MaxHandshakesPerSecond), "and MaxPendingHandshakesPerSource must be positive");
         Check(HandshakeTimeoutMs >= 1 && CloseTimeoutMs >= 1, nameof(HandshakeTimeoutMs), "and CloseTimeoutMs must be positive");
         Check(KeepAliveMs >= 10 && TimeoutMs > KeepAliveMs, nameof(TimeoutMs), "must exceed KeepAliveMs, which must be at least 10");
         Check(Path.Length > 0 && Path[0] == '/' && !Path.Contains(' ', StringComparison.Ordinal) && !Path.Contains('\r', StringComparison.Ordinal) && !Path.Contains('\n', StringComparison.Ordinal), nameof(Path), "must start with '/' and contain no spaces or line breaks");

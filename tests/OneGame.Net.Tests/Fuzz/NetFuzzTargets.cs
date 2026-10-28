@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using OneGame.Core.Tests.Fuzzing;
 
+using OneGame.Net.Tests;
+
 namespace OneGame.Net.Tests.Fuzzing;
 
 /// <summary>
@@ -16,6 +18,9 @@ public static class NetFuzzTargets
         new FuzzTargets.Target("net-udp-endpoints", RunEndpoints, EndpointSeeds),
         new FuzzTargets.Target("net-ws-frames", RunFrames, FrameSeeds),
         new FuzzTargets.Target("net-ws-handshake", RunHandshake, HandshakeSeeds),
+        new FuzzTargets.Target("net-ws-secure-handshake", RunSecureHandshake, SecureHandshakeSeeds),
+        new FuzzTargets.Target("net-ws-secure-records", RunRawRecords, RawRecordSeeds),
+        new FuzzTargets.Target("net-ws-secure-authenticated", RunAuthenticatedRecords, AuthenticatedSeeds),
     ];
 
     private static byte[] Pat(int length, int seed)
@@ -253,5 +258,118 @@ public static class NetFuzzTargets
         var response = WsHandshake.ParseResponse(input, "dGhlIHNhbXBsZSBub25jZQ=="u8);
         _ = WsHandshake.FindEnd(input);
         return request == WsHandshake.RequestResult.Ok || response;
+    }
+
+    // ---- Secure WebSocket: the handshake messages, raw records, and records that authenticate but may be malformed. ----
+
+    private static byte[] Stream(params byte[][] messages)
+    {
+        var ms = new MemoryStream();
+        foreach (var m in messages)
+        {
+            ms.Write(BitConverter.GetBytes((ushort)m.Length));
+            ms.Write(m);
+        }
+
+        return ms.ToArray();
+    }
+
+    private static IEnumerable<byte[]> Messages(byte[] input)
+    {
+        var pos = 0;
+        while (pos + 2 <= input.Length)
+        {
+            var len = Math.Min(BinaryPrimitives.ReadUInt16LittleEndian(input.AsSpan(pos)), input.Length - pos - 2);
+            pos += 2;
+            yield return input.AsSpan(pos, len).ToArray();
+            pos += len;
+        }
+    }
+
+    private static IEnumerable<byte[]> SecureHandshakeSeeds()
+    {
+        var h = new SecureRig.Hand();
+        yield return Stream(h.First);
+        yield return Stream(h.First, [1, 2, 3]);
+        yield return Stream([SecureConnection.VersionByte], new byte[97]);
+    }
+
+    // Anything a socket can say to a server that has just sent its challenge: it must never open and never throw.
+    private static bool RunSecureHandshake(byte[] input)
+    {
+        var (server, wire) = SecureRig.NewServer();
+        var any = false;
+        foreach (var m in Messages(input))
+        {
+            any = true;
+            wire.Send(m);
+            server.Pump();
+            if (server.IsOpen)
+            {
+                // Only a genuine handshake and confirm can open it; random bytes never will.
+                throw new InvalidOperationException("opened from fuzz input");
+            }
+        }
+
+        return any;
+    }
+
+    private static IEnumerable<byte[]> RawRecordSeeds()
+    {
+        yield return Stream(new byte[40], new byte[17], new byte[65535]);
+        yield return Stream([0]);
+    }
+
+    // Records from the peer that were not made with its key: all fail authentication, and the connection ends.
+    private static bool RunRawRecords(byte[] input)
+    {
+        var h = new SecureRig.Hand();
+        h.ConfirmNow();
+        var any = false;
+        foreach (var m in Messages(input))
+        {
+            any = true;
+            h.Wire.Send(m);
+            _ = h.Server.TryReceive(out _);
+        }
+
+        return any;
+    }
+
+    // Each item is flag, u16 length, body. They are sealed with the real key, so only the parser's own rules stand in the way.
+    private static IEnumerable<byte[]> AuthenticatedSeeds()
+    {
+        yield return [0, 3, 0, 1, 2, 3];
+        yield return [1, 2, 0, 9, 9, 0, 1, 0, 7];
+        yield return [2, 1, 0, 11];
+        yield return [1, 0, 0, 3, 0, 0];
+    }
+
+    private static bool RunAuthenticatedRecords(byte[] input)
+    {
+        var h = new SecureRig.Hand();
+        h.ConfirmNow();
+        var pos = 0;
+        var any = false;
+        var delivered = 0L;
+        while (pos + 3 <= input.Length)
+        {
+            var flag = input[pos];
+            var len = Math.Min(BinaryPrimitives.ReadUInt16LittleEndian(input.AsSpan(pos + 1)), input.Length - pos - 3);
+            h.Record(flag, input.AsSpan(pos + 3, len));
+            pos += 3 + len;
+            any = true;
+            while (h.Server.TryReceive(out var m))
+            {
+                delivered += m.Length;
+            }
+        }
+
+        if (delivered > pos)
+        {
+            throw new InvalidOperationException("more bytes delivered than were sent");
+        }
+
+        return any;
     }
 }

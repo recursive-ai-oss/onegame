@@ -20,6 +20,7 @@
     <InternalsVisibleTo Include="OneGame.Sync.Tests" />
     <InternalsVisibleTo Include="OneGame.Sync" />
     <InternalsVisibleTo Include="OneGame.Net" />
+    <InternalsVisibleTo Include="OneGame.Net.Tests" />
     <InternalsVisibleTo Include="OneGame.Control" />
   </ItemGroup>
 

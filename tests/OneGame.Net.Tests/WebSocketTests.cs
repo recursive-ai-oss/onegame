@@ -10,8 +10,8 @@ public class WebSocketTests
 
     private static (WebSocketListener Server, WebSocketConnection Client, INetConnection Accepted) Connected(WebSocketOptions? serverOptions = null, WebSocketOptions? clientOptions = null)
     {
-        var server = WebSocketTransport.Listen(Local, serverOptions);
-        var client = WebSocketTransport.Connect((IPEndPoint)server.LocalEndPoint, clientOptions);
+        var server = WebSocketTransport.ListenPlain(Local, serverOptions);
+        var client = WebSocketTransport.ConnectPlain((IPEndPoint)server.LocalEndPoint, clientOptions);
         INetConnection? accepted = null;
         Until(() =>
         {
@@ -147,9 +147,9 @@ public class WebSocketTests
     {
         var clock = new ManualNetClock();
         var o = new WebSocketOptions { KeepAliveMs = 100, TimeoutMs = 400 };
-        var server = WebSocketTransport.Listen(Local, o, clock);
+        var server = WebSocketTransport.ListenPlain(Local, o, clock);
         using var srv = server;
-        var client = WebSocketTransport.Connect((IPEndPoint)server.LocalEndPoint, o, clock);
+        var client = WebSocketTransport.ConnectPlain((IPEndPoint)server.LocalEndPoint, o, clock);
         INetConnection? accepted = null;
         void Tick(int ms)
         {
@@ -195,7 +195,7 @@ public class WebSocketTests
         probe.Start();
         var port = ((IPEndPoint)probe.LocalEndpoint).Port;
         probe.Stop();
-        var client = WebSocketTransport.Connect(new IPEndPoint(IPAddress.Loopback, port));
+        var client = WebSocketTransport.ConnectPlain(new IPEndPoint(IPAddress.Loopback, port));
         DisconnectInfo? info = null;
         client.Disconnected += (_, i) => info = i;
         Until(() =>
@@ -225,8 +225,8 @@ public class WebSocketTests
     [Fact]
     public void BadOptionsAreRefused()
     {
-        Assert.Throws<ArgumentException>(() => WebSocketTransport.Listen(Local, new WebSocketOptions { Path = "x" }));
-        Assert.Throws<ArgumentException>(() => WebSocketTransport.Connect(new IPEndPoint(IPAddress.Loopback, 1), new WebSocketOptions { MaxHeaderBytes = 10 }));
+        Assert.Throws<ArgumentException>(() => WebSocketTransport.ListenPlain(Local, new WebSocketOptions { Path = "x" }));
+        Assert.Throws<ArgumentException>(() => WebSocketTransport.ConnectPlain(new IPEndPoint(IPAddress.Loopback, 1), new WebSocketOptions { MaxHeaderBytes = 10 }));
     }
 
     [Fact]
@@ -364,7 +364,7 @@ public class WebSocketServerRulesTests
 
     private static (WebSocketListener, RawClient, INetConnection) Handshaken(WebSocketOptions? o = null)
     {
-        var server = WebSocketTransport.Listen(Local, o);
+        var server = WebSocketTransport.ListenPlain(Local, o);
         var raw = new RawClient(server);
         raw.Write(Request());
         var reply = Text(raw.ReadAll(300));
@@ -388,7 +388,7 @@ public class WebSocketServerRulesTests
     [InlineData("GET", "8", "426")]
     public void BadRequestsAreRefused(string method, string version, string status)
     {
-        using var server = WebSocketTransport.Listen(Local);
+        using var server = WebSocketTransport.ListenPlain(Local);
         using var raw = new RawClient(server);
         raw.Write(Request(method: method, version: version));
         var reply = Text(raw.ReadAll(500));
@@ -408,7 +408,7 @@ public class WebSocketServerRulesTests
     [InlineData("!!!!!!!!!!!!!!!!!!!!!!!!")]
     public void AMalformedKeyIsRefused(string key)
     {
-        using var server = WebSocketTransport.Listen(Local);
+        using var server = WebSocketTransport.ListenPlain(Local);
         using var raw = new RawClient(server);
         raw.Write(Request(key: key));
         Assert.StartsWith("HTTP/1.1 400", Text(raw.ReadAll(500)), StringComparison.Ordinal);
@@ -417,7 +417,7 @@ public class WebSocketServerRulesTests
     [Fact]
     public void MissingUpgradeHeadersAreRefused()
     {
-        using var server = WebSocketTransport.Listen(Local);
+        using var server = WebSocketTransport.ListenPlain(Local);
         using var raw = new RawClient(server);
         raw.Write("GET / HTTP/1.1\r\nHost: x\r\nSec-WebSocket-Key: " + Key + "\r\nSec-WebSocket-Version: 13\r\n\r\n");
         Assert.StartsWith("HTTP/1.1 400", Text(raw.ReadAll(500)), StringComparison.Ordinal);
@@ -426,7 +426,7 @@ public class WebSocketServerRulesTests
     [Fact]
     public void HeaderNamesAndConnectionTokensIgnoreCase()
     {
-        using var server = WebSocketTransport.Listen(Local);
+        using var server = WebSocketTransport.ListenPlain(Local);
         using var raw = new RawClient(server);
         raw.Write($"GET / HTTP/1.1\r\nhost: x\r\nUPGRADE: WebSocket\r\nconnection: keep-alive, Upgrade\r\nsec-websocket-key: {Key}\r\nSEC-WEBSOCKET-VERSION: 13\r\n\r\n");
         Assert.StartsWith("HTTP/1.1 101", Text(raw.ReadAll(500)), StringComparison.Ordinal);
@@ -435,7 +435,7 @@ public class WebSocketServerRulesTests
     [Fact]
     public void ADisallowedOriginIsForbiddenButANonBrowserClientPasses()
     {
-        using var server = WebSocketTransport.Listen(Local, new WebSocketOptions { AllowedOrigins = ["https://game.example"] });
+        using var server = WebSocketTransport.ListenPlain(Local, new WebSocketOptions { AllowedOrigins = ["https://game.example"] });
         using (var raw = new RawClient(server))
         {
             raw.Write(Request("Origin: https://evil.example\r\n"));
@@ -458,7 +458,7 @@ public class WebSocketServerRulesTests
     [Fact]
     public void AnOversizeHeaderBlockIsRefused()
     {
-        using var server = WebSocketTransport.Listen(Local, new WebSocketOptions { MaxHeaderBytes = 1024 });
+        using var server = WebSocketTransport.ListenPlain(Local, new WebSocketOptions { MaxHeaderBytes = 1024 });
         using var raw = new RawClient(server);
         raw.Write(Request("X-Padding: " + new string('a', 3000) + "\r\n"));
         Assert.StartsWith("HTTP/1.1 400", Text(raw.ReadAll(500)), StringComparison.Ordinal);
@@ -469,7 +469,7 @@ public class WebSocketServerRulesTests
     public void StalledAndExcessHandshakesAreDropped()
     {
         var clock = new ManualNetClock();
-        using var server = WebSocketTransport.Listen(Local, new WebSocketOptions { MaxPendingHandshakes = 4, HandshakeTimeoutMs = 1000 }, clock);
+        using var server = WebSocketTransport.ListenPlain(Local, new WebSocketOptions { MaxPendingHandshakes = 4, HandshakeTimeoutMs = 1000 }, clock);
         var stalled = new List<RawClient>();
         for (var i = 0; i < 10; i++)
         {

@@ -1,4 +1,5 @@
 using System.Net;
+using OneGame.Core;
 using OneGame.Net;
 
 namespace OneGame.AotSmoke;
@@ -51,8 +52,10 @@ internal static class NetSmoke
 
     private static string? WebSocket()
     {
-        using var server = WebSocketTransport.Listen(new IPEndPoint(IPAddress.Loopback, 0));
-        var client = WebSocketTransport.Connect((IPEndPoint)server.LocalEndPoint);
+        // Encrypted: the records, the Noise handshake and the key types all have to survive trimming and AOT.
+        var key = NetKeyPair.Generate();
+        using var server = WebSocketTransport.Listen(new IPEndPoint(IPAddress.Loopback, 0), new WebSocketOptions { Security = NetSecurity.ForServer(key, "smoke") });
+        var client = WebSocketTransport.Connect((IPEndPoint)server.LocalEndPoint, new WebSocketOptions { Security = NetSecurity.ForClient([key.PublicKey], "smoke") });
         INetConnection? accepted = null;
         var payload = new byte[70_000];
         new Random(2).NextBytes(payload);

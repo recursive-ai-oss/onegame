@@ -844,21 +844,67 @@ public static class WebSocketTransport
 {
     /// <summary>Starts listening for WebSocket clients on a TCP port.</summary>
     /// <param name="bind">The local address and port.</param>
-    /// <param name="options">Settings; defaults if null.</param>
+    /// <param name="options">Settings; <see cref="WebSocketOptions.Security"/> is required (<see cref="NetSecurity.ForServer"/>, or <see cref="NetSecurity.Insecure"/> for tests and local tools).</param>
     /// <param name="clock">Time source; the real clock if null.</param>
-    public static WebSocketListener Listen(IPEndPoint bind, WebSocketOptions? options = null, NetClock? clock = null)
+    /// <exception cref="SecurityNotConfiguredException">No security was chosen, or a Required listener has no server key.</exception>
+    public static INetListener Listen(IPEndPoint bind, WebSocketOptions? options = null, NetClock? clock = null)
     {
         ArgumentNullException.ThrowIfNull(bind);
-        return new WebSocketListener(bind, options ?? new WebSocketOptions(), clock ?? NetClock.System);
+        options ??= new WebSocketOptions();
+        var security = NetSecurity.RequireForListening(options.Security, nameof(WebSocketOptions));
+        clock ??= NetClock.System;
+        if (security.Mode == SecurityMode.Insecure)
+        {
+            return new WebSocketListener(bind, options, clock);
+        }
+
+        options.Validate();
+        return new SecureListener(new WebSocketListener(bind, options.ForInner(), clock), security, options, clock);
     }
 
     /// <summary>Connects to a WebSocket server. The connection starts in <see cref="ConnectionState.Connecting"/>; messages sent now go out when it connects.</summary>
     /// <param name="remote">The server's address.</param>
-    /// <param name="options">Settings; defaults if null.</param>
+    /// <param name="options">Settings; <see cref="WebSocketOptions.Security"/> is required (<see cref="NetSecurity.ForClient"/>, or <see cref="NetSecurity.Insecure"/> for tests and local tools).</param>
     /// <param name="clock">Time source; the real clock if null.</param>
-    public static WebSocketConnection Connect(IPEndPoint remote, WebSocketOptions? options = null, NetClock? clock = null)
+    /// <exception cref="SecurityNotConfiguredException">No security was chosen, or a Required client trusts no server key.</exception>
+    public static INetConnection Connect(IPEndPoint remote, WebSocketOptions? options = null, NetClock? clock = null)
     {
         ArgumentNullException.ThrowIfNull(remote);
-        return WebSocketConnection.ForClient(remote, options ?? new WebSocketOptions(), clock ?? NetClock.System);
+        options ??= new WebSocketOptions();
+        var security = NetSecurity.RequireForConnecting(options.Security, nameof(WebSocketOptions));
+        clock ??= NetClock.System;
+        if (security.Mode == SecurityMode.Insecure)
+        {
+            return WebSocketConnection.ForClient(remote, options, clock);
+        }
+
+        options.Validate();
+        var inner = options.ForInner();
+        return SecureConnection.ForClient(() => WebSocketConnection.ForClient(remote, inner, clock), security, options, clock);
     }
+
+    /// <summary>Applies the security setting to a connection something else opens (the browser's WebSocket): Required wraps it in the encrypted records, Insecure returns it as it is.</summary>
+    /// <param name="open">Opens a fresh connection; called again when the server rejects the key tried and another is trusted.</param>
+    /// <param name="security">The client's security setting.</param>
+    /// <param name="options">Limits and timeouts; defaults if null.</param>
+    /// <param name="clock">Time source; the real clock if null.</param>
+    /// <exception cref="SecurityNotConfiguredException">No security was chosen, or a Required client trusts no server key.</exception>
+    public static INetConnection Secure(Func<INetConnection> open, NetSecurity? security, WebSocketOptions? options = null, NetClock? clock = null)
+    {
+        ArgumentNullException.ThrowIfNull(open);
+        var sec = NetSecurity.RequireForConnecting(security, nameof(WebSocketOptions));
+        if (sec.Mode == SecurityMode.Insecure)
+        {
+            return open();
+        }
+
+        options ??= new WebSocketOptions();
+        options.Validate();
+        return SecureConnection.ForClient(open, sec, options, clock ?? NetClock.System);
+    }
+
+    // Tests that need the concrete plain types.
+    internal static WebSocketListener ListenPlain(IPEndPoint bind, WebSocketOptions? options = null, NetClock? clock = null) => new(bind, options ?? new WebSocketOptions(), clock ?? NetClock.System);
+
+    internal static WebSocketConnection ConnectPlain(IPEndPoint remote, WebSocketOptions? options = null, NetClock? clock = null) => WebSocketConnection.ForClient(remote, options ?? new WebSocketOptions(), clock ?? NetClock.System);
 }
