@@ -1,3 +1,4 @@
+using OneGame.Core;
 using OneGame.Sync.Tests;
 using System.Net;
 
@@ -205,6 +206,43 @@ public class TwoNodeSyncTests
         Assert.True(r.HashChecks > 900, $"only {r.HashChecks} per-tick comparisons");
         Assert.True(r.Commands > 100);
         Console.WriteLine($"websocket: {r.HashChecks} per-tick comparisons, {r.Commands} commands, {r.ToReplica} messages to replica / {r.ToAuthority} to authority");
+    }
+
+    [Fact]
+    public void OverEncryptedWebSocketWithAHostileNetworkThereIsNoDrift()
+    {
+        var r = Play(clock =>
+        {
+            var key = NetKeyPair.FromPrivateKey(new byte[32].Select((_, i) => (byte)(i + 9)).ToArray());
+            var inner = WebSocketTransport.Listen(new IPEndPoint(IPAddress.Loopback, 0), new WebSocketOptions { Security = NetSecurity.ForServer(key, "sync-test") }, clock);
+            var server = new ConditionedListener(inner, Hostile, clock);
+            var client = new ConditionedConnection(
+                WebSocketTransport.Connect((IPEndPoint)inner.LocalEndPoint, new WebSocketOptions { Security = NetSecurity.ForClient([key.PublicKey], "sync-test") }, clock),
+                new NetworkConditions { LatencyMs = 150, JitterMs = 30, LossRate = 0.05, DuplicateRate = 0.02, ReorderRate = 0.05, Seed = 12 },
+                clock);
+            INetConnection? accepted = null;
+            void Pump()
+            {
+                server.Pump();
+                client.Pump();
+                accepted ??= server.TryAccept(out var a) ? a : null;
+                Thread.Sleep(0);
+            }
+
+            for (var i = 0; i < 5000 && (accepted is null || client.State != ConnectionState.Connected); i++)
+            {
+                clock.Advance(5);
+                Pump();
+                Thread.Sleep(1);
+            }
+
+            Assert.NotNull(accepted);
+            Assert.True(accepted!.IsEncrypted && client.IsEncrypted);
+            return (accepted!, client, Pump, new Disposer(server.Dispose));
+        });
+        Assert.True(r.HashChecks > 900, $"only {r.HashChecks} per-tick comparisons");
+        Assert.True(r.Commands > 100);
+        Console.WriteLine($"encrypted websocket: {r.HashChecks} per-tick comparisons, {r.Commands} commands, {r.ToReplica} messages to replica / {r.ToAuthority} to authority");
     }
 
     [Fact]
