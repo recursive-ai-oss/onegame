@@ -269,7 +269,7 @@ public sealed class UdpListener : INetListener
 /// <code>
 /// using var listener = UdpTransport.Listen(new IPEndPoint(IPAddress.Loopback, 0));
 /// var port = ((IPEndPoint)listener.LocalEndPoint).Port;
-/// using var client = (UdpConnection)UdpTransport.Connect(new IPEndPoint(IPAddress.Loopback, port));
+/// var client = UdpTransport.Connect(new IPEndPoint(IPAddress.Loopback, port));
 /// client.Send("hello"u8);
 /// INetConnection? server = null;
 /// while (server is null)
@@ -279,8 +279,16 @@ public sealed class UdpListener : INetListener
 ///     if (listener.TryAccept(out var accepted)) { server = accepted; }
 /// }
 ///
-/// listener.Pump();
-/// if (server.TryReceive(out var message)) { Console.WriteLine(System.Text.Encoding.UTF8.GetString(message)); }
+/// ReadOnlySpan&lt;byte&gt; message;
+/// while (!server.TryReceive(out message))
+/// {
+///     client.Pump();
+///     listener.Pump();
+/// }
+///
+/// Console.WriteLine(System.Text.Encoding.UTF8.GetString(message));   // hello
+///
+/// client.Disconnect();
 /// </code>
 /// </example>
 public static class UdpTransport

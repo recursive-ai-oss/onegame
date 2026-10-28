@@ -33,7 +33,7 @@ public sealed class ServerPluginAttribute(Type entryType, int apiVersion = Plugi
 /// or event subscriptions, because the assembly can only be unloaded once nothing outside it refers to it.
 /// </summary>
 /// <example>
-/// A plugin that adds an entity type to a running server. Build it as a class library (<c>OneGameKind</c> <c>Plugin</c> in the SDK), then point a
+/// A plugin that adds an entity type to a running server. Build it as a class library (<c>OneGameKind</c> set to <c>Plugin</c> in the SDK), then point a
 /// server configuration's <c>plugins:</c> list at the dll; rebuild it and use the <c>plugin_reload</c> operation to hot-reload it.
 /// <code>
 /// [assembly: ServerPlugin(typeof(Pulse.PulsePlugin))]
