@@ -1,0 +1,18 @@
+name: scene
+description: The level as the player sees it, with the character on the low platform and a crate and two balls in view.
+window: 320x180
+steps:
+  - overlay: off
+  - step: 20
+  - action: { name: move, state: down, x: 1, y: 0 }
+  - step: 29
+  - action: { name: move, state: up }
+  - step: 5
+  - action: jump
+  - step: 22
+  - action: { name: move, state: down, x: 1, y: 0 }
+  - step: 30
+  - action: { name: move, state: up }
+  - step: 1
+expect:
+  - capture: { reference: refs/scene.png, tolerance: 48, max-diff: 0.01 }

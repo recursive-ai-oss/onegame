@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Steps a physics scene (boxes, balls, a polygon, a trigger, a walking and jumping character) and prints the world hash every 50
+       ticks plus raw fixed-point end positions, so runs on other CPUs and runtimes (arm64, WebAssembly) can be compared with the
+       pinned values. A test tool: nothing here ships. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>OneGame.PhysicsProbe</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OneGameAnalyzers>false</OneGameAnalyzers>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneGame.Physics/OneGame.Physics.csproj" />
+  </ItemGroup>
+
+</Project>

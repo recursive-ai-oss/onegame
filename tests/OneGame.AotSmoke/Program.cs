@@ -227,6 +227,15 @@ if (navigationProblem is not null)
 
 Console.WriteLine("ok: navigation: budgeted search, restore mid-search, walk to the goal, a crowd through a gap restored mid-walk");
 
+var physicsProblem = PhysicsSmoke.Run();
+if (physicsProblem is not null)
+{
+    Console.Error.WriteLine("physics smoke failed: " + physicsProblem);
+    return 1;
+}
+
+Console.WriteLine("ok: physics: a space in a world, a trigger, a character, a ray, restore mid-fall");
+
 var serverProblem = ServerSmoke.Run();
 if (serverProblem is not null)
 {

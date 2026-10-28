@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <!-- The same probe on .NET's WebAssembly runtime (run with node or a browser). A test tool: nothing here ships. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>OneGame.PhysicsProbe</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OneGameAnalyzers>false</OneGameAnalyzers>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <WasmEnableWebcil>false</WasmEnableWebcil>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../OneGame.PhysicsProbe/Probe.cs" />
+    <ProjectReference Include="../../src/OneGame.Physics/OneGame.Physics.csproj" />
+  </ItemGroup>
+
+</Project>

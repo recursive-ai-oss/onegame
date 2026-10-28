@@ -1,0 +1,20 @@
+name: push
+description: Holding right walks the character along the ground into the crates. It pushes them ahead of it, and when a crate rolls into the goal zone the trigger counts it. Everything ends at rest against the wall.
+window: 320x180
+steps:
+  - step: 30
+  - expect:
+      state: { entity: Hero, property: Grounded, equals: true }
+  - action: { name: move, state: down, x: 1, y: 0 }
+  - step: 200
+  - action: { name: move, state: up }
+expect:
+  # The single crate was pushed to the wall at the right end; the stack was pushed along with it.
+  - state: { entity: Crate#3, property: "Position[0]", min: 8.5, max: 9.5 }
+  - state: { entity: Crate#1, property: "Position[0]", min: 7.5, max: 9 }
+  - state: { entity: Hero, property: "Position[0]", min: 7, max: 8.5 }
+  # Crates entered the goal zone while being pushed through it.
+  - state: { entity: Stage, property: Entered, min: 1 }
+  # The balls came to rest on the high platform: a ball's centre is its radius above the platform top (-0.8).
+  - state: { entity: Crate#4, property: "Position[1]", min: -0.42, max: -0.38 }
+  - state: { table: physics, property: "bodies[9].awake", equals: false }

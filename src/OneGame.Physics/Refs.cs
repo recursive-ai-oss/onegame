@@ -87,10 +87,10 @@ public readonly struct CharacterRef : ISyncValue<CharacterRef>
         Generation = generation;
     }
 
-    /// <summary>The character's slot in the space.</summary>
+    /// <summary>The slot of the character's body in the space (a character is a kinematic body with a capsule).</summary>
     public int Index { get; }
 
-    /// <summary>How many characters have used the slot; 0 only in the null reference.</summary>
+    /// <summary>How many bodies have used the slot; 0 only in the null reference.</summary>
     public int Generation { get; }
 
     /// <summary>True for the default value, which names nothing.</summary>

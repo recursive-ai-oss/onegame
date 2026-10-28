@@ -1,0 +1,16 @@
+name: jump
+description: A jump leaves the ground, peaks about 2.4 units above it, and lands again; the character is only grounded while it stands on something.
+window: 320x180
+steps:
+  - step: 30
+  - action: jump
+  - step: 20
+  - expect:
+      state: { entity: Hero, property: Grounded, equals: false }
+  - expect:
+      state: { entity: Hero, property: "Position[1]", min: -2.6, max: -1.2 }
+  - step: 80
+expect:
+  - state: { entity: Hero, property: Grounded, equals: true }
+  - state: { entity: Hero, property: "Position[1]", min: -4.02, max: -3.98 }
+  - state: { entity: Hero, property: VerticalSpeed, equals: 0 }

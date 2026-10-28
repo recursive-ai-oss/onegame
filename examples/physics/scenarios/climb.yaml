@@ -1,0 +1,25 @@
+name: climb
+description: Jump from the ground onto the low platform, then across the gap onto the high one. The character cannot pass through platforms from below, so each jump rises beside the edge and then moves over it.
+window: 320x180
+steps:
+  - step: 20
+  - action: { name: move, state: down, x: 1, y: 0 }
+  - step: 29
+  - action: { name: move, state: up }
+  - step: 5
+  - action: jump
+  - step: 22
+  - action: { name: move, state: down, x: 1, y: 0 }
+  - step: 30
+  - expect:
+      state: { entity: Hero, property: "Position[1]", min: -1.85, max: -1.75 }
+  - action: { name: move, state: down, x: 1, y: 0 }
+  - step: 20
+  - action: jump
+  - action: { name: move, state: down, x: 1, y: 0 }
+  - step: 50
+  - action: { name: move, state: up }
+expect:
+  - state: { entity: Hero, property: Grounded, equals: true }
+  - state: { entity: Hero, property: "Position[0]", min: 2, max: 3.5 }
+  - state: { entity: Hero, property: "Position[1]", min: -0.32, max: -0.28 }

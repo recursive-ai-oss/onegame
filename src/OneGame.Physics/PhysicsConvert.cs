@@ -50,7 +50,7 @@ public static class PhysicsLimits
         // 2^21 * 2^32 = 2^53: the scaled value is an exact integer-valued double inside the long range.
         if (!double.IsFinite(value) || Math.Abs(value) > MaxCoordinate)
         {
-            throw new PhysicsRangeException("value", value);
+            throw new PhysicsRangeException(nameof(value), value);
         }
 
         return Fixed.FromRaw((long)Math.Round(value * (1L << Fixed.FractionBits), MidpointRounding.ToEven));

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneGame.Physics/OneGame.Physics.csproj" />
+    <ProjectReference Include="../../src/OneGame.Sync/OneGame.Sync.csproj" />
+    <!-- The physics example is the game the determinism tests run, headless, through the same harness as a scenario. -->
+    <ProjectReference Include="../../examples/physics/PhysicsExample.csproj" />
+    <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
+    <ProjectReference Include="../../src/OneGame.Live/OneGame.Live.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../examples/physics/scenarios/**" CopyToOutputDirectory="PreserveNewest" LinkBase="scenarios" />
+    <Using Include="OneGame.Testing" />
+  </ItemGroup>
+
+</Project>
