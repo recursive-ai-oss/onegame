@@ -4,6 +4,23 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-28
+
+Hot reload of game code: edit C# while the game runs and keep the world.
+
+### Added
+
+- `onegame run` applies C# edits to a running Debug game through .NET hot reload (`dotnet watch` metadata deltas): view, sim and screen-builder method bodies, new methods and new synced members go live with the world kept, and open screens are rebuilt. An edit that cannot be applied live restarts the game and loads its world back; a compile error leaves the game on the last good code. `--no-hot` turns it off. See [docs/hot-reload.md](docs/hot-reload.md), including what a live sim edit means for replays and cluster hashes.
+- `hot_reload` live-control operation (applied edits, last error, restarts, whether the run is still replay-safe) and `GameInstance.RefreshScreens()`.
+- `tools/hot-reload/check.py`, an end-to-end check of hot reload that runs in the Linux package smoke.
+
+### Changed
+
+- OneRender, OneRender.Image and OneRender.Fonts 1.3.0 (with OneHtml 1.5.0).
+- Solitaire's settings sliders are styled like the kit: a gold fill drawn by a value-driven gradient on the track, and a white thumb.
+
+Releases and exports contain none of the hot-reload code.
+
 ## [1.8.0] - 2026-10-28
 
 An API reference for every package, generated from the code and its documentation.
