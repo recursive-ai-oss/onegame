@@ -123,14 +123,23 @@ cleanup() {
 trap cleanup EXIT
 
 step "boot an iPhone Simulator"
-runtime=$(xcrun simctl list runtimes available -j | python3 -c 'import json,sys
-r=[x["identifier"] for x in json.load(sys.stdin)["runtimes"] if x["identifier"].startswith("com.apple.CoreSimulator.SimRuntime.iOS")]
-print(r[-1] if r else "")')
-[ -n "$runtime" ] || { echo "no iOS Simulator runtime on this Mac"; exit 1; }
-devtype=$(xcrun simctl list devicetypes -j | python3 -c 'import json,sys
-r=[x["identifier"] for x in json.load(sys.stdin)["devicetypes"] if "iPhone" in x["name"]]
-print(r[-1] if r else "")')
-device=$(xcrun simctl create u67-smoke "$devtype" "$runtime")
+# The newest iOS runtimes, each with the iPhone types it lists as supported (a runtime rejects other types: SimError 403). Take
+# the first pair that creates and boots.
+pairs=$(xcrun simctl list runtimes available -j | python3 -c 'import json,sys
+rs=[r for r in json.load(sys.stdin)["runtimes"] if r["identifier"].startswith("com.apple.CoreSimulator.SimRuntime.iOS") and r.get("isAvailable", True)]
+rs.sort(key=lambda r: [int(x) if x.isdigit() else 0 for x in r.get("version","0").split(".")], reverse=True)
+for r in rs:
+    for d in reversed([d for d in r.get("supportedDeviceTypes", []) if "iPhone" in d["name"]]):
+        print(r["identifier"], d["identifier"])')
+echo "$pairs" | head -5
+[ -n "$pairs" ] || { echo "no iOS Simulator runtime with an iPhone type on this Mac"; exit 1; }
+while read -r runtime devtype; do
+  if device=$(xcrun simctl create u67-smoke "$devtype" "$runtime") && xcrun simctl boot "$device"; then break; fi
+  echo "cannot use $devtype on $runtime"
+  [ -z "$device" ] || xcrun simctl delete "$device" >/dev/null 2>&1 || true
+  device=
+done <<< "$pairs"
+[ -n "$device" ] || { echo "no iPhone Simulator could be created and booted"; xcrun simctl list devicetypes runtimes | head -30; exit 1; }
 xcrun simctl bootstatus "$device" -b >/dev/null
 echo "simulator $device ($runtime)"
 
