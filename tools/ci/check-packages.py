@@ -3,15 +3,15 @@
 
   check-packages.py <folder> <engine version>
 
-* Every package is at the engine version, except RecursiveAI.OneGame.Navigation, which is that version plus a
-  "-preview.N" suffix (it depends on a prerelease, so it cannot be stable).
+* Every package is at the engine version, except RecursiveAI.OneGame.Navigation and RecursiveAI.OneGame.Physics,
+  which are that version plus a "-preview.N" suffix (they depend on prereleases, so they cannot be stable).
 * No stable package depends on a prerelease package: NuGet refuses such a package, and a stable release must not need
-  a preview to work. This also keeps Navigation (and with it OnePath) out of the other 30 packages.
+  a preview to work. This also keeps Navigation and Physics (and with them OnePath and OnePhysics) out of the other 30 packages.
 """
 import glob, os, re, sys, zipfile
 
 folder, version = sys.argv[1], sys.argv[2]
-PREVIEW_ONLY = {"RecursiveAI.OneGame.Navigation"}
+PREVIEW_ONLY = {"RecursiveAI.OneGame.Navigation", "RecursiveAI.OneGame.Physics"}
 bad = []
 if not glob.glob(os.path.join(folder, "*.nupkg")):
     sys.exit(f"no packages in {folder}")
