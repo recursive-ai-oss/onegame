@@ -28,22 +28,47 @@ const server = http.createServer((req, res) => {
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const httpPort = server.address().port;
 
-const dbg = 9300 + Math.floor(Math.random() * 600);
-const profile = path.join(process.env.TMPDIR || '/tmp', 'chrome-profile-' + dbg);
 const chromeFlags = (args['chrome-flags'] || '').split(' ').filter(Boolean);
-const chrome = spawn(process.env.ONEGAME_CHROME || 'google-chrome', [
-  ...(process.env.CHROME_HEADED ? [] : ['--headless=new']), ...(process.env.CHROME_LOG ? ['--enable-logging=stderr', '--v=0'] : []), '--no-sandbox', ...(process.env.CHROME_GPU_FLAGS ? process.env.CHROME_GPU_FLAGS.split(' ') : ['--enable-unsafe-webgpu', '--use-webgpu-adapter=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']),
-  '--remote-debugging-port=' + dbg, '--user-data-dir=' + profile, '--window-size=1280,800', '--hide-scrollbars', '--mute-audio', ...chromeFlags,
-  `http://127.0.0.1:${httpPort}${args.path || '/index.html'}`,
-], { stdio: process.env.CHROME_LOG ? ['ignore', 'ignore', fs.openSync(process.env.CHROME_LOG, 'w')] : 'ignore' });
+const tmp = process.env.TMPDIR || '/tmp';
+let chrome, profile, chromeErr = '';
 
-const done = (code) => { try { chrome.kill('SIGKILL'); } catch { } server.close(); try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5 }); } catch { } process.exit(code); };
+const cleanup = () => { try { process.kill(-chrome.pid, 'SIGKILL'); } catch { try { chrome?.kill('SIGKILL'); } catch { } } try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5 }); } catch { } };
+const done = (code) => { cleanup(); server.close(); process.exit(code); };
 process.on('SIGINT', () => done(130));
 
+// Chrome picks its own debugging port (0) and writes it to DevToolsActivePort in the profile, so there is no port to collide on.
+// A loaded runner can take well over 20 s to bring Chrome up, so each attempt waits up to 60 s, notices an early exit, and a failed
+// attempt is retried with a fresh profile.
+const startChrome = async () => {
+  profile = fs.mkdtempSync(path.join(tmp, 'chrome-profile-'));
+  chromeErr = '';
+  let exited = false;
+  chrome = spawn(process.env.ONEGAME_CHROME || 'google-chrome', [
+    ...(process.env.CHROME_HEADED ? [] : ['--headless=new']), ...(process.env.CHROME_LOG ? ['--enable-logging=stderr', '--v=0'] : []), '--no-sandbox', ...(process.env.CHROME_GPU_FLAGS ? process.env.CHROME_GPU_FLAGS.split(' ') : ['--enable-unsafe-webgpu', '--use-webgpu-adapter=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']),
+    '--remote-debugging-port=0', '--user-data-dir=' + profile, '--window-size=1280,800', '--hide-scrollbars', '--mute-audio', ...chromeFlags,
+    `http://127.0.0.1:${httpPort}${args.path || '/index.html'}`,
+  ], { stdio: ['ignore', 'ignore', 'pipe'], detached: true });
+  const logFile = process.env.CHROME_LOG ? fs.createWriteStream(process.env.CHROME_LOG) : null;
+  chrome.stderr.on('data', d => { chromeErr = (chromeErr + d).slice(-4000); logFile?.write(d); });
+  chrome.on('exit', () => { exited = true; });
+  chrome.on('error', e => { chromeErr += String(e); exited = true; });
+  for (let i = 0; i < 300 && !exited; i++) {
+    await new Promise(r => setTimeout(r, 200));
+    try {
+      const port = Number(fs.readFileSync(path.join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0]);
+      if (!port) continue;
+      const list = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
+      const url = list.find(t => t.type === 'page')?.webSocketDebuggerUrl;
+      if (url) return url;
+    } catch { }
+  }
+  return null;
+};
+
 let wsUrl;
-for (let i = 0; i < 100 && !wsUrl; i++) {
-  await new Promise(r => setTimeout(r, 200));
-  try { const list = await (await fetch(`http://127.0.0.1:${dbg}/json`)).json(); wsUrl = list.find(t => t.type === 'page')?.webSocketDebuggerUrl; } catch { }
+for (let attempt = 1; attempt <= 3 && !wsUrl; attempt++) {
+  wsUrl = await startChrome();
+  if (!wsUrl) { console.error(`chrome did not start (attempt ${attempt} of 3); its stderr tail:\n${chromeErr}`); cleanup(); }
 }
 if (!wsUrl) { console.error('chrome did not start'); done(2); }
 const ws = new WebSocket(wsUrl);
