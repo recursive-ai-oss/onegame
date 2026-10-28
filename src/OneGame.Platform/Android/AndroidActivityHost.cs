@@ -155,6 +155,7 @@ public sealed unsafe class AndroidActivityHost
             Environment.SetEnvironmentVariable("HOME", FilesDirectory);
             Environment.SetEnvironmentVariable("TMPDIR", temp);
             Directory.SetCurrentDirectory(FilesDirectory);
+            ApkContent.Extract(_activity->AssetManager, FilesDirectory);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

@@ -7,7 +7,7 @@ namespace OneGame.Cli.Verbs;
 
 /// <summary>
 /// What an Android game needs to sell things through Google Play: the Billing Library (Google's own Java code, which Play requires), the
-/// one small Java class of ours that wraps it (<c>src/OneGame.Purchases/Java</c>), and the library's few dependencies, shrunk into one
+/// one small Java class of ours that wraps it (embedded in the tool), and the library's few dependencies, shrunk into one
 /// <c>classes.dex</c>. This runs at export time only; the libraries are build inputs fetched once from Google's Maven repository with pinned
 /// hashes, never committed to the repository.
 /// </summary>
@@ -45,6 +45,23 @@ internal static class PlayBillingKit
         Environment.GetEnvironmentVariable("ONEGAME_PLAY_BILLING_DIR") is { Length: > 0 } dir
             ? dir
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "onegame", "play-billing");
+
+    /// <summary>Writes the embedded Java wrapper source under <paramref name="work"/> and returns the source folder.</summary>
+    public static string ExtractBridgeSources(string work)
+    {
+        var root = Directory.CreateDirectory(Path.Combine(work, "bridge-src")).FullName;
+        var assembly = typeof(PlayBillingKit).Assembly;
+        foreach (var name in assembly.GetManifestResourceNames().Where(n => n.StartsWith("java/", StringComparison.Ordinal)))
+        {
+            var target = Path.Combine(root, name["java/".Length..].Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            using var input = assembly.GetManifestResourceStream(name)!;
+            using var output = File.Create(target);
+            input.CopyTo(output);
+        }
+
+        return root;
+    }
 
     /// <summary>
     /// Builds <c>classes.dex</c> into <paramref name="work"/> and returns its path. Fetches the libraries when they are not in the cache,

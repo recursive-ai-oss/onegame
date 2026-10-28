@@ -171,9 +171,9 @@ internal sealed partial class ExportVerb
         string? dex = null;
         if (playBilling)
         {
-            var root = settings.GetValueOrDefault("OneGameRoot") ?? throw new CliException(ExitCodes.RuntimeError, "play_billing_sources", "The Java wrapper for Play Billing comes from the engine sources, so a game that uses it needs OneGameRoot set to an engine checkout (onegame new --engine <checkout>).");
             var buildWork = Directory.CreateDirectory(Path.Combine(work, "play-billing")).FullName;
-            dex = PlayBillingKit.BuildDex(sdk, Path.Combine(Path.GetFullPath(root), "src", "OneGame.Purchases", "Java"), buildWork);
+            // The wrapper class travels inside the tool, so this works from packages with no engine checkout.
+            dex = PlayBillingKit.BuildDex(sdk, PlayBillingKit.ExtractBridgeSources(buildWork), buildWork);
         }
 
         var manifest = Path.Combine(work, "AndroidManifest.xml");
@@ -184,8 +184,26 @@ internal sealed partial class ExportVerb
         RunTool(sdk.BuildTool("aapt2"), ["link", "-o", baseApk, "-I", sdk.AndroidJar, "--manifest", manifest, "--min-sdk-version", "26", "--target-sdk-version", "35",
             "--version-code", versionCode.ToString(System.Globalization.CultureInfo.InvariantCulture), "--version-name", props.Version], work, "aapt2_failed");
 
+        // The game's content folders (art, fonts, data) go in as assets with a list; the app unpacks them into its files folder at start-up.
+        var contentRoot = Directory.CreateDirectory(Path.Combine(work, "content")).FullName;
+        var contentWarnings = new List<ExportWarning>();
+        ExportAssets.Copy(project.Directory, contentRoot, [], contentWarnings);
+        var contentFiles = Directory.EnumerateFiles(contentRoot, "*", SearchOption.AllDirectories).Select(f => Path.GetRelativePath(contentRoot, f).Replace('\\', '/')).Order(StringComparer.Ordinal).ToArray();
+
         using (var zip = ZipFile.Open(baseApk, ZipArchiveMode.Update))
         {
+            foreach (var relative in contentFiles)
+            {
+                zip.CreateEntryFromFile(Path.Combine(contentRoot, relative), "assets/" + relative, CompressionLevel.Optimal);
+            }
+
+            if (contentFiles.Length > 0)
+            {
+                var entry = zip.CreateEntry("assets/onegame-content.txt");
+                using var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false));
+                writer.Write(string.Join('\n', contentFiles) + "\n");
+            }
+
             foreach (var (abi, so) in libraries)
             {
                 zip.CreateEntryFromFile(so, $"lib/{abi}/lib{props.AssemblyName}.so", CompressionLevel.Optimal);
@@ -211,6 +229,7 @@ internal sealed partial class ExportVerb
         {
             new("debug_signed", "The APK is signed with a debug key: fine for installing on a device or emulator, not for a store. A release key and an AAB for Play come with the store binding."),
         };
+        warnings.AddRange(contentWarnings);
         if (dex is not null)
         {
             warnings.Add(new("play_billing", $"The APK carries Google Play Billing Library {PlayBillingKit.BillingVersion} and the engine's wrapper class as classes.dex ({new FileInfo(dex).Length / 1024} KiB after shrinking), the BILLING permission and Play's purchase activities. Test purchases need the app on a Play track and a licence-tester account."));

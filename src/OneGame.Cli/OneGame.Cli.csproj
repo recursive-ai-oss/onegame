@@ -63,6 +63,8 @@
     <EmbeddedResource Include="../OneGame.Gpu.WebGpu/js/onegame-gpu.js" LogicalName="web/onegame-gpu.js" />
     <EmbeddedResource Include="../OneGame.Platform/js/onegame-platform.js" LogicalName="web/onegame-platform.js" />
     <EmbeddedResource Include="../OneGame.Audio/js/onegame-audio.js" LogicalName="web/onegame-audio.js" />
+    <!-- The Java class that wraps Google Play Billing, compiled at export time for games that sell through Play. -->
+    <EmbeddedResource Include="../OneGame.Purchases/Java/dev/onegame/store/PlayBridge.java" LogicalName="java/dev/onegame/store/PlayBridge.java" />
   </ItemGroup>
 
   <ItemGroup>

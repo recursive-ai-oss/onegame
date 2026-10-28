@@ -277,6 +277,62 @@ jobs:
       - name: Pack, install the tool, create, run and export a game server
         run: bash tools/ci/package-smoke-server.sh "$RUNNER_TEMP/package-smoke-server"
 
+  # The Android export from packages alone, with and without Google Play Billing. The runner's own Android SDK, NDK and JDK do the
+  # linking and packaging; the APKs are not run here (the emulator check is a manual one, see docs/devices.md).
+  packages-android:
+    name: packages android
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build output goes outside the checkout
+        run: echo "ONEGAME_ARTIFACTS=$RUNNER_TEMP/artifacts" >> "$GITHUB_ENV"
+
+      - name: Install .NET
+        run: |
+          dir="$RUNNER_TEMP/dotnet"
+          curl -fsSL --retry 3 https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+          bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile global.json --install-dir "$dir"
+          echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+          echo "$dir" >> "$GITHUB_PATH"
+
+      - name: Android SDK and NDK from the runner image
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK=${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}" >> "$GITHUB_ENV"
+          ls "$ANDROID_HOME" "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
+          java -version
+
+      - name: Pack, install the tool, create and export a game (plain and Play Billing)
+        run: bash tools/ci/package-smoke-android.sh "$RUNNER_TEMP/package-smoke-android"
+
+  # The iOS Simulator export from packages alone, run in the Simulator with the same world hash as on the Mac.
+  packages-ios:
+    name: packages ios
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build output goes outside the checkout
+        run: echo "ONEGAME_ARTIFACTS=$RUNNER_TEMP/artifacts" >> "$GITHUB_ENV"
+
+      - name: Install .NET
+        run: |
+          dir="$RUNNER_TEMP/dotnet"
+          curl -fsSL --retry 3 https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+          bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile global.json --install-dir "$dir"
+          echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+          echo "$dir" >> "$GITHUB_PATH"
+
+      - name: Pack, install the tool, create and export a game, run it in the Simulator
+        run: bash tools/ci/package-smoke-ios.sh "$RUNNER_TEMP/package-smoke-ios"
+
   # The same scenarios and the same exported game must end in the same world hash on every system.
   same-hashes:
     needs: check
