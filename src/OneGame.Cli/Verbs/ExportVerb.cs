@@ -593,6 +593,12 @@ internal static class ExportAssets
                 }
 
                 var length = new FileInfo(file).Length;
+                if (length <= 4096 && File.ReadAllText(file).Contains("# onegame private key.", StringComparison.Ordinal))
+                {
+                    // A private key in a build is a leaked key (clients pin public keys only). Whatever the file is called, stop.
+                    throw new CliException(ExitCodes.Failed, "key_in_export", $"{relative} is a private key file. Keep keys outside the game's content folders: a client build holds only the server's public key.");
+                }
+
                 if (length > LargeFile)
                 {
                     warnings.Add(new ExportWarning("large_file", $"{relative} is {length / (1024 * 1024)} MiB."));

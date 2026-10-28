@@ -159,6 +159,14 @@ public sealed class ServerHost
                 : throw new SecurityNotConfiguredException("The server was asked to run insecure (no encryption, no authentication), which is only for development runs. Give it a real key (--key <file>, made with 'onegame keys'), or set ONEGAME_DEV=1 for a development run.");
         }
 
+        if (config.KeyFiles.Count == 0 && development)
+        {
+            // A development run with no key named uses the per-user development key (the one 'onegame run --connect' pins), made on first use.
+            var made = KeyStore.Ensure(KeyStore.DevelopmentFolder("default"), "server", development: true);
+            Log.Warn($"no server key given: using the development key {made.PrivateFile} (public key {made.PublicKey}); do not run a public server like this.");
+            return NetSecurity.ForServer(NetKeyPair.Load(made.PrivateFile), config.GameId);
+        }
+
         if (config.KeyFiles.Count == 0)
         {
             throw new SecurityNotConfiguredException("The server listens for clients but has no key. Make one with 'onegame keys' and pass --key <file> (or set security: key: in the configuration); use --insecure (security: insecure: true) only for tests and local tools.");
