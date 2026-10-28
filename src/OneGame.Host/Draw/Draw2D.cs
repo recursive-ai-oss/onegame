@@ -14,6 +14,35 @@ namespace OneGame.Host;
 /// behind), then call order; text is drawn over everything else, in call order. Steady frames allocate nothing (text strings that the view
 /// builds each frame are the view's own allocation).
 /// </summary>
+/// <remarks>
+/// Reach it as the parameter of an <see cref="IView2D"/> entity's <c>Draw</c> method. It is view-side: read state, never write it. Use
+/// <see cref="Time"/> (not a clock) to animate so captures and replays repeat exactly. For more control drop down to <see cref="Scene"/>
+/// and <see cref="Renderer"/>.
+/// </remarks>
+/// <example>
+/// A sprite that moves with its synced position, animated from a sheet, with a camera that follows it and a text label:
+/// <code>
+/// private SpriteSheet? _sheet;
+///
+/// [View]
+/// public void Draw(Draw2D d)
+/// {
+///     if (_sheet is null)
+///     {
+///         _sheet = SpriteSheet.Grid(d.Texture("art/hero.png"), 32, 32);
+///         _sheet.AddClip("walk", firstFrame: 0, frameCount: 4, fps: 8);
+///     }
+///
+///     var at = new Vector2(X.ToSingle(), Y.ToSingle());
+///     d.Camera.Zoom = 2;
+///     d.Camera.Smoothing = 0.15f;
+///     d.Follow(at);                                           // eases the camera toward the hero
+///     d.FillRect(new Rect(-200, 40, 400, 8), Color.Rgb(0x335533));   // the ground
+///     d.Sprite(_sheet, "walk", at, scale: 1);                // plays the clip from d.Time
+///     d.Text("hero", at - new Vector2(0, 24), size: 12, anchor: new Vector2(0.5f, 1));
+/// }
+/// </code>
+/// </example>
 public sealed partial class Draw2D
 {
     private const int DiskSize = 128;

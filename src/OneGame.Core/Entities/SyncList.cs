@@ -31,6 +31,7 @@ public sealed class SyncList<T> : IReadOnlyList<T>
     }
 
     /// <summary>Adds an element at the end.</summary>
+    /// <param name="item">The element.</param>
     [MutatesState]
     public void Add(T item)
     {
@@ -39,6 +40,8 @@ public sealed class SyncList<T> : IReadOnlyList<T>
     }
 
     /// <summary>Inserts an element.</summary>
+    /// <param name="index">Where the element goes, 0 to <see cref="Count"/>.</param>
+    /// <param name="item">The element.</param>
     [MutatesState]
     public void Insert(int index, T item)
     {
@@ -76,6 +79,7 @@ public sealed class SyncList<T> : IReadOnlyList<T>
     }
 
     /// <summary>Replaces the contents; the engine uses it when applying received state.</summary>
+    /// <param name="items">The new contents.</param>
     [MutatesState]
     public void ReplaceWith(T[] items)
     {
@@ -102,6 +106,7 @@ public sealed class SyncList<T> : IReadOnlyList<T>
     public T[] ToArray() => _items.ToArray();
 
     /// <summary>True if both lists hold equal elements in the same order.</summary>
+    /// <param name="other">The list to compare with.</param>
     public bool ContentEquals(SyncList<T> other)
     {
         if (_items.Count != other._items.Count)

@@ -69,6 +69,16 @@ public sealed class SpriteClip
 /// The frames of one texture: a grid of equal cells or explicit rectangles, plus named <see cref="SpriteClip"/>s. A sheet is view data (it
 /// holds a GPU texture and no game state); build it once and draw from it every frame.
 /// </summary>
+/// <example>
+/// <code>
+/// var sheet = SpriteSheet.Grid(texture, frameWidth: 32, frameHeight: 32);   // frames numbered left to right, top to bottom
+/// sheet.AddClip("idle", firstFrame: 0, frameCount: 2, fps: 2);
+/// sheet.AddClip("run", firstFrame: 4, frameCount: 6, fps: 12);
+/// int frame = sheet.Clip("run").FrameAt(seconds);                          // seconds from the view's clock
+/// PixelRect source = sheet.Frame(frame);                                   // the rectangle to draw
+/// // In a Draw2D view: d.Sprite(sheet, "run", position);
+/// </code>
+/// </example>
 public sealed class SpriteSheet
 {
     private PixelRect[] _frames;

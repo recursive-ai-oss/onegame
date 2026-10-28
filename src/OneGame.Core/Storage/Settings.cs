@@ -73,6 +73,9 @@ public sealed class SettingsSchema<T>
     }
 
     /// <summary>Adds an on/off choice.</summary>
+    /// <param name="key">The field's name in the file: 1 to 64 UTF-8 bytes, unique in the schema.</param>
+    /// <param name="get">Reads the value from the settings object.</param>
+    /// <param name="set">Writes a loaded value into the settings object.</param>
     public SettingsSchema<T> Flag(string key, Func<T, bool> get, Action<T, bool> set)
     {
         Check(key, get, set);
@@ -99,6 +102,10 @@ public sealed class SettingsSchema<T>
     }
 
     /// <summary>Adds a choice from an enum with a 32-bit underlying type. A number that is not a member loads as the default.</summary>
+    /// <typeparam name="TEnum">The enum type.</typeparam>
+    /// <param name="key">The field's name in the file: 1 to 64 UTF-8 bytes, unique in the schema.</param>
+    /// <param name="get">Reads the value from the settings object.</param>
+    /// <param name="set">Writes a loaded value into the settings object.</param>
     public SettingsSchema<T> Choice<TEnum>(string key, Func<T, TEnum> get, Action<T, TEnum> set)
         where TEnum : unmanaged, Enum
     {
@@ -274,6 +281,8 @@ public sealed class SettingsFile<T> : ISettingsFile
     }
 
     /// <summary>Applies settings bytes to <see cref="Value"/> without a store (the file's content, already read).</summary>
+    /// <param name="bytes">The settings file's content. Untrusted input is fine; problems are reported in the result.</param>
+    /// <returns>What was found and applied.</returns>
     public SettingsLoad Apply(ReadOnlySpan<byte> bytes) => LastLoad = ApplyCore(bytes);
 
     private SettingsLoad ApplyCore(ReadOnlySpan<byte> bytes)
