@@ -57,8 +57,26 @@ public sealed class UdpOptions
     /// </summary>
     public uint MaxPacketsPerKey { get; init; } = uint.MaxValue - 65_535;
 
-    /// <summary>Listener only: secure handshakes the server will start per second. Each costs about four X25519 operations, so excess requests are dropped (clients retry) instead of queued.</summary>
+    /// <summary>
+    /// Listener only: secure handshakes the server will start per second for sources it has not seen confirm a session. Each costs five X25519
+    /// operations (the server's own public key is computed once), so excess requests are dropped (clients retry) instead of queued.
+    /// </summary>
     public int MaxHandshakesPerSecond { get; init; } = 200;
+
+    /// <summary>Listener only: handshakes per second one source may start (an IPv4 address, or an IPv6 /64), so one host cannot use up the shared budget.</summary>
+    public int MaxHandshakesPerSourcePerSecond { get; init; } = 10;
+
+    /// <summary>Listener only: an extra per-second budget kept for sources that recently completed a session, so a flood from strangers cannot lock out returning players.</summary>
+    public int ReservedHandshakesPerSecond { get; init; } = 100;
+
+    /// <summary>Listener only: handshakes that have been answered but not yet confirmed by an authenticated packet. They do not count against <see cref="MaxConnections"/>.</summary>
+    public int MaxUnconfirmed { get; init; } = 256;
+
+    /// <summary>Listener only: unconfirmed handshakes one source may hold.</summary>
+    public int MaxUnconfirmedPerSource { get; init; } = 4;
+
+    /// <summary>Listener only: an unconfirmed handshake is dropped after this long.</summary>
+    public int UnconfirmedTimeoutMs { get; init; } = 5000;
 
     /// <summary>Most datagrams read from one socket per pump, so a flood cannot starve the game loop.</summary>
     public int MaxDatagramsPerPump { get; init; } = 4096;
@@ -75,6 +93,7 @@ public sealed class UdpOptions
         Check(ConnectRetryMs >= 10 && ConnectTimeoutMs >= ConnectRetryMs, nameof(ConnectTimeoutMs), "must be at least ConnectRetryMs, which must be at least 10");
         Check(MinRtoMs >= 1 && MaxRtoMs >= MinRtoMs, nameof(MaxRtoMs), "must be at least MinRtoMs");
         Check(MinCongestionWindowPackets is >= 2 and <= 1024, nameof(MinCongestionWindowPackets), "must be 2 to 1024");
+        Check(MaxHandshakesPerSourcePerSecond >= 1 && ReservedHandshakesPerSecond >= 0 && MaxUnconfirmed >= 1 && MaxUnconfirmedPerSource >= 1 && UnconfirmedTimeoutMs >= 100, nameof(MaxHandshakesPerSourcePerSecond), "handshake budgets must be positive (reserved may be 0, the unconfirmed timeout at least 100 ms)");
         Check(MaxHandshakesPerSecond >= 1, nameof(MaxHandshakesPerSecond), "must be positive");
         Check(MaxPacketsPerKey >= 1024, nameof(MaxPacketsPerKey), "must be at least 1024");
         Check(MaxDatagramsPerPump >= 1, nameof(MaxDatagramsPerPump), "must be positive");

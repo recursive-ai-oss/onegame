@@ -4,8 +4,10 @@ namespace OneGame.Core;
 
 /// <summary>
 /// The Noise CipherState (Noise Protocol Framework, revision 34, §5.1) for ChaChaPoly: a 32-byte key and a 64-bit message
-/// counter. Nothing here allocates per message. The counter-less <see cref="SealAt"/> and <see cref="OpenAt"/> serve datagram
-/// transports, which carry the counter in the packet and keep their own replay window (spec §11.4).
+/// counter, owned by the object (callers never choose a counter). Nothing here allocates per message. A cipher state with no key
+/// fails closed: <see cref="Encrypt"/> throws and <see cref="Decrypt"/> returns false. Only the handshake's own internal state passes
+/// data through before its first key (spec §5.1), and that one is private to <see cref="NoiseHandshake"/>. Datagram transports use
+/// <see cref="DatagramSender"/> and <see cref="DatagramReceiver"/> instead, which own the packet-number rules.
 /// </summary>
 internal sealed class NoiseCipherState
 {
@@ -19,16 +21,30 @@ internal sealed class NoiseCipherState
     public const ulong MaxNonce = ulong.MaxValue - 1;
 
     private readonly byte[] _key = new byte[KeySize];
+    private readonly bool _passThroughWithoutKey;
 
-    /// <summary>True once a key is set; before that messages pass through unencrypted.</summary>
+    /// <summary>Creates an unkeyed state.</summary>
+    /// <param name="passThroughWithoutKey">True only for the handshake's own state, which copies data through until the first <c>MixKey</c>.</param>
+    public NoiseCipherState(bool passThroughWithoutKey = false)
+    {
+        _passThroughWithoutKey = passThroughWithoutKey;
+    }
+
+    /// <summary>True once a key is set.</summary>
     public bool HasKey { get; private set; }
 
     /// <summary>The counter the next <see cref="Encrypt"/> or <see cref="Decrypt"/> uses.</summary>
     public ulong Nonce { get; private set; }
 
     /// <summary>InitializeKey: sets the key and resets the counter.</summary>
+    /// <exception cref="ArgumentException">The key is not 32 bytes.</exception>
     public void Initialize(ReadOnlySpan<byte> key)
     {
+        if (key.Length != KeySize)
+        {
+            throw new ArgumentException("a cipher key is 32 bytes", nameof(key));
+        }
+
         key.CopyTo(_key);
         HasKey = true;
         Nonce = 0;
@@ -43,13 +59,18 @@ internal sealed class NoiseCipherState
     }
 
     /// <summary>
-    /// EncryptWithAd. Without a key the plaintext is copied through. <paramref name="output"/> must be exactly
-    /// <c>plaintext.Length + 16</c> bytes once keyed. Throws when the counter is exhausted.
+    /// EncryptWithAd. <paramref name="output"/> must be exactly <c>plaintext.Length + 16</c> bytes. Throws when the counter is exhausted,
+    /// and when there is no key (never plaintext).
     /// </summary>
     public void Encrypt(ReadOnlySpan<byte> ad, ReadOnlySpan<byte> plaintext, Span<byte> output)
     {
         if (!HasKey)
         {
+            if (!_passThroughWithoutKey)
+            {
+                throw new InvalidOperationException("The cipher has no key.");
+            }
+
             plaintext.CopyTo(output);
             return;
         }
@@ -59,20 +80,34 @@ internal sealed class NoiseCipherState
             throw new InvalidOperationException("The cipher's message counter is exhausted; rekey or close the session.");
         }
 
-        SealAt(Nonce, ad, plaintext, output);
+        Span<byte> n = stackalloc byte[ChaCha20Poly1305.NonceSize];
+        EncodeNonce(Nonce, n);
+        ChaCha20Poly1305.Seal(_key, n, ad, plaintext, output);
         Nonce++;
     }
 
-    /// <summary>DecryptWithAd. Returns false (and does not advance the counter) when authentication fails or the counter is exhausted.</summary>
+    /// <summary>DecryptWithAd. Returns false (and does not advance the counter) when authentication fails, the counter is exhausted, or there is no key.</summary>
     public bool Decrypt(ReadOnlySpan<byte> ad, ReadOnlySpan<byte> input, Span<byte> output)
     {
         if (!HasKey)
         {
+            if (!_passThroughWithoutKey)
+            {
+                return false;
+            }
+
             input.CopyTo(output);
             return true;
         }
 
-        if (Nonce > MaxNonce || !OpenAt(Nonce, ad, input, output))
+        if (Nonce > MaxNonce)
+        {
+            return false;
+        }
+
+        Span<byte> n = stackalloc byte[ChaCha20Poly1305.NonceSize];
+        EncodeNonce(Nonce, n);
+        if (!ChaCha20Poly1305.Open(_key, n, ad, input, output))
         {
             return false;
         }
@@ -81,30 +116,36 @@ internal sealed class NoiseCipherState
         return true;
     }
 
-    /// <summary>Encrypts with an explicit counter and leaves the state's own counter alone. The caller must never reuse a counter.</summary>
-    public void SealAt(ulong nonce, ReadOnlySpan<byte> ad, ReadOnlySpan<byte> plaintext, Span<byte> output)
+    /// <summary>Test hook: moves the counter, to reach the exhaustion limit without 2^64 messages.</summary>
+    internal void SetNonceForTest(ulong nonce) => Nonce = nonce;
+
+    internal void CopyStateFrom(NoiseCipherState o)
     {
-        Span<byte> n = stackalloc byte[ChaCha20Poly1305.NonceSize];
-        EncodeNonce(nonce, n);
-        ChaCha20Poly1305.Seal(_key, n, ad, plaintext, output);
+        o._key.CopyTo(_key, 0);
+        HasKey = o.HasKey;
+        Nonce = o.Nonce;
     }
 
-    /// <summary>Decrypts with an explicit counter and leaves the state's own counter alone.</summary>
-    public bool OpenAt(ulong nonce, ReadOnlySpan<byte> ad, ReadOnlySpan<byte> input, Span<byte> output)
+    /// <summary>Hands the key to a datagram cipher and forgets it here, so one key is never live in two places.</summary>
+    internal void MoveKeyTo(Span<byte> key)
     {
         if (!HasKey)
         {
-            return false;
+            throw new InvalidOperationException("The cipher has no key.");
         }
 
-        Span<byte> n = stackalloc byte[ChaCha20Poly1305.NonceSize];
-        EncodeNonce(nonce, n);
-        return ChaCha20Poly1305.Open(_key, n, ad, input, output);
+        _key.CopyTo(key);
+        Clear();
     }
 
     /// <summary>REKEY (spec §4.2): the new key is the first 32 bytes of the encryption of zeros under counter 2^64 - 1.</summary>
     public void Rekey()
     {
+        if (!HasKey)
+        {
+            throw new InvalidOperationException("The cipher has no key.");
+        }
+
         Span<byte> n = stackalloc byte[ChaCha20Poly1305.NonceSize];
         EncodeNonce(ulong.MaxValue, n);
         Span<byte> zeros = stackalloc byte[KeySize];
@@ -116,7 +157,7 @@ internal sealed class NoiseCipherState
     }
 
     // Spec §12.3: four zero bytes, then the counter as 64-bit little endian.
-    private static void EncodeNonce(ulong nonce, Span<byte> n)
+    internal static void EncodeNonce(ulong nonce, Span<byte> n)
     {
         n[..4].Clear();
         BinaryPrimitives.WriteUInt64LittleEndian(n[4..], nonce);
@@ -175,7 +216,7 @@ internal sealed class NoiseHandshake
     private readonly bool _initiator;
     private readonly byte[] _h = new byte[HashLen];
     private readonly byte[] _ck = new byte[HashLen];
-    private readonly NoiseCipherState _cipher = new();
+    private readonly NoiseCipherState _cipher = new(passThroughWithoutKey: true);
     private readonly byte[] _sPriv = new byte[DhLen];
     private readonly byte[] _sPub = new byte[DhLen];
     private readonly byte[] _ePriv = new byte[DhLen];
@@ -192,7 +233,7 @@ internal sealed class NoiseHandshake
     /// (empty otherwise); <paramref name="remoteStatic"/> is the peer's static public key when the pattern has it as a
     /// pre-message (empty otherwise).
     /// </summary>
-    public NoiseHandshake(NoisePattern pattern, bool initiator, ReadOnlySpan<byte> prologue, ReadOnlySpan<byte> staticPrivate, ReadOnlySpan<byte> remoteStatic)
+    public NoiseHandshake(NoisePattern pattern, bool initiator, ReadOnlySpan<byte> prologue, ReadOnlySpan<byte> staticPrivate, ReadOnlySpan<byte> remoteStatic, ReadOnlySpan<byte> staticPublic = default)
     {
         var (pre, messages) = Describe(pattern);
         _messages = messages;
@@ -205,7 +246,16 @@ internal sealed class NoiseHandshake
             }
 
             staticPrivate.CopyTo(_sPriv);
-            X25519.PublicKey(_sPriv, _sPub);
+            if (staticPublic.Length == DhLen)
+            {
+                // The caller already has the public half (a server computes it once, not per handshake).
+                staticPublic.CopyTo(_sPub);
+            }
+            else
+            {
+                X25519.PublicKey(_sPriv, _sPub);
+            }
+
             _hasS = true;
         }
 
@@ -452,6 +502,28 @@ internal sealed class NoiseHandshake
         Destroy();
     }
 
+    /// <summary>
+    /// A copy of this handshake's state. A client reads the server's reply on a fork, so one forged datagram that fails to authenticate
+    /// cannot kill the handshake the real reply is waiting for.
+    /// </summary>
+    internal NoiseHandshake Fork() => new(this);
+
+    private NoiseHandshake(NoiseHandshake o)
+    {
+        _messages = o._messages;
+        _initiator = o._initiator;
+        o._h.CopyTo(_h, 0);
+        o._ck.CopyTo(_ck, 0);
+        o._sPriv.CopyTo(_sPriv, 0);
+        o._sPub.CopyTo(_sPub, 0);
+        o._ePriv.CopyTo(_ePriv, 0);
+        o._ePub.CopyTo(_ePub, 0);
+        o._rs.CopyTo(_rs, 0);
+        o._re.CopyTo(_re, 0);
+        (_hasS, _hasE, _hasRs, _hasRe, _fixedEphemeral, _next, _failed) = (o._hasS, o._hasE, o._hasRs, o._hasRe, o._fixedEphemeral, o._next, o._failed);
+        _cipher.CopyStateFrom(o._cipher);
+    }
+
     /// <summary>Wipes the keys. Called by <see cref="Split"/>; call it when abandoning a handshake.</summary>
     public void Destroy()
     {
@@ -462,10 +534,12 @@ internal sealed class NoiseHandshake
         _failed = true;
     }
 
-    private static void Need(Span<byte> output, int offset, int count)
+    private void Need(Span<byte> output, int offset, int count)
     {
         if (output.Length - offset < count)
         {
+            // Earlier tokens already changed h and ck: this handshake cannot be retried with a bigger buffer.
+            _failed = true;
             throw new ArgumentException("output is too small for the handshake message");
         }
     }

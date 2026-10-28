@@ -55,11 +55,18 @@ internal static class Wire
 
     public const int ResetSize = 1 + 4 + 16;
 
-    /// <summary>The handshake binding: the client nonce and the cookie, so a captured first message only works with the cookie it was made for.</summary>
+    /// <summary>Size of <see cref="Bind"/>'s output.</summary>
+    public const int BindSize = 1 + 8 + CookieSize;
+
+    /// <summary>
+    /// The handshake binding: the datagram version, the client nonce and the cookie, so a captured first message only works with the
+    /// cookie it was made for, and a flipped version nibble breaks the handshake instead of going unnoticed.
+    /// </summary>
     public static void Bind(ulong nonce, ReadOnlySpan<byte> cookie, Span<byte> bind)
     {
-        BinaryPrimitives.WriteUInt64LittleEndian(bind, nonce);
-        cookie[..CookieSize].CopyTo(bind[8..]);
+        bind[0] = VersionSecure;
+        BinaryPrimitives.WriteUInt64LittleEndian(bind[1..], nonce);
+        cookie[..CookieSize].CopyTo(bind[9..]);
     }
 
     /// <summary>Copies a socket address so it can be kept.</summary>

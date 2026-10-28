@@ -34,6 +34,7 @@ internal static class ChaCha20Poly1305
             throw new ArgumentException("output must be plaintext length plus 16 bytes", nameof(output));
         }
 
+        CheckOverlap(plaintext, output);
         Span<byte> polyKey = stackalloc byte[32];
         Span<uint> state = stackalloc uint[16];
         Init(state, key, nonce);
@@ -57,8 +58,11 @@ internal static class ChaCha20Poly1305
         Check(key, nonce);
         if (input.Length < TagSize || output.Length != input.Length - TagSize)
         {
+            output.Clear(); // the output is zero whenever the result is false, whatever the reason
             return false;
         }
+
+        CheckOverlap(input, output);
 
         var ciphertext = input[..output.Length];
         Span<byte> polyKey = stackalloc byte[32];
@@ -80,6 +84,15 @@ internal static class ChaCha20Poly1305
         Wipe(polyKey);
         Wipe(MemoryMarshalAsBytes(state));
         return ok;
+    }
+
+    // Same start is the supported in-place case; a shifted overlap would corrupt the data being read.
+    private static void CheckOverlap(ReadOnlySpan<byte> input, Span<byte> output)
+    {
+        if (input.Length > 0 && output.Length > 0 && input.Overlaps(output, out var offset) && offset != 0)
+        {
+            throw new ArgumentException("input and output may be the same memory or disjoint, not partly overlapping");
+        }
     }
 
     private static void Check(ReadOnlySpan<byte> key, ReadOnlySpan<byte> nonce)

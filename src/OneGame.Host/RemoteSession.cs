@@ -11,6 +11,13 @@ public sealed record ConnectOptions
     /// <summary><c>udp://host:port</c> (reliable UDP) or <c>ws://host:port</c> (WebSocket).</summary>
     public required string Address { get; init; }
 
+    /// <summary>
+    /// How the link is secured: <c>NetSecurity.ForClient(serverPublicKeys, gameId, identity)</c>, or <c>NetSecurity.Insecure</c> for tests and
+    /// local tools. Required: a session opened with null throws <see cref="SecurityNotConfiguredException"/>. A client with no identity key gets one
+    /// for the life of the session, so a reconnect is the same player; keep an identity file (<c>NetKeyPair.Load</c>) for the same player across runs.
+    /// </summary>
+    public NetSecurity? Security { get; init; }
+
     /// <summary>The scope to subscribe to.</summary>
     public uint Scope { get; init; } = 1;
 
@@ -90,6 +97,7 @@ public sealed class RemoteSession
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(replicaWorld);
         Options = options;
+        _security = WithIdentity(options.Security);
         if (OperatingSystem.IsBrowser())
         {
             // A page cannot resolve names or open sockets: the browser connects to the URL itself.
@@ -101,7 +109,7 @@ public sealed class RemoteSession
         {
             (Transport, var endpoint) = Parse(options.Address);
             _endpoint = endpoint;
-            Connection = Open(Transport, endpoint, options.Conditions);
+            Connection = Open(Transport, endpoint, options.Conditions, _security);
         }
 
         Node = new Node(options.Name);
@@ -183,7 +191,7 @@ public sealed class RemoteSession
             _nextAttempt = now;
             _backoffMs = 250;
             var reason = Connection.CloseInfo.Reason;
-            if (_closedByUs || reason is DisconnectReason.Rejected or DisconnectReason.VersionMismatch or DisconnectReason.Kicked)
+            if (_closedByUs || reason is DisconnectReason.Rejected or DisconnectReason.VersionMismatch or DisconnectReason.Kicked or DisconnectReason.SecurityRequired or DisconnectReason.HandshakeFailed)
             {
                 _permanent = true;
                 return;
@@ -199,7 +207,7 @@ public sealed class RemoteSession
         {
             if (now >= _nextAttempt)
             {
-                _candidate = OperatingSystem.IsBrowser() ? OpenInBrowser(Options.Address) : Open(Transport, _endpoint, Options.Conditions);
+                _candidate = OperatingSystem.IsBrowser() ? OpenInBrowser(Options.Address) : Open(Transport, _endpoint, Options.Conditions, _security);
             }
 
             return;
@@ -219,7 +227,7 @@ public sealed class RemoteSession
         {
             var reason = _candidate.CloseInfo.Reason;
             _candidate = null;
-            if (reason is DisconnectReason.Rejected or DisconnectReason.VersionMismatch or DisconnectReason.Kicked)
+            if (reason is DisconnectReason.Rejected or DisconnectReason.VersionMismatch or DisconnectReason.Kicked or DisconnectReason.SecurityRequired or DisconnectReason.HandshakeFailed)
             {
                 _permanent = true;
                 return;
@@ -236,6 +244,13 @@ public sealed class RemoteSession
     private long _nextAttempt;
     private int _backoffMs = 250;
     private bool _permanent;
+    private readonly NetSecurity? _security;
+
+    // A client without an identity key gets one now and keeps it for every reconnect of this session: the server names the player by it.
+    private static NetSecurity? WithIdentity(NetSecurity? security) =>
+        security is { Mode: SecurityMode.Required, Identity: null, TrustedServerKeys.Count: > 0 }
+            ? NetSecurity.ForClient(security.TrustedServerKeys, security.GameId, NetKeyPair.Generate())
+            : security;
     private bool _closedByUs;
 
     /// <summary>Describes the connection and the replica now.</summary>
@@ -315,21 +330,22 @@ public sealed class RemoteSession
             ? new BrowserWebSocketConnection(address)
             : throw new FormatException("A web build connects over WebSocket: use ws://host:port or wss://host:port.");
 
-    private static INetConnection Open(string transport, IPEndPoint endpoint, NetworkConditions? conditions)
+    private static INetConnection Open(string transport, IPEndPoint endpoint, NetworkConditions? conditions, NetSecurity? security)
     {
         var clock = NetClock.System;
+        var udpOptions = new UdpOptions { Security = security };
         if (transport == "udp")
         {
             if (conditions is null)
             {
-                return UdpTransport.Connect(endpoint, null, clock);
+                return UdpTransport.Connect(endpoint, udpOptions, clock);
             }
 
             var bind = new IPEndPoint(endpoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? IPAddress.IPv6Any : IPAddress.Any, 0);
-            return UdpTransport.Connect(new ConditionedDatagramSocket(new SystemDatagramSocket(bind), conditions, clock), endpoint.Serialize(), null, clock);
+            return UdpTransport.Connect(new ConditionedDatagramSocket(new SystemDatagramSocket(bind), conditions, clock), endpoint.Serialize(), udpOptions, clock);
         }
 
-        var ws = WebSocketTransport.Connect(endpoint, null, clock);
+        var ws = WebSocketTransport.Connect(endpoint, new WebSocketOptions { Security = security }, clock);
         return conditions is null ? ws : new ConditionedConnection(ws, conditions, clock);
     }
 

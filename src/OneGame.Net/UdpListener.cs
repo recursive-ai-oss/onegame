@@ -30,6 +30,23 @@ public sealed class UdpListener : INetListener
     private readonly bool _secure;
     private long _handshakeWindow = long.MinValue / 2;
     private int _handshakesInWindow;
+    private int _reservedInWindow;
+    private readonly Dictionary<SourceKey, int> _perSource = [];
+
+    // Sources that finished a session lately keep a reserved share of the handshake budget (value: when they last confirmed).
+    private readonly Dictionary<SourceKey, long> _knownSources = [];
+
+    // A closed or timed-out handshake stays on this list for as long as its cookie could still be replayed, so a captured first
+    // message cannot start a second handshake (value: when the entry may go).
+    private readonly Dictionary<HandshakeKey, long> _tombstones = [];
+    private int _unconfirmed;
+    private long _lastSweep;
+    private long _resetWindow;
+    private int _resetsInWindow;
+    private readonly Dictionary<SourceKey, int> _unconfirmedBySource = [];
+    private const int MaxTombstones = 65_536;
+    private const int MaxKnownSources = 4096;
+    private const int MaxSourcesPerWindow = 8192;
 
     internal UdpListener(IDatagramSocket socket, bool ownsSocket, UdpOptions options, NetClock clock)
     {
@@ -103,9 +120,24 @@ public sealed class UdpListener : INetListener
             if (c.State == ConnectionState.Closed)
             {
                 _ = _byId.Remove(c.ConnectionId);
-                _ = _byHandshake.Remove(new HandshakeKey(c.Nonce, c.Remote));
+                var key = new HandshakeKey(c.Nonce, c.Remote);
+                _ = _byHandshake.Remove(key);
                 _connections.RemoveAt(i--);
+                if (_secure)
+                {
+                    ReleaseUnconfirmed(c);
+                    if (_tombstones.Count < MaxTombstones)
+                    {
+                        _tombstones[key] = now + (2 * CookieEpochMs) + 1000;
+                    }
+                }
             }
+        }
+
+        if (_secure && now - _lastSweep >= 1000)
+        {
+            _lastSweep = now;
+            SweepTables(now);
         }
     }
 
@@ -199,6 +231,19 @@ public sealed class UdpListener : INetListener
     {
         if (_secure)
         {
+            // Each reset costs an HMAC and goes to an address nobody has proven, so they are limited per second (they are only a hint).
+            var second = _clock.NowMs / 1000;
+            if (second != _resetWindow)
+            {
+                _resetWindow = second;
+                _resetsInWindow = 0;
+            }
+
+            if (++_resetsInWindow > 200)
+            {
+                return;
+            }
+
             // The reset token proves this is the server the connection was made with, and only that server can compute it.
             Span<byte> reset = stackalloc byte[Wire.ResetSize];
             reset[0] = Wire.Header(Wire.KindReset, secure: true);
@@ -250,9 +295,21 @@ public sealed class UdpListener : INetListener
             return;
         }
 
-        if (_connections.Count >= _o.MaxConnections)
+        if (_secure && _tombstones.ContainsKey(new HandshakeKey(nonce, _from)))
+        {
+            DatagramsIgnored++; // a replay of a first message whose handshake already ended
+            return;
+        }
+
+        if (_connections.Count - _unconfirmed >= _o.MaxConnections)
         {
             SendReject(nonce, DisconnectReason.ServerFull);
+            return;
+        }
+
+        if (_secure && (_unconfirmed >= _o.MaxUnconfirmed || _unconfirmedBySource.GetValueOrDefault(SourceKey.Of(_from)) >= _o.MaxUnconfirmedPerSource))
+        {
+            HandshakesRateLimited++; // too many handshakes waiting for their first packet; the client repeats
             return;
         }
 
@@ -266,18 +323,12 @@ public sealed class UdpListener : INetListener
         while (id == 0 || _byId.ContainsKey(id));
 
         var remote = Wire.Clone(_from);
+        var source = SourceKey.Of(_from);
         UdpConnection.ServerSecrets? secrets = null;
         if (_secure)
         {
-            // Each handshake costs several X25519 operations, so the budget is spent before any of them. Dropped, not queued: the client repeats.
-            var second = now / 1000;
-            if (second != _handshakeWindow)
-            {
-                _handshakeWindow = second;
-                _handshakesInWindow = 0;
-            }
-
-            if (++_handshakesInWindow > _o.MaxHandshakesPerSecond)
+            // Each handshake costs several X25519 operations, so every budget is checked before any of them. Dropped, not queued: the client repeats.
+            if (!SpendHandshakeBudget(source, now))
             {
                 HandshakesRateLimited++;
                 return;
@@ -293,6 +344,12 @@ public sealed class UdpListener : INetListener
         }
 
         var conn = new UdpConnection(_socket, remote, id, nonce, _o, _clock, secrets);
+        if (_secure)
+        {
+            _unconfirmed++;
+            _unconfirmedBySource[source] = _unconfirmedBySource.GetValueOrDefault(source) + 1;
+        }
+
         _byId.Add(id, conn);
         _byHandshake.Add(new HandshakeKey(nonce, remote), conn);
         _connections.Add(conn);
@@ -303,7 +360,16 @@ public sealed class UdpListener : INetListener
         else
         {
             // Handed out once the client's first authenticated packet arrives (a replayed first message never gets that far).
-            conn.Confirmed += c => _accepted.Enqueue(c);
+            conn.Confirmed += c =>
+            {
+                ReleaseUnconfirmed(c);
+                if (_knownSources.Count < MaxKnownSources || _knownSources.ContainsKey(source))
+                {
+                    _knownSources[source] = _clock.NowMs;
+                }
+
+                _accepted.Enqueue(c);
+            };
         }
 
         conn.SendAccept();
@@ -318,7 +384,7 @@ public sealed class UdpListener : INetListener
             return null;
         }
 
-        Span<byte> bind = stackalloc byte[8 + Wire.CookieSize];
+        Span<byte> bind = stackalloc byte[Wire.BindSize];
         Wire.Bind(nonce, cookie, bind);
         var hs = SecureHandshake.Server(_security, bind);
         var hello = new byte[length];
@@ -327,16 +393,133 @@ public sealed class UdpListener : INetListener
             return null;
         }
 
-        var accept = new byte[Wire.SecureAcceptHeader + SecureHandshake.ReplyOverhead + 16];
-        Span<byte> token = stackalloc byte[16];
-        SecureHandshake.ResetToken(_security.ServerKeys[0], id, token);
-        var n = hs.WriteReply(token, accept.AsSpan(Wire.SecureAcceptHeader));
+        // The reply's encrypted payload is the reset token and the connection id: the id is also in the clear header, and the client
+        // compares the two, so a path attacker cannot steer the client to a connection id the server did not choose (review L6).
+        var accept = new byte[Wire.SecureAcceptHeader + SecureHandshake.ReplyOverhead + 20];
+        Span<byte> payload = stackalloc byte[20];
+        SecureHandshake.ResetToken(_security.ServerKeys[0], id, payload[..16]);
+        BinaryPrimitives.WriteUInt32LittleEndian(payload[16..], id);
+        var n = hs.WriteReply(payload, accept.AsSpan(Wire.SecureAcceptHeader));
         accept[0] = Wire.Header(Wire.KindAccept, secure: true);
         BinaryPrimitives.WriteUInt64LittleEndian(accept.AsSpan(1), nonce);
         BinaryPrimitives.WriteUInt32LittleEndian(accept.AsSpan(9), id);
         BinaryPrimitives.WriteUInt16LittleEndian(accept.AsSpan(13), (ushort)n);
-        hs.Finish(out var send, out var receive);
+        hs.Finish((ulong)_o.MaxPacketsPerKey + 1, out var send, out var receive);
         return new UdpConnection.ServerSecrets(send, receive, hs.Remote, accept.AsSpan(0, Wire.SecureAcceptHeader + n).ToArray());
+    }
+
+    // Budgets: one per source (an IPv4 address or an IPv6 /64), one shared by strangers, and one reserved for sources that completed a
+    // session lately. All counters restart every second; the per-source table is capped so a spray of spoofed sources cannot grow it.
+    private bool SpendHandshakeBudget(SourceKey source, long now)
+    {
+        var second = now / 1000;
+        if (second != _handshakeWindow)
+        {
+            _handshakeWindow = second;
+            _handshakesInWindow = 0;
+            _reservedInWindow = 0;
+            _perSource.Clear();
+        }
+
+        var mine = _perSource.GetValueOrDefault(source);
+        if (mine >= _o.MaxHandshakesPerSourcePerSecond || (mine == 0 && _perSource.Count >= MaxSourcesPerWindow))
+        {
+            return false;
+        }
+
+        if (_handshakesInWindow < _o.MaxHandshakesPerSecond)
+        {
+            _handshakesInWindow++;
+        }
+        else if (_knownSources.ContainsKey(source) && _reservedInWindow < _o.ReservedHandshakesPerSecond)
+        {
+            _reservedInWindow++;
+        }
+        else
+        {
+            return false;
+        }
+
+        _perSource[source] = mine + 1;
+        return true;
+    }
+
+    private void ReleaseUnconfirmed(UdpConnection c)
+    {
+        if (!c.IsUnconfirmed)
+        {
+            return;
+        }
+
+        c.IsUnconfirmed = false;
+        _unconfirmed--;
+        var source = SourceKey.Of(c.Remote);
+        if (_unconfirmedBySource.TryGetValue(source, out var n))
+        {
+            if (n <= 1)
+            {
+                _ = _unconfirmedBySource.Remove(source);
+            }
+            else
+            {
+                _unconfirmedBySource[source] = n - 1;
+            }
+        }
+    }
+
+    private void SweepTables(long now)
+    {
+        List<HandshakeKey>? old = null;
+        foreach (var (key, until) in _tombstones)
+        {
+            if (until <= now)
+            {
+                (old ??= []).Add(key);
+            }
+        }
+
+        if (old is not null)
+        {
+            foreach (var key in old)
+            {
+                _ = _tombstones.Remove(key);
+            }
+        }
+
+        List<SourceKey>? stale = null;
+        foreach (var (key, seen) in _knownSources)
+        {
+            if (now - seen > 10 * 60_000)
+            {
+                (stale ??= []).Add(key);
+            }
+        }
+
+        if (stale is not null)
+        {
+            foreach (var key in stale)
+            {
+                _ = _knownSources.Remove(key);
+            }
+        }
+    }
+
+    private readonly record struct SourceKey(ulong High, ulong Low)
+    {
+        // The network a peer sits on: all of an IPv4 address, the first 64 bits of an IPv6 one (the part one subscriber controls).
+        public static SourceKey Of(SocketAddress a)
+        {
+            var ip = ((IPEndPoint)new IPEndPoint(IPAddress.Any, 0).Create(a)).Address;
+            Span<byte> bytes = stackalloc byte[16];
+            if (!ip.TryWriteBytes(bytes, out var n))
+            {
+                return default;
+            }
+
+            return n == 4
+                ? new SourceKey(0, BinaryPrimitives.ReadUInt32BigEndian(bytes))
+                : new SourceKey(BinaryPrimitives.ReadUInt64BigEndian(bytes), 0);
+        }
     }
 
     private readonly struct HandshakeKey(ulong nonce, SocketAddress address) : IEquatable<HandshakeKey>
