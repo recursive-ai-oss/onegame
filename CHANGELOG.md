@@ -19,6 +19,7 @@ Every export works from packages: a game made by `onegame new` from the installe
 - Web, Android and iOS exports pack the game's `fonts/`, `art/` and `data/` folders with the same filter as the desktop export, and the game reads them as loose files (the web page and the APK unpack them at start), so games that load files from disk run unchanged on every target.
 - Device scripts in `tools/devices/` tear down everything they start on finish, failure, Ctrl-C and SIGTERM (apps, installed packages, port forwards, tunnels, transient units, background commands); `android.sh` no longer removes every forward on the adb server and restores the stay-awake setting.
 - The package smoke scripts install the tool from the local feed explicitly.
+- OneRender, OneRender.Image and OneRender.Fonts 1.2.0 (with OneHtml 1.4.0). Solitaire's settings controls take their colours from `color-scheme: dark` and `accent-color` instead of a CSS filter.
 
 ## [1.6.1] - 2026-10-28
 
