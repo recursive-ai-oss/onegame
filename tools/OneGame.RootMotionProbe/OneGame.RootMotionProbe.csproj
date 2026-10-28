@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Prints the baked root motion of the character example's clips as raw fixed-point numbers and a hash of every step, so runs on
+       other CPUs and runtimes (arm64, WebAssembly) can be compared with the pinned values. A test tool: nothing here ships. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>OneGame.RootMotionProbe</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OneGameAnalyzers>false</OneGameAnalyzers>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OneGame.Gltf/OneGame.Gltf.csproj" />
+    <Content Include="../../examples/character/models/figure.glb" Link="figure.glb" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

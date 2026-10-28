@@ -18,6 +18,9 @@ for dir in "$root"/*/; do
   # Each example is built by this run: a warning is an error in every project, so a green run means zero warnings.
   (cd "$dir" && "$cli" test --json --no-unit > "$out/$name-test.json") || failed+=("$name")
   head -c 300 "$out/$name-test.json"; echo
+  # One line per scenario (name and final world hash), as scenarios.sh writes, so another system's run can be compared.
+  grep -oE '"name":"[^"]+","source":"[^"]*","passed":(true|false),"tick":[0-9]+,"hash":"[0-9a-f]+"' "$out/$name-test.json" \
+    | sed -E 's/"name":"([^"]+)".*"hash":"([0-9a-f]+)"/\1 \2/' | sort > "$out/$name-hashes.txt" || true
   if [ -f "$dir/cluster.yaml" ]; then
     (
       cd "$dir" && rm -rf bin &&

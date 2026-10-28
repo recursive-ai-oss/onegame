@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <!-- The same probe on .NET's WebAssembly runtime (run with node or a browser). A test tool: nothing here ships. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>OneGame.RootMotionProbe</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OneGameAnalyzers>false</OneGameAnalyzers>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <WasmEnableWebcil>false</WasmEnableWebcil>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../OneGame.RootMotionProbe/Probe.cs" />
+    <EmbeddedResource Include="../../examples/character/models/figure.glb" LogicalName="figure.glb" />
+    <ProjectReference Include="../../src/OneGame.Gltf/OneGame.Gltf.csproj" />
+  </ItemGroup>
+
+</Project>

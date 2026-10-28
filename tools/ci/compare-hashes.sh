@@ -8,7 +8,8 @@ a=$1
 b=$2
 status=0
 
-for sample in solitaire lanterns; do
+# character is an example: its scenarios run the baked root motion.
+for sample in solitaire lanterns character; do
   fa=$(find "$a" -name "$sample-hashes.txt" | head -1)
   fb=$(find "$b" -name "$sample-hashes.txt" | head -1)
   if [ -z "$fa" ] || [ -z "$fb" ]; then
