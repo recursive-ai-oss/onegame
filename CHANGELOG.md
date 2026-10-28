@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Changed
+
+- `OneGame.Navigation` moves to OnePath 1.0.0-rc.1 (needs it published to nuget.org). Behaviour and saved bytes are unchanged; the crowd reads agents with `Crowd.CopyAgents(Span<Agent>)` and treats any `OnePathFormatException` from a bad crowd state as a refused snapshot.
+
 ## [1.13.0] - 2026-10-28
 
 Crowds as synced state in `RecursiveAI.OneGame.Navigation` (1.13.0-preview.1, still a preview on a preview of OnePath). The other packages have no API changes.

@@ -40,7 +40,7 @@ public sealed class NavCrowd : IHotTable
     private readonly Visibility _visibility;
     private readonly double _dt;
     private readonly int _maxStateBytes;
-    private readonly List<Agent> _list = [];
+    private Agent[] _list = [];
     private Crowd _crowd;
     private byte[] _scratch = new byte[1024];
     private NavAgent[] _views = new NavAgent[16];
@@ -356,7 +356,7 @@ public sealed class NavCrowd : IHotTable
         {
             _crowd.RestoreState(bytes); // all or nothing
         }
-        catch (NavMeshFormatException)
+        catch (OnePathFormatException)
         {
             reader.Fail(SyncError.InvalidValue);
             return;
@@ -470,9 +470,12 @@ public sealed class NavCrowd : IHotTable
     // round-to-nearest-even (NavConvert.FromDouble): a pure function of values that are bit-identical on every platform.
     private void Sync()
     {
-        _list.Clear();
-        _crowd.CopyAgents(_list);
-        _count = _list.Count;
+        if (_list.Length < _crowd.Count)
+        {
+            _list = new Agent[Math.Max(_crowd.Count, _list.Length * 2)];
+        }
+
+        _count = _crowd.CopyAgents(_list);
         if (_views.Length < _count)
         {
             _views = new NavAgent[Math.Max(_count, _views.Length * 2)];
@@ -499,10 +502,10 @@ public sealed class NavCrowd : IHotTable
 
     private static NavAgentStatus Status(Agent a) => a.State switch
     {
-        RecursiveAI.OnePath.Crowds.Corridors.FollowerState.Moving or RecursiveAI.OnePath.Crowds.Corridors.FollowerState.OffMeshLink => NavAgentStatus.Walking,
-        RecursiveAI.OnePath.Crowds.Corridors.FollowerState.Arrived => a.ReachedTarget ? NavAgentStatus.Arrived : NavAgentStatus.ArrivedShort,
-        RecursiveAI.OnePath.Crowds.Corridors.FollowerState.Stuck => NavAgentStatus.Stuck,
-        RecursiveAI.OnePath.Crowds.Corridors.FollowerState.NoPath => NavAgentStatus.NoPath,
+        FollowerState.Moving or FollowerState.OffMeshLink => NavAgentStatus.Walking,
+        FollowerState.Arrived => a.ReachedTarget ? NavAgentStatus.Arrived : NavAgentStatus.ArrivedShort,
+        FollowerState.Stuck => NavAgentStatus.Stuck,
+        FollowerState.NoPath => NavAgentStatus.NoPath,
         _ => NavAgentStatus.Idle,
     };
 }
