@@ -28,7 +28,7 @@ awk 'BEGIN{RS="";FS="\n"} /Handlers=.*js[0-9]/ {for(i=1;i<=NF;i++) if($i ~ /^(N|
 VPID=
 if [ -n "$VIRTUAL" ]; then
   python3 "$HERE/virtual-pad.py" 2 3 "$VIRTUAL" >&2 & VPID=$!
-  trap 'kill $VPID 2>/dev/null || true' EXIT
+  trap 'kill $VPID 2>/dev/null || true' EXIT; trap 'exit 130' INT; trap 'exit 143' TERM
   SECONDS_RUN=40; [ -n "$EXPECT" ] || EXPECT=$([ "$VIRTUAL" = dualsense ] && echo dualsense || echo x-box)
   sleep 1
 fi

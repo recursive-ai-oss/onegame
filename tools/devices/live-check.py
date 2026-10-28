@@ -123,6 +123,7 @@ try:
         time.sleep(2)
         adb('shell', 'monkey', '-p', 'dev.onegame.solitaire', '-c', 'android.intent.category.LAUNCHER', '1')
         time.sleep(2.5)
+        m.close()   # the game restarts its listener after the app returns
         m = Mcp(endpoint)
     else:
         m.call('app_lifecycle', state='paused')

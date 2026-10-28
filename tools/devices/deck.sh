@@ -9,8 +9,9 @@
 # and compares every scenario's state hash with a run here. For Solitaire it then opens a window on the Deck's desktop session,
 # drives it over live control through an ssh tunnel (touch injected into the platform's queue, the audio device, a presented frame,
 # background and back), and looks at the gamepads the platform layer sees. Lanterns also joins a cluster as a client of servers
-# here. If Steam's Linux runtime ("sniper") is installed there, one more run goes through it. Everything started is stopped and the
-# copied folders are removed unless --keep.
+# here. If Steam's Linux runtime ("sniper") is installed there, one more run goes through it. Everything started is stopped on every
+# way out (finish, failure, Ctrl-C, SIGTERM): the window's transient unit on the Deck, the ssh tunnel, the commands running here, and
+# the copied folder (unless --keep). Steam itself is never stopped or restarted.
 #
 # The Deck needs ssh on and this computer's public key in ~/.ssh/authorized_keys of the user. Environment: ONEGAME (the onegame
 # command), DECK_HOST, DECK_USER, DECK_SSH_KEY (a key file other than the default), DECK_REMOTE_ENV (extra NAME=value words for the
@@ -18,6 +19,7 @@
 set -uo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
+. "$HERE/teardown.sh"
 ONEGAME=${ONEGAME:-onegame}
 HOST=${DECK_HOST:-}; USERN=${DECK_USER:-deck}; SAMPLES=; LAN=; OUT=; CLUSTER=1; KEEP=
 while [ $# -gt 0 ]; do case $1 in
@@ -27,7 +29,20 @@ OUT=${OUT:-${ONEGAME_ARTIFACTS:-$ROOT/artifacts}/device-deck}
 TOL=${CAPTURE_TOLERANCE:-48}; MAXD=${CAPTURE_MAX_DIFF:-0.02}
 mkdir -p "$OUT"
 say() { echo "[deck] $*" >&2; }
-FAILS=(); NOTES=(); LINES=()
+FAILS=(); NOTES=(); LINES=(); TUN=; UNIT=; MADE=; TORN=
+# Teardown: idempotent, and it only touches what this run started (the tunnel by its pid, our own transient unit, our own folder).
+TEARDOWN() {
+  [ -n "$TORN" ] && return 0; TORN=1
+  killjobs
+  [ -n "$TUN" ] && kill "$TUN" 2>/dev/null
+  TUN=
+  if [ -n "${HOST:-}" ]; then
+    [ -n "$UNIT" ] && R "systemctl --user stop onegame-check 2>/dev/null; systemctl --user reset-failed onegame-check 2>/dev/null; true" >/dev/null 2>&1
+    [ -n "$MADE" ] && [ -z "$KEEP" ] && R "rm -rf $REMOTE" >/dev/null 2>&1
+  fi
+  return 0
+}
+trap TEARDOWN EXIT; trap 'exit 130' INT; trap 'exit 143' TERM
 fail() { FAILS+=("$1"); say "FAIL $1"; }
 jget() { python3 -c 'import json,sys
 d=json.load(open(sys.argv[1], errors="replace")) if sys.argv[1]!="-" else json.loads(sys.stdin.read())
@@ -61,7 +76,7 @@ RENV=${DECK_REMOTE_ENV:-}
 # --- 2. samples ---
 [ -n "$SAMPLES" ] || { SAMPLES="solitaire,lanterns"; [ -d "$ROOT/samples/bricks" ] && SAMPLES="$SAMPLES,bricks"; }
 declare -A SUMMARY
-R "mkdir -p $REMOTE"
+MADE=1; R "mkdir -p $REMOTE"
 for S in ${SAMPLES//,/ }; do
   D=$ROOT/samples/$S
   [ -d "$D" ] || { NOTES+=("$S not in this tree"); continue; }
@@ -73,11 +88,11 @@ for S in ${SAMPLES//,/ }; do
     rm -rf "$W/work"; mkdir -p "$W/work/art"; cp "$ROOT"/Directory.Packages.props "$ROOT"/Directory.Build.props "$W/work/"; cp -r "$D" "$W/work/$S"; rm -rf "$W/work/$S/bin" "$W/work/$S/obj"
     # the project's OneGameRoot must be /engine inside the image
     (cd "$ROOT" && env DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}" ONEGAME_ARTIFACTS=/work/art RestoreAdditionalProjectSources=/engine/feed \
-       tools/steamrt.sh build "$W/work" env DOTNET_gcServer=0 DOTNET_GCHeapCount=1 DOTNET_TieredPGO=0 MSBUILDNODECOUNT=1 DOTNET_GCgen0size=4000000 dotnet publish "/work/$S" -c Debug -r linux-x64 -p:OneGameAot=true -p:OneGameRoot=/engine/ -o /work/publish -m:1 -v quiet -clp:NoSummary) > "$W/publish.log" 2>&1 \
+       tools/steamrt.sh build "$W/work" env DOTNET_gcServer=0 DOTNET_GCHeapCount=1 DOTNET_TieredPGO=0 MSBUILDNODECOUNT=1 DOTNET_GCgen0size=4000000 dotnet publish "/work/$S" -c Debug -r linux-x64 -p:OneGameAot=true -p:OneGameRoot=/engine/ -o /work/publish -m:1 -v quiet -clp:NoSummary) > "$W/publish.log" 2>&1 & waitjob $! \
       && { rm -rf "$W/publish"; mv "$W/work/publish" "$W/publish"; } || { fail "$S build in the Steam SDK image"; tail -c 300 "$W/publish.log" >&2; continue; }
   else
     NOTES+=("no Steam SDK image (tools/steamrt.sh fetch): built against this computer's glibc, which a Deck may not have")
-    (cd "$D" && dotnet publish -c Debug -r linux-x64 -p:OneGameAot=true -o "$W/publish" -v quiet -clp:NoSummary) > "$W/publish.log" 2>&1 || { fail "$S build"; tail -c 300 "$W/publish.log" >&2; continue; }
+    (cd "$D" && dotnet publish -c Debug -r linux-x64 -p:OneGameAot=true -o "$W/publish" -v quiet -clp:NoSummary) > "$W/publish.log" 2>&1 & waitjob $! || { fail "$S build"; tail -c 300 "$W/publish.log" >&2; continue; }
   fi
   FOLDER=$W/publish; EXE=$(basename "$(ls "$D"/*.csproj | head -1)" .csproj)
   [ -x "$FOLDER/$EXE" ] || EXE=$(find "$FOLDER" -maxdepth 1 -type f -perm -u+x ! -name '*.so' ! -name '*.sh' | head -1 | xargs -r basename)
@@ -85,9 +100,9 @@ for S in ${SAMPLES//,/ }; do
   tar -C "$FOLDER" -cf - . | R "tar -C $REMOTE/$S -xf -" || { fail "$S copy"; continue; }
   tar -C "$D" -cf - scenarios | R "tar -C $REMOTE/$S -xf -"
   say "$S: desktop reference run"
-  (cd "$D" && $ONEGAME test --no-unit --json) > "$W/desktop.json" 2>&1 || NOTES+=("$S: reference run failed")
+  (cd "$D" && $ONEGAME test --no-unit --json) > "$W/desktop.json" 2>&1 & waitjob $! || NOTES+=("$S: reference run failed")
   say "$S: scenarios on the Deck"
-  R "cd $REMOTE/$S && env $RENV ./$EXE --headless --scenario scenarios --artifacts artifacts --json --capture-tolerance $TOL --capture-max-diff $MAXD" > "$W/device.json" 2> "$W/device.err"
+  R "cd $REMOTE/$S && env $RENV ./$EXE --headless --scenario scenarios --artifacts artifacts --json --capture-tolerance $TOL --capture-max-diff $MAXD" > "$W/device.json" 2> "$W/device.err" & waitjob $!
   CMP=$(python3 "$HERE/compare-hashes.py" "$W/desktop.json" "$W/device.json" 2>&1 | tail -1); echo "$CMP" > "$W/compare.json"
   H=$(echo "$CMP" | jget - hashEqual 2>/dev/null); N=$(echo "$CMP" | jget - scenarios 2>/dev/null); P=$(echo "$CMP" | jget - passed 2>/dev/null)
   SUMMARY[$S]="$S scenarios $P/$N hash-equal $H/$N"
@@ -105,12 +120,13 @@ for S in ${SAMPLES//,/ }; do
       [ -n "$XSOCK" ] || { BACKEND=wayland; ENVS="WAYLAND_DISPLAY=$WSOCK XDG_RUNTIME_DIR=/run/user/$UID_R"; }
       # A transient user unit: a process started from an ssh session is killed when the session closes, a unit is not.
       R "systemctl --user stop onegame-check 2>/dev/null; systemctl --user reset-failed onegame-check 2>/dev/null; true"
+      UNIT=1
       R "cd $REMOTE/$S && systemd-run --user --unit=onegame-check --collect -q -p WorkingDirectory=\$PWD -p StandardOutput=file:\$PWD/live.log -p StandardError=file:\$PWD/live.log $(for kv in $ENVS $RENV; do printf -- '--setenv=%s ' "$kv"; done) \$PWD/$EXE --live tcp:7878 --realtime --backend $BACKEND --seed 1"
       for _ in $(seq 1 30); do R "ss -ltn 2>/dev/null | grep -q ':7878 '" && break; sleep 2; done
       sleep 5   # the window and first frames come up after the listener
       R "tail -c 300 $REMOTE/$S/live.log" > "$W/live-start.log" 2>&1
-      ssh "${SSHO[@]}" -f -N -o ExitOnForwardFailure=yes -L 17878:127.0.0.1:7878 "$USERN@$HOST"
-      TUN=$(pgrep -n -f "17878:127.0.0.1:7878 $USERN@$HOST")
+      ssh "${SSHO[@]}" -N -o ExitOnForwardFailure=yes -L 17878:127.0.0.1:7878 "$USERN@$HOST" & TUN=$!
+      for _ in $(seq 1 15); do (exec 3<>/dev/tcp/127.0.0.1/17878) 2>/dev/null && break; kill -0 "$TUN" 2>/dev/null || break; sleep 1; done
       python3 "$HERE/live-check.py" 127.0.0.1:17878 "$W/live" --expect-audio alsa > "$W/live.json" 2> "$W/live.err" || fail "solitaire live: $(jget "$W/live.json" problems 2>/dev/null | cut -c1-200) $(tail -c 200 "$W/live.err" | tr '\n' ' ')"
       SUMMARY[$S]="${SUMMARY[$S]} $(python3 - "$W/live.json" <<'PY'
 import json, sys
@@ -121,8 +137,8 @@ except Exception as e:
     print(f"live=unreadable({e})")
 PY
 )"
-      [ -n "${TUN:-}" ] && kill "$TUN" 2>/dev/null
-      R "systemctl --user stop onegame-check 2>/dev/null; true"
+      kill "$TUN" 2>/dev/null; TUN=
+      R "systemctl --user stop onegame-check 2>/dev/null; true"; UNIT=
     fi
     # Steam's own Linux runtime, when the Deck has it (Steam installs it for games that ask).
     RT=$(R 'ls -d $HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_sniper 2>/dev/null | head -1')
@@ -139,9 +155,9 @@ PY
     [ -n "$LAN" ] || LAN=$(hostname -I | tr ' ' '\n' | grep -F "${HOST%.*}." | head -1)
     if [ -z "$LAN" ]; then NOTES+=("lanterns cluster skipped: no address of this computer on the Deck's network"); else
       say "lanterns: servers on $LAN, bot on the Deck"
-      (cd "$D" && dotnet publish Server/Lanterns.Server.csproj -c Debug -o bin -v quiet -clp:NoSummary && dotnet publish Lanterns.csproj -c Debug -o bin -v quiet -clp:NoSummary) > "$W/publish.log" 2>&1 || fail "lanterns desktop build"
+      (cd "$D" && dotnet publish Server/Lanterns.Server.csproj -c Debug -o bin -v quiet -clp:NoSummary && dotnet publish Lanterns.csproj -c Debug -o bin -v quiet -clp:NoSummary) > "$W/publish.log" 2>&1 & waitjob $! || fail "lanterns desktop build"
       (cd "$D" && ONEGAME_CLUSTER_BIND=0.0.0.0 LANTERNS_HOST=$LAN SSH_TARGET="$USERN@$HOST" SSH_OPTIONS="${SSHO[*]}" LANTERNS_REMOTE="$REMOTE/lanterns/$EXE" LANTERNS_TIMEOUT=400 \
-         $ONEGAME cluster test cluster/play-ios.yaml --spec cluster-deck.yaml --json) > "$W/cluster.log" 2>&1
+         $ONEGAME cluster test cluster/play-ios.yaml --spec cluster-deck.yaml --json) > "$W/cluster.log" 2>&1 & waitjob $!
       if [ "$(lastjson "$W/cluster.log" | jget - ok 2>/dev/null)" = True ]; then SUMMARY[$S]="${SUMMARY[$S]} cluster=agree+0drift via $LAN"; else fail "lanterns cluster: $(tail -c 300 "$W/cluster.log" | tr '\n' ' ')"; fi
     fi
   fi
@@ -149,7 +165,8 @@ done
 
 # --- 3. the gamepads the platform layer sees on the Deck ---
 PADDIR=$OUT/padprobe
-if dotnet publish "$HERE/PadProbe/PadProbe.csproj" -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o "$PADDIR" -v quiet -clp:NoSummary > "$OUT/padprobe-publish.log" 2>&1; then
+dotnet publish "$HERE/PadProbe/PadProbe.csproj" -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o "$PADDIR" -v quiet -clp:NoSummary > "$OUT/padprobe-publish.log" 2>&1 & waitjob $!
+if [ $? -eq 0 ]; then
   R "mkdir -p $REMOTE && cat > $REMOTE/padprobe && chmod +x $REMOTE/padprobe" < "$PADDIR/padprobe" 2>/dev/null
   PADS=$(R "cd $REMOTE && ./padprobe --seconds 4 --quiet" 2>&1 | tail -1)
   echo "$PADS" > "$OUT/pads.json"
@@ -162,7 +179,7 @@ else
 fi
 
 # --- 4. clean up ---
-[ -n "$KEEP" ] || R "rm -rf $REMOTE"
+TEARDOWN
 
 STATUS=PASS; [ ${#FAILS[@]} -gt 0 ] && STATUS=FAIL
 LINE="DECK $STATUS $OSREL gpu=${GPU:-?} mode=$MODE"
