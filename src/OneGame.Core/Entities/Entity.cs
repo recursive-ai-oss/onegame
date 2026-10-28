@@ -4,6 +4,12 @@ namespace OneGame.Core;
 /// Base class of every entity. The generator fills in everything abstract here for a class marked <see cref="EntityAttribute"/>;
 /// authors override <see cref="OnTick"/> for per-tick sim logic.
 /// </summary>
+/// <remarks>
+/// Game code seldom calls the members of this class directly. Declare synced state with <see cref="SyncedAttribute"/>, change it from
+/// <see cref="OnTick"/> and from <see cref="CommandAttribute"/> handlers (sim code), and read it from <see cref="ViewAttribute"/> members.
+/// Setters throw <see cref="ReplicaWriteException"/> on a replica; a view that wants a change sends a command through the generated
+/// <c>Send</c> property. The members here are the surface the sync layer, saves and the test harness use.
+/// </remarks>
 public abstract class Entity
 {
     private int _restoring;
@@ -20,13 +26,13 @@ public abstract class Entity
     /// <summary>The stable id of this entity type, used in snapshots.</summary>
     public abstract uint TypeId { get; }
 
-    /// <summary>The type's name.</summary>
+    /// <summary>The entity type's name as written in code, used in harness output, scenarios and snapshots' JSON dump.</summary>
     public abstract string TypeName { get; }
 
     /// <summary>The schema version of the state this build writes.</summary>
     public abstract uint SchemaVersion { get; }
 
-    /// <summary>The number of synced properties.</summary>
+    /// <summary>The number of <see cref="SyncedAttribute"/> properties, which is also the width of the bit masks used by <see cref="DirtyMask"/> and visibility.</summary>
     public abstract int PropertyCount { get; }
 
     /// <summary>The name of synced property <paramref name="index"/> (declaration order).</summary>
@@ -39,6 +45,7 @@ public abstract class Entity
     public abstract void ClearDirty();
 
     /// <summary>Writes all synced state in the current schema.</summary>
+    /// <param name="writer">Receives the bytes.</param>
     public abstract void WriteState(SyncWriter writer);
 
     /// <summary>Replaces all synced state from the current schema's layout. Check <paramref name="reader"/> afterwards; on error the entity is unchanged.</summary>
@@ -97,6 +104,7 @@ public abstract class Entity
     }
 
     /// <summary>True when the command is marked <c>OwnerOnly</c>.</summary>
+    /// <param name="commandId">The command's generated id.</param>
     public virtual bool IsOwnerOnlyCommand(uint commandId) => false;
 
     /// <summary>True when the command is marked <c>Predicted</c>.</summary>
@@ -136,18 +144,27 @@ public abstract class Entity
     public abstract void WriteJson(JsonOut json);
 
     /// <summary>Sets a scalar synced property from text, for the state-patch harness. Returns false if the name is unknown, the type is not a scalar, or the text does not parse.</summary>
+    /// <param name="propertyName">The property's name.</param>
+    /// <param name="text">The new value in invariant text form (for example <c>12.5</c> for a <see cref="Fixed"/>).</param>
     public abstract bool TrySetFromText(string propertyName, string text);
 
     /// <summary>Signatures of the commands that <see cref="SendFromText"/> accepts, such as <c>Buy(int itemId, int count)</c>, for the harness.</summary>
     public virtual string[] CommandSignatures => [];
 
     /// <summary>Encodes and sends a command given its name and text arguments (the state-patch harness uses this). Returns <see cref="CommandStatus.UnknownCommand"/> for an unknown name and <see cref="CommandStatus.Malformed"/> when the argument count or a value is wrong.</summary>
+    /// <param name="commandName">The command method's name.</param>
+    /// <param name="arguments">One text per parameter, in declaration order.</param>
     public virtual CommandStatus SendFromText(string commandName, string[] arguments) => CommandStatus.UnknownCommand;
 
     /// <summary>Runs the handler for a command. Returns <see cref="CommandStatus.Executed"/>, <see cref="CommandStatus.Rejected"/>, <see cref="CommandStatus.UnknownCommand"/> or <see cref="CommandStatus.Malformed"/>.</summary>
     protected abstract CommandStatus ExecuteCommand(uint commandId, ref SyncReader arguments);
 
-    /// <summary>Per-tick sim logic. Runs on the authority, in entity id order, after queued commands.</summary>
+    /// <summary>
+    /// Per-tick sim logic: override it to move, age or react. It runs once per fixed simulation tick on the authority (and on a predicting
+    /// replica's predicted copy), in entity id order, after the commands queued for that tick, and never on a plain replica. It is sim code:
+    /// fixed-point numbers, named random streams (<see cref="World.Rng"/>), no clock, threads or I/O. An entity removed during a
+    /// tick is gone when the tick ends.
+    /// </summary>
     protected virtual void OnTick()
     {
     }
@@ -206,6 +223,7 @@ public abstract class Entity
     protected void EndRestore() => _restoring--;
 
     /// <summary>Records why the command handler running now rejected the command; the authority sends the text back to the submitter.</summary>
+    /// <param name="reason">Short plain text for the player, or null to clear it.</param>
     protected void SetRejectReason(string? reason)
     {
         if (World is { } world)

@@ -4,8 +4,10 @@ namespace OneGame.Core;
 
 /// <summary>
 /// A named, seedable random stream (xoshiro256**). Sim code draws randomness only from streams obtained from
-/// <see cref="RngStreams"/>, so the draws are part of the world's state: they are in snapshots and in the state hash,
-/// and replaying the same commands redraws the same numbers.
+/// <see cref="RngStreams"/> (<c>world.Rng["loot"]</c>), so the draws are part of the world's state: they are in snapshots and in
+/// the state hash, and replaying the same commands redraws the same numbers. Use one stream per purpose, so adding a draw in one
+/// place does not shift the numbers drawn elsewhere. A view that needs randomness (particles, screen shake) should keep its own
+/// generator so it never changes the world.
 /// </summary>
 public sealed class Rng
 {

@@ -1,6 +1,9 @@
 namespace OneGame.Core;
 
-/// <summary>What happened to a command.</summary>
+/// <summary>
+/// What happened to a command when it was sent. Only <see cref="Executed"/> and <see cref="Queued"/> mean the command is on its way to
+/// running; a replica reports <see cref="Forwarded"/> and the real answer arrives later from the authority (for a reply with a reason, see <see cref="CommandReply"/>).
+/// </summary>
 public enum CommandStatus
 {
     /// <summary>The handler ran and accepted the command.</summary>

@@ -78,10 +78,13 @@ public partial class Element
         return this;
     }
 
-    /// <summary>Sets <c>width</c>.</summary>
+    /// <summary>
+    /// Sets <c>width</c>. A bare number is pixels; <see cref="Length.Percent"/> is of the parent, <see cref="Length.Ui"/> follows
+    /// the UI scale.
+    /// </summary>
     public Element Width(Length v) => Style(s => s.Width(v));
 
-    /// <summary>Sets <c>height</c>.</summary>
+    /// <summary>Sets <c>height</c>; units as for <see cref="Width"/>.</summary>
     public Element Height(Length v) => Style(s => s.Height(v));
 
     /// <summary>Sets <c>width</c> and <c>height</c>.</summary>
@@ -93,19 +96,20 @@ public partial class Element
     /// <summary>Sets <c>max-width</c>.</summary>
     public Element MaxWidth(Length v) => Style(s => s.MaxWidth(v));
 
-    /// <summary>Sets <c>padding</c> on all sides.</summary>
+    /// <summary>Sets <c>padding</c> on all four sides: space inside the border, around the content.</summary>
     public Element Padding(Length v) => Style(s => s.Padding(v));
 
     /// <summary>Sets vertical and horizontal <c>padding</c>.</summary>
     public Element Padding(Length vertical, Length horizontal) => Style(s => s.Padding(vertical, horizontal));
 
-    /// <summary>Sets <c>margin</c> on all sides.</summary>
+    /// <summary>Sets <c>margin</c> on all four sides: space outside the border, around the element.</summary>
     public Element Margin(Length v) => Style(s => s.Margin(v));
 
     /// <summary>Sets vertical and horizontal <c>margin</c>.</summary>
     public Element Margin(Length vertical, Length horizontal) => Style(s => s.Margin(vertical, horizontal));
 
-    /// <summary>Sets both gaps.</summary>
+    /// <summary>Sets the space between children, on both axes (CSS <c>gap</c>), so spacing needs no margins on the children.</summary>
+    /// <param name="v">The gap. Use <see cref="Length.Ui"/> to follow the UI scale.</param>
     public Element Gap(Length v) => Style(s => s.Gap(v));
 
     /// <summary>Lays children out left to right.</summary>
@@ -117,43 +121,68 @@ public partial class Element
     /// <summary>Lets children wrap onto further lines.</summary>
     public Element Wrap() => Style(s => s.Wrap(FlexWrap.Wrap));
 
-    /// <summary>Sets <c>flex-grow</c>.</summary>
+    /// <summary>
+    /// Sets <c>flex-grow</c>: the share of the parent's free space this element takes along the main axis. 0 keeps its natural size;
+    /// two siblings with 1 and 2 split the free space one to two.
+    /// </summary>
+    /// <param name="v">The weight.</param>
     public Element Grow(float v = 1) => Style(s => s.Grow(v));
 
-    /// <summary>Sets <c>flex-basis</c>.</summary>
+    /// <summary>
+    /// Sets <c>flex-basis</c>: the size along the main axis before free space is shared out. <see cref="Length.Auto"/> uses the
+    /// width or height.
+    /// </summary>
     public Element Basis(Length v) => Style(s => s.Basis(v));
 
-    /// <summary>Sets <c>flex-shrink</c>.</summary>
+    /// <summary>
+    /// Sets <c>flex-shrink</c>: how much this element gives up, relative to its siblings, when the children do not fit. 0 never
+    /// shrinks it.
+    /// </summary>
     public Element Shrink(float v) => Style(s => s.Shrink(v));
 
-    /// <summary>Sets <c>justify-content</c>.</summary>
+    /// <summary>
+    /// Sets <c>justify-content</c>: where children sit along the main axis (the row's width, the column's height) when they do not
+    /// fill it.
+    /// </summary>
     public Element Justify(Align v) => Style(s => s.JustifyContent(v));
 
-    /// <summary>Sets <c>align-items</c>.</summary>
+    /// <summary>
+    /// Sets <c>align-items</c>: where children sit across the main axis (a row's children vertically). A child can override it with
+    /// <see cref="AlignSelf"/>.
+    /// </summary>
     public Element Align(Align v) => Style(s => s.AlignItems(v));
 
-    /// <summary>Sets <c>align-self</c>.</summary>
+    /// <summary>
+    /// Sets <c>align-self</c>: this element's own position across its parent's main axis, overriding the parent's
+    /// <see cref="Align"/>.
+    /// </summary>
     public Element AlignSelf(Align v) => Style(s => s.AlignSelf(v));
 
-    /// <summary>Sets <c>background-color</c>.</summary>
+    /// <summary>Sets <c>background-color</c>, painted inside the border box under the children.</summary>
     public Element Background(Color v) => Style(s => s.Background(v));
 
-    /// <summary>Sets the inherited text color.</summary>
+    /// <summary>Sets <c>color</c>, the text color. It is inherited, so setting it on a screen's root colors every label in it.</summary>
     public Element TextColor(Color v) => Style(s => s.TextColor(v));
 
-    /// <summary>Sets <c>font-size</c>.</summary>
+    /// <summary>Sets <c>font-size</c>, inherited by descendants. Pixels are device pixels; <see cref="Length.Ui"/> follows the UI scale.</summary>
     public Element FontSize(Length v) => Style(s => s.FontSize(v));
 
-    /// <summary>Rounds all corners.</summary>
+    /// <summary>Rounds all four corners of the background and border.</summary>
     public Element Radius(Length v) => Style(s => s.Radius(v));
 
-    /// <summary>Draws a border on all sides.</summary>
+    /// <summary>Draws a solid border on all four sides.</summary>
+    /// <param name="width">The line width.</param>
+    /// <param name="color">The line color.</param>
     public Element Border(Length width, Color color) => Style(s => s.Border(width, color));
 
-    /// <summary>Sets <c>overflow</c> on both axes.</summary>
+    /// <summary>Sets <c>overflow</c> on both axes: whether content past the box is shown, clipped or scrolled.</summary>
     public Element Overflow(OverflowMode v) => Style(s => s.Overflow(v));
 
-    /// <summary>Pins the element at a point of its parent (or the screen); see <see cref="StyleBuilder.Anchor"/>.</summary>
+    /// <summary>Pins the element at a point of its parent (or the screen), out of the normal flow; see <see cref="StyleBuilder.Anchor"/>.</summary>
+    /// <param name="point">Which corner, edge middle or centre of the parent the element attaches to.</param>
+    /// <param name="x">Horizontal offset from that point, away from the edge.</param>
+    /// <param name="y">Vertical offset from that point, away from the edge.</param>
+    /// <param name="toScreen">True to anchor to the whole screen instead of the parent.</param>
     public Element Anchor(AnchorPoint point, Length x = default, Length y = default, bool toScreen = false) => Style(s => s.Anchor(point, x, y, toScreen));
 
     // ---- bindings ------------------------------------------------------------------------------------------------
@@ -173,12 +202,16 @@ public partial class Element
         Bind(new TextBinding<T>(source ?? throw new ArgumentNullException(nameof(source)), format ?? throw new ArgumentNullException(nameof(format))));
 
     /// <summary>Turns a class on or off from a lambda.</summary>
+    /// <param name="name">The class to switch.</param>
+    /// <param name="on">Returns true to have the class.</param>
     public Element BindClass(string name, Func<bool> on) => Bind(new ClassBinding(name, on ?? throw new ArgumentNullException(nameof(on))));
 
-    /// <summary>Shows or hides the element from a lambda.</summary>
+    /// <summary>Shows or hides the element from a lambda that is re-read every frame (a hidden element takes no space).</summary>
+    /// <param name="visible">Returns true to show. Keep it cheap and free of side effects.</param>
     public Element BindVisible(Func<bool> visible) => Bind(new VisibleBinding(visible ?? throw new ArgumentNullException(nameof(visible))));
 
-    /// <summary>Enables or disables the element from a lambda.</summary>
+    /// <summary>Enables or disables the element from a lambda re-read every frame; a disabled element and its descendants ignore pointer and focus input and match <c>:disabled</c> in style rules (the kit themes dim them).</summary>
+    /// <param name="enabled">Returns true when the element should react.</param>
     public Element BindEnabled(Func<bool> enabled) => Bind(new EnabledBinding(enabled ?? throw new ArgumentNullException(nameof(enabled))));
 
     /// <summary>Re-applies inline style every frame, for values that follow game state; unchanged values cost nothing.</summary>
@@ -202,6 +235,7 @@ public partial class Element
     }
 
     /// <summary>Runs <paramref name="action"/> on click or activation.</summary>
+    /// <param name="action">Runs on a pointer click, a touch tap, or Enter / the gamepad's confirm button while the element has focus. A view handler: send a command here instead of writing synced state.</param>
     public Element OnClick(Action action)
     {
         ArgumentNullException.ThrowIfNull(action);

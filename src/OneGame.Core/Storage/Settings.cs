@@ -17,7 +17,21 @@ internal enum SettingKind : byte
 /// <summary>
 /// Describes a settings class: which properties are saved, under which keys, and the range each one may take. The defaults are the
 /// values a fresh <typeparamref name="T"/> has. Built once with the fluent methods, no reflection, so it is trim and AOT safe.
+/// Open it through <c>GameInstance.Storage.OpenSettings</c> to load and save the player's choices.
 /// </summary>
+/// <example>
+/// <code>
+/// public sealed class Options
+/// {
+///     public int Volume { get; set; } = 7;
+///     public bool Fullscreen { get; set; }
+///
+///     public static SettingsSchema&lt;Options&gt; Schema { get; } = new SettingsSchema&lt;Options&gt;("options.bin")
+///         .Whole("volume", o =&gt; o.Volume, (o, v) =&gt; o.Volume = v, min: 0, max: 10)
+///         .Flag("fullscreen", o =&gt; o.Fullscreen, (o, v) =&gt; o.Fullscreen = v);
+/// }
+/// </code>
+/// </example>
 /// <typeparam name="T">The settings class: a class with a public parameterless constructor holding the player's choices.</typeparam>
 public sealed class SettingsSchema<T>
     where T : class, new()

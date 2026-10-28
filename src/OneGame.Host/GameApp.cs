@@ -8,16 +8,16 @@ namespace OneGame.Host;
 /// <summary>Process exit codes shared by games and the <c>onegame</c> command.</summary>
 public static class ExitCodes
 {
-    /// <summary>Success.</summary>
+    /// <summary>Success: the run completed and every check passed.</summary>
     public const int Ok = 0;
 
     /// <summary>The run completed but a check failed (a scenario expectation, a replay mismatch, a test).</summary>
     public const int Failed = 1;
 
-    /// <summary>Bad command line.</summary>
+    /// <summary>Bad command line: an unknown or malformed option.</summary>
     public const int Usage = 2;
 
-    /// <summary>The build failed.</summary>
+    /// <summary>The build failed, so nothing was run.</summary>
     public const int BuildFailed = 3;
 
     /// <summary>The game or tool crashed or could not start (no display, no project, unreadable file).</summary>
@@ -33,6 +33,7 @@ public sealed class GameArgs
     private readonly Dictionary<string, string?> _values = new(StringComparer.Ordinal);
 
     /// <summary>Parses arguments. Anything not starting with <c>--</c> and not the value of an option is a positional argument.</summary>
+    /// <param name="args">The raw arguments.</param>
     public GameArgs(string[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
@@ -70,10 +71,12 @@ public sealed class GameArgs
     /// <summary>The option names given.</summary>
     public IEnumerable<string> Names => _values.Keys;
 
-    /// <summary>Whether the option was given.</summary>
+    /// <summary>Whether the option was given, with or without a value.</summary>
+    /// <param name="name">The option name without the leading dashes.</param>
     public bool Has(string name) => _values.ContainsKey(name);
 
     /// <summary>The option's value, or null if absent or bare.</summary>
+    /// <param name="name">The option name without the leading dashes.</param>
     public string? Get(string name) => _values.GetValueOrDefault(name);
 
     /// <summary>The option as a non-negative integer, or <paramref name="fallback"/> when absent.</summary>
@@ -114,6 +117,15 @@ public interface IDevTools
 public delegate bool PlatformEventFilter(in PlatformEvent e);
 
 /// <summary>The entry point of a game: parse the command line, create the instance, run it.</summary>
+/// <example>
+/// <code>
+/// internal static class Program
+/// {
+///     // The exit code is one of <see cref="ExitCodes"/>; return it so scripts and CI see failures.
+///     internal static int Main(string[] args) =&gt; GameApp.Run(new MyGame(), args);
+/// }
+/// </code>
+/// </example>
 public static class GameApp
 {
     private static readonly string[] BaseOptions = ["headless", "frames", "size", "scale", "seed", "json", "gpu", "backend", "display", "present", "connect", "scope", "also-scopes", "name", "net", "realtime", "until-tick", "no-present", "persist-data", "data"];
@@ -134,9 +146,17 @@ public static class GameApp
     /// connection closes; a release build has no live control, so this is how a connected client is run and checked. <c>--data FOLDER</c> keeps
     /// saves and settings in that folder, and <c>--persist-data</c> keeps them in the platform's persistent store even when headless.
     /// </summary>
+    /// <param name="game">The game to run.</param>
+    /// <param name="args">The command line, normally the <c>args</c> of <c>Main</c>.</param>
+    /// <returns>An exit code from <see cref="ExitCodes"/>: 0 when the run completed.</returns>
     public static int Run(GameDefinition game, string[] args) => Run(game, args, Console.Out, Console.Error);
 
-    /// <summary>Runs a game with explicit output streams.</summary>
+    /// <summary>Runs a game with explicit output streams, so a test or tool can capture what a command line run would print.</summary>
+    /// <param name="game">The game to run.</param>
+    /// <param name="args">The command line; see <see cref="Run(GameDefinition, string[])"/> for the options.</param>
+    /// <param name="output">Receives results (and the <c>--json</c> object).</param>
+    /// <param name="error">Receives diagnostics.</param>
+    /// <returns>An exit code from <see cref="ExitCodes"/>.</returns>
     public static int Run(GameDefinition game, string[] args, TextWriter output, TextWriter error)
     {
         ArgumentNullException.ThrowIfNull(game);
@@ -356,6 +376,13 @@ public static class GameApp
     }
 
     /// <summary>Prints a structured error (a JSON object with <c>ok:false</c>) or a plain message, and returns the exit code.</summary>
+    /// <param name="json">True to print a JSON object to <paramref name="output"/>; false to print plain text to <paramref name="error"/>.</param>
+    /// <param name="output">The result stream.</param>
+    /// <param name="error">The diagnostics stream.</param>
+    /// <param name="exitCode">The code to return, from <see cref="ExitCodes"/>.</param>
+    /// <param name="code">A short machine-readable error name.</param>
+    /// <param name="message">What went wrong and what to do.</param>
+    /// <returns><paramref name="exitCode"/>.</returns>
     public static int Fail(bool json, TextWriter output, TextWriter error, int exitCode, string code, string message)
     {
         if (json)

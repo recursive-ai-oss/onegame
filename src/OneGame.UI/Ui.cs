@@ -1,6 +1,21 @@
 namespace OneGame.UI;
 
-/// <summary>Factory methods that read like a layout: <c>Ui.Column(Ui.Label("Hello"), Ui.Button("OK", Accept))</c>.</summary>
+/// <summary>
+/// Factory methods that read like a layout: <c>Ui.Column(Ui.Label("Hello"), Ui.Button("OK", Accept))</c>. Each returns an
+/// <see cref="Element"/>; chain its builder methods (<see cref="Element.Padding(Length)"/>, <see cref="Element.Gap"/>, <see cref="Element.Named"/>) to style it,
+/// and return the root from a screen builder passed to <c>ScreenSet.Add</c>. Text and visibility follow game state through bindings
+/// (<see cref="Element.BindText(Func{string})"/>), which are lambdas re-read every frame: read synced state in them, never write it.
+/// </summary>
+/// <example>
+/// A screen with a live counter and a button that sends a command:
+/// <code>
+/// screens.Add("main", game =&gt; Ui.Column(
+///         Ui.Label(() =&gt; $"Coins: {((Jar)game.World.Entities[0]).Coins}").Named("coins"),
+///         Ui.Button("Add a coin", () =&gt; ((Jar)game.World.Entities[0]).Send.Add(1)).Named("add"))
+///     .Gap(Length.Px(8))
+///     .Padding(Length.Px(16)));
+/// </code>
+/// </example>
 public static class Ui
 {
     /// <summary>A plain container (kind <c>Box</c>) with children.</summary>

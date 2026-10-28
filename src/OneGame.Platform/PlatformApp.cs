@@ -93,6 +93,8 @@ public sealed class PlatformApp : IDisposable
     }
 
     /// <summary>Takes the next queued event, oldest first.</summary>
+    /// <param name="platformEvent">The event when one was waiting.</param>
+    /// <returns>False when the queue is empty.</returns>
     public bool TryGetEvent(out PlatformEvent platformEvent) => _queue.TryDequeue(out platformEvent);
 
     /// <summary>

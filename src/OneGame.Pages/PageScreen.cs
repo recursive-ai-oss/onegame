@@ -36,6 +36,18 @@ public sealed class PageOptions
 /// One OneRender page shown as a screen: an HTML document (<see cref="Interactive"/>) or a builder tree (<see cref="Live"/>). It lays out at the size of the
 /// window in CSS px, keeps its display list up to date, takes input and time, and offers lookups by name for the harness.
 /// </summary>
+/// <example>
+/// Show an HTML page from a screen builder, with a handler that sends a command:
+/// <code>
+/// var fonts = new PageFonts(game.Fonts);
+/// fonts.Add(File.ReadAllBytes("fonts/Body.ttf"), "Body");
+/// game.Pages.Show("menu", PageScreen.FromHtml("&lt;button id=\"start\"&gt;Start&lt;/button&gt;", new PageOptions(fonts)
+/// {
+///     Setup = s =&gt; s.Interactive!.Events.AddEventListener(
+///         EventTarget.Of(s.Interactive.FindElement("start")), "click", _ =&gt; Meter.Of(game.World).Send.Add(1)),
+/// }));
+/// </code>
+/// </example>
 public sealed class PageScreen
 {
     private readonly string? _html;

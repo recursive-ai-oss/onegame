@@ -6,7 +6,17 @@ namespace OneGame.UI.Kit;
 /// state stays the single source of truth. Components are styled by classes (<c>kit-button</c>, <c>kit-slider</c> and so on) and theme tokens
 /// (<c>--kit-accent</c> and so on) from <see cref="KitTheme"/>, which a game extends instead of forking. They set <see cref="Element.Role"/> and
 /// <see cref="Element.Value"/>, which the JSON dump prints, and take an optional <c>id</c> that also names their parts (<c>id/thumb</c>).
+/// Install the theme once with <see cref="KitHost"/> (from <c>GameDefinition.Style</c>), then build screens from these methods.
 /// </summary>
+/// <example>
+/// A settings screen: the lambdas read and write the game's own settings object, and the kit holds no state of its own.
+/// <code>
+/// screens.Add("settings", game =&gt; UiKit.Card("Settings",
+///     UiKit.Slider(() =&gt; options.Volume, v =&gt; options.Volume = v, min: 0, max: 10, id: "volume"),
+///     UiKit.Toggle("Fullscreen", () =&gt; options.Fullscreen, v =&gt; options.Fullscreen = v, id: "fullscreen"),
+///     UiKit.Button("Back", () =&gt; game.OpenScreen("main"), id: "back", kind: ButtonKind.Primary)));
+/// </code>
+/// </example>
 public static partial class UiKit
 {
     /// <summary>The class every focusable component carries; the theme draws the focus ring on <c>.kit-focusable:focus</c>.</summary>

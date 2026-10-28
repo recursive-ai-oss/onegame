@@ -5,6 +5,16 @@ namespace OneGame.UI.Kit;
 /// Create one per tree, call <see cref="Advance"/> once per frame with the frame time (tooltips wait for a delay, and the UI never reads a clock itself),
 /// and send input through <see cref="Dispatch"/> or straight to the tree; either way glyphs learn which device the player is using.
 /// </summary>
+/// <example>
+/// <code>
+/// private KitHost _kit = null!;
+///
+/// public override void Style(UiTree ui) =&gt; _kit = new KitHost(ui);      // default theme and tooltip layer
+///
+/// // In a screen builder: _kit.Tooltip(UiKit.Button("New game", Start), "Begins a fresh run").
+/// // Once per frame, with the seconds since the last one (for example from OnEachFrame): _kit.Advance(seconds);
+/// </code>
+/// </example>
 public sealed class KitHost
 {
     private readonly Element _layer;

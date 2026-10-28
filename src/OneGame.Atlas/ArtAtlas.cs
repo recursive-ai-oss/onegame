@@ -215,6 +215,15 @@ public sealed class ArtLimits
 /// pixel size asked for: an SVG is rendered at exactly that size, so it is crisp at any UI scale and is re-rasterized when the scale
 /// changes; a raster image is decoded at its own size. Pages are <see cref="AtlasFormat.Rgba8Premultiplied"/>.
 /// </summary>
+/// <example>
+/// Register art in <c>GameDefinition.DefineArt</c>, then show it by id:
+/// <code>
+/// public override void DefineArt(ArtAtlas art) =&gt;
+///     art.AddSvg("icons/save", File.ReadAllBytes("art/save.svg"));
+///
+/// // In a screen: Ui.Image("icons/save", naturalWidth: 24, naturalHeight: 24)
+/// </code>
+/// </example>
 public sealed class ArtAtlas
 {
     private sealed class Source(bool svg, byte[] data, int width, int height, NineSlice slice)

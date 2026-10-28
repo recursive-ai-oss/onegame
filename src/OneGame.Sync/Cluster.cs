@@ -13,6 +13,19 @@ public readonly record struct ScopeHash(string Node, ScopeId Scope, WorldRole Ro
 /// authority node and one local replica; tests build bigger ones. The cluster only decides the order things happen in: each tick it
 /// delivers input, steps every authority scope, publishes the frames and delivers them.
 /// </summary>
+/// <remarks>
+/// Games rarely build one: <c>GameInstance.Cluster</c> is the single-player cluster the host made. Tests use it to check that replicas
+/// agree with their authority (<see cref="CheckReplicas"/>, <see cref="Hashes"/>) and that commands, saves and visibility behave.
+/// </remarks>
+/// <example>
+/// <code>
+/// var cluster = new Cluster(new ClusterOptions { FatalDrift = true });
+/// var server = cluster.AddNode("server");
+/// var scope = cluster.AddScope(server, new ScopeId(1), authorityWorld);
+/// var replica = cluster.AddLocalReplica(scope, new World(seed, registry, WorldRole.Replica), name: "client");
+/// cluster.Step(120);                                  // throws DriftException if the replica ever differs from the authority
+/// </code>
+/// </example>
 public sealed class Cluster
 {
     private const int MaxPumpRounds = 1000;
@@ -39,7 +52,8 @@ public sealed class Cluster
     /// <summary>The fixed-step driver <see cref="Frame"/> uses. Replace its settings (pause, time scale) here.</summary>
     public FixedStepDriver Driver { get; set; } = new();
 
-    /// <summary>Adds a node.</summary>
+    /// <summary>Adds a node. Nodes step in the order they were added, so add them in the same order on every run for repeatable results.</summary>
+    /// <param name="name">Name for reports and drift messages.</param>
     public Node AddNode(string name)
     {
         var node = new Node(name, Options);
@@ -68,6 +82,9 @@ public sealed class Cluster
     }
 
     /// <summary>Makes <paramref name="authority"/> the authority of a new scope.</summary>
+    /// <param name="authority">The node that will simulate the world.</param>
+    /// <param name="id">The scope's id, unique in the cluster.</param>
+    /// <param name="world">The authority world the scope owns.</param>
     public AuthorityScope AddScope(Node authority, ScopeId id, World world)
     {
         Require(authority);
@@ -116,6 +133,7 @@ public sealed class Cluster
     }
 
     /// <summary>Runs <paramref name="ticks"/> ticks.</summary>
+    /// <param name="ticks">How many ticks to run.</param>
     /// <exception cref="DriftException">A replica drifted and <see cref="ClusterOptions.FatalDrift"/> is on.</exception>
     public void Step(int ticks = 1)
     {
@@ -137,7 +155,12 @@ public sealed class Cluster
         }
     }
 
-    /// <summary>Feeds one rendered frame's elapsed time to the <see cref="Driver"/> and runs the ticks it says are due. Returns how many ran.</summary>
+    /// <summary>
+    /// Feeds one rendered frame's elapsed time to the <see cref="Driver"/> and runs the ticks it says are due, so a game that draws
+    /// at its own rate still simulates at a fixed rate.
+    /// </summary>
+    /// <param name="frameTime">Time since the previous frame.</param>
+    /// <returns>How many ticks ran: 0 on a fast frame, more than 1 after a slow one.</returns>
     public int Frame(TimeSpan frameTime)
     {
         var steps = Driver.Advance(frameTime);
