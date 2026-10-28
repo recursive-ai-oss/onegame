@@ -44,8 +44,6 @@ internal static class Wire
     /// <summary>Bytes of a secure data datagram that stay in the clear and are authenticated: kind, connection id, packet number.</summary>
     public const int SecureAadSize = 9;
 
-    /// <summary>Counter used for the authenticated disconnect; no packet number can reach it.</summary>
-    public const ulong DisconnectNonce = 1UL << 32;
 
     /// <summary>Secure Response: kind, nonce, cookie, noise length.</summary>
     public const int SecureResponseHeader = 1 + 8 + CookieSize + 2;

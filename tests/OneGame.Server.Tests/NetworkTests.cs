@@ -108,7 +108,7 @@ public class NetworkTests : IDisposable
             Round(host, client);
         }
 
-        Assert.Equal(identity.PublicKey, seen);
+        Assert.Equal(NetSecurity.ForClient([ServerKey.Public], "net/1", identity).IdentityKeyFor(ServerKey.Public), seen);
         host.Stop();
     }
 

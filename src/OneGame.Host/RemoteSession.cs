@@ -249,7 +249,7 @@ public sealed class RemoteSession
     // A client without an identity key gets one now and keeps it for every reconnect of this session: the server names the player by it.
     private static NetSecurity? WithIdentity(NetSecurity? security) =>
         security is { Mode: SecurityMode.Required, Identity: null, TrustedServerKeys.Count: > 0 }
-            ? NetSecurity.ForClient(security.TrustedServerKeys, security.GameId, NetKeyPair.Generate())
+            ? new NetSecurity { GameId = security.GameId, TrustedServerKeys = security.TrustedServerKeys, Identity = NetKeyPair.Generate(), PerServerIdentity = security.PerServerIdentity }
             : security;
     private bool _closedByUs;
 

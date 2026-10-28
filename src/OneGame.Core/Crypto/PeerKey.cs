@@ -238,6 +238,29 @@ public sealed class NetKeyPair
         File.WriteAllText(path, ToFileText());
     }
 
+    /// <summary>
+    /// A key pair derived from this one for one server: HKDF-SHA-256 of the private key with the server's public key as salt. A player
+    /// who connects to many servers then shows each a different key, so hosts cannot recognise the same player by comparing keys, while
+    /// each server still sees the same key every time that player connects to it.
+    /// </summary>
+    /// <param name="server">The server's public key.</param>
+    public NetKeyPair DeriveFor(PeerKey server)
+    {
+        if (server.IsEmpty)
+        {
+            throw new ArgumentException("a server key is needed to derive a per-server key", nameof(server));
+        }
+
+        Span<byte> prk = stackalloc byte[32];
+        Span<byte> derived = stackalloc byte[32];
+        Hkdf.Extract(server.Bytes, _private, prk);
+        Hkdf.Expand(prk, "onegame per-server client key v1"u8, derived);
+        var pair = new NetKeyPair(derived.ToArray()) { IsDevelopment = IsDevelopment };
+        ChaCha20Poly1305.Wipe(prk);
+        ChaCha20Poly1305.Wipe(derived);
+        return pair;
+    }
+
     internal ReadOnlySpan<byte> Private => _private;
 
     /// <summary>The key's text form is its public key; the private half never prints.</summary>

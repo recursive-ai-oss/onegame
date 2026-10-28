@@ -71,6 +71,18 @@ public sealed class NetSecurity
     /// </summary>
     public NetKeyPair? Identity { get; init; }
 
+    /// <summary>
+    /// Client side: when true (the default of <see cref="ForClient"/>), the key a server sees is derived from <see cref="Identity"/> and
+    /// that server's public key (<see cref="NetKeyPair.DeriveFor"/>), so two servers cannot tell they are talking to the same player by
+    /// comparing keys. Server-to-server links turn it off, because peers name each other by their real keys.
+    /// </summary>
+    public bool PerServerIdentity { get; init; }
+
+    /// <summary>The key a server with public key <paramref name="serverKey"/> sees for this client: what that server's player registry is keyed by. Empty when there is no <see cref="Identity"/> yet.</summary>
+    /// <param name="serverKey">The server's public key.</param>
+    public PeerKey IdentityKeyFor(PeerKey serverKey) =>
+        Identity is null ? default : PerServerIdentity ? Identity.DeriveFor(serverKey).PublicKey : Identity.PublicKey;
+
     /// <summary>Settings for a listening server.</summary>
     /// <param name="key">The server's key pair (its private half is a secret).</param>
     /// <param name="gameId">The game and protocol name both ends use.</param>
@@ -88,12 +100,12 @@ public sealed class NetSecurity
     public static NetSecurity ForClient(IEnumerable<PeerKey> serverKeys, string gameId = "", NetKeyPair? identity = null)
     {
         ArgumentNullException.ThrowIfNull(serverKeys);
-        return new NetSecurity { GameId = gameId, TrustedServerKeys = [.. serverKeys], Identity = identity };
+        return new NetSecurity { GameId = gameId, TrustedServerKeys = [.. serverKeys], Identity = identity, PerServerIdentity = true };
     }
 
     /// <summary>The same settings for a server that also connects to other servers (a game's own servers talking to each other).</summary>
     /// <param name="trusted">Public keys of the servers this one connects to.</param>
-    public NetSecurity AlsoTrusting(IEnumerable<PeerKey> trusted) => new() { Mode = Mode, GameId = GameId, ServerKeys = ServerKeys, Identity = Identity, TrustedServerKeys = [.. TrustedServerKeys, .. trusted] };
+    public NetSecurity AlsoTrusting(IEnumerable<PeerKey> trusted) => new() { Mode = Mode, GameId = GameId, ServerKeys = ServerKeys, Identity = Identity, PerServerIdentity = PerServerIdentity, TrustedServerKeys = [.. TrustedServerKeys, .. trusted] };
 
     internal static NetSecurity RequireForListening(NetSecurity? security, string owner)
     {

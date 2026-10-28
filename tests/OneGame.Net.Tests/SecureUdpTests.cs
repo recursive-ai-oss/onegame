@@ -85,6 +85,20 @@ public class SecureUdpTests
         }
     }
 
+    // Review M7: hosts cannot link a player across servers by their key, and a server still sees the same key every time.
+    [Fact]
+    public void AClientShowsEachServerADifferentKeyThatStaysTheSameForThatServer()
+    {
+        var other = NetKeyPair.FromPrivateKey(Rig.Pattern(32, 404));
+        var security = NetSecurity.ForClient([ServerKey.PublicKey, other.PublicKey], "test/1", PlayerKey);
+        Assert.NotEqual(security.IdentityKeyFor(ServerKey.PublicKey), security.IdentityKeyFor(other.PublicKey));
+        Assert.Equal(security.IdentityKeyFor(ServerKey.PublicKey), security.IdentityKeyFor(ServerKey.PublicKey));
+        var p = Pair.Make();
+        var q = Pair.Make(server: Server(other), client: new UdpOptions { Security = NetSecurity.ForClient([other.PublicKey], "test/1", PlayerKey) });
+        Assert.NotEqual(p.Accepted!.RemoteKey, q.Accepted!.RemoteKey);
+        Assert.Equal(security.IdentityKeyFor(other.PublicKey), q.Accepted.RemoteKey);
+    }
+
     [Fact]
     public void BothEndsOfASessionShareAChannelBindingNobodyElseHas()
     {
@@ -101,7 +115,8 @@ public class SecureUdpTests
         var p = Pair.Make();
         Assert.True(p.Client.IsEncrypted);
         Assert.True(p.Accepted!.IsEncrypted);
-        Assert.Equal(PlayerKey.PublicKey, p.Accepted.RemoteKey);
+        Assert.Equal(Client().Security!.IdentityKeyFor(ServerKey.PublicKey), p.Accepted.RemoteKey);
+        Assert.NotEqual(PlayerKey.PublicKey, p.Accepted.RemoteKey); // the server sees a key derived for it, not the player's root key
         Assert.Equal(ServerKey.PublicKey, p.Client.RemoteKey);
 
         var message = Rig.Pattern(3000, 5);
@@ -129,7 +144,7 @@ public class SecureUdpTests
         p.Rig.Run(200);
         var all = p.ClientTap.Sent.Concat(p.ServerTap.Sent).ToList();
         Assert.True(all.Count > 40);
-        var needles = new[] { secret[..16], PlayerKey.PublicKey.Bytes.ToArray(), ServerKey.PublicKey.Bytes.ToArray() };
+        var needles = new[] { secret[..16], PlayerKey.PublicKey.Bytes.ToArray(), Client().Security!.IdentityKeyFor(ServerKey.PublicKey).Bytes.ToArray(), ServerKey.PublicKey.Bytes.ToArray() };
         foreach (var datagram in all)
         {
             foreach (var needle in needles)

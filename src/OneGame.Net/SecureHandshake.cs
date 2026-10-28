@@ -43,8 +43,8 @@ internal sealed class SecureHandshake
     public static SecureHandshake Client(NetSecurity security, int keyIndex, ReadOnlySpan<byte> bind)
     {
         var h = new SecureHandshake(security, bind);
-        h._identity = security.Identity ?? NetKeyPair.Generate();
         h._serverKey = security.TrustedServerKeys[keyIndex % security.TrustedServerKeys.Count];
+        h._identity = security.Identity is null ? NetKeyPair.Generate() : security.PerServerIdentity ? security.Identity.DeriveFor(h._serverKey) : security.Identity;
         return h;
     }
 

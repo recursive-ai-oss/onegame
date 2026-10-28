@@ -44,7 +44,7 @@ internal static class NetSmoke
             Thread.Sleep(0);
         }
 
-        var known = accepted is { IsEncrypted: true } && accepted.RemoteKey == playerKey.PublicKey && client.RemoteKey == serverKey.PublicKey;
+        var known = accepted is { IsEncrypted: true } && accepted.RemoteKey == NetSecurity.ForClient([serverKey.PublicKey], "smoke/1", playerKey).IdentityKeyFor(serverKey.PublicKey) && client.RemoteKey == serverKey.PublicKey;
         client.Disconnect();
         return !echoed ? "udp echo failed" : known ? null : "the secure link did not authenticate both ends";
     }
