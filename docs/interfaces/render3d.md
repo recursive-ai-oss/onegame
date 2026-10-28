@@ -8,7 +8,7 @@ using var renderer = new Renderer3D(device);
 using Model3D model = renderer.Upload(GltfLoader.LoadFile("helmet.glb"));      // buffers, materials, textures with mips (colour textures sRGB)
 using EnvironmentMap env = renderer.CreateEnvironment(HdrImage.Decode(bytes));   // Radiance .hdr panorama; filtered on the GPU at first use
 var scene = new Scene3D { Camera = Camera3D.Frame(min, max, yaw: 25, pitch: 10, aspect) };
-ModelInstance3D instance = scene.Add(model);                                      // own pose: instance.Animate(clip, seconds)
+ModelInstance3D instance = scene.Add(model);                                      // own pose: instance.Animate(clip, seconds); blending, state machines and IK: ../animation.md
 scene.Lights.Add(Light3D.Point(position, color, candela, range));
 scene.Environment.Map = env;
 renderer.Render(graph, scene, targetHandle, width, height, targetFormat);         // adds passes to a graph that has begun a frame

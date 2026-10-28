@@ -209,6 +209,15 @@ if (purchasesProblem is not null)
 
 Console.WriteLine("ok: purchases over the fake store, and the platform without a store");
 
+var animationProblem = AnimationSmoke.Run(ReadResource("figure.glb"));
+if (animationProblem is not null)
+{
+    Console.Error.WriteLine("animation smoke failed: " + animationProblem);
+    return 1;
+}
+
+Console.WriteLine("ok: animation: blend space and state machine with a crossfade, baked root motion, two-bone IK");
+
 var navigationProblem = NavigationSmoke.Run();
 if (navigationProblem is not null)
 {

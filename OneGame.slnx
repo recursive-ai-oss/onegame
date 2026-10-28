@@ -35,6 +35,7 @@
     <Project Path="src/OneGame.UI.Kit/OneGame.UI.Kit.csproj" />
   </Folder>
   <Folder Name="/examples/">
+    <Project Path="examples/character/CharacterExample.csproj" />
     <Project Path="examples/input-actions/InputActionsExample.csproj" />
     <Project Path="examples/networked-counter/NetworkedCounterExample.csproj" />
     <Project Path="examples/pathing/PathingExample.csproj" />
@@ -56,6 +57,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/OneGame.AotSmoke/OneGame.AotSmoke.csproj" />
+    <Project Path="tests/OneGame.Animation.Tests/OneGame.Animation.Tests.csproj" />
     <Project Path="tests/OneGame.Atlas.Tests/OneGame.Atlas.Tests.csproj" />
     <Project Path="tests/OneGame.Audio.Tests/OneGame.Audio.Tests.csproj" />
     <Project Path="tests/OneGame.Build.Tests/OneGame.Build.Tests.csproj" />

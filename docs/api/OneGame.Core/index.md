@@ -49,6 +49,7 @@ dotnet add package RecursiveAI.OneGame.Core
 | [`ReplicaWriteException`](OneGame.Core/ReplicaWriteException.md) | class | Thrown when code changes state on a replica. |
 | [`Rng`](OneGame.Core/Rng.md) | class | A named, seedable random stream (xoshiro256\*\*). |
 | [`RngStreams`](OneGame.Core/RngStreams.md) | class | The world's random streams, found by name. |
+| [`RootMotionTrack`](OneGame.Core/RootMotionTrack.md) | class | The movement of an animation's root bone, one fixed-point step per simulation tick. |
 | [`SimAttribute`](OneGame.Core/SimAttribute.md) | attribute | Marks a class, struct or method outside an entity as sim code, so the sim analyzers check it. |
 | [`SimSafeAttribute`](OneGame.Core/SimSafeAttribute.md) | attribute | Vouches that an API gives the same result on every machine and run, so sim code may call it. |
 | [`SimTrustAttribute`](OneGame.Core/SimTrustAttribute.md) | attribute | Lets sim code call a library you trust to be deterministic. |

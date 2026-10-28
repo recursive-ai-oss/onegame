@@ -65,6 +65,7 @@ Morph weights per node (empty when the node has no morph targets).
 | Member | Description |
 | --- | --- |
 | [`ComputeWorld(GltfModel, Span<Matrix4x4>)`](#m-computeworld-gltfmodel-span-matrix4x4) | Computes every node's transform to the model's root space. |
+| [`CopyFrom(NodePose)`](#m-copyfrom-nodepose) | Copies every value of another pose of the same model into this one, without allocating. |
 
 ### <a id="m-computeworld-gltfmodel-span-matrix4x4"></a>ComputeWorld(GltfModel, Span&lt;Matrix4x4&gt;)
 
@@ -78,3 +79,15 @@ Computes every node's transform to the model's root space.
 
 - `model` ([`GltfModel`](GltfModel.md)): The model this pose came from.
 - `world` ([`Span`](https://learn.microsoft.com/dotnet/api/system.span-1)&lt;[`Matrix4x4`](https://learn.microsoft.com/dotnet/api/system.numerics.matrix4x4)&gt;): Receives one matrix per node (row-vector convention: child = local \* parent).
+
+### <a id="m-copyfrom-nodepose"></a>CopyFrom(NodePose)
+
+```csharp
+public void CopyFrom(NodePose other);
+```
+
+Copies every value of another pose of the same model into this one, without allocating.
+
+**Parameters**
+
+- `other` ([`NodePose`](NodePose.md)): The pose to copy.

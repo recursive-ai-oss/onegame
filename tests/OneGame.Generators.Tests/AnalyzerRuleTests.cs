@@ -46,6 +46,12 @@ public class AnalyzerRuleTests
         { "async method", Harness.Entity("private async Task Later() { await Task.Delay(1); }"), "OG0005" },
         { "AsParallel", Harness.Entity("protected override void OnTick() { N = L.AsParallel().Sum(); }"), "OG0005" },
 
+        // OG0023: animation playback in sim code
+        { "animator field", Harness.Entity("private OneGame.Gltf.Animator? _anim;"), "OG0023" },
+        { "animator call in tick", Harness.Entity("private OneGame.Gltf.Rig? _rig; protected override void OnTick() { var p = _rig!.CreatePose(); }"), "OG0023" },
+        { "bake in tick", Harness.Entity("protected override void OnTick() { var t = OneGame.Gltf.RootMotion.Bake(null!, 0); }"), "OG0023" },
+        { "animation helper in tick", Harness.Entity("protected override void OnTick() { var m = OneGame.Gltf.PoseMask.FromWeights(null!); }"), "OG0023" },
+
         // OG0006: I/O
         { "File.ReadAllText", Harness.Entity("protected override void OnTick() { var s = File.ReadAllText(\"x\"); }"), "OG0006" },
         { "Console", Harness.Entity("protected override void OnTick() { Console.WriteLine(N); }"), "OG0006" },
@@ -104,6 +110,7 @@ public class AnalyzerRuleTests
         { "named stream", Harness.Entity("protected override void OnTick() { N = World!.Rng[\"loot\"].NextInt(10); }") },
         { "world tick as time", Harness.Entity("protected override void OnTick() { N = (int)World!.Tick; }") },
         { "view reads and sends commands", Harness.Entity("[View] public string Show() => $\"{N}/{L.Count}\"; [View] public void Click() { Send.Bump(); }") },
+        { "view animates, sim reads baked root motion", Harness.Entity("[View] private OneGame.Gltf.Animator? _a; [View] public void Show() { _a?.Update(0.1f); } private RootMotionTrack? _t; protected override void OnTick() { if (_t is not null) { N += _t.DeltaAt(1).X.ToInt(); } }") },
         { "view uses floats and the clock", Harness.Entity("[View] public float Alpha() => (float)(DateTime.Now.Ticks % 100) / 100f * N; [View] public double Phase() => Math.Sin(Stopwatch.GetTimestamp());") },
         { "view class reads", Harness.Entity("", "[View] public class Hud { public float Fill(E e) => e.N / 10f; public void Click(E e) { e.Send.Bump(); } }") },
         { "view calls pure helper", Harness.Entity("private int Twice(int a) => a * 2; [View] public int Show() => Twice(N);") },

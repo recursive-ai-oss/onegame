@@ -1,3 +1,4 @@
+using OneGame.Gltf;
 using System.Numerics;
 using OneGame.Core;
 using OneGame.Render3D;
@@ -86,6 +87,15 @@ public sealed partial class SceneWriter
     public void Model(string model, Transform3 transform, bool pickable = true)
         => _draws.Add(new ModelDraw(_models.IndexOf(model), Entity, ToMatrix(transform), pickable));
 
+    /// <summary>Shows a model in an animated pose, for example <c>Animator.Pose</c>. The pose is copied when the frame is built, so the caller keeps its buffer.</summary>
+    /// <param name="model">The name the model was added under.</param>
+    /// <param name="transform">Where it is.</param>
+    /// <param name="pose">The node pose to draw (from the same model's rig).</param>
+    /// <param name="pickable">Whether <c>pick</c> can hit it (tested at the rest pose).</param>
+    /// <exception cref="UnknownModelException">The library has no such model.</exception>
+    public void Model(string model, Transform3 transform, NodePose pose, bool pickable = true)
+        => _draws.Add(new ModelDraw(_models.IndexOf(model), Entity, ToMatrix(transform), pickable, pose));
+
     /// <summary>Shows a model with an extra view-only scale on top of its transform, for a pulse or a hover highlight.</summary>
     /// <param name="model">The name the model was added under.</param>
     /// <param name="transform">Where it is.</param>
@@ -172,7 +182,7 @@ public sealed partial class SceneWriter
         return m;
     }
 
-    internal readonly record struct ModelDraw(int Model, EntityId Entity, Matrix4x4 World, bool Pickable);
+    internal readonly record struct ModelDraw(int Model, EntityId Entity, Matrix4x4 World, bool Pickable, NodePose? Pose = null);
 
     internal readonly record struct InstanceDraw(int Model, Matrix4x4 World, Vector4 Tint);
 

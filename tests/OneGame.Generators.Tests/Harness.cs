@@ -15,6 +15,7 @@ internal static class Harness
         var list = trusted.Select(p => (MetadataReference)MetadataReference.CreateFromFile(p)).ToList();
         list.Add(MetadataReference.CreateFromFile(typeof(OneGame.Core.Fixed).Assembly.Location));
         list.Add(MetadataReference.CreateFromFile(typeof(OneGame.Tweens.TweenSet).Assembly.Location));
+        list.Add(MetadataReference.CreateFromFile(typeof(OneGame.Gltf.Animator).Assembly.Location));
         return [.. list];
     }
 

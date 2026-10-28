@@ -77,6 +77,11 @@ internal static class Banned
                 return member == "NewGuid" ? Rules.UnnamedRandom : null;
         }
 
+        if (typeName.StartsWith("OneGame.Gltf.", StringComparison.Ordinal))
+        {
+            return Rules.AnimationInSim;
+        }
+
         return typeName.StartsWith("System.Net.", StringComparison.Ordinal) ? Rules.InputOutput : null;
     }
 

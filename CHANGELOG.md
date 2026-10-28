@@ -4,6 +4,16 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- 3D animation layer in `OneGame.Gltf`: `Rig`, pose blending with masks (`PoseBlend`, `PoseMask`), `Crossfade`, 1D and 2D blend spaces, `Motion`s, two-bone IK (`TwoBoneIk`), and an `Animator` with parameters, triggers, states and transitions (conditions, exit time, crossfade). `SceneWriter.Model(name, transform, pose)` draws a model in an animated pose. See `docs/animation.md` and `examples/character`.
+- Root motion: `RootMotion.Bake` turns a clip's root bone movement into a `RootMotionTrack` (new, in `OneGame.Core`), fixed-point steps per tick that sim code applies deterministically.
+- Analyzer rule OG0023: animation types (`OneGame.Gltf`) cannot be used in sim code.
+
+### Changed
+
+- `OneGame.Gltf` now references `OneGame.Core` (for the root motion bake). No new package.
+
 ## [1.11.0] - 2026-10-28
 
 Pathfinding for deterministic simulations, as a preview package.

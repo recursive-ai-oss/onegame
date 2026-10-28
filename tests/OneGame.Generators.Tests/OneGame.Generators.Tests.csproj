@@ -10,6 +10,7 @@
     <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" />
     <ProjectReference Include="../../src/OneGame.Core/OneGame.Core.csproj" />
     <ProjectReference Include="../../src/OneGame.UI/OneGame.UI.csproj" />
+    <ProjectReference Include="../../src/OneGame.Gltf/OneGame.Gltf.csproj" />
   </ItemGroup>
 
 </Project>

@@ -77,6 +77,9 @@ internal static class Rules
     public static readonly DiagnosticDescriptor PredictedWritesHidden = Error("OG0022", "Predicted command writes a hidden member",
         "Predicted command '{0}': {1}. A replica never holds hidden members, so the prediction's write is lost at the next correction and later predicted reads see a default. Move the hidden update out of the predicted command (a second command, or the tick) or drop Predicted = true.");
 
+    public static readonly DiagnosticDescriptor AnimationInSim = Error("OG0023", "Animation playback in sim code",
+        "{0} is view-side animation (floats, node poses, playback state). Sim code moves with fixed-point values: bake the clip's root motion with RootMotion.Bake at load and apply its RootMotionTrack deltas per tick, and sample poses only in [View] code.");
+
     public static readonly DiagnosticDescriptor MigrationShape = Error("OG0014", "Migration is declared wrongly",
         "{0}");
 }
