@@ -7,7 +7,7 @@ namespace OneGame.Net;
 /// One Noise IK handshake (<c>Noise_IK_25519_ChaChaPoly_SHA256</c>) between a client that trusts a set of server keys and a server
 /// that answers as one of its key pairs, shared by every transport. It moves bytes only: the transport frames the two messages and
 /// decides what the optional payloads carry. Message 1 (client to server) is <c>e, es, s, ss</c>: the client's ephemeral key, then
-/// its static key encrypted to the server. Message 2 (server to client) is <c>e, ee, se</c>. After both, <see cref="Finish"/> gives
+/// its static key encrypted to the server. Message 2 (server to client) is <c>e, ee, se</c>. After both, <c>Finish</c> gives
 /// the two directional ciphers and <see cref="Remote"/> is the peer's authenticated static key.
 /// <para>
 /// The prologue is <c>"onegame/2" 0x00 gameId 0x00 bind</c>. <c>bind</c> is whatever the transport wants the handshake tied to
@@ -107,6 +107,9 @@ internal sealed class SecureHandshake
         Remote = _serverKey;
         return true;
     }
+
+    /// <summary>For stream transports (WebSocket): the two record ciphers, with the implicit Noise counters. Call once, after both messages.</summary>
+    public void Finish(out NoiseCipherState send, out NoiseCipherState receive) => _noise!.Split(out send, out receive);
 
     /// <summary>The ciphers for this side: what it sends with and what it receives with. Call once, after both messages.</summary>
     /// <param name="send">Sends packets; refuses any number at or past <paramref name="packetLimit"/>.</param>

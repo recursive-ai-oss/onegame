@@ -103,7 +103,7 @@ public sealed class RemoteSession
             // A page cannot resolve names or open sockets: the browser connects to the URL itself.
             Transport = "ws";
             _endpoint = new IPEndPoint(IPAddress.Loopback, 0);
-            Connection = OpenInBrowser(options.Address);
+            Connection = OpenInBrowser(options.Address, _security);
         }
         else
         {
@@ -207,7 +207,7 @@ public sealed class RemoteSession
         {
             if (now >= _nextAttempt)
             {
-                _candidate = OperatingSystem.IsBrowser() ? OpenInBrowser(Options.Address) : Open(Transport, _endpoint, Options.Conditions, _security);
+                _candidate = OperatingSystem.IsBrowser() ? OpenInBrowser(Options.Address, _security) : Open(Transport, _endpoint, Options.Conditions, _security);
             }
 
             return;
@@ -325,10 +325,16 @@ public sealed class RemoteSession
     }
 
     [System.Runtime.Versioning.SupportedOSPlatform("browser")]
-    private static BrowserWebSocketConnection OpenInBrowser(string address) =>
-        address.StartsWith("ws://", StringComparison.Ordinal) || address.StartsWith("wss://", StringComparison.Ordinal)
-            ? new BrowserWebSocketConnection(address)
-            : throw new FormatException("A web build connects over WebSocket: use ws://host:port or wss://host:port.");
+    private static INetConnection OpenInBrowser(string address, NetSecurity? security)
+    {
+        if (!address.StartsWith("ws://", StringComparison.Ordinal) && !address.StartsWith("wss://", StringComparison.Ordinal))
+        {
+            throw new FormatException("A web build connects over WebSocket: use ws://host:port or wss://host:port.");
+        }
+
+        // The same encrypted records as the desktop client, inside the browser's WebSocket messages (and inside TLS on a wss:// page).
+        return WebSocketTransport.Secure(() => new BrowserWebSocketConnection(address), security);
+    }
 
     private static INetConnection Open(string transport, IPEndPoint endpoint, NetworkConditions? conditions, NetSecurity? security)
     {

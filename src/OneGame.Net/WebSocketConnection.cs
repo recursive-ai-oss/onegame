@@ -883,19 +883,24 @@ public static class WebSocketTransport
         return SecureConnection.ForClient(() => WebSocketConnection.ForClient(remote, inner, clock), security, options, clock);
     }
 
-    /// <summary>Wraps a connection something else opened (the browser's WebSocket) with the secure link, for a Required security setting.</summary>
+    /// <summary>Applies the security setting to a connection something else opens (the browser's WebSocket): Required wraps it in the encrypted records, Insecure returns it as it is.</summary>
     /// <param name="open">Opens a fresh connection; called again when the server rejects the key tried and another is trusted.</param>
-    /// <param name="security">A Required client setting.</param>
-    /// <param name="options">Limits and timeouts.</param>
+    /// <param name="security">The client's security setting.</param>
+    /// <param name="options">Limits and timeouts; defaults if null.</param>
     /// <param name="clock">Time source; the real clock if null.</param>
-    public static INetConnection Secure(Func<INetConnection> open, NetSecurity security, WebSocketOptions? options = null, NetClock? clock = null)
+    /// <exception cref="SecurityNotConfiguredException">No security was chosen, or a Required client trusts no server key.</exception>
+    public static INetConnection Secure(Func<INetConnection> open, NetSecurity? security, WebSocketOptions? options = null, NetClock? clock = null)
     {
         ArgumentNullException.ThrowIfNull(open);
-        ArgumentNullException.ThrowIfNull(security);
+        var sec = NetSecurity.RequireForConnecting(security, nameof(WebSocketOptions));
+        if (sec.Mode == SecurityMode.Insecure)
+        {
+            return open();
+        }
+
         options ??= new WebSocketOptions();
-        _ = NetSecurity.RequireForConnecting(security, nameof(WebSocketOptions));
         options.Validate();
-        return SecureConnection.ForClient(open, security, options, clock ?? NetClock.System);
+        return SecureConnection.ForClient(open, sec, options, clock ?? NetClock.System);
     }
 
     // Tests that need the concrete plain types.

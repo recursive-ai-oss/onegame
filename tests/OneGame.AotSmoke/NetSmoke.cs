@@ -16,8 +16,8 @@ internal static class NetSmoke
     {
         var clock = new ManualNetClock();
         var conditions = new NetworkConditions { LatencyMs = 20, JitterMs = 5, LossRate = 0.1, Seed = 3 };
-        using var server = UdpTransport.Listen(new ConditionedDatagramSocket(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), conditions, clock), Plain.Udp, clock);
-        var client = UdpTransport.Connect((IPEndPoint)server.LocalEndPoint, Plain.Udp, clock);
+        using var server = UdpTransport.Listen(new ConditionedDatagramSocket(new SystemDatagramSocket(new IPEndPoint(IPAddress.Loopback, 0)), conditions, clock), new UdpOptions { Security = NetSecurity.Insecure }, clock);
+        var client = UdpTransport.Connect((IPEndPoint)server.LocalEndPoint, new UdpOptions { Security = NetSecurity.Insecure }, clock);
         INetConnection? accepted = null;
         var payload = new byte[5000];
         new Random(1).NextBytes(payload);

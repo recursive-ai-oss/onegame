@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using OneGame.Core.Tests.Fuzzing;
 
+using OneGame.Net.Tests;
+
 namespace OneGame.Net.Tests.Fuzzing;
 
 /// <summary>
@@ -286,7 +288,7 @@ public static class NetFuzzTargets
 
     private static IEnumerable<byte[]> SecureHandshakeSeeds()
     {
-        var h = new SecureWebSocketTests.Hand();
+        var h = new SecureRig.Hand();
         yield return Stream(h.First);
         yield return Stream(h.First, [1, 2, 3]);
         yield return Stream([SecureConnection.VersionByte], new byte[97]);
@@ -295,7 +297,7 @@ public static class NetFuzzTargets
     // Anything a socket can say to a server that has just sent its challenge: it must never open and never throw.
     private static bool RunSecureHandshake(byte[] input)
     {
-        var (server, wire) = SecureWebSocketTests.NewServer();
+        var (server, wire) = SecureRig.NewServer();
         var any = false;
         foreach (var m in Messages(input))
         {
@@ -321,7 +323,7 @@ public static class NetFuzzTargets
     // Records from the peer that were not made with its key: all fail authentication, and the connection ends.
     private static bool RunRawRecords(byte[] input)
     {
-        var h = new SecureWebSocketTests.Hand();
+        var h = new SecureRig.Hand();
         h.ConfirmNow();
         var any = false;
         foreach (var m in Messages(input))
@@ -345,7 +347,7 @@ public static class NetFuzzTargets
 
     private static bool RunAuthenticatedRecords(byte[] input)
     {
-        var h = new SecureWebSocketTests.Hand();
+        var h = new SecureRig.Hand();
         h.ConfirmNow();
         var pos = 0;
         var any = false;

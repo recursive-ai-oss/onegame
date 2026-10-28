@@ -2,149 +2,12 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using OneGame.Core;
+using static OneGame.Net.Tests.SecureRig;
 
 namespace OneGame.Net.Tests;
 
-/// <summary>An in-memory message connection pair with a hook on every message, so tests can tamper, repeat, inject and drop.</summary>
-internal sealed class MemConn : INetConnection
-{
-    private readonly Queue<byte[]> _in = new();
-    private readonly Stack<byte[]> _pool = new();
-    private byte[]? _lent;
-    private MemConn? _peer;
-
-    /// <summary>Sees each message this end sends and returns what the peer receives (zero, one or more messages).</summary>
-    public Func<byte[], IEnumerable<byte[]>>? Tap { get; set; }
-
-    public List<byte[]> Sent { get; } = [];
-
-    public bool KeepSent { get; set; }
-
-    public int PendingCount => _in.Count;
-
-    public ConnectionState State { get; private set; } = ConnectionState.Connected;
-
-    public DisconnectInfo CloseInfo { get; private set; }
-
-    public string RemoteName => "mem";
-
-    public NetStats Stats => default;
-
-    public event Action<INetConnection>? Connected { add { } remove { } }
-
-    public event Action<INetConnection, DisconnectInfo>? Disconnected;
-
-    public static (MemConn A, MemConn B) Pair()
-    {
-        var a = new MemConn();
-        var b = new MemConn();
-        a._peer = b;
-        b._peer = a;
-        return (a, b);
-    }
-
-    public void Send(ReadOnlySpan<byte> message)
-    {
-        if (State != ConnectionState.Connected)
-        {
-            return;
-        }
-
-        if (Tap is null && !KeepSent)
-        {
-            var buf = _pool.Count > 0 ? _pool.Pop() : new byte[65536 + 16];
-            message.CopyTo(buf);
-            _peer!._in.Enqueue(buf);
-            _peer._lens.Enqueue(message.Length);
-            return;
-        }
-
-        var copy = message.ToArray();
-        if (KeepSent)
-        {
-            Sent.Add(copy);
-        }
-
-        foreach (var m in Tap is null ? [copy] : Tap(copy))
-        {
-            _peer!._in.Enqueue(m);
-            _peer._lens.Enqueue(-1);
-        }
-    }
-
-    private readonly Queue<int> _lens = new();
-
-    public bool TryReceive(out ReadOnlySpan<byte> message)
-    {
-        if (_lent is not null)
-        {
-            _pool.Push(_lent);
-            _lent = null;
-        }
-
-        if (_in.Count == 0)
-        {
-            message = default;
-            return false;
-        }
-
-        var m = _in.Dequeue();
-        var len = _lens.Count > 0 ? _lens.Dequeue() : -1;
-        if (len >= 0)
-        {
-            _lent = m;
-            message = m.AsSpan(0, len);
-        }
-        else
-        {
-            message = m;
-        }
-
-        return true;
-    }
-
-    public void Pump()
-    {
-    }
-
-    public void Disconnect(DisconnectReason reason = DisconnectReason.Normal, bool flush = false)
-    {
-        if (State == ConnectionState.Closed)
-        {
-            return;
-        }
-
-        State = ConnectionState.Closed;
-        CloseInfo = new DisconnectInfo(reason, false);
-        Disconnected?.Invoke(this, CloseInfo);
-        _peer?.RemoteClosed(reason);
-    }
-
-    private void RemoteClosed(DisconnectReason reason)
-    {
-        if (State == ConnectionState.Closed)
-        {
-            return;
-        }
-
-        State = ConnectionState.Closed;
-        CloseInfo = new DisconnectInfo(DisconnectReason.Normal, true, 1000);
-        Disconnected?.Invoke(this, CloseInfo);
-    }
-}
-
 public class SecureWebSocketTests
 {
-    private static readonly NetKeyPair ServerKey = NetKeyPair.FromPrivateKey(Rig.Pattern(32, 1));
-    private static readonly NetKeyPair PlayerKey = NetKeyPair.FromPrivateKey(Rig.Pattern(32, 2));
-    private static readonly NetKeyPair OtherKey = NetKeyPair.FromPrivateKey(Rig.Pattern(32, 3));
-
-    private static NetSecurity ServerSec(string game = "test-game", params NetKeyPair[] keys) => NetSecurity.ForServer(keys.Length == 0 ? ServerKey : keys[0], game, keys.Skip(1).ToArray());
-
-    private static NetSecurity ClientSec(string game = "test-game", params PeerKey[] trusted) => NetSecurity.ForClient(trusted.Length == 0 ? [ServerKey.PublicKey] : trusted, game, PlayerKey);
-
-    private static WebSocketOptions Opt(NetSecurity sec, int maxMessage = 1 << 20) => new() { Security = sec, HandshakeTimeoutMs = 2000, MaxMessageBytes = maxMessage };
-
     private static (SecureConnection Client, SecureConnection Server, MemConn ClientRaw, MemConn ServerRaw) Open(Action<MemConn, MemConn>? tap = null, NetSecurity? server = null, NetSecurity? client = null, NetClock? clock = null, int serverMax = 1 << 20)
     {
         clock ??= NetClock.System;
@@ -178,12 +41,12 @@ public class SecureWebSocketTests
         var sizes = new[] { 0, 1, 1000, SecureConnection.MaxChunk - 1, SecureConnection.MaxChunk, SecureConnection.MaxChunk + 1, 2 * SecureConnection.MaxChunk, 700_000 };
         for (var i = 0; i < sizes.Length; i++)
         {
-            c.Send(Rig.Pattern(sizes[i], i));
+            c.Send(SecureRig.Pattern(sizes[i], i));
             Assert.True(s.TryReceive(out var m));
-            Assert.True(m.SequenceEqual(Rig.Pattern(sizes[i], i)), $"size {sizes[i]} client to server");
-            s.Send(Rig.Pattern(sizes[i], 50 + i));
+            Assert.True(m.SequenceEqual(SecureRig.Pattern(sizes[i], i)), $"size {sizes[i]} client to server");
+            s.Send(SecureRig.Pattern(sizes[i], 50 + i));
             Assert.True(c.TryReceive(out var r));
-            Assert.True(r.SequenceEqual(Rig.Pattern(sizes[i], 50 + i)), $"size {sizes[i]} server to client");
+            Assert.True(r.SequenceEqual(SecureRig.Pattern(sizes[i], 50 + i)), $"size {sizes[i]} server to client");
         }
     }
 
@@ -205,70 +68,6 @@ public class SecureWebSocketTests
         var (c, s, _, _) = Open(client: ClientSec("other-game"));
         Assert.False(c.IsOpen || s.IsOpen);
         Assert.Equal(DisconnectReason.HandshakeFailed, s.CloseInfo.Reason);
-    }
-
-    internal static (SecureConnection Server, MemConn Wire) NewServer()
-    {
-        var (a, b) = MemConn.Pair();
-        var clock = NetClock.System;
-        return (SecureConnection.ForServer(b, ServerSec(), Opt(ServerSec()), clock, new HandshakeBudget(clock, 1_000_000, 1_000_000)), a);
-    }
-
-    // A hand-driven client: speaks the handshake itself so tests can send exactly the records they want.
-    internal sealed class Hand
-    {
-        public readonly MemConn Wire;
-        public readonly SecureConnection Server;
-        public NoiseCipherState Send = null!;
-        public NoiseCipherState Recv = null!;
-        public byte[] First = [];
-
-        public Hand(NetSecurity? server = null, int serverMax = 1 << 20)
-        {
-            var (a, b) = MemConn.Pair();
-            Wire = a;
-            var clock = NetClock.System;
-            var sec = server ?? ServerSec();
-            Server = SecureConnection.ForServer(b, sec, Opt(sec, serverMax), clock, new HandshakeBudget(clock, 200, 4));
-            b.KeepSent = true;
-            Wire.TryReceive(out var challenge);
-            var hs = SecureHandshake.Client(ClientSec(), 0, Bind(challenge[1..]));
-            var msg = new byte[1 + SecureHandshake.FirstMessageOverhead];
-            msg[0] = SecureConnection.VersionByte;
-            var n = hs.WriteFirst(default, msg.AsSpan(1));
-            First = msg[..(1 + n)];
-            Wire.Send(First);
-            Server.Pump();
-            Assert.True(Wire.TryReceive(out var reply));
-            Assert.True(hs.ReadReply(reply[1..], new byte[64], out _));
-            hs.Finish(out Send, out Recv);
-        }
-
-        public void ConfirmNow()
-        {
-            Record(SecureConnection.FlagConfirm, default);
-            Server.Pump();
-        }
-
-        public static byte[] Bind(ReadOnlySpan<byte> nonce)
-        {
-            var bind = new byte[3 + nonce.Length];
-            bind[0] = (byte)'w';
-            bind[1] = (byte)'s';
-            bind[2] = SecureConnection.VersionByte;
-            nonce.CopyTo(bind.AsSpan(3));
-            return bind;
-        }
-
-        public void Record(byte flag, ReadOnlySpan<byte> body)
-        {
-            var plain = new byte[1 + body.Length];
-            plain[0] = flag;
-            body.CopyTo(plain.AsSpan(1));
-            var sealedRecord = new byte[plain.Length + 16];
-            Send.Encrypt(default, plain, sealedRecord);
-            Wire.Send(sealedRecord);
-        }
     }
 
     [Fact]
@@ -392,7 +191,7 @@ public class SecureWebSocketTests
             {
                 "flip" => [FlipLast(m)],
                 "repeat" => [m, m],
-                "inject" => [m, Rig.Pattern(m.Length, 5)],
+                "inject" => [m, SecureRig.Pattern(m.Length, 5)],
                 "truncate" => [m[..^1]],
                 "reorder" => Reorder(m, ref held),
                 _ => [m],
@@ -451,7 +250,7 @@ public class SecureWebSocketTests
     public void SteadyStateSendAndReceiveAllocateNothing()
     {
         var (c, s, _, _) = Open();
-        var msg = Rig.Pattern(1000, 3);
+        var msg = SecureRig.Pattern(1000, 3);
         for (var i = 0; i < 50; i++)
         {
             c.Send(msg);
@@ -590,7 +389,7 @@ public class SecureWebSocketTests
             client.Pump();
             return accepted.TryReceive(out var hello) && Encoding.ASCII.GetString(hello) == "hello";
         });
-        var msg = Rig.Pattern(1200, 4);
+        var msg = SecureRig.Pattern(1200, 4);
         for (var i = 0; i < 100; i++)
         {
             Round(l, client, accepted, msg);
