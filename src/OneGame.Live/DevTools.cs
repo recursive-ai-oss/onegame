@@ -137,6 +137,8 @@ internal sealed class DevTools : IDevTools
 
     private static int Live(GameInstance game, ControlSurface surface, GameArgs args, TextWriter output, bool json)
     {
+        // A restart that onegame run made for an edit it could not apply live: continue from the world saved before it.
+        surface.ResumeFromHotRestart();
         using var server = new LiveServer(surface);
         server.Start(args.Get("live") ?? LiveServer.DefaultPath());
         var hello = JsonSerializer.Serialize(new LiveHello(true, server.Path!, Environment.ProcessId, game.Definition.Name, McpProtocol.LatestVersion), LiveJson.Default.LiveHello);

@@ -58,7 +58,7 @@ onegame export --target linux                      # or win, osx: a NativeAOT bu
 Then read, in order:
 
 - [docs/first-game.md](docs/first-game.md): the game `onegame new` writes, line by line, then run, test and export.
-- [docs/2d.md](docs/2d.md), [docs/input.md](docs/input.md) and [docs/assets.md](docs/assets.md): drawing sprites, shapes and text, input actions and rebinding, and loading files with hot reload.
+- [docs/2d.md](docs/2d.md), [docs/input.md](docs/input.md) and [docs/assets.md](docs/assets.md): drawing sprites, shapes and text, input actions and rebinding, and loading files with hot reload; [docs/hot-reload.md](docs/hot-reload.md): editing the game's C# while it runs.
 - [docs/tweens.md](docs/tweens.md), [docs/particles.md](docs/particles.md) and [docs/saves.md](docs/saves.md): animating view state and styles, particle effects, and save slots and settings.
 - [docs/pages.md](docs/pages.md): screens written in HTML and CSS (or a style tree) through OneRender, drawn by the engine.
 - [docs/driving-a-game.md](docs/driving-a-game.md): making a game, scenarios, replays, captures and live control.

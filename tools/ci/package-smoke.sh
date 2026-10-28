@@ -126,5 +126,12 @@ PROPS
 play plain
 play cpm
 
+case "$target" in
+  linux*)
+    # Edit a running game's C# and see it applied with the world kept, on a game built from packages alone.
+    step "hot reload: edit a running game"
+    "$py" "$repo/tools/hot-reload/check.py" --onegame "$og" --work "$work/app/hot" ;;
+esac
+
 echo
 echo "package smoke: ok ($count packages, target $target, plain and central package management)"

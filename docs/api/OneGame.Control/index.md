@@ -35,6 +35,7 @@ dotnet add package RecursiveAI.OneGame.Control
 | [`DebugOverlay`](OneGame.Control/DebugOverlay.md) | class | The on-screen debug panel of development builds: frame time, entity count, network figures when the game is connected, and the audio device's counters. |
 | [`Draw2DReport`](OneGame.Control/Draw2DReport.md) | record | Result of `draw2d`: what the 2D happy path drew in the last frame and where its camera looks. |
 | [`HitResult`](OneGame.Control/HitResult.md) | record | Result of `ui_hit`: the element a pointer event at a position would reach. |
+| [`HotReloadResult`](OneGame.Control/HotReloadResult.md) | record | What a game's live control reports about development hot reload: the `hot_reload` operation. |
 | [`IControlEndpoint`](OneGame.Control/IControlEndpoint.md) | interface | Anything the MCP face can drive: a list of operations and a way to run one. |
 | [`InfoResult`](OneGame.Control/InfoResult.md) | record | Result of `info`, the operation to call first: which game this is, where it is in time, and what it is drawing with. |
 | [`InputResult`](OneGame.Control/InputResult.md) | record | Result of the input operations (`input_key`, `input_pointer`, `ui_click` and the like). |

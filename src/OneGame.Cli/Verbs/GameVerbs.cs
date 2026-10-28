@@ -25,10 +25,19 @@ internal sealed class RunVerb : IVerb
 {
     public string Name => "run";
 
-    public string Summary => "Build and run the game. --headless --frames N, --size, --seed, --live [socket], -- <game options>.";
+    public string Summary => "Build and run the game; a Debug run is hot (C# edits apply while it runs; --no-hot turns that off). --headless --frames N, --size, --seed, --live [socket], -- <game options>.";
 
-    public int Run(string[] args, bool json, TextWriter output, TextWriter error) =>
-        GameRunner.Run(new ProjectArgs(args), json, output, error, (_, _) => []);
+    public int Run(string[] args, bool json, TextWriter output, TextWriter error)
+    {
+        var a = new ProjectArgs(args);
+        if (!HotRun.Wanted(a, json))
+        {
+            return GameRunner.Run(a, json, output, error, (_, _) => []);
+        }
+
+        var project = Projects.Find(a.Get("--project"));
+        return Projects.EnsureBuilt(a, project, json, output, error) ?? HotRun.Run(a, project, output, error);
+    }
 }
 
 /// <summary>Renders frames offscreen to PNG files.</summary>

@@ -79,6 +79,7 @@ Creates a new instance.
 | [`GeneratedSerializerOptions`](#m-generatedserializeroptions) | The source-generated options associated with this context. |
 | [`GraphStats`](#m-graphstats) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`HitResult`](#m-hitresult) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`HotReloadResult`](#m-hotreloadresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`IReadOnlyListContrastCheck`](#m-ireadonlylistcontrastcheck) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`IReadOnlyListSteamActionValue`](#m-ireadonlyliststeamactionvalue) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`IReadOnlyListSteamControllerInfo`](#m-ireadonlyliststeamcontrollerinfo) | Defines the source generated JSON serialization contract metadata for a given type. |
@@ -498,6 +499,16 @@ public JsonTypeInfo<HitResult> HitResult { get; }
 Defines the source generated JSON serialization contract metadata for a given type.
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`HitResult`](HitResult.md)&gt;
+
+### <a id="m-hotreloadresult"></a>HotReloadResult
+
+```csharp
+public JsonTypeInfo<HotReloadResult> HotReloadResult { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`HotReloadResult`](HotReloadResult.md)&gt;
 
 ### <a id="m-ireadonlylistcontrastcheck"></a>IReadOnlyListContrastCheck
 
