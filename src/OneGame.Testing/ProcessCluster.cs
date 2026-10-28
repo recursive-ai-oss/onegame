@@ -174,19 +174,30 @@ public sealed class ProcessCluster : IDisposable
         for (var attempt = 1; ; attempt++)
         {
             var ports = new Dictionary<string, int>(StringComparer.Ordinal);
-            foreach (var n in spec.Nodes.Where(n => n.Role == NodeRole.Server))
-            {
-                ports[n.Name] = (PortSource ?? FreePort)();
-                ports[n.Name + ".peer"] = (PortSource ?? FreePort)(); // a second port per server, for servers that talk to each other privately
-            }
-
             try
             {
+                foreach (var n in spec.Nodes.Where(n => n.Role == NodeRole.Server))
+                {
+                    ports[n.Name] = (PortSource ?? FreePort)();
+                    ports[n.Name + ".peer"] = (PortSource ?? FreePort)(); // a second port per server, for servers that talk to each other privately
+                }
+
                 return StartAll(spec, dir, parent, stateFile, ports);
             }
-            catch (ClusterException ex) when (attempt < 5 && IsAddressInUse(ex))
+            catch (ClusterException ex) when (attempt < 5 && (IsAddressInUse(ex) || ex.Code == "no_port"))
             {
-                // Everything started so far was stopped by StartAll; try again with other ports.
+                // Everything started so far was stopped by StartAll; try again with other ports. When no port could be found the machine is
+                // busy with sockets in wind-down, which a short pause clears.
+                ReleasePorts(ports);
+                if (ex.Code == "no_port")
+                {
+                    Thread.Sleep(500);
+                }
+            }
+            catch
+            {
+                ReleasePorts(ports);
+                throw;
             }
         }
     }
@@ -682,6 +693,11 @@ public sealed class ProcessCluster : IDisposable
     public DownReport Down()
     {
         _down = true;
+        if (_ports is not null)
+        {
+            ReleasePorts(_ports); // only live clusters' ports stay reserved in this process
+        }
+
         var stopped = new List<string>();
         var killed = new List<string>();
         var alive = new List<string>();
@@ -1023,6 +1039,28 @@ public sealed class ProcessCluster : IDisposable
 
     // Lets a test hand out a port that is already taken, to prove a start survives losing the race for one.
     internal static Func<int>? PortSource { get; set; }
+
+    private static void ReleasePorts(Dictionary<string, int> ports)
+    {
+        lock (Issued)
+        {
+            foreach (var port in ports.Values)
+            {
+                Issued.Remove(port);
+            }
+        }
+    }
+
+    internal static int IssuedCount
+    {
+        get
+        {
+            lock (Issued)
+            {
+                return Issued.Count;
+            }
+        }
+    }
 
     private static int FreePort()
     {

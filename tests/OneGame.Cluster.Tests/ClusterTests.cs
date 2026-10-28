@@ -69,6 +69,48 @@ public class ClusterTests
     }
 
     [Fact]
+    public void ManyClustersOneAfterAnotherNeverRunOutOfPorts()
+    {
+        // Each cluster takes 2 ports per server; 105 clusters is past the 200 numbers the picker tries before giving up. Ports of
+        // clusters that are down must be free to use again, so the set of reserved numbers stays empty.
+        var baseline = ProcessCluster.IssuedCount;
+        for (var i = 0; i < 105; i++)
+        {
+            var spec = Spec("seq", Fixture.ServerNode("srv", tickRate: 120));
+            using var cluster = TestCluster.Launch(spec);
+        }
+
+        Assert.Equal(baseline, ProcessCluster.IssuedCount);
+    }
+
+    [Fact]
+    public void AStartThatFindsNoFreePortWaitsAndTriesAgain()
+    {
+        var calls = 0;
+        ProcessCluster.PortSource = () =>
+        {
+            if (calls++ == 0)
+            {
+                throw new ClusterException("no_port", "Could not find a free port for a server.");
+            }
+
+            using var probe = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+            probe.Start();
+            return ((System.Net.IPEndPoint)probe.LocalEndpoint).Port;
+        };
+        try
+        {
+            using var cluster = TestCluster.Launch(Spec("noport", Fixture.ServerNode("srv", tickRate: 120)));
+            Assert.True(calls > 2);
+            Assert.True(cluster.Hashes().Ok);
+        }
+        finally
+        {
+            ProcessCluster.PortSource = null;
+        }
+    }
+
+    [Fact]
     public void TwoClientsOverUdpAndWebSocketStayInSyncThroughALossyNetwork()
     {
         var spec = Spec(
