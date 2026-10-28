@@ -1,0 +1,32 @@
+name: looks-right
+description: Mid-crossing, the crowd bunches at the gap (captured against a reference); then the debug overlay adds each person line to their goal.
+window: 320x180
+steps:
+  - command: { entity: Plaza, name: Spawn, args: [1, 3] }
+  - command: { entity: Plaza, name: Spawn, args: [1, 4] }
+  - command: { entity: Plaza, name: Spawn, args: [1, 5] }
+  - command: { entity: Plaza, name: Spawn, args: [1, 6] }
+  - command: { entity: Plaza, name: Spawn, args: [1, 7] }
+  - command: { entity: Plaza, name: Spawn, args: [1, 8] }
+  - command: { entity: Plaza, name: Spawn, args: [2, 3] }
+  - command: { entity: Plaza, name: Spawn, args: [2, 4] }
+  - command: { entity: Plaza, name: Spawn, args: [2, 5] }
+  - command: { entity: Plaza, name: Spawn, args: [2, 6] }
+  - command: { entity: Plaza, name: Spawn, args: [2, 7] }
+  - command: { entity: Plaza, name: Spawn, args: [2, 8] }
+  - step: 2
+  - command: { entity: Plaza, name: GoTo, args: [0, 16, 1] }
+  - command: { entity: Plaza, name: GoTo, args: [1, 16, 3] }
+  - command: { entity: Plaza, name: GoTo, args: [2, 16, 5] }
+  - command: { entity: Plaza, name: GoTo, args: [3, 16, 7] }
+  - command: { entity: Plaza, name: GoTo, args: [4, 16, 9] }
+  - command: { entity: Plaza, name: GoTo, args: [5, 16, 10] }
+  - command: { entity: Plaza, name: GoTo, args: [6, 17, 1] }
+  - command: { entity: Plaza, name: GoTo, args: [7, 17, 3] }
+  - command: { entity: Plaza, name: GoTo, args: [8, 17, 5] }
+  - command: { entity: Plaza, name: GoTo, args: [9, 17, 7] }
+  - command: { entity: Plaza, name: GoTo, args: [10, 17, 9] }
+  - command: { entity: Plaza, name: GoTo, args: [11, 17, 10] }
+  - step: 170
+expect:
+  - capture: { reference: refs/crossing.png, tolerance: 48, max-diff: 0.01 }

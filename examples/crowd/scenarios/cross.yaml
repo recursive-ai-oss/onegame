@@ -1,0 +1,40 @@
+name: cross
+description: Twelve people on the left squeeze through the gap in the wall and stop at their places on the right. The crowd is a table of the world, so its state is checked like any other.
+window: 320x180
+steps:
+  - command: { entity: Plaza, name: Spawn, args: [1, 3] }
+  - command: { entity: Plaza, name: Spawn, args: [1, 4] }
+  - command: { entity: Plaza, name: Spawn, args: [1, 5] }
+  - command: { entity: Plaza, name: Spawn, args: [1, 6] }
+  - command: { entity: Plaza, name: Spawn, args: [1, 7] }
+  - command: { entity: Plaza, name: Spawn, args: [1, 8] }
+  - command: { entity: Plaza, name: Spawn, args: [2, 3] }
+  - command: { entity: Plaza, name: Spawn, args: [2, 4] }
+  - command: { entity: Plaza, name: Spawn, args: [2, 5] }
+  - command: { entity: Plaza, name: Spawn, args: [2, 6] }
+  - command: { entity: Plaza, name: Spawn, args: [2, 7] }
+  - command: { entity: Plaza, name: Spawn, args: [2, 8] }
+  - step: 2
+  - expect:
+      state: { table: og.nav.crowd, property: count, equals: 12 }
+  - command: { entity: Plaza, name: GoTo, args: [0, 16, 1] }
+  - command: { entity: Plaza, name: GoTo, args: [1, 16, 3] }
+  - command: { entity: Plaza, name: GoTo, args: [2, 16, 5] }
+  - command: { entity: Plaza, name: GoTo, args: [3, 16, 7] }
+  - command: { entity: Plaza, name: GoTo, args: [4, 16, 9] }
+  - command: { entity: Plaza, name: GoTo, args: [5, 16, 10] }
+  - command: { entity: Plaza, name: GoTo, args: [6, 17, 1] }
+  - command: { entity: Plaza, name: GoTo, args: [7, 17, 3] }
+  - command: { entity: Plaza, name: GoTo, args: [8, 17, 5] }
+  - command: { entity: Plaza, name: GoTo, args: [9, 17, 7] }
+  - command: { entity: Plaza, name: GoTo, args: [10, 17, 9] }
+  - command: { entity: Plaza, name: GoTo, args: [11, 17, 10] }
+  - step: 60
+  # Early on they are still on their side, walking.
+  - expect:
+      state: { table: og.nav.crowd, row: 0, property: status, equals: Walking }
+  - step: 540
+expect:
+  - state: { table: og.nav.crowd, row: 0, property: status, equals: Arrived }
+  - state: { table: og.nav.crowd, row: 11, property: status, equals: Arrived }
+  - state: { table: og.nav.crowd, row: 5, property: x, min: 90, max: 130 }
