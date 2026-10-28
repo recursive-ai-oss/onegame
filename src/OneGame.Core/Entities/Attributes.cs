@@ -1,6 +1,31 @@
 namespace OneGame.Core;
 
-/// <summary>Declares a partial class as an entity: synced properties, commands and sim logic in one class. The class must derive from <see cref="Entity"/> directly.</summary>
+/// <summary>
+/// Declares a partial class as an entity: synced properties, commands and sim logic in one class. The class must derive from <see cref="Entity"/> directly.
+/// The generator completes it with change tracking, codecs, deltas, snapshots and a <c>Send</c> property for commands; add the generated types to an <see cref="EntityRegistry"/> with the
+/// generated <c>EntityTypes.Register(registry)</c> (a game definition does this in <c>RegisterEntities</c>).
+/// </summary>
+/// <example>
+/// A counter whose state changes only through a command and the per-tick step:
+/// <code>
+/// [Entity]
+/// public partial class Counter : Entity
+/// {
+///     [Synced] public partial int Value { get; private set; }
+///     [Synced] public partial int Step { get; private set; }
+///
+///     [Command]
+///     public void SetStep(int step) =&gt; Step = step;
+///
+///     protected override void OnTick() =&gt; Value += Step;
+///
+///     [View]
+///     public string Label() =&gt; $"count {Value}";   // views read state; assigning Value here is a compile error
+/// }
+///
+/// // From a view or a test: counter.Send.SetStep(2);
+/// </code>
+/// </example>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
 public sealed class EntityAttribute : Attribute
 {

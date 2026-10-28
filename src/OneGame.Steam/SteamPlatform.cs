@@ -18,6 +18,18 @@ public sealed class SteamOptions
 }
 
 /// <summary>Entry point: connects to Steam, or falls back to a store that does nothing.</summary>
+/// <remarks>
+/// Call the store services from view code and host hooks (a button, a command's result), never from sim code: they do I/O and their
+/// answers differ between machines. Real calls need the Steam client running and the game's app id.
+/// </remarks>
+/// <example>
+/// <code>
+/// IStorePlatform store = SteamPlatform.Start(new SteamOptions { AppId = 480, RelaunchThroughSteam = true });
+/// if (store.RelaunchRequested) { return; }              // Steam is starting the game again; exit before opening a window
+/// // Once per frame on the game thread: store.Pump();
+/// store.Achievements.Unlock("FIRST_WIN");               // StoreResult.Unavailable, not an exception, when Steam is not there
+/// </code>
+/// </example>
 public static class SteamPlatform
 {
     /// <summary>Connects to Steam. Never throws for an absent Steam: when the library or client is missing, or Steam refuses the app,

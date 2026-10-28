@@ -230,6 +230,21 @@ public sealed record AudioStatus(
 /// The game-facing audio service: load clips, play sounds and music on buses, set volumes, crossfade, and pump events. Everything here is called from
 /// the game thread. It owns the device output and the mixer, and keeps working (silently) when there is no device.
 /// </summary>
+/// <remarks>
+/// Audio is view-side: call it from view code, button handlers and frame hooks in response to state, never from sim code (it is not
+/// deterministic and not part of the saved state). Volumes are linear, 1 is the clip as recorded. Tests can create a service with
+/// <see cref="AudioServiceOptions.Capture"/> and assert on <see cref="GetPlayLog"/> instead of listening.
+/// </remarks>
+/// <example>
+/// <code>
+/// using var audio = AudioService.Create();                         // opens the default device; silent if there is none
+/// Sound hit = audio.LoadSound(File.OpenRead("data/hit.ogg"), "hit");   // decode once, play many times
+/// audio.Play(hit);                                                   // a one-shot on the sfx bus
+/// audio.Play(hit, new PlayOptions { Volume = 0.5f, Pan = -0.3f, Pitch = 1.2f });
+/// audio.SetBusVolume(AudioBus.Music, 0.6f);                          // a settings slider
+/// audio.PlayMusic(File.OpenRead("data/theme.ogg"), new MusicOptions { CrossfadeSeconds = 1.5 });
+/// </code>
+/// </example>
 public sealed partial class AudioService : IDisposable
 {
     private static AudioService? s_active;

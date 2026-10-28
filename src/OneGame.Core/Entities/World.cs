@@ -25,7 +25,7 @@ public sealed class World
     private int _executing;
     private bool _randomIncluded = true;
 
-    /// <summary>Creates an empty world.</summary>
+    /// <summary>Creates an empty world. Build the same way (registry, systems, tables) on every node, then add entities or load a snapshot.</summary>
     /// <param name="seed">Seeds every random stream.</param>
     /// <param name="registry">The entity types snapshots may contain.</param>
     /// <param name="role">Authority, or replica of another node's world.</param>
@@ -86,7 +86,12 @@ public sealed class World
     /// <summary>Moves a replica's tick to the one its authority reports. Frames carry the tick, replicas never count it themselves.</summary>
     internal void SetReplicaTick(long tick) => Tick = tick;
 
-    /// <summary>Adds an entity under a fresh id and returns it.</summary>
+    /// <summary>
+    /// Adds an entity under a fresh id (one above the highest used so far) and returns it, so <c>var ship = world.Add(new
+    /// Ship());</c> works. Call it from setup code, from sim code and from tests; views never add entities.
+    /// </summary>
+    /// <typeparam name="T">The entity type.</typeparam>
+    /// <param name="entity">A new entity that is not in any world.</param>
     /// <exception cref="InvalidOperationException">The entity is already in a world.</exception>
     [MutatesState]
     public T Add<T>(T entity)
@@ -97,6 +102,8 @@ public sealed class World
     }
 
     /// <summary>Adds an entity under a given id; replicas use it to mirror the authority's ids.</summary>
+    /// <param name="entity">A new entity that is not in any world.</param>
+    /// <param name="id">The id to give it; not zero and not used by another entity.</param>
     /// <exception cref="InvalidOperationException">The entity is already in a world, or the id is zero or taken.</exception>
     [MutatesState]
     public void AddWithId(Entity entity, EntityId id)
@@ -121,6 +128,7 @@ public sealed class World
     }
 
     /// <summary>Removes an entity. During a tick the removal takes effect when the tick ends.</summary>
+    /// <param name="id">The entity to remove.</param>
     /// <returns>False if no such entity exists.</returns>
     [MutatesState]
     public bool Remove(EntityId id)
@@ -153,14 +161,18 @@ public sealed class World
         entity.IsRemoved = true;
     }
 
-    /// <summary>Finds an entity by id, or null.</summary>
+    /// <summary>Finds an entity by id. Returns null for an id that was never used, was removed, or whose entity this replica has not received (or may not see).</summary>
+    /// <param name="id">The entity's id.</param>
     public Entity? Find(EntityId id)
     {
         var index = IndexOf(id);
         return index >= 0 && !_entities[index].IsRemoved ? _entities[index] : null;
     }
 
-    /// <summary>Finds an entity of a given type by id.</summary>
+    /// <summary>Finds an entity by id and type. Returns false when there is no such entity or it is of another type.</summary>
+    /// <typeparam name="T">The entity type to look for.</typeparam>
+    /// <param name="id">The entity's id.</param>
+    /// <param name="entity">The entity when found; otherwise null.</param>
     public bool TryGet<T>(EntityId id, out T entity)
         where T : Entity
     {
@@ -200,10 +212,14 @@ public sealed class World
     }
 
     /// <summary>Adds a system. Systems tick in the order added, so add them in the same order on every node.</summary>
+    /// <param name="system">The system. It is sim code and is checked by the sim analyzers.</param>
     [MutatesState]
     public void AddSystem(ISimSystem system) => _systems.Add(system);
 
     /// <summary>Adds a hot table. Tables are snapshotted and hashed in the order added.</summary>
+    /// <typeparam name="T">The generated hot table type.</typeparam>
+    /// <param name="table">The table to add.</param>
+    /// <returns>The table, for chaining.</returns>
     /// <exception cref="DuplicateTypeException">A table with this name exists.</exception>
     [MutatesState]
     public T AddTable<T>(T table)
@@ -279,6 +295,10 @@ public sealed class World
     /// Sends a command to an entity. An authority queues it for the next tick; a replica passes it on through
     /// <see cref="Observer"/> for the networking layer to deliver.
     /// </summary>
+    /// <param name="entity">The entity to command.</param>
+    /// <param name="commandId">The command's id (generated; entities expose it through <c>Send</c>).</param>
+    /// <param name="payload">The encoded arguments.</param>
+    /// <returns><see cref="CommandStatus.Queued"/> on an authority, <see cref="CommandStatus.Forwarded"/> on a replica, or why it was refused.</returns>
     public CommandStatus Submit(EntityId entity, uint commandId, ReadOnlySpan<byte> payload) => Submit(entity, commandId, payload, 0);
 
     /// <summary>Like <see cref="Submit(EntityId, uint, ReadOnlySpan{byte})"/>, tagging the command so the observer can tell who sent it.</summary>
@@ -306,6 +326,7 @@ public sealed class World
     }
 
     /// <summary>Submits a command from its wire form (entity id, command id, arguments), as read from a log or a connection. Untrusted bytes are fine: bad input returns <see cref="CommandStatus.Malformed"/>.</summary>
+    /// <param name="wire">The bytes written by <see cref="EncodeCommand"/>.</param>
     public CommandStatus SubmitEncoded(ReadOnlySpan<byte> wire)
     {
         var r = new SyncReader(wire);
@@ -320,6 +341,10 @@ public sealed class World
     }
 
     /// <summary>The wire form of a command, the inverse of <see cref="SubmitEncoded"/>.</summary>
+    /// <param name="writer">Receives the bytes.</param>
+    /// <param name="entity">The entity the command is for.</param>
+    /// <param name="commandId">The command's id.</param>
+    /// <param name="payload">The encoded arguments.</param>
     public static void EncodeCommand(SyncWriter writer, EntityId entity, uint commandId, ReadOnlySpan<byte> payload)
     {
         writer.WriteVarUInt(entity.Value);
@@ -501,7 +526,8 @@ public sealed class World
         return h;
     }
 
-    /// <summary>Writes the whole world: tick, id counter, random streams, entities (with their schema versions) and tables.</summary>
+    /// <summary>Writes the whole world: tick, id counter, random streams, entities (with their schema versions) and tables. This is a save: <see cref="ReadSnapshot"/> restores it, through the entities' migrations if their schema grew since.</summary>
+    /// <param name="w">Receives the bytes.</param>
     public void WriteSnapshot(SyncWriter w)
     {
         w.WriteFixed32(SnapshotMagic);
@@ -632,6 +658,7 @@ public sealed class World
     /// migrations. Restore into a freshly built world with the same tables and systems: on an error the world is in an unspecified
     /// state and should be discarded.
     /// </summary>
+    /// <param name="bytes">A snapshot from <see cref="WriteSnapshot"/>, a save file or a server. Untrusted input is fine: it is bounds-checked and never throws.</param>
     /// <returns><see cref="SyncError.None"/> on success.</returns>
     [MutatesState]
     public SyncError ReadSnapshot(ReadOnlySpan<byte> bytes)

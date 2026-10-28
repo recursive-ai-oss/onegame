@@ -134,7 +134,10 @@ public enum GamepadAxis : byte
     RightTrigger,
 }
 
-/// <summary>What happened.</summary>
+/// <summary>
+/// What happened. Poll events with <see cref="PlatformApp.TryGetEvent"/>; a hosted game sees them in
+/// <c>GameDefinition.OnInput</c> after the UI had its turn.
+/// </summary>
 public enum PlatformEventKind : byte
 {
     /// <summary>No event.</summary>
@@ -258,7 +261,7 @@ public readonly record struct EdgeInsets(int Left, int Top, int Right, int Botto
 /// </summary>
 public readonly record struct PlatformEvent
 {
-    /// <summary>What happened.</summary>
+    /// <summary>What happened. It decides which of the other properties mean anything; each is documented with the kinds it is read for.</summary>
     public PlatformEventKind Kind { get; init; }
 
     /// <summary>The window the event belongs to, or 0 for events that have none (gamepads, quit).</summary>

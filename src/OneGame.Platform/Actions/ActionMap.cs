@@ -232,6 +232,19 @@ public sealed class ActionContext
 /// A hosted game gets one as <c>GameInstance.Actions</c>, declared in <c>GameDefinition.DefineActions</c>, and it is updated once a frame. Outside the host, call <see cref="Observe"/> for every
 /// event and <see cref="Update"/> once per frame.
 /// </summary>
+/// <example>
+/// Declare in <c>GameDefinition.DefineActions</c>, read in view code:
+/// <code>
+/// public override void DefineActions(ActionMap actions) =&gt;
+///     actions.Context("play", c =&gt; c
+///         .Vector("move", Bind.Wasd, Bind.Arrows, Bind.LeftStick)
+///         .Button("jump", Bind.Key(Key.Space), Bind.Pad(GamepadButton.South)));
+///
+/// // In OnEachFrame (view code):
+/// var move = game.Actions.Vector("move");       // x and y from -1 to 1
+/// if (game.Actions.Pressed("jump")) { player.Send.Jump(); }   // true on the frame the button went down
+/// </code>
+/// </example>
 public sealed class ActionMap
 {
     private const int MaxBindingsFileChars = 64 * 1024;

@@ -44,7 +44,10 @@ public sealed record GameOptions
     /// <summary>Replaces the definition's seed when set.</summary>
     public ulong? Seed { get; init; }
 
-    /// <summary>Graphics device policy.</summary>
+    /// <summary>
+    /// Graphics device policy: <see cref="GpuMode.Auto"/> uses a device when one can be made, <see cref="GpuMode.Off"/> renders
+    /// captures on the CPU, <see cref="GpuMode.Required"/> fails without a device.
+    /// </summary>
     public GpuMode Gpu { get; init; } = GpuMode.Auto;
 
     /// <summary>Which windowing system a windowed instance uses. Auto picks Wayland, then X11. Ignored when <see cref="Headless"/>.</summary>
@@ -109,6 +112,21 @@ public sealed record CapturedFrame(int Width, int Height, byte[] Rgba, string Re
 /// Each frame handles input, runs one fixed simulation tick and brings the UI up to date. A windowed instance also draws and
 /// presents. Everything the harness does to a game goes through this type.
 /// </summary>
+/// <remarks>
+/// <see cref="GameApp.Run(GameDefinition, string[])"/> makes one for you. Make your own with <see cref="Create"/> in tests or tools: a headless
+/// instance has no window, takes injected input, and renders captures offscreen.
+/// </remarks>
+/// <example>
+/// Drive a game headlessly, as a unit test would:
+/// <code>
+/// using var game = GameInstance.Create(new MyGame(), new GameOptions { Headless = true, Width = 800, Height = 600 });
+/// game.Step(10);                                   // ten frames, one simulation tick each
+/// var ship = (Ship)game.World.Entities[0];
+/// ship.Send.Steer(1, 0, false);                    // commands are how a view or test changes the world
+/// game.Step(5);
+/// var frame = game.Capture(800, 600);              // CapturedFrame.Rgba holds the pixels
+/// </code>
+/// </example>
 public sealed partial class GameInstance : IDisposable
 {
     /// <summary>Simulation ticks per second of a realtime run.</summary>
@@ -190,6 +208,8 @@ public sealed partial class GameInstance : IDisposable
     }
 
     /// <summary>Creates an instance. Disposing it closes the window and the device.</summary>
+    /// <param name="definition">The game.</param>
+    /// <param name="options">Window size, GPU policy, seed and so on; a headless instance when null.</param>
     public static GameInstance Create(GameDefinition definition, GameOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(definition);
@@ -240,16 +260,19 @@ public sealed partial class GameInstance : IDisposable
     /// <summary>The seed of the current run.</summary>
     public ulong Seed { get; private set; }
 
-    /// <summary>The UI tree.</summary>
+    /// <summary>The retained UI tree of the current screen. Screens built in <see cref="GameDefinition.DefineScreens"/> are mounted here.</summary>
     public UiTree Ui { get; }
 
     /// <summary>The platform app (window, events, injection).</summary>
     public PlatformApp Platform { get; }
 
-    /// <summary>The game window.</summary>
+    /// <summary>The game window: its size in pixels, UI scale and safe area. A headless instance has a virtual one.</summary>
     public Window Window { get; }
 
-    /// <summary>Frames run so far.</summary>
+    /// <summary>
+    /// The number of frames run so far, counting from 0 at creation. Frames and simulation ticks advance together while the game
+    /// runs on its own world.
+    /// </summary>
     public long Frame { get; private set; }
 
     /// <summary>The shaders the game's render stage registered for hot reload. A development build recompiles them when their files change.</summary>
@@ -439,6 +462,7 @@ public sealed partial class GameInstance : IDisposable
     }
 
     /// <summary>Starts a new game: a fresh world filled by <see cref="GameDefinition.Setup"/>, optionally with a different seed.</summary>
+    /// <param name="seed">The seed of the random streams; the game's own seed when null.</param>
     public void Reset(ulong? seed = null)
     {
         if (_remote is not null)
@@ -479,6 +503,7 @@ public sealed partial class GameInstance : IDisposable
     }
 
     /// <summary>Replaces the world with one filled by a named fixture.</summary>
+    /// <param name="name">A fixture declared in <see cref="GameDefinition.DefineFixtures"/>.</param>
     /// <exception cref="KeyNotFoundException">No fixture has that name.</exception>
     public void LoadFixture(string name)
     {
@@ -532,6 +557,7 @@ public sealed partial class GameInstance : IDisposable
     public byte[] SaveSnapshot() => SaveFile.Write(World);
 
     /// <summary>Replaces the UI with a declared screen.</summary>
+    /// <param name="name">A screen declared in <see cref="GameDefinition.DefineScreens"/>.</param>
     /// <exception cref="KeyNotFoundException">No screen has that name.</exception>
     public void OpenScreen(string name)
     {
@@ -546,6 +572,8 @@ public sealed partial class GameInstance : IDisposable
     }
 
     /// <summary>Resizes the window (or the virtual window of a headless run) and lets the UI lay out at the new size.</summary>
+    /// <param name="width">Width in pixels.</param>
+    /// <param name="height">Height in pixels.</param>
     public void Resize(int width, int height)
     {
         Window.RequestSize(width, height);
@@ -1024,6 +1052,11 @@ public sealed partial class GameInstance : IDisposable
         CaptureAsync(width, height, scale, shown).AsTask().GetAwaiter().GetResult();
 
     /// <summary>Like <see cref="Capture"/>, for platforms that cannot wait for the graphics device (a browser page).</summary>
+    /// <param name="width">Width in pixels.</param>
+    /// <param name="height">Height in pixels.</param>
+    /// <param name="scale">UI scale.</param>
+    /// <param name="shown">The world to draw; the game's own when null.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The size is not positive or larger than 16384.</exception>
     public async ValueTask<CapturedFrame> CaptureAsync(int width, int height, float scale = 1f, World? shown = null)
     {
         if (width is < 1 or > 16384 || height is < 1 or > 16384 || scale <= 0)

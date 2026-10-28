@@ -34,6 +34,28 @@ public sealed record PurchaseStatus(string Store, string Connection, string? Con
 /// Everything the store says arrives as <see cref="StoreEvent"/>s from <see cref="Pump"/>, which the game calls once per frame on its
 /// game thread; requests may be made from that thread too. Pick the backend with <see cref="PurchaseBackends"/>.
 /// </summary>
+/// <remarks>
+/// Purchases are view-side and asynchronous: never call this from sim code. Grant the purchased item through a game command, wait
+/// until it is saved, and only then call <see cref="Finish"/>; the stores refund purchases that are never finished.
+/// </remarks>
+/// <example>
+/// <code>
+/// var catalog = new[] { new ProductDefinition("coins_100", ProductKind.Consumable), new ProductDefinition("no_ads", ProductKind.NonConsumable) };
+/// using var store = PurchaseBackends.CreateService(catalog);   // ONEGAME_STORE=fake selects the in-process fake
+/// store.Event += e =&gt;
+/// {
+///     if (e.Kind == StoreEventKind.Connected) { store.LoadProducts(); }
+///     if (e.Kind == StoreEventKind.Transaction &amp;&amp; e.Transaction is { NeedsFinish: true } t)
+///     {
+///         // grant the item with a command, save, then:
+///         store.Finish(t);
+///     }
+/// };
+/// store.Connect();
+/// // Once per frame on the game thread: store.Pump();
+/// // From a button: var error = store.Buy("coins_100");
+/// </code>
+/// </example>
 public sealed class PurchaseService : IDisposable
 {
     private const int RecentCapacity = 32;
@@ -136,6 +158,7 @@ public sealed class PurchaseService : IDisposable
     }
 
     /// <summary>True when a non-consumable or subscription is owned: a purchase or restore arrived and no revocation since.</summary>
+    /// <param name="productId">A product id from the catalog.</param>
     public bool IsOwned(string productId)
     {
         lock (_lock)
@@ -184,6 +207,7 @@ public sealed class PurchaseService : IDisposable
     }
 
     /// <summary>Starts a purchase. The result arrives as a <see cref="StoreEventKind.Transaction"/> event.</summary>
+    /// <param name="productId">A product id from the catalog.</param>
     /// <returns>An error when the purchase was not started: not connected, not in the catalog, or not loaded from the store yet. <see cref="StoreError.None"/> when it started.</returns>
     public StoreError Buy(string productId)
     {

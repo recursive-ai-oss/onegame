@@ -31,6 +31,15 @@ public readonly struct ParticleSample
 /// no simulation state and uses its own random stream, so the same seed and the same sequence of step sizes give the same
 /// particles. All storage is allocated here; stepping and sampling allocate nothing.
 /// </summary>
+/// <example>
+/// <code>
+/// // In a [View] method, once: create the emitter and keep it in a view-side field.
+/// _sparks ??= new ParticleEmitter(new ParticleSettings { Rate = 60, Lifetime = 0.8f, Speed = new FloatRange(30, 90), Spread = MathF.PI, Size = 4f }, seed: 7, name: "sparks");
+///
+/// // Each frame: draw it at a world position; this also steps it by the frame's time.
+/// d.Particles(_sparks, new Vector2(X.ToSingle(), Y.ToSingle()));
+/// </code>
+/// </example>
 public sealed class ParticleEmitter
 {
     // A long frame (a hitch, a breakpoint) must not fling particles across the world or spawn thousands at once, and a frame drawn after a

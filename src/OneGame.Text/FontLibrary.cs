@@ -63,6 +63,16 @@ internal sealed class FontStack
 /// The fonts of a game: faces loaded from asset bytes, grouped by family, resolved per <c>font-family</c> list, weight and slant into a
 /// fallback chain. Not thread safe: use it from the thread that runs the UI.
 /// </summary>
+/// <example>
+/// Load fonts in <c>GameDefinition.DefineFonts</c>; the first family added is the default, and style rules name families with <c>font-family</c>:
+/// <code>
+/// public override void DefineFonts(FontLibrary fonts)
+/// {
+///     fonts.Add(File.ReadAllBytes("fonts/Body-Regular.ttf"));
+///     fonts.Add(File.ReadAllBytes("fonts/Body-Bold.ttf"));      // same family, a heavier weight
+/// }
+/// </code>
+/// </example>
 public sealed class FontLibrary
 {
     /// <summary>The largest font file accepted, in bytes.</summary>
