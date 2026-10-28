@@ -191,6 +191,15 @@ if (netProblem is not null)
     return 1;
 }
 
+var cryptoProblem = CryptoSmoke.Run();
+if (cryptoProblem is not null)
+{
+    Console.Error.WriteLine("crypto smoke failed: " + cryptoProblem);
+    return 1;
+}
+
+Console.WriteLine("ok: Noise XX handshake and sealed packets (X25519, ChaCha20-Poly1305)");
+
 var purchasesProblem = PurchasesSmoke.Run();
 if (purchasesProblem is not null)
 {

@@ -22,14 +22,14 @@ public class FuzzRegressionTests
     [MemberData(nameof(Inputs))]
     public void CommittedInputsAreHandled(string target, string relativePath)
     {
-        var t = FuzzTargets.All.Single(x => x.Name == target);
+        var t = FuzzTargets.All.Concat(CryptoFuzz.All).Single(x => x.Name == target);
         _ = t.Run(File.ReadAllBytes(Path.Combine(Root, relativePath)));
     }
 
     [Fact]
     public void EveryTargetAcceptsItsOwnSeeds()
     {
-        foreach (var t in FuzzTargets.All)
+        foreach (var t in FuzzTargets.All.Concat(CryptoFuzz.All))
         {
             foreach (var seed in t.Seeds())
             {

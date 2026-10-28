@@ -10,6 +10,7 @@
   <ItemGroup>
     <Compile Include="../OneGame.Core.Tests/Samples/*.cs" LinkBase="Samples" />
     <Compile Include="../OneGame.Core.Tests/Fuzz/FuzzTargets.cs" Link="FuzzTargets.cs" />
+    <Compile Include="../OneGame.Core.Tests/Fuzz/CryptoFuzz.cs" Link="CryptoFuzz.cs" />
     <Compile Include="../OneGame.Sync.Tests/Scenario.cs" Link="Sync/Scenario.cs" />
     <Compile Include="../OneGame.Sync.Tests/Arena.cs" Link="Sync/Arena.cs" />
     <Compile Include="../OneGame.Sync.Tests/Rig.cs" Link="Sync/Rig.cs" />
