@@ -170,6 +170,8 @@ A transform that moves and rotates.
 public bool Equals(Transform3 other);
 ```
 
+Implements [`IEquatable<Transform3>.Equals()`](https://learn.microsoft.com/dotnet/api/system.iequatable-1.equals).
+
 **Parameters**
 
 - `other` ([`Transform3`](Transform3.md))
@@ -182,6 +184,8 @@ public bool Equals(Transform3 other);
 public override bool Equals(object? obj);
 ```
 
+Overrides [`ValueType.Equals()`](https://learn.microsoft.com/dotnet/api/system.valuetype.equals).
+
 **Parameters**
 
 - `obj` (`object?`)
@@ -193,6 +197,8 @@ public override bool Equals(object? obj);
 ```csharp
 public override int GetHashCode();
 ```
+
+Overrides [`ValueType.GetHashCode()`](https://learn.microsoft.com/dotnet/api/system.valuetype.gethashcode).
 
 **Returns:** `int`
 
@@ -246,6 +252,8 @@ Reads a value written by [`ISyncValue<TSelf>.Write()`](ISyncValue-1.md#m-write-s
 ```csharp
 public override string ToString();
 ```
+
+Overrides [`ValueType.ToString()`](https://learn.microsoft.com/dotnet/api/system.valuetype.tostring).
 
 **Returns:** `string`
 

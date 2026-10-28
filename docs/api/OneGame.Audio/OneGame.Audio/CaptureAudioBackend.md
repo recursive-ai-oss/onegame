@@ -78,6 +78,8 @@ The recording, or `null` before an output has been created on this backend.
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-listdevices"></a>ListDevices()
 
 ```csharp

@@ -141,4 +141,6 @@ The divergence as JSON.
 public override string ToString();
 ```
 
+Overrides [`Object.ToString()`](https://learn.microsoft.com/dotnet/api/system.object.tostring).
+
 **Returns:** `string`

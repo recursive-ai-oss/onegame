@@ -222,6 +222,8 @@ Closes the window. Further calls do nothing.
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-fillsolid-uint"></a>FillSolid(uint)
 
 ```csharp

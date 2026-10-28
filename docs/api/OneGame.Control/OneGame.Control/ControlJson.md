@@ -26,11 +26,15 @@ Source-generated JSON metadata for control results; nothing here uses reflection
 public ControlJson();
 ```
 
+Creates a new instance.
+
 ### <a id="m-ctor-jsonserializeroptions"></a>ControlJson(JsonSerializerOptions)
 
 ```csharp
 public ControlJson(JsonSerializerOptions options);
 ```
+
+Creates a new instance.
 
 **Parameters**
 
@@ -1196,6 +1200,8 @@ Defines the source generated JSON serialization contract metadata for a given ty
 ```csharp
 public override JsonTypeInfo? GetTypeInfo(Type type);
 ```
+
+Overrides [`JsonSerializerContext.GetTypeInfo()`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.jsonserializercontext.gettypeinfo).
 
 **Parameters**
 

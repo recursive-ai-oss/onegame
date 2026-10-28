@@ -466,6 +466,8 @@ A cubic Bézier curve through (0,0) and (1,1) with control points (x1,y1) and (x
 public bool Equals(Easing other);
 ```
 
+Implements [`IEquatable<Easing>.Equals()`](https://learn.microsoft.com/dotnet/api/system.iequatable-1.equals).
+
 **Parameters**
 
 - `other` ([`Easing`](Easing.md))
@@ -477,6 +479,8 @@ public bool Equals(Easing other);
 ```csharp
 public override bool Equals(object? obj);
 ```
+
+Overrides [`ValueType.Equals()`](https://learn.microsoft.com/dotnet/api/system.valuetype.equals).
 
 **Parameters**
 
@@ -503,6 +507,8 @@ Maps progress to eased progress. Input outside 0..1 is allowed: Bézier curves c
 ```csharp
 public override int GetHashCode();
 ```
+
+Overrides [`ValueType.GetHashCode()`](https://learn.microsoft.com/dotnet/api/system.valuetype.gethashcode).
 
 **Returns:** `int`
 

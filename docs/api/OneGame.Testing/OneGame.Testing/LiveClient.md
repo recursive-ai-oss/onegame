@@ -82,6 +82,8 @@ Runs an operation and returns its result JSON.
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-tcpendpoint-string"></a>TcpEndPoint(string)
 
 ```csharp

@@ -183,6 +183,7 @@ sealed class Pages
     void DocBody(StringBuilder sb, Md md, Doc doc, MemberInfo? m, string path, TypeInfo owner)
     {
         foreach (string b in md.Blocks(doc.Summary)) sb.Append(b).Append("\n\n");
+        if (doc.Summary is null && doc.Source is { } from) sb.Append(InheritedLine(from, m)).Append("\n\n");
         foreach (string b in md.Blocks(doc.Remarks)) sb.Append(b).Append("\n\n");
 
         if (doc.TypeParams.Count > 0)
@@ -251,6 +252,17 @@ sealed class Pages
             }
             sb.Append("**See also:** ").Append(string.Join(", ", items.Where(i => i.Length > 0))).Append("\n\n");
         }
+    }
+
+    // What an undocumented override or implementation stands for, linked to the .NET page of the member.
+    static string InheritedLine(Inherited from, MemberInfo? m)
+    {
+        if (from.IsConstructor) return "Creates a new instance.";
+        string display = from.TypeDisplay + "." + from.Member + (m is { Kind: MemberKind.Method or MemberKind.Operator } ? "()" : "");
+        string? type = Links.ExternalUrl(from.TypeKey);
+        string target = Md.Code(display);
+        if (type is not null) target = "[" + target + "](" + type + "." + from.Member.ToLowerInvariant() + ")";
+        return (from.IsInterface ? "Implements " : "Overrides ") + target + ".";
     }
 
     static string Finish(StringBuilder sb)

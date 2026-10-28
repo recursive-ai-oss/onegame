@@ -26,11 +26,15 @@ Source-generated JSON for the lines a server process prints.
 public ServerAppJson();
 ```
 
+Creates a new instance.
+
 ### <a id="m-ctor-jsonserializeroptions"></a>ServerAppJson(JsonSerializerOptions)
 
 ```csharp
 public ServerAppJson(JsonSerializerOptions options);
 ```
+
+Creates a new instance.
 
 **Parameters**
 
@@ -195,6 +199,8 @@ Defines the source generated JSON serialization contract metadata for a given ty
 ```csharp
 public override JsonTypeInfo? GetTypeInfo(Type type);
 ```
+
+Overrides [`JsonSerializerContext.GetTypeInfo()`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.jsonserializercontext.gettypeinfo).
 
 **Parameters**
 

@@ -136,6 +136,8 @@ Like [`Offscreen3D.Capture()`](Offscreen3D.md#m-capture-scene3d), for backends t
 public void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-render-scene3d"></a>Render(Scene3D)
 
 ```csharp

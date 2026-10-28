@@ -42,6 +42,8 @@ public SyncList();
 public int Count { get; }
 ```
 
+Implements [`IReadOnlyCollection<T>.Count`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlycollection-1.count).
+
 **Type:** `int`
 
 ### <a id="m-isdirty"></a>IsDirty

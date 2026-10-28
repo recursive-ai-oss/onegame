@@ -180,6 +180,8 @@ Sets the easing curve from CSS spelling, such as `"ease-out"` or `"cubic-bezier(
 public bool Equals(Tween other);
 ```
 
+Implements [`IEquatable<Tween>.Equals()`](https://learn.microsoft.com/dotnet/api/system.iequatable-1.equals).
+
 **Parameters**
 
 - `other` ([`Tween`](Tween.md))
@@ -192,6 +194,8 @@ public bool Equals(Tween other);
 public override bool Equals(object? obj);
 ```
 
+Overrides [`ValueType.Equals()`](https://learn.microsoft.com/dotnet/api/system.valuetype.equals).
+
 **Parameters**
 
 - `obj` (`object?`)
@@ -203,6 +207,8 @@ public override bool Equals(object? obj);
 ```csharp
 public override int GetHashCode();
 ```
+
+Overrides [`ValueType.GetHashCode()`](https://learn.microsoft.com/dotnet/api/system.valuetype.gethashcode).
 
 **Returns:** `int`
 

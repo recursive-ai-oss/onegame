@@ -262,6 +262,8 @@ Limits a value to a range.
 public int CompareTo(Fixed other);
 ```
 
+Implements [`IComparable<Fixed>.CompareTo()`](https://learn.microsoft.com/dotnet/api/system.icomparable-1.compareto).
+
 **Parameters**
 
 - `other` ([`Fixed`](Fixed.md))
@@ -288,6 +290,8 @@ The cosine of an angle in radians.
 public bool Equals(Fixed other);
 ```
 
+Implements [`IEquatable<Fixed>.Equals()`](https://learn.microsoft.com/dotnet/api/system.iequatable-1.equals).
+
 **Parameters**
 
 - `other` ([`Fixed`](Fixed.md))
@@ -299,6 +303,8 @@ public bool Equals(Fixed other);
 ```csharp
 public override bool Equals(object? obj);
 ```
+
+Overrides [`ValueType.Equals()`](https://learn.microsoft.com/dotnet/api/system.valuetype.equals).
 
 **Parameters**
 
@@ -424,6 +430,8 @@ Wraps an underlying integer.
 ```csharp
 public override int GetHashCode();
 ```
+
+Overrides [`ValueType.GetHashCode()`](https://learn.microsoft.com/dotnet/api/system.valuetype.gethashcode).
 
 **Returns:** `int`
 

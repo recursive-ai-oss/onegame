@@ -1244,6 +1244,8 @@ Sets the inherited text color.
 public override string ToString();
 ```
 
+Overrides [`Object.ToString()`](https://learn.microsoft.com/dotnet/api/system.object.tostring).
+
 **Returns:** `string`
 
 ### <a id="m-trapfocus-bool"></a>TrapFocus(bool)

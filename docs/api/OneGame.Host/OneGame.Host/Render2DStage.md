@@ -164,6 +164,8 @@ Adds passes that draw into the target before the 2D renderer and the UI, for a s
 public virtual void Dispose();
 ```
 
+Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
 ### <a id="m-drawoverui-renderer2d-frameinfo"></a>DrawOverUi(Renderer2D, in FrameInfo)
 
 ```csharp

@@ -118,6 +118,8 @@ The Z component of the axis part.
 public bool Equals(FQuat other);
 ```
 
+Implements [`IEquatable<FQuat>.Equals()`](https://learn.microsoft.com/dotnet/api/system.iequatable-1.equals).
+
 **Parameters**
 
 - `other` ([`FQuat`](FQuat.md))
@@ -129,6 +131,8 @@ public bool Equals(FQuat other);
 ```csharp
 public override bool Equals(object? obj);
 ```
+
+Overrides [`ValueType.Equals()`](https://learn.microsoft.com/dotnet/api/system.valuetype.equals).
 
 **Parameters**
 
@@ -172,6 +176,8 @@ A turn about +Y (positive turns anticlockwise seen from above), then about the t
 ```csharp
 public override int GetHashCode();
 ```
+
+Overrides [`ValueType.GetHashCode()`](https://learn.microsoft.com/dotnet/api/system.valuetype.gethashcode).
 
 **Returns:** `int`
 
@@ -259,6 +265,8 @@ Turns a vector by this rotation (which should be normalized).
 ```csharp
 public override string ToString();
 ```
+
+Overrides [`ValueType.ToString()`](https://learn.microsoft.com/dotnet/api/system.valuetype.tostring).
 
 **Returns:** `string`
 
