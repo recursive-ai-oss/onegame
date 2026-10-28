@@ -390,6 +390,7 @@ public sealed class UdpListener : INetListener
         var hello = new byte[length];
         if (!hs.ReadFirst(d.Slice(Wire.SecureResponseHeader, length), hello, out _))
         {
+            hs.Abandon();
             return null;
         }
 

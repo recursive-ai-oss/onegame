@@ -7,7 +7,7 @@ namespace OneGame.Net;
 /// One Noise IK handshake (<c>Noise_IK_25519_ChaChaPoly_SHA256</c>) between a client that trusts a set of server keys and a server
 /// that answers as one of its key pairs, shared by every transport. It moves bytes only: the transport frames the two messages and
 /// decides what the optional payloads carry. Message 1 (client to server) is <c>e, es, s, ss</c>: the client's ephemeral key, then
-/// its static key encrypted to the server. Message 2 (server to client) is <c>e, ee, se</c>. After both, <see cref="Finish"/> gives
+/// its static key encrypted to the server. Message 2 (server to client) is <c>e, ee, se</c>. After both, <c>Finish</c> gives
 /// the two directional ciphers and <see cref="Remote"/> is the peer's authenticated static key.
 /// <para>
 /// The prologue is <c>"onegame/2" 0x00 gameId 0x00 bind</c>. <c>bind</c> is whatever the transport wants the handshake tied to
@@ -54,7 +54,7 @@ internal sealed class SecureHandshake
     /// <summary>The peer's authenticated static public key: the client's on a server, the server's on a client. Empty until known.</summary>
     public PeerKey Remote { get; private set; }
 
-    /// <summary>The handshake hash of the finished handshake (see <see cref="INetConnection.ChannelBinding"/>); empty before <see cref="Finish"/>.</summary>
+    /// <summary>The handshake hash of the finished handshake (see <see cref="INetConnection.ChannelBinding"/>); empty before <c>Finish</c>.</summary>
     public byte[] ChannelBinding { get; private set; } = [];
 
     /// <summary>On a server, the key pair the client chose; null before <see cref="ReadFirst"/> succeeds.</summary>
@@ -109,6 +109,20 @@ internal sealed class SecureHandshake
         _noise = fork;
         Remote = _serverKey;
         return true;
+    }
+
+    /// <summary>For stream transports (WebSocket): the two record ciphers, with the implicit Noise counters. Call once, after both messages.</summary>
+    public void Finish(out NoiseCipherState send, out NoiseCipherState receive)
+    {
+        ChannelBinding = _noise!.HandshakeHash.ToArray();
+        _noise.Split(out send, out receive);
+    }
+
+    /// <summary>Wipes the handshake's keys and ephemeral state. Call it for a handshake that fails or is given up on; it is safe to call twice and after <c>Finish</c>.</summary>
+    public void Abandon()
+    {
+        _noise?.Destroy();
+        _noise = null;
     }
 
     /// <summary>The ciphers for this side: what it sends with and what it receives with. Call once, after both messages.</summary>

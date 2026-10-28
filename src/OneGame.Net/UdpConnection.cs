@@ -283,6 +283,7 @@ public sealed class UdpConnection : INetConnection
                 if (!d.Slice(9, Wire.CookieSize).SequenceEqual(_cookie))
                 {
                     d.Slice(9, Wire.CookieSize).CopyTo(_cookie);
+                    _handshake?.Abandon();
                     _msg1Length = 0; // the first message is bound to the cookie
                 }
 
@@ -350,6 +351,7 @@ public sealed class UdpConnection : INetConnection
             if (++_keysRejected < _security.TrustedServerKeys.Count)
             {
                 _keyIndex++;
+                _handshake?.Abandon();
                 _msg1Length = 0;
                 if (_haveCookie)
                 {
@@ -571,6 +573,7 @@ public sealed class UdpConnection : INetConnection
 
         State = ConnectionState.Closed;
         CloseInfo = new DisconnectInfo(reason, byRemote, code);
+        _handshake?.Abandon();
         _send?.Clear();
         _receive?.Clear();
         if (_ownsSocket)
