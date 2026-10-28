@@ -99,6 +99,12 @@ jobs:
         if: ${{ !cancelled() }}
         run: dotnet build OneGame.slnx -c Release
 
+      # docs/api is generated from the Release build and its XML docs; a doc comment or public member that changed without
+      # regenerating the pages fails here.
+      - name: API reference is up to date
+        if: ${{ !cancelled() }}
+        run: dotnet run --project tools/OneGame.ApiDocs -c Release -- --check
+
       - name: Publish AOT smoke app (warnings are errors)
         if: ${{ !cancelled() }}
         run: dotnet publish tests/OneGame.AotSmoke -c Release -r ${{ matrix.rid }} -o "$RUNNER_TEMP/smoke" -warnaserror

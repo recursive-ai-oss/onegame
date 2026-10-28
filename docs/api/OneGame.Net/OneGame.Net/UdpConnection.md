@@ -1,0 +1,193 @@
+[API reference](../../index.md) › [OneGame.Net](../index.md) › OneGame.Net
+
+# UdpConnection class
+
+**Namespace:** `OneGame.Net`  
+**Package:** [`RecursiveAI.OneGame.Net`](../index.md)  
+**Implements:** [`INetConnection`](INetConnection.md), [`IMessageChannel`](../../OneGame.Sync/OneGame.Sync/IMessageChannel.md)
+
+```csharp
+public sealed class UdpConnection : INetConnection, IMessageChannel
+```
+
+One reliable-UDP connection, either the client end made by [`UdpTransport.Connect()`](UdpTransport.md#m-connect-ipendpoint-udpoptions-netclock) or a server end handed out by a [`UdpListener`](UdpListener.md). Messages are whole, ordered and reliable; unreliable messages are available beside them.
+
+## Properties
+
+| Member | Description |
+| --- | --- |
+| [`CloseInfo`](#m-closeinfo) | Why the connection closed; [`DisconnectReason.None`](DisconnectReason.md#m-none) until then. |
+| [`MaxUnreliableBytes`](#m-maxunreliablebytes) | Largest message [`UdpConnection.SendUnreliable()`](UdpConnection.md#m-sendunreliable-readonlyspan-byte) accepts. |
+| [`RemoteName`](#m-remotename) | The peer's address, as text, for logs. |
+| [`State`](#m-state) | Current state. |
+| [`Stats`](#m-stats) | A snapshot of the counters. |
+
+### <a id="m-closeinfo"></a>CloseInfo
+
+```csharp
+public DisconnectInfo CloseInfo { get; }
+```
+
+Why the connection closed; [`DisconnectReason.None`](DisconnectReason.md#m-none) until then.
+
+**Type:** [`DisconnectInfo`](DisconnectInfo.md)
+
+### <a id="m-maxunreliablebytes"></a>MaxUnreliableBytes
+
+```csharp
+public int MaxUnreliableBytes { get; }
+```
+
+Largest message [`UdpConnection.SendUnreliable()`](UdpConnection.md#m-sendunreliable-readonlyspan-byte) accepts.
+
+**Type:** `int`
+
+### <a id="m-remotename"></a>RemoteName
+
+```csharp
+public string RemoteName { get; }
+```
+
+The peer's address, as text, for logs.
+
+**Type:** `string`
+
+### <a id="m-state"></a>State
+
+```csharp
+public ConnectionState State { get; }
+```
+
+Current state.
+
+**Type:** [`ConnectionState`](ConnectionState.md)
+
+### <a id="m-stats"></a>Stats
+
+```csharp
+public NetStats Stats { get; }
+```
+
+A snapshot of the counters.
+
+**Type:** [`NetStats`](NetStats.md)
+
+## Events
+
+| Member | Description |
+| --- | --- |
+| [`Connected`](#m-connected) | Raised once when the handshake completes. |
+| [`Disconnected`](#m-disconnected) | Raised once when the connection closes, with the reason. |
+
+### <a id="m-connected"></a>Connected
+
+```csharp
+public event Action<INetConnection>? Connected;
+```
+
+Raised once when the handshake completes.
+
+**Type:** [`Action`](https://learn.microsoft.com/dotnet/api/system.action-1)&lt;[`INetConnection`](INetConnection.md)&gt;?
+
+### <a id="m-disconnected"></a>Disconnected
+
+```csharp
+public event Action<INetConnection, DisconnectInfo>? Disconnected;
+```
+
+Raised once when the connection closes, with the reason.
+
+**Type:** [`Action`](https://learn.microsoft.com/dotnet/api/system.action-2)&lt;[`INetConnection`](INetConnection.md), [`DisconnectInfo`](DisconnectInfo.md)&gt;?
+
+## Methods
+
+| Member | Description |
+| --- | --- |
+| [`Disconnect(DisconnectReason, bool)`](#m-disconnect-disconnectreason-bool) | Closes the connection and tells the peer why. |
+| [`Pump()`](#m-pump) | Reads and writes whatever the socket allows right now. |
+| [`Send(ReadOnlySpan<byte>)`](#m-send-readonlyspan-byte) | Queues a message for the other end. |
+| [`SendUnreliable(ReadOnlySpan<byte>)`](#m-sendunreliable-readonlyspan-byte) | Sends a message that may be lost, duplicated-and-dropped, or arrive out of order. |
+| [`TryReceive(out ReadOnlySpan<byte>)`](#m-tryreceive-readonlyspan-byte) | Takes the next message, or returns false if none is waiting. |
+| [`TryReceiveUnreliable(out ReadOnlySpan<byte>)`](#m-tryreceiveunreliable-readonlyspan-byte) | Takes the next unreliable message. |
+
+### <a id="m-disconnect-disconnectreason-bool"></a>Disconnect(DisconnectReason, bool)
+
+```csharp
+public void Disconnect(DisconnectReason reason = 1, bool flush = false);
+```
+
+Closes the connection and tells the peer why.
+
+**Parameters**
+
+- `reason` ([`DisconnectReason`](DisconnectReason.md)): The reason the peer will see.
+- `flush` (`bool`): Keep pumping until queued messages are acknowledged (or a short linger ends) before closing.
+
+### <a id="m-pump"></a>Pump()
+
+```csharp
+public void Pump();
+```
+
+Reads and writes whatever the socket allows right now. Connections made by `Connect` must be pumped by their owner; connections handed out by a listener are pumped by the listener (calling this on them is harmless).
+
+### <a id="m-send-readonlyspan-byte"></a>Send(ReadOnlySpan&lt;byte&gt;)
+
+```csharp
+public void Send(ReadOnlySpan<byte> message);
+```
+
+Queues a message for the other end.
+
+**Parameters**
+
+- `message` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`)
+
+**Exceptions**
+
+- [`MessageTooLargeException`](MessageTooLargeException.md): The message exceeds [`UdpOptions.MaxMessageBytes`](UdpOptions.md#m-maxmessagebytes).
+- [`ArgumentException`](https://learn.microsoft.com/dotnet/api/system.argumentexception): The message is larger than [`Loopback.MaxMessageBytes`](../../OneGame.Sync/OneGame.Sync/Loopback.md#m-maxmessagebytes).
+
+### <a id="m-sendunreliable-readonlyspan-byte"></a>SendUnreliable(ReadOnlySpan&lt;byte&gt;)
+
+```csharp
+public void SendUnreliable(ReadOnlySpan<byte> message);
+```
+
+Sends a message that may be lost, duplicated-and-dropped, or arrive out of order. It must fit one datagram ([`UdpConnection.MaxUnreliableBytes`](UdpConnection.md#m-maxunreliablebytes)) and is sent once, never repeated.
+
+**Parameters**
+
+- `message` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`)
+
+**Exceptions**
+
+- [`MessageTooLargeException`](MessageTooLargeException.md): The message does not fit one datagram.
+
+### <a id="m-tryreceive-readonlyspan-byte"></a>TryReceive(out ReadOnlySpan&lt;byte&gt;)
+
+```csharp
+public bool TryReceive(out ReadOnlySpan<byte> message);
+```
+
+Takes the next message, or returns false if none is waiting. The span is valid until the next call to this method.
+
+**Parameters**
+
+- `message` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`)
+
+**Returns:** `bool`
+
+### <a id="m-tryreceiveunreliable-readonlyspan-byte"></a>TryReceiveUnreliable(out ReadOnlySpan&lt;byte&gt;)
+
+```csharp
+public bool TryReceiveUnreliable(out ReadOnlySpan<byte> message);
+```
+
+Takes the next unreliable message. The span is valid until the next call.
+
+**Parameters**
+
+- `message` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`)
+
+**Returns:** `bool`

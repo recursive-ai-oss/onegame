@@ -89,6 +89,7 @@
     <Project Path="tests/OneGame.Windowed.Tests/OneGame.Windowed.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
+    <Project Path="tools/OneGame.ApiDocs/OneGame.ApiDocs.csproj" />
     <Project Path="tools/OneGame.Corpus/OneGame.Corpus.csproj" />
     <Project Path="tools/OneGame.VkBindGen/OneGame.VkBindGen.csproj" />
   </Folder>

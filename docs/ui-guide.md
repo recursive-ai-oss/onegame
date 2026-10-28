@@ -848,3 +848,7 @@ the right tool for boxes and display-list goldens.
 - **Percent lengths** are of the containing box; `Length.Ui` follows the UI scale and `Length.Px` does not. Mixing them is how a layout breaks at 4K.
 - **Selectors with combinators** restyle subtrees when state changes: fine for screens, avoid on thousands of rows.
 - **A hidden element is gone:** `IsVisible = false` removes it from layout, input and focus; `Visibility(Hidden)` keeps its space.
+
+## Reference
+
+The types used here are in the API reference: [OneGame.UI](api/OneGame.UI/index.md) for the tree, styling and layout, [OneGame.UI.Kit](api/OneGame.UI.Kit/index.md) for the components.

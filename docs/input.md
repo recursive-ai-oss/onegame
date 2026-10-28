@@ -85,3 +85,7 @@ steps:
 ```
 
 Changes show after the next `step:`. Expectations also take `pressed`, `released` and `y`. The control operation `actions` lists every action with its state and bindings, and can drive one (`name`, `state` of `tap`, `down` or `up`) or switch `contexts`; `input_pad` presses buttons and moves axes on the virtual pad.
+
+## Reference
+
+The input types are in the API reference: [OneGame.Platform](api/OneGame.Platform/index.md) (`ActionMap` and the devices).

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>onegame-apidocs</AssemblyName>
+    <RootNamespace>OneGame.ApiDocs</RootNamespace>
+    <Description>Writes the Markdown API reference in docs/api from the built assemblies and their XML documentation.</Description>
+    <IsPackable>false</IsPackable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>
