@@ -159,7 +159,7 @@ public class WorldTests
     }
 
     [Fact]
-    public void IdleAndWalkingTicksAllocateNothingAndSearchingTicksAreMeasured()
+    public void IdleWalkingAndSearchingTicksAllocateNothing()
     {
         UseLevel(20);
         var world = Populated();
@@ -181,11 +181,10 @@ public class WorldTests
             perTick.Add(GC.GetAllocatedBytesForCurrentThread() - before);
         }
 
-        // A tick that stays in the search costs the search library's one result object (64 bytes); the state, the hash and the entity add
-        // nothing. The tick that finishes also copies the path out (once per search).
+        // A tick that stays in the search allocates nothing (the sliced search reuses its buffers). The tick that finishes copies the path out, once per search.
         TestContext.Current.SendDiagnosticMessage($"searching: {perTick.Count} ticks, in-search ticks {string.Join("/", perTick.Take(perTick.Count - 1).Distinct())} B, finishing tick {perTick[^1]} B");
         Assert.True(perTick.Count > 15);
-        Assert.All(perTick.Take(perTick.Count - 1), b => Assert.Equal(64, b));
+        Assert.All(perTick.Take(perTick.Count - 1), b => Assert.Equal(0, b));
 
         // Walking: the unit moves, its state is re-assigned, nothing is allocated.
         world.Step();

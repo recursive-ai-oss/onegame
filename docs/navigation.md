@@ -1,6 +1,6 @@
 # Navigation
 
-`OneGame.Navigation` finds paths on a grid for units whose positions are `Fixed` numbers, in a way that is the same on every node, keeps its state in the world (so saves, replays and replicas carry it), and spreads long searches over ticks. It is built on [OnePath](https://www.nuget.org/packages/RecursiveAI.OnePath): grids, A\*, jump point search, Theta\* and the repairing search come from there. Reference it from a game with `RecursiveAI.OneGame.Navigation` (in a checkout: a project reference to `src/OneGame.Navigation`). The example `examples/pathing` shows all of it in one file.
+`OneGame.Navigation` finds paths on a grid for units whose positions are `Fixed` numbers, in a way that is the same on every node, keeps its state in the world (so saves, replays and replicas carry it), and spreads long searches over ticks. It is built on [OnePath](https://www.nuget.org/packages/RecursiveAI.OnePath): grids, A\*, jump point search, Theta\* and the repairing search come from there. Reference it from a game with `RecursiveAI.OneGame.Navigation` (in a checkout: a project reference to `src/OneGame.Navigation`). It is not part of the default game template or `Game.targets`: a game that wants paths adds it, and OnePath comes with it. It is published as a prerelease (`<engine version>-preview.N`) because OnePath is one; the other engine packages stay stable and never depend on it. The example `examples/pathing` shows all of it in one file.
 
 ```csharp
 using OneGame.Navigation;
@@ -61,7 +61,7 @@ public partial class Unit : Entity
 ```
 
 - **Statuses:** `Idle`, `Searching`, `Found`, `NoPath`, `StartInvalid`, `GoalInvalid`, `Arrived`. A unit wider than one cell is placed by its top-left cell; a goal too close to the edge for its width is `GoalInvalid`.
-- **Budget.** `Advance(ref state, map, budget)` spends at most `budget` search iterations (queue pops; counted, never timed). Any split of the same total gives the same search, so the budget changes when the path arrives, never which path it is. A tick that stays in the search allocates 64 bytes (OnePath's per-call result); a tick that finishes copies the path out once; walking and idle ticks allocate nothing.
+- **Budget.** `Advance(ref state, map, budget)` spends at most `budget` search iterations (queue pops; counted, never timed). Any split of the same total gives the same search, so the budget changes when the path arrives, never which path it is. Ticks that stay in the search allocate nothing; the tick that finishes copies the path out once; walking and idle ticks allocate nothing.
 - **The map changed.** `NavState` remembers `NavGrid.Stamp`, a hash of every cell and area cost. When it differs, a `Found`, `NoPath` or `Searching` state restarts from `Start`, which follows the unit as it passes waypoints. This also catches a change made before a restore.
 - **Save, restore, replicas, drift.** Because `Nav` is synced state it goes through snapshots, deltas and the world hash like any property. A restore needs nothing else: a search in progress is stored as its start, goal and iterations spent, and the searcher rebuilds the identical search by replaying those iterations when it meets a state it does not recognise (`NavSearcher.Rebuilds` counts that). A replica shows the path and never searches.
 - **Hostile saves.** `NavState.Read` rejects impossible values (it never throws), and `Advance` and `Follow` drop a state whose cells do not fit the grid (`StartInvalid`, `GoalInvalid`, `NoPath`) rather than reading outside it.
@@ -77,4 +77,4 @@ While the debug overlay is on (F3, or `overlay: on` in a scenario) `Draw2D.Debug
 
 ## Not covered yet
 
-Hex and voxel grids, navigation meshes, crowds with avoidance and flow fields are OnePath features that have no wrapper here: they need either doubles in state (crowds, meshes) or their own save formats. Reach them through `NavGrid.Grid` outside sim code, or ask for the wrapper.
+Hex and voxel grids, navigation meshes, crowds with avoidance and flow fields are OnePath features that have no wrapper here. Crowds and meshes keep their state as doubles, so a crowd in the world would need a save format of its own (OnePath writes byte-exact snapshots, but a unit-by-unit state that the hash covers would still have to be defined first). Reach them through `NavGrid.Grid` outside sim code, or ask for the wrapper.

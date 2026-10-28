@@ -6,7 +6,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Added
 
-- `RecursiveAI.OneGame.Navigation`: grid pathfinding on `Fixed` positions for sim code, built on OnePath. `NavGrid`, one-shot `FindPath`, and `NavState` (a synced value) with `NavSearcher` for searches spread over ticks, saved and restored with the world and covered by the state hash; walking with `NavState.Follow`; `NavRangeException` for positions beyond +-2^21. See `docs/navigation.md` and `examples/pathing`.
+- `RecursiveAI.OneGame.Navigation`: grid pathfinding on `Fixed` positions for sim code, built on OnePath 0.4. Published as a prerelease (`<engine version>-preview.N`), so no stable package depends on it. `NavGrid`, one-shot `FindPath`, and `NavState` (a synced value) with `NavSearcher` for searches spread over ticks, saved and restored with the world and covered by the state hash; walking with `NavState.Follow`; `NavRangeException` for positions beyond +-2^21. See `docs/navigation.md` and `examples/pathing`.
 - `Draw2D.DebugVisible`: true while the development overlay is shown, so views can draw debug geometry such as navigation paths.
 
 ## [1.10.0] - 2026-10-28

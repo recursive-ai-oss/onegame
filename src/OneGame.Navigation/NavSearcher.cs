@@ -1,4 +1,5 @@
 using RecursiveAI.OnePath;
+using RecursiveAI.OnePath.Grids;
 
 namespace OneGame.Navigation;
 
@@ -17,7 +18,9 @@ namespace OneGame.Navigation;
 /// </summary>
 public sealed class NavSearcher
 {
-    private GridReplanner? _replanner;
+    private AStar<SquareTopology, DefaultStepCost, OctileHeuristic>? _search;
+    private GridSearchBuffers? _buffers;
+    private Grid? _copy;
     private NavGrid? _grid;
     private int _start;
     private int _goal;
@@ -117,15 +120,15 @@ public sealed class NavSearcher
         }
 
         var result = Run(s, grid, budget);
-        var spent = (int)Math.Min(int.MaxValue, _replanner?.TotalIterations ?? s.Spent);
-        switch (result.Status)
+        var spent = _search?.Iterations ?? s.Spent;
+        switch (result)
         {
             case PathStatus.BudgetExhausted:
                 _spent = spent;
                 state = s.With(NavStatus.Searching, spent, 0, null, s.Stamp);
                 return true;
             case PathStatus.Found:
-                var cells = Store(result, grid, out var tooLong);
+                var cells = Store(out var tooLong);
                 Drop();
                 state = tooLong
                     ? s.With(NavStatus.NoPath, 0, 0, null, s.Stamp)
@@ -146,58 +149,81 @@ public sealed class NavSearcher
         }
     }
 
-    private GridPath Run(NavState s, NavGrid grid, int budget)
+    private PathStatus Run(NavState s, NavGrid grid, int budget)
     {
-        if (_replanner is null || !ReferenceEquals(_grid, grid) || _start != s.Start || _goal != s.Goal || _spent != s.Spent || _options != s.Options)
+        if (_search is null || !ReferenceEquals(_grid, grid) || _start != s.Start || _goal != s.Goal || _spent != s.Spent || _options != s.Options)
         {
             // Not the search this state came from (a restore, a load, another grid): rebuild it by replaying the iterations it had spent.
-            // Any split of the same total gives the same search, so this is the search that would have been there.
+            // A sliced search is the unsliced one split up, so any split of the same total gives the same search.
             Drop();
             Rebuilds++;
-            var start = grid.CellAt(s.Start);
-            var goal = grid.CellAt(s.Goal);
-            var copy = Grid.From(grid.Grid.Cells, grid.Width, grid.Height);
-            copy.Areas.CopyFrom(grid.Grid.Areas);
-            _replanner = copy.CreateReplanner(new Cell(start.X, start.Y), new Cell(goal.X, goal.Y), NavGrid.ToGridOptions(s.Options, GridAlgorithm.DStarLite));
+            _copy = Grid.From(grid.Grid.Cells, grid.Width, grid.Height);
+            _copy.Areas.CopyFrom(grid.Grid.Areas);
+            var count = grid.Width * grid.Height;
+            if (_buffers is null || _buffers.NodeCapacity < count)
+            {
+                _buffers = new GridSearchBuffers(count);
+            }
+
+            var o = NavGrid.ToGridOptions(s.Options, GridAlgorithm.AStar);
+            var topology = _copy.CreateTopology(o.AgentSize, o.Connectivity, o.Diagonals);
+            _search = new AStar<SquareTopology, DefaultStepCost, OctileHeuristic>(topology, default, new OctileHeuristic(grid.Width, _copy.Areas.MinCost), _buffers);
             _grid = grid;
             _start = s.Start;
             _goal = s.Goal;
             _options = s.Options;
             _spent = 0;
+            if (!topology.IsWalkable(s.Start))
+            {
+                return PathStatus.StartInvalid;
+            }
+
+            if (!topology.IsWalkable(s.Goal))
+            {
+                return PathStatus.GoalInvalid;
+            }
+
+            _search.Begin(s.Start, s.Goal);
+
             if (s.Spent > 0)
             {
-                var replay = _replanner.Replan(s.Spent);
-                if (replay.Status != PathStatus.BudgetExhausted)
+                var replay = _search.Step(s.Spent);
+                if (replay != SearchStatus.Running)
                 {
-                    return replay;
+                    return ToPathStatus(replay);
                 }
             }
         }
 
-        return _replanner.Replan(budget);
+        return ToPathStatus(_search.Step(budget));
     }
 
-    private static int[] Store(GridPath result, NavGrid grid, out bool tooLong)
+    private static PathStatus ToPathStatus(SearchStatus status) => status switch
     {
-        var src = result.Cells;
-        tooLong = src.Length > NavLimits.MaxPathCells;
+        SearchStatus.Running => PathStatus.BudgetExhausted,
+        SearchStatus.Found => PathStatus.Found,
+        _ => PathStatus.NoPath,
+    };
+
+    // Nodes are already row-major cell indices, which is how a state stores a path.
+    private int[] Store(out bool tooLong)
+    {
+        var length = _search!.PathLength();
+        tooLong = length > NavLimits.MaxPathCells;
         if (tooLong)
         {
             return [];
         }
 
-        var cells = new int[src.Length];
-        for (var i = 0; i < cells.Length; i++)
-        {
-            cells[i] = (src[i].Y * grid.Width) + src[i].X;
-        }
-
+        var cells = new int[length];
+        _search.CopyPath(cells);
         return cells;
     }
 
     private void Drop()
     {
-        _replanner = null;
+        _search = null;
+        _copy = null;
         _grid = null;
     }
 }
