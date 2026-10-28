@@ -207,8 +207,15 @@ public class SecureWebSocketTests
         Assert.Equal(DisconnectReason.HandshakeFailed, s.CloseInfo.Reason);
     }
 
+    internal static (SecureConnection Server, MemConn Wire) NewServer()
+    {
+        var (a, b) = MemConn.Pair();
+        var clock = NetClock.System;
+        return (SecureConnection.ForServer(b, ServerSec(), Opt(ServerSec()), clock, new HandshakeBudget(clock, 1_000_000, 1_000_000)), a);
+    }
+
     // A hand-driven client: speaks the handshake itself so tests can send exactly the records they want.
-    private sealed class Hand
+    internal sealed class Hand
     {
         public readonly MemConn Wire;
         public readonly SecureConnection Server;
@@ -235,6 +242,12 @@ public class SecureWebSocketTests
             Assert.True(Wire.TryReceive(out var reply));
             Assert.True(hs.ReadReply(reply[1..], new byte[64], out _));
             hs.Finish(out Send, out Recv);
+        }
+
+        public void ConfirmNow()
+        {
+            Record(SecureConnection.FlagConfirm, default);
+            Server.Pump();
         }
 
         public static byte[] Bind(ReadOnlySpan<byte> nonce)
