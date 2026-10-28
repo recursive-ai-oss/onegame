@@ -56,7 +56,8 @@ static class Program
                 Console.Error.WriteLine($"missing build output for {name}: {dll} (build the solution in Release first)");
                 return 2;
             }
-            var info = new AssemblyInfo { Name = name, Package = package, Description = description };
+            bool prerelease = Regex.IsMatch(text, @"<Version>\$\(Version\)-[^<]+</Version>");
+            var info = new AssemblyInfo { Name = name, Package = package, Description = description, Prerelease = prerelease };
             foreach (XElement mem in XDocument.Load(xml).Descendants("member"))
                 if ((string?)mem.Attribute("name") is { } id) info.Docs[id] = mem;
             AssemblyReader.Read(dll, info);

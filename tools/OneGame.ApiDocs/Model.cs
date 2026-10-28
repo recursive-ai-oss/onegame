@@ -61,6 +61,8 @@ sealed class AssemblyInfo
     public required string Name { get; init; }
     public required string Package { get; init; }
     public required string Description { get; init; }
+    /// <summary>The package is published only as a prerelease (its project appends a suffix to the engine version).</summary>
+    public bool Prerelease { get; init; }
     public List<TypeInfo> Types { get; } = [];
     public Dictionary<string, XElement> Docs { get; } = new(StringComparer.Ordinal);
 }

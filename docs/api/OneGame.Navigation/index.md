@@ -2,12 +2,12 @@
 
 # OneGame.Navigation
 
-Pathfinding for deterministic simulations: grid searches on fixed-point positions, budgeted over several ticks, with state that is saved, restored and hashed with the world.
+Preview, built on a preview of OnePath: the API may change before it is stable. Pathfinding for deterministic simulations: grid searches on fixed-point positions, budgeted over several ticks, with state that is saved, restored and hashed with the world.
 
 **Package:** `RecursiveAI.OneGame.Navigation`
 
 ```sh
-dotnet add package RecursiveAI.OneGame.Navigation
+dotnet add package RecursiveAI.OneGame.Navigation --prerelease
 ```
 
 ## OneGame.Navigation

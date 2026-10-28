@@ -279,7 +279,7 @@ sealed class Pages
         var sb = new StringBuilder();
         sb.Append("[API reference](../index.md) › ").Append(a.Name).Append("\n\n# ").Append(a.Name).Append("\n\n");
         sb.Append(Md.Escape(a.Description)).Append("\n\n");
-        sb.Append("**Package:** ").Append(Md.Code(a.Package)).Append("\n\n```sh\ndotnet add package ").Append(a.Package).Append("\n```\n\n");
+        sb.Append("**Package:** ").Append(Md.Code(a.Package)).Append("\n\n```sh\ndotnet add package ").Append(a.Package).Append(a.Prerelease ? " --prerelease" : "").Append("\n```\n\n");
         TypeInfo[] types = [.. All(a.Types)];
         if (types.Length == 0) sb.Append("This package has no public .NET API: it ships a command or build files, which the guides describe.\n");
         foreach (var g in types.GroupBy(t => t.Namespace).OrderBy(g => g.Key, StringComparer.Ordinal))
