@@ -17,6 +17,10 @@ Crowds as synced state in `RecursiveAI.OneGame.Navigation` (1.13.0-preview.1, st
 - `OneGame.Navigation` moves to OnePath 0.5.0-preview.1: searches run on `GridSearch`, path costs are OnePath's exact Q31.32 values, and `NavGrid.Stamp` is `Grid.ContentHash`. A `NavState` saved by 1.12 still loads; its map stamp differs, so a path or search from such a save is found again from where the unit stands.
 - CI checks that root motion bakes to the same fixed-point numbers on Linux, Windows and WebAssembly, and runs the hot reload check on Windows as well as Linux.
 
+### Fixed
+
+- Web runs (`onegame web test`, the web export check) start headless Chrome reliably on a busy machine: Chrome picks its own debugging port, start-up waits longer and retries, and a failed start prints Chrome's own output.
+
 ## [1.12.0] - 2026-10-28
 
 A 3D animation layer for characters: blend spaces, a state machine animator, root motion and two-bone IK on glTF clips. `RecursiveAI.OneGame.Navigation` moves to 1.12.0-preview.1.
