@@ -10,7 +10,7 @@ namespace OneGame.Pages.Tests;
 /// <summary>A game whose one screen is a form: a checkbox and a button, with the checkbox set (and the button focused) from <c>Setup</c> or from markup.</summary>
 public sealed class FormGame : GameDefinition
 {
-    private const string Body = """<body style="margin:0;font:16px Body;background:#203040"><label style="position:absolute;left:10px;top:10px"><input id="box" type="checkbox"@checked> Option</label><button id="go" style="position:absolute;left:10px;top:50px;width:80px;height:30px">Go</button></body>""";
+    private const string Body = """<body style="margin:0;font:16px Body;background:#203040"><label style="position:absolute;left:10px;top:10px"><input id="box" type="checkbox"@checked> Option</label><style>#rg{position:absolute;left:100px;top:10px;width:90px;height:20px;appearance:none;background:transparent} #rg::-webkit-slider-runnable-track{height:6px;background:#444} #rg::-webkit-slider-thumb{appearance:none;width:16px;height:16px;border-radius:50%;background:#ccc;margin-top:-5px} #rg:hover::-webkit-slider-thumb{background:#fff} #rg:active::-webkit-slider-thumb{background:#999}</style><button id="go" style="position:absolute;left:10px;top:50px;width:80px;height:30px">Go</button><input id="rg" type="range" min="0" max="10" value="5"></body>""";
 
     public bool InSetup { get; init; }
 
@@ -134,6 +134,36 @@ public class SetupTests
         var per = (GC.GetAllocatedBytesForCurrentThread() - before) / 20;
         Console.WriteLine($"BYTES-PER-STYLE-CHANGE {per}");
         Assert.True(per < 4_000_000);
+    }
+
+    [Fact]
+    public void APointerMovingOverAThumbWithAHoverRuleAllocatesNothing()
+    {
+        using var cluster = TestCluster.Start(new FormGame { InSetup = true }, new TestOptions { Width = 200, Height = 100, Gpu = GpuMode.Auto });
+        var c = cluster.Client;
+        c.Step(2);
+        var pages = c.Game.Pages;
+        void Sweep()
+        {
+            for (var x = 95; x < 195; x++)
+            {
+                pages.SendPointer(OneRender.Interaction.PointerAction.Move, x, 20 + (x & 1));
+            }
+        }
+
+        for (var i = 0; i < 20; i++)
+        {
+            Sweep();
+        }
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < 10; i++)
+        {
+            Sweep();
+        }
+
+        Console.WriteLine($"BYTES-PER-MOVE {(GC.GetAllocatedBytesForCurrentThread() - before) / 1000}");
+        Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < 1000, "1,000 moves allocated more than noise");
     }
 
     private static string Focused(PageScreen page)

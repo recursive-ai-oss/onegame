@@ -137,6 +137,8 @@ internal static class SettingsPage
             input[type=range]{flex:none;width:320px;height:20px;appearance:none;background:transparent;--fill:0%}
             input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;box-sizing:border-box;background:linear-gradient(to right,@accent 0,@accent var(--fill),@trackbg var(--fill),@trackbg 100%)}
             input[type=range]::-webkit-slider-thumb{appearance:none;width:16px;height:16px;margin-top:-5px;border-radius:50%;background:#f2f4f7;border:2px solid @accent;box-sizing:border-box}
+            input[type=range]:hover::-webkit-slider-thumb{border-color:@accentHover;background:#ffffff}
+            input[type=range]:active::-webkit-slider-thumb{border-color:@accentHover;background:#d9dde4}
             .end{color:@dim;font-size:13px}
             .value{width:24px;text-align:right;font-weight:700}
             input:focus{outline:2px solid @focus;outline-offset:2px}
