@@ -11,6 +11,30 @@ public abstract class GameDefinition
 
 What a game is, as far as the host cares: its entity types, how its world starts, its screens and its named fixtures. A game derives from this once and hands an instance to [`GameApp.Run()`](GameApp.md#m-run-gamedefinition-string).
 
+**Example**
+
+The smallest game: one entity type, one screen.
+
+```csharp
+public sealed class CounterGame : GameDefinition
+{
+    public override string Name => "counter";
+
+    public override void RegisterEntities(EntityRegistry registry) =>
+        OneGame.Generated.Counter.EntityTypes.Register(registry);   // generated for the game's assembly
+
+    public override void Setup(World world) => world.Add(new Counter());
+
+    public override void DefineScreens(ScreenSet screens) =>
+        screens.Add("main", game => Ui.Label(() => ((Counter)game.World.Entities[0]).Label()));
+}
+
+internal static class Program
+{
+    internal static int Main(string[] args) => GameApp.Run(new CounterGame(), args);
+}
+```
+
 ## Constructors
 
 | Member | Description |
@@ -112,7 +136,7 @@ The stage that draws each frame. The default is the 2D renderer when the game ha
 
 **Parameters**
 
-- `resources` ([`HostResources`](HostResources.md))
+- `resources` ([`HostResources`](HostResources.md)): The fonts, art and device-independent resources the stage may use.
 
 **Returns:** [`IRenderStage`](IRenderStage.md)
 
@@ -126,9 +150,9 @@ Where this game keeps its saves and settings, when it wants something other than
 
 **Parameters**
 
-- `game` ([`GameInstance`](GameInstance.md))
+- `game` ([`GameInstance`](GameInstance.md)): The instance asking; its options say whether this run should persist.
 
-**Returns:** [`IByteStore`](../../OneGame.Core/OneGame.Storage/IByteStore.md)?
+**Returns:** [`IByteStore`](../../OneGame.Core/OneGame.Storage/IByteStore.md)? — The store to use, or null for the default (see [`GameStorage.Create()`](GameStorage.md#m-create-string-gameoptions)).
 
 ### <a id="m-defineactions-actionmap"></a>DefineActions(ActionMap)
 
@@ -140,7 +164,7 @@ Declares the game's input actions (buttons, axes and vectors with default bindin
 
 **Parameters**
 
-- `actions` ([`ActionMap`](../../OneGame.Platform/OneGame.Platform/ActionMap.md))
+- `actions` ([`ActionMap`](../../OneGame.Platform/OneGame.Platform/ActionMap.md)): The map to declare contexts, actions and default bindings on.
 
 ### <a id="m-defineart-artatlas"></a>DefineArt(ArtAtlas)
 
@@ -152,7 +176,7 @@ Registers SVG and image art the UI refers to by id.
 
 **Parameters**
 
-- `art` ([`ArtAtlas`](../../OneGame.Atlas/OneGame.Atlas/ArtAtlas.md))
+- `art` ([`ArtAtlas`](../../OneGame.Atlas/OneGame.Atlas/ArtAtlas.md)): The atlas to register SVG and image sources on, each under the id the UI refers to it by.
 
 ### <a id="m-definefixtures-fixtureset"></a>DefineFixtures(FixtureSet)
 
@@ -164,7 +188,7 @@ Declares named fixtures: ready-made worlds that tests and live control can load 
 
 **Parameters**
 
-- `fixtures` ([`FixtureSet`](FixtureSet.md))
+- `fixtures` ([`FixtureSet`](FixtureSet.md)): Add each fixture with [`FixtureSet.Add()`](FixtureSet.md#m-add-string-action-world).
 
 ### <a id="m-definefonts-fontlibrary"></a>DefineFonts(FontLibrary)
 
@@ -176,7 +200,7 @@ Loads the game's fonts. The default reads every `.ttf` and `.otf` file in a `fon
 
 **Parameters**
 
-- `fonts` ([`FontLibrary`](../../OneGame.Text/OneGame.Text/FontLibrary.md))
+- `fonts` ([`FontLibrary`](../../OneGame.Text/OneGame.Text/FontLibrary.md)): Add font faces to it; the first family added is the default.
 
 ### <a id="m-definescreens-screenset"></a>DefineScreens(ScreenSet)
 
@@ -188,7 +212,7 @@ Declares the screens. A screen named `main` is shown at start; others open with 
 
 **Parameters**
 
-- `screens` ([`ScreenSet`](ScreenSet.md))
+- `screens` ([`ScreenSet`](ScreenSet.md)): Add each screen with [`ScreenSet.Add()`](ScreenSet.md#m-add-string-func-gameinstance-element). A screen builder runs every time the screen opens and returns the root [`Element`](../../OneGame.UI/OneGame.UI/Element.md).
 
 ### <a id="m-oneachframe-gameinstance"></a>OnEachFrame(GameInstance)
 
@@ -200,7 +224,7 @@ Called at the start of every frame of every game, local or connected, right afte
 
 **Parameters**
 
-- `game` ([`GameInstance`](GameInstance.md))
+- `game` ([`GameInstance`](GameInstance.md)): The running game. This is view code: read the world and the actions, and send commands; do not write synced state.
 
 ### <a id="m-onframe-gameinstance"></a>OnFrame(GameInstance)
 
@@ -212,7 +236,7 @@ Called once per frame of a game connected to a server, after the network was pum
 
 **Parameters**
 
-- `game` ([`GameInstance`](GameInstance.md))
+- `game` ([`GameInstance`](GameInstance.md)): The running game.
 
 ### <a id="m-oninput-gameinstance-platformevent"></a>OnInput(GameInstance, in PlatformEvent)
 
@@ -224,8 +248,8 @@ Called for an input event the UI did not consume, such as a click on empty space
 
 **Parameters**
 
-- `game` ([`GameInstance`](GameInstance.md))
-- `input` ([`PlatformEvent`](../../OneGame.Platform/OneGame.Platform/PlatformEvent.md))
+- `game` ([`GameInstance`](GameInstance.md)): The running game.
+- `input` ([`PlatformEvent`](../../OneGame.Platform/OneGame.Platform/PlatformEvent.md)): The event: a key, pointer, touch or gamepad change in screen pixels.
 
 ### <a id="m-registerentities-entityregistry"></a>RegisterEntities(EntityRegistry)
 
@@ -237,7 +261,7 @@ Registers every entity type, normally with the generated `EntityTypes.Register(r
 
 **Parameters**
 
-- `registry` ([`EntityRegistry`](../../OneGame.Core/OneGame.Core/EntityRegistry.md))
+- `registry` ([`EntityRegistry`](../../OneGame.Core/OneGame.Core/EntityRegistry.md)): Receives the entity types; add every type the game can save or sync.
 
 ### <a id="m-registersystems-world"></a>RegisterSystems(World)
 
@@ -249,7 +273,7 @@ Adds systems and hot-data tables to a new world. Runs before [`GameDefinition.Se
 
 **Parameters**
 
-- `world` ([`World`](../../OneGame.Core/OneGame.Core/World.md))
+- `world` ([`World`](../../OneGame.Core/OneGame.Core/World.md)): The new world. Add systems and tables in the same order on every node.
 
 ### <a id="m-setup-world"></a>Setup(World)
 
@@ -261,7 +285,7 @@ Creates the starting entities of a new game.
 
 **Parameters**
 
-- `world` ([`World`](../../OneGame.Core/OneGame.Core/World.md))
+- `world` ([`World`](../../OneGame.Core/OneGame.Core/World.md)): An empty authority world with the systems already registered. Runs for every new game, not when a save is loaded.
 
 ### <a id="m-style-uitree"></a>Style(UiTree)
 
@@ -273,4 +297,4 @@ Adds style sheets to the UI tree before the first screen is built.
 
 **Parameters**
 
-- `ui` ([`UiTree`](../../OneGame.UI/OneGame.UI/UiTree.md))
+- `ui` ([`UiTree`](../../OneGame.UI/OneGame.UI/UiTree.md)): The tree; add style sheets with [`UiTree.AddStyleSheet()`](../../OneGame.UI/OneGame.UI/UiTree.md#m-addstylesheet-stylesheet) or theme the kit.

@@ -10,13 +10,13 @@
 public sealed record ServerStateResult : IEquatable<ServerStateResult>
 ```
 
-Result of `hash` and `step`.
+Result of `hash` and `step`: the server tick and each scope's tick and state hash. Compare the hashes with a client's view to check for drift.
 
 ## Constructors
 
 | Member | Description |
 | --- | --- |
-| [`ServerStateResult(long, ScopeInfo[])`](#m-ctor-long-scopeinfo) | Result of `hash` and `step`. |
+| [`ServerStateResult(long, ScopeInfo[])`](#m-ctor-long-scopeinfo) | Result of `hash` and `step`: the server tick and each scope's tick and state hash. |
 
 ### <a id="m-ctor-long-scopeinfo"></a>ServerStateResult(long, ScopeInfo\[\])
 
@@ -24,25 +24,27 @@ Result of `hash` and `step`.
 public ServerStateResult(long Tick, ScopeInfo[] Scopes);
 ```
 
-Result of `hash` and `step`.
+Result of `hash` and `step`: the server tick and each scope's tick and state hash. Compare the hashes with a client's view to check for drift.
 
 **Parameters**
 
-- `Tick` (`long`)
-- `Scopes` ([`ScopeInfo`](../../OneGame.Server/OneGame.Server/ScopeInfo.md)\[\])
+- `Tick` (`long`): The server's tick count.
+- `Scopes` ([`ScopeInfo`](../../OneGame.Server/OneGame.Server/ScopeInfo.md)\[\]): One entry per hosted scope.
 
 ## Properties
 
 | Member | Description |
 | --- | --- |
-| [`Scopes`](#m-scopes) |  |
-| [`Tick`](#m-tick) |  |
+| [`Scopes`](#m-scopes) | One entry per hosted scope. |
+| [`Tick`](#m-tick) | The server's tick count. |
 
 ### <a id="m-scopes"></a>Scopes
 
 ```csharp
 public ScopeInfo[] Scopes { get; init; }
 ```
+
+One entry per hosted scope.
 
 **Type:** [`ScopeInfo`](../../OneGame.Server/OneGame.Server/ScopeInfo.md)\[\]
 
@@ -51,5 +53,7 @@ public ScopeInfo[] Scopes { get; init; }
 ```csharp
 public long Tick { get; init; }
 ```
+
+The server's tick count.
 
 **Type:** `long`

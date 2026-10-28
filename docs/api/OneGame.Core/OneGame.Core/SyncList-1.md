@@ -98,7 +98,7 @@ Adds an element at the end.
 
 **Parameters**
 
-- `item` (`T`)
+- `item` (`T`): The element.
 
 ### <a id="m-clear"></a>Clear()
 
@@ -140,7 +140,7 @@ True if both lists hold equal elements in the same order.
 
 **Parameters**
 
-- `other` ([`SyncList`](SyncList-1.md)`<T>`)
+- `other` ([`SyncList`](SyncList-1.md)`<T>`): The list to compare with.
 
 **Returns:** `bool`
 
@@ -190,8 +190,8 @@ Inserts an element.
 
 **Parameters**
 
-- `index` (`int`)
-- `item` (`T`)
+- `index` (`int`): Where the element goes, 0 to [`SyncList<T>.Count`](SyncList-1.md#m-count).
+- `item` (`T`): The element.
 
 ### <a id="m-remove-t"></a>Remove(T)
 
@@ -229,7 +229,7 @@ Replaces the contents; the engine uses it when applying received state.
 
 **Parameters**
 
-- `items` (`T[]`)
+- `items` (`T[]`): The new contents.
 
 ### <a id="m-toarray"></a>ToArray()
 

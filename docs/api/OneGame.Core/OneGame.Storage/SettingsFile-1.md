@@ -132,9 +132,9 @@ Applies settings bytes to [`SettingsFile<T>.Value`](SettingsFile-1.md#m-value) w
 
 **Parameters**
 
-- `bytes` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`)
+- `bytes` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`): The settings file's content. Untrusted input is fine; problems are reported in the result.
 
-**Returns:** [`SettingsLoad`](SettingsLoad.md)
+**Returns:** [`SettingsLoad`](SettingsLoad.md) — What was found and applied.
 
 ### <a id="m-load"></a>Load()
 

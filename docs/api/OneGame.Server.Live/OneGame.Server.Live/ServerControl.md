@@ -93,8 +93,8 @@ Runs an operation; `argsJson` is a JSON object or null.
 
 **Parameters**
 
-- `op` (`string`)
-- `argsJson` (`string?`)
+- `op` (`string`): The operation's name.
+- `argsJson` (`string?`): The arguments as a JSON object, or null.
 
 **Returns:** [`ControlResult`](../../OneGame.Control/OneGame.Control/ControlResult.md)
 

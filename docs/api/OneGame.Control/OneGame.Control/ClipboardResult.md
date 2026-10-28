@@ -28,21 +28,23 @@ Result of `clipboard_get` and `clipboard_set`. `Text` is null when the clipboard
 
 **Parameters**
 
-- `Text` (`string?`)
-- `Ok` (`bool`)
+- `Text` (`string?`): The clipboard text, or null.
+- `Ok` (`bool`): True when the clipboard is supported and the call worked.
 
 ## Properties
 
 | Member | Description |
 | --- | --- |
-| [`Ok`](#m-ok) |  |
-| [`Text`](#m-text) |  |
+| [`Ok`](#m-ok) | True when the clipboard is supported and the call worked. |
+| [`Text`](#m-text) | The clipboard text, or null. |
 
 ### <a id="m-ok"></a>Ok
 
 ```csharp
 public bool Ok { get; init; }
 ```
+
+True when the clipboard is supported and the call worked.
 
 **Type:** `bool`
 
@@ -51,5 +53,7 @@ public bool Ok { get; init; }
 ```csharp
 public string? Text { get; init; }
 ```
+
+The clipboard text, or null.
 
 **Type:** `string?`

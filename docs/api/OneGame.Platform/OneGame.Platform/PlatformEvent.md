@@ -178,7 +178,7 @@ The physical key for key events.
 public PlatformEventKind Kind { get; init; }
 ```
 
-What happened.
+What happened. It decides which of the other properties mean anything; each is documented with the kinds it is read for.
 
 **Type:** [`PlatformEventKind`](PlatformEventKind.md)
 

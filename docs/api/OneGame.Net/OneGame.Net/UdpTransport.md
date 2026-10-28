@@ -9,7 +9,34 @@
 public static class UdpTransport
 ```
 
-Creates reliable-UDP listeners and connections.
+Creates reliable-UDP listeners and connections. Nothing runs on its own: call [`INetConnection.Pump()`](INetConnection.md#m-pump) on connections you opened and [`INetListener.Pump()`](INetListener.md#m-pump) on listeners, from the thread that owns them (a game loop).
+
+**Example**
+
+```csharp
+using var listener = UdpTransport.Listen(new IPEndPoint(IPAddress.Loopback, 0));
+var port = ((IPEndPoint)listener.LocalEndPoint).Port;
+var client = UdpTransport.Connect(new IPEndPoint(IPAddress.Loopback, port));
+client.Send("hello"u8);
+INetConnection? server = null;
+while (server is null)
+{
+    client.Pump();
+    listener.Pump();
+    if (listener.TryAccept(out var accepted)) { server = accepted; }
+}
+
+ReadOnlySpan<byte> message;
+while (!server.TryReceive(out message))
+{
+    client.Pump();
+    listener.Pump();
+}
+
+Console.WriteLine(System.Text.Encoding.UTF8.GetString(message));   // hello
+
+client.Disconnect();
+```
 
 ## Methods
 
@@ -46,10 +73,10 @@ Connects through a given socket (a memory or conditioned one). The connection di
 
 **Parameters**
 
-- `socket` ([`IDatagramSocket`](IDatagramSocket.md))
-- `remote` ([`SocketAddress`](https://learn.microsoft.com/dotnet/api/system.net.socketaddress))
-- `options` ([`UdpOptions`](UdpOptions.md)?)
-- `clock` ([`NetClock`](NetClock.md)?)
+- `socket` ([`IDatagramSocket`](IDatagramSocket.md)): The datagram socket to send through.
+- `remote` ([`SocketAddress`](https://learn.microsoft.com/dotnet/api/system.net.socketaddress)): The server's address.
+- `options` ([`UdpOptions`](UdpOptions.md)?): Protocol settings; defaults if null.
+- `clock` ([`NetClock`](NetClock.md)?): Time source; the real clock if null.
 
 **Returns:** [`UdpConnection`](UdpConnection.md)
 
@@ -63,9 +90,9 @@ Starts listening on a given socket (a memory or conditioned one). The listener d
 
 **Parameters**
 
-- `socket` ([`IDatagramSocket`](IDatagramSocket.md))
-- `options` ([`UdpOptions`](UdpOptions.md)?)
-- `clock` ([`NetClock`](NetClock.md)?)
+- `socket` ([`IDatagramSocket`](IDatagramSocket.md)): The datagram socket, for example a [`ConditionedDatagramSocket`](ConditionedDatagramSocket.md) that adds latency and loss in a test.
+- `options` ([`UdpOptions`](UdpOptions.md)?): Protocol settings; defaults if null.
+- `clock` ([`NetClock`](NetClock.md)?): Time source; the real clock if null.
 
 **Returns:** [`UdpListener`](UdpListener.md)
 

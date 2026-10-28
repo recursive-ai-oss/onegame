@@ -10,7 +10,20 @@
 public sealed record ClusterSpec : IEquatable<ClusterSpec>
 ```
 
-The nodes of a process cluster and how long to wait for them.
+The nodes of a process cluster and how long to wait for them. Usually read from a YAML file ([`ClusterSpec.Load()`](ClusterSpec.md#m-load-string)); the file lists `nodes`, each a `server` (listens, owns scopes) or a `client` (a game connected to one).
+
+**Example**
+
+```csharp
+var spec = ClusterSpec.Parse("""
+    name: duel
+    nodes:
+      - { name: server, role: server, exe: bin/GameServer, listen: udp+ws, scopes: [{ id: 1, seed: 1 }] }
+      - { name: alice, role: client, exe: bin/Game, connect: server, transport: udp, scope: 1 }
+      - { name: bob, role: client, exe: bin/Game, connect: server, transport: ws, scope: 1, net: "latency=80,loss=0.02" }
+    """);
+using var cluster = TestCluster.Launch(spec);
+```
 
 ## Constructors
 
@@ -29,7 +42,7 @@ public ClusterSpec();
 | Member | Description |
 | --- | --- |
 | [`Dir`](#m-dir) | Where logs, sockets, generated files and `cluster.json` go. |
-| [`Name`](#m-name) | The cluster's name. |
+| [`Name`](#m-name) | The cluster's name; used in log and folder names. |
 | [`Nodes`](#m-nodes) | The nodes. |
 | [`StartupTimeoutMs`](#m-startuptimeoutms) | How long each node may take to come up, in milliseconds. |
 
@@ -49,7 +62,7 @@ Where logs, sockets, generated files and `cluster.json` go. A fresh temporary fo
 public string Name { get; init; }
 ```
 
-The cluster's name.
+The cluster's name; used in log and folder names.
 
 **Type:** `string`
 
@@ -77,7 +90,7 @@ How long each node may take to come up, in milliseconds.
 
 | Member | Description |
 | --- | --- |
-| [`Load(string)`](#m-load-string) | Reads a spec file. |
+| [`Load(string)`](#m-load-string) | Reads a spec YAML file (at most 1 MiB). |
 | [`Parse(string, string?)`](#m-parse-string-string) | Reads spec text. |
 | [`Validate(string?)`](#m-validate-string) | Checks the nodes against each other. |
 
@@ -87,11 +100,11 @@ How long each node may take to come up, in milliseconds.
 public static ClusterSpec Load(string path);
 ```
 
-Reads a spec file.
+Reads a spec YAML file (at most 1 MiB). Relative `exe` and `dir` paths resolve against the file's folder.
 
 **Parameters**
 
-- `path` (`string`)
+- `path` (`string`): The spec file.
 
 **Returns:** [`ClusterSpec`](ClusterSpec.md)
 

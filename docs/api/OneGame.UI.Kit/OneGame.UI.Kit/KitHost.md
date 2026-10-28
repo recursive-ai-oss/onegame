@@ -11,6 +11,17 @@ public sealed class KitHost
 
 Installs the kit into a [`UiTree`](../../OneGame.UI/OneGame.UI/UiTree.md): adds the theme, owns the tooltip layer and the input glyph bindings, and keeps the kit's notion of time. Create one per tree, call [`KitHost.Advance()`](KitHost.md#m-advance-float) once per frame with the frame time (tooltips wait for a delay, and the UI never reads a clock itself), and send input through [`KitHost.Dispatch()`](KitHost.md#m-dispatch-uievent) or straight to the tree; either way glyphs learn which device the player is using.
 
+**Example**
+
+```csharp
+private KitHost _kit = null!;
+
+public override void Style(UiTree ui) => _kit = new KitHost(ui);      // default theme and tooltip layer
+
+// In a screen builder: _kit.Tooltip(UiKit.Button("New game", Start), "Begins a fresh run").
+// Once per frame, with the seconds since the last one (for example from OnEachFrame): _kit.Advance(seconds);
+```
+
 ## Constructors
 
 | Member | Description |

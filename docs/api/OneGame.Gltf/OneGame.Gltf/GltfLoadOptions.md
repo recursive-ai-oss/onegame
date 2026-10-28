@@ -9,7 +9,7 @@
 public sealed class GltfLoadOptions
 ```
 
-How a file is imported.
+How a file is imported. Every property has a default, so `null` or `new GltfLoadOptions()` is the normal choice; set [`GltfLoadOptions.Limits`](GltfLoadOptions.md#m-limits) when loading content from a server and [`GltfLoadOptions.DecodeImages`](GltfLoadOptions.md#m-decodeimages) to false when only the geometry matters.
 
 ## Constructors
 
@@ -27,8 +27,8 @@ public GltfLoadOptions();
 
 | Member | Description |
 | --- | --- |
-| [`DecodeImages`](#m-decodeimages) | Decode image pixels. |
-| [`GenerateNormals`](#m-generatenormals) | Generate flat normals for triangle primitives that have none. |
+| [`DecodeImages`](#m-decodeimages) | Decode image pixels (PNG and JPEG, through the image library). |
+| [`GenerateNormals`](#m-generatenormals) | Generate flat (per-face) normals for triangle primitives that have none, as the glTF specification requires. |
 | [`Limits`](#m-limits) | The limits to enforce. |
 | [`Tangents`](#m-tangents) | When to generate tangents. |
 
@@ -38,7 +38,7 @@ public GltfLoadOptions();
 public bool DecodeImages { get; init; }
 ```
 
-Decode image pixels. When false only each image's size is read.
+Decode image pixels (PNG and JPEG, through the image library). When false only each image's size is read, which is much faster for a tool that lists or measures models.
 
 **Type:** `bool`
 
@@ -48,7 +48,7 @@ Decode image pixels. When false only each image's size is read.
 public bool GenerateNormals { get; init; }
 ```
 
-Generate flat normals for triangle primitives that have none.
+Generate flat (per-face) normals for triangle primitives that have none, as the glTF specification requires. Turn off to keep the data as authored.
 
 **Type:** `bool`
 
@@ -58,7 +58,7 @@ Generate flat normals for triangle primitives that have none.
 public GltfLimits? Limits { get; init; }
 ```
 
-The limits to enforce. Null means the defaults.
+The limits to enforce. Null means the defaults, which suit untrusted content: a file that exceeds one is refused with a [`GltfException`](GltfException.md) before anything large is allocated.
 
 **Type:** [`GltfLimits`](GltfLimits.md)?
 

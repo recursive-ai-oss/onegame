@@ -15,12 +15,12 @@ Process exit codes shared by games and the `onegame` command.
 
 | Member | Description |
 | --- | --- |
-| [`BuildFailed`](#m-buildfailed) | The build failed. |
+| [`BuildFailed`](#m-buildfailed) | The build failed, so nothing was run. |
 | [`Failed`](#m-failed) | The run completed but a check failed (a scenario expectation, a replay mismatch, a test). |
 | [`NoDevTools`](#m-nodevtools) | The requested feature exists only in development builds and this build has none of it. |
-| [`Ok`](#m-ok) | Success. |
+| [`Ok`](#m-ok) | Success: the run completed and every check passed. |
 | [`RuntimeError`](#m-runtimeerror) | The game or tool crashed or could not start (no display, no project, unreadable file). |
-| [`Usage`](#m-usage) | Bad command line. |
+| [`Usage`](#m-usage) | Bad command line: an unknown or malformed option. |
 
 ### <a id="m-buildfailed"></a>BuildFailed
 
@@ -28,7 +28,7 @@ Process exit codes shared by games and the `onegame` command.
 public const int BuildFailed = 3;
 ```
 
-The build failed.
+The build failed, so nothing was run.
 
 **Type:** `int`
 
@@ -58,7 +58,7 @@ The requested feature exists only in development builds and this build has none 
 public const int Ok = 0;
 ```
 
-Success.
+Success: the run completed and every check passed.
 
 **Type:** `int`
 
@@ -78,6 +78,6 @@ The game or tool crashed or could not start (no display, no project, unreadable 
 public const int Usage = 2;
 ```
 
-Bad command line.
+Bad command line: an unknown or malformed option.
 
 **Type:** `int`

@@ -20,7 +20,7 @@ dotnet add package RecursiveAI.OneGame.Server.Live
 | [`ServerInfoResult`](OneGame.Server.Live/ServerInfoResult.md) | record | Result of `server_info`. |
 | [`ServerJson`](OneGame.Server.Live/ServerJson.md) | class | Source-generated JSON metadata for server control results. |
 | [`ServerReadyLine`](OneGame.Server.Live/ServerReadyLine.md) | record | The line printed on standard output once the server is up, so a launcher can find its live socket and listening ports. |
-| [`ServerSendResult`](OneGame.Server.Live/ServerSendResult.md) | record | Result of `command_send`. |
-| [`ServerStateResult`](OneGame.Server.Live/ServerStateResult.md) | record | Result of `hash` and `step`. |
+| [`ServerSendResult`](OneGame.Server.Live/ServerSendResult.md) | record | Result of `command_send` on a server: the command is queued for the next tick, trusted as if the host sent it. |
+| [`ServerStateResult`](OneGame.Server.Live/ServerStateResult.md) | record | Result of `hash` and `step`: the server tick and each scope's tick and state hash. |
 | [`ServerStoppedLine`](OneGame.Server.Live/ServerStoppedLine.md) | record | The line printed when the server has stopped. |
-| [`ShutdownResult`](OneGame.Server.Live/ShutdownResult.md) | record | Result of `shutdown`. |
+| [`ShutdownResult`](OneGame.Server.Live/ShutdownResult.md) | record | Result of `shutdown`: the server finishes its current tick, then stops. |

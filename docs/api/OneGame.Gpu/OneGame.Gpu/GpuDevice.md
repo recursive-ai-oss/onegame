@@ -14,6 +14,22 @@ A graphics device: creates resources, records and submits work. Methods are not 
 
 Conventions that hold on every backend: clip space has +Y up and depth 0..1; framebuffer origin is the top-left; resource states and barriers are handled by the backend.
 
+**Example**
+
+Clear an offscreen image and read it back. The device is the low-level layer; most games draw through the 2D and 3D renderers, which use it.
+
+```csharp
+using var device = GpuBackends.CreateDevice();
+using var target = device.CreateTexture(new TextureDesc(8, 8, GpuFormat.Rgba8Unorm, TextureUsage.RenderTarget | TextureUsage.CopySource));
+
+var commands = device.BeginCommands();
+commands.BeginRenderPass(ColorAttachment.Clear(target, 1f, 0.5f, 0f, 1f)).EndPass();
+device.Submit(commands);
+
+var pixels = new byte[8 * 8 * 4];
+device.ReadTexture(target, mipLevel: 0, layer: 0, pixels);   // waits for the GPU; rows are tightly packed
+```
+
 ## Constructors
 
 | Member | Description |
@@ -111,13 +127,13 @@ Optional features and limits of this device.
 | [`CreateBindGroup(GpuPipelineLayout, uint, ReadOnlySpan<BindGroupEntry>)`](#m-createbindgroup-gpupipelinelayout-uint-readonlyspan-bindgroupentry) | Creates a bind group for one set of a pipeline layout. |
 | [`CreateBuffer(in BufferDesc)`](#m-createbuffer-bufferdesc) | Creates a buffer. |
 | [`CreateComputePipeline(ComputePipelineDesc)`](#m-createcomputepipeline-computepipelinedesc) | Creates a compute pipeline. |
-| [`CreateGraphicsPipeline(GraphicsPipelineDesc)`](#m-creategraphicspipeline-graphicspipelinedesc) | Creates a graphics pipeline. |
+| [`CreateGraphicsPipeline(GraphicsPipelineDesc)`](#m-creategraphicspipeline-graphicspipelinedesc) | Creates a graphics pipeline: shaders, vertex layout, blend, depth and target formats fixed together. |
 | [`CreatePipelineLayout(ReadOnlySpan<ResourceBinding>)`](#m-createpipelinelayout-readonlyspan-resourcebinding) | Creates a pipeline layout from the resource bindings of the pipeline's shaders. |
 | [`CreatePipelineLayout(ReadOnlySpan<ResourceBinding>, in PushConstantRange)`](#m-createpipelinelayout-readonlyspan-resourcebinding-pushconstantrange) | Creates a pipeline layout like [`GpuDevice.CreatePipelineLayout()`](GpuDevice.md#m-createpipelinelayout-readonlyspan-resourcebinding) that also declares push constants. |
-| [`CreateSampler(in SamplerDesc)`](#m-createsampler-samplerdesc) | Creates a sampler. |
+| [`CreateSampler(in SamplerDesc)`](#m-createsampler-samplerdesc) | Creates a sampler: how a shader filters and wraps texture reads. |
 | [`CreateShader(in ShaderSource)`](#m-createshader-shadersource) | Creates a shader from a compiled entry point, using the form this backend needs (SPIR-V for Vulkan, Metal Shading Language for Metal). |
 | [`CreateShader(ShaderStage, ReadOnlySpan<byte>, string)`](#m-createshader-shaderstage-readonlyspan-byte-string) | Creates a shader from SPIR-V code (4-byte aligned words, little-endian). |
-| [`CreateSwapchain(in SurfaceSource, in SwapchainDesc)`](#m-createswapchain-surfacesource-swapchaindesc) | Creates a swapchain on a native window. |
+| [`CreateSwapchain(in SurfaceSource, in SwapchainDesc)`](#m-createswapchain-surfacesource-swapchaindesc) | Creates a swapchain: the images presented to a native window. |
 | [`CreateTexture(in TextureDesc)`](#m-createtexture-texturedesc) | Creates a texture. |
 | [`CreateTimestampSet(uint)`](#m-createtimestampset-uint) | Creates a set of timestamp queries for timing passes. |
 | [`Dispose()`](#m-dispose) | Waits for the GPU and releases the device and everything created from it. |
@@ -141,7 +157,7 @@ Optional features and limits of this device.
 public abstract GpuCommandEncoder BeginCommands();
 ```
 
-Starts recording commands.
+Starts recording commands. Nothing runs until the encoder is passed to [`GpuDevice.Submit()`](GpuDevice.md#m-submit-gpucommandencoder).
 
 **Returns:** [`GpuCommandEncoder`](GpuCommandEncoder.md)
 
@@ -181,13 +197,17 @@ Creates a bind group for one set of a pipeline layout. Entries must cover every 
 public abstract GpuBuffer CreateBuffer(in BufferDesc desc);
 ```
 
-Creates a buffer. Contents are undefined until written.
+Creates a buffer. Contents are undefined until written with [`GpuDevice.WriteBuffer()`](GpuDevice.md#m-writebuffer-gpubuffer-ulong-readonlyspan-byte).
 
 **Parameters**
 
-- `desc` ([`BufferDesc`](BufferDesc.md))
+- `desc` ([`BufferDesc`](BufferDesc.md)): Size and allowed uses.
 
 **Returns:** [`GpuBuffer`](GpuBuffer.md)
+
+**Exceptions**
+
+- [`GpuOutOfMemoryException`](GpuOutOfMemoryException.md): The device has no memory left.
 
 ### <a id="m-createcomputepipeline-computepipelinedesc"></a>CreateComputePipeline(ComputePipelineDesc)
 
@@ -199,7 +219,7 @@ Creates a compute pipeline.
 
 **Parameters**
 
-- `desc` ([`ComputePipelineDesc`](ComputePipelineDesc.md))
+- `desc` ([`ComputePipelineDesc`](ComputePipelineDesc.md)): The compute shader and layout.
 
 **Returns:** [`GpuComputePipeline`](GpuComputePipeline.md)
 
@@ -209,13 +229,17 @@ Creates a compute pipeline.
 public abstract GpuGraphicsPipeline CreateGraphicsPipeline(GraphicsPipelineDesc desc);
 ```
 
-Creates a graphics pipeline.
+Creates a graphics pipeline: shaders, vertex layout, blend, depth and target formats fixed together. Create pipelines once and reuse them.
 
 **Parameters**
 
-- `desc` ([`GraphicsPipelineDesc`](GraphicsPipelineDesc.md))
+- `desc` ([`GraphicsPipelineDesc`](GraphicsPipelineDesc.md)): The pipeline description.
 
 **Returns:** [`GpuGraphicsPipeline`](GpuGraphicsPipeline.md)
+
+**Exceptions**
+
+- [`GpuException`](GpuException.md): The shaders and layout do not agree, or the backend rejected the description.
 
 ### <a id="m-createpipelinelayout-readonlyspan-resourcebinding"></a>CreatePipelineLayout(ReadOnlySpan&lt;ResourceBinding&gt;)
 
@@ -252,11 +276,11 @@ Creates a pipeline layout like [`GpuDevice.CreatePipelineLayout()`](GpuDevice.md
 public abstract GpuSampler CreateSampler(in SamplerDesc desc);
 ```
 
-Creates a sampler.
+Creates a sampler: how a shader filters and wraps texture reads.
 
 **Parameters**
 
-- `desc` ([`SamplerDesc`](SamplerDesc.md))
+- `desc` ([`SamplerDesc`](SamplerDesc.md)): Filters, addressing and level-of-detail range.
 
 **Returns:** [`GpuSampler`](GpuSampler.md)
 
@@ -288,9 +312,9 @@ Creates a shader from SPIR-V code (4-byte aligned words, little-endian).
 
 **Parameters**
 
-- `stage` ([`ShaderStage`](ShaderStage.md))
-- `spirv` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`)
-- `entryPoint` (`string`)
+- `stage` ([`ShaderStage`](ShaderStage.md)): The shader stage.
+- `spirv` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`): The SPIR-V module.
+- `entryPoint` (`string`): The entry point's name.
 
 **Returns:** [`GpuShader`](GpuShader.md)
 
@@ -300,14 +324,18 @@ Creates a shader from SPIR-V code (4-byte aligned words, little-endian).
 public abstract GpuSwapchain CreateSwapchain(in SurfaceSource surface, in SwapchainDesc desc);
 ```
 
-Creates a swapchain on a native window.
+Creates a swapchain: the images presented to a native window.
 
 **Parameters**
 
-- `surface` ([`SurfaceSource`](SurfaceSource.md))
-- `desc` ([`SwapchainDesc`](SwapchainDesc.md))
+- `surface` ([`SurfaceSource`](SurfaceSource.md)): The window, from the platform layer.
+- `desc` ([`SwapchainDesc`](SwapchainDesc.md)): Initial size, format and presentation pacing.
 
 **Returns:** [`GpuSwapchain`](GpuSwapchain.md)
+
+**Exceptions**
+
+- [`GpuUnsupportedException`](GpuUnsupportedException.md): The adapter cannot present to this window.
 
 ### <a id="m-createtexture-texturedesc"></a>CreateTexture(in TextureDesc)
 
@@ -315,13 +343,18 @@ Creates a swapchain on a native window.
 public abstract GpuTexture CreateTexture(in TextureDesc desc);
 ```
 
-Creates a texture. Contents are undefined until written or rendered.
+Creates a texture. Contents are undefined until written ([`GpuDevice.WriteTexture()`](GpuDevice.md#m-writetexture-gputexture-uint-uint-readonlyspan-byte)) or rendered into.
 
 **Parameters**
 
-- `desc` ([`TextureDesc`](TextureDesc.md))
+- `desc` ([`TextureDesc`](TextureDesc.md)): Size, format, mip levels and allowed uses.
 
 **Returns:** [`GpuTexture`](GpuTexture.md)
+
+**Exceptions**
+
+- [`GpuOutOfMemoryException`](GpuOutOfMemoryException.md): The device has no memory left.
+- [`GpuUnsupportedException`](GpuUnsupportedException.md): The format or usage is not supported by this device.
 
 ### <a id="m-createtimestampset-uint"></a>CreateTimestampSet(uint)
 
@@ -390,13 +423,13 @@ Bytes needed for one tightly packed mip level of a volume texture.
 public abstract void ReadBuffer(GpuBuffer buffer, ulong offset, Span<byte> destination);
 ```
 
-Waits for all submitted work, then copies buffer bytes to `destination`.
+Waits for all submitted work, then copies buffer bytes to `destination`. Blocks, so keep it for tools and tests.
 
 **Parameters**
 
-- `buffer` ([`GpuBuffer`](GpuBuffer.md))
-- `offset` (`ulong`)
-- `destination` ([`Span`](https://learn.microsoft.com/dotnet/api/system.span-1)`<byte>`)
+- `buffer` ([`GpuBuffer`](GpuBuffer.md)): The source; it needs [`BufferUsage.CopySource`](BufferUsage.md#m-copysource).
+- `offset` (`ulong`): Byte offset into the buffer.
+- `destination` ([`Span`](https://learn.microsoft.com/dotnet/api/system.span-1)`<byte>`): Receives the bytes; its length is the amount read.
 
 ### <a id="m-readbufferasync-gpubuffer-ulong-memory-byte"></a>ReadBufferAsync(GpuBuffer, ulong, Memory&lt;byte&gt;)
 
@@ -420,14 +453,14 @@ Like [`GpuDevice.ReadBuffer()`](GpuDevice.md#m-readbuffer-gpubuffer-ulong-span-b
 public abstract void ReadTexture(GpuTexture texture, uint mipLevel, uint layer, Span<byte> destination);
 ```
 
-Waits for all submitted work, then copies a texture mip level into `destination` with tightly packed rows.
+Waits for all submitted work, then copies a texture mip level into `destination` with tightly packed rows. Blocks, so keep it for tools and tests.
 
 **Parameters**
 
-- `texture` ([`GpuTexture`](GpuTexture.md))
-- `mipLevel` (`uint`)
-- `layer` (`uint`)
-- `destination` ([`Span`](https://learn.microsoft.com/dotnet/api/system.span-1)`<byte>`)
+- `texture` ([`GpuTexture`](GpuTexture.md)): The source; it needs [`TextureUsage.CopySource`](TextureUsage.md#m-copysource).
+- `mipLevel` (`uint`): The mip level.
+- `layer` (`uint`): The array layer or cube face.
+- `destination` ([`Span`](https://learn.microsoft.com/dotnet/api/system.span-1)`<byte>`): Receives [`GpuDevice.LevelByteSize()`](GpuDevice.md#m-levelbytesize-gpuformat-uint-uint-uint) bytes.
 
 ### <a id="m-readtextureasync-gputexture-uint-uint-memory-byte"></a>ReadTextureAsync(GpuTexture, uint, uint, Memory&lt;byte&gt;)
 
@@ -456,7 +489,11 @@ Queues recorded commands. Pending uploads run first. Waits when too many submiss
 
 **Parameters**
 
-- `commands` ([`GpuCommandEncoder`](GpuCommandEncoder.md))
+- `commands` ([`GpuCommandEncoder`](GpuCommandEncoder.md)): The encoder from [`GpuDevice.BeginCommands()`](GpuDevice.md#m-begincommands); it is finished by this call and cannot be reused.
+
+**Exceptions**
+
+- [`GpuDeviceLostException`](GpuDeviceLostException.md): The driver reset or the GPU was removed.
 
 ### <a id="m-takevalidationmessages"></a>TakeValidationMessages()
 
@@ -502,9 +539,9 @@ Queues a copy of bytes into a buffer; it runs before the next submitted commands
 
 **Parameters**
 
-- `buffer` ([`GpuBuffer`](GpuBuffer.md))
-- `offset` (`ulong`)
-- `data` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`)
+- `buffer` ([`GpuBuffer`](GpuBuffer.md)): The destination; it needs [`BufferUsage.CopyDestination`](BufferUsage.md#m-copydestination).
+- `offset` (`ulong`): Byte offset into the buffer.
+- `data` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`): The bytes.
 
 ### <a id="m-writetexture-gputexture-textureregion-readonlyspan-byte"></a>WriteTexture(GpuTexture, in TextureRegion, ReadOnlySpan&lt;byte&gt;)
 
@@ -530,7 +567,7 @@ Queues a copy of tightly packed rows into a whole texture mip level (all slices 
 
 **Parameters**
 
-- `texture` ([`GpuTexture`](GpuTexture.md))
-- `mipLevel` (`uint`)
-- `layer` (`uint`)
-- `data` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`)
+- `texture` ([`GpuTexture`](GpuTexture.md)): The destination; it needs [`TextureUsage.CopyDestination`](TextureUsage.md#m-copydestination).
+- `mipLevel` (`uint`): The mip level.
+- `layer` (`uint`): The array layer or cube face.
+- `data` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`): Exactly [`GpuDevice.LevelByteSize()`](GpuDevice.md#m-levelbytesize-gpuformat-uint-uint-uint) bytes for the level.

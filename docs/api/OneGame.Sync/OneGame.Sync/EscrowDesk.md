@@ -41,11 +41,11 @@ public EscrowDesk();
 | [`Coordinator`](#m-coordinator) | The identity that owns the desk: [`Escrow.CoordinatorPlayer`](Escrow.md#m-coordinatorplayer). |
 | [`DirtyMask`](#m-dirtymask) | Bit i is set when synced property i changed since [`Entity.ClearDirty()`](../../OneGame.Core/OneGame.Core/Entity.md#m-cleardirty). |
 | [`OwnerKey`](#m-ownerkey) | The value of the [`OwnerKeyAttribute`](../../OneGame.Core/OneGame.Core/OwnerKeyAttribute.md) property, or 0. |
-| [`PropertyCount`](#m-propertycount) | The number of synced properties. |
+| [`PropertyCount`](#m-propertycount) | The number of [`SyncedAttribute`](../../OneGame.Core/OneGame.Core/SyncedAttribute.md) properties, which is also the width of the bit masks used by [`Entity.DirtyMask`](../../OneGame.Core/OneGame.Core/Entity.md#m-dirtymask) and visibility. |
 | [`SchemaVersion`](#m-schemaversion) | The schema version of the state this build writes. |
 | [`Send`](#m-send) | Sends commands to this entity; views and tests use this instead of calling the handlers. |
 | [`TypeId`](#m-typeid) | The stable id of this entity type, used in snapshots. |
-| [`TypeName`](#m-typename) | The type's name. |
+| [`TypeName`](#m-typename) | The entity type's name as written in code, used in harness output, scenarios and snapshots' JSON dump. |
 
 ### <a id="m-asreadonly"></a>AsReadOnly
 
@@ -103,7 +103,7 @@ The value of the [`OwnerKeyAttribute`](../../OneGame.Core/OneGame.Core/OwnerKeyA
 public override int PropertyCount { get; }
 ```
 
-The number of synced properties.
+The number of [`SyncedAttribute`](../../OneGame.Core/OneGame.Core/SyncedAttribute.md) properties, which is also the width of the bit masks used by [`Entity.DirtyMask`](../../OneGame.Core/OneGame.Core/Entity.md#m-dirtymask) and visibility.
 
 **Type:** `int`
 
@@ -143,7 +143,7 @@ The stable id of this entity type, used in snapshots.
 public override string TypeName { get; }
 ```
 
-The type's name.
+The entity type's name as written in code, used in harness output, scenarios and snapshots' JSON dump.
 
 **Type:** `string`
 
@@ -158,7 +158,7 @@ The type's name.
 | [`Credit(ulong, int, uint, uint, long)`](#m-credit-ulong-int-uint-uint-long) | Credits a receiver, once per transaction and leg. |
 | [`ExecuteCommand(uint, ref SyncReader)`](#m-executecommand-uint-syncreader) | Runs the handler for a command. |
 | [`IsOwnerOnlyCommand(uint)`](#m-isowneronlycommand-uint) | True when the command is marked `OwnerOnly`. |
-| [`OnTick()`](#m-ontick) | Per-tick sim logic. |
+| [`OnTick()`](#m-ontick) | Per-tick sim logic: override it to move, age or react. |
 | [`Open(ulong, uint, uint, uint, uint, long, uint, uint, uint, uint, long)`](#m-open-ulong-uint-uint-uint-uint-long-uint-uint-uint-uint-long) | Coordinator: opens a trade between two scopes. |
 | [`PropertyName(int)`](#m-propertyname-int) | The name of synced property `index` (declaration order). |
 | [`ReadState(ref SyncReader)`](#m-readstate-syncreader) | Replaces all synced state from the current schema's layout. |
@@ -248,7 +248,7 @@ Runs the handler for a command. Returns [`CommandStatus.Executed`](../../OneGame
 
 **Parameters**
 
-- `commandId` (`uint`)
+- `commandId` (`uint`): The command's generated id.
 - `r` ([`SyncReader`](../../OneGame.Core/OneGame.Core/SyncReader.md))
 
 **Returns:** [`CommandStatus`](../../OneGame.Core/OneGame.Core/CommandStatus.md)
@@ -263,7 +263,7 @@ True when the command is marked `OwnerOnly`.
 
 **Parameters**
 
-- `commandId` (`uint`)
+- `commandId` (`uint`): The command's generated id.
 
 **Returns:** `bool`
 
@@ -273,7 +273,7 @@ True when the command is marked `OwnerOnly`.
 protected override void OnTick();
 ```
 
-Per-tick sim logic. Runs on the authority, in entity id order, after queued commands.
+Per-tick sim logic: override it to move, age or react. It runs once per fixed simulation tick on the authority (and on a predicting replica's predicted copy), in entity id order, after the commands queued for that tick, and never on a plain replica. It is sim code: fixed-point numbers, named random streams ([`World.Rng`](../../OneGame.Core/OneGame.Core/World.md#m-rng)), no clock, threads or I/O. An entity removed during a tick is gone when the tick ends.
 
 ### <a id="m-open-ulong-uint-uint-uint-uint-long-uint-uint-uint-uint-long"></a>Open(ulong, uint, uint, uint, uint, long, uint, uint, uint, uint, long)
 
@@ -335,7 +335,7 @@ Replaces all synced state from a given schema version, running the author's migr
 
 **Parameters**
 
-- `schemaVersion` (`uint`)
+- `schemaVersion` (`uint`): The schema version the bytes were written with.
 - `r` ([`SyncReader`](../../OneGame.Core/OneGame.Core/SyncReader.md))
 
 ### <a id="m-report-ulong-int-int-bool"></a>Report(ulong, int, int, bool)
@@ -365,8 +365,8 @@ Encodes and sends a command given its name and text arguments (the state-patch h
 
 **Parameters**
 
-- `commandName` (`string`)
-- `arguments` (`string[]`)
+- `commandName` (`string`): The command method's name.
+- `arguments` (`string[]`): One text per parameter, in declaration order.
 
 **Returns:** [`CommandStatus`](../../OneGame.Core/OneGame.Core/CommandStatus.md)
 
@@ -380,8 +380,8 @@ Sets a scalar synced property from text, for the state-patch harness. Returns fa
 
 **Parameters**
 
-- `propertyName` (`string`)
-- `text` (`string`)
+- `propertyName` (`string`): The property's name.
+- `text` (`string`): The new value in invariant text form (for example `12.5` for a [`Fixed`](../../OneGame.Core/OneGame.Core/Fixed.md)).
 
 **Returns:** `bool`
 

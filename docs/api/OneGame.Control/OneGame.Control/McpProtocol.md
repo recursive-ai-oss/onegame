@@ -11,6 +11,14 @@ public sealed class McpProtocol
 
 The Model Context Protocol (https://modelcontextprotocol.io, revision 2025-06-18) for one game: JSON-RPC 2.0 messages in, messages out. Every control operation is a tool of the same name. The class knows nothing about sockets; `OneGame.Live` moves the messages.
 
+**Example**
+
+```csharp
+var mcp = new McpProtocol(new ControlSurface(game));
+mcp.Handle("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}""");
+string? reply = mcp.Handle("""{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"info","arguments":{}}}""");
+```
+
 ## Constructors
 
 | Member | Description |
@@ -28,7 +36,7 @@ Creates the protocol handler for a game's control surface.
 
 **Parameters**
 
-- `surface` ([`ControlSurface`](ControlSurface.md))
+- `surface` ([`ControlSurface`](ControlSurface.md)): The game's control surface.
 
 ### <a id="m-ctor-icontrolendpoint"></a>McpProtocol(IControlEndpoint)
 
@@ -40,7 +48,11 @@ Creates the protocol handler for any control endpoint, such as a server's.
 
 **Parameters**
 
-- `endpoint` ([`IControlEndpoint`](IControlEndpoint.md))
+- `endpoint` ([`IControlEndpoint`](IControlEndpoint.md)): The endpoint whose operations become MCP tools.
+
+**Exceptions**
+
+- [`ArgumentNullException`](https://learn.microsoft.com/dotnet/api/system.argumentnullexception): `endpoint` is null.
 
 ## Fields
 
@@ -75,7 +87,7 @@ Handles one JSON-RPC message (one line of the stdio transport). Returns the resp
 
 **Parameters**
 
-- `message` (`string`)
+- `message` (`string`): One JSON-RPC message.
 
 **Returns:** `string?`
 
@@ -89,6 +101,6 @@ Like [`McpProtocol.Handle()`](McpProtocol.md#m-handle-string), for hosts that ca
 
 **Parameters**
 
-- `message` (`string`)
+- `message` (`string`): One JSON-RPC message.
 
 **Returns:** [`ValueTask`](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask-1)`<string?>`

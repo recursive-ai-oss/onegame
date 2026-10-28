@@ -63,8 +63,8 @@ The most scopes or plugins a file may declare; a bound so a hostile file cannot 
 | [`Name`](#m-name) | The server's name, used for the node and in logs. |
 | [`Options`](#m-options) | Free-form `key=value` settings for the game's own server code (the command line's `--option key=value`), for example the addresses of other servers to connect to. |
 | [`Plugins`](#m-plugins) | The plugins to load, in order. |
-| [`Scopes`](#m-scopes) | The scopes to host. |
-| [`TickRate`](#m-tickrate) | Ticks per second. |
+| [`Scopes`](#m-scopes) | The scopes this server is authority for (default: one scope, id 1, seed 1). |
+| [`TickRate`](#m-tickrate) | Simulation ticks per second (default 60). |
 
 ### <a id="m-clienttrust"></a>ClientTrust
 
@@ -152,7 +152,7 @@ The plugins to load, in order.
 public IReadOnlyList<ScopeConfig> Scopes { get; init; }
 ```
 
-The scopes to host.
+The scopes this server is authority for (default: one scope, id 1, seed 1). Each has its own world and random streams, seeded from [`ScopeConfig.Seed`](ScopeConfig.md#m-seed).
 
 **Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`ScopeConfig`](ScopeConfig.md)&gt;
 
@@ -162,7 +162,7 @@ The scopes to host.
 public int TickRate { get; init; }
 ```
 
-Ticks per second.
+Simulation ticks per second (default 60). Every hosted scope steps at this rate; clients see the same rate in their replicas.
 
 **Type:** `int`
 

@@ -11,6 +11,17 @@ public sealed class ArtAtlas
 
 SVG and image atlas. Sources are registered once under an id (the id the UI's `Image` commands carry) and rasterized lazily at the pixel size asked for: an SVG is rendered at exactly that size, so it is crisp at any UI scale and is re-rasterized when the scale changes; a raster image is decoded at its own size. Pages are [`AtlasFormat.Rgba8Premultiplied`](AtlasFormat.md#m-rgba8premultiplied).
 
+**Example**
+
+Register art in `GameDefinition.DefineArt`, then show it by id:
+
+```csharp
+public override void DefineArt(ArtAtlas art) =>
+    art.AddSvg("icons/save", File.ReadAllBytes("art/save.svg"));
+
+// In a screen: Ui.Image("icons/save", naturalWidth: 24, naturalHeight: 24)
+```
+
 ## Constructors
 
 | Member | Description |

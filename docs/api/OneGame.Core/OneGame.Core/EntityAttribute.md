@@ -11,7 +11,30 @@
 public sealed class EntityAttribute : Attribute
 ```
 
-Declares a partial class as an entity: synced properties, commands and sim logic in one class. The class must derive from [`Entity`](Entity.md) directly.
+Declares a partial class as an entity: synced properties, commands and sim logic in one class. The class must derive from [`Entity`](Entity.md) directly. The generator completes it with change tracking, codecs, deltas, snapshots and a `Send` property for commands; add the generated types to an [`EntityRegistry`](EntityRegistry.md) with the generated `EntityTypes.Register(registry)` (a game definition does this in `RegisterEntities`).
+
+**Example**
+
+A counter whose state changes only through a command and the per-tick step:
+
+```csharp
+[Entity]
+public partial class Counter : Entity
+{
+    [Synced] public partial int Value { get; private set; }
+    [Synced] public partial int Step { get; private set; }
+
+    [Command]
+    public void SetStep(int step) => Step = step;
+
+    protected override void OnTick() => Value += Step;
+
+    [View]
+    public string Label() => $"count {Value}";   // views read state; assigning Value here is a compile error
+}
+
+// From a view or a test: counter.Send.SetStep(2);
+```
 
 ## Constructors
 

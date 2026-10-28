@@ -28,8 +28,8 @@ Describes a buffer to create.
 
 **Parameters**
 
-- `Size` (`ulong`): Size in bytes.
-- `Usage` ([`BufferUsage`](BufferUsage.md)): Allowed uses.
+- `Size` (`ulong`): Size in bytes. Uniform and storage buffers bound with a dynamic offset need their slices aligned to [`GpuDevice.DynamicOffsetAlignment`](GpuDevice.md#m-dynamicoffsetalignment).
+- `Usage` ([`BufferUsage`](BufferUsage.md)): Every use the buffer will have, combined: a vertex buffer you upload to is `Vertex | CopyDestination`. A use not listed here is a validation error.
 
 ## Properties
 
@@ -37,7 +37,7 @@ Describes a buffer to create.
 | --- | --- |
 | [`Label`](#m-label) | Optional name shown in debugging tools. |
 | [`Size`](#m-size) | Size in bytes. |
-| [`Usage`](#m-usage) | Allowed uses. |
+| [`Usage`](#m-usage) | Every use the buffer will have, combined: a vertex buffer you upload to is `Vertex \| CopyDestination`. |
 
 ### <a id="m-label"></a>Label
 
@@ -55,7 +55,7 @@ Optional name shown in debugging tools.
 public ulong Size { get; init; }
 ```
 
-Size in bytes.
+Size in bytes. Uniform and storage buffers bound with a dynamic offset need their slices aligned to [`GpuDevice.DynamicOffsetAlignment`](GpuDevice.md#m-dynamicoffsetalignment).
 
 **Type:** `ulong`
 
@@ -65,6 +65,6 @@ Size in bytes.
 public BufferUsage Usage { get; init; }
 ```
 
-Allowed uses.
+Every use the buffer will have, combined: a vertex buffer you upload to is `Vertex | CopyDestination`. A use not listed here is a validation error.
 
 **Type:** [`BufferUsage`](BufferUsage.md)

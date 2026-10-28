@@ -14,13 +14,32 @@ A cluster of real processes on this machine: each node of a [`ClusterSpec`](Clus
 
 Every node is told to watch the process that started it (`--parent`), so a crashed test leaves nothing running. [`ProcessCluster.Down()`](ProcessCluster.md#m-down) stops the nodes by pid and checks that none is left.
 
+**Example**
+
+Start a spec file, run a scenario whose steps are aimed at nodes, check that every client's replica agrees with its server, and stop everything:
+
+```csharp
+using var cluster = TestCluster.Launch(ClusterSpec.Load("cluster.yaml"));
+var pids = cluster.Pids.ToArray();
+var result = cluster.Run("cluster/play.yaml");
+Assert.True(result.Passed);
+
+var report = cluster.Hashes();
+Assert.True(report.Ok, string.Join("; ", report.Problems));
+
+cluster.Kill("islandA");     // crash a server...
+cluster.Start("islandA");    // ...and bring it back
+cluster.Down();
+Assert.All(pids, pid => Assert.False(ProcessCluster.IsAlive(pid)));
+```
+
 ## Properties
 
 | Member | Description |
 | --- | --- |
 | [`Dir`](#m-dir) | The folder with logs, sockets and `cluster.json`. |
 | [`Pids`](#m-pids) | The process ids of every node. |
-| [`State`](#m-state) | The nodes as started. |
+| [`State`](#m-state) | The nodes as started: name, role, process id, live-control socket, log file and the addresses servers listen on. |
 | [`StateFile`](#m-statefile) | The path of `cluster.json`. |
 
 ### <a id="m-dir"></a>Dir
@@ -49,7 +68,7 @@ The process ids of every node.
 public ClusterState State { get; }
 ```
 
-The nodes as started.
+The nodes as started: name, role, process id, live-control socket, log file and the addresses servers listen on. The same data is in `cluster.json` in [`ProcessCluster.Dir`](ProcessCluster.md#m-dir).
 
 **Type:** [`ClusterState`](ClusterState.md)
 
@@ -68,18 +87,18 @@ The path of `cluster.json`.
 | Member | Description |
 | --- | --- |
 | [`Attach(string)`](#m-attach-string) | Finds the nodes of a cluster that another process started, from its `cluster.json`. |
-| [`Call(string, string, string?)`](#m-call-string-string-string) | Runs a control operation on a node and returns its JSON. |
+| [`Call(string, string, string?)`](#m-call-string-string-string) | Runs a control operation on one node (any operation [`ProcessCluster.Operations()`](ProcessCluster.md#m-operations-string) lists) and returns its JSON. |
 | [`Dispose()`](#m-dispose) | Stops the cluster when this object started it (see [`ProcessCluster.Down()`](ProcessCluster.md#m-down)); one found with [`ProcessCluster.Attach()`](ProcessCluster.md#m-attach-string) is left running. |
 | [`Down()`](#m-down) | Stops every node (asking first, then killing what does not stop), checks that none is left, and removes the sockets. |
 | [`Hashes()`](#m-hashes) | Every node's current tick and hash, every client's replica compared with its server's recorded hash at the replica's tick, and all drift reports. |
 | [`IsAlive(int)`](#m-isalive-int) | Whether a process with this id exists and has not exited. |
 | [`Kill(string)`](#m-kill-string) | Kills a node's process outright (SIGKILL: nothing is saved or announced on the way out), like a crash or a power cut. |
-| [`LogTail(string, int)`](#m-logtail-string-int) | The last lines of a node's output. |
-| [`Node(string)`](#m-node-string) | The node's state as recorded. |
+| [`LogTail(string, int)`](#m-logtail-string-int) | The last lines of a node's console output, for a failure message. |
+| [`Node(string)`](#m-node-string) | The node's recorded state: process id, socket, log file, listening addresses. |
 | [`Operations(string)`](#m-operations-string) | The names of the operations a node offers. |
 | [`Restart(string)`](#m-restart-string) | Kills a node's process and starts it again (see [`ProcessCluster.Kill()`](ProcessCluster.md#m-kill-string) and [`ProcessCluster.Start()`](ProcessCluster.md#m-start-string)). |
 | [`Run(Scenario)`](#m-run-scenario) | Runs a scenario against the cluster: steps and expectations aimed at nodes, in order. |
-| [`Run(string)`](#m-run-string) | Reads and runs a scenario file against the cluster. |
+| [`Run(string)`](#m-run-string) | Reads a scenario file and runs it against the cluster. |
 | [`Start(string)`](#m-start-string) | Starts a node that was killed (or never ran) again with the same arguments, data folder and ports, and waits until it is up: a server listening, a client connected and subscribed. |
 | [`Status()`](#m-status) | Each node's pid, whether it is alive, and its own status. |
 | [`TickOf(string)`](#m-tickof-string) | The tick of the node's scope (a server's first scope, or a client's replica). |
@@ -110,7 +129,7 @@ Finds the nodes of a cluster that another process started, from its `cluster.jso
 public string Call(string node, string op, string? argsJson = null);
 ```
 
-Runs a control operation on a node and returns its JSON.
+Runs a control operation on one node (any operation [`ProcessCluster.Operations()`](ProcessCluster.md#m-operations-string) lists) and returns its JSON.
 
 **Parameters**
 
@@ -122,6 +141,7 @@ Runs a control operation on a node and returns its JSON.
 
 **Exceptions**
 
+- [`ClusterException`](ClusterException.md): There is no node of that name, or its process cannot be reached.
 - [`ClusterException`](ClusterException.md): No such node.
 - [`ControlException`](../../OneGame.Control/OneGame.Control/ControlException.md): The operation failed on the node.
 
@@ -193,12 +213,12 @@ Kills a node's process outright (SIGKILL: nothing is saved or announced on the w
 public string LogTail(string node, int lines = 40);
 ```
 
-The last lines of a node's output.
+The last lines of a node's console output, for a failure message. Read it when a node did not come up or went away.
 
 **Parameters**
 
-- `node` (`string`)
-- `lines` (`int`)
+- `node` (`string`): The node's name.
+- `lines` (`int`): How many lines from the end; 40 by default.
 
 **Returns:** `string`
 
@@ -208,7 +228,7 @@ The last lines of a node's output.
 public NodeState Node(string name);
 ```
 
-The node's state as recorded.
+The node's recorded state: process id, socket, log file, listening addresses.
 
 **Parameters**
 
@@ -218,6 +238,7 @@ The node's state as recorded.
 
 **Exceptions**
 
+- [`ClusterException`](ClusterException.md): There is no node of that name (code `no_node`).
 - [`ClusterException`](ClusterException.md): No such node.
 
 ### <a id="m-operations-string"></a>Operations(string)
@@ -266,13 +287,17 @@ Runs a scenario against the cluster: steps and expectations aimed at nodes, in o
 public ScenarioResult Run(string scenarioPath);
 ```
 
-Reads and runs a scenario file against the cluster.
+Reads a scenario file and runs it against the cluster. Steps and expectations name the node they aim at (`node: bot1`).
 
 **Parameters**
 
 - `scenarioPath` (`string`)
 
 **Returns:** [`ScenarioResult`](ScenarioResult.md)
+
+**Exceptions**
+
+- [`ScenarioException`](ScenarioException.md): The file does not parse.
 
 ### <a id="m-start-string"></a>Start(string)
 

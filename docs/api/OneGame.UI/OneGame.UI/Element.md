@@ -380,19 +380,19 @@ The current value a control shows or holds, as text (a slider's number, a tab's 
 | Member | Description |
 | --- | --- |
 | [`Add(Element)`](#m-add-element) | Appends a child. |
-| [`Align(Align)`](#m-align-align) | Sets `align-items`. |
-| [`AlignSelf(Align)`](#m-alignself-align) | Sets `align-self`. |
-| [`Anchor(AnchorPoint, Length, Length, bool)`](#m-anchor-anchorpoint-length-length-bool) | Pins the element at a point of its parent (or the screen); see [`StyleBuilder.Anchor()`](StyleBuilder.md#m-anchor-anchorpoint-length-length-bool). |
-| [`Background(Color)`](#m-background-color) | Sets `background-color`. |
-| [`Basis(Length)`](#m-basis-length) | Sets `flex-basis`. |
+| [`Align(Align)`](#m-align-align) | Sets `align-items`: where children sit across the main axis (a row's children vertically). |
+| [`AlignSelf(Align)`](#m-alignself-align) | Sets `align-self`: this element's own position across its parent's main axis, overriding the parent's [`Element.Align()`](Element.md#m-align-align). |
+| [`Anchor(AnchorPoint, Length, Length, bool)`](#m-anchor-anchorpoint-length-length-bool) | Pins the element at a point of its parent (or the screen), out of the normal flow; see [`StyleBuilder.Anchor()`](StyleBuilder.md#m-anchor-anchorpoint-length-length-bool). |
+| [`Background(Color)`](#m-background-color) | Sets `background-color`, painted inside the border box under the children. |
+| [`Basis(Length)`](#m-basis-length) | Sets `flex-basis`: the size along the main axis before free space is shared out. |
 | [`BindChildren<T>(Func<IReadOnlyList<T>>, Func<T, Element>)`](#m-bindchildren-t-func-ireadonlylist-t-func-t-element) | Keeps the children in step with a list: `build` runs once per distinct item, and an item keeps its element while it stays in the list. |
 | [`BindClass(string, Func<bool>)`](#m-bindclass-string-func-bool) | Turns a class on or off from a lambda. |
-| [`BindEnabled(Func<bool>)`](#m-bindenabled-func-bool) | Enables or disables the element from a lambda. |
+| [`BindEnabled(Func<bool>)`](#m-bindenabled-func-bool) | Enables or disables the element from a lambda re-read every frame; a disabled element and its descendants ignore pointer and focus input and match `:disabled` in style rules (the kit themes dim them). |
 | [`BindStyle(Action<StyleBuilder>)`](#m-bindstyle-action-stylebuilder) | Re-applies inline style every frame, for values that follow game state; unchanged values cost nothing. |
 | [`BindText(Func<string>)`](#m-bindtext-func-string) | Sets [`Element.Text`](Element.md#m-text) from a lambda, re-evaluated every frame. |
 | [`BindText<T>(Func<T>, Func<T, string>)`](#m-bindtext-t-func-t-func-t-string) | Sets [`Element.Text`](Element.md#m-text) from `format` applied to a value that is re-read every frame; the text is rebuilt only when the value changes. |
-| [`BindVisible(Func<bool>)`](#m-bindvisible-func-bool) | Shows or hides the element from a lambda. |
-| [`Border(Length, Color)`](#m-border-length-color) | Draws a border on all sides. |
+| [`BindVisible(Func<bool>)`](#m-bindvisible-func-bool) | Shows or hides the element from a lambda that is re-read every frame (a hidden element takes no space). |
+| [`Border(Length, Color)`](#m-border-length-color) | Draws a solid border on all four sides. |
 | [`ChildAt(int)`](#m-childat-int) | The child at `index`. |
 | [`Class(string)`](#m-class-string) | Adds one or more classes, separated by spaces. |
 | [`Clear()`](#m-clear) | Removes every child. |
@@ -400,14 +400,14 @@ The current value a control shows or holds, as text (a slider's number, a tab's 
 | [`Contains(Element?)`](#m-contains-element) | True when `other` is this element or lies below it. |
 | [`Enabled(bool)`](#m-enabled-bool) | Enables or disables the element (and its descendants). |
 | [`Focusable(bool)`](#m-focusable-bool) | Makes the element take focus from Tab, gamepad and pointer input. |
-| [`FontSize(Length)`](#m-fontsize-length) | Sets `font-size`. |
-| [`Gap(Length)`](#m-gap-length) | Sets both gaps. |
-| [`Grow(float)`](#m-grow-float) | Sets `flex-grow`. |
+| [`FontSize(Length)`](#m-fontsize-length) | Sets `font-size`, inherited by descendants. |
+| [`Gap(Length)`](#m-gap-length) | Sets the space between children, on both axes (CSS `gap`), so spacing needs no margins on the children. |
+| [`Grow(float)`](#m-grow-float) | Sets `flex-grow`: the share of the parent's free space this element takes along the main axis. |
 | [`HasClass(string)`](#m-hasclass-string) | True when the element has the class. |
-| [`Height(Length)`](#m-height-length) | Sets `height`. |
+| [`Height(Length)`](#m-height-length) | Sets `height`; units as for [`Element.Width()`](Element.md#m-width-length). |
 | [`Insert(int, Element)`](#m-insert-int-element) | Inserts a child at `index`. |
-| [`Justify(Align)`](#m-justify-align) | Sets `justify-content`. |
-| [`Margin(Length)`](#m-margin-length) | Sets `margin` on all sides. |
+| [`Justify(Align)`](#m-justify-align) | Sets `justify-content`: where children sit along the main axis (the row's width, the column's height) when they do not fill it. |
+| [`Margin(Length)`](#m-margin-length) | Sets `margin` on all four sides: space outside the border, around the element. |
 | [`Margin(Length, Length)`](#m-margin-length-length) | Sets vertical and horizontal `margin`. |
 | [`MaxWidth(Length)`](#m-maxwidth-length) | Sets `max-width`. |
 | [`MinWidth(Length)`](#m-minwidth-length) | Sets `min-width`. |
@@ -421,21 +421,21 @@ The current value a control shows or holds, as text (a slider's number, a tab's 
 | [`OnPointerEnter(Action)`](#m-onpointerenter-action) | Runs `action` when the pointer enters the element. |
 | [`OnPointerLeave(Action)`](#m-onpointerleave-action) | Runs `action` when the pointer leaves the element. |
 | [`OnUpdate(Action<Element>)`](#m-onupdate-action-element) | Runs a lambda against the element every frame, before styles are resolved. |
-| [`Overflow(OverflowMode)`](#m-overflow-overflowmode) | Sets `overflow` on both axes. |
-| [`Padding(Length)`](#m-padding-length) | Sets `padding` on all sides. |
+| [`Overflow(OverflowMode)`](#m-overflow-overflowmode) | Sets `overflow` on both axes: whether content past the box is shown, clipped or scrolled. |
+| [`Padding(Length)`](#m-padding-length) | Sets `padding` on all four sides: space inside the border, around the content. |
 | [`Padding(Length, Length)`](#m-padding-length-length) | Sets vertical and horizontal `padding`. |
-| [`Radius(Length)`](#m-radius-length) | Rounds all corners. |
+| [`Radius(Length)`](#m-radius-length) | Rounds all four corners of the background and border. |
 | [`Remove(Element)`](#m-remove-element) | Removes a child; returns false when it is not a child of this element. |
 | [`RemoveFromParent()`](#m-removefromparent) | Removes this element from its parent, if it has one. |
 | [`Row()`](#m-row) | Lays children out left to right. |
 | [`ScrollTo(float, float)`](#m-scrollto-float-float) | Sets the scroll offsets, clamped to the scrollable range. |
 | [`SetChildren(IReadOnlyList<Element>)`](#m-setchildren-ireadonlylist-element) | Makes the children exactly `wanted`, in order, reusing the ones already present and touching only the difference. |
 | [`SetClass(string, bool)`](#m-setclass-string-bool) | Adds or removes a class. |
-| [`Shrink(float)`](#m-shrink-float) | Sets `flex-shrink`. |
+| [`Shrink(float)`](#m-shrink-float) | Sets `flex-shrink`: how much this element gives up, relative to its siblings, when the children do not fit. |
 | [`Size(Length, Length)`](#m-size-length-length) | Sets `width` and `height`. |
 | [`Style(Action<StyleBuilder>)`](#m-style-action-stylebuilder) | Applies inline style declarations. |
 | [`Tab(int)`](#m-tab-int) | Sets the tab order. |
-| [`TextColor(Color)`](#m-textcolor-color) | Sets the inherited text color. |
+| [`TextColor(Color)`](#m-textcolor-color) | Sets `color`, the text color. |
 | [`ToString()`](#m-tostring) |  |
 | [`TrapFocus(bool)`](#m-trapfocus-bool) | Makes focus navigation stay within this element while it is shown. |
 | [`Width(Length)`](#m-width-length) | Sets `width`. |
@@ -466,7 +466,7 @@ Appends a child.
 public Element Align(Align v);
 ```
 
-Sets `align-items`.
+Sets `align-items`: where children sit across the main axis (a row's children vertically). A child can override it with [`Element.AlignSelf()`](Element.md#m-alignself-align).
 
 **Parameters**
 
@@ -480,7 +480,7 @@ Sets `align-items`.
 public Element AlignSelf(Align v);
 ```
 
-Sets `align-self`.
+Sets `align-self`: this element's own position across its parent's main axis, overriding the parent's [`Element.Align()`](Element.md#m-align-align).
 
 **Parameters**
 
@@ -494,14 +494,14 @@ Sets `align-self`.
 public Element Anchor(AnchorPoint point, Length x = default, Length y = default, bool toScreen = false);
 ```
 
-Pins the element at a point of its parent (or the screen); see [`StyleBuilder.Anchor()`](StyleBuilder.md#m-anchor-anchorpoint-length-length-bool).
+Pins the element at a point of its parent (or the screen), out of the normal flow; see [`StyleBuilder.Anchor()`](StyleBuilder.md#m-anchor-anchorpoint-length-length-bool).
 
 **Parameters**
 
-- `point` ([`AnchorPoint`](AnchorPoint.md))
-- `x` ([`Length`](Length.md))
-- `y` ([`Length`](Length.md))
-- `toScreen` (`bool`)
+- `point` ([`AnchorPoint`](AnchorPoint.md)): Which corner, edge middle or centre of the parent the element attaches to.
+- `x` ([`Length`](Length.md)): Horizontal offset from that point, away from the edge.
+- `y` ([`Length`](Length.md)): Vertical offset from that point, away from the edge.
+- `toScreen` (`bool`): True to anchor to the whole screen instead of the parent.
 
 **Returns:** [`Element`](Element.md)
 
@@ -511,7 +511,7 @@ Pins the element at a point of its parent (or the screen); see [`StyleBuilder.An
 public Element Background(Color v);
 ```
 
-Sets `background-color`.
+Sets `background-color`, painted inside the border box under the children.
 
 **Parameters**
 
@@ -525,7 +525,7 @@ Sets `background-color`.
 public Element Basis(Length v);
 ```
 
-Sets `flex-basis`.
+Sets `flex-basis`: the size along the main axis before free space is shared out. [`Length.Auto`](Length.md#m-auto) uses the width or height.
 
 **Parameters**
 
@@ -558,8 +558,8 @@ Turns a class on or off from a lambda.
 
 **Parameters**
 
-- `name` (`string`)
-- `on` ([`Func`](https://learn.microsoft.com/dotnet/api/system.func-1)`<bool>`)
+- `name` (`string`): The class to switch.
+- `on` ([`Func`](https://learn.microsoft.com/dotnet/api/system.func-1)`<bool>`): Returns true to have the class.
 
 **Returns:** [`Element`](Element.md)
 
@@ -569,11 +569,11 @@ Turns a class on or off from a lambda.
 public Element BindEnabled(Func<bool> enabled);
 ```
 
-Enables or disables the element from a lambda.
+Enables or disables the element from a lambda re-read every frame; a disabled element and its descendants ignore pointer and focus input and match `:disabled` in style rules (the kit themes dim them).
 
 **Parameters**
 
-- `enabled` ([`Func`](https://learn.microsoft.com/dotnet/api/system.func-1)`<bool>`)
+- `enabled` ([`Func`](https://learn.microsoft.com/dotnet/api/system.func-1)`<bool>`): Returns true when the element should react.
 
 **Returns:** [`Element`](Element.md)
 
@@ -626,11 +626,11 @@ Sets [`Element.Text`](Element.md#m-text) from `format` applied to a value that i
 public Element BindVisible(Func<bool> visible);
 ```
 
-Shows or hides the element from a lambda.
+Shows or hides the element from a lambda that is re-read every frame (a hidden element takes no space).
 
 **Parameters**
 
-- `visible` ([`Func`](https://learn.microsoft.com/dotnet/api/system.func-1)`<bool>`)
+- `visible` ([`Func`](https://learn.microsoft.com/dotnet/api/system.func-1)`<bool>`): Returns true to show. Keep it cheap and free of side effects.
 
 **Returns:** [`Element`](Element.md)
 
@@ -640,12 +640,12 @@ Shows or hides the element from a lambda.
 public Element Border(Length width, Color color);
 ```
 
-Draws a border on all sides.
+Draws a solid border on all four sides.
 
 **Parameters**
 
-- `width` ([`Length`](Length.md))
-- `color` ([`Color`](Color.md))
+- `width` ([`Length`](Length.md)): The line width.
+- `color` ([`Color`](Color.md)): The line color.
 
 **Returns:** [`Element`](Element.md)
 
@@ -743,7 +743,7 @@ Makes the element take focus from Tab, gamepad and pointer input.
 public Element FontSize(Length v);
 ```
 
-Sets `font-size`.
+Sets `font-size`, inherited by descendants. Pixels are device pixels; [`Length.Ui()`](Length.md#m-ui-float) follows the UI scale.
 
 **Parameters**
 
@@ -757,11 +757,11 @@ Sets `font-size`.
 public Element Gap(Length v);
 ```
 
-Sets both gaps.
+Sets the space between children, on both axes (CSS `gap`), so spacing needs no margins on the children.
 
 **Parameters**
 
-- `v` ([`Length`](Length.md))
+- `v` ([`Length`](Length.md)): The gap. Use [`Length.Ui()`](Length.md#m-ui-float) to follow the UI scale.
 
 **Returns:** [`Element`](Element.md)
 
@@ -771,11 +771,11 @@ Sets both gaps.
 public Element Grow(float v = 1f);
 ```
 
-Sets `flex-grow`.
+Sets `flex-grow`: the share of the parent's free space this element takes along the main axis. 0 keeps its natural size; two siblings with 1 and 2 split the free space one to two.
 
 **Parameters**
 
-- `v` (`float`)
+- `v` (`float`): The weight.
 
 **Returns:** [`Element`](Element.md)
 
@@ -799,7 +799,7 @@ True when the element has the class.
 public Element Height(Length v);
 ```
 
-Sets `height`.
+Sets `height`; units as for [`Element.Width()`](Element.md#m-width-length).
 
 **Parameters**
 
@@ -832,7 +832,7 @@ Inserts a child at `index`.
 public Element Justify(Align v);
 ```
 
-Sets `justify-content`.
+Sets `justify-content`: where children sit along the main axis (the row's width, the column's height) when they do not fill it.
 
 **Parameters**
 
@@ -846,7 +846,7 @@ Sets `justify-content`.
 public Element Margin(Length v);
 ```
 
-Sets `margin` on all sides.
+Sets `margin` on all four sides: space outside the border, around the element.
 
 **Parameters**
 
@@ -964,7 +964,7 @@ Runs `action` on click or activation.
 
 **Parameters**
 
-- `action` ([`Action`](https://learn.microsoft.com/dotnet/api/system.action))
+- `action` ([`Action`](https://learn.microsoft.com/dotnet/api/system.action)): Runs on a pointer click, a touch tap, or Enter / the gamepad's confirm button while the element has focus. A view handler: send a command here instead of writing synced state.
 
 **Returns:** [`Element`](Element.md)
 
@@ -1044,7 +1044,7 @@ Runs a lambda against the element every frame, before styles are resolved.
 public Element Overflow(OverflowMode v);
 ```
 
-Sets `overflow` on both axes.
+Sets `overflow` on both axes: whether content past the box is shown, clipped or scrolled.
 
 **Parameters**
 
@@ -1058,7 +1058,7 @@ Sets `overflow` on both axes.
 public Element Padding(Length v);
 ```
 
-Sets `padding` on all sides.
+Sets `padding` on all four sides: space inside the border, around the content.
 
 **Parameters**
 
@@ -1087,7 +1087,7 @@ Sets vertical and horizontal `padding`.
 public Element Radius(Length v);
 ```
 
-Rounds all corners.
+Rounds all four corners of the background and border.
 
 **Parameters**
 
@@ -1173,7 +1173,7 @@ Adds or removes a class. Does nothing when the element already is in that state.
 public Element Shrink(float v);
 ```
 
-Sets `flex-shrink`.
+Sets `flex-shrink`: how much this element gives up, relative to its siblings, when the children do not fit. 0 never shrinks it.
 
 **Parameters**
 
@@ -1230,7 +1230,7 @@ Sets the tab order.
 public Element TextColor(Color v);
 ```
 
-Sets the inherited text color.
+Sets `color`, the text color. It is inherited, so setting it on a screen's root colors every label in it.
 
 **Parameters**
 
@@ -1268,7 +1268,7 @@ Makes focus navigation stay within this element while it is shown.
 public Element Width(Length v);
 ```
 
-Sets `width`.
+Sets `width`. A bare number is pixels; [`Length.Percent()`](Length.md#m-percent-float) is of the parent, [`Length.Ui()`](Length.md#m-ui-float) follows the UI scale.
 
 **Parameters**
 

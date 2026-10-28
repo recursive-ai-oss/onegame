@@ -11,6 +11,16 @@ public static class GameApp
 
 The entry point of a game: parse the command line, create the instance, run it.
 
+**Example**
+
+```csharp
+internal static class Program
+{
+    // The exit code is one of ; return it so scripts and CI see failures.
+    internal static int Main(string[] args) => GameApp.Run(new MyGame(), args);
+}
+```
+
 ## Properties
 
 | Member | Description |
@@ -33,7 +43,7 @@ Set by development builds before [`GameApp.Run()`](GameApp.md#m-run-gamedefiniti
 | --- | --- |
 | [`Fail(bool, TextWriter, TextWriter, int, string, string)`](#m-fail-bool-textwriter-textwriter-int-string-string) | Prints a structured error (a JSON object with `ok:false`) or a plain message, and returns the exit code. |
 | [`Run(GameDefinition, string[])`](#m-run-gamedefinition-string) | Runs a game. |
-| [`Run(GameDefinition, string[], TextWriter, TextWriter)`](#m-run-gamedefinition-string-textwriter-textwriter) | Runs a game with explicit output streams. |
+| [`Run(GameDefinition, string[], TextWriter, TextWriter)`](#m-run-gamedefinition-string-textwriter-textwriter) | Runs a game with explicit output streams, so a test or tool can capture what a command line run would print. |
 
 ### <a id="m-fail-bool-textwriter-textwriter-int-string-string"></a>Fail(bool, TextWriter, TextWriter, int, string, string)
 
@@ -45,14 +55,14 @@ Prints a structured error (a JSON object with `ok:false`) or a plain message, an
 
 **Parameters**
 
-- `json` (`bool`)
-- `output` ([`TextWriter`](https://learn.microsoft.com/dotnet/api/system.io.textwriter))
-- `error` ([`TextWriter`](https://learn.microsoft.com/dotnet/api/system.io.textwriter))
-- `exitCode` (`int`)
-- `code` (`string`)
-- `message` (`string`)
+- `json` (`bool`): True to print a JSON object to `output`; false to print plain text to `error`.
+- `output` ([`TextWriter`](https://learn.microsoft.com/dotnet/api/system.io.textwriter)): The result stream.
+- `error` ([`TextWriter`](https://learn.microsoft.com/dotnet/api/system.io.textwriter)): The diagnostics stream.
+- `exitCode` (`int`): The code to return, from [`ExitCodes`](ExitCodes.md).
+- `code` (`string`): A short machine-readable error name.
+- `message` (`string`): What went wrong and what to do.
 
-**Returns:** `int`
+**Returns:** `int` — `exitCode`.
 
 ### <a id="m-run-gamedefinition-string"></a>Run(GameDefinition, string\[\])
 
@@ -64,10 +74,10 @@ Runs a game. Options: `--headless`, `--frames N` (stop after N frames), `--size 
 
 **Parameters**
 
-- `game` ([`GameDefinition`](GameDefinition.md))
-- `args` (`string[]`)
+- `game` ([`GameDefinition`](GameDefinition.md)): The game to run.
+- `args` (`string[]`): The command line, normally the `args` of `Main`.
 
-**Returns:** `int`
+**Returns:** `int` — An exit code from [`ExitCodes`](ExitCodes.md): 0 when the run completed.
 
 ### <a id="m-run-gamedefinition-string-textwriter-textwriter"></a>Run(GameDefinition, string\[\], TextWriter, TextWriter)
 
@@ -75,13 +85,13 @@ Runs a game. Options: `--headless`, `--frames N` (stop after N frames), `--size 
 public static int Run(GameDefinition game, string[] args, TextWriter output, TextWriter error);
 ```
 
-Runs a game with explicit output streams.
+Runs a game with explicit output streams, so a test or tool can capture what a command line run would print.
 
 **Parameters**
 
-- `game` ([`GameDefinition`](GameDefinition.md))
-- `args` (`string[]`)
-- `output` ([`TextWriter`](https://learn.microsoft.com/dotnet/api/system.io.textwriter))
-- `error` ([`TextWriter`](https://learn.microsoft.com/dotnet/api/system.io.textwriter))
+- `game` ([`GameDefinition`](GameDefinition.md)): The game to run.
+- `args` (`string[]`): The command line; see [`GameApp.Run()`](GameApp.md#m-run-gamedefinition-string) for the options.
+- `output` ([`TextWriter`](https://learn.microsoft.com/dotnet/api/system.io.textwriter)): Receives results (and the `--json` object).
+- `error` ([`TextWriter`](https://learn.microsoft.com/dotnet/api/system.io.textwriter)): Receives diagnostics.
 
-**Returns:** `int`
+**Returns:** `int` — An exit code from [`ExitCodes`](ExitCodes.md).

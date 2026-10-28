@@ -52,8 +52,8 @@ dotnet add package RecursiveAI.OneGame.Testing
 | [`ServerTestClient`](OneGame.Testing/ServerTestClient.md) | class | A client of a [`TestServer`](OneGame.Testing/TestServer.md): a node holding a replica of one scope. |
 | [`StepKind`](OneGame.Testing/StepKind.md) | enum | What a scenario step does. |
 | [`StepResult`](OneGame.Testing/StepResult.md) | record | Outcome of one step. |
-| [`TestClient`](OneGame.Testing/TestClient.md) | class | A headless game under test, driven through the control layer like a live one. |
-| [`TestCluster`](OneGame.Testing/TestCluster.md) | class | An in-process cluster of games for tests. |
-| [`TestOptions`](OneGame.Testing/TestOptions.md) | record | Options for [`TestCluster`](OneGame.Testing/TestCluster.md). |
+| [`TestClient`](OneGame.Testing/TestClient.md) | class | A headless game under test, driven through the same control layer a live game and an MCP client use: click, press, type, send a command, step frames, read state, capture. |
+| [`TestCluster`](OneGame.Testing/TestCluster.md) | class | The entry point for game tests: starts your game headless in this process and hands back a [`TestClient`](OneGame.Testing/TestClient.md) to drive it. |
+| [`TestOptions`](OneGame.Testing/TestOptions.md) | record | Options for [`TestCluster.Start()`](OneGame.Testing/TestCluster.md#m-start-gamedefinition-testoptions): the headless window size, the UI scale, the seed and where captures and saves go. |
 | [`TestServer`](OneGame.Testing/TestServer.md) | class | A server under test, with in-process clients on the loopback transport. |
 | [`TestingModule`](OneGame.Testing/TestingModule.md) | static class | Identifies the Testing assembly; a placeholder until its first feature lands. |

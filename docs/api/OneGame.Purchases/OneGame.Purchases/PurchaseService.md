@@ -12,6 +12,27 @@ public sealed class PurchaseService : IDisposable
 
 In-app purchases for a game: one API over the platform's store. A game declares its products, connects, loads them, buys and finishes. Everything the store says arrives as [`StoreEvent`](StoreEvent.md)s from [`PurchaseService.Pump()`](PurchaseService.md#m-pump), which the game calls once per frame on its game thread; requests may be made from that thread too. Pick the backend with [`PurchaseBackends`](PurchaseBackends.md).
 
+Purchases are view-side and asynchronous: never call this from sim code. Grant the purchased item through a game command, wait until it is saved, and only then call [`PurchaseService.Finish()`](PurchaseService.md#m-finish-purchasetransaction); the stores refund purchases that are never finished.
+
+**Example**
+
+```csharp
+var catalog = new[] { new ProductDefinition("coins_100", ProductKind.Consumable), new ProductDefinition("no_ads", ProductKind.NonConsumable) };
+using var store = PurchaseBackends.CreateService(catalog);   // ONEGAME_STORE=fake selects the in-process fake
+store.Event += e =>
+{
+    if (e.Kind == StoreEventKind.Connected) { store.LoadProducts(); }
+    if (e.Kind == StoreEventKind.Transaction && e.Transaction is { NeedsFinish: true } t)
+    {
+        // grant the item with a command, save, then:
+        store.Finish(t);
+    }
+};
+store.Connect();
+// Once per frame on the game thread: store.Pump();
+// From a button: var error = store.Buy("coins_100");
+```
+
 ## Constructors
 
 | Member | Description |
@@ -158,7 +179,7 @@ Starts a purchase. The result arrives as a [`StoreEventKind.Transaction`](StoreE
 
 **Parameters**
 
-- `productId` (`string`)
+- `productId` (`string`): A product id from the catalog.
 
 **Returns:** [`StoreError`](StoreError.md) — An error when the purchase was not started: not connected, not in the catalog, or not loaded from the store yet. [`StoreError.None`](StoreError.md#m-none) when it started.
 
@@ -212,7 +233,7 @@ True when a non-consumable or subscription is owned: a purchase or restore arriv
 
 **Parameters**
 
-- `productId` (`string`)
+- `productId` (`string`): A product id from the catalog.
 
 **Returns:** `bool`
 

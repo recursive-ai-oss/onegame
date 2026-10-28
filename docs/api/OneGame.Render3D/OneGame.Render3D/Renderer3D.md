@@ -12,6 +12,25 @@ public sealed class Renderer3D : IDisposable
 
 The physically based 3D renderer. It uploads glTF models ([`Renderer3D.Upload()`](Renderer3D.md#m-upload-gltfmodel-int)) and adds a frame to a render graph ([`Renderer3D.Render()`](Renderer3D.md#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat)): cluster light assignment, one forward pass for opaque, masked and blended surfaces plus the backdrop, a bloom chain, and tone mapping into the target. See `docs/interfaces/render3d.md`.
 
+Games that use entities and `IView3D` never create one: `Render3DStage` owns it. Create one directly for tools, tests and custom pipelines. Dispose uploaded models before the renderer.
+
+**Example**
+
+Load a glTF file, light it and capture one frame without a window:
+
+```csharp
+using var device = GpuBackends.CreateDevice(new GpuDeviceOptions { ApplicationName = "viewer" });
+using var renderer = new Renderer3D(device);
+using var model = renderer.Upload(GltfLoader.LoadFile("models/DamagedHelmet.glb"));
+
+var scene = new Scene3D { Camera = Camera3D.Orbit(Vector3.Zero, distance: 3f, yawDegrees: 30f, pitchDegrees: 15f) };
+scene.Add(model);
+scene.Lights.Add(Light3D.Directional(new Vector3(-0.4f, -1f, -0.5f), new Vector3(1f, 0.96f, 0.9f), lux: 3f));
+
+using var target = new Offscreen3D(renderer, 800, 600);
+byte[] rgba = target.Capture(scene);    // 800 * 600 * 4 bytes, top row first
+```
+
 ## Constructors
 
 | Member | Description |

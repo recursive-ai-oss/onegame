@@ -23,7 +23,7 @@ The simulation: entities in a deterministic order, hot tables, systems, the name
 public World(ulong seed, EntityRegistry registry, WorldRole role = 0);
 ```
 
-Creates an empty world.
+Creates an empty world. Build the same way (registry, systems, tables) on every node, then add entities or load a snapshot.
 
 **Parameters**
 
@@ -128,7 +128,7 @@ The number of completed ticks. Replicas take it from the snapshots they apply.
 
 | Member | Description |
 | --- | --- |
-| [`Add<T>(T)`](#m-add-t-t) | Adds an entity under a fresh id and returns it. |
+| [`Add<T>(T)`](#m-add-t-t) | Adds an entity under a fresh id (one above the highest used so far) and returns it, so `var ship = world.Add(new Ship());` works. |
 | [`AddSystem(ISimSystem)`](#m-addsystem-isimsystem) | Adds a system. |
 | [`AddTable<T>(T)`](#m-addtable-t-t) | Adds a hot table. |
 | [`AddWithId(Entity, EntityId)`](#m-addwithid-entity-entityid) | Adds an entity under a given id; replicas use it to mirror the authority's ids. |
@@ -137,13 +137,13 @@ The number of completed ticks. Replicas take it from the snapshots they apply.
 | [`ComputeViewHash()`](#m-computeviewhash) | The hash of what this world holds as a subscriber: equal to [`World.ComputeHash()`](World.md#m-computehash) on an authority and on a replica that receives everything, and the hash of the filtered view on a replica that does not. |
 | [`DumpJson()`](#m-dumpjson) | The world as a JSON document, for inspection: tick, seed, every entity and every table. |
 | [`EncodeCommand(SyncWriter, EntityId, uint, ReadOnlySpan<byte>)`](#m-encodecommand-syncwriter-entityid-uint-readonlyspan-byte) | The wire form of a command, the inverse of [`World.SubmitEncoded()`](World.md#m-submitencoded-readonlyspan-byte). |
-| [`Find(EntityId)`](#m-find-entityid) | Finds an entity by id, or null. |
+| [`Find(EntityId)`](#m-find-entityid) | Finds an entity by id. |
 | [`ReadSnapshot(ReadOnlySpan<byte>)`](#m-readsnapshot-readonlyspan-byte) | Replaces this world's contents with a snapshot from untrusted bytes. |
 | [`Remove(EntityId)`](#m-remove-entityid) | Removes an entity. |
 | [`Step()`](#m-step) | Advances the simulation by one tick. |
 | [`Submit(EntityId, uint, ReadOnlySpan<byte>)`](#m-submit-entityid-uint-readonlyspan-byte) | Sends a command to an entity. |
 | [`SubmitEncoded(ReadOnlySpan<byte>)`](#m-submitencoded-readonlyspan-byte) | Submits a command from its wire form (entity id, command id, arguments), as read from a log or a connection. |
-| [`TryGet<T>(EntityId, out T)`](#m-tryget-t-entityid-t) | Finds an entity of a given type by id. |
+| [`TryGet<T>(EntityId, out T)`](#m-tryget-t-entityid-t) | Finds an entity by id and type. |
 | [`WriteSnapshot(SyncWriter)`](#m-writesnapshot-syncwriter) | Writes the whole world: tick, id counter, random streams, entities (with their schema versions) and tables. |
 | [`WriteViewSnapshot(SyncWriter, in Audience, bool)`](#m-writeviewsnapshot-syncwriter-audience-bool) | Writes the snapshot an audience is allowed to hold: only the entities it may see, each with only the properties it may see, without hidden tables, and without the random streams unless `includeRandom`. |
 
@@ -153,11 +153,15 @@ The number of completed ticks. Replicas take it from the snapshots they apply.
 public T Add<T>(T entity) where T : Entity;
 ```
 
-Adds an entity under a fresh id and returns it.
+Adds an entity under a fresh id (one above the highest used so far) and returns it, so `var ship = world.Add(new Ship());` works. Call it from setup code, from sim code and from tests; views never add entities.
+
+**Type parameters**
+
+- `T`: The entity type.
 
 **Parameters**
 
-- `entity` (`T`)
+- `entity` (`T`): A new entity that is not in any world.
 
 **Returns:** `T`
 
@@ -175,7 +179,7 @@ Adds a system. Systems tick in the order added, so add them in the same order on
 
 **Parameters**
 
-- `system` ([`ISimSystem`](ISimSystem.md))
+- `system` ([`ISimSystem`](ISimSystem.md)): The system. It is sim code and is checked by the sim analyzers.
 
 ### <a id="m-addtable-t-t"></a>AddTable&lt;T&gt;(T)
 
@@ -185,11 +189,15 @@ public T AddTable<T>(T table) where T : IHotTable;
 
 Adds a hot table. Tables are snapshotted and hashed in the order added.
 
+**Type parameters**
+
+- `T`: The generated hot table type.
+
 **Parameters**
 
-- `table` (`T`)
+- `table` (`T`): The table to add.
 
-**Returns:** `T`
+**Returns:** `T` — The table, for chaining.
 
 **Exceptions**
 
@@ -205,8 +213,8 @@ Adds an entity under a given id; replicas use it to mirror the authority's ids.
 
 **Parameters**
 
-- `entity` ([`Entity`](Entity.md))
-- `id` ([`EntityId`](EntityId.md))
+- `entity` ([`Entity`](Entity.md)): A new entity that is not in any world.
+- `id` ([`EntityId`](EntityId.md)): The id to give it; not zero and not used by another entity.
 
 **Exceptions**
 
@@ -267,10 +275,10 @@ The wire form of a command, the inverse of [`World.SubmitEncoded()`](World.md#m-
 
 **Parameters**
 
-- `writer` ([`SyncWriter`](SyncWriter.md))
-- `entity` ([`EntityId`](EntityId.md))
-- `commandId` (`uint`)
-- `payload` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`)
+- `writer` ([`SyncWriter`](SyncWriter.md)): Receives the bytes.
+- `entity` ([`EntityId`](EntityId.md)): The entity the command is for.
+- `commandId` (`uint`): The command's id.
+- `payload` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`): The encoded arguments.
 
 ### <a id="m-find-entityid"></a>Find(EntityId)
 
@@ -278,11 +286,11 @@ The wire form of a command, the inverse of [`World.SubmitEncoded()`](World.md#m-
 public Entity? Find(EntityId id);
 ```
 
-Finds an entity by id, or null.
+Finds an entity by id. Returns null for an id that was never used, was removed, or whose entity this replica has not received (or may not see).
 
 **Parameters**
 
-- `id` ([`EntityId`](EntityId.md))
+- `id` ([`EntityId`](EntityId.md)): The entity's id.
 
 **Returns:** [`Entity`](Entity.md)?
 
@@ -296,7 +304,7 @@ Replaces this world's contents with a snapshot from untrusted bytes. Entities of
 
 **Parameters**
 
-- `bytes` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`)
+- `bytes` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`): A snapshot from [`World.WriteSnapshot()`](World.md#m-writesnapshot-syncwriter), a save file or a server. Untrusted input is fine: it is bounds-checked and never throws.
 
 **Returns:** [`SyncError`](SyncError.md) — [`SyncError.None`](SyncError.md#m-none) on success.
 
@@ -310,7 +318,7 @@ Removes an entity. During a tick the removal takes effect when the tick ends.
 
 **Parameters**
 
-- `id` ([`EntityId`](EntityId.md))
+- `id` ([`EntityId`](EntityId.md)): The entity to remove.
 
 **Returns:** `bool` — False if no such entity exists.
 
@@ -336,11 +344,11 @@ Sends a command to an entity. An authority queues it for the next tick; a replic
 
 **Parameters**
 
-- `entity` ([`EntityId`](EntityId.md))
-- `commandId` (`uint`)
-- `payload` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`)
+- `entity` ([`EntityId`](EntityId.md)): The entity to command.
+- `commandId` (`uint`): The command's id (generated; entities expose it through `Send`).
+- `payload` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`): The encoded arguments.
 
-**Returns:** [`CommandStatus`](CommandStatus.md)
+**Returns:** [`CommandStatus`](CommandStatus.md) — [`CommandStatus.Queued`](CommandStatus.md#m-queued) on an authority, [`CommandStatus.Forwarded`](CommandStatus.md#m-forwarded) on a replica, or why it was refused.
 
 ### <a id="m-submitencoded-readonlyspan-byte"></a>SubmitEncoded(ReadOnlySpan&lt;byte&gt;)
 
@@ -352,7 +360,7 @@ Submits a command from its wire form (entity id, command id, arguments), as read
 
 **Parameters**
 
-- `wire` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`)
+- `wire` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`): The bytes written by [`World.EncodeCommand()`](World.md#m-encodecommand-syncwriter-entityid-uint-readonlyspan-byte).
 
 **Returns:** [`CommandStatus`](CommandStatus.md)
 
@@ -362,12 +370,16 @@ Submits a command from its wire form (entity id, command id, arguments), as read
 public bool TryGet<T>(EntityId id, out T entity) where T : Entity;
 ```
 
-Finds an entity of a given type by id.
+Finds an entity by id and type. Returns false when there is no such entity or it is of another type.
+
+**Type parameters**
+
+- `T`: The entity type to look for.
 
 **Parameters**
 
-- `id` ([`EntityId`](EntityId.md))
-- `entity` (`T`)
+- `id` ([`EntityId`](EntityId.md)): The entity's id.
+- `entity` (`T`): The entity when found; otherwise null.
 
 **Returns:** `bool`
 
@@ -377,11 +389,11 @@ Finds an entity of a given type by id.
 public void WriteSnapshot(SyncWriter w);
 ```
 
-Writes the whole world: tick, id counter, random streams, entities (with their schema versions) and tables.
+Writes the whole world: tick, id counter, random streams, entities (with their schema versions) and tables. This is a save: [`World.ReadSnapshot()`](World.md#m-readsnapshot-readonlyspan-byte) restores it, through the entities' migrations if their schema grew since.
 
 **Parameters**
 
-- `w` ([`SyncWriter`](SyncWriter.md))
+- `w` ([`SyncWriter`](SyncWriter.md)): Receives the bytes.
 
 ### <a id="m-writeviewsnapshot-syncwriter-audience-bool"></a>WriteViewSnapshot(SyncWriter, in Audience, bool)
 

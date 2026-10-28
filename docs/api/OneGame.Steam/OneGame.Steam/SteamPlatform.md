@@ -11,6 +11,17 @@ public static class SteamPlatform
 
 Entry point: connects to Steam, or falls back to a store that does nothing.
 
+Call the store services from view code and host hooks (a button, a command's result), never from sim code: they do I/O and their answers differ between machines. Real calls need the Steam client running and the game's app id.
+
+**Example**
+
+```csharp
+IStorePlatform store = SteamPlatform.Start(new SteamOptions { AppId = 480, RelaunchThroughSteam = true });
+if (store.RelaunchRequested) { return; }              // Steam is starting the game again; exit before opening a window
+// Once per frame on the game thread: store.Pump();
+store.Achievements.Unlock("FIRST_WIN");               // StoreResult.Unavailable, not an exception, when Steam is not there
+```
+
 ## Methods
 
 | Member | Description |

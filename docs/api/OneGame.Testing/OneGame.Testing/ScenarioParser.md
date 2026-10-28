@@ -15,7 +15,7 @@ Reads scenario files. They are strict: a key the format does not know is an erro
 
 | Member | Description |
 | --- | --- |
-| [`Load(string)`](#m-load-string) | Reads a scenario file. |
+| [`Load(string)`](#m-load-string) | Reads a scenario file (at most 1 MiB). |
 | [`Parse(string, string?, string)`](#m-parse-string-string-string) | Reads a scenario from text. |
 
 ### <a id="m-load-string"></a>Load(string)
@@ -24,11 +24,11 @@ Reads scenario files. They are strict: a key the format does not know is an erro
 public static Scenario Load(string path);
 ```
 
-Reads a scenario file.
+Reads a scenario file (at most 1 MiB).
 
 **Parameters**
 
-- `path` (`string`)
+- `path` (`string`): The `.yaml` file.
 
 **Returns:** [`Scenario`](Scenario.md)
 

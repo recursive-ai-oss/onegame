@@ -34,7 +34,7 @@ public GameOptions();
 | [`DataDirectory`](#m-datadirectory) | A folder for the game's saves and settings, overriding the default choice (the `--data` argument). |
 | [`Device`](#m-device) | A graphics device the host already made. |
 | [`DisplayName`](#m-displayname) | The display to open the window on: an X display name (`:1`) or a Wayland socket name. |
-| [`Gpu`](#m-gpu) | Graphics device policy. |
+| [`Gpu`](#m-gpu) | Graphics device policy: [`GpuMode.Auto`](GpuMode.md#m-auto) uses a device when one can be made, [`GpuMode.Off`](GpuMode.md#m-off) renders captures on the CPU, [`GpuMode.Required`](GpuMode.md#m-required) fails without a device. |
 | [`Headless`](#m-headless) | No window: events come only from injection and nothing is presented. |
 | [`Height`](#m-height) | Window (or virtual window) height in pixels. |
 | [`PersistData`](#m-persistdata) | Keep saves and settings in the platform's persistent store even for a headless or unpresented run (the `--persist-data` argument). |
@@ -112,7 +112,7 @@ The display to open the window on: an X display name (`:1`) or a Wayland socket 
 public GpuMode Gpu { get; init; }
 ```
 
-Graphics device policy.
+Graphics device policy: [`GpuMode.Auto`](GpuMode.md#m-auto) uses a device when one can be made, [`GpuMode.Off`](GpuMode.md#m-off) renders captures on the CPU, [`GpuMode.Required`](GpuMode.md#m-required) fails without a device.
 
 **Type:** [`GpuMode`](GpuMode.md)
 

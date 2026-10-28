@@ -11,6 +11,8 @@ public abstract class Entity
 
 Base class of every entity. The generator fills in everything abstract here for a class marked [`EntityAttribute`](EntityAttribute.md); authors override [`Entity.OnTick()`](Entity.md#m-ontick) for per-tick sim logic.
 
+Game code seldom calls the members of this class directly. Declare synced state with [`SyncedAttribute`](SyncedAttribute.md), change it from [`Entity.OnTick()`](Entity.md#m-ontick) and from [`CommandAttribute`](CommandAttribute.md) handlers (sim code), and read it from [`ViewAttribute`](ViewAttribute.md) members. Setters throw [`ReplicaWriteException`](ReplicaWriteException.md) on a replica; a view that wants a change sends a command through the generated `Send` property. The members here are the surface the sync layer, saves and the test harness use.
+
 ## Constructors
 
 | Member | Description |
@@ -33,11 +35,11 @@ protected Entity();
 | [`Id`](#m-id) | The entity's id, or [`EntityId.None`](EntityId.md#m-none) before it is added to a world. |
 | [`IsRemoved`](#m-isremoved) | True once the entity has been removed from its world. |
 | [`OwnerKey`](#m-ownerkey) | The value of the [`OwnerKeyAttribute`](OwnerKeyAttribute.md) property, or 0. |
-| [`PropertyCount`](#m-propertycount) | The number of synced properties. |
+| [`PropertyCount`](#m-propertycount) | The number of [`SyncedAttribute`](SyncedAttribute.md) properties, which is also the width of the bit masks used by [`Entity.DirtyMask`](Entity.md#m-dirtymask) and visibility. |
 | [`SchemaVersion`](#m-schemaversion) | The schema version of the state this build writes. |
 | [`TeamKey`](#m-teamkey) | The value of the [`TeamKeyAttribute`](TeamKeyAttribute.md) property, or 0. |
 | [`TypeId`](#m-typeid) | The stable id of this entity type, used in snapshots. |
-| [`TypeName`](#m-typename) | The type's name. |
+| [`TypeName`](#m-typename) | The entity type's name as written in code, used in harness output, scenarios and snapshots' JSON dump. |
 | [`World`](#m-world) | The world this entity belongs to, or null. |
 
 ### <a id="m-commandsignatures"></a>CommandSignatures
@@ -106,7 +108,7 @@ The value of the [`OwnerKeyAttribute`](OwnerKeyAttribute.md) property, or 0.
 public abstract int PropertyCount { get; }
 ```
 
-The number of synced properties.
+The number of [`SyncedAttribute`](SyncedAttribute.md) properties, which is also the width of the bit masks used by [`Entity.DirtyMask`](Entity.md#m-dirtymask) and visibility.
 
 **Type:** `int`
 
@@ -146,7 +148,7 @@ The stable id of this entity type, used in snapshots.
 public abstract string TypeName { get; }
 ```
 
-The type's name.
+The entity type's name as written in code, used in harness output, scenarios and snapshots' JSON dump.
 
 **Type:** `string`
 
@@ -177,7 +179,7 @@ The world this entity belongs to, or null.
 | [`ExecuteCommand(uint, ref SyncReader)`](#m-executecommand-uint-syncreader) | Runs the handler for a command. |
 | [`IsOwnerOnlyCommand(uint)`](#m-isowneronlycommand-uint) | True when the command is marked `OwnerOnly`. |
 | [`IsPredictedCommand(uint)`](#m-ispredictedcommand-uint) | True when the command is marked `Predicted`. |
-| [`OnTick()`](#m-ontick) | Per-tick sim logic. |
+| [`OnTick()`](#m-ontick) | Per-tick sim logic: override it to move, age or react. |
 | [`PredictedCommandUsesRandom(uint)`](#m-predictedcommandusesrandom-uint) | True when the command is marked `Predicted` with `UsesRandom`. |
 | [`PropertyName(int)`](#m-propertyname-int) | The name of synced property `index` (declaration order). |
 | [`ReadState(ref SyncReader)`](#m-readstate-syncreader) | Replaces all synced state from the current schema's layout. |
@@ -203,7 +205,7 @@ Applies a delta. All values are decoded before any is stored, so an error leaves
 
 **Parameters**
 
-- `reader` ([`SyncReader`](SyncReader.md))
+- `reader` ([`SyncReader`](SyncReader.md)): Reads a delta from [`Entity.WriteDirtyDelta()`](Entity.md#m-writedirtydelta-syncwriter) or [`Entity.WriteMaskedDelta()`](Entity.md#m-writemaskeddelta-syncwriter-ulong); check its error afterwards.
 
 ### <a id="m-assertwritable"></a>AssertWritable()
 
@@ -277,7 +279,7 @@ Hash of what an audience sees of this entity: with every property visible it equ
 
 **Parameters**
 
-- `visibleMask` (`ulong`)
+- `visibleMask` (`ulong`): Bit i set for each property the audience may see.
 
 **Returns:** `ulong`
 
@@ -311,8 +313,8 @@ Runs the handler for a command. Returns [`CommandStatus.Executed`](CommandStatus
 
 **Parameters**
 
-- `commandId` (`uint`)
-- `arguments` ([`SyncReader`](SyncReader.md))
+- `commandId` (`uint`): The command's generated id.
+- `arguments` ([`SyncReader`](SyncReader.md)): Reads the encoded arguments.
 
 **Returns:** [`CommandStatus`](CommandStatus.md)
 
@@ -326,7 +328,7 @@ True when the command is marked `OwnerOnly`.
 
 **Parameters**
 
-- `commandId` (`uint`)
+- `commandId` (`uint`): The command's generated id.
 
 **Returns:** `bool`
 
@@ -340,7 +342,7 @@ True when the command is marked `Predicted`.
 
 **Parameters**
 
-- `commandId` (`uint`)
+- `commandId` (`uint`): The command's generated id.
 
 **Returns:** `bool`
 
@@ -350,7 +352,7 @@ True when the command is marked `Predicted`.
 protected virtual void OnTick();
 ```
 
-Per-tick sim logic. Runs on the authority, in entity id order, after queued commands.
+Per-tick sim logic: override it to move, age or react. It runs once per fixed simulation tick on the authority (and on a predicting replica's predicted copy), in entity id order, after the commands queued for that tick, and never on a plain replica. It is sim code: fixed-point numbers, named random streams ([`World.Rng`](World.md#m-rng)), no clock, threads or I/O. An entity removed during a tick is gone when the tick ends.
 
 ### <a id="m-predictedcommandusesrandom-uint"></a>PredictedCommandUsesRandom(uint)
 
@@ -362,7 +364,7 @@ True when the command is marked `Predicted` with `UsesRandom`.
 
 **Parameters**
 
-- `commandId` (`uint`)
+- `commandId` (`uint`): The command's generated id.
 
 **Returns:** `bool`
 
@@ -402,8 +404,8 @@ Replaces all synced state from a given schema version, running the author's migr
 
 **Parameters**
 
-- `schemaVersion` (`uint`)
-- `reader` ([`SyncReader`](SyncReader.md))
+- `schemaVersion` (`uint`): The schema version the bytes were written with.
+- `reader` ([`SyncReader`](SyncReader.md)): Reads the saved bytes; check its error afterwards.
 
 ### <a id="m-sendcommand-uint-syncwriter"></a>SendCommand(uint, SyncWriter)
 
@@ -415,10 +417,10 @@ Sends the command whose arguments are in the writer from [`Entity.BeginCommand()
 
 **Parameters**
 
-- `commandId` (`uint`)
-- `arguments` ([`SyncWriter`](SyncWriter.md))
+- `commandId` (`uint`): The command's generated id.
+- `arguments` ([`SyncWriter`](SyncWriter.md)): The writer returned by [`Entity.BeginCommand()`](Entity.md#m-begincommand), holding the encoded arguments.
 
-**Returns:** [`CommandStatus`](CommandStatus.md)
+**Returns:** [`CommandStatus`](CommandStatus.md) — What became of the command; see [`CommandStatus`](CommandStatus.md).
 
 ### <a id="m-sendfromtext-string-string"></a>SendFromText(string, string\[\])
 
@@ -430,8 +432,8 @@ Encodes and sends a command given its name and text arguments (the state-patch h
 
 **Parameters**
 
-- `commandName` (`string`)
-- `arguments` (`string[]`)
+- `commandName` (`string`): The command method's name.
+- `arguments` (`string[]`): One text per parameter, in declaration order.
 
 **Returns:** [`CommandStatus`](CommandStatus.md)
 
@@ -445,7 +447,7 @@ Records why the command handler running now rejected the command; the authority 
 
 **Parameters**
 
-- `reason` (`string?`)
+- `reason` (`string?`): Short plain text for the player, or null to clear it.
 
 ### <a id="m-trygetvisiblemask-audience-ulong"></a>TryGetVisibleMask(in Audience, out ulong)
 
@@ -457,10 +459,10 @@ Which of this entity's properties (bit i = property i) an audience may receive. 
 
 **Parameters**
 
-- `audience` ([`Audience`](Audience.md))
-- `mask` (`ulong`)
+- `audience` ([`Audience`](Audience.md)): The subscriber's player and team.
+- `mask` (`ulong`): Bit i set when property i may be sent to the audience.
 
-**Returns:** `bool`
+**Returns:** `bool` — False when the whole entity is hidden from the audience.
 
 ### <a id="m-trysetfromtext-string-string"></a>TrySetFromText(string, string)
 
@@ -472,8 +474,8 @@ Sets a scalar synced property from text, for the state-patch harness. Returns fa
 
 **Parameters**
 
-- `propertyName` (`string`)
-- `text` (`string`)
+- `propertyName` (`string`): The property's name.
+- `text` (`string`): The new value in invariant text form (for example `12.5` for a [`Fixed`](Fixed.md)).
 
 **Returns:** `bool`
 
@@ -502,7 +504,7 @@ Writes a delta holding the properties changed since [`Entity.ClearDirty()`](Enti
 
 **Parameters**
 
-- `writer` ([`SyncWriter`](SyncWriter.md))
+- `writer` ([`SyncWriter`](SyncWriter.md)): Receives the bytes.
 
 ### <a id="m-writejson-jsonout"></a>WriteJson(JsonOut)
 
@@ -514,7 +516,7 @@ Writes the entity as a JSON object.
 
 **Parameters**
 
-- `json` ([`JsonOut`](JsonOut.md))
+- `json` ([`JsonOut`](JsonOut.md)): Receives the object.
 
 ### <a id="m-writemaskeddelta-syncwriter-ulong"></a>WriteMaskedDelta(SyncWriter, ulong)
 
@@ -539,4 +541,4 @@ Writes all synced state in the current schema.
 
 **Parameters**
 
-- `writer` ([`SyncWriter`](SyncWriter.md))
+- `writer` ([`SyncWriter`](SyncWriter.md)): Receives the bytes.

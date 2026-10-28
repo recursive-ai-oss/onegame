@@ -11,6 +11,20 @@ public sealed class PageScreen
 
 One OneRender page shown as a screen: an HTML document ([`PageScreen.Interactive`](PageScreen.md#m-interactive)) or a builder tree ([`PageScreen.Live`](PageScreen.md#m-live)). It lays out at the size of the window in CSS px, keeps its display list up to date, takes input and time, and offers lookups by name for the harness.
 
+**Example**
+
+Show an HTML page from a screen builder, with a handler that sends a command:
+
+```csharp
+var fonts = new PageFonts(game.Fonts);
+fonts.Add(File.ReadAllBytes("fonts/Body.ttf"), "Body");
+game.Pages.Show("menu", PageScreen.FromHtml("<button id=\"start\">Start</button>", new PageOptions(fonts)
+{
+    Setup = s => s.Interactive!.Events.AddEventListener(
+        EventTarget.Of(s.Interactive.FindElement("start")), "click", _ => Meter.Of(game.World).Send.Add(1)),
+}));
+```
+
 ## Properties
 
 | Member | Description |

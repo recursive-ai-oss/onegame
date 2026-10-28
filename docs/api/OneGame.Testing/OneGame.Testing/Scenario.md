@@ -10,7 +10,25 @@
 public sealed record Scenario : IEquatable<Scenario>
 ```
 
-A scenario: where to start, what to do, and what must hold afterwards.
+A scenario: where to start, what to do, and what must hold afterwards. Scenarios are normally YAML files read with [`ScenarioParser`](ScenarioParser.md) and run with [`TestCluster.Run()`](TestCluster.md#m-run-string-scenariorunoptions) or `onegame test`; the same record can be built in code.
+
+**Example**
+
+A scenario file. Steps run in order; an `expect` step checks at that moment, the final `expect` list after the last step:
+
+```csharp
+name: buy-sword
+steps:
+  - fixture: rich-player
+  - click: shop-open
+  - step: 2
+  - click: buy-sword
+  - step: 1
+  - capture: { path: shop.png, size: 1280x720 }
+expect:
+  - state: { entity: Player, property: Gold, equals: 50 }
+  - ui: { id: sword-owned, visible: true }
+```
 
 ## Constructors
 

@@ -11,6 +11,27 @@ public abstract class ServerPlugin
 
 A server plugin. The host creates one instance per load, calls [`ServerPlugin.Load()`](ServerPlugin.md#m-load-plugincontext) (every load and reload), [`ServerPlugin.Seed()`](ServerPlugin.md#m-seed-pluginscope) (first load only) and finally [`ServerPlugin.Unload()`](ServerPlugin.md#m-unload). State belongs in entities, so it survives a reload; keep nothing in static fields, threads, timers or event subscriptions, because the assembly can only be unloaded once nothing outside it refers to it.
 
+**Example**
+
+A plugin that adds an entity type to a running server. Build it as a class library (`OneGameKind` set to `Plugin` in the SDK), then point a server configuration's `plugins:` list at the dll; rebuild it and use the `plugin_reload` operation to hot-reload it.
+
+```csharp
+[assembly: ServerPlugin(typeof(Pulse.PulsePlugin))]
+
+namespace Pulse;
+
+public sealed class PulsePlugin : ServerPlugin
+{
+    public override void Load(PluginContext context)
+    {
+        context.AddEntity<Counter>();
+        context.Log("step is " + context.SettingInt("step", 1));
+    }
+
+    public override void Seed(PluginScope scope) => scope.World.Add(new Counter());
+}
+```
+
 ## Constructors
 
 | Member | Description |

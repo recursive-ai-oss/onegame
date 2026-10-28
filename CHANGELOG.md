@@ -4,6 +4,19 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-28
+
+An API reference for every package, generated from the code and its documentation.
+
+### Added
+
+- API reference: [`docs/api/`](docs/api/index.md) documents the public API of every package (types, members, C# signatures, docs, examples and cross-links), generated from the built assemblies and their XML docs by `tools/OneGame.ApiDocs`. CI regenerates it and fails when it is out of date. README, the first-game guide and the other guides link to it.
+- [`docs/api/sdk.md`](docs/api/sdk.md): every MSBuild property and item a game project can set on `RecursiveAI.OneGame.Sdk`, with defaults and effects.
+
+### Changed
+
+- XML documentation rewritten for the reference across the game-facing runtime (`GameDefinition`, `GameApp`, `GameInstance`, `Entity`, `World`, `Ui`, `UiKit`, `Draw2D`, `SpriteSheet`, `Camera2DRig`, `ActionMap`, `AudioService`, `Cluster` and more), the test API (`TestCluster`, `TestClient`, scenarios, `ProcessCluster`, `TestServer`), the control and live layers, the server host and plugin API, the 3D renderer, glTF loading and the GPU device. Entry points gain compiled examples; parameters, units, ranges, exceptions and the sim-versus-view rules are stated.
+
 ### Fixed
 
 - Process clusters (`OneGame.Testing`) no longer fail when a server's port is taken between choosing it and binding it, or when a long test process runs out of fresh port numbers: a start that loses the race or finds no free port is retried on new ports, a restarted node retries its own port, and a cluster gives its ports back when it goes down. `onegame web` picks another port when its listener's port is taken.

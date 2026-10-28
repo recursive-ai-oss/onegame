@@ -10,13 +10,13 @@
 public sealed record SequenceResult : IEquatable<SequenceResult>
 ```
 
-Result of `capture_sequence`.
+Result of `capture_sequence`: a folder of numbered PNGs and a manifest.
 
 ## Constructors
 
 | Member | Description |
 | --- | --- |
-| [`SequenceResult(string, string, int, int, int, int)`](#m-ctor-string-string-int-int-int-int) | Result of `capture_sequence`. |
+| [`SequenceResult(string, string, int, int, int, int)`](#m-ctor-string-string-int-int-int-int) | Result of `capture_sequence`: a folder of numbered PNGs and a manifest. |
 
 ### <a id="m-ctor-string-string-int-int-int-int"></a>SequenceResult(string, string, int, int, int, int)
 
@@ -24,33 +24,35 @@ Result of `capture_sequence`.
 public SequenceResult(string Directory, string Manifest, int Frames, int Width, int Height, int Fps);
 ```
 
-Result of `capture_sequence`.
+Result of `capture_sequence`: a folder of numbered PNGs and a manifest.
 
 **Parameters**
 
-- `Directory` (`string`)
-- `Manifest` (`string`)
-- `Frames` (`int`)
-- `Width` (`int`)
-- `Height` (`int`)
-- `Fps` (`int`)
+- `Directory` (`string`): The folder written, under the output folder.
+- `Manifest` (`string`): The manifest file's path.
+- `Frames` (`int`): How many frames were captured.
+- `Width` (`int`): Pixel width of each frame.
+- `Height` (`int`): Pixel height of each frame.
+- `Fps` (`int`): Playback frames per second.
 
 ## Properties
 
 | Member | Description |
 | --- | --- |
-| [`Directory`](#m-directory) |  |
-| [`Fps`](#m-fps) |  |
-| [`Frames`](#m-frames) |  |
-| [`Height`](#m-height) |  |
-| [`Manifest`](#m-manifest) |  |
-| [`Width`](#m-width) |  |
+| [`Directory`](#m-directory) | The folder written, under the output folder. |
+| [`Fps`](#m-fps) | Playback frames per second. |
+| [`Frames`](#m-frames) | How many frames were captured. |
+| [`Height`](#m-height) | Pixel height of each frame. |
+| [`Manifest`](#m-manifest) | The manifest file's path. |
+| [`Width`](#m-width) | Pixel width of each frame. |
 
 ### <a id="m-directory"></a>Directory
 
 ```csharp
 public string Directory { get; init; }
 ```
+
+The folder written, under the output folder.
 
 **Type:** `string`
 
@@ -60,6 +62,8 @@ public string Directory { get; init; }
 public int Fps { get; init; }
 ```
 
+Playback frames per second.
+
 **Type:** `int`
 
 ### <a id="m-frames"></a>Frames
@@ -67,6 +71,8 @@ public int Fps { get; init; }
 ```csharp
 public int Frames { get; init; }
 ```
+
+How many frames were captured.
 
 **Type:** `int`
 
@@ -76,6 +82,8 @@ public int Frames { get; init; }
 public int Height { get; init; }
 ```
 
+Pixel height of each frame.
+
 **Type:** `int`
 
 ### <a id="m-manifest"></a>Manifest
@@ -84,6 +92,8 @@ public int Height { get; init; }
 public string Manifest { get; init; }
 ```
 
+The manifest file's path.
+
 **Type:** `string`
 
 ### <a id="m-width"></a>Width
@@ -91,5 +101,7 @@ public string Manifest { get; init; }
 ```csharp
 public int Width { get; init; }
 ```
+
+Pixel width of each frame.
 
 **Type:** `int`

@@ -11,6 +11,21 @@ public sealed class ActionMap
 
 A game's actions: named buttons, axes and 2D vectors, with default bindings on keyboard, mouse, gamepad and touch, grouped in contexts a screen switches on and off. View code asks [`ActionMap.Pressed()`](ActionMap.md#m-pressed-string), [`ActionMap.Held()`](ActionMap.md#m-held-string), [`ActionMap.Released()`](ActionMap.md#m-released-string), [`ActionMap.Value()`](ActionMap.md#m-value-string) and [`ActionMap.Vector()`](ActionMap.md#m-vector-string) and sends commands; actions never touch synced state. A hosted game gets one as `GameInstance.Actions`, declared in `GameDefinition.DefineActions`, and it is updated once a frame. Outside the host, call [`ActionMap.Observe()`](ActionMap.md#m-observe-platformevent) for every event and [`ActionMap.Update()`](ActionMap.md#m-update-inputstate-int-int) once per frame.
 
+**Example**
+
+Declare in `GameDefinition.DefineActions`, read in view code:
+
+```csharp
+public override void DefineActions(ActionMap actions) =>
+    actions.Context("play", c => c
+        .Vector("move", Bind.Wasd, Bind.Arrows, Bind.LeftStick)
+        .Button("jump", Bind.Key(Key.Space), Bind.Pad(GamepadButton.South)));
+
+// In OnEachFrame (view code):
+var move = game.Actions.Vector("move");       // x and y from -1 to 1
+if (game.Actions.Pressed("jump")) { player.Send.Jump(); }   // true on the frame the button went down
+```
+
 ## Constructors
 
 | Member | Description |

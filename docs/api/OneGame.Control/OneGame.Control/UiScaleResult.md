@@ -28,23 +28,25 @@ Result of `ui_scale`: the scale in effect, the override (null when following the
 
 **Parameters**
 
-- `Scale` (`float`)
-- `Override` (`float?`)
-- `WindowScale` (`float`)
+- `Scale` (`float`): The UI scale in effect.
+- `Override` (`float?`): The scale set by this operation, or null when the UI follows the window's scale.
+- `WindowScale` (`float`): The window's own scale factor (HiDPI).
 
 ## Properties
 
 | Member | Description |
 | --- | --- |
-| [`Override`](#m-override) |  |
-| [`Scale`](#m-scale) |  |
-| [`WindowScale`](#m-windowscale) |  |
+| [`Override`](#m-override) | The scale set by this operation, or null when the UI follows the window's scale. |
+| [`Scale`](#m-scale) | The UI scale in effect. |
+| [`WindowScale`](#m-windowscale) | The window's own scale factor (HiDPI). |
 
 ### <a id="m-override"></a>Override
 
 ```csharp
 public float? Override { get; init; }
 ```
+
+The scale set by this operation, or null when the UI follows the window's scale.
 
 **Type:** `float?`
 
@@ -54,6 +56,8 @@ public float? Override { get; init; }
 public float Scale { get; init; }
 ```
 
+The UI scale in effect.
+
 **Type:** `float`
 
 ### <a id="m-windowscale"></a>WindowScale
@@ -61,5 +65,7 @@ public float Scale { get; init; }
 ```csharp
 public float WindowScale { get; init; }
 ```
+
+The window's own scale factor (HiDPI).
 
 **Type:** `float`

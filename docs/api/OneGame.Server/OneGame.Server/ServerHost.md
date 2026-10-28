@@ -9,7 +9,20 @@
 public sealed class ServerHost
 ```
 
-A headless game server: one node hosting one or more authority scopes on a fixed-step driver, with no window, GPU or audio. It starts from a [`ServerConfig`](ServerConfig.md), loads plugins through an [`IPluginLoader`](IPluginLoader.md) (when the host has one), keeps ticking when a plugin fails, and can load, hot-reload and unload plugins while it runs. Everything runs on the thread that calls [`ServerHost.StepOnce()`](ServerHost.md#m-steponce), [`ServerHost.Advance()`](ServerHost.md#m-advance-timespan) or [`ServerHost.Run()`](ServerHost.md#m-run-func-bool-action): plugin operations are plain calls between ticks.
+A headless game server: one node hosting one or more authority scopes on a fixed-step driver, with no window, GPU or audio. It starts from a [`ServerConfig`](ServerConfig.md), loads plugins through an [`IPluginLoader`](IPluginLoader.md) (when the host has one), keeps ticking when a plugin fails, and can load, hot-reload and unload plugins while it runs. Everything runs on the thread that calls [`ServerHost.StepOnce()`](ServerHost.md#m-steponce), [`ServerHost.Advance()`](ServerHost.md#m-advance-timespan) or [`ServerHost.Run()`](ServerHost.md#m-run-func-bool-action): plugin operations are plain calls between ticks. Most servers do not build one by hand: `ServerApp.Run` in `OneGame.Server.Live` does, and adds the command line and live control.
+
+**Example**
+
+Host a scope in-process, tick it and read its state:
+
+```csharp
+var config = ServerConfig.Parse("name: arena\ntickRate: 60\nscopes:\n  - { id: 1, seed: 42 }\n");
+var host = new ServerHost(config, new ServerSetup { RegisterEntities = MyGame.EntityTypes.Register });
+host.Start();
+host.Step(120);                                   // two seconds of ticks
+Console.WriteLine(host.Scopes[0].World.Tick);     // 120
+host.Stop();
+```
 
 ## Constructors
 
@@ -47,7 +60,7 @@ Creates a server. Nothing runs until [`ServerHost.Start()`](ServerHost.md#m-star
 | [`Scopes`](#m-scopes) | The hosted scopes in id order of declaration. |
 | [`State`](#m-state) | Where the server is in its life. |
 | [`StopRequested`](#m-stoprequested) | True once a stop was requested (the control surface's `shutdown`). |
-| [`Tick`](#m-tick) | Ticks run so far. |
+| [`Tick`](#m-tick) | Ticks run so far, counted from [`ServerHost.Start()`](ServerHost.md#m-start). |
 
 ### <a id="m-authenticate"></a>Authenticate
 
@@ -165,7 +178,7 @@ True once a stop was requested (the control surface's `shutdown`).
 public long Tick { get; }
 ```
 
-Ticks run so far.
+Ticks run so far, counted from [`ServerHost.Start()`](ServerHost.md#m-start). Each hosted scope's own world tick is in [`ServerScope.World`](ServerScope.md#m-world).
 
 **Type:** `long`
 
@@ -200,10 +213,10 @@ Raised when a network client's connection closed (it left, timed out or was drop
 | [`ReloadPlugin(string, string?)`](#m-reloadplugin-string-string) | Replaces a running plugin with a new build of it. |
 | [`RequestStop()`](#m-requeststop) | Asks [`ServerHost.Run()`](ServerHost.md#m-run-func-bool-action) to finish its current tick and stop. |
 | [`Run(Func<bool>?, Action?)`](#m-run-func-bool-action) | Runs in real time until [`ServerHost.RequestStop()`](ServerHost.md#m-requeststop) or `keepRunning` returns false. |
-| [`ScopeInfos()`](#m-scopeinfos) | Snapshots of every scope. |
+| [`ScopeInfos()`](#m-scopeinfos) | A summary of every hosted scope: tick, state hash, entity count and subscribers. |
 | [`SendCommand(ScopeId, EntityId, string, string[])`](#m-sendcommand-scopeid-entityid-string-string) | Sends a command to an entity from the host, as trusted input: it is queued for the next tick. |
 | [`Start()`](#m-start) | Builds the scopes and loads the configured plugins. |
-| [`Step(int)`](#m-step-int) | Runs `ticks` ticks. |
+| [`Step(int)`](#m-step-int) | Runs `ticks` ticks back to back, as fast as possible with no clock. |
 | [`StepOnce()`](#m-steponce) | Runs one tick: delivers arrived messages, steps and publishes every scope. |
 | [`Stop()`](#m-stop) | Stops ticking, gives every plugin its [`ServerPlugin.Unload()`](ServerPlugin.md#m-unload) call (errors are logged) and releases it. |
 | [`UnloadPlugin(string)`](#m-unloadplugin-string) | Removes a plugin: its entities leave the scopes, its systems stop, [`ServerPlugin.Unload()`](ServerPlugin.md#m-unload) runs, and its load context is released and collected. |
@@ -360,7 +373,7 @@ Runs in real time until [`ServerHost.RequestStop()`](ServerHost.md#m-requeststop
 public IReadOnlyList<ScopeInfo> ScopeInfos();
 ```
 
-Snapshots of every scope.
+A summary of every hosted scope: tick, state hash, entity count and subscribers. Cheap enough to poll.
 
 **Returns:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`ScopeInfo`](ScopeInfo.md)&gt;
 
@@ -403,11 +416,15 @@ Builds the scopes and loads the configured plugins. A plugin that fails to load 
 public void Step(int ticks);
 ```
 
-Runs `ticks` ticks.
+Runs `ticks` ticks back to back, as fast as possible with no clock. Tests use this; [`ServerHost.Run()`](ServerHost.md#m-run-func-bool-action) paces by the clock.
 
 **Parameters**
 
 - `ticks` (`int`): How many.
+
+**Exceptions**
+
+- [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): The server is not running.
 
 ### <a id="m-steponce"></a>StepOnce()
 

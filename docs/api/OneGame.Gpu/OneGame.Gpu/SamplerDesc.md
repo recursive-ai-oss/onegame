@@ -30,17 +30,17 @@ Creates a sampler description with nearest filtering, clamped edges, no anisotro
 
 | Member | Description |
 | --- | --- |
-| [`AddressU`](#m-addressu) | Addressing in U. |
-| [`AddressV`](#m-addressv) | Addressing in V. |
+| [`AddressU`](#m-addressu) | What a read outside 0..1 in U (horizontal) returns. |
+| [`AddressV`](#m-addressv) | What a read outside 0..1 in V (vertical) returns. |
 | [`AddressW`](#m-addressw) | Addressing in W (3D and cube textures). |
 | [`Compare`](#m-compare) | Makes this a comparison sampler for shadow lookups: `SampleCmp` returns how many of the filtered texels pass `reference <op> texel`. |
 | [`Linear`](#m-linear) | Linear filtering with clamped edges. |
-| [`MagFilter`](#m-magfilter) | Filter when magnifying. |
+| [`MagFilter`](#m-magfilter) | Filter when a texel covers more than one pixel (the texture is magnified). |
 | [`MaxAnisotropy`](#m-maxanisotropy) | Maximum anisotropy; 1 disables it. |
-| [`MaxLod`](#m-maxlod) | Highest mip level sampled. |
-| [`MinFilter`](#m-minfilter) | Filter when minifying. |
-| [`MinLod`](#m-minlod) | Lowest mip level sampled. |
-| [`MipFilter`](#m-mipfilter) | Filter between mip levels. |
+| [`MaxLod`](#m-maxlod) | Highest (smallest) mip level the sampler may read. |
+| [`MinFilter`](#m-minfilter) | Filter when a pixel covers more than one texel (the texture is minified). |
+| [`MinLod`](#m-minlod) | Lowest (largest) mip level the sampler may read; 0 by default. |
+| [`MipFilter`](#m-mipfilter) | How two mip levels are blended; `Linear` is trilinear filtering, `Nearest` picks the closer level. |
 | [`Nearest`](#m-nearest) | Nearest filtering with clamped edges. |
 
 ### <a id="m-addressu"></a>AddressU
@@ -49,7 +49,7 @@ Creates a sampler description with nearest filtering, clamped edges, no anisotro
 public AddressMode AddressU { get; init; }
 ```
 
-Addressing in U.
+What a read outside 0..1 in U (horizontal) returns.
 
 **Type:** [`AddressMode`](AddressMode.md)
 
@@ -59,7 +59,7 @@ Addressing in U.
 public AddressMode AddressV { get; init; }
 ```
 
-Addressing in V.
+What a read outside 0..1 in V (vertical) returns.
 
 **Type:** [`AddressMode`](AddressMode.md)
 
@@ -99,7 +99,7 @@ Linear filtering with clamped edges.
 public FilterMode MagFilter { get; init; }
 ```
 
-Filter when magnifying.
+Filter when a texel covers more than one pixel (the texture is magnified). `Nearest` gives hard pixels, `Linear` smooths them.
 
 **Type:** [`FilterMode`](FilterMode.md)
 
@@ -119,7 +119,7 @@ Maximum anisotropy; 1 disables it.
 public float MaxLod { get; init; }
 ```
 
-Highest mip level sampled.
+Highest (smallest) mip level the sampler may read. The default allows every level the texture has.
 
 **Type:** `float`
 
@@ -129,7 +129,7 @@ Highest mip level sampled.
 public FilterMode MinFilter { get; init; }
 ```
 
-Filter when minifying.
+Filter when a pixel covers more than one texel (the texture is minified).
 
 **Type:** [`FilterMode`](FilterMode.md)
 
@@ -139,7 +139,7 @@ Filter when minifying.
 public float MinLod { get; init; }
 ```
 
-Lowest mip level sampled.
+Lowest (largest) mip level the sampler may read; 0 by default.
 
 **Type:** `float`
 
@@ -149,7 +149,7 @@ Lowest mip level sampled.
 public FilterMode MipFilter { get; init; }
 ```
 
-Filter between mip levels.
+How two mip levels are blended; `Linear` is trilinear filtering, `Nearest` picks the closer level.
 
 **Type:** [`FilterMode`](FilterMode.md)
 

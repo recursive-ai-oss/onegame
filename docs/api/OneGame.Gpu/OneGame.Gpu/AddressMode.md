@@ -15,6 +15,6 @@ Texture coordinate handling outside 0..1.
 
 | Name | Value | Description |
 | --- | --- | --- |
-| <a id="m-clamptoedge"></a>`ClampToEdge` | `0` | Clamp to the edge texel. |
-| <a id="m-repeat"></a>`Repeat` | `1` | Repeat. |
+| <a id="m-clamptoedge"></a>`ClampToEdge` | `0` | Reads outside 0..1 return the edge texel. |
+| <a id="m-repeat"></a>`Repeat` | `1` | The texture tiles. |
 | <a id="m-mirrorrepeat"></a>`MirrorRepeat` | `2` | Repeat, mirroring every other tile. |

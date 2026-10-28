@@ -30,14 +30,14 @@ Blend settings for one of color or alpha.
 
 - `Source` ([`BlendFactor`](BlendFactor.md)): Factor for the source value.
 - `Destination` ([`BlendFactor`](BlendFactor.md)): Factor for the destination value.
-- `Operation` ([`BlendOperation`](BlendOperation.md)): How the two combine.
+- `Operation` ([`BlendOperation`](BlendOperation.md)): How the weighted source and destination combine; `Add` for ordinary blending.
 
 ## Properties
 
 | Member | Description |
 | --- | --- |
 | [`Destination`](#m-destination) | Factor for the destination value. |
-| [`Operation`](#m-operation) | How the two combine. |
+| [`Operation`](#m-operation) | How the weighted source and destination combine; `Add` for ordinary blending. |
 | [`Source`](#m-source) | Factor for the source value. |
 
 ### <a id="m-destination"></a>Destination
@@ -56,7 +56,7 @@ Factor for the destination value.
 public BlendOperation Operation { get; init; }
 ```
 
-How the two combine.
+How the weighted source and destination combine; `Add` for ordinary blending.
 
 **Type:** [`BlendOperation`](BlendOperation.md)
 

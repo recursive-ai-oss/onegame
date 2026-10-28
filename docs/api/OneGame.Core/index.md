@@ -18,7 +18,7 @@ dotnet add package RecursiveAI.OneGame.Core
 | [`CommandAttribute`](OneGame.Core/CommandAttribute.md) | attribute | Marks an entity method as a command: a request that a view or test sends and the authority validates and runs. |
 | [`CommandObserver`](OneGame.Core/CommandObserver.md) | delegate | Receives every command a world executes, in order, for logging and replay. |
 | [`CommandReply`](OneGame.Core/CommandReply.md) | struct | What a command handler answers: accepted, or rejected with a reason that travels back to whoever sent the command. |
-| [`CommandStatus`](OneGame.Core/CommandStatus.md) | enum | What happened to a command. |
+| [`CommandStatus`](OneGame.Core/CommandStatus.md) | enum | What happened to a command when it was sent. |
 | [`CoreModule`](OneGame.Core/CoreModule.md) | static class | Identifies the Core assembly; a placeholder until its first feature lands. |
 | [`DuplicateTypeException`](OneGame.Core/DuplicateTypeException.md) | class | Thrown when an entity type is registered twice or two types share an id. |
 | [`Entity`](OneGame.Core/Entity.md) | class | Base class of every entity. |

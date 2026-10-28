@@ -27,7 +27,7 @@ Parses arguments. Anything not starting with `--` and not the value of an option
 
 **Parameters**
 
-- `args` (`string[]`)
+- `args` (`string[]`): The raw arguments.
 
 ## Properties
 
@@ -62,7 +62,7 @@ Arguments that are not options.
 | --- | --- |
 | [`Get(string)`](#m-get-string) | The option's value, or null if absent or bare. |
 | [`GetInt(string, long)`](#m-getint-string-long) | The option as a non-negative integer, or `fallback` when absent. |
-| [`Has(string)`](#m-has-string) | Whether the option was given. |
+| [`Has(string)`](#m-has-string) | Whether the option was given, with or without a value. |
 
 ### <a id="m-get-string"></a>Get(string)
 
@@ -74,7 +74,7 @@ The option's value, or null if absent or bare.
 
 **Parameters**
 
-- `name` (`string`)
+- `name` (`string`): The option name without the leading dashes.
 
 **Returns:** `string?`
 
@@ -103,10 +103,10 @@ The option as a non-negative integer, or `fallback` when absent.
 public bool Has(string name);
 ```
 
-Whether the option was given.
+Whether the option was given, with or without a value.
 
 **Parameters**
 
-- `name` (`string`)
+- `name` (`string`): The option name without the leading dashes.
 
 **Returns:** `bool`

@@ -10,13 +10,13 @@
 public sealed record ShutdownResult : IEquatable<ShutdownResult>
 ```
 
-Result of `shutdown`.
+Result of `shutdown`: the server finishes its current tick, then stops.
 
 ## Constructors
 
 | Member | Description |
 | --- | --- |
-| [`ShutdownResult(bool, long)`](#m-ctor-bool-long) | Result of `shutdown`. |
+| [`ShutdownResult(bool, long)`](#m-ctor-bool-long) | Result of `shutdown`: the server finishes its current tick, then stops. |
 
 ### <a id="m-ctor-bool-long"></a>ShutdownResult(bool, long)
 
@@ -24,25 +24,27 @@ Result of `shutdown`.
 public ShutdownResult(bool Stopping, long Tick);
 ```
 
-Result of `shutdown`.
+Result of `shutdown`: the server finishes its current tick, then stops.
 
 **Parameters**
 
-- `Stopping` (`bool`)
-- `Tick` (`long`)
+- `Stopping` (`bool`): True once the stop was requested.
+- `Tick` (`long`): The tick the server was at.
 
 ## Properties
 
 | Member | Description |
 | --- | --- |
-| [`Stopping`](#m-stopping) |  |
-| [`Tick`](#m-tick) |  |
+| [`Stopping`](#m-stopping) | True once the stop was requested. |
+| [`Tick`](#m-tick) | The tick the server was at. |
 
 ### <a id="m-stopping"></a>Stopping
 
 ```csharp
 public bool Stopping { get; init; }
 ```
+
+True once the stop was requested.
 
 **Type:** `bool`
 
@@ -51,5 +53,7 @@ public bool Stopping { get; init; }
 ```csharp
 public long Tick { get; init; }
 ```
+
+The tick the server was at.
 
 **Type:** `long`

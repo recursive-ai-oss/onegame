@@ -221,6 +221,6 @@ Takes the next queued event, oldest first.
 
 **Parameters**
 
-- `platformEvent` ([`PlatformEvent`](PlatformEvent.md))
+- `platformEvent` ([`PlatformEvent`](PlatformEvent.md)): The event when one was waiting.
 
-**Returns:** `bool`
+**Returns:** `bool` — False when the queue is empty.

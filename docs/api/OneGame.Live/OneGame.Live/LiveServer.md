@@ -10,7 +10,22 @@
 public sealed class LiveServer : IDisposable
 ```
 
-The listener of a development build: a local socket that speaks MCP (newline-delimited JSON-RPC, the protocol's stdio framing) to one agent at a time or several in turn. Connections are read on background threads, but every request runs on the thread that calls [`LiveServer.Pump()`](LiveServer.md#m-pump), the game's own, so the simulation never sees a second thread.
+The listener of a development build: a local socket that speaks MCP (newline-delimited JSON-RPC, the protocol's stdio framing) to one agent at a time or several in turn. Connections are read on background threads, but every request runs on the thread that calls [`LiveServer.Pump()`](LiveServer.md#m-pump), the game's own, so the simulation never sees a second thread. Only development builds contain it; a game started with `onegame run --live` already hosts one.
+
+**Example**
+
+Hosting live control in a custom game loop:
+
+```csharp
+using var live = new LiveServer(new ControlSurface(game));
+live.Start(LiveServer.DefaultPath());
+while (running)
+{
+    live.Pump();            // run requests that arrived, on this thread
+    game.Step(1);
+    live.WaitForWork(5);    // or sleep until the next frame
+}
+```
 
 ## Constructors
 
@@ -29,7 +44,7 @@ Creates a server for a game's control surface. Nothing listens until [`LiveServe
 
 **Parameters**
 
-- `surface` ([`ControlSurface`](../../OneGame.Control/OneGame.Control/ControlSurface.md))
+- `surface` ([`ControlSurface`](../../OneGame.Control/OneGame.Control/ControlSurface.md)): The game's control surface.
 
 ### <a id="m-ctor-icontrolendpoint"></a>LiveServer(IControlEndpoint)
 
@@ -41,7 +56,11 @@ Creates a server for any control endpoint, such as a game server's. Nothing list
 
 **Parameters**
 
-- `endpoint` ([`IControlEndpoint`](../../OneGame.Control/OneGame.Control/IControlEndpoint.md))
+- `endpoint` ([`IControlEndpoint`](../../OneGame.Control/OneGame.Control/IControlEndpoint.md)): The endpoint whose operations are served.
+
+**Exceptions**
+
+- [`ArgumentNullException`](https://learn.microsoft.com/dotnet/api/system.argumentnullexception): `endpoint` is null.
 
 ## Fields
 
@@ -83,7 +102,7 @@ The socket path being listened on.
 | [`Dispose()`](#m-dispose) |  |
 | [`Pump()`](#m-pump) | Runs the requests that have arrived. |
 | [`Start(string)`](#m-start-string) | Starts listening on a Unix domain socket at `path`. |
-| [`WaitForWork(int)`](#m-waitforwork-int) | Waits up to `milliseconds` for a request to arrive. |
+| [`WaitForWork(int)`](#m-waitforwork-int) | Waits up to `milliseconds` for a request to arrive, so a loop can sleep without adding latency. |
 
 ### <a id="m-defaultpath"></a>DefaultPath()
 
@@ -123,10 +142,12 @@ Starts listening on a Unix domain socket at `path`.
 
 **Parameters**
 
-- `path` (`string`)
+- `path` (`string`): The socket file; see [`LiveServer.DefaultPath()`](LiveServer.md#m-defaultpath). An old file at the path is replaced. `tcp:HOST:PORT` listens on TCP instead, for a game on a device; that listener has no authentication, so use it on test devices only.
 
 **Exceptions**
 
+- [`ArgumentException`](https://learn.microsoft.com/dotnet/api/system.argumentexception): `path` is empty.
+- [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): The server is already listening.
 - [`IOException`](https://learn.microsoft.com/dotnet/api/system.io.ioexception): The socket could not be created.
 
 ### <a id="m-waitforwork-int"></a>WaitForWork(int)
@@ -135,10 +156,10 @@ Starts listening on a Unix domain socket at `path`.
 public bool WaitForWork(int milliseconds);
 ```
 
-Waits up to `milliseconds` for a request to arrive.
+Waits up to `milliseconds` for a request to arrive, so a loop can sleep without adding latency.
 
 **Parameters**
 
-- `milliseconds` (`int`)
+- `milliseconds` (`int`): The longest wait.
 
-**Returns:** `bool`
+**Returns:** `bool` — True when a request arrived.

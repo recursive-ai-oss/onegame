@@ -9,7 +9,18 @@
 public static class UiKit
 ```
 
-The component kit: factory methods that return ready-made [`Element`](../../OneGame.UI/OneGame.UI/Element.md) trees for the controls a game screen needs. Every component is "controlled": it reads its value from a lambda you give it and reports changes through another, so the game's own state stays the single source of truth. Components are styled by classes (`kit-button`, `kit-slider` and so on) and theme tokens (`--kit-accent` and so on) from [`KitTheme`](KitTheme.md), which a game extends instead of forking. They set [`Element.Role`](../../OneGame.UI/OneGame.UI/Element.md#m-role) and [`Element.Value`](../../OneGame.UI/OneGame.UI/Element.md#m-value), which the JSON dump prints, and take an optional `id` that also names their parts (`id/thumb`).
+The component kit: factory methods that return ready-made [`Element`](../../OneGame.UI/OneGame.UI/Element.md) trees for the controls a game screen needs. Every component is "controlled": it reads its value from a lambda you give it and reports changes through another, so the game's own state stays the single source of truth. Components are styled by classes (`kit-button`, `kit-slider` and so on) and theme tokens (`--kit-accent` and so on) from [`KitTheme`](KitTheme.md), which a game extends instead of forking. They set [`Element.Role`](../../OneGame.UI/OneGame.UI/Element.md#m-role) and [`Element.Value`](../../OneGame.UI/OneGame.UI/Element.md#m-value), which the JSON dump prints, and take an optional `id` that also names their parts (`id/thumb`). Install the theme once with [`KitHost`](KitHost.md) (from `GameDefinition.Style`), then build screens from these methods.
+
+**Example**
+
+A settings screen: the lambdas read and write the game's own settings object, and the kit holds no state of its own.
+
+```csharp
+screens.Add("settings", game => UiKit.Card("Settings",
+    UiKit.Slider(() => options.Volume, v => options.Volume = v, min: 0, max: 10, id: "volume"),
+    UiKit.Toggle("Fullscreen", () => options.Fullscreen, v => options.Fullscreen = v, id: "fullscreen"),
+    UiKit.Button("Back", () => game.OpenScreen("main"), id: "back", kind: ButtonKind.Primary)));
+```
 
 ## Fields
 

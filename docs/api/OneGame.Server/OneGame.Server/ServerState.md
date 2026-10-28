@@ -15,7 +15,7 @@ Where a server is in its life.
 
 | Name | Value | Description |
 | --- | --- | --- |
-| <a id="m-created"></a>`Created` | `0` | Built, not started. |
-| <a id="m-running"></a>`Running` | `1` | Started and ticking. |
+| <a id="m-created"></a>`Created` | `0` | Built, not started: [`ServerHost.Start()`](ServerHost.md#m-start) has not been called. |
+| <a id="m-running"></a>`Running` | `1` | Started: scopes exist and ticks may run. |
 | <a id="m-draining"></a>`Draining` | `2` | Stopping: no more ticks, plugins being released. |
 | <a id="m-stopped"></a>`Stopped` | `3` | Stopped. |

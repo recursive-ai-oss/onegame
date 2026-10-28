@@ -11,6 +11,18 @@ public sealed class Cluster
 
 A set of nodes in one process, joined by loopback links and stepped together. A single-player game is a cluster with one authority node and one local replica; tests build bigger ones. The cluster only decides the order things happen in: each tick it delivers input, steps every authority scope, publishes the frames and delivers them.
 
+Games rarely build one: `GameInstance.Cluster` is the single-player cluster the host made. Tests use it to check that replicas agree with their authority ([`Cluster.CheckReplicas()`](Cluster.md#m-checkreplicas), [`Cluster.Hashes()`](Cluster.md#m-hashes)) and that commands, saves and visibility behave.
+
+**Example**
+
+```csharp
+var cluster = new Cluster(new ClusterOptions { FatalDrift = true });
+var server = cluster.AddNode("server");
+var scope = cluster.AddScope(server, new ScopeId(1), authorityWorld);
+var replica = cluster.AddLocalReplica(scope, new World(seed, registry, WorldRole.Replica), name: "client");
+cluster.Step(120);                                  // throws DriftException if the replica ever differs from the authority
+```
+
 ## Constructors
 
 | Member | Description |
@@ -109,7 +121,7 @@ The number of cluster ticks stepped.
 | [`AddScope(Node, ScopeId, World)`](#m-addscope-node-scopeid-world) | Makes `authority` the authority of a new scope. |
 | [`CheckReplicas()`](#m-checkreplicas) | Compares every replica to its authority right now, and describes any difference. |
 | [`Connect(Node, Node, Trust)`](#m-connect-node-node-trust) | Connects two nodes. |
-| [`Frame(TimeSpan)`](#m-frame-timespan) | Feeds one rendered frame's elapsed time to the [`Cluster.Driver`](Cluster.md#m-driver) and runs the ticks it says are due. |
+| [`Frame(TimeSpan)`](#m-frame-timespan) | Feeds one rendered frame's elapsed time to the [`Cluster.Driver`](Cluster.md#m-driver) and runs the ticks it says are due, so a game that draws at its own rate still simulates at a fixed rate. |
 | [`Hashes()`](#m-hashes) | The tick and hash of every scope on every node. |
 | [`RemoveNode(Node)`](#m-removenode-node) | Takes a node out of the cluster as if its process died: it is no longer stepped or pumped, and whatever its channels carried goes unanswered. |
 | [`Settle()`](#m-settle) | Delivers pending messages without stepping, so new subscriptions get their snapshot. |
@@ -138,11 +150,11 @@ Adds a local player: a new node connected to the scope's node, subscribed to the
 public Node AddNode(string name);
 ```
 
-Adds a node.
+Adds a node. Nodes step in the order they were added, so add them in the same order on every run for repeatable results.
 
 **Parameters**
 
-- `name` (`string`)
+- `name` (`string`): Name for reports and drift messages.
 
 **Returns:** [`Node`](Node.md)
 
@@ -156,9 +168,9 @@ Makes `authority` the authority of a new scope.
 
 **Parameters**
 
-- `authority` ([`Node`](Node.md))
-- `id` ([`ScopeId`](ScopeId.md))
-- `world` ([`World`](../../OneGame.Core/OneGame.Core/World.md))
+- `authority` ([`Node`](Node.md)): The node that will simulate the world.
+- `id` ([`ScopeId`](ScopeId.md)): The scope's id, unique in the cluster.
+- `world` ([`World`](../../OneGame.Core/OneGame.Core/World.md)): The authority world the scope owns.
 
 **Returns:** [`AuthorityScope`](AuthorityScope.md)
 
@@ -194,13 +206,13 @@ Connects two nodes.
 public int Frame(TimeSpan frameTime);
 ```
 
-Feeds one rendered frame's elapsed time to the [`Cluster.Driver`](Cluster.md#m-driver) and runs the ticks it says are due. Returns how many ran.
+Feeds one rendered frame's elapsed time to the [`Cluster.Driver`](Cluster.md#m-driver) and runs the ticks it says are due, so a game that draws at its own rate still simulates at a fixed rate.
 
 **Parameters**
 
-- `frameTime` ([`TimeSpan`](https://learn.microsoft.com/dotnet/api/system.timespan))
+- `frameTime` ([`TimeSpan`](https://learn.microsoft.com/dotnet/api/system.timespan)): Time since the previous frame.
 
-**Returns:** `int`
+**Returns:** `int` — How many ticks ran: 0 on a fast frame, more than 1 after a slow one.
 
 ### <a id="m-hashes"></a>Hashes()
 
@@ -244,7 +256,7 @@ Runs `ticks` ticks.
 
 **Parameters**
 
-- `ticks` (`int`)
+- `ticks` (`int`): How many ticks to run.
 
 **Exceptions**
 

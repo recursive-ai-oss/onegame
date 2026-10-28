@@ -9,7 +9,7 @@
 public enum CommandStatus : int
 ```
 
-What happened to a command.
+What happened to a command when it was sent. Only [`CommandStatus.Executed`](CommandStatus.md#m-executed) and [`CommandStatus.Queued`](CommandStatus.md#m-queued) mean the command is on its way to running; a replica reports [`CommandStatus.Forwarded`](CommandStatus.md#m-forwarded) and the real answer arrives later from the authority (for a reply with a reason, see [`CommandReply`](CommandReply.md)).
 
 ## Members
 

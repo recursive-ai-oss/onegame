@@ -15,5 +15,5 @@ Texture filtering.
 
 | Name | Value | Description |
 | --- | --- | --- |
-| <a id="m-nearest"></a>`Nearest` | `0` | Nearest texel. |
-| <a id="m-linear"></a>`Linear` | `1` | Linear interpolation. |
+| <a id="m-nearest"></a>`Nearest` | `0` | Take the nearest texel: hard edges, right for pixel art. |
+| <a id="m-linear"></a>`Linear` | `1` | Blend the neighbouring texels: smooth. |

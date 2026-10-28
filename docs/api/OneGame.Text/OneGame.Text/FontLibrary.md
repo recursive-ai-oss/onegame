@@ -11,6 +11,18 @@ public sealed class FontLibrary
 
 The fonts of a game: faces loaded from asset bytes, grouped by family, resolved per `font-family` list, weight and slant into a fallback chain. Not thread safe: use it from the thread that runs the UI.
 
+**Example**
+
+Load fonts in `GameDefinition.DefineFonts`; the first family added is the default, and style rules name families with `font-family`:
+
+```csharp
+public override void DefineFonts(FontLibrary fonts)
+{
+    fonts.Add(File.ReadAllBytes("fonts/Body-Regular.ttf"));
+    fonts.Add(File.ReadAllBytes("fonts/Body-Bold.ttf"));      // same family, a heavier weight
+}
+```
+
 ## Constructors
 
 | Member | Description |

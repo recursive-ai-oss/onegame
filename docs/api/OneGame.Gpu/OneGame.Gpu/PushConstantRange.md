@@ -29,7 +29,7 @@ Small constant data written straight into the command stream with `SetPushConsta
 **Parameters**
 
 - `Size` (`uint`): Bytes, a multiple of 4 and at most [`GpuDevice.MaxPushConstantBytes`](GpuDevice.md#m-maxpushconstantbytes).
-- `Stages` ([`ShaderStage`](ShaderStage.md)): Stages that read it.
+- `Stages` ([`ShaderStage`](ShaderStage.md)): Stages that read it. Declare only those that do; the range must match the shaders.
 
 ## Properties
 
@@ -54,6 +54,6 @@ Bytes, a multiple of 4 and at most [`GpuDevice.MaxPushConstantBytes`](GpuDevice.
 public ShaderStage Stages { get; init; }
 ```
 
-Stages that read it.
+Stages that read it. Declare only those that do; the range must match the shaders.
 
 **Type:** [`ShaderStage`](ShaderStage.md)

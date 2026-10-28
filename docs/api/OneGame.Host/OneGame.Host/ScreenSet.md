@@ -51,14 +51,14 @@ The screen names in declaration order.
 public ScreenSet Add(string name, Func<GameInstance, Element> build);
 ```
 
-Declares a screen.
+Declares a screen. The builder runs each time the screen opens and returns its root element; read the world through the [`GameInstance`](GameInstance.md) it is given, because the world object is replaced when a save or fixture is loaded.
 
 **Parameters**
 
-- `name` (`string`)
-- `build` ([`Func`](https://learn.microsoft.com/dotnet/api/system.func-2)&lt;[`GameInstance`](GameInstance.md), [`Element`](../../OneGame.UI/OneGame.UI/Element.md)&gt;)
+- `name` (`string`): The screen's name; `main` opens first.
+- `build` ([`Func`](https://learn.microsoft.com/dotnet/api/system.func-2)&lt;[`GameInstance`](GameInstance.md), [`Element`](../../OneGame.UI/OneGame.UI/Element.md)&gt;): Builds the screen's element tree.
 
-**Returns:** [`ScreenSet`](ScreenSet.md)
+**Returns:** [`ScreenSet`](ScreenSet.md) — This set, for chaining.
 
 **Exceptions**
 

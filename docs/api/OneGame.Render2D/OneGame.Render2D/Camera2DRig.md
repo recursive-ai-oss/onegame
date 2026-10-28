@@ -11,6 +11,17 @@ public sealed class Camera2DRig
 
 A camera that follows a point: optional smoothing, world bounds, zoom, and conversion between screen pixels and world points. It is view state (it remembers where it is between frames) and is never part of the simulation. [`Camera2D`](Camera2D.md) remains the low-level value the renderer takes; [`Camera2DRig.Current()`](Camera2DRig.md#m-current-vector2) gives it.
 
+**Example**
+
+```csharp
+var camera = new Camera2DRig { Zoom = 2, Smoothing = 0.2f, Bounds = new Rect(0, 0, 1600, 900) };
+camera.Snap(start);                                  // jump to the start without easing
+camera.Follow(playerPosition, seconds);              // each frame; seconds from the view's clock
+var screen = new Vector2(1280, 720);
+Vector2 onScreen = camera.WorldToScreen(enemyPosition, screen);
+Vector2 underMouse = camera.ScreenToWorld(mouse, screen);
+```
+
 ## Constructors
 
 | Member | Description |

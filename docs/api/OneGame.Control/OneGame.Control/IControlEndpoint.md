@@ -55,8 +55,8 @@ Runs an operation; `argsJson` is a JSON object or null.
 
 **Parameters**
 
-- `op` (`string`)
-- `argsJson` (`string?`)
+- `op` (`string`): The operation's name.
+- `argsJson` (`string?`): The arguments as a JSON object, or null.
 
 **Returns:** [`ControlResult`](ControlResult.md)
 
@@ -74,7 +74,7 @@ Runs an operation; operations that wait for the graphics device finish here with
 
 **Parameters**
 
-- `op` (`string`)
-- `argsJson` (`string?`)
+- `op` (`string`): The operation's name.
+- `argsJson` (`string?`): The arguments as a JSON object, or null.
 
 **Returns:** [`ValueTask`](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask-1)&lt;[`ControlResult`](ControlResult.md)&gt;

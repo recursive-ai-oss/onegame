@@ -9,7 +9,7 @@
 public sealed class Rng
 ```
 
-A named, seedable random stream (xoshiro256\*\*). Sim code draws randomness only from streams obtained from [`RngStreams`](RngStreams.md), so the draws are part of the world's state: they are in snapshots and in the state hash, and replaying the same commands redraws the same numbers.
+A named, seedable random stream (xoshiro256\*\*). Sim code draws randomness only from streams obtained from [`RngStreams`](RngStreams.md) (`world.Rng["loot"]`), so the draws are part of the world's state: they are in snapshots and in the state hash, and replaying the same commands redraws the same numbers. Use one stream per purpose, so adding a draw in one place does not shift the numbers drawn elsewhere. A view that needs randomness (particles, screen shake) should keep its own generator so it never changes the world.
 
 ## Properties
 

@@ -12,6 +12,21 @@ public sealed class GameInstance : IDisposable
 
 One running game: the world, the UI tree, the window and event queue, and the render stage, advanced one frame at a time. Each frame handles input, runs one fixed simulation tick and brings the UI up to date. A windowed instance also draws and presents. Everything the harness does to a game goes through this type.
 
+[`GameApp.Run()`](GameApp.md#m-run-gamedefinition-string) makes one for you. Make your own with [`GameInstance.Create()`](GameInstance.md#m-create-gamedefinition-gameoptions) in tests or tools: a headless instance has no window, takes injected input, and renders captures offscreen.
+
+**Example**
+
+Drive a game headlessly, as a unit test would:
+
+```csharp
+using var game = GameInstance.Create(new MyGame(), new GameOptions { Headless = true, Width = 800, Height = 600 });
+game.Step(10);                                   // ten frames, one simulation tick each
+var ship = (Ship)game.World.Entities[0];
+ship.Send.Steer(1, 0, false);                    // commands are how a view or test changes the world
+game.Step(5);
+var frame = game.Capture(800, 600);              // CapturedFrame.Rgba holds the pixels
+```
+
 ## Fields
 
 | Member | Description |
@@ -43,7 +58,7 @@ Simulation ticks per second of a realtime run.
 | [`DriftReports`](#m-driftreports) | Drift reports filed so far by the local replica; empty while replica and authority agree. |
 | [`FixtureNames`](#m-fixturenames) | Names of the declared fixtures. |
 | [`Fonts`](#m-fonts) | The game's fonts, as [`GameDefinition.DefineFonts()`](GameDefinition.md#m-definefonts-fontlibrary) filled them. |
-| [`Frame`](#m-frame) | Frames run so far. |
+| [`Frame`](#m-frame) | The number of frames run so far, counting from 0 at creation. |
 | [`FrameAlpha`](#m-framealpha) | How far a realtime run is between the last tick and the next, from 0 to just under 1. |
 | [`GpuError`](#m-gpuerror) | Why no graphics device exists, when [`GameInstance.Options`](GameInstance.md#m-options) allowed one; null otherwise. |
 | [`HostPaused`](#m-hostpaused) | True while a harness holds a hosted page still: frames still draw, but the simulation does not advance. |
@@ -64,10 +79,10 @@ Simulation ticks per second of a realtime run.
 | [`Storage`](#m-storage) | Save slots, settings and files for this game. |
 | [`Suspended`](#m-suspended) | True while the app is in the background (the platform reported [`AppLifecycleState.Paused`](../../OneGame.Platform/OneGame.Platform/AppLifecycleState.md#m-paused)). |
 | [`Tweens`](#m-tweens) | The tweens of this game's UI: style transitions and the ones game code starts. |
-| [`Ui`](#m-ui) | The UI tree. |
+| [`Ui`](#m-ui) | The retained UI tree of the current screen. |
 | [`UiScale`](#m-uiscale) | The current UI scale: [`GameInstance.UiScaleOverride`](GameInstance.md#m-uiscaleoverride) when set, otherwise the window's scale. |
 | [`UiScaleOverride`](#m-uiscaleoverride) | A UI scale chosen by the player (a settings screen's "UI size") that replaces the window's. |
-| [`Window`](#m-window) | The game window. |
+| [`Window`](#m-window) | The game window: its size in pixels, UI scale and safe area. |
 | [`WindowScale`](#m-windowscale) | The scale the window system (or [`GameOptions.Scale`](GameOptions.md#m-scale) for a headless run) asks for, before any [`GameInstance.UiScaleOverride`](GameInstance.md#m-uiscaleoverride). |
 | [`World`](#m-world) | The authority world: the state the simulation runs on. |
 
@@ -191,7 +206,7 @@ The game's fonts, as [`GameDefinition.DefineFonts()`](GameDefinition.md#m-define
 public long Frame { get; }
 ```
 
-Frames run so far.
+The number of frames run so far, counting from 0 at creation. Frames and simulation ticks advance together while the game runs on its own world.
 
 **Type:** `long`
 
@@ -405,7 +420,7 @@ The tweens of this game's UI: style transitions and the ones game code starts. T
 public UiTree Ui { get; }
 ```
 
-The UI tree.
+The retained UI tree of the current screen. Screens built in [`GameDefinition.DefineScreens()`](GameDefinition.md#m-definescreens-screenset) are mounted here.
 
 **Type:** [`UiTree`](../../OneGame.UI/OneGame.UI/UiTree.md)
 
@@ -439,7 +454,7 @@ A UI scale chosen by the player (a settings screen's "UI size") that replaces th
 public Window Window { get; }
 ```
 
-The game window.
+The game window: its size in pixels, UI scale and safe area. A headless instance has a virtual one.
 
 **Type:** [`Window`](../../OneGame.Platform/OneGame.Platform/Window.md)
 
@@ -581,12 +596,16 @@ Like [`GameInstance.Capture()`](GameInstance.md#m-capture-int-int-float-world), 
 
 **Parameters**
 
-- `width` (`int`)
-- `height` (`int`)
-- `scale` (`float`)
-- `shown` ([`World`](../../OneGame.Core/OneGame.Core/World.md)?)
+- `width` (`int`): Width in pixels.
+- `height` (`int`): Height in pixels.
+- `scale` (`float`): UI scale.
+- `shown` ([`World`](../../OneGame.Core/OneGame.Core/World.md)?): The world to draw; the game's own when null.
 
 **Returns:** [`ValueTask`](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask-1)&lt;[`CapturedFrame`](CapturedFrame.md)&gt;
+
+**Exceptions**
+
+- [`ArgumentOutOfRangeException`](https://learn.microsoft.com/dotnet/api/system.argumentoutofrangeexception): The size is not positive or larger than 16384.
 
 ### <a id="m-capturepresented"></a>CapturePresented()
 
@@ -618,8 +637,8 @@ Creates an instance. Disposing it closes the window and the device.
 
 **Parameters**
 
-- `definition` ([`GameDefinition`](GameDefinition.md))
-- `options` ([`GameOptions`](GameOptions.md)?)
+- `definition` ([`GameDefinition`](GameDefinition.md)): The game.
+- `options` ([`GameOptions`](GameOptions.md)?): Window size, GPU policy, seed and so on; a headless instance when null.
 
 **Returns:** [`GameInstance`](GameInstance.md)
 
@@ -697,7 +716,7 @@ Replaces the world with one filled by a named fixture.
 
 **Parameters**
 
-- `name` (`string`)
+- `name` (`string`): A fixture declared in [`GameDefinition.DefineFixtures()`](GameDefinition.md#m-definefixtures-fixtureset).
 
 **Exceptions**
 
@@ -729,7 +748,7 @@ Replaces the UI with a declared screen.
 
 **Parameters**
 
-- `name` (`string`)
+- `name` (`string`): A screen declared in [`GameDefinition.DefineScreens()`](GameDefinition.md#m-definescreens-screenset).
 
 **Exceptions**
 
@@ -782,7 +801,7 @@ Starts a new game: a fresh world filled by [`GameDefinition.Setup()`](GameDefini
 
 **Parameters**
 
-- `seed` (`ulong?`)
+- `seed` (`ulong?`): The seed of the random streams; the game's own seed when null.
 
 ### <a id="m-resize-int-int"></a>Resize(int, int)
 
@@ -794,8 +813,8 @@ Resizes the window (or the virtual window of a headless run) and lets the UI lay
 
 **Parameters**
 
-- `width` (`int`)
-- `height` (`int`)
+- `width` (`int`): Width in pixels.
+- `height` (`int`): Height in pixels.
 
 ### <a id="m-runhostedframe-bool"></a>RunHostedFrame(bool)
 

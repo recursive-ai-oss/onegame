@@ -10,7 +10,7 @@
 public sealed record TestOptions : IEquatable<TestOptions>
 ```
 
-Options for [`TestCluster`](TestCluster.md).
+Options for [`TestCluster.Start()`](TestCluster.md#m-start-gamedefinition-testoptions): the headless window size, the UI scale, the seed and where captures and saves go. Every property has a default, so `new TestOptions()` is a normal 1280x720 test.
 
 ## Constructors
 
@@ -29,13 +29,13 @@ public TestOptions();
 | Member | Description |
 | --- | --- |
 | [`Gpu`](#m-gpu) | Graphics device policy for captures. |
-| [`Height`](#m-height) | Window height in pixels. |
+| [`Height`](#m-height) | Window height in pixels (default 720). |
 | [`OutputDirectory`](#m-outputdirectory) | Folder for files that operations write (captures, snapshots). |
-| [`Scale`](#m-scale) | UI scale. |
+| [`Scale`](#m-scale) | UI scale: 1 draws the UI at its declared size, 2 at double size on the same window. |
 | [`Seed`](#m-seed) | World seed; the game's own when null. |
 | [`Shaders`](#m-shaders) | Where the 2D renderer gets compiled shaders; the renderer's own shaders when null. |
 | [`Storage`](#m-storage) | Where the game's saves and settings live. |
-| [`Width`](#m-width) | Window width in pixels. |
+| [`Width`](#m-width) | Window width in pixels (default 1280). |
 
 ### <a id="m-gpu"></a>Gpu
 
@@ -53,7 +53,7 @@ Graphics device policy for captures. Auto uses a device when there is one; Off a
 public int Height { get; init; }
 ```
 
-Window height in pixels.
+Window height in pixels (default 720).
 
 **Type:** `int`
 
@@ -73,7 +73,7 @@ Folder for files that operations write (captures, snapshots). A fresh temporary 
 public float Scale { get; init; }
 ```
 
-UI scale.
+UI scale: 1 draws the UI at its declared size, 2 at double size on the same window. Default 1.
 
 **Type:** `float`
 
@@ -113,6 +113,6 @@ Where the game's saves and settings live. A test starts with memory (never the p
 public int Width { get; init; }
 ```
 
-Window width in pixels.
+Window width in pixels (default 1280). Captures and UI layout use it.
 
 **Type:** `int`

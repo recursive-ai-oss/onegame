@@ -171,9 +171,9 @@ A camera at `eye` looking at `target`.
 
 **Parameters**
 
-- `eye` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
-- `target` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
-- `up` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
+- `eye` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3)): World position of the camera.
+- `target` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3)): The point it looks at.
+- `up` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3)): Which way is up, usually [`Vector3.UnitY`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3).
 
 **Returns:** [`Camera3D`](Camera3D.md)
 
@@ -187,10 +187,10 @@ A camera on a sphere around `target`. Yaw 0 and pitch 0 look from +Z towards -Z 
 
 **Parameters**
 
-- `target` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
-- `distance` (`float`)
-- `yawDegrees` (`float`)
-- `pitchDegrees` (`float`)
+- `target` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3)): The point the camera looks at.
+- `distance` (`float`): Distance from the target in world units (metres for glTF models).
+- `yawDegrees` (`float`): Angle around the vertical axis, in degrees.
+- `pitchDegrees` (`float`): Angle above the horizon, in degrees.
 
 **Returns:** [`Camera3D`](Camera3D.md)
 

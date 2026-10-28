@@ -9,7 +9,7 @@
 public enum PlatformEventKind : byte
 ```
 
-What happened.
+What happened. Poll events with [`PlatformApp.TryGetEvent()`](PlatformApp.md#m-trygetevent-platformevent); a hosted game sees them in `GameDefinition.OnInput` after the UI had its turn.
 
 ## Members
 

@@ -9,7 +9,19 @@
 public static class Ui
 ```
 
-Factory methods that read like a layout: `Ui.Column(Ui.Label("Hello"), Ui.Button("OK", Accept))`.
+Factory methods that read like a layout: `Ui.Column(Ui.Label("Hello"), Ui.Button("OK", Accept))`. Each returns an [`Element`](Element.md); chain its builder methods ([`Element.Padding()`](Element.md#m-padding-length), [`Element.Gap()`](Element.md#m-gap-length), [`Element.Named()`](Element.md#m-named-string)) to style it, and return the root from a screen builder passed to `ScreenSet.Add`. Text and visibility follow game state through bindings ([`Element.BindText()`](Element.md#m-bindtext-func-string)), which are lambdas re-read every frame: read synced state in them, never write it.
+
+**Example**
+
+A screen with a live counter and a button that sends a command:
+
+```csharp
+screens.Add("main", game => Ui.Column(
+        Ui.Label(() => $"Coins: {((Jar)game.World.Entities[0]).Coins}").Named("coins"),
+        Ui.Button("Add a coin", () => ((Jar)game.World.Entities[0]).Send.Add(1)).Named("add"))
+    .Gap(Length.Px(8))
+    .Padding(Length.Px(16)));
+```
 
 ## Methods
 

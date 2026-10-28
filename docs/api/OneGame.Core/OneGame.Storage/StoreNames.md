@@ -71,6 +71,6 @@ Turns any text into a valid name part by replacing other characters with `_` (fo
 
 **Parameters**
 
-- `text` (`string`)
+- `text` (`string`): Any non-empty text.
 
-**Returns:** `string`
+**Returns:** `string` — The text with each disallowed character replaced.

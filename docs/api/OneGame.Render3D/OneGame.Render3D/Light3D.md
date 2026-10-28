@@ -131,10 +131,10 @@ Distance at which a point or spot light is cut off with a smooth window; 0 means
 
 | Member | Description |
 | --- | --- |
-| [`Directional(Vector3, Vector3, float)`](#m-directional-vector3-vector3-float) | A directional light. |
+| [`Directional(Vector3, Vector3, float)`](#m-directional-vector3-vector3-float) | A directional light: parallel rays, like the sun. |
 | [`FromGltf(GltfLight, Matrix4x4)`](#m-fromgltf-gltflight-matrix4x4) | The light a glTF file describes, placed by the world matrix of its node (glTF lights shine down the node's -Z axis). |
-| [`Point(Vector3, Vector3, float, float)`](#m-point-vector3-vector3-float-float) | A point light. |
-| [`Spot(Vector3, Vector3, Vector3, float, float, float, float)`](#m-spot-vector3-vector3-vector3-float-float-float-float) | A spot light. |
+| [`Point(Vector3, Vector3, float, float)`](#m-point-vector3-vector3-float-float) | A point light: radiates equally in every direction. |
+| [`Spot(Vector3, Vector3, Vector3, float, float, float, float)`](#m-spot-vector3-vector3-vector3-float-float-float-float) | A spot light: a point light limited to a cone. |
 
 ### <a id="m-directional-vector3-vector3-float"></a>Directional(Vector3, Vector3, float)
 
@@ -142,13 +142,13 @@ Distance at which a point or spot light is cut off with a smooth window; 0 means
 public static Light3D Directional(Vector3 direction, Vector3 color, float lux);
 ```
 
-A directional light.
+A directional light: parallel rays, like the sun.
 
 **Parameters**
 
-- `direction` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
-- `color` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
-- `lux` (`float`)
+- `direction` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3)): The way the light travels (from the light toward the scene); need not be normalized.
+- `color` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3)): Linear RGB, each channel 0 to 1.
+- `lux` (`float`): Intensity in lux (the `onegame view` default is 3).
 
 **Returns:** [`Light3D`](Light3D.md)
 
@@ -173,14 +173,14 @@ The light a glTF file describes, placed by the world matrix of its node (glTF li
 public static Light3D Point(Vector3 position, Vector3 color, float candela, float range = 0f);
 ```
 
-A point light.
+A point light: radiates equally in every direction.
 
 **Parameters**
 
-- `position` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
-- `color` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
-- `candela` (`float`)
-- `range` (`float`)
+- `position` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3)): World position.
+- `color` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3)): Linear RGB.
+- `candela` (`float`): Intensity in candela; the lit surface receives candela divided by distance squared.
+- `range` (`float`): Distance in world units at which the light fades to zero; 0 for no limit.
 
 **Returns:** [`Light3D`](Light3D.md)
 
@@ -190,16 +190,16 @@ A point light.
 public static Light3D Spot(Vector3 position, Vector3 direction, Vector3 color, float candela, float innerCone, float outerCone, float range = 0f);
 ```
 
-A spot light.
+A spot light: a point light limited to a cone.
 
 **Parameters**
 
-- `position` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
-- `direction` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
-- `color` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
-- `candela` (`float`)
-- `innerCone` (`float`)
-- `outerCone` (`float`)
-- `range` (`float`)
+- `position` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3)): World position.
+- `direction` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3)): The cone's axis, from the light toward the scene.
+- `color` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3)): Linear RGB.
+- `candela` (`float`): Intensity in candela.
+- `innerCone` (`float`): Angle in radians from the axis inside which the light is at full strength.
+- `outerCone` (`float`): Angle in radians from the axis at which it reaches zero; at least `innerCone`.
+- `range` (`float`): Distance at which the light fades to zero; 0 for no limit.
 
 **Returns:** [`Light3D`](Light3D.md)

@@ -37,6 +37,6 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Text](OneGame.Text/index.md) | 1 | 11 | 66 | Text for the UI: font library, shaping, measurement and the glyph atlas. |
 | [RecursiveAI.OneGame.UI](OneGame.UI/index.md) | 2 | 57 | 596 | Retained UI tree with CSS-model styling and flex layout. |
 | [RecursiveAI.OneGame.UI.Kit](OneGame.UI.Kit/index.md) | 1 | 25 | 181 | Base UI component kit: buttons, tables, lists, tabs, text input and more, themed with tokens. |
-| RecursiveAI.OneGame.Sdk | – | – | – | MSBuild properties and items, not .NET types. |
+| [RecursiveAI.OneGame.Sdk](sdk.md) | – | – | – | MSBuild properties and items, not .NET types. |
 
-The MSBuild SDK's properties and items are described on the SDK page, which is not written yet.
+The MSBuild SDK's properties and items (`OneGameKind` and the rest) are on the [SDK page](sdk.md).

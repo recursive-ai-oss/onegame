@@ -33,7 +33,7 @@ public GltfLimits();
 | [`MaxBufferViews`](#m-maxbufferviews) | The most buffer views. |
 | [`MaxBuffers`](#m-maxbuffers) | The most buffers. |
 | [`MaxElementsPerAccessor`](#m-maxelementsperaccessor) | The most elements one accessor may declare. |
-| [`MaxFileBytes`](#m-maxfilebytes) | The largest file (or GLB) read, in bytes. |
+| [`MaxFileBytes`](#m-maxfilebytes) | The largest file (or GLB) read, in bytes (default 256 MiB). |
 | [`MaxImageDimension`](#m-maximagedimension) | The longest side of a decoded image, in pixels. |
 | [`MaxImagePixels`](#m-maximagepixels) | The most pixels in one image. |
 | [`MaxImages`](#m-maximages) | The most images. |
@@ -46,7 +46,7 @@ public GltfLimits();
 | [`MaxMeshes`](#m-maxmeshes) | The most meshes. |
 | [`MaxMorphTargets`](#m-maxmorphtargets) | The most morph targets in one mesh. |
 | [`MaxNodeDepth`](#m-maxnodedepth) | The deepest node tree. |
-| [`MaxNodes`](#m-maxnodes) | The most nodes. |
+| [`MaxNodes`](#m-maxnodes) | The most nodes in the file. |
 | [`MaxOutputBytes`](#m-maxoutputbytes) | The most bytes the importer allocates for the model (arrays and pixels), charged before each allocation. |
 | [`MaxPrimitives`](#m-maxprimitives) | The most primitives in all meshes together. |
 | [`MaxSkins`](#m-maxskins) | The most skins. |
@@ -121,7 +121,7 @@ The most elements one accessor may declare.
 public long MaxFileBytes { get; init; }
 ```
 
-The largest file (or GLB) read, in bytes.
+The largest file (or GLB) read, in bytes (default 256 MiB).
 
 **Type:** `long`
 
@@ -251,7 +251,7 @@ The deepest node tree.
 public int MaxNodes { get; init; }
 ```
 
-The most nodes.
+The most nodes in the file.
 
 **Type:** `int`
 

@@ -12,6 +12,17 @@ public sealed class ControlSurface : IControlEndpoint
 
 The control layer: every operation of [`ControlOps`](ControlOps.md) run against one [`GameInstance`](../../OneGame.Host/OneGame.Host/GameInstance.md). The command line, the test API and live control (MCP) all call [`ControlSurface.Invoke()`](ControlSurface.md#m-invoke-string-string); none of them reaches into the game any other way.
 
+**Example**
+
+```csharp
+var control = new ControlSurface(game, outputDirectory: "artifacts");
+string info = control.Call("info");                                   // JSON text
+control.Call("command_send", """{"entity":"Court","command":"Launch"}""");
+control.Call("step", """{"frames":20}""");
+var shot = control.Invoke("capture_frame", """{"size":"720p","path":"after.png"}""");
+Console.WriteLine(shot.Json);                                         // path, size, sha256, tick, hash
+```
+
 ## Constructors
 
 | Member | Description |
@@ -133,8 +144,8 @@ Runs an operation and returns its JSON text.
 
 **Parameters**
 
-- `op` (`string`)
-- `argsJson` (`string?`)
+- `op` (`string`): The operation's name; [`ControlSurface.Operations`](ControlSurface.md#m-operations) lists them.
+- `argsJson` (`string?`): The arguments as a JSON object, or null for none.
 
 **Returns:** `string`
 
@@ -148,12 +159,12 @@ Runs an operation and returns its JSON text.
 public ControlResult Invoke(string op, string? argsJson = null);
 ```
 
-Runs an operation. `argsJson` is a JSON object (or null for none).
+Runs an operation. `argsJson` is a JSON object (or null for none). Use this over [`ControlSurface.Call()`](ControlSurface.md#m-call-string-string) to get the PNG bytes of a capture.
 
 **Parameters**
 
-- `op` (`string`)
-- `argsJson` (`string?`)
+- `op` (`string`): The operation's name.
+- `argsJson` (`string?`): The arguments as a JSON object, or null for none.
 
 **Returns:** [`ControlResult`](ControlResult.md)
 
@@ -171,8 +182,8 @@ Runs an operation like [`ControlSurface.Invoke()`](ControlSurface.md#m-invoke-st
 
 **Parameters**
 
-- `op` (`string`)
-- `argsJson` (`string?`)
+- `op` (`string`): The operation's name.
+- `argsJson` (`string?`): The arguments as a JSON object, or null for none.
 
 **Returns:** [`ValueTask`](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask-1)&lt;[`ControlResult`](ControlResult.md)&gt;
 

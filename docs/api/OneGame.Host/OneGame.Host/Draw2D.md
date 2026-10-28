@@ -11,6 +11,34 @@ public sealed class Draw2D
 
 Immediate-mode 2D drawing for view code: call it every frame to say what to show, and the stage batches it onto the same [`Scene2D`](../../OneGame.Render2D/OneGame.Render2D/Scene2D.md) and [`Renderer2D`](../../OneGame.Render2D/OneGame.Render2D/Renderer2D.md) a hand-built stage would use. Nothing is retained between frames except the camera. World coordinates are the renderer's: +X right, +Y down, one unit is one pixel at camera zoom 1. Draw order is by `z` (lower is behind), then call order; text is drawn over everything else, in call order. Steady frames allocate nothing (text strings that the view builds each frame are the view's own allocation).
 
+Reach it as the parameter of an [`IView2D`](IView2D.md) entity's `Draw` method. It is view-side: read state, never write it. Use [`Draw2D.Time`](Draw2D.md#m-time) (not a clock) to animate so captures and replays repeat exactly. For more control drop down to [`Draw2D.Scene`](Draw2D.md#m-scene) and [`Draw2D.Renderer`](Draw2D.md#m-renderer).
+
+**Example**
+
+A sprite that moves with its synced position, animated from a sheet, with a camera that follows it and a text label:
+
+```csharp
+private SpriteSheet? _sheet;
+
+[View]
+public void Draw(Draw2D d)
+{
+    if (_sheet is null)
+    {
+        _sheet = SpriteSheet.Grid(d.Texture("art/hero.png"), 32, 32);
+        _sheet.AddClip("walk", firstFrame: 0, frameCount: 4, fps: 8);
+    }
+
+    var at = new Vector2(X.ToSingle(), Y.ToSingle());
+    d.Camera.Zoom = 2;
+    d.Camera.Smoothing = 0.15f;
+    d.Follow(at);                                           // eases the camera toward the hero
+    d.FillRect(new Rect(-200, 40, 400, 8), Color.Rgb(0x335533));   // the ground
+    d.Sprite(_sheet, "walk", at, scale: 1);                // plays the clip from d.Time
+    d.Text("hero", at - new Vector2(0, 24), size: 12, anchor: new Vector2(0.5f, 1));
+}
+```
+
 ## Properties
 
 | Member | Description |

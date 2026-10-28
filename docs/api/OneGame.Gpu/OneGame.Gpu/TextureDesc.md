@@ -28,10 +28,10 @@ Describes a texture to create: 2D, 2D array, cube, cube array or 3D.
 
 **Parameters**
 
-- `Width` (`uint`): Width in texels.
-- `Height` (`uint`): Height in texels.
-- `Format` ([`GpuFormat`](GpuFormat.md)): Pixel format.
-- `Usage` ([`TextureUsage`](TextureUsage.md)): Allowed uses.
+- `Width` (`uint`): Width of mip level 0 in texels; at least 1.
+- `Height` (`uint`): Height of mip level 0 in texels; at least 1.
+- `Format` ([`GpuFormat`](GpuFormat.md)): Pixel format. The `Srgb` formats decode to linear light when sampled and encode when rendered into; the others store values as they are.
+- `Usage` ([`TextureUsage`](TextureUsage.md)): Every use the texture will have, combined: a sampled image you upload to is `Sampled | CopyDestination`; an offscreen target you read back is `RenderTarget | CopySource`.
 
 ## Properties
 
@@ -41,12 +41,12 @@ Describes a texture to create: 2D, 2D array, cube, cube array or 3D.
 | [`Depth`](#m-depth) | Depth in texels of a 3D texture; 1 otherwise. |
 | [`Dimension`](#m-dimension) | Shape of the texture; 2D by default. |
 | [`Format`](#m-format) | Pixel format. |
-| [`Height`](#m-height) | Height in texels. |
+| [`Height`](#m-height) | Height of mip level 0 in texels; at least 1. |
 | [`Label`](#m-label) | Optional name shown in debugging tools. |
 | [`MipLevels`](#m-miplevels) | Number of mip levels; 1 by default. |
 | [`SampleCount`](#m-samplecount) | Samples per texel for multisampled render targets (1, 2, 4 or 8). |
-| [`Usage`](#m-usage) | Allowed uses. |
-| [`Width`](#m-width) | Width in texels. |
+| [`Usage`](#m-usage) | Every use the texture will have, combined: a sampled image you upload to is `Sampled \| CopyDestination`; an offscreen target you read back is `RenderTarget \| CopySource`. |
+| [`Width`](#m-width) | Width of mip level 0 in texels; at least 1. |
 
 ### <a id="m-arraylayers"></a>ArrayLayers
 
@@ -84,7 +84,7 @@ Shape of the texture; 2D by default.
 public GpuFormat Format { get; init; }
 ```
 
-Pixel format.
+Pixel format. The `Srgb` formats decode to linear light when sampled and encode when rendered into; the others store values as they are.
 
 **Type:** [`GpuFormat`](GpuFormat.md)
 
@@ -94,7 +94,7 @@ Pixel format.
 public uint Height { get; init; }
 ```
 
-Height in texels.
+Height of mip level 0 in texels; at least 1.
 
 **Type:** `uint`
 
@@ -134,7 +134,7 @@ Samples per texel for multisampled render targets (1, 2, 4 or 8).
 public TextureUsage Usage { get; init; }
 ```
 
-Allowed uses.
+Every use the texture will have, combined: a sampled image you upload to is `Sampled | CopyDestination`; an offscreen target you read back is `RenderTarget | CopySource`.
 
 **Type:** [`TextureUsage`](TextureUsage.md)
 
@@ -144,6 +144,6 @@ Allowed uses.
 public uint Width { get; init; }
 ```
 
-Width in texels.
+Width of mip level 0 in texels; at least 1.
 
 **Type:** `uint`

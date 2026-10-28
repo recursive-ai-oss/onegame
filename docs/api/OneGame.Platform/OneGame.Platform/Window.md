@@ -19,7 +19,7 @@ An application window. Sizes are physical pixels (the size of the framebuffer a 
 | [`App`](#m-app) | The owning application. |
 | [`CursorHidden`](#m-cursorhidden) | Whether the cursor is hidden while over the window. |
 | [`CursorLocked`](#m-cursorlocked) | Whether the cursor is locked: it stays put and [`PlatformEventKind.PointerRelativeMotion`](PlatformEventKind.md#m-pointerrelativemotion) events report movement. |
-| [`Height`](#m-height) | Client height in pixels. |
+| [`Height`](#m-height) | Client height in physical pixels: the height a swapchain should have. |
 | [`Id`](#m-id) | The id carried by this window's events. |
 | [`IsClosed`](#m-isclosed) | Whether the window has been closed. |
 | [`IsFocused`](#m-isfocused) | Whether the window has input focus. |
@@ -29,9 +29,9 @@ An application window. Sizes are physical pixels (the size of the framebuffer a 
 | [`SafeArea`](#m-safearea) | The distances in pixels from each edge that content must keep clear of: display cut-outs, rounded corners, system bars and the gesture area. |
 | [`Scale`](#m-scale) | Content scale: 1.0 at 96 dpi, 2.0 on a typical HiDPI screen, fractional where the system offers it. |
 | [`TextInputActive`](#m-textinputactive) | Whether a text field has focus and the game asked for input-method (IME) support; see [`Window.SetTextInput()`](Window.md#m-settextinput-bool-int-int-int-int). |
-| [`TextInputArea`](#m-textinputarea) | Where the caret is, in window pixels, as last given to [`Window.SetTextInput()`](Window.md#m-settextinput-bool-int-int-int-int). |
-| [`Title`](#m-title) | The window title. |
-| [`Width`](#m-width) | Client width in pixels. |
+| [`TextInputArea`](#m-textinputarea) | Where the caret is, in window pixels, as last given to [`Window.SetTextInput()`](Window.md#m-settextinput-bool-int-int-int-int): left, top, width and height. |
+| [`Title`](#m-title) | The window title as last set by [`Window.SetTitle()`](Window.md#m-settitle-string). |
+| [`Width`](#m-width) | Client width in physical pixels: the width a swapchain should have. |
 
 ### <a id="m-app"></a>App
 
@@ -69,7 +69,7 @@ Whether the cursor is locked: it stays put and [`PlatformEventKind.PointerRelati
 public int Height { get; }
 ```
 
-Client height in pixels.
+Client height in physical pixels: the height a swapchain should have. Divide by [`Window.Scale`](Window.md#m-scale) for logical units.
 
 **Type:** `int`
 
@@ -169,7 +169,7 @@ Whether a text field has focus and the game asked for input-method (IME) support
 public (int X, int Y, int Width, int Height) TextInputArea { get; }
 ```
 
-Where the caret is, in window pixels, as last given to [`Window.SetTextInput()`](Window.md#m-settextinput-bool-int-int-int-int).
+Where the caret is, in window pixels, as last given to [`Window.SetTextInput()`](Window.md#m-settextinput-bool-int-int-int-int): left, top, width and height. Default (all zero) while no text field is active.
 
 **Type:** `(int X, int Y, int Width, int Height)`
 
@@ -179,7 +179,7 @@ Where the caret is, in window pixels, as last given to [`Window.SetTextInput()`]
 public string Title { get; }
 ```
 
-The window title.
+The window title as last set by [`Window.SetTitle()`](Window.md#m-settitle-string).
 
 **Type:** `string`
 
@@ -189,7 +189,7 @@ The window title.
 public int Width { get; }
 ```
 
-Client width in pixels.
+Client width in physical pixels: the width a swapchain should have. Divide by [`Window.Scale`](Window.md#m-scale) for logical units.
 
 **Type:** `int`
 
@@ -206,7 +206,7 @@ Client width in pixels.
 | [`SetCursorLocked(bool)`](#m-setcursorlocked-bool) | Locks or unlocks the cursor for relative motion (mouse look). |
 | [`SetFullscreen(bool)`](#m-setfullscreen-bool) | Enters or leaves fullscreen. |
 | [`SetTextInput(bool, int, int, int, int)`](#m-settextinput-bool-int-int-int-int) | Tells the system that a text field has (or no longer has) focus, and where its caret is, so an input method can show its candidate window beside it and send [`PlatformEventKind.TextComposition`](PlatformEventKind.md#m-textcomposition) events. |
-| [`SetTitle(string)`](#m-settitle-string) | Sets the title. |
+| [`SetTitle(string)`](#m-settitle-string) | Sets the title shown in the title bar and task switcher, where the system has them. |
 
 ### <a id="m-close"></a>Close()
 
@@ -234,7 +234,7 @@ Fills a window made with [`WindowOptions.SoftwareSurface`](WindowOptions.md#m-so
 
 **Parameters**
 
-- `argb` (`uint`)
+- `argb` (`uint`): The colour as `0xAARRGGBB`.
 
 ### <a id="m-minimize"></a>Minimize()
 
@@ -254,8 +254,8 @@ Asks for a new client size in pixels. The size takes effect when the system conf
 
 **Parameters**
 
-- `width` (`int`)
-- `height` (`int`)
+- `width` (`int`): Wanted client width in pixels.
+- `height` (`int`): Wanted client height in pixels.
 
 ### <a id="m-setcursorhidden-bool"></a>SetCursorHidden(bool)
 
@@ -267,7 +267,7 @@ Shows or hides the cursor over the window.
 
 **Parameters**
 
-- `hidden` (`bool`)
+- `hidden` (`bool`): True to hide the cursor while it is over the window.
 
 ### <a id="m-setcursorlocked-bool"></a>SetCursorLocked(bool)
 
@@ -279,7 +279,7 @@ Locks or unlocks the cursor for relative motion (mouse look). Locking also hides
 
 **Parameters**
 
-- `locked` (`bool`)
+- `locked` (`bool`): True to lock the cursor and receive [`PlatformEventKind.PointerRelativeMotion`](PlatformEventKind.md#m-pointerrelativemotion) instead of positions.
 
 ### <a id="m-setfullscreen-bool"></a>SetFullscreen(bool)
 
@@ -287,11 +287,11 @@ Locks or unlocks the cursor for relative motion (mouse look). Locking also hides
 public abstract void SetFullscreen(bool fullscreen);
 ```
 
-Enters or leaves fullscreen.
+Enters or leaves fullscreen. Like [`Window.RequestSize()`](Window.md#m-requestsize-int-int) it takes effect when the system agrees; the new size arrives as a [`PlatformEventKind.WindowResized`](PlatformEventKind.md#m-windowresized) event.
 
 **Parameters**
 
-- `fullscreen` (`bool`)
+- `fullscreen` (`bool`): True for fullscreen, false for a normal window.
 
 ### <a id="m-settextinput-bool-int-int-int-int"></a>SetTextInput(bool, int, int, int, int)
 
@@ -303,11 +303,11 @@ Tells the system that a text field has (or no longer has) focus, and where its c
 
 **Parameters**
 
-- `active` (`bool`)
-- `x` (`int`)
-- `y` (`int`)
-- `width` (`int`)
-- `height` (`int`)
+- `active` (`bool`): True while a text field has focus.
+- `x` (`int`): Left edge of the caret in window pixels.
+- `y` (`int`): Top edge of the caret in window pixels.
+- `width` (`int`): Caret width in pixels.
+- `height` (`int`): Caret height in pixels, which is the line height.
 
 ### <a id="m-settitle-string"></a>SetTitle(string)
 
@@ -315,8 +315,8 @@ Tells the system that a text field has (or no longer has) focus, and where its c
 public abstract void SetTitle(string title);
 ```
 
-Sets the title.
+Sets the title shown in the title bar and task switcher, where the system has them.
 
 **Parameters**
 
-- `title` (`string`)
+- `title` (`string`): The new title.

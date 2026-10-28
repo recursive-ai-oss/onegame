@@ -14,6 +14,14 @@ Loads server plugins into collectible [`AssemblyLoadContext`](https://learn.micr
 
 This is the only assembly that uses runtime reflection; it is CoreCLR-only and is never part of a NativeAOT publish.
 
+**Example**
+
+```csharp
+var host = new ServerHost(ServerConfig.Load("server.yaml"), setup: null, loader: new PluginLoader());
+host.Start();                                    // loads the plugins the configuration lists
+host.ReloadPlugin("pulse");                      // after rebuilding pulse's dll
+```
+
 ## Constructors
 
 | Member | Description |

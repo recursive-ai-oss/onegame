@@ -9,11 +9,25 @@
 public sealed class SettingsSchema<T> where T : class, new()
 ```
 
-Describes a settings class: which properties are saved, under which keys, and the range each one may take. The defaults are the values a fresh `T` has. Built once with the fluent methods, no reflection, so it is trim and AOT safe.
+Describes a settings class: which properties are saved, under which keys, and the range each one may take. The defaults are the values a fresh `T` has. Built once with the fluent methods, no reflection, so it is trim and AOT safe. Open it through `GameInstance.Storage.OpenSettings` to load and save the player's choices.
 
 **Type parameters**
 
 - `T`: The settings class: a class with a public parameterless constructor holding the player's choices.
+
+**Example**
+
+```csharp
+public sealed class Options
+{
+    public int Volume { get; set; } = 7;
+    public bool Fullscreen { get; set; }
+
+    public static SettingsSchema<Options> Schema { get; } = new SettingsSchema<Options>("options.bin")
+        .Whole("volume", o => o.Volume, (o, v) => o.Volume = v, min: 0, max: 10)
+        .Flag("fullscreen", o => o.Fullscreen, (o, v) => o.Fullscreen = v);
+}
+```
 
 ## Constructors
 
@@ -90,11 +104,15 @@ public SettingsSchema<T> Choice<TEnum>(string key, Func<T, TEnum> get, Action<T,
 
 Adds a choice from an enum with a 32-bit underlying type. A number that is not a member loads as the default.
 
+**Type parameters**
+
+- `TEnum`: The enum type.
+
 **Parameters**
 
-- `key` (`string`)
-- `get` ([`Func`](https://learn.microsoft.com/dotnet/api/system.func-2)`<T, TEnum>`)
-- `set` ([`Action`](https://learn.microsoft.com/dotnet/api/system.action-2)`<T, TEnum>`)
+- `key` (`string`): The field's name in the file: 1 to 64 UTF-8 bytes, unique in the schema.
+- `get` ([`Func`](https://learn.microsoft.com/dotnet/api/system.func-2)`<T, TEnum>`): Reads the value from the settings object.
+- `set` ([`Action`](https://learn.microsoft.com/dotnet/api/system.action-2)`<T, TEnum>`): Writes a loaded value into the settings object.
 
 **Returns:** [`SettingsSchema`](SettingsSchema-1.md)`<T>`
 
@@ -108,9 +126,9 @@ Adds an on/off choice.
 
 **Parameters**
 
-- `key` (`string`)
-- `get` ([`Func`](https://learn.microsoft.com/dotnet/api/system.func-2)`<T, bool>`)
-- `set` ([`Action`](https://learn.microsoft.com/dotnet/api/system.action-2)`<T, bool>`)
+- `key` (`string`): The field's name in the file: 1 to 64 UTF-8 bytes, unique in the schema.
+- `get` ([`Func`](https://learn.microsoft.com/dotnet/api/system.func-2)`<T, bool>`): Reads the value from the settings object.
+- `set` ([`Action`](https://learn.microsoft.com/dotnet/api/system.action-2)`<T, bool>`): Writes a loaded value into the settings object.
 
 **Returns:** [`SettingsSchema`](SettingsSchema-1.md)`<T>`
 

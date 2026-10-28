@@ -28,23 +28,25 @@ Result of `command_send`: `Queued` means it runs on the next tick.
 
 **Parameters**
 
-- `Entity` (`string`)
-- `Command` (`string`)
-- `Status` (`string`)
+- `Entity` (`string`): The entity addressed, as `Type#id`.
+- `Command` (`string`): The command name.
+- `Status` (`string`): What became of it: the command status's name, `Queued` when accepted. An unknown command or arguments that do not fit are errors instead.
 
 ## Properties
 
 | Member | Description |
 | --- | --- |
-| [`Command`](#m-command) |  |
-| [`Entity`](#m-entity) |  |
-| [`Status`](#m-status) |  |
+| [`Command`](#m-command) | The command name. |
+| [`Entity`](#m-entity) | The entity addressed, as `Type#id`. |
+| [`Status`](#m-status) | What became of it: the command status's name, `Queued` when accepted. |
 
 ### <a id="m-command"></a>Command
 
 ```csharp
 public string Command { get; init; }
 ```
+
+The command name.
 
 **Type:** `string`
 
@@ -54,6 +56,8 @@ public string Command { get; init; }
 public string Entity { get; init; }
 ```
 
+The entity addressed, as `Type#id`.
+
 **Type:** `string`
 
 ### <a id="m-status"></a>Status
@@ -61,5 +65,7 @@ public string Entity { get; init; }
 ```csharp
 public string Status { get; init; }
 ```
+
+What became of it: the command status's name, `Queued` when accepted. An unknown command or arguments that do not fit are errors instead.
 
 **Type:** `string`

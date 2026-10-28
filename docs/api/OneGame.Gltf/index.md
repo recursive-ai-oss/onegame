@@ -30,7 +30,7 @@ dotnet add package RecursiveAI.OneGame.Gltf
 | [`GltfLightType`](OneGame.Gltf/GltfLightType.md) | enum | The kind of a punctual light. |
 | [`GltfLimits`](OneGame.Gltf/GltfLimits.md) | class | Upper bounds the importer enforces before it allocates. |
 | [`GltfLoadOptions`](OneGame.Gltf/GltfLoadOptions.md) | class | How a file is imported. |
-| [`GltfLoader`](OneGame.Gltf/GltfLoader.md) | static class | Imports glTF 2.0 files (`.gltf` and `.glb`) into a [`GltfModel`](OneGame.Gltf/GltfModel.md). |
+| [`GltfLoader`](OneGame.Gltf/GltfLoader.md) | static class | Imports glTF 2.0 files (`.gltf` and `.glb`) into a [`GltfModel`](OneGame.Gltf/GltfModel.md): meshes, metal/rough materials, textures, skins, animations, cameras and punctual lights. |
 | [`GltfMagFilter`](OneGame.Gltf/GltfMagFilter.md) | enum | Texture magnification filter. |
 | [`GltfMaterial`](OneGame.Gltf/GltfMaterial.md) | class | A metal/rough material with the supported extensions. |
 | [`GltfMesh`](OneGame.Gltf/GltfMesh.md) | class | A mesh: one or more primitives sharing a node and morph weights. |

@@ -11,6 +11,19 @@ public static class GpuBackends
 
 Chooses and creates a graphics device. Metal is the default on macOS and iOS, WebGPU in a browser and Vulkan everywhere else; the `ONEGAME_GPU_BACKEND` environment variable (`vulkan`, `metal` or `auto`) overrides it, for example to run the Vulkan backend through a loader on a Mac.
 
+**Example**
+
+```csharp
+if (!GpuBackends.IsAvailable)
+{
+    Console.WriteLine(GpuBackends.UnavailableReason);   // for example no Vulkan driver
+    return;
+}
+
+using var device = GpuBackends.CreateDevice(new GpuDeviceOptions { ApplicationName = "my tool" });
+Console.WriteLine($"{device.Backend} on {device.Adapter.Name}");
+```
+
 ## Properties
 
 | Member | Description |
@@ -73,8 +86,7 @@ Creates a device on the selected backend.
 
 **Exceptions**
 
-- [`GpuUnsupportedException`](../../OneGame.Gpu/OneGame.Gpu/GpuUnsupportedException.md): The backend is not available on this machine.
-- [`GpuUnsupportedException`](../../OneGame.Gpu/OneGame.Gpu/GpuUnsupportedException.md): The backend is not available, or it is WebGPU, which can only be created asynchronously: use [`GpuBackends.CreateDeviceAsync()`](GpuBackends.md#m-createdeviceasync-gpudeviceoptions).
+- [`GpuUnsupportedException`](../../OneGame.Gpu/OneGame.Gpu/GpuUnsupportedException.md): The backend is not available on this machine, or it is WebGPU, which can only be created asynchronously: use [`GpuBackends.CreateDeviceAsync()`](GpuBackends.md#m-createdeviceasync-gpudeviceoptions).
 
 ### <a id="m-createdeviceasync-gpudeviceoptions"></a>CreateDeviceAsync(GpuDeviceOptions?)
 

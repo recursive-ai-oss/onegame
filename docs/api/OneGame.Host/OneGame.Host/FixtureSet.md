@@ -43,7 +43,7 @@ The fixture names in declaration order.
 
 | Member | Description |
 | --- | --- |
-| [`Add(string, Action<World>)`](#m-add-string-action-world) | Declares a fixture. |
+| [`Add(string, Action<World>)`](#m-add-string-action-world) | Declares a fixture: a named starting state that tests, scenarios and live control can load without playing up to it. |
 
 ### <a id="m-add-string-action-world"></a>Add(string, Action&lt;World&gt;)
 
@@ -51,14 +51,14 @@ The fixture names in declaration order.
 public FixtureSet Add(string name, Action<World> populate);
 ```
 
-Declares a fixture.
+Declares a fixture: a named starting state that tests, scenarios and live control can load without playing up to it.
 
 **Parameters**
 
-- `name` (`string`)
-- `populate` ([`Action`](https://learn.microsoft.com/dotnet/api/system.action-1)&lt;[`World`](../../OneGame.Core/OneGame.Core/World.md)&gt;)
+- `name` (`string`): The fixture's name.
+- `populate` ([`Action`](https://learn.microsoft.com/dotnet/api/system.action-1)&lt;[`World`](../../OneGame.Core/OneGame.Core/World.md)&gt;): Adds entities and sets state on the fresh world (sim code, run on the authority).
 
-**Returns:** [`FixtureSet`](FixtureSet.md)
+**Returns:** [`FixtureSet`](FixtureSet.md) — This set, for chaining.
 
 **Exceptions**
 
