@@ -58,7 +58,6 @@ Whether subscribers receive the table: [`Visibility.Everyone`](Visibility.md#m-e
 | [`Read(ref SyncReader)`](#m-read-syncreader) | Replaces all rows. |
 | [`TrySetFromText(int, string, string)`](#m-trysetfromtext-int-string-string) | Sets one scalar cell from text (numbers, bool, string, Fixed, enums by number), for the harness. |
 | [`Write(SyncWriter)`](#m-write-syncwriter) | Writes all rows. |
-| [`WriteHash(SyncWriter)`](#m-writehash-syncwriter) | Writes what the world hash and state digests cover. |
 | [`WriteJson(JsonOut)`](#m-writejson-jsonout) | Writes the rows as a JSON array of objects. |
 
 ### <a id="m-clear"></a>Clear()
@@ -120,18 +119,6 @@ Writes all rows.
 **Parameters**
 
 - `writer` ([`SyncWriter`](SyncWriter.md))
-
-### <a id="m-writehash-syncwriter"></a>WriteHash(SyncWriter)
-
-```csharp
-void WriteHash(SyncWriter writer);
-```
-
-Writes what the world hash and state digests cover. The default is the whole table; a table whose full encoding is large can write a digest of itself here (the hash must change whenever the state does).
-
-**Parameters**
-
-- `writer` ([`SyncWriter`](SyncWriter.md)): Receives the bytes.
 
 ### <a id="m-writejson-jsonout"></a>WriteJson(JsonOut)
 

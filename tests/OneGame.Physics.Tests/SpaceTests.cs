@@ -190,6 +190,32 @@ public class SpaceTests
     }
 
     [Fact]
+    public void ACharacterWalkingThroughATriggerEntersAndLeavesIt()
+    {
+        var world = NewWorld();
+        var space = PhysicsSpace2D.Of(world)!;
+        space.AddBox(new FVec2(40, 1), new FVec2(0, -1), Still);
+        var trigger = space.AddBox(new FVec2(2, 4), new FVec2(4, 2), new BodyOptions { Kind = BodyKind.Static, IsTrigger = true });
+        var hero = space.AddCharacter(new FVec2(0, Fixed.FromRatio(11, 10)), new CharacterOptions { Height = Fixed.FromInt(2) });
+        var body = space.BodyOf(hero);
+        var log = new List<string>();
+        for (var t = 0; t < 240; t++)
+        {
+            space.Move(hero, new FVec2(Fixed.FromRatio(1, 12), Fixed.FromRatio(-1, 10)));
+            world.Step();
+            foreach (var e in space.Events)
+            {
+                if (e.Involves(trigger) && e.Involves(body))
+                {
+                    log.Add(e.Kind.ToString());
+                }
+            }
+        }
+
+        Assert.Equal(["TriggerEnter", "TriggerExit"], log);
+    }
+
+    [Fact]
     public void ACharacterStandsOnGroundWalksIntoABoxAndPushesIt()
     {
         var world = NewWorld();
@@ -381,7 +407,7 @@ public class SpaceTests
     }
 
     [Fact]
-    public void TheWrapperAllocatesNothingPerTickAndTheLibraryAllocatesAFewDozenBytes()
+    public void TheWrapperAndTheWorldHashAllocateNothingPerTickAndTheStepAlmostNothing()
     {
         var world = Scene(out var space, out var hero, out var trigger);
         for (var t = 0; t < 400; t++)
@@ -389,6 +415,8 @@ public class SpaceTests
             Tick(world, space, hero);
             world.ComputeHash();
         }
+
+        space.Raycast(new FVec2(0, 8), new FVec2(0, -1), Fixed.FromInt(50), out _); // the first ray sizes the library's query buffers
 
         // What a game does each tick, without the step: move a character, read positions, walk the events, cast a ray.
         var wrapper = new List<long>();
@@ -412,7 +440,7 @@ public class SpaceTests
         TestContext.Current.SendDiagnosticMessage($"move + reads + events + ray: {string.Join("/", wrapper.Distinct())} B per tick ({sink})");
         Assert.All(wrapper, b => Assert.Equal(0, b));
 
-        // The step and the world hash: the library's hash walk makes a small writer object on each call, and a step sometimes grows a list.
+        // The step and the world hash (which writes the whole snapshot into a reused buffer). The library still grows a list on an occasional step (about 136 B once in 120 ticks here).
         var busy = NewWorld();
         var pile = PhysicsSpace2D.Of(busy)!;
         pile.AddBox(new FVec2(60, 1), new FVec2(0, -1), Still);

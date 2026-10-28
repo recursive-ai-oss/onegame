@@ -196,7 +196,6 @@ Hidden: replicas never receive the space; they get what entities mirror into syn
 | [`Teleport(CharacterRef, FVec2)`](#m-teleport-characterref-fvec2) | Moves a character to a place without sweeping (a respawn). |
 | [`Velocity(BodyRef)`](#m-velocity-bodyref) | The body's linear velocity. |
 | [`Write(SyncWriter)`](#m-write-syncwriter) | Writes all rows. |
-| [`WriteHash(SyncWriter)`](#m-writehash-syncwriter) | Writes what the world hash and state digests cover. |
 | [`WriteJson(JsonOut)`](#m-writejson-jsonout) | Writes the rows as a JSON array of objects. |
 
 ### <a id="m-addbox-fvec2-fvec2-bodyoptions"></a>AddBox(FVec2, FVec2, BodyOptions?)
@@ -739,23 +738,11 @@ public void Write(SyncWriter writer);
 
 Writes all rows.
 
-The whole physics snapshot, byte-exact. Written for saves, replays and state digests, not once per tick: the world hash uses [`PhysicsSpace2D.WriteHash()`](PhysicsSpace2D.md#m-writehash-syncwriter).
+The whole physics snapshot, byte-exact.
 
 **Parameters**
 
 - `writer` ([`SyncWriter`](../../OneGame.Core/OneGame.Core/SyncWriter.md))
-
-### <a id="m-writehash-syncwriter"></a>WriteHash(SyncWriter)
-
-```csharp
-public void WriteHash(SyncWriter writer);
-```
-
-Writes what the world hash and state digests cover. The default is the whole table; a table whose full encoding is large can write a digest of itself here (the hash must change whenever the state does).
-
-**Parameters**
-
-- `writer` ([`SyncWriter`](../../OneGame.Core/OneGame.Core/SyncWriter.md)): Receives the bytes.
 
 ### <a id="m-writejson-jsonout"></a>WriteJson(JsonOut)
 

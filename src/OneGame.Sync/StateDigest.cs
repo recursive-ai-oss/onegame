@@ -121,7 +121,7 @@ public sealed class StateDigest
         {
             var table = tables[t];
             scratch.Reset();
-            table.WriteHash(scratch);
+            table.Write(scratch);
             into._entries.Add(new DigestEntry(DigestKind.Table, 0, table.Name, StateHash.Combine(StateHash.Of(table.Name), StateHash.Of(scratch.Written))));
         }
 

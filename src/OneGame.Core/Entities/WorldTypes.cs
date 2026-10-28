@@ -99,10 +99,6 @@ public interface IHotTable
     /// <summary>Writes all rows.</summary>
     void Write(SyncWriter writer);
 
-    /// <summary>Writes what the world hash and state digests cover. The default is the whole table; a table whose full encoding is large can write a digest of itself here (the hash must change whenever the state does).</summary>
-    /// <param name="writer">Receives the bytes.</param>
-    void WriteHash(SyncWriter writer) => Write(writer);
-
     /// <summary>Replaces all rows. All rows are decoded before any is stored, so an error leaves the table unchanged.</summary>
     void Read(ref SyncReader reader);
 

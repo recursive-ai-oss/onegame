@@ -460,7 +460,7 @@ public sealed class World
         foreach (var table in _tables)
         {
             _hashWriter.Reset();
-            table.WriteHash(_hashWriter);
+            table.Write(_hashWriter);
             h = StateHash.Combine(h, StateHash.Of(table.Name));
             h = StateHash.Combine(h, StateHash.Of(_hashWriter.Written));
         }

@@ -6,7 +6,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Added
 
-- `RecursiveAI.OneGame.Physics` (preview, `<engine version>-preview.N`, built on OnePhysics 0.1.0-preview.1): 2D rigid bodies, characters, triggers and ray casts for sim code on `Fixed` positions. `PhysicsSpace2D` is a hidden hot table of the world plus a system that steps it once per tick, so the physics world is saved, restored, replayed and hashed with the world; `BodyRef` and `CharacterRef` are synced values; events reach sim code in a fixed order; `PhysicsDebugShapes` draws the world on the debug overlay. See `docs/physics.md`.
+- `RecursiveAI.OneGame.Physics` (preview, `<engine version>-preview.N`, built on OnePhysics 0.1.0-preview.2): 2D rigid bodies, characters, triggers and ray casts for sim code on `Fixed` positions. `PhysicsSpace2D` is a hidden hot table of the world plus a system that steps it once per tick, so the physics world is saved, restored, replayed and hashed with the world; `BodyRef` and `CharacterRef` are synced values; events reach sim code in a fixed order; `PhysicsDebugShapes` draws the world on the debug overlay. See `docs/physics.md`.
 - Example `examples/physics` in the gallery: a character that walks, jumps between platforms and pushes crates into a goal zone.
 - `IHotTable.WriteHash`: what the world hash and state digests take from a table (default: the whole table), so a table whose full encoding is large can contribute a digest of itself.
 - CI: a physics scene must end in the same hashes and positions on Linux, Windows and WebAssembly (`tools/ci/physics-probe.sh`).

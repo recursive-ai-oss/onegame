@@ -500,12 +500,6 @@ public sealed partial class AuthorityScope
 
         for (var i = 0; i < tables.Count; i++)
         {
-            // A hidden table never reaches a subscriber, so its bytes are not needed here (a large one is expensive to encode every tick).
-            if (tables[i].Visibility == Visibility.Hidden)
-            {
-                continue;
-            }
-
             _scratch.Reset();
             tables[i].Write(_scratch);
             _tableBlobs[i].Set(_scratch.Written);
@@ -553,19 +547,17 @@ public sealed partial class AuthorityScope
         var worldTables = World.Tables;
         for (var t = 0; t < worldTables.Count; t++)
         {
-            if (worldTables[t].Visibility == Visibility.Hidden)
-            {
-                continue;
-            }
-
             _scratch.Reset();
             worldTables[t].Write(_scratch);
             if (!_tableBlobs[t].Matches(_scratch.Written))
             {
                 _tableBlobs[t].Set(_scratch.Written);
-                _tables.WriteString(worldTables[t].Name);
-                _tables.WriteBytes(_scratch.Written);
-                _tableCount++;
+                if (worldTables[t].Visibility != Visibility.Hidden)
+                {
+                    _tables.WriteString(worldTables[t].Name);
+                    _tables.WriteBytes(_scratch.Written);
+                    _tableCount++;
+                }
             }
         }
 

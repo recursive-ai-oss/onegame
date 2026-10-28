@@ -258,8 +258,8 @@ public sealed class PhysicsSpace2D : IHotTable
             PushStrength = PhysicsLimits.ToSingle(o.PushStrength, "PushStrength"),
             Layer = o.Layer,
         };
-        var body = _world.AddCharacter(Position2(at), def).Body;
-        return new CharacterRef(body.RawHandle.Index, body.RawHandle.Generation);
+        var character = _world.AddCharacter(Position2(at), def);
+        return new CharacterRef(character.Index, character.Generation);
     }
 
     /// <summary>Removes a body.</summary>
@@ -285,11 +285,11 @@ public sealed class PhysicsSpace2D : IHotTable
 
     /// <summary>Whether the reference names a body that exists.</summary>
     /// <param name="body">The reference.</param>
-    public bool Exists(BodyRef body) => !body.IsNull && _world.Core.Bodies.Handles.IsAlive(body.Index, body.Generation);
+    public bool Exists(BodyRef body) => !body.IsNull && _world.IsBodyAlive(new BodyHandle(_world.Id, body.Index, body.Generation));
 
     /// <summary>Whether the reference names a character that exists.</summary>
     /// <param name="character">The reference.</param>
-    public bool Exists(CharacterRef character) => !character.IsNull && Exists(new BodyRef(character.Index, character.Generation)) && _world.TryGetCharacter(_world.GetBody(new BodyHandle(_world.Id, character.Index, character.Generation)), out _);
+    public bool Exists(CharacterRef character) => !character.IsNull && _world.IsCharacterAlive(character.Index, character.Generation);
 
     /// <summary>Where the body's origin is (the centre for the shapes added here).</summary>
     /// <param name="body">The body.</param>
@@ -449,25 +449,36 @@ public sealed class PhysicsSpace2D : IHotTable
     /// <remarks>Hidden: replicas never receive the space; they get what entities mirror into synced properties.</remarks>
     public Visibility Visibility => Visibility.Hidden;
 
+    // Reused between calls so a steady-state snapshot allocates nothing.
+    private byte[] _scratch = [];
+
+    private static ReadOnlySpan<byte> SnapshotInto(PhysicsWorld2D world, ref byte[] scratch)
+    {
+        var size = world.GetSnapshotSize();
+        if (scratch.Length < size)
+        {
+            scratch = new byte[Math.Max(size, scratch.Length * 2)];
+        }
+
+        if (!world.TrySnapshot(scratch, out var written))
+        {
+            throw new InvalidOperationException("The physics snapshot did not fit the buffer sized for it.");
+        }
+
+        return scratch.AsSpan(0, written);
+    }
+
     /// <inheritdoc />
     public void Clear() => _world = Create();
 
     /// <inheritdoc />
-    /// <remarks>The whole physics snapshot, byte-exact. Written for saves, replays and state digests, not once per tick: the world hash uses <see cref="WriteHash"/>.</remarks>
+    /// <remarks>The whole physics snapshot, byte-exact.</remarks>
     public void Write(SyncWriter writer)
     {
         ArgumentNullException.ThrowIfNull(writer);
         writer.WriteByte(FormatVersion);
         writer.WriteInt32(_options.TicksPerSecond);
-        writer.WriteBytes(_world.Snapshot());
-    }
-
-    /// <inheritdoc />
-    public void WriteHash(SyncWriter writer)
-    {
-        ArgumentNullException.ThrowIfNull(writer);
-        writer.WriteByte(FormatVersion);
-        writer.WriteUInt64(Hash);
+        writer.WriteBytes(SnapshotInto(_world, ref _scratch));
     }
 
     /// <inheritdoc />
@@ -496,7 +507,7 @@ public sealed class PhysicsSpace2D : IHotTable
 
         try
         {
-            _world.Restore(bytes.ToArray()); // validated first; on a problem the world is unchanged
+            _world.Restore(bytes); // validated first; on a problem the world is unchanged
         }
         catch (PhysicsException)
         {
@@ -518,7 +529,7 @@ public sealed class PhysicsSpace2D : IHotTable
             throw new InvalidOperationException("A physics table can only copy from another physics table.");
         }
 
-        _world.Restore(other._world.Snapshot());
+        _world.Restore(SnapshotInto(other._world, ref _scratch));
     }
 
     /// <inheritdoc />
@@ -634,8 +645,7 @@ public sealed class PhysicsSpace2D : IHotTable
             throw new StaleBodyException($"{character} does not exist in this space (removed, never created here, or the space was restored from a save without it).");
         }
 
-        _world.TryGetCharacter(_world.GetBody(new BodyHandle(_world.Id, character.Index, character.Generation)), out var found);
-        return found;
+        return _world.GetCharacter(character.Index, character.Generation);
     }
 
     private sealed class StepSystem(PhysicsSpace2D space) : ISimSystem
