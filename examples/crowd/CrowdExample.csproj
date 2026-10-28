@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>CrowdExample</AssemblyName>
+    <RootNamespace>CrowdExample</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Navigation is opt in: a game that needs paths references it (the RecursiveAI.OneGame.Navigation package outside a checkout). -->
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.Navigation/OneGame.Navigation.csproj" />
+  </ItemGroup>
+
+  <!-- Target framework, analyzers, engine references and, in Debug builds only, the development tools (live control, scenarios, capture). -->
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+
+</Project>

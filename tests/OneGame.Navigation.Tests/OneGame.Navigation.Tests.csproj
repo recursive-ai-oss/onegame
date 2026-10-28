@@ -5,6 +5,7 @@
     <ProjectReference Include="../../src/OneGame.Sync/OneGame.Sync.csproj" />
     <!-- The pathing example is the game the determinism tests run, headless, through the same harness as a scenario. -->
     <ProjectReference Include="../../examples/pathing/PathingExample.csproj" />
+    <ProjectReference Include="../../examples/crowd/CrowdExample.csproj" />
     <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
     <ProjectReference Include="../../src/OneGame.Live/OneGame.Live.csproj" />
     <!-- The sample entities in this project run through the generator and analyzers like a game's would. -->

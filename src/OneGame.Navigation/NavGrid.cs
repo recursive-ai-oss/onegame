@@ -9,8 +9,6 @@ namespace OneGame.Navigation;
 /// </summary>
 public sealed class NavGrid
 {
-    private const int AreaCount = 255;
-    private readonly byte[] _areaBytes = new byte[AreaCount * 8];
     private ulong _stamp;
     private int _stampGridVersion = -1;
     private int _stampAreaVersion = -1;
@@ -64,14 +62,7 @@ public sealed class NavGrid
             var av = Grid.Areas.Version;
             if (gv != _stampGridVersion || av != _stampAreaVersion)
             {
-                for (var i = 0; i < AreaCount; i++)
-                {
-                    System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(_areaBytes.AsSpan(i * 8, 8), BitConverter.DoubleToInt64Bits(Grid.Areas[(byte)i]));
-                }
-
-                var h = StateHash.Of(Grid.Cells);
-                h = StateHash.Combine(h, StateHash.Of(_areaBytes));
-                h = StateHash.Combine(h, ((ulong)(uint)Width << 32) | (uint)Height);
+                var h = Grid.ContentHash();
                 _stamp = h;
                 _stampGridVersion = gv;
                 _stampAreaVersion = av;
@@ -250,7 +241,7 @@ public sealed class NavGrid
             NavAlgorithm.ThetaStar => GridAlgorithm.ThetaStar,
             _ => GridAlgorithm.AStar,
         }));
-        return NavPath.From(result);
+        return NavPath.From(result, Grid);
     }
 
     internal static GridOptions ToGridOptions(NavOptions options, GridAlgorithm algorithm) => new()
