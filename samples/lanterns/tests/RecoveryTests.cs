@@ -1,3 +1,4 @@
+using OneGame.Core;
 using Lanterns.Views;
 using OneGame.Host;
 using OneGame.Sync;
@@ -67,6 +68,29 @@ public class RecoveryTests
         r.RunUntil(() => !r.Players().Any(), 20_000, "the player to be removed");
         Assert.Equal(2, r.Departed());
         Assert.DoesNotContain(r.Host(Rules.IslandA).Node.Connections, c => c.Name.StartsWith("udp", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void LeaveCommandsArrivingInOneTickCountThePlayersLanternsOnce()
+    {
+        // The other island asks again every few ticks until it sees the player gone, so on a slow machine several requests can queue up
+        // and run in the same tick. The removal only takes effect at the end of the tick.
+        var registry = new EntityRegistry();
+        Worlds.Register(registry);
+        var world = new World(7, registry, WorldRole.Authority);
+        Worlds.Build(world, new ScopeId(Rules.IslandA));
+        Worlds.Seed(world, new ScopeId(Rules.IslandA));
+        var island = Island.Of(world)!;
+        island.Join(1, "Ann");
+        world.Entities.OfType<Player>().Single().Change(0, 4);
+
+        Assert.Equal(CommandStatus.Queued, island.SendFromText("Leave", ["1"]));
+        Assert.Equal(CommandStatus.Queued, island.SendFromText("Leave", ["1"]));
+        Assert.Equal(CommandStatus.Queued, island.SendFromText("Leave", ["1"]));
+        world.Step();
+
+        Assert.Empty(world.Entities.OfType<Player>());
+        Assert.Equal(4, island.Departed);
     }
 
     [Fact]
