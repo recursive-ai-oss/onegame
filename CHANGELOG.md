@@ -6,14 +6,13 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Added
 
-- `RecursiveAI.OneGame.Physics` (preview, `<engine version>-preview.N`, built on OnePhysics 0.1.0-preview.2): 2D rigid bodies, characters, triggers and ray casts for sim code on `Fixed` positions. `PhysicsSpace2D` is a hidden hot table of the world plus a system that steps it once per tick, so the physics world is saved, restored, replayed and hashed with the world; `BodyRef` and `CharacterRef` are synced values; events reach sim code in a fixed order; `PhysicsDebugShapes` draws the world on the debug overlay. See `docs/physics.md`.
+- `RecursiveAI.OneGame.Physics` (preview, `<engine version>-preview.N`, built on OnePhysics 0.1.0-preview.4): 2D rigid bodies, characters, triggers and ray casts for sim code on `Fixed` positions. `PhysicsSpace2D` is a hidden hot table of the world plus a system that steps it once per tick, so the physics world is saved, restored, replayed and hashed with the world; `BodyRef` and `CharacterRef` are synced values; events reach sim code in a fixed order; `PhysicsDebugShapes` draws the world on the debug overlay. See `docs/physics.md`.
 - Example `examples/physics` in the gallery: a character that walks, jumps between platforms and pushes crates into a goal zone.
-- `IHotTable.WriteHash`: what the world hash and state digests take from a table (default: the whole table), so a table whose full encoding is large can contribute a digest of itself.
 - CI: a physics scene must end in the same hashes and positions on Linux, Windows and WebAssembly (`tools/ci/physics-probe.sh`).
 
 ### Changed
 
-- The authority no longer encodes hidden hot tables for every frame; they were compared and then dropped.
+- `OneGame.Navigation` moves to OnePath 1.0.0-rc.1, whose public API is frozen for 1.0. Search and crowd results and saved bytes are unchanged. `NavCrowd` reads agents with `Crowd.CopyAgents(Span<Agent>)`, treats any `OnePathFormatException` from a bad crowd state as a refused snapshot, and `TryAdd` snaps to the nearest walkable point of the whole map (it used to refuse a spot too far from ground).
 
 ## [1.13.0] - 2026-10-28
 

@@ -303,6 +303,18 @@ public class CrowdTests
     }
 
     [Fact]
+    public void AnAgentAddedInsideAWallIsPlacedOnTheNearestGroundNextToIt()
+    {
+        var crowd = CrowdOf(NewWorld());
+        var wall = crowd.Map.CellCenter(new NavCell(10, 2));
+        Assert.True(crowd.TryAdd(wall, out var id));
+        Assert.True(crowd.TryGet(id, out var a));
+        Assert.True(Math.Abs((a.Position.X - wall.X).ToDouble()) <= 16 && a.Position.X != wall.X || Math.Abs((a.Position.Y - wall.Y).ToDouble()) <= 16);
+        Assert.True(crowd.Map.TryGetCell(a.Position, out var cell));
+        Assert.False(crowd.Map.IsBlocked(cell.X, cell.Y));
+    }
+
+    [Fact]
     public void AReplicaRefusesToChangeItsCrowd()
     {
         var replica = NewWorld(WorldRole.Replica);
