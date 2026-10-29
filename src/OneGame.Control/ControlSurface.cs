@@ -287,7 +287,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         var seen = 0;
         foreach (var e in Game.World.Entities)
         {
-            if (!e.IsRemoved && (e.TypeName == name || e.TypeName.EndsWith("." + name, StringComparison.Ordinal)) && ++seen == nth)
+            if ((e.TypeName == name || e.TypeName.EndsWith("." + name, StringComparison.Ordinal)) && ++seen == nth)
             {
                 return e;
             }
@@ -296,7 +296,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         throw new ControlException("not_found", $"No entity '{spec}'. Present: {Describe(Game.World.Entities)}.");
     }
 
-    private static string Describe(IReadOnlyList<Entity> entities)
+    private static string Describe(EntityList entities)
     {
         if (entities.Count == 0)
         {

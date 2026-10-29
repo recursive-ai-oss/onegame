@@ -35,6 +35,7 @@ public sealed class World
         Role = role;
         _registry = registry;
         Rng = new RngStreams(seed);
+        Entities = new EntityList(_entities, _removedDuringTick);
     }
 
     /// <summary>The seed the random streams derive from.</summary>
@@ -49,8 +50,11 @@ public sealed class World
     /// <summary>The named random streams.</summary>
     public RngStreams Rng { get; }
 
-    /// <summary>Entities in id order.</summary>
-    public IReadOnlyList<Entity> Entities => _entities;
+    /// <summary>
+    /// The live entities in id order. An entity removed during a tick is no longer listed, even though it is only detached when the tick ends,
+    /// so a loop that removes an entity never sees it again in the same tick.
+    /// </summary>
+    public EntityList Entities { get; }
 
     /// <summary>The hot tables, in the order added.</summary>
     public IReadOnlyList<IHotTable> Tables => _tables;
