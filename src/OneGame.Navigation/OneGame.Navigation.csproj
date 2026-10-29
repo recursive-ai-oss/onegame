@@ -1,11 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- Ships as a prerelease on top of the engine version (1.11.0 -> 1.11.0-preview.1) because OnePath is a prerelease and a stable package may not depend on one.
-         Directory.Build.props sets Version first; this project appends its own suffix. Bump the number when only this package changes. -->
-    <NavigationPreview>preview.1</NavigationPreview>
-    <Version>$(Version)-$(NavigationPreview)</Version>
-    <Description>Preview, built on a preview of OnePath: the API may change before it is stable. Pathfinding for deterministic simulations: grid searches on fixed-point positions, budgeted over several ticks, and crowds with avoidance, with state that is saved, restored and hashed with the world.</Description>
+    <Description>Pathfinding for deterministic simulations: grid searches on fixed-point positions, budgeted over several ticks, and crowds with avoidance, with state that is saved, restored and hashed with the world.</Description>
   </PropertyGroup>
 
   <ItemGroup>
