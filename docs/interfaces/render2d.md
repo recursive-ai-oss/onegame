@@ -119,13 +119,13 @@ primitives for HUDs and tools: `Fill` (solid or `Gradient.Linear/Radial`), `Bord
 ## Shaders
 
 The renderer's shaders are HLSL in `src/OneGame.Render2D/Shaders` (`Quad.hlsl`: sprite, blur, grade; `Tile.hlsl`: ids, flat; `Ui.hlsl`). It asks
-an `IShaderSource` for `(program, entry)` pairs (`ShaderNames`) and gets SPIR-V and an entry point name. Resource slots are fixed by the HLSL: set 0 = frame constants + clip table, set 1 = texture + sampler, set 2 = parameters (tile programs: parameters + two pools). Sets
+an `IShaderSource` for `(program, entry)` pairs (`ShaderNames`) and gets a `ShaderCode`: the entry point with its SPIR-V, MSL and WGSL forms and layout, so the same code runs on every backend. Resource slots are fixed by the HLSL: set 0 = frame constants + clip table, set 1 = texture + sampler, set 2 = parameters (tile programs: parameters + two pools). Sets
 0 and 1 are identical in every program so bind groups are shared.
 
 The shaders are compiled during `dotnet build` by the shader build package (`RecursiveAI.OneShader.Build`, referenced by `OneGame.Render2D.csproj`),
-which generates the C# bindings (`OneGame.Render2D.Shaders.Quad|Tile|Ui`). `GeneratedShaders` (`GeneratedShaders.Instance`) maps the nine
+which generates the C# bindings (`OneGame.Render2D.Shaders.Quad|Tile|Ui`). `GeneratedShaders` (`GeneratedShaders.Instance`) maps the ten
 `(program, entry)` pairs of `ShaderNames` onto the generated `Stage`/`EntryPoint`/`SpirV`; it is the default `IShaderSource` of the host, the test
-cluster and every test, and the SPIR-V is embedded in the assembly, so nothing is read from disk. A custom `IShaderSource` can still be passed to
+cluster and every test, and the compiled shaders are embedded in the assembly, so nothing is read from disk. A custom `IShaderSource` can still be passed to
 `Renderer2D.Create` or `GameOptions.Shaders`. A custom sprite material is HLSL in your own project compiled the same way (see
 `tests/OneGame.Render2D.Tests/Shaders/Ripple.hlsl`); pass its `PSMain.SpirV` and `EntryPoint` to `CreateMaterial`.
 

@@ -1,6 +1,6 @@
 # render-graph — one frame structure for every renderer
 
-`OneGame.Gpu.Graph` (in `src/OneGame.Gpu`, namespace `OneGame.Gpu.Graph`) builds a frame from passes that declare what they read and write. The 2D renderer runs as a pass on it; the 3D renderer will be many. It is backend-neutral: it only uses `gpu.md`.
+`OneGame.Gpu.Graph` (in `src/OneGame.Gpu`, namespace `OneGame.Gpu.Graph`) builds a frame from passes that declare what they read and write. The 2D renderer runs as a pass on it; the 3D renderer (`render3d.md`) adds many. It is backend-neutral: it only uses `gpu.md`.
 
 ```csharp
 using var graph = new RenderGraph(device);                 // one per device; keeps its memory pool between frames
@@ -69,7 +69,7 @@ Resources with the same `slot` share memory. `transientBytes` against `unaliased
 
 ## Backends
 
-The graph is backend-neutral. On Metal every pass is its own encoder and hazards between passes are tracked by Metal, so the graph's dependency order is all that matters; pass timing is unavailable there until timestamps land (`GpuCapabilities.Timestamps`).
+The graph is backend-neutral. On Metal every pass is its own encoder and hazards between passes are tracked by Metal, so the graph's dependency order is all that matters; pass timing is unavailable there (`GpuCapabilities.Timestamps` is false), and so on WebGPU.
 
 ## Not built yet
 

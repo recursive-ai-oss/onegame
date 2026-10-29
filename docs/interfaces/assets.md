@@ -34,7 +34,7 @@ Paths are relative to a content folder (`art/ship.png`, `data/ships.yaml`) with 
 
 `GameDefinition.CreateAssetSource()` returns an `IAssetSource` (`Read(path, maxBytes)`, `PhysicalPath(path)`). The default `FileAssetSource` tries, in order: the program's folder (an export keeps `art/` and `data/` next to the program, as `docs/exporting.md` says), `../Resources` (macOS bundle), the working directory (development, run from the project). So a development run edits the files in the project and an export reads its own copies; the game code is the same.
 
-Desktop (Linux, Windows, macOS) is covered. **Android, iOS and the browser are not**: their exports keep art inside the program (and the browser has no folders), so a file source finds nothing there. They need an `IAssetSource` over embedded or fetched content, and the export must put `art/` and `data/` into it. That is the seam to fill; it is not built or tested.
+On Android, iOS and the browser the export packs `fonts/`, `art/` and `data/` and unpacks them as loose files at start, so the same `FileAssetSource` and the same game code work on every target. A game can still return its own `IAssetSource` (embedded or fetched content).
 
 ## Limits
 
