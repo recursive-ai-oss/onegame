@@ -26,7 +26,7 @@ It is also the example for multiplayer: `docs/interfaces/sync.md` (views, predic
 - **Walking is predicted.** `Player.Steer` is `[Command(OwnerOnly = true, Predicted = true)]`: the client runs it at once on a predicted copy of the island and the server runs it for real; the client corrects itself if they disagree.
 - **Private data.** A player's colours, pending swap steps and the `Mine` marker are `Visibility.Owner`; everyone sees position and the total. The test `PrivacyTests` records every byte a client receives, directly and through a relay, and looks for another player's inventory.
 - **The bridge is an authority transfer.** The sim moves a player to the arrival place and sets `Dest`; the island server (`Realm.HandOver`) then calls `BeginTransfer`. The entity gets a new id on the other island, its commands in flight are forwarded exactly once, and `Moves` (the count of applied steers) travels with it.
-- **A swap is an escrow.** `Account.Accept` on the master opens a trade; the master's `EscrowDriver` takes one lantern from each player on their island (`Withdraw`), then credits the other (`Credit`), or gives it back. Servers save every other tick and answer peers only for what the save holds (`Durability.AfterSave`), so a server killed and started from its file keeps every lantern. A player who has a swap pending, or is already on the bridge, cannot take part in the other.
+- **A swap is an escrow.** `Account.Accept` on the master opens a trade; the master's `EscrowDriver` takes one lantern from each player on their island (`TryDebit`), then credits the other (`Credit`), or gives it back. Servers save every other tick and answer peers only for what the save holds (`Durability.AfterSave`), so a server killed and started from its file keeps every lantern. A player who has a swap pending, or is already on the bridge, cannot take part in the other.
 - **Servers find each other** with `--option peer.N=udp://host:port` and listen for each other on a private port, `--option peers=PORT`. That port speaks the same encrypted transport: each server's key is its identity, and a server only accepts peers whose public key is listed beside their address, `--option peer.key.N=<key or .pub file>` (the cluster files write `{key:NAME}`). A link that drops opens again by itself.
 - **Players are their keys.** An island maps the key a client proved to a player id and saves the table beside the scope, so a client that reconnects, or an island that restarts from its save, keeps the same player. A client keeps its key in a file (`--identity`); the clusters and `onegame run --connect` make development keys themselves.
 
@@ -95,9 +95,9 @@ onegame cluster down --dir run
 
 `bot1` reaches its island over UDP with 100 ms latency and 2% loss, `bot2` over a WebSocket. A client whose name starts with `bot` plays itself (`Autopilot`).
 
-`cluster/crash.yaml` uses the `kill:`, `start:` and `restart:` steps (SIGKILL, then the same arguments, data folder and ports). After island B is back, `restart: bot2` joins a new player to it. `ClusterTests` then checks that lanterns held by players, plus those that left with disconnected players (`Island.Departed`), equal lanterns collected and that every client agrees with its server.
+`cluster/crash.yaml` uses the `kill:`, `start:` and `restart:` steps (SIGKILL, then the same arguments, data folder and ports). After island B is back, `restart: bot2` joins it again. `ClusterTests` then checks that lanterns held by players, plus those that left with disconnected players (`Island.Departed`), equal lanterns collected and that every client agrees with its server.
 
-A client that loses its island connects again by itself (`ConnectOptions.Reconnect`) and, to the island, is a new player. A player whose connection is gone is removed (`Island.Leave`) from the island they are on, even when that is the other island; after a restart from a save, the players the island let in before are removed the same way.
+A client that loses its island connects again by itself (`ConnectOptions.Reconnect`) and, holding the same key, is the same player: if it is back before the island removed it, it carries on. A player whose connection is gone is removed (`Island.Leave`) from the island they are on, even when that is the other island; after a restart from a save, the players the island let in before are removed the same way unless they come back first.
 
 Exports: `onegame export --project Lanterns.csproj --out export` and `onegame export --server --project Server --out export`. The exported clients are release builds with no live control, so the release cluster runs them with `release: true` and `--until-tick`: each plays headless in real time until its replica reaches that tick, prints one JSON line (tick, `viewHash`, followed scopes, drift count), and `cluster/play-release.yaml` waits for them to stop and compares what they printed with their servers:
 
@@ -109,6 +109,6 @@ A windowed client on a machine with `WAYLAND_DISPLAY` set opens on that composit
 
 ## Limits
 
-- Player ids come from a counter on the island that was joined; nothing authenticates a player, so a returning client is a new player.
-- A reconnecting client is a new player: the transport has no authentication, so nothing proves it is the same person.
+- A player is a key, not an account: whoever holds a client's key file is that player, and a client with no key (an insecure development link) is a new player on every connection.
+- A player id is only valid on the island that issued it, and the island keeps room for a fixed number of known keys; beyond that it refuses new players.
 - No Windows run, no real-network run.

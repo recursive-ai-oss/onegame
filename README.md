@@ -60,6 +60,7 @@ Then read, in order:
 - [docs/first-game.md](docs/first-game.md): the game `onegame new` writes, line by line, then run, test and export.
 - [docs/2d.md](docs/2d.md), [docs/input.md](docs/input.md) and [docs/assets.md](docs/assets.md): drawing sprites, shapes and text, input actions and rebinding, and loading files with hot reload; [docs/hot-reload.md](docs/hot-reload.md): editing the game's C# while it runs.
 - [docs/tweens.md](docs/tweens.md), [docs/particles.md](docs/particles.md) and [docs/saves.md](docs/saves.md): animating view state and styles, particle effects, and save slots and settings.
+- [docs/animation.md](docs/animation.md): 3D character animation (blending, state machines, baked root motion); [docs/navigation.md](docs/navigation.md): grid paths and crowds kept in the world; [docs/physics.md](docs/physics.md): 2D rigid bodies, characters and triggers kept in the world (a **preview** package: `dotnet add package RecursiveAI.OneGame.Physics --prerelease`).
 - [docs/pages.md](docs/pages.md): screens written in HTML and CSS (or a style tree) through OneRender, drawn by the engine.
 - [docs/driving-a-game.md](docs/driving-a-game.md): making a game, scenarios, replays, captures and live control.
 - [docs/ui-guide.md](docs/ui-guide.md): screens, styling and the component kit.
@@ -85,6 +86,9 @@ One feature each, a few dozen lines, copy what you need. Every example has scena
 - `examples/tween`: a tween started from code and a CSS style transition.
 - `examples/particles`: a spark emitter plus a burst on a hit.
 - `examples/saves`: a save slot and typed settings.
+- `examples/pathing` and `examples/crowd`: grid paths, and a crowd with avoidance, kept in the world.
+- `examples/physics`: a character, crates and a goal zone on 2D physics (preview package).
+- `examples/character`: a skinned 3D figure with blended animation and baked root motion.
 - `examples/networked-counter`: one server and two clients over UDP and WebSocket, with zero drift.
 
 ## Build and test the engine
