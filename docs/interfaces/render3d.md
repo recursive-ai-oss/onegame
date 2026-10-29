@@ -62,7 +62,7 @@ Harness: control op `quality` (`level`, `ssao`, `ssaoRadius`; returns the settin
 - Shading follows glTF 2.0 Appendix B. Dielectric F0 comes from `ior`. Occlusion dims indirect light only. Double-sided flips the normal on back faces; mirrored nodes use a flipped-winding pipeline.
 - Lights are scene-referred: lux (directional) and candela (point, spot) used as radiometric units; spot cone and range window follow KHR_lights_punctual. Exposure is a plain multiplier.
 - Clustered lights: 64-pixel tiles, 24 exponential depth slices, up to 63 lights per cluster, 512 lights per frame; directional lights are always applied.
-- IBL: specular cube (256 default, roughness = mip / (mips-1)), irradiance cube 32 (mean radiance, i.e. E/pi), BRDF table 128 (`Rg16Float`).
+- IBL: specular cube (256 default, roughness = mip / (mips-1)), irradiance cube 32 (mean radiance, i.e. E/pi), BRDF table 128 (`Rgba16Float`, two channels used).
 - Tone mapping: Khronos PBR Neutral (default), ACES rational fit, or clamp. 8-bit UNorm targets are encoded in the shader, sRGB targets by the hardware.
 - Skinning on the GPU (joint matrices from `GltfSkin.ComputeJointMatrices`); morph targets blended on the CPU into a per-instance vertex buffer (`ModelInstance3D` is `IDisposable` for that). Lines and points are not drawn.
 - Steady frames allocate zero managed bytes (test).

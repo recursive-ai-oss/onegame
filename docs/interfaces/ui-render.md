@@ -77,4 +77,4 @@ show through each other). Also settled:
 
 ## Not done by the UI
 
-Scroll bars, text selection and carets, focus rings (a style rule gives an `outline`), and animation. `transition` is stored as data only.
+Scroll bars, text selection and carets, and focus rings are the kit's (`ui-kit.md`); the tree itself only draws what styles say (a focus ring is a style `outline`). Style `transition`s run in the tree as tweens (`tween.md`), so the list always carries the current values.
