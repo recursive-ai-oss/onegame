@@ -328,6 +328,54 @@ public class EntityTests
         Assert.Equal([b.Id, c.Id], world.Entities.Select(e => e.Id));
     }
 
+    private sealed class RemoveThenLook(Action<World> look) : ISimSystem
+    {
+        public void Tick(World world)
+        {
+            world.Remove(world.Entities[0].Id);
+            look(world);
+        }
+    }
+
+    [Fact]
+    public void AnEntityRemovedDuringATickIsNotListedForTheRestOfTheTick()
+    {
+        var seen = new List<string>();
+        var world = NewWorld();
+        var a = MakeShop(world);
+        var b = MakeShop(world);
+        world.AddSystem(new RemoveThenLook(w =>
+        {
+            seen.Add($"count={w.Entities.Count} first={w.Entities[0].Id.Value}");
+            seen.Add("foreach=" + string.Join(",", w.Entities.Select(e => e.Id.Value)));
+            seen.Add("find=" + (w.Find(a.Id) is null));
+            Assert.Throws<ArgumentOutOfRangeException>(() => w.Entities[1]);
+        }));
+        world.Step();
+
+        Assert.Equal([$"count=1 first={b.Id.Value}", $"foreach={b.Id.Value}", "find=True"], seen);
+        Assert.Equal([b.Id], world.Entities.Select(e => e.Id));
+        Assert.Single(world.Entities);
+    }
+
+    [Fact]
+    public void RemovalDuringATickLeavesTheSameHashAsRemovalBetweenTicks()
+    {
+        var inTick = NewWorld();
+        MakeShop(inTick);
+        MakeShop(inTick);
+        inTick.AddSystem(new RemoveThenLook(_ => { }));
+        inTick.Step();
+
+        var between = NewWorld();
+        var first = MakeShop(between);
+        MakeShop(between);
+        between.Remove(first.Id);
+        between.Step();
+
+        Assert.Equal(between.ComputeHash(), inTick.ComputeHash());
+    }
+
     [Fact]
     public void RegisteringTwoTypesUnderOneIdIsRefused()
     {

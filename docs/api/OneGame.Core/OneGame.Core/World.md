@@ -35,7 +35,7 @@ Creates an empty world. Build the same way (registry, systems, tables) on every 
 
 | Member | Description |
 | --- | --- |
-| [`Entities`](#m-entities) | Entities in id order. |
+| [`Entities`](#m-entities) | The live entities in id order. |
 | [`Observer`](#m-observer) | Called for every command this world executes, queues-then-runs on an authority or forwards on a replica. |
 | [`PendingCommandCount`](#m-pendingcommandcount) | Commands accepted and waiting for the next tick. |
 | [`Rng`](#m-rng) | The named random streams. |
@@ -50,7 +50,7 @@ Creates an empty world. Build the same way (registry, systems, tables) on every 
 public IReadOnlyList<Entity> Entities { get; }
 ```
 
-Entities in id order.
+The live entities in id order. An entity removed during a tick is no longer listed, even though it is only detached when the tick ends, so a loop that removes an entity never sees it again in the same tick.
 
 **Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`Entity`](Entity.md)&gt;
 

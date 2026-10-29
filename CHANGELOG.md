@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Fixed
+
+- An entity removed during a tick no longer appears in `World.Entities` for the rest of that tick. The world keeps it until the tick ends, so a second command or a later loop in the same tick used to find it again and could apply the same change twice (for example, adding a leaving player's holdings to a total once per queued request). `World.Entities` keeps its type and returns a live view of the entities in id order. Saves, snapshots, deltas and hashes are unchanged, because they are produced between ticks.
+
 ## [1.15.0] - 2026-10-29
 
 `RecursiveAI.OneGame.Physics` joins as a **preview** (`1.15.0-preview.1`): it is built on OnePhysics 0.1.0-preview.5, itself a preview, so its API may change. The other 31 packages are stable at 1.15.0 and never depend on it.

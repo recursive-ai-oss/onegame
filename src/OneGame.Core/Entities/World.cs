@@ -18,6 +18,7 @@ public sealed class World
     private readonly List<IHotTable> _tables = [];
     private readonly Queue<PendingCommand> _pending = new();
     private readonly List<Entity> _removedDuringTick = [];
+    private readonly EntityList _live;
     private readonly SyncWriter _hashWriter = new(4096);
     private readonly SyncWriter _snapshotScratch = new(1024);
     private ulong _nextId = 1;
@@ -35,6 +36,7 @@ public sealed class World
         Role = role;
         _registry = registry;
         Rng = new RngStreams(seed);
+        _live = new EntityList(_entities, _removedDuringTick);
     }
 
     /// <summary>The seed the random streams derive from.</summary>
@@ -49,8 +51,11 @@ public sealed class World
     /// <summary>The named random streams.</summary>
     public RngStreams Rng { get; }
 
-    /// <summary>Entities in id order.</summary>
-    public IReadOnlyList<Entity> Entities => _entities;
+    /// <summary>
+    /// The live entities in id order. An entity removed during a tick is no longer listed, even though it is only detached when the tick ends,
+    /// so a loop that removes an entity never sees it again in the same tick.
+    /// </summary>
+    public IReadOnlyList<Entity> Entities => _live;
 
     /// <summary>The hot tables, in the order added.</summary>
     public IReadOnlyList<IHotTable> Tables => _tables;

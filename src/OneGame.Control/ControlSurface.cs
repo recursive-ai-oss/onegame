@@ -287,7 +287,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         var seen = 0;
         foreach (var e in Game.World.Entities)
         {
-            if (!e.IsRemoved && (e.TypeName == name || e.TypeName.EndsWith("." + name, StringComparison.Ordinal)) && ++seen == nth)
+            if ((e.TypeName == name || e.TypeName.EndsWith("." + name, StringComparison.Ordinal)) && ++seen == nth)
             {
                 return e;
             }
