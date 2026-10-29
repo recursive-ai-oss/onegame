@@ -2,6 +2,15 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
+## [1.15.2] - 2026-10-29
+
+`RecursiveAI.OneGame.Physics` moves to OnePhysics 0.2.0-preview.1 and ships as 1.15.2-preview.1. The other 31 packages are unchanged apart from the version.
+
+### Changed
+
+- `OneGame.Physics` uses OnePhysics 0.2.0-preview.1. Results move: 2D positions now sit on the Q31.32 grid and broadphase boxes are tighter, so the same inputs end in different positions and hashes, and physics saves and replays made with an earlier preview do not carry over. The probe values (`tools/OneGame.PhysicsProbe/expected.txt`) are re-pinned; the `examples/physics` captures are unchanged. `docs/physics.md` says so.
+- The world hash no longer grows its buffer as a physics snapshot grows: the physics table sizes it, and its own snapshot buffer, with room to spare, so a settling pile hashes with no allocation. `SyncWriter.Reserve(int)` is new (it writes nothing). World hash values are unchanged.
+
 ## [1.15.1] - 2026-10-29
 
 A fix for sim code that finds entities removed earlier in the same tick. `RecursiveAI.OneGame.Physics` ships as 1.15.1-preview.1.
