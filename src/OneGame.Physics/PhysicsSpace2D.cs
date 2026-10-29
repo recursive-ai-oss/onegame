@@ -175,6 +175,7 @@ public sealed class PhysicsSpace2D : IHotTable
     public void Warmup()
     {
         _world.Warmup();
+        _ = SnapshotInto(_world, ref _scratch); // sizes the snapshot buffer now, not on the first save or hash
         _warm = true;
     }
 
@@ -478,7 +479,7 @@ public sealed class PhysicsSpace2D : IHotTable
         var size = world.GetSnapshotSize();
         if (scratch.Length < size)
         {
-            scratch = new byte[Math.Max(size, scratch.Length * 2)];
+            scratch = new byte[Math.Max((size * 4) + 4096, scratch.Length * 2)]; // slack: a settling pile adds contacts, so the snapshot grows
         }
 
         if (!world.TrySnapshot(scratch, out var written))
@@ -499,7 +500,9 @@ public sealed class PhysicsSpace2D : IHotTable
         ArgumentNullException.ThrowIfNull(writer);
         writer.WriteByte(FormatVersion);
         writer.WriteInt32(_options.TicksPerSecond);
-        writer.WriteBytes(SnapshotInto(_world, ref _scratch));
+        var snapshot = SnapshotInto(_world, ref _scratch);
+        writer.Reserve((snapshot.Length * 4) + 4096); // the world hash reuses one writer; size it once for the snapshot instead of growing it in steps
+        writer.WriteBytes(snapshot);
     }
 
     /// <inheritdoc />

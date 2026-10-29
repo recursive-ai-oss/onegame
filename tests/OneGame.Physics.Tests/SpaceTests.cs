@@ -466,7 +466,7 @@ public class SpaceTests
     }
 
     [Fact]
-    public void AWarmedPileStepsWithoutAllocatingAndTheWorldHashOnlyWhenItsBufferGrows()
+    public void AWarmedPileStepsAndHashesWithoutAllocating()
     {
         var busy = NewWorld();
         var pile = PhysicsSpace2D.Of(busy)!;
@@ -477,6 +477,7 @@ public class SpaceTests
         }
 
         pile.Warmup();
+        busy.ComputeHash(); // the world's hash buffer is sized by the first hash
         var worstStep = 0L;
         var allocatingSteps = 0;
         var hashGrowths = 0;
@@ -489,11 +490,13 @@ public class SpaceTests
             allocatingSteps += stepBytes > 0 ? 1 : 0;
             before = GC.GetAllocatedBytesForCurrentThread();
             busy.ComputeHash(); // writes the whole snapshot into the world's reused buffer, which grows with the snapshot
-            hashGrowths += GC.GetAllocatedBytesForCurrentThread() > before ? 1 : 0;
+            var hb = GC.GetAllocatedBytesForCurrentThread() - before;
+            if (hb > 0) { TestContext.Current.SendDiagnosticMessage($"hash at tick {t}: {hb} B"); }
+            hashGrowths += hb > 0 ? 1 : 0;
         }
 
         TestContext.Current.SendDiagnosticMessage($"warmed pile, 320 ticks from step 1: worst step {worstStep} B on {allocatingSteps} step(s), {hashGrowths} hashes grew the buffer");
         Assert.True(worstStep == 0, $"{allocatingSteps} steps allocated, worst {worstStep} B");
-        Assert.True(hashGrowths <= 4, $"{hashGrowths} hashes allocated");
+        Assert.Equal(0, hashGrowths);
     }
 }

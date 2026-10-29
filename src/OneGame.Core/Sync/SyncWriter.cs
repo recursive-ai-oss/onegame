@@ -29,6 +29,14 @@ public sealed class SyncWriter
     /// <summary>Copies the written bytes into a new array.</summary>
     public byte[] ToArray() => Written.ToArray();
 
+    /// <summary>Makes room for at least this many more bytes, so a large write that follows grows the buffer once, here, instead of in steps. Writes no bytes.</summary>
+    /// <param name="extra">Bytes about to be written.</param>
+    public void Reserve(int extra)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(extra);
+        Ensure(extra);
+    }
+
     private void Ensure(int extra)
     {
         if (_buffer.Length - _length >= extra)

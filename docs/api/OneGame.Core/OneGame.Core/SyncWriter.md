@@ -60,6 +60,7 @@ The bytes written so far. Valid until the next write or [`SyncWriter.Reset()`](S
 
 | Member | Description |
 | --- | --- |
+| [`Reserve(int)`](#m-reserve-int) | Makes room for at least this many more bytes, so a large write that follows grows the buffer once, here, instead of in steps. |
 | [`Reset()`](#m-reset) | Discards the written bytes and keeps the buffer, so a reused writer allocates nothing. |
 | [`ToArray()`](#m-toarray) | Copies the written bytes into a new array. |
 | [`WriteBool(bool)`](#m-writebool-bool) | Writes a bool as one byte, 0 or 1. |
@@ -79,6 +80,18 @@ The bytes written so far. Valid until the next write or [`SyncWriter.Reset()`](S
 | [`WriteUInt64(ulong)`](#m-writeuint64-ulong) | Writes a 64-bit unsigned integer. |
 | [`WriteVarInt(long)`](#m-writevarint-long) | Writes a signed varint (zigzag, then LEB128). |
 | [`WriteVarUInt(ulong)`](#m-writevaruint-ulong) | Writes an unsigned LEB128 varint. |
+
+### <a id="m-reserve-int"></a>Reserve(int)
+
+```csharp
+public void Reserve(int extra);
+```
+
+Makes room for at least this many more bytes, so a large write that follows grows the buffer once, here, instead of in steps. Writes no bytes.
+
+**Parameters**
+
+- `extra` (`int`): Bytes about to be written.
 
 ### <a id="m-reset"></a>Reset()
 
