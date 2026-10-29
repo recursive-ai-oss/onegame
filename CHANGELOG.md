@@ -4,6 +4,20 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-10-29
+
+`RecursiveAI.OneGame.Physics` joins as a **preview** (`1.15.0-preview.1`): it is built on OnePhysics 0.1.0-preview.5, itself a preview, so its API may change. The other 31 packages are stable at 1.15.0 and never depend on it.
+
+### Added
+
+- `RecursiveAI.OneGame.Physics` (preview, built on OnePhysics 0.1.0-preview.5): 2D rigid bodies, characters, triggers and ray casts for sim code on `Fixed` positions. `PhysicsSpace2D` is a hidden hot table of the world plus a system that steps it once per tick, so the physics world is saved, restored, replayed and hashed with the world; `BodyRef` and `CharacterRef` are synced values; events reach sim code in a fixed order; `PhysicsDebugShapes` draws the world on the debug overlay; `Warmup()` and capacity options make steps, ray casts and the space's hash allocation-free from the first step. A save the library refuses (damaged, or from another format) is refused as `SyncError.InvalidValue` and leaves the world unchanged. See `docs/physics.md`.
+- Example `examples/physics` in the gallery: a character that walks, jumps between platforms and pushes crates into a goal zone.
+- CI: a physics scene must end in the same hashes and positions on Linux, Windows and WebAssembly (`tools/ci/physics-probe.sh`).
+
+### Changed
+
+- `tools/ci/check-packages.py` allows exactly one prerelease package, `RecursiveAI.OneGame.Physics` at `<engine version>-preview.N`, and still refuses any other.
+
 ## [1.14.0] - 2026-10-28
 
 `RecursiveAI.OneGame.Navigation` is stable, on OnePath 1.0.0: every package now ships at the engine version.

@@ -152,6 +152,11 @@ jobs:
         if: ${{ !cancelled() }}
         run: bash tools/ci/rootmotion.sh "$RUNNER_TEMP/rootmotion" ${{ matrix.os == 'ubuntu-latest' && '--web' || '' }}
 
+      # A physics scene's hashes and end positions must not depend on the CPU or runtime either (WebAssembly on Linux; arm64 by hand under qemu).
+      - name: Physics scene ends in the pinned numbers
+        if: ${{ !cancelled() }}
+        run: bash tools/ci/physics-probe.sh "$RUNNER_TEMP/physicsprobe" ${{ matrix.os == 'ubuntu-latest' && '--web' || '' }}
+
       # Edits to a running game's C# (view, sim, screen, new member, compile error, rude edit) through `onegame run` and live control.
       - name: Hot reload of game code
         if: ${{ !cancelled() }}
@@ -180,6 +185,7 @@ jobs:
             ${{ runner.temp }}/out/examples
             ${{ runner.temp }}/hot/run.log
             ${{ runner.temp }}/rootmotion/*.txt
+            ${{ runner.temp }}/physicsprobe/*.txt
             ${{ runner.temp }}/out/hashes/*.json
             ${{ runner.temp }}/out/hashes/*.txt
           if-no-files-found: warn

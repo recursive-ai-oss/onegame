@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Ships as a prerelease on top of the engine version (1.15.0 -> 1.15.0-preview.1) because OnePhysics is a prerelease and a stable package may not depend on one.
+         Directory.Build.props sets Version first; this project appends its own suffix. Bump the number when only this package changes. -->
+    <PhysicsPreview>preview.1</PhysicsPreview>
+    <Version>$(Version)-$(PhysicsPreview)</Version>
+    <Description>Preview, built on a preview of OnePhysics: the API may change before it is stable. 2D rigid bodies, characters, triggers and ray casts for deterministic simulations on fixed-point positions, stepped by the sim tick, with state that is saved, restored and hashed with the world.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../OneGame.Core/OneGame.Core.csproj" />
+    <PackageReference Include="RecursiveAI.OnePhysics" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="OneGame.Core" />
+    <InternalsVisibleTo Include="OneGame.Physics.Tests" />
+  </ItemGroup>
+
+</Project>

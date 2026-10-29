@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>PhysicsExample</AssemblyName>
+    <RootNamespace>PhysicsExample</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Physics is opt in: a game that needs it references it (the RecursiveAI.OneGame.Physics package outside a checkout). -->
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.Physics/OneGame.Physics.csproj" />
+  </ItemGroup>
+
+  <!-- Target framework, analyzers, engine references and, in Debug builds only, the development tools (live control, scenarios, capture). -->
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+
+</Project>

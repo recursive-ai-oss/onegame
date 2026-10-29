@@ -25,6 +25,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Net](OneGame.Net/index.md) | 1 | 28 | 227 | Network transports behind the message-channel seam: reliable UDP, WebSocket, and a network conditioner for tests. |
 | [RecursiveAI.OneGame.Pages](OneGame.Pages/index.md) | 2 | 34 | 245 | Draws OneRender pages (builder trees and HTML) through the render graph, with input, host scopes and harness support. |
 | [RecursiveAI.OneGame.Particles](OneGame.Particles/index.md) | 1 | 8 | 72 | Particle emitters: a seedable, allocation-free simulation for sparks, smoke, dust and trails, drawn by the 2D and 3D renderers. |
+| [RecursiveAI.OneGame.Physics](OneGame.Physics/index.md) | 1 | 18 | 159 | Preview, built on a preview of OnePhysics: the API may change before it is stable. 2D rigid bodies, characters, triggers and ray casts for deterministic simulations on fixed-point positions, stepped by the sim tick, with state that is saved, restored and hashed with the world. |
 | [RecursiveAI.OneGame.Platform](OneGame.Platform/index.md) | 1 | 48 | 530 | Windows, input, controllers and the app lifecycle per operating system. |
 | [RecursiveAI.OneGame.Purchases](OneGame.Purchases/index.md) | 1 | 21 | 159 | In-app purchases: one store-neutral API over StoreKit, Google Play Billing and a scriptable fake store. |
 | [RecursiveAI.OneGame.Render2D](OneGame.Render2D/index.md) | 2 | 65 | 400 | Sprite, tilemap and text renderer. |
