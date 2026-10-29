@@ -145,7 +145,7 @@ Android (NDK, `libandroid`, `liblog`, JNI for the few Java calls): see "Mobile" 
 
 ## What a Windows run must prove
 
-Win32 builds and its pure logic (key tables, text conversion, CR LF) is tested here; nothing has run on Windows. A run there checks: window creation, DPI awareness and `WindowScaleChanged` when dragged between monitors, resize and minimize with a swapchain on the `HWND`, key and `WM_CHAR` text, pointer and raw mouse, Alt+F4 as `WindowCloseRequested`, XInput pads, and the clipboard (`CF_UNICODETEXT` round trip with another program, CR LF both ways, a locked clipboard retried). IME (`WM_IME_COMPOSITION`) is not implemented, so `TextComposition` never fires there.
+Win32 builds, its pure logic (key tables, text conversion, CR LF) is tested everywhere, and CI runs the suites and sample scenarios on Windows (hashes compared with Linux). The windowed behaviour has had little hands-on checking on Windows hardware. A run there checks: window creation, DPI awareness and `WindowScaleChanged` when dragged between monitors, resize and minimize with a swapchain on the `HWND`, key and `WM_CHAR` text, pointer and raw mouse, Alt+F4 as `WindowCloseRequested`, XInput pads, and the clipboard (`CF_UNICODETEXT` round trip with another program, CR LF both ways, a locked clipboard retried). IME (`WM_IME_COMPOSITION`) is not implemented, so `TextComposition` never fires there.
 
 ## Browser backend (`PlatformBackendKind.Browser`)
 

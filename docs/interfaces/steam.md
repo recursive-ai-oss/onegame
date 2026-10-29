@@ -1,6 +1,6 @@
 # steam — store services and the Steamworks binding
 
-`OneGame.Steam` is onegame's own binding to Steam's flat C API (`SteamAPI_*` exports of Valve's redistributable), written from Valve's public API reference. In front of it sit store-neutral services in the `OneGame.Stores` namespace (same assembly for now), so game code never mentions Steam and a later StoreKit or Play Billing binding can offer the same interfaces. All `unsafe` and `LibraryImport` code is in `OneGame.Steam/Native/`.
+`OneGame.Steam` is onegame's own binding to Steam's flat C API (`SteamAPI_*` exports of Valve's redistributable), written from Valve's public API reference. In front of it sit store-neutral services in the `OneGame.Stores` namespace (same assembly), so game code never mentions Steam. In-app purchases (StoreKit, Play Billing) are a separate API in `OneGame.Purchases` (`store.md`). All `unsafe` and `LibraryImport` code is in `OneGame.Steam/Native/`.
 
 ## Using it from a game
 
