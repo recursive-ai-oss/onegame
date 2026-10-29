@@ -64,7 +64,9 @@ public partial class Island : Entity
         var w = World!;
         foreach (var e in w.Entities)
         {
-            if (e is Player p && p.Owner == (uint)player)
+            // A player removed earlier in this tick is still listed until the tick ends. Several Leave commands can arrive together (the
+            // other island repeats its request until it sees the player gone), and each would add the same lanterns to Departed again.
+            if (e is Player { IsRemoved: false } p && p.Owner == (uint)player)
             {
                 if (p.Dest != 0 || p.Pending != 0)
                 {
