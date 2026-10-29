@@ -296,7 +296,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         throw new ControlException("not_found", $"No entity '{spec}'. Present: {Describe(Game.World.Entities)}.");
     }
 
-    private static string Describe(EntityList entities)
+    private static string Describe(IReadOnlyList<Entity> entities)
     {
         if (entities.Count == 0)
         {

@@ -5,9 +5,9 @@ namespace OneGame.Core;
 /// <summary>
 /// The live entities of a world, in id order. An entity removed during the current tick is already gone from this view, although the world
 /// keeps it until the tick ends: code that removes an entity and then looks again (or runs a second command in the same tick) never meets it twice.
-/// The view follows the world, so it can be kept; <c>foreach</c> over it allocates nothing.
+/// The view follows the world, so it can be kept.
 /// </summary>
-public sealed class EntityList : IReadOnlyList<Entity>
+internal sealed class EntityList : IReadOnlyList<Entity>
 {
     private readonly List<Entity> _all;
     private readonly List<Entity> _pendingRemoval;
@@ -70,7 +70,7 @@ public sealed class EntityList : IReadOnlyList<Entity>
     }
 
     /// <summary>Walks live entities; entities added while walking are visited too, removed ones are skipped.</summary>
-    public struct Enumerator : IEnumerator<Entity>
+    internal struct Enumerator : IEnumerator<Entity>
     {
         private readonly List<Entity> _all;
         private int _next;

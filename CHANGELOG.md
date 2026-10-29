@@ -6,7 +6,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
-- An entity removed during a tick no longer appears in `World.Entities` for the rest of that tick. The world keeps it until the tick ends, so a second command or a later loop in the same tick used to find it again and could apply the same change twice (for example, adding a leaving player's holdings to a total once per queued request). `World.Entities` is now an `EntityList`: the same read-only list of live entities in id order, and `foreach` over it does not allocate. Saves, snapshots, deltas and hashes are unchanged, because they are produced between ticks.
+- An entity removed during a tick no longer appears in `World.Entities` for the rest of that tick. The world keeps it until the tick ends, so a second command or a later loop in the same tick used to find it again and could apply the same change twice (for example, adding a leaving player's holdings to a total once per queued request). `World.Entities` keeps its type and returns a live view of the entities in id order. Saves, snapshots, deltas and hashes are unchanged, because they are produced between ticks.
 
 ## [1.15.0] - 2026-10-29
 

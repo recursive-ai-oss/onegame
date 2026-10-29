@@ -12,7 +12,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Audio](OneGame.Audio/index.md) | 1 | 57 | 445 | Audio device output and the audio service that drives a mixer. |
 | [RecursiveAI.OneGame.Cli](OneGame.Cli/index.md) | 0 | 0 | 0 | The onegame command: create, build, run, test, capture and replay games. |
 | [RecursiveAI.OneGame.Control](OneGame.Control/index.md) | 1 | 52 | 440 | The control layer shared by the command line, the test API and live control. |
-| [RecursiveAI.OneGame.Core](OneGame.Core/index.md) | 2 | 68 | 553 | Entity runtime: fixed-point numbers, random streams and the attributes that declare entities. |
+| [RecursiveAI.OneGame.Core](OneGame.Core/index.md) | 2 | 66 | 546 | Entity runtime: fixed-point numbers, random streams and the attributes that declare entities. |
 | [RecursiveAI.OneGame.Gltf](OneGame.Gltf/index.md) | 1 | 62 | 371 | glTF 2.0 import: scenes, meshes, materials, skins and animations, safe on untrusted input. |
 | [RecursiveAI.OneGame.Gpu](OneGame.Gpu/index.md) | 2 | 91 | 574 | Graphics API abstraction and render graph. |
 | [RecursiveAI.OneGame.Gpu.Backends](OneGame.Gpu.Backends/index.md) | 1 | 1 | 6 | Picks the graphics backend for the machine: Metal on Apple platforms, WebGPU in a browser, Vulkan elsewhere. |

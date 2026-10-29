@@ -241,8 +241,6 @@ Every public type in every package, in alphabetical order.
 | [`Entity`](OneGame.Core/OneGame.Core/Entity.md) | class | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Base class of every entity. |
 | [`EntityAttribute`](OneGame.Core/OneGame.Core/EntityAttribute.md) | attribute | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Declares a partial class as an entity: synced properties, commands and sim logic in one class. |
 | [`EntityId`](OneGame.Core/OneGame.Core/EntityId.md) | struct | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Identifies an entity in a world. |
-| [`EntityList`](OneGame.Core/OneGame.Core/EntityList.md) | class | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | The live entities of a world, in id order. |
-| [`EntityList.Enumerator`](OneGame.Core/OneGame.Core/EntityList.Enumerator.md) | struct | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Walks live entities; entities added while walking are visited too, removed ones are skipped. |
 | [`EntityRegistry`](OneGame.Core/OneGame.Core/EntityRegistry.md) | class | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | The entity types a world can create while decoding a snapshot. |
 | [`EntityTypes`](OneGame.Sync/OneGame.Generated.OneGame_Sync/EntityTypes.md) | static class | `OneGame.Generated.OneGame_Sync` | [OneGame.Sync](OneGame.Sync/index.md) | The entity types declared in this assembly. |
 | [`Entropy`](OneGame.Core/OneGame.Core/Entropy.md) | static class | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Unpredictable bytes for connection ids, handshake secrets and keys. |

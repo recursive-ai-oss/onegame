@@ -24,8 +24,6 @@ dotnet add package RecursiveAI.OneGame.Core
 | [`Entity`](OneGame.Core/Entity.md) | class | Base class of every entity. |
 | [`EntityAttribute`](OneGame.Core/EntityAttribute.md) | attribute | Declares a partial class as an entity: synced properties, commands and sim logic in one class. |
 | [`EntityId`](OneGame.Core/EntityId.md) | struct | Identifies an entity in a world. |
-| [`EntityList`](OneGame.Core/EntityList.md) | class | The live entities of a world, in id order. |
-| [`EntityList.Enumerator`](OneGame.Core/EntityList.Enumerator.md) | struct | Walks live entities; entities added while walking are visited too, removed ones are skipped. |
 | [`EntityRegistry`](OneGame.Core/EntityRegistry.md) | class | The entity types a world can create while decoding a snapshot. |
 | [`Entropy`](OneGame.Core/Entropy.md) | static class | Unpredictable bytes for connection ids, handshake secrets and keys. |
 | [`FQuat`](OneGame.Core/FQuat.md) | struct | A rotation as a quaternion in [`Fixed`](OneGame.Core/Fixed.md) numbers. |

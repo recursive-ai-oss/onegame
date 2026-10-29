@@ -47,12 +47,12 @@ Creates an empty world. Build the same way (registry, systems, tables) on every 
 ### <a id="m-entities"></a>Entities
 
 ```csharp
-public EntityList Entities { get; }
+public IReadOnlyList<Entity> Entities { get; }
 ```
 
 The live entities in id order. An entity removed during a tick is no longer listed, even though it is only detached when the tick ends, so a loop that removes an entity never sees it again in the same tick.
 
-**Type:** [`EntityList`](EntityList.md)
+**Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`Entity`](Entity.md)&gt;
 
 ### <a id="m-observer"></a>Observer
 

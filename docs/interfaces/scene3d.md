@@ -39,7 +39,7 @@ An entity that implements `IView3D` is asked once per drawn frame, in entity ord
 
 ### Describing from view code
 
-A game whose entities live in a library that cannot reference the host (a rules assembly shared with servers) cannot implement `IView3D`. It sets `SceneView3D.Describer` instead: `Action<World, SceneWriter>`, called after the entities. It writes with the float forms `Model(name, in Matrix4x4, pickable)`, `Instance(name, in Matrix4x4, tint)`, `PointLight(Vector3, ...)`, `DirectionalLight(Vector3, lux, castShadows)` and `Camera(in Matrix4x4, ...)`, and sets `SceneWriter.Entity` before a model so picking reports that entity. Keep per-frame state keyed by `scene.Tick`: the same tick may be described several times in a frame (pinned labels ask too). Loop over `world.Entities` with `foreach` or an index.
+A game whose entities live in a library that cannot reference the host (a rules assembly shared with servers) cannot implement `IView3D`. It sets `SceneView3D.Describer` instead: `Action<World, SceneWriter>`, called after the entities. It writes with the float forms `Model(name, in Matrix4x4, pickable)`, `Instance(name, in Matrix4x4, tint)`, `PointLight(Vector3, ...)`, `DirectionalLight(Vector3, lux, castShadows)` and `Camera(in Matrix4x4, ...)`, and sets `SceneWriter.Entity` before a model so picking reports that entity. Keep per-frame state keyed by `scene.Tick`: the same tick may be described several times in a frame (pinned labels ask too). Use indexed loops over `world.Entities`; `foreach` allocates.
 
 ## Picking and projection
 
