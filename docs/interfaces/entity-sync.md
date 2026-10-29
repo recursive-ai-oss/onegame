@@ -96,7 +96,7 @@ All decoders report problems as `SyncError` on the reader/return value; none thr
 
 - **Roles.** `Authority` simulates; `Replica` only applies what the authority sends and rejects writes and ticks; `Predicted` is a writable copy a replica simulates ahead (it ticks, runs handlers, forwards commands sent from outside its sim). Hot tables implement `CopyFrom(IHotTable)` (generated tables copy their columns in place, the default interface method goes through the encoded form) so a predicted world can be rebuilt without allocating.
 
-**Hot tables beyond generated ones.** A table may be written by hand (`EscrowBook`, `NavCrowd`, `PhysicsSpace2D`). `Write` is its whole state (saves, snapshots, frames); `WriteHash` (default: `Write`) is what the world hash and state digests take, so a table whose full encoding is large can write a digest of itself, as long as the digest changes whenever the state does. A `Hidden` table is never encoded for frames: the authority skips it.
+**Hot tables beyond generated ones.** A table may be written by hand (`EscrowBook`, `NavCrowd`, `PhysicsSpace2D`). `Write` is its whole state and is what saves, snapshots, frames and the world hash take. A `Hidden` table is never encoded for frames: the authority skips it.
 
 `new World(seed, registry, role)`; `Add/AddWithId/Remove/Find`, `AddSystem(ISimSystem)`, `AddTable`, `Step()`, `Tick`, `Rng["name"]`, `Submit/SubmitEncoded`, `Observer`, `ComputeHash()`, `WriteSnapshot/ReadSnapshot`, `DumpJson()`.
 

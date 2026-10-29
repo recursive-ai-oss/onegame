@@ -1,6 +1,6 @@
 # One-node sync: nodes, scopes, loopback, saves, replay, drift
 
-Source: `src/OneGame.Sync`, namespace `OneGame.Sync`. Builds on the generated surface in `entity-sync.md`. Everything is synchronous and single-threaded: the caller steps the cluster; there are no background threads.
+Source: `src/OneGame.Sync`, namespace `OneGame.Sync`. Builds on the generated surface in `entity-sync.md`. Everything is synchronous and single-threaded: the caller steps the cluster; there are no background threads. Entities removed during a tick are not listed in `World.Entities` for the rest of that tick; frames, snapshots and hashes are taken between ticks and are unaffected.
 
 ## Model
 
@@ -26,7 +26,7 @@ IReadOnlyList<DriftReport> now = cluster.CheckReplicas();   // direct compare of
 
 - `Cluster`: `Options`, `Nodes`, `Tick` (cluster steps), `AddNode`, `AddScope`, `Connect(client, server, trust)` → `Link` (`link.Connection` is the authority end), `AddLocalReplica`, `Step(n)`, `Frame(dt)`, `Driver` (`FixedStepDriver`), `CheckReplicas()`, `Hashes()` (scope id, role, tick, hash for every authority and replica), `DriftReports`, `Refusals`.
 - Step order per tick: pump all nodes (commands and subscribes arrive) → each authority scope: `World.Step()` then publish one frame to its live subscribers → pump (replicas apply frames, hash checks run, replies flow) → throw `DriftException` if `FatalDrift` and a drift report appeared.
-- `Node` can be used without `Cluster` (`new Node(name, options)`, `Pump()`) for real transports later: only `IMessageChannel` changes.
+- `Node` can be used without `Cluster` (`new Node(name, options)`, `Pump()`) over real transports (`transport.md`): only the `IMessageChannel` changes.
 
 ## Commands
 
@@ -165,12 +165,11 @@ First byte = type, then the scope id (varint). Client to authority: `Subscribe`,
 - Change `Connection.Trust` between ticks (never from sim code): the snapshot a changed audience receives is the state at the end of the last tick.
 - Steady state still allocates nothing per tick with several audiences; a command answer, a new audience and a trust change allocate.
 - Steady state allocates nothing per tick (authority publish, loopback, replica apply, hash checks), provided no commands, entity adds or string changes happen in that tick.
-- Changes made in `OneGame.Core` for this layer: hot-table `Read` decodes in place (a dry run first keeps it atomic) and `RngStreams.Read` updates matching streams in place, so replicas apply them without allocating; `World` gained internal hooks for replica tick, input logging and pending-command count (`OneGame.Core` has `InternalsVisibleTo(OneGame.Sync)`).
 
 ## Untrusted input
 
 Transport messages, saves, recordings and digests are decoded with `SyncReader` and the `SyncLimits` in `OneGame.Core`; sizes are checked before allocation; no decoder throws on bad bytes. A replica that receives a bad frame or a tick gap files a `ProtocolError` on `Node.ProtocolErrors` and re-subscribes (stops after 3 consecutive failures: `ReplicaState.Failed`).
 
-## Seams left for later units
+## Not built
 
-Moving a whole scope (a transfer moves entities; a scope-level move would also carry the tables and random streams and turn the old authority into a relay). A silent authority is reported, not acted on: a client on a transport that cannot tell (a half-open path) waits for the transport timeout.
+Moving a whole scope is not built (a transfer moves entities; a scope-level move would also carry the tables and random streams and turn the old authority into a relay). A silent authority is reported, not acted on: a client on a transport that cannot tell (a half-open path) waits for the transport timeout.
