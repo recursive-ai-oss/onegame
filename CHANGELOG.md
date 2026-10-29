@@ -2,7 +2,9 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
-## [Unreleased]
+## [1.15.1] - 2026-10-29
+
+A fix for sim code that finds entities removed earlier in the same tick. `RecursiveAI.OneGame.Physics` ships as 1.15.1-preview.1.
 
 ### Fixed
 
