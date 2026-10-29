@@ -462,7 +462,13 @@ public class CrowdTests
     {
         var map = NavGrid.FromText("..#.");
         Assert.Equal(map.Grid.ContentHash(), map.Stamp);
+        var before = map.Stamp;
         map.SetBlocked(0, 0, true);
         Assert.Equal(map.Grid.ContentHash(), map.Stamp);
+        Assert.NotEqual(before, map.Stamp);
+        var walls = map.Stamp;
+        map.SetAreaCost(1, 3);
+        map.SetArea(1, 0, 1);
+        Assert.NotEqual(walls, map.Stamp); // an area edit changes it too
     }
 }

@@ -4,15 +4,32 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-10-29
+
+`RecursiveAI.OneGame.Physics` joins as a **preview** (`1.15.0-preview.1`): it is built on OnePhysics 0.1.0-preview.5, itself a preview, so its API may change. The other 31 packages are stable at 1.15.0 and never depend on it.
+
 ### Added
 
-- `RecursiveAI.OneGame.Physics` (preview, `<engine version>-preview.N`, built on OnePhysics 0.1.0-preview.4): 2D rigid bodies, characters, triggers and ray casts for sim code on `Fixed` positions. `PhysicsSpace2D` is a hidden hot table of the world plus a system that steps it once per tick, so the physics world is saved, restored, replayed and hashed with the world; `BodyRef` and `CharacterRef` are synced values; events reach sim code in a fixed order; `PhysicsDebugShapes` draws the world on the debug overlay. See `docs/physics.md`.
+- `RecursiveAI.OneGame.Physics` (preview, built on OnePhysics 0.1.0-preview.5): 2D rigid bodies, characters, triggers and ray casts for sim code on `Fixed` positions. `PhysicsSpace2D` is a hidden hot table of the world plus a system that steps it once per tick, so the physics world is saved, restored, replayed and hashed with the world; `BodyRef` and `CharacterRef` are synced values; events reach sim code in a fixed order; `PhysicsDebugShapes` draws the world on the debug overlay; `Warmup()` and capacity options make steps, ray casts and the space's hash allocation-free from the first step. A save the library refuses (damaged, or from another format) is refused as `SyncError.InvalidValue` and leaves the world unchanged. See `docs/physics.md`.
 - Example `examples/physics` in the gallery: a character that walks, jumps between platforms and pushes crates into a goal zone.
 - CI: a physics scene must end in the same hashes and positions on Linux, Windows and WebAssembly (`tools/ci/physics-probe.sh`).
 
 ### Changed
 
-- `OneGame.Navigation` moves to OnePath 1.0.0-rc.1, whose public API is frozen for 1.0. Search and crowd results and saved bytes are unchanged. `NavCrowd` reads agents with `Crowd.CopyAgents(Span<Agent>)`, treats any `OnePathFormatException` from a bad crowd state as a refused snapshot, and `TryAdd` snaps to the nearest walkable point of the whole map (it used to refuse a spot too far from ground).
+- `tools/ci/check-packages.py` allows exactly one prerelease package, `RecursiveAI.OneGame.Physics` at `<engine version>-preview.N`, and still refuses any other.
+
+## [1.14.0] - 2026-10-28
+
+`RecursiveAI.OneGame.Navigation` is stable, on OnePath 1.0.0: every package now ships at the engine version.
+
+### Changed
+
+- `RecursiveAI.OneGame.Navigation` is stable: it is built on OnePath 1.0.0 and ships at the engine version like every other package, no longer as a prerelease. `tools/ci/check-packages.py` now refuses any prerelease package. `NavGrid.Stamp` reads OnePath's cached `Grid.ContentHash` directly.
+- `OneGame.Navigation` moves to OnePath 1.0.0. Search and crowd results and saved bytes are unchanged. `NavCrowd` reads agents with `Crowd.CopyAgents(Span<Agent>)`, treats any `OnePathFormatException` from a bad crowd state as a refused snapshot, and `TryAdd` snaps to the nearest walkable point of the whole map (it used to refuse a spot too far from ground).
+
+### Fixed
+
+- Lanterns sample: a player who reconnects to an island that restarted from its save keeps their player. Before, the island could remove them as "left" just after they came back.
 
 ## [1.13.0] - 2026-10-28
 

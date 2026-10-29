@@ -1,8 +1,6 @@
 # Navigation
 
-**Preview.** `OneGame.Navigation` is a prerelease package built on a prerelease of OnePath, and its API may change before it is stable. Add it with `dotnet add package RecursiveAI.OneGame.Navigation --prerelease`.
-
-`OneGame.Navigation` finds paths on a grid for units whose positions are `Fixed` numbers, in a way that is the same on every node, keeps its state in the world (so saves, replays and replicas carry it), and spreads long searches over ticks. It is built on [OnePath](https://www.nuget.org/packages/RecursiveAI.OnePath): grids, A\*, jump point search, Theta\* and the repairing search come from there. Reference it from a game with `RecursiveAI.OneGame.Navigation` (in a checkout: a project reference to `src/OneGame.Navigation`). It is not part of the default game template or `Game.targets`: a game that wants paths adds it, and OnePath comes with it. It is published as a prerelease (`<engine version>-preview.N`) because OnePath is one; the other engine packages stay stable and never depend on it. The example `examples/pathing` shows all of it in one file.
+`OneGame.Navigation` finds paths on a grid for units whose positions are `Fixed` numbers, in a way that is the same on every node, keeps its state in the world (so saves, replays and replicas carry it), and spreads long searches over ticks. It is built on [OnePath](https://www.nuget.org/packages/RecursiveAI.OnePath): grids, A\*, jump point search, Theta\* and the repairing search come from there. Add it with `dotnet add package RecursiveAI.OneGame.Navigation` (in a checkout: a project reference to `src/OneGame.Navigation`). It is not part of the default game template or `Game.targets`: a game that wants paths adds it, and OnePath comes with it. The example `examples/pathing` shows all of it in one file.
 
 ```csharp
 using OneGame.Navigation;

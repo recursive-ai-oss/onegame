@@ -9,10 +9,6 @@ namespace OneGame.Navigation;
 /// </summary>
 public sealed class NavGrid
 {
-    private ulong _stamp;
-    private int _stampGridVersion = -1;
-    private int _stampAreaVersion = -1;
-
     /// <summary>Creates an all-open grid.</summary>
     /// <param name="width">Cells across.</param>
     /// <param name="height">Cells down.</param>
@@ -52,25 +48,9 @@ public sealed class NavGrid
     /// <summary>
     /// A hash of everything a search depends on (size, every cell, every area cost). A <see cref="NavState"/> remembers it, so a path
     /// or a running search noticed to be out of date after the map changed, including a change that happened before a restore.
-    /// Recomputed only when the map was edited.
+    /// OnePath caches it until the map is edited, so reading it every tick is free.
     /// </summary>
-    public ulong Stamp
-    {
-        get
-        {
-            var gv = Grid.Version;
-            var av = Grid.Areas.Version;
-            if (gv != _stampGridVersion || av != _stampAreaVersion)
-            {
-                var h = Grid.ContentHash();
-                _stamp = h;
-                _stampGridVersion = gv;
-                _stampAreaVersion = av;
-            }
-
-            return _stamp;
-        }
-    }
+    public ulong Stamp => Grid.ContentHash();
 
     /// <summary>Creates a grid from text: <c>.</c> is open, <c>#</c> a wall and <c>1</c> to <c>9</c> are areas; rows must be equally long.</summary>
     /// <param name="text">The rows, one per line.</param>

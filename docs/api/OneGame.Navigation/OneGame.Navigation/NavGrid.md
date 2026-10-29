@@ -82,7 +82,7 @@ Where the grid sits in the world.
 public ulong Stamp { get; }
 ```
 
-A hash of everything a search depends on (size, every cell, every area cost). A [`NavState`](NavState.md) remembers it, so a path or a running search noticed to be out of date after the map changed, including a change that happened before a restore. Recomputed only when the map was edited.
+A hash of everything a search depends on (size, every cell, every area cost). A [`NavState`](NavState.md) remembers it, so a path or a running search noticed to be out of date after the map changed, including a change that happened before a restore. OnePath caches it until the map is edited, so reading it every tick is free.
 
 **Type:** `ulong`
 

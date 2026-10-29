@@ -3,16 +3,18 @@
 
   check-packages.py <folder> <engine version>
 
-* Every package is at the engine version, except RecursiveAI.OneGame.Navigation and RecursiveAI.OneGame.Physics,
-  which are that version plus a "-preview.N" suffix (they depend on prereleases, so they cannot be stable).
-* No stable package depends on a prerelease package: NuGet refuses such a package, and a stable release must not need
-  a preview to work. This also keeps Navigation and Physics (and with them OnePath and OnePhysics) out of the other 30 packages.
+* Every package is at the engine version, and that version is a stable one, except RecursiveAI.OneGame.Physics, which is
+  that version plus "-preview.N" (it is built on a prerelease of OnePhysics). No other package may be a prerelease.
+* No stable package depends on a prerelease package: NuGet refuses such a package, and a release must not need a preview
+  to work. This keeps Physics (and with it OnePhysics) out of every other package.
 """
 import glob, os, re, sys, zipfile
 
 folder, version = sys.argv[1], sys.argv[2]
-PREVIEW_ONLY = {"RecursiveAI.OneGame.Navigation", "RecursiveAI.OneGame.Physics"}
+PREVIEW_ONLY = {"RecursiveAI.OneGame.Physics"}
 bad = []
+if "-" in version:
+    bad.append(f"engine version {version} is a prerelease; every package must be stable")
 if not glob.glob(os.path.join(folder, "*.nupkg")):
     sys.exit(f"no packages in {folder}")
 for path in sorted(glob.glob(os.path.join(folder, "*.nupkg"))):
@@ -24,12 +26,14 @@ for path in sorted(glob.glob(os.path.join(folder, "*.nupkg"))):
         if not re.fullmatch(re.escape(version) + r"-preview\.\d+", pkg_version):
             bad.append(f"{pkg_id} is {pkg_version}, expected {version}-preview.N")
         continue
+    if "-" in pkg_version:
+        bad.append(f"{pkg_id} is {pkg_version}, a prerelease")
     if pkg_version != version:
         bad.append(f"{pkg_id} is {pkg_version}, expected {version}")
     for dep, rng in re.findall(r'<dependency id="([^"]+)" version="([^"]+)"', spec):
         if "-" in rng:
-            bad.append(f"stable package {pkg_id} {pkg_version} depends on prerelease {dep} {rng}")
+            bad.append(f"{pkg_id} {pkg_version} depends on prerelease {dep} {rng}")
 if bad:
     print("\n".join(bad))
     sys.exit(1)
-print("package versions ok; no stable package depends on a prerelease")
+print("package versions ok; every package is stable and at the engine version, except the Physics preview")

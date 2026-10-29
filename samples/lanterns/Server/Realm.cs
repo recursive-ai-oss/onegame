@@ -204,16 +204,14 @@ public sealed class Realm
         }
 
         uint serial;
-        var returning = false;
         if (request.Key is { } key)
         {
-            if (!_players.TryPlayerFor(key, out serial, out var isNew))
+            if (!_players.TryPlayerFor(key, out serial, out _))
             {
                 _host.Log.Info($"player from {request.Address} refused: the island knows as many players as it has room for");
                 return null;
             }
 
-            returning = !isNew;
             if (!_players.IsActive(serial))
             {
                 _ = _probation.TryAdd(serial, _host.Tick);
@@ -225,10 +223,14 @@ public sealed class Realm
         }
 
         var player = (_scopeNo * 100_000) + serial;
-        if (returning && IsPresent(player))
+
+        // Whoever connects as this player is no longer one who left. After a restart the island lists every player it restored as leaving (their
+        // connections are gone); a player who is back before the island removed them must come off that list, or the pending removal would
+        // take the entity from the client that just connected.
+        _leaving.RemoveAll(l => l.Player == player);
+        if (IsPresent(player))
         {
             // Back before the island removed them: the same player carries on, wherever their entity is now.
-            _leaving.RemoveAll(l => l.Player == player);
             _host.Log.Info($"player {player} is back from {request.Address}");
         }
         else
