@@ -1,4 +1,4 @@
-using RecursiveAI.OnePhysics.Core;
+using RecursiveAI.OnePhysics;
 using RecursiveAI.OnePhysics.Physics2D;
 
 namespace OneGame.Physics;
@@ -149,7 +149,7 @@ public readonly struct PhysicsEvents
 
     private static BodyRef Ref(BodyHandle h) => h.Generation == 0 ? default : new BodyRef(h.Index, h.Generation);
 
-    private static PhysicsEvent Resolve(PhysicsWorld2D world, in RecursiveAI.OnePhysics.Core.PhysicsEvent e)
+    private static PhysicsEvent Resolve(PhysicsWorld2D world, in RecursiveAI.OnePhysics.PhysicsEvent e)
     {
         switch (e.Kind)
         {

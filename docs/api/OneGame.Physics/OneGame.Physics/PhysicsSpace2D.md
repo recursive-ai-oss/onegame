@@ -195,6 +195,7 @@ Hidden: replicas never receive the space; they get what entities mirror into syn
 | [`Step()`](#m-step) | Advances the space by one tick. |
 | [`Teleport(CharacterRef, FVec2)`](#m-teleport-characterref-fvec2) | Moves a character to a place without sweeping (a respawn). |
 | [`Velocity(BodyRef)`](#m-velocity-bodyref) | The body's linear velocity. |
+| [`Warmup()`](#m-warmup) | Sizes the physics storage and its query scratch for the bodies that exist now, so steps, ray casts, hashing and saving allocate nothing from the first one. |
 | [`Write(SyncWriter)`](#m-write-syncwriter) | Writes all rows. |
 | [`WriteJson(JsonOut)`](#m-writejson-jsonout) | Writes the rows as a JSON array of objects. |
 
@@ -729,6 +730,14 @@ The body's linear velocity.
 **Exceptions**
 
 - [`StaleBodyException`](StaleBodyException.md): The body does not exist.
+
+### <a id="m-warmup"></a>Warmup()
+
+```csharp
+public void Warmup();
+```
+
+Sizes the physics storage and its query scratch for the bodies that exist now, so steps, ray casts, hashing and saving allocate nothing from the first one. The first step does it for you if you have not; call it after adding the bodies, from the thread that will use the space, to keep that cost out of the first tick. It changes no result and no state.
 
 ### <a id="m-write-syncwriter"></a>Write(SyncWriter)
 

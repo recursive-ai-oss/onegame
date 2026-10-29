@@ -84,7 +84,7 @@ OnePhysics uses only IEEE `+ - × ÷ sqrt` on its numbers and no fused operation
 
 ## Cost
 
-Stepping and the wrapper's calls (`Move`, reads, event walking, ray casts) allocate nothing. The library allocates a small writer object each time the world hash is computed (40 bytes, every tick, because the world hash is always on), and a step sometimes grows an internal list (176 bytes in the worst tick measured over a 40-box pile). So a tick is not strictly allocation-free, though it stays well under 256 bytes. A world hash walks the physics state once. OnePhysics is written for exact results first and is a few times slower than the fastest native engines.
+Stepping, the wrapper's calls (`Move`, reads, event walking, ray casts) and the space's own `Hash` allocate nothing from the first step once `space.Warmup()` has run after the bodies are added (the first step runs it for you otherwise, and `PairCapacity`, `ContactCapacity`, `IslandCapacity` and `QueryScratchCapacity` in `PhysicsOptions` reserve room explicitly). Two small exceptions remain: the library still grows one internal list on a rare step (312 bytes once in 320 steps of a 40-box pile), and the world hash writes the whole physics snapshot into the world's reused buffer, which allocates only on the few ticks where the snapshot outgrows it. OnePhysics is written for exact results first and is a few times slower than the fastest native engines.
 
 ## Seeing it
 

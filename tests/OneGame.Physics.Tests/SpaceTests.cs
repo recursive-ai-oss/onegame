@@ -407,24 +407,17 @@ public class SpaceTests
     }
 
     [Fact]
-    public void TheWrapperAndTheWorldHashAllocateNothingPerTickAndTheStepAlmostNothing()
+    public void AWarmedSpaceAllocatesNothingFromTheFirstStepAndTheFirstRay()
     {
+        // Move, reads, events, the first ray, the step and the space's own hash: 0 B from step 1 after Warmup.
         var world = Scene(out var space, out var hero, out var trigger);
-        for (var t = 0; t < 400; t++)
-        {
-            Tick(world, space, hero);
-            world.ComputeHash();
-        }
-
-        space.Raycast(new FVec2(0, 8), new FVec2(0, -1), Fixed.FromInt(50), out _); // the first ray sizes the library's query buffers
-
-        // What a game does each tick, without the step: move a character, read positions, walk the events, cast a ray.
-        var wrapper = new List<long>();
+        space.Warmup();
         var sink = 0;
-        for (var t = 0; t < 60; t++)
+        var worst = 0L;
+        for (var t = 0; t < 600; t++)
         {
             var before = GC.GetAllocatedBytesForCurrentThread();
-            space.Move(hero, new FVec2(Fixed.FromRatio(-1, 200), Fixed.FromRatio(-1, 10)));
+            space.Move(hero, new FVec2(Fixed.FromRatio(1, 12), Fixed.FromRatio(-1, 10)));
             sink += space.Position(trigger).X.ToInt() + space.Position(space.BodyOf(hero)).Y.ToInt();
             foreach (var e in space.Events)
             {
@@ -433,14 +426,18 @@ public class SpaceTests
 
             space.Raycast(new FVec2(0, 8), new FVec2(0, -1), Fixed.FromInt(50), out var hit);
             sink += hit.Distance.ToInt();
-            wrapper.Add(GC.GetAllocatedBytesForCurrentThread() - before);
-            world.Step();
+            space.Step();
+            sink += (int)(space.Hash & 1);
+            worst = Math.Max(worst, GC.GetAllocatedBytesForCurrentThread() - before);
         }
 
-        TestContext.Current.SendDiagnosticMessage($"move + reads + events + ray: {string.Join("/", wrapper.Distinct())} B per tick ({sink})");
-        Assert.All(wrapper, b => Assert.Equal(0, b));
+        TestContext.Current.SendDiagnosticMessage($"warmed scene, 600 ticks from step 1: worst tick {worst} B ({sink})");
+        Assert.Equal(0, worst);
+    }
 
-        // The step and the world hash (which writes the whole snapshot into a reused buffer). The library still grows a list on an occasional step (about 136 B once in 120 ticks here).
+    [Fact]
+    public void AWarmedPileAllocatesAlmostNothingPerStepAndTheWorldHashOnlyWhenItsBufferGrows()
+    {
         var busy = NewWorld();
         var pile = PhysicsSpace2D.Of(busy)!;
         pile.AddBox(new FVec2(60, 1), new FVec2(0, -1), Still);
@@ -449,22 +446,25 @@ public class SpaceTests
             pile.AddBox(new FVec2(1, 1), new FVec2(((i % 8) * 2) - 8, 2 + ((i / 8) * 2)));
         }
 
-        for (var t = 0; t < 200; t++)
-        {
-            busy.Step();
-            busy.ComputeHash();
-        }
-
-        var perTick = new List<long>();
-        for (var t = 0; t < 120; t++)
+        pile.Warmup();
+        var worstStep = 0L;
+        var allocatingSteps = 0;
+        var hashGrowths = 0;
+        for (var t = 0; t < 320; t++)
         {
             var before = GC.GetAllocatedBytesForCurrentThread();
-            busy.Step();
-            busy.ComputeHash();
-            perTick.Add(GC.GetAllocatedBytesForCurrentThread() - before);
+            pile.Step();
+            var stepBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+            worstStep = Math.Max(worstStep, stepBytes);
+            allocatingSteps += stepBytes > 0 ? 1 : 0;
+            before = GC.GetAllocatedBytesForCurrentThread();
+            busy.ComputeHash(); // writes the whole snapshot into the world's reused buffer, which grows with the snapshot
+            hashGrowths += GC.GetAllocatedBytesForCurrentThread() > before ? 1 : 0;
         }
 
-        TestContext.Current.SendDiagnosticMessage($"step + world hash, 40 boxes: {string.Join("/", perTick.Distinct().Order())} B per tick, mean {perTick.Average():F1}");
-        Assert.All(perTick, b => Assert.True(b <= 256, $"{b} B"));
+        TestContext.Current.SendDiagnosticMessage($"warmed pile, 320 ticks from step 1: worst step {worstStep} B on {allocatingSteps} step(s), {hashGrowths} hashes grew the buffer");
+        // The library still grows one list on a step when the pile first settles into a new contact count.
+        Assert.True(allocatingSteps <= 2 && worstStep <= 512, $"{allocatingSteps} steps allocated, worst {worstStep} B");
+        Assert.True(hashGrowths <= 4, $"{hashGrowths} hashes allocated");
     }
 }

@@ -1,5 +1,6 @@
 using RecursiveAI.OneMath;
-using RecursiveAI.OnePhysics.Core;
+using RecursiveAI.OnePhysics;
+using RecursiveAI.OnePhysics.Debug;
 using RecursiveAI.OnePhysics.Physics2D;
 
 namespace OneGame.Physics;
@@ -42,6 +43,7 @@ public sealed class PhysicsSpace2D : IHotTable
     private readonly PhysicsOptions _options;
     private readonly float _dt;
     private PhysicsWorld2D _world;
+    private bool _warm;
 
     /// <summary>Creates a space that is not yet part of any world. Most games use <see cref="AddTo"/>.</summary>
     /// <param name="options">Settings; the same on every node. Null uses the defaults.</param>
@@ -85,7 +87,12 @@ public sealed class PhysicsSpace2D : IHotTable
             ThreadCount = 1, // threads would add nothing to the result and the sim may not start any
             WorldId = WorldId,
             Events = mask,
+            PairCapacity = _options.PairCapacity,
+            ContactCapacity = _options.ContactCapacity,
+            IslandCapacity = _options.IslandCapacity,
+            QueryScratchCapacity = _options.QueryScratchCapacity,
         });
+        _warm = false;
         return world;
     }
 
@@ -154,7 +161,22 @@ public sealed class PhysicsSpace2D : IHotTable
 
     /// <summary>Advances the space by one tick. The system added by <see cref="AddTo"/> calls this; call it yourself only for a space you did not add to a world.</summary>
     [MutatesState]
-    public void Step() => _world.Step(_dt);
+    public void Step()
+    {
+        if (!_warm)
+        {
+            Warmup();
+        }
+
+        _world.Step(_dt);
+    }
+
+    /// <summary>Sizes the physics storage and its query scratch for the bodies that exist now, so steps, ray casts, hashing and saving allocate nothing from the first one. The first step does it for you if you have not; call it after adding the bodies, from the thread that will use the space, to keep that cost out of the first tick. It changes no result and no state.</summary>
+    public void Warmup()
+    {
+        _world.Warmup();
+        _warm = true;
+    }
 
     // ---------------------------------------------------------------- creating things
 
@@ -168,11 +190,10 @@ public sealed class PhysicsSpace2D : IHotTable
     public BodyRef AddBox(FVec2 size, FVec2 at, BodyOptions? options = null)
     {
         var o = options ?? new BodyOptions();
-        var halfWidth = 0.5f * PhysicsLimits.ToSingle(size.X, "box size");
-        var halfHeight = 0.5f * PhysicsLimits.ToSingle(size.Y, "box size");
+        var full = new Vector2F(PhysicsLimits.ToSingle(size.X, "box size"), PhysicsLimits.ToSingle(size.Y, "box size"));
         var shape = ShapeFor(o);
         var body = MakeBody(at, o);
-        _world.CreateBox(body, halfWidth, halfHeight, default, 0f, 0f, shape);
+        _world.CreateBox(body, full, default, 0f, 0f, shape);
         return Ref(body);
     }
 
@@ -253,13 +274,13 @@ public sealed class PhysicsSpace2D : IHotTable
         {
             Radius = PhysicsLimits.ToSingle(o.Radius, "Radius"),
             Height = PhysicsLimits.ToSingle(o.Height, "Height"),
-            SlopeLimit = PhysicsLimits.ToSingle(o.SlopeLimit, "SlopeLimit"),
+            SlopeLimit = PhysicsLimits.ToSingle(o.SlopeLimit, "SlopeLimit") * (MathF.PI / 180f), // degrees here, radians in the library
             StepOffset = PhysicsLimits.ToSingle(o.StepOffset, "StepOffset"),
             PushStrength = PhysicsLimits.ToSingle(o.PushStrength, "PushStrength"),
             Layer = o.Layer,
         };
         var character = _world.AddCharacter(Position2(at), def);
-        return new CharacterRef(character.Index, character.Generation);
+        return new CharacterRef(character.RawHandle.Index, character.RawHandle.Generation);
     }
 
     /// <summary>Removes a body.</summary>
@@ -289,7 +310,7 @@ public sealed class PhysicsSpace2D : IHotTable
 
     /// <summary>Whether the reference names a character that exists.</summary>
     /// <param name="character">The reference.</param>
-    public bool Exists(CharacterRef character) => !character.IsNull && _world.IsCharacterAlive(character.Index, character.Generation);
+    public bool Exists(CharacterRef character) => !character.IsNull && _world.IsCharacterAlive(new CharacterHandle(_world.Id, character.Index, character.Generation));
 
     /// <summary>Where the body's origin is (the centre for the shapes added here).</summary>
     /// <param name="body">The body.</param>
@@ -543,16 +564,10 @@ public sealed class PhysicsSpace2D : IHotTable
         json.Value(Hash);
         json.Name("bodies");
         json.BeginArray();
-        var bodies = _world.Core.Bodies;
-        for (var i = 0; i < bodies.HighWater; i++)
+        _world.GetDebugGeometry(DebugContent.Bodies, _bodyList);
+        foreach (var listed in _bodyList.Bodies)
         {
-            if (!bodies.Handles.IsLive(i))
-            {
-                continue;
-            }
-
-            var handle = new BodyHandle(_world.Id, i, bodies.Handles.GenerationOf(i));
-            var body = _world.GetBody(handle);
+            var body = _world.GetBody(listed.Body);
             var p = body.Position;
             var v = body.LinearVelocity;
             json.BeginObject();
@@ -579,19 +594,13 @@ public sealed class PhysicsSpace2D : IHotTable
 
     // ---------------------------------------------------------------- helpers
 
+    // The debug geometry is the public way to list a world's bodies; it is reused so a call allocates nothing once sized.
+    private readonly DebugGeometry _bodyList = new();
+
     private int Bodies()
     {
-        var n = 0;
-        var bodies = _world.Core.Bodies;
-        for (var i = 0; i < bodies.HighWater; i++)
-        {
-            if (bodies.Handles.IsLive(i))
-            {
-                n++;
-            }
-        }
-
-        return n;
+        _world.GetDebugGeometry(DebugContent.Bodies, _bodyList);
+        return _bodyList.Bodies.Length;
     }
 
     private Body MakeBody(FVec2 at, BodyOptions o)
@@ -645,7 +654,7 @@ public sealed class PhysicsSpace2D : IHotTable
             throw new StaleBodyException($"{character} does not exist in this space (removed, never created here, or the space was restored from a save without it).");
         }
 
-        return _world.GetCharacter(character.Index, character.Generation);
+        return _world.GetCharacter(new CharacterHandle(_world.Id, character.Index, character.Generation));
     }
 
     private sealed class StepSystem(PhysicsSpace2D space) : ISimSystem

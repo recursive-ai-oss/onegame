@@ -39,6 +39,18 @@ public sealed class PhysicsOptions
 
     /// <summary>Whether <see cref="PhysicsEventKind.ContactStay"/> events are recorded (one per touching contact per step). Default false.</summary>
     public bool StayEvents { get; set; }
+
+    /// <summary>Room for this many touching shape pairs, reserved up front so a step never grows its tables. 0 sizes them from the body count when <see cref="PhysicsSpace2D.Warmup"/> runs. Never changes a result.</summary>
+    public int PairCapacity { get; set; }
+
+    /// <summary>Room for this many contacts (see <see cref="PairCapacity"/>). 0 sizes from the body count.</summary>
+    public int ContactCapacity { get; set; }
+
+    /// <summary>Room for this many islands of touching bodies (see <see cref="PairCapacity"/>). 0 sizes from the body count.</summary>
+    public int IslandCapacity { get; set; }
+
+    /// <summary>Hits a ray cast or overlap can return before its scratch grows. 0 keeps the library's default of 64.</summary>
+    public int QueryScratchCapacity { get; set; }
 }
 
 /// <summary>What a new body is made of and how it behaves. Everything has a usable default: a dynamic body of density 1, friction 0.6, no bounce.</summary>
