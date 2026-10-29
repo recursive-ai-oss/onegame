@@ -340,6 +340,36 @@ public class SpaceTests
     }
 
     [Fact]
+    public void ASnapshotTheLibraryRefusesIsRefusedAsInvalidAndLeavesTheSpaceUnchanged()
+    {
+        var world = Scene(out var space, out var hero, out _);
+        for (var t = 0; t < 20; t++)
+        {
+            Tick(world, space, hero);
+        }
+
+        var w = new SyncWriter();
+        space.Write(w);
+        var hash = space.Hash;
+        var steps = space.StepCount;
+
+        // Version byte, tick rate, length prefix, then the library's own snapshot: damage its header so it refuses the bytes (SnapshotFormatException).
+        var offset = 5; // 1 + 1 + a 2 or 3 byte length: eight bytes from here land in the library header either way
+        var bad = w.ToArray();
+        for (var i = offset; i < offset + 8; i++)
+        {
+            bad[i] ^= 0xFF;
+        }
+
+        var reader = new SyncReader(bad);
+        space.Read(ref reader);
+        Assert.False(reader.Ok);
+        Assert.Equal(SyncError.InvalidValue, reader.Error);
+        Assert.Equal(hash, space.Hash);
+        Assert.Equal(steps, space.StepCount);
+    }
+
+    [Fact]
     public void AFailedRestoreLeavesThePhysicsStateUntouched()
     {
         var world = Scene(out var space, out var hero, out _);
@@ -436,7 +466,7 @@ public class SpaceTests
     }
 
     [Fact]
-    public void AWarmedPileAllocatesAlmostNothingPerStepAndTheWorldHashOnlyWhenItsBufferGrows()
+    public void AWarmedPileStepsWithoutAllocatingAndTheWorldHashOnlyWhenItsBufferGrows()
     {
         var busy = NewWorld();
         var pile = PhysicsSpace2D.Of(busy)!;
@@ -463,8 +493,7 @@ public class SpaceTests
         }
 
         TestContext.Current.SendDiagnosticMessage($"warmed pile, 320 ticks from step 1: worst step {worstStep} B on {allocatingSteps} step(s), {hashGrowths} hashes grew the buffer");
-        // The library still grows one list on a step when the pile first settles into a new contact count.
-        Assert.True(allocatingSteps <= 2 && worstStep <= 512, $"{allocatingSteps} steps allocated, worst {worstStep} B");
+        Assert.True(worstStep == 0, $"{allocatingSteps} steps allocated, worst {worstStep} B");
         Assert.True(hashGrowths <= 4, $"{hashGrowths} hashes allocated");
     }
 }

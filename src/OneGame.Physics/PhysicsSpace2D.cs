@@ -274,7 +274,7 @@ public sealed class PhysicsSpace2D : IHotTable
         {
             Radius = PhysicsLimits.ToSingle(o.Radius, "Radius"),
             Height = PhysicsLimits.ToSingle(o.Height, "Height"),
-            SlopeLimit = PhysicsLimits.ToSingle(o.SlopeLimit, "SlopeLimit") * (MathF.PI / 180f), // degrees here, radians in the library
+            SlopeLimitRadians = PhysicsLimits.ToSingle(o.SlopeLimit, "SlopeLimit") * (MathF.PI / 180f), // degrees here, radians in the library
             StepOffset = PhysicsLimits.ToSingle(o.StepOffset, "StepOffset"),
             PushStrength = PhysicsLimits.ToSingle(o.PushStrength, "PushStrength"),
             Layer = o.Layer,
@@ -564,10 +564,8 @@ public sealed class PhysicsSpace2D : IHotTable
         json.Value(Hash);
         json.Name("bodies");
         json.BeginArray();
-        _world.GetDebugGeometry(DebugContent.Bodies, _bodyList);
-        foreach (var listed in _bodyList.Bodies)
+        foreach (var body in _world.Bodies)
         {
-            var body = _world.GetBody(listed.Body);
             var p = body.Position;
             var v = body.LinearVelocity;
             json.BeginObject();
@@ -594,14 +592,7 @@ public sealed class PhysicsSpace2D : IHotTable
 
     // ---------------------------------------------------------------- helpers
 
-    // The debug geometry is the public way to list a world's bodies; it is reused so a call allocates nothing once sized.
-    private readonly DebugGeometry _bodyList = new();
-
-    private int Bodies()
-    {
-        _world.GetDebugGeometry(DebugContent.Bodies, _bodyList);
-        return _bodyList.Bodies.Length;
-    }
+    private int Bodies() => _world.BodyCount;
 
     private Body MakeBody(FVec2 at, BodyOptions o)
     {

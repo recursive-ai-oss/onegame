@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- Ships as a prerelease on top of the engine version (1.13.0 -> 1.13.0-preview.1) because OnePhysics is a prerelease and a stable package may not depend on one.
+    <!-- Ships as a prerelease on top of the engine version (1.15.0 -> 1.15.0-preview.1) because OnePhysics is a prerelease and a stable package may not depend on one.
          Directory.Build.props sets Version first; this project appends its own suffix. Bump the number when only this package changes. -->
     <PhysicsPreview>preview.1</PhysicsPreview>
     <Version>$(Version)-$(PhysicsPreview)</Version>
