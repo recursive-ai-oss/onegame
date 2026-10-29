@@ -6,7 +6,7 @@ Klondike with a main menu, statistics, settings, a pause dialog and a win dialog
 onegame build --json                       # from this folder
 onegame run                                # a window
 onegame run --headless --frames 60 --json  # no window; prints the state hash
-onegame test --json                        # 14 scenarios plus the C# tests
+onegame test --json                        # 15 scenarios plus the C# tests
 onegame capture --out table.png --size 1080p --scale 1.5 --after 30
 onegame export --target osx               # on an Apple-silicon Mac: Solitaire.app, ad-hoc signed; `open` runs it
 ```
