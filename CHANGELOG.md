@@ -13,6 +13,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 - `RecursiveAI.OneGame.Navigation` is stable: it is built on OnePath 1.0.0 and ships at the engine version like every other package, no longer as a prerelease. `tools/ci/check-packages.py` now refuses any prerelease package. `NavGrid.Stamp` reads OnePath's cached `Grid.ContentHash` directly.
 - `OneGame.Navigation` moves to OnePath 1.0.0. Search and crowd results and saved bytes are unchanged. `NavCrowd` reads agents with `Crowd.CopyAgents(Span<Agent>)`, treats any `OnePathFormatException` from a bad crowd state as a refused snapshot, and `TryAdd` snaps to the nearest walkable point of the whole map (it used to refuse a spot too far from ground).
 
+### Fixed
+
+- Lanterns sample: a player who reconnects to an island that restarted from its save keeps their player. Before, the island could remove them as "left" just after they came back.
+
 ## [1.13.0] - 2026-10-28
 
 Crowds as synced state in `RecursiveAI.OneGame.Navigation` (1.13.0-preview.1, still a preview on a preview of OnePath). The other packages have no API changes.
