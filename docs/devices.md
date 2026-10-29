@@ -33,7 +33,7 @@ The machine's GPU draws captures a little differently from the software referenc
    ```
    onegame export --target android --abi arm64-v8a --dev --json
    onegame android install export/Solitaire-*-android-dev.apk
-   onegame android test --scenario scenarios --json      # 14 of 14; state hashes equal the desktop's
+   onegame android test --scenario scenarios --json      # 14 of 14 at 1.0.0 (15 scenarios since); state hashes equal the desktop's
    onegame android live                                  # prints tcp:127.0.0.1:N for `onegame mcp --socket`
    ```
    Over MCP: `audio` must report `backend: "aaudio"`, `deviceState: "running"` and a growing `framesPlayed`; draw a card (`ui_tap {id: stock}`), then `peakPlayed` is above 0. Touch with a finger, rotate, press Home and come back: `hash` is the same before and after.
@@ -54,7 +54,7 @@ What only a phone shows: a real GPU driver's output (compare a capture with the 
    `codesign --force --sign "<identity>" --entitlements <Name>.entitlements --timestamp=none <Name>.app`
    `xcrun devicectl device install app --device <device id> <Name>.app`
 3. Launch it from the phone's home screen, or `xcrun devicectl device process launch --device <id> <bundle id> --console -- --headless --scenario ...`. The `onegame ios` verbs address simulators only; on a device use `devicectl` and read `Documents/onegame-stdout.txt` with `devicectl device copy from`.
-4. The same checks as on the simulator: the 14 scenarios give the desktop's hashes, the `audio` op reports `backend: "audiounit"` and `peakPlayed` above 0 after a draw. Lanterns connects to servers on a computer by that computer's LAN address (the first connection asks for the local-network permission).
+4. The same checks as on the simulator: the scenarios give the desktop's hashes (14 of 14 at 1.0.0; 15 since), the `audio` op reports `backend: "audiounit"` and `peakPlayed` above 0 after a draw. Lanterns connects to servers on a computer by that computer's LAN address (the first connection asks for the local-network permission).
 
 What only a phone shows: finger touch, the real soft keyboard, the notch and home-indicator safe areas, the speaker and the silent switch (the audio session category is Ambient, so it follows the switch).
 
@@ -77,7 +77,7 @@ A page needs a browser with WebGPU (Chrome and Edge 113+; Safari and Firefox are
 
 ## What the simulators showed
 
-| | Solitaire (14 scenarios, hashes equal to the computer's) | Lanterns (8 scenarios, hashes equal) | Lanterns as a client of native island servers | Sound |
+| | Solitaire at 1.0.0 (14 scenarios then, 15 now; hashes equal to the computer's) | Lanterns (8 scenarios, hashes equal) | Lanterns as a client of native island servers | Sound |
 |---|---|---|---|---|
 | Android emulator, arm64, API 35 | 14/14; captures within tolerance 48 | 8/8; 3D captures differ on at most 0.22 % of pixels by more than 4 | UDP: bot agrees with its island at tick 3600, zero drift | `aaudio`, `peakPlayed` 0.077 |
 | iOS Simulator, Metal | 14/14; captures within the scenario files' tolerance | 8/8 with `--capture-max-diff 0.0025` (largest frame: 0.20 %) | UDP and WebSocket: agree at tick 3600, zero drift | `audiounit`, `peakPlayed` 0.077 |

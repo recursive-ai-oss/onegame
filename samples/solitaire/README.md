@@ -73,7 +73,7 @@ The game runs as a NativeAOT app bundle (see [ios](../../docs/interfaces/ios.md)
 ```
 onegame export --target ios-simulator --dev --json                      # ad-hoc signed .app
 onegame ios install export/Solitaire-*-ios-simulator-dev/Solitaire.app
-onegame ios test --bundle dev.onegame.solitaire --scenario scenarios --json   # 14 of 14, same state hashes as on Linux
+onegame ios test --bundle dev.onegame.solitaire --scenario scenarios --json   # 14 of 14 at 1.0.0 (before the 15th scenario), same state hashes as on Linux
 onegame ios live --bundle dev.onegame.solitaire -- --seed 1               # then: onegame mcp --socket tcp:127.0.0.1:7878
 onegame export --target ios --json                                        # unsigned device build: the owner signs it
 ```
@@ -100,7 +100,7 @@ A Release build or `onegame export` leaves the live-control listener out.
 
 ```
 onegame export --target web --json                 # a folder to host: index.html, _framework/, script modules
-onegame web test --json --tolerance 2 --max-diff 0.02   # the 13 scenarios, in headless Chrome
+onegame web test --json --tolerance 2 --max-diff 0.02   # all 13 scenarios when measured (before 1.0.0; 15 now), in headless Chrome
 ```
 
 The game runs the same simulation in the page (the scripted win ends on the same hash as on the desktop). Captures differ from the lavapipe references only along card and glyph edges (up to about 1.5 % of pixels), so the web run allows 2 % of pixels to differ. There is no sound in a page yet and the profile is kept in memory.
