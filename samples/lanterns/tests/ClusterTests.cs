@@ -95,6 +95,8 @@ public class ClusterTests
                 Thread.Sleep(100);
                 long held = 0, collected = 0;
                 var quiet = true;
+                var why = "";
+                var breakdown = "";
                 foreach (var (node, scope) in new[] { ("islandA", 1), ("islandB", 2) })
                 {
                     using var doc = JsonDocument.Parse(cluster.Call(node, "state_query", $"{{\"scope\":{scope}}}"));
@@ -104,24 +106,42 @@ public class ClusterTests
                         {
                             case "Player":
                                 held += e.GetProperty("Total").GetInt64();
-                                quiet &= e.GetProperty("Pending").GetInt64() == 0 && e.GetProperty("Dest").GetInt64() == 0;
+                                breakdown += $" {node}:player#{e.GetProperty("Owner")}={e.GetProperty("Total")}";
+                                if (e.GetProperty("Pending").GetInt64() != 0 || e.GetProperty("Dest").GetInt64() != 0)
+                                {
+                                    quiet = false;
+                                    why += $" {node}:player {e.GetRawText()}";
+                                }
                                 break;
                             case "Island":
                                 collected += e.GetProperty("Collected").GetInt64();
+                                breakdown += $" {node}:collected={e.GetProperty("Collected")},departed={e.GetProperty("Departed")}";
                                 held += e.GetProperty("Departed").GetInt64(); // lanterns that left in the pockets of players who disconnected
                                 break;
                         }
                     }
 
-                    quiet &= doc.RootElement.GetProperty("tables").GetProperty("og.transfers").GetProperty("open").GetArrayLength() == 0;
+                    if (doc.RootElement.GetProperty("tables").GetProperty("og.transfers").GetProperty("open").GetArrayLength() != 0)
+                    {
+                        quiet = false;
+                        why += $" {node}:open transfers {doc.RootElement.GetProperty("tables").GetProperty("og.transfers").GetRawText()}";
+                    }
                 }
 
                 using (var master = JsonDocument.Parse(cluster.Call("master", "state_query", "{\"scope\":3}")))
                 {
-                    quiet &= master.RootElement.GetProperty("tables").GetProperty("og.escrow").GetProperty("trades").EnumerateArray().All(t => t.GetProperty("state").GetString() is "Settled" or "Refunded");
+                    breakdown += " master:" + string.Join(";", master.RootElement.GetProperty("entities").EnumerateArray().Where(x => x.GetProperty("type").GetString() == "Account").Select(x => x.GetRawText())) + " trades:" + master.RootElement.GetProperty("tables").GetProperty("og.escrow").GetProperty("trades").GetRawText();
+                    foreach (var t in master.RootElement.GetProperty("tables").GetProperty("og.escrow").GetProperty("trades").EnumerateArray())
+                    {
+                        if (t.GetProperty("state").GetString() is not ("Settled" or "Refunded"))
+                        {
+                            quiet = false;
+                            why += $" master:trade {t.GetRawText()}";
+                        }
+                    }
                 }
 
-                last = $"held {held}, collected {collected}";
+                last = $"held {held}, collected {collected} [{breakdown.Trim()}], unsettled:{(why.Length == 0 ? " nothing" : why)}";
                 balanced = quiet && held == collected;
             }
 
@@ -130,6 +150,37 @@ public class ClusterTests
         }
 
         Assert.All(pids, pid => Assert.False(ProcessCluster.IsAlive(pid), $"process {pid} is still running"));
+    }
+
+    [Fact]
+    public void AClientThatComesBackToARestartedIslandKeepsItsPlayer()
+    {
+        // A restarted island lists the players it restored as leaving, because their connections are gone. The client that comes back must take
+        // its player off that list, or the island removes the player a moment after the client connected and the client plays no more.
+        using var cluster = TestCluster.Launch(Spec("lanterns-return"));
+        for (var round = 0; round < 3; round++)
+        {
+            cluster.Kill("islandB");
+            cluster.Start("islandB");
+            cluster.Restart("bot2");
+
+            // The leave pass runs every few ticks and gives up long after that; look well past it, then check the player is still there.
+            var from = cluster.TickOf("islandB");
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (cluster.TickOf("islandB") < from + 600 && clock.ElapsedMilliseconds < 300_000)
+            {
+                Thread.Sleep(200);
+            }
+
+            var owners = new List<long>();
+            foreach (var (node, scope) in new[] { ("islandA", 1), ("islandB", 2) })
+            {
+                using var doc = JsonDocument.Parse(cluster.Call(node, "state_query", "{\"scope\":" + scope + "}"));
+                owners.AddRange(doc.RootElement.GetProperty("entities").EnumerateArray().Where(e => e.GetProperty("type").GetString() == "Player").Select(e => e.GetProperty("Owner").GetInt64()));
+            }
+
+            Assert.True(owners.Contains(200001), $"round {round}: the restarted bot has no player on either island; players: {string.Join(", ", owners)}");
+        }
     }
 
     [Fact]
