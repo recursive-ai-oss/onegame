@@ -77,10 +77,15 @@ public class ByteStoreTests : IDisposable
     {
         var store = Make(kind);
         store.Write("big.bin", new byte[1_000_000]);
+        // Only the store call sits between the two readings: the assertion library allocates on first use, which is not the store's doing.
+        // The first refused read runs before the window so one-time JIT and type-loading work is not counted either.
+        store.TryRead("big.bin", 100, out _);
         var before = GC.GetAllocatedBytesForCurrentThread();
-        Assert.False(store.TryRead("big.bin", 100, out var data));
+        var refused = !store.TryRead("big.bin", 100, out var data);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.True(refused);
         Assert.Empty(data);
-        Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < 100_000, "a refused read must not allocate the file");
+        Assert.True(allocated < 100_000, $"a refused read must not allocate the file (allocated {allocated} bytes)");
         Assert.True(store.TryRead("big.bin", 1_000_000, out data));
         Assert.Equal(1_000_000, data.Length);
     }
