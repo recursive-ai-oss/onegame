@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../OneGame.Core/OneGame.Core.csproj" />
+    <ProjectReference Include="../OneGame.Render3D/OneGame.Render3D.csproj" />
     <PackageReference Include="RecursiveAI.OnePhysics" />
   </ItemGroup>
 

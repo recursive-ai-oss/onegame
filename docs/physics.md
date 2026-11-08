@@ -136,3 +136,23 @@ opts into larger checkpoints that name body slots and fields on a replay drift.
 
 Run `onegame test --project examples/physics/3d --no-unit --json` for a small 3D
 pile, walking capsule and driven car. The 2D example and API remain separate.
+
+### Drawing the 3D physics overlay
+
+Reuse one `PhysicsDebug3D` in the view/render stage and, after the scene view has
+built the frame, call:
+
+```csharp
+protected override void UpdateScene(Scene3D scene, in FrameInfo frame)
+{
+    if (PhysicsSpace3D.Of(frame.World) is { } space)
+        debug.Draw(space, scene.Debug, View!.DebugVisible);
+}
+```
+
+`overlay`/F3 controls the view's debug switch. Off means no collection or drawing.
+The adapter adds shape wireframes, wheels, suspension, joint anchors, contact
+points and normal arrows using the renderer's depth-tested primitives; pass
+`DebugDepth3D.AlwaysOnTop` to inspect occluded geometry. It never changes sim state.
+The example's `drive` scenario captures the pile, character and car through this
+same switch.

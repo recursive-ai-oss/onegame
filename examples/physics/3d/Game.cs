@@ -1,3 +1,6 @@
+using System;
+using System.Numerics;
+using OneGame.Render3D;
 using OneGame.Core;
 using OneGame.Host;
 using OneGame.Physics;
@@ -7,7 +10,7 @@ namespace Physics3DExample;
 
 /// <summary>A falling pile, a walking character and a driven car in the same saved space.</summary>
 [Entity]
-public partial class Playground : Entity
+public partial class Playground : Entity, IView3D
 {
     /// <summary>The box at the bottom of the pile.</summary>
     [Synced] public partial BodyRef Box { get; internal set; }
@@ -34,6 +37,10 @@ public partial class Playground : Entity
     [Command]
     public void Drive(Fixed throttle, Fixed walkSpeed) { Throttle = throttle; WalkSpeed = walkSpeed; }
 
+    /// <summary>Fixed overview camera; debug geometry is supplied after scene building.</summary>
+    [View]
+    public void Describe3D(SceneWriter scene) => scene.Camera(Transform3.LookAt(new FVec3(12, 11, 20), new FVec3(1, 1, 3)), far: 100);
+
     /// <inheritdoc />
     protected override void OnTick()
     {
@@ -48,6 +55,28 @@ public partial class Playground : Entity
 /// <summary>Small deterministic 3D physics playground.</summary>
 public sealed class Physics3DGame : GameDefinition
 {
+    /// <summary>The host view, whose debug switch is controlled by the overlay.</summary>
+    public SceneView3D View { get; } = new();
+
+    /// <inheritdoc />
+    public override IRenderStage CreateRenderStage(HostResources resources)
+    {
+        ArgumentNullException.ThrowIfNull(resources);
+        return resources.Fonts is not null && resources.Shaders is not null ? new PhysicsStage(resources, View) : new StubStage();
+    }
+
+    private sealed class PhysicsStage(HostResources resources, SceneView3D view) : Render3DStage(resources, view)
+    {
+        private readonly PhysicsDebug3D _debug = new();
+        protected override void UpdateScene(Scene3D scene, in FrameInfo frame)
+        {
+            scene.Environment.Background = BackgroundMode.Color;
+            scene.Environment.BackgroundColor = new Vector3(0.04f, 0.06f, 0.09f);
+            scene.Samples = 1;
+            if (PhysicsSpace3D.Of(frame.World) is { } space) _debug.Draw(space, scene.Debug, View!.DebugVisible);
+        }
+    }
+
     /// <inheritdoc />
     public override string Name => "Physics 3D";
     /// <inheritdoc />
@@ -68,5 +97,5 @@ public sealed class Physics3DGame : GameDefinition
         });
     }
     /// <inheritdoc />
-    public override void DefineScreens(ScreenSet screens) => screens.Add("main", _ => Ui.Label("3D physics: pile, character and car"));
+    public override void DefineScreens(ScreenSet screens) => screens.Add("main", _ => Ui.Column());
 }

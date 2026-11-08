@@ -39,7 +39,13 @@ not a full-hash repair against an untouched source; use a full snapshot for that
 for replay and drift tooling; it names body slots, generations and fields.
 Normal table serialization remains byte-exact, including pending events.
 
-Debug geometry is view-only and will feed the 3D debug drawing layer.
+`PhysicsDebug3D.Draw(space, scene.Debug, view.DebugVisible)` feeds the render
+ graph's debug drawing. Call in `Render3DStage.UpdateScene` after the view's Build;
+ the view clears its list each frame. The adapter emits triangle wireframes,
+ sphere/capsule outlines, character ground arrows, wheels/suspension, joints,
+ contact points and normal arrows. Off means no geometry collection or emission.
+ Colours distinguish static, kinematic, awake, sleeping and trigger shapes.
+ The destination is not cleared by the adapter; its caller owns frame lifetime.
 
 `IHotTableDiagnostics` is the optional Core seam for named table differences.
 `StateDigest.Diff` invokes it for live worlds. Set

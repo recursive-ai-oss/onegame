@@ -1,11 +1,13 @@
 name: drive
 description: A pile settles while a character walks and a four-wheel car accelerates.
-window: 320x180
+window: 480x270
 steps:
   - step: 40
   - command: { entity: Playground, name: Drive, args: [1, 1] }
   - step: 140
+  - overlay: on
 expect:
+  - capture: { reference: refs/drive.png, tolerance: 4, max-diff: 0.01 }
   - state: { entity: Playground, property: Grounded, equals: true }
   - state: { entity: Playground, property: "CharacterPosition[0]", min: -3, max: -2 }
   - state: { entity: Playground, property: "CarPosition[2]", min: 1, max: 50 }

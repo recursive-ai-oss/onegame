@@ -90,6 +90,12 @@ internal static class PhysicsSmoke
         if (fork.Hash != space.Hash) return "3D fork drifted";
         if (!space.Grounded(character) || space.Position(box).Y < Fixed.FromInt(-1)) return "3D objects missed ground";
         if (space.Wheel(vehicle, 0).Radius <= Fixed.Zero) return "3D wheel missing";
+        var drawing = new OneGame.Render3D.DebugDraw3D(); var debug = new PhysicsDebug3D();
+        var hash = space.Hash;
+        debug.Draw(space, drawing, false);
+        if (drawing.Count != 0) return "3D debug switch ignored";
+        debug.Draw(space, drawing, true);
+        if (drawing.Count < 100 || space.Hash != hash) return "3D debug geometry missing or changed state";
         return null;
     }
 
