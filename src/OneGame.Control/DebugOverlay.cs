@@ -70,7 +70,7 @@ public sealed class DebugOverlay : IFrameOverlay
         }
     }
 
-    /// <summary>Whether the panel is shown. While it is, <see cref="Draw2D.DebugVisible"/> is true so views draw their debug geometry too.</summary>
+    /// <summary>Whether the panel is shown. Also toggles <see cref="Draw2D.DebugVisible"/> and <see cref="SceneView3D.DebugVisible"/> so views draw their debug geometry too.</summary>
     public bool Visible
     {
         get => _visible;
@@ -80,6 +80,11 @@ public sealed class DebugOverlay : IFrameOverlay
             if (_game.Stage is Render2DStage stage)
             {
                 stage.Draw.DebugVisible = value;
+            }
+
+            if (_game.Stage is IScene3DStage { View: { } view })
+            {
+                view.DebugVisible = value;
             }
         }
     }

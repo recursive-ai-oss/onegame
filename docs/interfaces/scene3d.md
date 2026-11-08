@@ -62,3 +62,9 @@ They need a game whose stage is a `Render3DStage` with a view (`no_scene3d` othe
 ## Not built
 
 Animated or skinned picking; physics; per-entity visibility culling (every model of the world is submitted).
+
+### Debug drawing
+
+`SceneWriter.DebugLine`, `DebugPoint` and `DebugArrow` accept `Vector3` or `FVec3` positions,
+with the colour, size, units and depth mode of `Scene3D.Debug` (see `render3d.md`).
+They emit only while `SceneView3D.DebugVisible` is true; the debug overlay toggles this alongside 2D debug drawing.
