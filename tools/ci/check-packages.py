@@ -11,6 +11,10 @@
 import glob, os, re, sys, zipfile
 
 folder, version = sys.argv[1], sys.argv[2]
+# Local preview builds can opt in, but tag/release validation must never accept development pins.
+allow_dev = (os.environ.get("ONEGAME_ALLOW_DEV_DEPENDENCIES") == "1"
+             and os.environ.get("GITHUB_REF_TYPE") == "branch"
+             and not os.environ.get("GITHUB_REF", "").startswith("refs/tags/"))
 PREVIEW_ONLY = {"RecursiveAI.OneGame.Physics"}
 bad = []
 if "-" in version:
@@ -25,6 +29,9 @@ for path in sorted(glob.glob(os.path.join(folder, "*.nupkg"))):
     if pkg_id in PREVIEW_ONLY:
         if not re.fullmatch(re.escape(version) + r"-preview\.\d+", pkg_version):
             bad.append(f"{pkg_id} is {pkg_version}, expected {version}-preview.N")
+        for dep, rng in re.findall(r'<dependency id="([^"]+)" version="([^"]+)"', spec):
+            if re.search(r"-dev(?:[.\]\),]|$)", rng, re.IGNORECASE) and not allow_dev:
+                bad.append(f"{pkg_id} depends on development {dep} {rng}; release packages require a published preview or stable dependency")
         continue
     if "-" in pkg_version:
         bad.append(f"{pkg_id} is {pkg_version}, a prerelease")

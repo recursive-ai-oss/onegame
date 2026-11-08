@@ -20,7 +20,11 @@ public enum DigestKind : byte
 /// <param name="Id">The entity id (entities only).</param>
 /// <param name="Name">The table name (tables only).</param>
 /// <param name="Hash">Hash of its state.</param>
-public readonly record struct DigestEntry(DigestKind Kind, ulong Id, string? Name, ulong Hash);
+public readonly record struct DigestEntry(DigestKind Kind, ulong Id, string? Name, ulong Hash)
+{
+    /// <summary>Optional table snapshot retained only by explicitly detailed recordings. Never sent in replica digests.</summary>
+    public byte[]? DiagnosticSnapshot { get; init; }
+}
 
 /// <summary>How a part of the state differs between two digests.</summary>
 public enum DifferenceChange : byte
@@ -38,6 +42,9 @@ public enum DifferenceChange : byte
 /// <summary>One entity, table or the random streams that differ between expected and actual state.</summary>
 public sealed record StateDifference(DigestKind Kind, ulong EntityId, string? Name, string? TypeName, DifferenceChange Change, ulong ExpectedHash, ulong ActualHash)
 {
+    /// <summary>Optional table-specific named differences, for detailed drift and replay reports.</summary>
+    public string? Detail { get; init; }
+
     internal void WriteJson(JsonOut j)
     {
         j.BeginObject();
@@ -56,6 +63,7 @@ public sealed record StateDifference(DigestKind Kind, ulong EntityId, string? Na
             j.Value(Name);
         }
 
+        if (Detail is not null) { j.Name("detail"); j.Value(Detail); }
         j.Name("change");
         j.Value(Change.ToString());
         j.Name("expected");
@@ -102,7 +110,8 @@ public sealed class StateDigest
     /// <param name="into">The digest to fill.</param>
     /// <param name="scratch">A writer to use for serializing parts.</param>
     /// <param name="entityLimit">Entities beyond this count are not listed.</param>
-    public static void Capture(World world, StateDigest into, SyncWriter scratch, int entityLimit = int.MaxValue)
+    /// <param name="captureTableDiagnostics">Capture optional named table state for recording checkpoints; may allocate.</param>
+    public static void Capture(World world, StateDigest into, SyncWriter scratch, int entityLimit = int.MaxValue, bool captureTableDiagnostics = false)
     {
         into._entries.Clear();
         into.Tick = world.Tick;
@@ -121,8 +130,11 @@ public sealed class StateDigest
         {
             var table = tables[t];
             scratch.Reset();
-            table.Write(scratch);
-            into._entries.Add(new DigestEntry(DigestKind.Table, 0, table.Name, StateHash.Combine(StateHash.Of(table.Name), StateHash.Of(scratch.Written))));
+            table.WriteHash(scratch);
+            into._entries.Add(new DigestEntry(DigestKind.Table, 0, table.Name, StateHash.Combine(StateHash.Of(table.Name), StateHash.Of(scratch.Written)))
+            {
+                DiagnosticSnapshot = captureTableDiagnostics && table is IHotTableDiagnostics diagnostic ? diagnostic.CaptureDiagnosticSnapshot() : null,
+            });
         }
 
         var entities = world.Entities;
@@ -171,7 +183,7 @@ public sealed class StateDigest
             }
 
             scratch.Reset();
-            table.Write(scratch);
+            table.WriteHash(scratch);
             into._entries.Add(new DigestEntry(DigestKind.Table, 0, table.Name, StateHash.Combine(StateHash.Of(table.Name), StateHash.Of(scratch.Written))));
         }
 
@@ -216,7 +228,19 @@ public sealed class StateDigest
             {
                 if (a[i].Hash != b[j].Hash)
                 {
-                    output.Add(Make(a[i], DifferenceChange.Changed, a[i].Hash, b[j].Hash, expectedWorld, actualWorld));
+                    var difference = Make(a[i], DifferenceChange.Changed, a[i].Hash, b[j].Hash, expectedWorld, actualWorld);
+                    if (a[i].Kind == DigestKind.Table && actualWorld is not null)
+                    {
+                        var expectedBytes = a[i].DiagnosticSnapshot;
+                        if (expectedBytes is null && expectedWorld is not null)
+                            foreach (var table in expectedWorld.Tables)
+                                if (table.Name == a[i].Name && table is IHotTableDiagnostics d) expectedBytes = d.CaptureDiagnosticSnapshot();
+                        if (expectedBytes is not null)
+                            foreach (var table in actualWorld.Tables)
+                                if (table.Name == a[i].Name && table is IHotTableDiagnostics d)
+                                    difference = difference with { Detail = d.DescribeDifferences(expectedBytes) };
+                    }
+                    output.Add(difference);
                 }
 
                 i++;
@@ -262,14 +286,20 @@ public sealed class StateDigest
     }
 
     /// <summary>Writes the digest.</summary>
-    public void Write(SyncWriter w)
+    public void Write(SyncWriter w, bool includeTableDiagnostics = false)
     {
         w.WriteVarInt(Tick);
         w.WriteFixed64(WorldHash);
         w.WriteBool(Truncated);
         w.WriteVarUInt((ulong)_entries.Count);
+        var diagnosticBudget = 64 * 1024 * 1024;
         foreach (var e in _entries)
         {
+            if (includeTableDiagnostics && e.DiagnosticSnapshot is { } diagnostic)
+            {
+                if (diagnostic.Length > diagnosticBudget) throw new InvalidOperationException("Diagnostic checkpoint payload exceeds 64 MiB.");
+                diagnosticBudget -= diagnostic.Length;
+            }
             w.WriteByte((byte)e.Kind);
             if (e.Kind == DigestKind.Entity)
             {
@@ -281,17 +311,19 @@ public sealed class StateDigest
             }
 
             w.WriteFixed64(e.Hash);
+            if (includeTableDiagnostics) w.WriteBytes(e.DiagnosticSnapshot ?? []);
         }
     }
 
     /// <summary>Reads a digest from untrusted bytes. On error the reader holds the reason and the digest is left empty.</summary>
-    public void Read(ref SyncReader r)
+    public void Read(ref SyncReader r, bool includeTableDiagnostics = false)
     {
         _entries.Clear();
         Tick = r.ReadVarInt();
         WorldHash = r.ReadFixed64();
         Truncated = r.ReadBool();
         var count = r.ReadCount(SyncLimits.MaxEntities);
+        var diagnosticBudget = 64 * 1024 * 1024;
         for (var n = 0; n < count && r.Ok; n++)
         {
             var kind = (DigestKind)r.ReadByte();
@@ -306,9 +338,15 @@ public sealed class StateDigest
             }
 
             var hash = r.ReadFixed64();
+            byte[]? diagnostic = null;
+            if (includeTableDiagnostics)
+            {
+                var bytes = r.ReadBytes(diagnosticBudget);
+                if (r.Ok && !bytes.IsEmpty) { diagnosticBudget -= bytes.Length; diagnostic = bytes.ToArray(); }
+            }
             if (r.Ok)
             {
-                _entries.Add(new DigestEntry(kind, id, name, hash));
+                _entries.Add(new DigestEntry(kind, id, name, hash) { DiagnosticSnapshot = diagnostic });
             }
         }
 

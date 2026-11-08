@@ -99,6 +99,9 @@ public interface IHotTable
     /// <summary>Writes all rows.</summary>
     void Write(SyncWriter writer);
 
+    /// <summary>Writes deterministic input to the world's drift hash. Defaults to the full encoded table; a table may instead write a hash covering all saved state. Must include settings that affect future ticks.</summary>
+    void WriteHash(SyncWriter writer) => Write(writer);
+
     /// <summary>Replaces all rows. All rows are decoded before any is stored, so an error leaves the table unchanged.</summary>
     void Read(ref SyncReader reader);
 

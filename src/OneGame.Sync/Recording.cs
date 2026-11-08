@@ -23,6 +23,9 @@ public sealed class RecordingOptions
 
     /// <summary>Checkpoints keep a per-entity digest only for worlds with at most this many entities.</summary>
     public int DetailLimit { get; init; } = 4096;
+
+    /// <summary>Retains optional named table snapshots at checkpoints for detailed replay differences. Allocates and increases recording size; default false.</summary>
+    public bool TableDiagnostics { get; init; }
 }
 
 /// <summary>
@@ -63,7 +66,8 @@ public sealed class Recording
     {
         var w = new SyncWriter(StartSnapshot.Length + 1024);
         w.WriteFixed32(Magic);
-        w.WriteVarUInt(Format);
+        var detailedTables = Checkpoints.Any(c => c.Detail?.Entries.Any(e => e.DiagnosticSnapshot is not null) == true);
+        w.WriteVarUInt(detailedTables ? 2u : Format);
         w.WriteFixed64(Seed);
         w.WriteVarInt(StartTick);
         w.WriteFixed64(StartHash);
@@ -89,7 +93,7 @@ public sealed class Recording
             previous = cp.Tick;
             w.WriteFixed64(cp.Hash);
             w.WriteBool(cp.Detail is not null);
-            cp.Detail?.Write(w);
+            cp.Detail?.Write(w, detailedTables);
         }
 
         return w.ToArray();
@@ -103,7 +107,9 @@ public sealed class Recording
     {
         recording = null;
         var r = new SyncReader(bytes);
-        if (r.ReadFixed32() != Magic || r.ReadVarUInt() != Format)
+        var magic = r.ReadFixed32();
+        var format = r.ReadVarUInt();
+        if (magic != Magic || format is not (1 or 2))
         {
             return r.Ok ? SyncError.BadHeader : r.Error;
         }
@@ -175,7 +181,7 @@ public sealed class Recording
             if (hasDetail)
             {
                 detail = new StateDigest();
-                detail.Read(ref r);
+                detail.Read(ref r, format >= 2);
             }
 
             if (r.Ok)
@@ -255,7 +261,7 @@ public sealed class Recorder
         }
 
         var digest = new StateDigest();
-        StateDigest.Capture(world, digest, _scratch, _options.DetailLimit);
+        StateDigest.Capture(world, digest, _scratch, _options.DetailLimit, _options.TableDiagnostics);
         Recording.Checkpoints.Add(new Checkpoint(world.Tick, digest.WorldHash, digest.Truncated ? null : digest));
     }
 

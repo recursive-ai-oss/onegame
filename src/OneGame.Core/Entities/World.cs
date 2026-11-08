@@ -465,7 +465,7 @@ public sealed class World
         foreach (var table in _tables)
         {
             _hashWriter.Reset();
-            table.Write(_hashWriter);
+            table.WriteHash(_hashWriter);
             h = StateHash.Combine(h, StateHash.Of(table.Name));
             h = StateHash.Combine(h, StateHash.Of(_hashWriter.Written));
         }
@@ -511,7 +511,7 @@ public sealed class World
             }
 
             _hashWriter.Reset();
-            table.Write(_hashWriter);
+            table.WriteHash(_hashWriter);
             h = StateHash.Combine(h, StateHash.Of(table.Name));
             h = StateHash.Combine(h, StateHash.Of(_hashWriter.Written));
         }

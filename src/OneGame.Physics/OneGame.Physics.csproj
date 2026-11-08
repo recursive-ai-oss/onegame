@@ -3,9 +3,11 @@
   <PropertyGroup>
     <!-- Ships as a prerelease on top of the engine version (1.15.2 -> 1.15.2-preview.1) because OnePhysics is a prerelease and a stable package may not depend on one.
          Directory.Build.props sets Version first; this project appends its own suffix. Bump the number when only this package changes. -->
+    <!-- The 3D API is explicitly experimental in this preview wrapper. -->
+    <NoWarn>$(NoWarn);OPHYS0002</NoWarn>
     <PhysicsPreview>preview.1</PhysicsPreview>
     <Version>$(Version)-$(PhysicsPreview)</Version>
-    <Description>Preview, built on a preview of OnePhysics: the API may change before it is stable. 2D rigid bodies, characters, triggers and ray casts for deterministic simulations on fixed-point positions, stepped by the sim tick, with state that is saved, restored and hashed with the world.</Description>
+    <Description>Preview, built on a preview of OnePhysics: the API may change before it is stable. 2D and 3D rigid bodies, characters, vehicles, triggers and queries for deterministic simulations on fixed-point positions, stepped by the sim tick, with state that is saved, restored and hashed with the world.</Description>
   </PropertyGroup>
 
   <ItemGroup>

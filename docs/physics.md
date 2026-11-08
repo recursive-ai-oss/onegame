@@ -89,3 +89,50 @@ Stepping, the wrapper's calls (`Move`, reads, event walking, ray casts) and the 
 ## Seeing it
 
 While the debug overlay is on (F3, or `overlay: on` in a scenario) `Draw2D.DebugVisible` is true, and a view can collect `PhysicsDebugShapes` with `space.AddDebugShapes(shapes)`: outlines of every shape (static, kinematic, awake, asleep and trigger shapes in different colours) and contact points with normals, as lines in world units (the example draws them in a few lines). Release builds never set the flag. `state_query` with `table: physics` shows the step count, the hash and every body's position, velocity and sleep state (`property: "bodies[9].awake"`).
+
+## 3D spaces
+
+`PhysicsSpace3D` is the 3D counterpart, using `FVec3`, `FQuat` and `Transform3`:
+
+```csharp
+var space = PhysicsSpace3D.AddTo(world);
+space.AddBox(new FVec3(40, 1, 40), new FVec3(0, -1, 0),
+    new BodyOptions3D { Kind = BodyKind.Static });
+BodyRef ball = space.AddSphere(Fixed.One, new FVec3(0, 6, 0));
+CharacterRef hero = space.AddCharacter(new FVec3(-4, 1, 0));
+BodyRef chassis = space.AddBox(new FVec3(2, Fixed.FromRatio(1, 2), 4),
+    new FVec3(6, 1, 0), new BodyOptions3D { Density = 100 });
+VehicleRef car = space.AddVehicle(chassis); // standard four-wheel car, forward +Z
+// In sim code, before the tick system steps:
+space.Move(hero, new FVec3(space.StepSeconds, Fixed.FromRatio(-1, 10), 0));
+space.Drive(car, Fixed.One);
+Transform3 transform = space.Transform(ball);
+```
+
+The table is Hidden, named `physics3d`, and steps after entities. Mirror view state
+into synced properties just as in 2D. Characters use displacement, not an implicit
+gravity rule. `Wheel(car, index)` provides wheel centre, radius, ground contact,
+suspension length, spin and steering angles. `Raycast`, `SphereCast` and
+`OverlapSphere` filter by layer masks and return `RayHit3D`. `Events` polls
+contacts, triggers, sleep/wake and joint breaks in deterministic delivery order.
+
+3D local positions use OneMath's `FixedBridge`, whose endpoints ±2^21 are
+exclusive. Before local positions approach that limit, the authority calls
+`ShiftOrigin` with a whole-unit offset. It shifts every local body and records
+the accumulated origin in the saved and hashed physics state. The accumulated
+origin must fit signed 32-bit world units. Rebasing is a deterministic simulation
+decision, never driven by a view or camera. `Origin + Position(body)` gives the
+global position. Two spaces with different origins deliberately have different
+hashes even if their global body positions look identical.
+
+`Fork` makes an independent structural prediction copy. Restore confirmed state
+and call `Step(resimulating: true)` while replaying local inputs; callbacks are
+suppressed and polled events are retained. The game owns this fork: hidden tables
+are not automatically copied to subscribed replicas. Snapshot deltas, compressed
+snapshots, region archives and named differences are available directly on the
+space; see [the integration interface](interfaces/physics.md) for their contracts
+and the region broadphase limitation. `RecordingOptions.TableDiagnostics = true`
+opts into larger checkpoints that name body slots and fields on a replay drift.
+
+Run `onegame test --project examples/physics/3d --no-unit --json` for a small 3D
+pile, walking capsule and driven car. The 2D example and API remain separate.
