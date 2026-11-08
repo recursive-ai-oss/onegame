@@ -233,6 +233,9 @@ public sealed class ModelInstance3D : IDisposable
 /// <summary>Everything one frame draws: camera, models, lights, environment and post-processing.</summary>
 public sealed class Scene3D
 {
+    /// <summary>Immediate debug geometry; clear and refill each frame. Independent of the host debug switch.</summary>
+    public DebugDraw3D Debug { get; } = new();
+
     /// <summary>The camera.</summary>
     public Camera3D Camera { get; set; } = new();
 

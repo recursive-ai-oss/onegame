@@ -70,6 +70,7 @@ public sealed partial class SceneWriter
 
     internal void Clear()
     {
+        Debug.Clear();
         _emitters.Clear();
         _emitterRefs.Clear();
         _draws.Clear();

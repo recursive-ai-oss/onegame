@@ -91,3 +91,20 @@ Depth-tested primitives test the scene depth without writing it; `AlwaysOnTop` p
 Storage grows and is reused. Each nonempty depth mode uses one instanced draw, independent of primitive count.
 Debug drawing is unlit HDR geometry after surfaces, before post-processing; graph reports name it `forward + debug3d`.
 Direct lists are unconditional; the host view helpers are gated by `SceneView3D.DebugVisible` (off by default).
+
+```csharp
+scene.Debug.Clear();
+scene.Debug.Line(new Vector3(-2, 0, 0), new Vector3(2, 0, 0),
+    new Vector4(1, 0, 0, 0.5f), width: 3);
+scene.Debug.Arrow(Vector3.Zero, Vector3.UnitY, Vector4.One,
+    width: 0.02f, units: DebugSize3D.World, mode: DebugDepth3D.AlwaysOnTop);
+```
+
+Sizes are full widths/diameters, not radii. Points are camera-facing squares. Arrowheads are six widths long,
+capped at half the projected shaft length. Lines clip their centreline at the camera near plane; a line with no
+projected length produces no pixels. Colours must be finite with alpha in 0..1; positions must be finite and
+sizes finite and positive (`ArgumentOutOfRangeException` otherwise). Alpha blends in submission order within
+each mode, without depth writes or distance sorting. Like other scene data, fill and render on the render thread.
+`Renderer3D.DebugDrawCalls` reports the last frame's zero, one or two debug draws. `DebugDraw3D.Append` copies
+another reusable list, for producers that collect geometry separately. Warming storage includes the CPU lists,
+upload buffer and pipelines for the modes/sample counts in use.

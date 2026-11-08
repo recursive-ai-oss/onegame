@@ -23,7 +23,16 @@ internal static class Render3DSmoke
         scene.Lights.Add(Light3D.Directional(new Vector3(-1, -1, -1), Vector3.One, 3f));
         var bounds = model.Source.ComputeWorldBounds()!.Value;
         scene.Camera = Camera3D.Frame(bounds.Min, bounds.Max, 30, 20, 96 / 72f);
+        scene.Debug.Line(bounds.Min, bounds.Max, new Vector4(1, 0, 0, 0.5f), 3);
+        scene.Debug.Point(bounds.Max, Vector4.One, 8, mode: DebugDepth3D.AlwaysOnTop);
+        scene.Debug.Arrow(bounds.Min, bounds.Max, new Vector4(0, 1, 0, 1), 1, DebugSize3D.World);
         var pixels = target.Capture(scene);
+        if (renderer.DebugDrawCalls != 2) { return "debug geometry did not draw in both modes"; }
+        if (Environment.GetEnvironmentVariable("ONEGAME_CAPTURE_DIR") is { } captureDir)
+        {
+            Directory.CreateDirectory(captureDir);
+            File.WriteAllBytes(Path.Combine(captureDir, "aot-debug3d.rgba"), pixels);
+        }
         var different = 0;
         for (var i = 4; i < pixels.Length; i += 4)
         {

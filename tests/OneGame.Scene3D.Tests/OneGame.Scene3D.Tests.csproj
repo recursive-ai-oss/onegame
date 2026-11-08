@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="../Scene3DGame/Scene3DGame.csproj" />
     <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
     <ProjectReference Include="../../src/OneGame.Live/OneGame.Live.csproj" />
