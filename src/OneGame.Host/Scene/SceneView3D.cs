@@ -40,6 +40,9 @@ public sealed class SceneView3D : IDisposable
     /// <summary>The models entities can show.</summary>
     public ModelLibrary Models { get; }
 
+    /// <summary>Whether view helpers emit debug geometry. Controlled by the debug overlay; off by default.</summary>
+    public bool DebugVisible { get; set; }
+
     /// <summary>
     /// A camera that replaces the one the entities describe, for tools: the <c>camera</c> operation sets it. It is a view setting, not
     /// simulation state, and recordings do not hold it. Null follows the entities again.
@@ -66,6 +69,7 @@ public sealed class SceneView3D : IDisposable
     {
         ArgumentNullException.ThrowIfNull(world);
         _writer.Clear();
+        _writer.DebugVisible = DebugVisible;
         _writer.Tick = tick;
         _writer.Alpha = alpha;
         _writer.BeginTime();
@@ -106,6 +110,8 @@ public sealed class SceneView3D : IDisposable
         _camera.Far = cam.Far;
         scene.Camera = _camera;
 
+        scene.Debug.Clear();
+        scene.Debug.Append(_writer.Debug);
         scene.Models.Clear();
         for (var i = 0; i < Models.Count; i++)
         {

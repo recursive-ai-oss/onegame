@@ -292,6 +292,7 @@ public sealed partial class Renderer3D
         FlushObjects();
         RefreshBindGroups();
         CollectBillboards(scene, view);
+        CollectDebug(scene.Debug);
     }
 
     private static LightRecord MakeLight(Light3D l)
@@ -621,7 +622,7 @@ public sealed partial class Renderer3D
         public bool Sky;
         public Vector3 Clear;
 
-        public string Name => "forward";
+        public string Name => Owner?._debugCount > 0 ? "forward + debug3d" : "forward";
 
         public void Setup(PassBuilder builder)
         {
@@ -661,6 +662,7 @@ public sealed partial class Renderer3D
             r.DrawRegular(pass, r._blend, r._blendCount, PipeKind.Main, Samples, -1);
             r.DrawBatches(pass, PipeKind.Main, Samples, 0, blend: true);
             r.DrawBillboards(pass, Samples);
+            r.DrawDebug(pass, Samples);
         }
     }
 

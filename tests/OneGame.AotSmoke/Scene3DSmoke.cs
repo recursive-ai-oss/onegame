@@ -44,6 +44,9 @@ public partial class Prop : Entity, IView3D
         }
         else
         {
+            scene.DebugLine(FVec3.Zero, new FVec3(1, 1, 1), Vector4.One);
+            scene.DebugPoint(FVec3.Zero, Vector4.One);
+            scene.DebugArrow(FVec3.Zero, new FVec3(0, 1, 0), Vector4.One);
             scene.Model("box", Slide.EndTick > 0 ? Slide.ValueAt(scene.Tick, scene.Alpha) : Transform);
         }
     }
@@ -72,7 +75,7 @@ internal sealed class Scene3DSmokeGame(byte[] font, byte[] box) : GameDefinition
 
     private static SceneView3D Create(byte[] box)
     {
-        var view = new SceneView3D();
+        var view = new SceneView3D { DebugVisible = true };
         view.Models.Add("box", GltfLoader.Load(box));
         return view;
     }
