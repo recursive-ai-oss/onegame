@@ -78,3 +78,16 @@ KHR_materials clearcoat/transmission/sheen/specular/volume are parsed but not re
 ## Reference renders
 
 `testdata/render3d/cases.json` lists eight Khronos sample scenes (camera, lights, pose, environment); `testdata/render3d/ref/` holds the 480x360 images the Khronos glTF Sample Viewer drew for them (black-box output, `tools/reference3d/shoot.mjs`). `ReferenceTests` compares on model pixels with edges eroded: mean difference under 6 of 255 and p95 under 28, or 11 and 45 for scenes lit by an image-based environment (filtering differs between renderers; the reasons are in the test). The panorama centre looks down +Z, the front of a glTF model seen from the default camera. Needs `ONEGAME_GLTF_SAMPLES` (`tools/fetch-gltf-samples.sh`) and `ONEGAME_ENV_DIR` (a Poly Haven 1k studio panorama); cases are skipped without them.
+
+## Debug drawing
+
+`scene.Debug` is a reusable `DebugDraw3D` list. Fill it each frame and call `Clear()` before refilling.
+`Line(from, to, color, width = 1, units = DebugSize3D.Pixels, mode = DebugDepth3D.DepthTested)`,
+`Point(position, color, size = 4, units = DebugSize3D.Pixels, mode = DebugDepth3D.DepthTested)` and
+`Arrow(from, to, color, width = 1, units = DebugSize3D.Pixels, mode = DebugDepth3D.DepthTested)`
+use `Vector3` positions and linear straight-alpha `Vector4` colours. `DebugSize3D.World` sizes are world units.
+Lines are camera-facing quads, points are squares, arrows have a shaft and a screen-facing triangular head.
+Depth-tested primitives test the scene depth without writing it; `AlwaysOnTop` primitives draw last.
+Storage grows and is reused. Each nonempty depth mode uses one instanced draw, independent of primitive count.
+Debug drawing is unlit HDR geometry after surfaces, before post-processing; graph reports name it `forward + debug3d`.
+Direct lists are unconditional; the host view helpers are gated by `SceneView3D.DebugVisible` (off by default).
