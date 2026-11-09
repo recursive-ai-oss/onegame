@@ -30,6 +30,7 @@ public Scene3D();
 | [`Batches`](#m-batches) | Copies of models drawn in bulk (see [`Scene3D.AddInstanced()`](Scene3D.md#m-addinstanced-model3d-int)). |
 | [`Billboards`](#m-billboards) | Camera-facing quads (particles, glows) drawn after the surfaces; see [`BillboardBatch3D`](BillboardBatch3D.md). |
 | [`Camera`](#m-camera) | The camera. |
+| [`Debug`](#m-debug) | Immediate debug geometry; clear and refill each frame. |
 | [`Environment`](#m-environment) | Image-based lighting and backdrop. |
 | [`Lights`](#m-lights) | Punctual lights. |
 | [`Models`](#m-models) | Models to draw. |
@@ -68,6 +69,16 @@ public Camera3D Camera { get; set; }
 The camera.
 
 **Type:** [`Camera3D`](Camera3D.md)
+
+### <a id="m-debug"></a>Debug
+
+```csharp
+public DebugDraw3D Debug { get; }
+```
+
+Immediate debug geometry; clear and refill each frame. Independent of the host debug switch.
+
+**Type:** [`DebugDraw3D`](DebugDraw3D.md)
 
 ### <a id="m-environment"></a>Environment
 

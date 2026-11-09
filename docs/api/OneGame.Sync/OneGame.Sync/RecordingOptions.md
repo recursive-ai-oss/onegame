@@ -29,6 +29,7 @@ public RecordingOptions();
 | --- | --- |
 | [`CheckpointInterval`](#m-checkpointinterval) | Ticks between hash checkpoints. |
 | [`DetailLimit`](#m-detaillimit) | Checkpoints keep a per-entity digest only for worlds with at most this many entities. |
+| [`TableDiagnostics`](#m-tablediagnostics) | Retains optional named table snapshots at checkpoints for detailed replay differences. |
 
 ### <a id="m-checkpointinterval"></a>CheckpointInterval
 
@@ -49,3 +50,13 @@ public int DetailLimit { get; init; }
 Checkpoints keep a per-entity digest only for worlds with at most this many entities.
 
 **Type:** `int`
+
+### <a id="m-tablediagnostics"></a>TableDiagnostics
+
+```csharp
+public bool TableDiagnostics { get; init; }
+```
+
+Retains optional named table snapshots at checkpoints for detailed replay differences. Allocates and increases recording size; default false.
+
+**Type:** `bool`

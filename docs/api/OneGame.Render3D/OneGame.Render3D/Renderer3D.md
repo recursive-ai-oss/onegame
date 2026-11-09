@@ -147,6 +147,7 @@ Screen tile size of the light grid, in pixels.
 | Member | Description |
 | --- | --- |
 | [`BrdfLut`](#m-brdflut) | The split-sum environment BRDF table (`Rgba16Float`, the first two channels; n.v across, roughness down); filled on first use. |
+| [`DebugDrawCalls`](#m-debugdrawcalls) | Instanced debug draw calls issued by the last frame (zero to two). |
 | [`Device`](#m-device) | The device this renderer draws with. |
 | [`LastStats`](#m-laststats) | What the last [`Renderer3D.Render()`](Renderer3D.md#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat) call prepared. |
 | [`SoftSpot`](#m-softspot) | A round white spot that fades smoothly to nothing at its edge: what billboards show when their batch has no texture. |
@@ -160,6 +161,16 @@ public GpuTexture BrdfLut { get; }
 The split-sum environment BRDF table (`Rgba16Float`, the first two channels; n.v across, roughness down); filled on first use.
 
 **Type:** [`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)
+
+### <a id="m-debugdrawcalls"></a>DebugDrawCalls
+
+```csharp
+public int DebugDrawCalls { get; }
+```
+
+Instanced debug draw calls issued by the last frame (zero to two).
+
+**Type:** `int`
 
 ### <a id="m-device"></a>Device
 

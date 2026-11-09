@@ -92,7 +92,7 @@ The key that toggles the panel, or null for none. F3 by default.
 public bool Visible { get; set; }
 ```
 
-Whether the panel is shown. While it is, [`Draw2D.DebugVisible`](../../OneGame.Host/OneGame.Host/Draw2D.md#m-debugvisible) is true so views draw their debug geometry too.
+Whether the panel is shown. Also toggles [`Draw2D.DebugVisible`](../../OneGame.Host/OneGame.Host/Draw2D.md#m-debugvisible) and [`SceneView3D.DebugVisible`](../../OneGame.Host/OneGame.Host/SceneView3D.md#m-debugvisible) so views draw their debug geometry too.
 
 **Type:** `bool`
 

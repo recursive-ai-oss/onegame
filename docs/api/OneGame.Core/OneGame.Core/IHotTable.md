@@ -58,6 +58,7 @@ Whether subscribers receive the table: [`Visibility.Everyone`](Visibility.md#m-e
 | [`Read(ref SyncReader)`](#m-read-syncreader) | Replaces all rows. |
 | [`TrySetFromText(int, string, string)`](#m-trysetfromtext-int-string-string) | Sets one scalar cell from text (numbers, bool, string, Fixed, enums by number), for the harness. |
 | [`Write(SyncWriter)`](#m-write-syncwriter) | Writes all rows. |
+| [`WriteHash(SyncWriter)`](#m-writehash-syncwriter) | Writes deterministic input to the world's drift hash. |
 | [`WriteJson(JsonOut)`](#m-writejson-jsonout) | Writes the rows as a JSON array of objects. |
 
 ### <a id="m-clear"></a>Clear()
@@ -115,6 +116,18 @@ void Write(SyncWriter writer);
 ```
 
 Writes all rows.
+
+**Parameters**
+
+- `writer` ([`SyncWriter`](SyncWriter.md))
+
+### <a id="m-writehash-syncwriter"></a>WriteHash(SyncWriter)
+
+```csharp
+void WriteHash(SyncWriter writer);
+```
+
+Writes deterministic input to the world's drift hash. Defaults to the full encoded table; a table may instead write a hash covering all saved state. Must include settings that affect future ticks.
 
 **Parameters**
 

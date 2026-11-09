@@ -42,6 +42,7 @@ One entity, table or the random streams that differ between expected and actual 
 | --- | --- |
 | [`ActualHash`](#m-actualhash) |  |
 | [`Change`](#m-change) |  |
+| [`Detail`](#m-detail) | Optional table-specific named differences, for detailed drift and replay reports. |
 | [`EntityId`](#m-entityid) |  |
 | [`ExpectedHash`](#m-expectedhash) |  |
 | [`Kind`](#m-kind) |  |
@@ -63,6 +64,16 @@ public DifferenceChange Change { get; init; }
 ```
 
 **Type:** [`DifferenceChange`](DifferenceChange.md)
+
+### <a id="m-detail"></a>Detail
+
+```csharp
+public string? Detail { get; init; }
+```
+
+Optional table-specific named differences, for detailed drift and replay reports.
+
+**Type:** `string?`
 
 ### <a id="m-entityid"></a>EntityId
 

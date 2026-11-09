@@ -33,6 +33,7 @@ dotnet add package RecursiveAI.OneGame.Core
 | [`HotDataAttribute`](OneGame.Core/HotDataAttribute.md) | attribute | Marks a struct whose public fields become the columns of a generated struct-of-arrays table (`<Name>Table`) for hot sims. |
 | [`IEntropySource`](OneGame.Core/IEntropySource.md) | interface | A source of unpredictable bytes, for platforms that supply their own (the browser's `crypto.getRandomValues`, say). |
 | [`IHotTable`](OneGame.Core/IHotTable.md) | interface | A struct-of-arrays table the world snapshots and hashes. |
+| [`IHotTableDiagnostics`](OneGame.Core/IHotTableDiagnostics.md) | interface | Optional tooling diagnostics for a table whose binary state has named fields. |
 | [`ILerp<TSelf>`](OneGame.Core/ILerp-1.md) | interface | A value that can be blended between two of its kind; [`Timed<T>`](OneGame.Core/Timed-1.md) uses it to interpolate. |
 | [`ISimSystem`](OneGame.Core/ISimSystem.md) | interface | Sim logic that is not tied to one entity. |
 | [`ISyncValue<TSelf>`](OneGame.Core/ISyncValue-1.md) | interface | A value type with a binary codec. |

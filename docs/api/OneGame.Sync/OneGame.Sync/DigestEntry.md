@@ -37,10 +37,21 @@ One line of a [`StateDigest`](StateDigest.md).
 
 | Member | Description |
 | --- | --- |
+| [`DiagnosticSnapshot`](#m-diagnosticsnapshot) | Optional table snapshot retained only by explicitly detailed recordings. |
 | [`Hash`](#m-hash) | Hash of its state. |
 | [`Id`](#m-id) | The entity id (entities only). |
 | [`Kind`](#m-kind) | What it describes. |
 | [`Name`](#m-name) | The table name (tables only). |
+
+### <a id="m-diagnosticsnapshot"></a>DiagnosticSnapshot
+
+```csharp
+public byte[]? DiagnosticSnapshot { get; init; }
+```
+
+Optional table snapshot retained only by explicitly detailed recordings. Never sent in replica digests.
+
+**Type:** `byte[]?`
 
 ### <a id="m-hash"></a>Hash
 

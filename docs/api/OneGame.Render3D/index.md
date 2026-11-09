@@ -19,6 +19,9 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`BillboardBatch3D`](OneGame.Render3D/BillboardBatch3D.md) | class | Quads that always face the camera, drawn after the opaque and blended surfaces: particles, glows, lens spots, markers. |
 | [`BillboardTexture3D`](OneGame.Render3D/BillboardTexture3D.md) | class | An image for billboards, uploaded with its colours premultiplied by alpha in linear light. |
 | [`Camera3D`](OneGame.Render3D/Camera3D.md) | class | A camera. |
+| [`DebugDepth3D`](OneGame.Render3D/DebugDepth3D.md) | enum | Whether scene surfaces hide debug geometry. |
+| [`DebugDraw3D`](OneGame.Render3D/DebugDraw3D.md) | class | Reusable immediate-mode debug primitives. |
+| [`DebugSize3D`](OneGame.Render3D/DebugSize3D.md) | enum | How debug primitive widths and point sizes are measured. |
 | [`Environment3D`](OneGame.Render3D/Environment3D.md) | class | Image-based lighting and backdrop of a scene. |
 | [`EnvironmentMap`](OneGame.Render3D/EnvironmentMap.md) | class | An environment prepared for lighting: a GGX-prefiltered specular cube (roughness grows with the mip level, mip 0 is the sharp environment) and a cosine-convolved diffuse cube. |
 | [`FrameStats3D`](OneGame.Render3D/FrameStats3D.md) | struct | What one frame of 3D drew. |
@@ -66,6 +69,13 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`Cluster.CSMain`](OneGame.Render3D.Shaders/Cluster.CSMain.md) | static class |  |
 | [`Cluster.Frame`](OneGame.Render3D.Shaders/Cluster.Frame.md) | struct |  |
 | [`Cluster.LightData`](OneGame.Render3D.Shaders/Cluster.LightData.md) | struct |  |
+| [`Debug3D`](OneGame.Render3D.Shaders/Debug3D.md) | static class |  |
+| [`Debug3D.Bindings`](OneGame.Render3D.Shaders/Debug3D.Bindings.md) | static class |  |
+| [`Debug3D.Bindings.Frame`](OneGame.Render3D.Shaders/Debug3D.Bindings.Frame.md) | static class |  |
+| [`Debug3D.Frame`](OneGame.Render3D.Shaders/Debug3D.Frame.md) | struct |  |
+| [`Debug3D.PSDebug`](OneGame.Render3D.Shaders/Debug3D.PSDebug.md) | static class |  |
+| [`Debug3D.VSDebug`](OneGame.Render3D.Shaders/Debug3D.VSDebug.md) | static class |  |
+| [`Debug3D.VSDebug.Vertex`](OneGame.Render3D.Shaders/Debug3D.VSDebug.Vertex.md) | struct |  |
 | [`EnvBrdf`](OneGame.Render3D.Shaders/EnvBrdf.md) | static class |  |
 | [`EnvBrdf.Bindings`](OneGame.Render3D.Shaders/EnvBrdf.Bindings.md) | static class |  |
 | [`EnvBrdf.Bindings.Out`](OneGame.Render3D.Shaders/EnvBrdf.Bindings.Out.md) | static class |  |

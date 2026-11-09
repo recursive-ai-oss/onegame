@@ -76,17 +76,17 @@ The whole-world hash at that tick ([`World.ComputeHash()`](../../OneGame.Core/On
 
 | Member | Description |
 | --- | --- |
-| [`Capture(World, StateDigest, SyncWriter, int)`](#m-capture-world-statedigest-syncwriter-int) | Captures `world` into `into`, replacing its content. |
+| [`Capture(World, StateDigest, SyncWriter, int, bool)`](#m-capture-world-statedigest-syncwriter-int-bool) | Captures `world` into `into`, replacing its content. |
 | [`CaptureView(World, StateDigest, SyncWriter, int, Audience?, bool)`](#m-captureview-world-statedigest-syncwriter-int-audience-bool) | Captures what a subscriber holds of `world`, hashed the way [`World.ComputeViewHash()`](../../OneGame.Core/OneGame.Core/World.md#m-computeviewhash) and [`World.ComputeAudienceHash()`](../../OneGame.Core/OneGame.Core/World.md#m-computeaudiencehash-audience-bool) do: hidden tables and invisible entities are left out, filtered entities hash by their visible properties, and the random streams are listed only when `includeRandom`. |
 | [`CopyFrom(StateDigest)`](#m-copyfrom-statedigest) | Copies another digest into this one. |
 | [`Diff(StateDigest, StateDigest, World?, World?, List<StateDifference>)`](#m-diff-statedigest-statedigest-world-world-list-statedifference) | Lists what differs between two digests. |
-| [`Read(ref SyncReader)`](#m-read-syncreader) | Reads a digest from untrusted bytes. |
-| [`Write(SyncWriter)`](#m-write-syncwriter) | Writes the digest. |
+| [`Read(ref SyncReader, bool)`](#m-read-syncreader-bool) | Reads a digest from untrusted bytes. |
+| [`Write(SyncWriter, bool)`](#m-write-syncwriter-bool) | Writes the digest. |
 
-### <a id="m-capture-world-statedigest-syncwriter-int"></a>Capture(World, StateDigest, SyncWriter, int)
+### <a id="m-capture-world-statedigest-syncwriter-int-bool"></a>Capture(World, StateDigest, SyncWriter, int, bool)
 
 ```csharp
-public static void Capture(World world, StateDigest into, SyncWriter scratch, int entityLimit = 2147483647);
+public static void Capture(World world, StateDigest into, SyncWriter scratch, int entityLimit = 2147483647, bool captureTableDiagnostics = false);
 ```
 
 Captures `world` into `into`, replacing its content.
@@ -97,6 +97,7 @@ Captures `world` into `into`, replacing its content.
 - `into` ([`StateDigest`](StateDigest.md)): The digest to fill.
 - `scratch` ([`SyncWriter`](../../OneGame.Core/OneGame.Core/SyncWriter.md)): A writer to use for serializing parts.
 - `entityLimit` (`int`): Entities beyond this count are not listed.
+- `captureTableDiagnostics` (`bool`): Capture optional named table state for recording checkpoints; may allocate.
 
 ### <a id="m-captureview-world-statedigest-syncwriter-int-audience-bool"></a>CaptureView(World, StateDigest, SyncWriter, int, Audience?, bool)
 
@@ -143,10 +144,10 @@ Lists what differs between two digests. Entity type names are looked up in `expe
 - `actualWorld` ([`World`](../../OneGame.Core/OneGame.Core/World.md)?)
 - `output` ([`List`](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)&lt;[`StateDifference`](StateDifference.md)&gt;)
 
-### <a id="m-read-syncreader"></a>Read(ref SyncReader)
+### <a id="m-read-syncreader-bool"></a>Read(ref SyncReader, bool)
 
 ```csharp
-public void Read(ref SyncReader r);
+public void Read(ref SyncReader r, bool includeTableDiagnostics = false);
 ```
 
 Reads a digest from untrusted bytes. On error the reader holds the reason and the digest is left empty.
@@ -154,11 +155,12 @@ Reads a digest from untrusted bytes. On error the reader holds the reason and th
 **Parameters**
 
 - `r` ([`SyncReader`](../../OneGame.Core/OneGame.Core/SyncReader.md))
+- `includeTableDiagnostics` (`bool`)
 
-### <a id="m-write-syncwriter"></a>Write(SyncWriter)
+### <a id="m-write-syncwriter-bool"></a>Write(SyncWriter, bool)
 
 ```csharp
-public void Write(SyncWriter w);
+public void Write(SyncWriter w, bool includeTableDiagnostics = false);
 ```
 
 Writes the digest.
@@ -166,3 +168,4 @@ Writes the digest.
 **Parameters**
 
 - `w` ([`SyncWriter`](../../OneGame.Core/OneGame.Core/SyncWriter.md))
+- `includeTableDiagnostics` (`bool`)

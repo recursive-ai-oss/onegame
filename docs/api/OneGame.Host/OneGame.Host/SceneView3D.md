@@ -36,6 +36,7 @@ Creates a view over a model library.
 | --- | --- |
 | [`Camera`](#m-camera) | The camera in use as of the last [`SceneView3D.Prepare()`](SceneView3D.md#m-prepare-world-long-fixed): the override, else the entity camera with the highest priority, else [`SceneView3D.DefaultCamera`](SceneView3D.md#m-defaultcamera). |
 | [`CameraOverride`](#m-cameraoverride) | A camera that replaces the one the entities describe, for tools: the `camera` operation sets it. |
+| [`DebugVisible`](#m-debugvisible) | Whether view helpers emit debug geometry. |
 | [`DefaultCamera`](#m-defaultcamera) | The camera used when no entity offers one: back and up from the origin, looking at it. |
 | [`Describer`](#m-describer) | Describes the scene from the world as a whole, after the [`IView3D`](IView3D.md) entities have been asked. |
 | [`Models`](#m-models) | The models entities can show. |
@@ -60,6 +61,16 @@ public ViewCamera? CameraOverride { get; set; }
 A camera that replaces the one the entities describe, for tools: the `camera` operation sets it. It is a view setting, not simulation state, and recordings do not hold it. Null follows the entities again.
 
 **Type:** [`ViewCamera`](ViewCamera.md)?
+
+### <a id="m-debugvisible"></a>DebugVisible
+
+```csharp
+public bool DebugVisible { get; set; }
+```
+
+Whether view helpers emit debug geometry. Controlled by the debug overlay; off by default.
+
+**Type:** `bool`
 
 ### <a id="m-defaultcamera"></a>DefaultCamera
 
