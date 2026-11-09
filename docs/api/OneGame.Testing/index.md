@@ -46,7 +46,7 @@ dotnet add package RecursiveAI.OneGame.Testing
 | [`ScenarioParser`](OneGame.Testing/ScenarioParser.md) | static class | Reads scenario files. |
 | [`ScenarioResult`](OneGame.Testing/ScenarioResult.md) | record | Outcome of a scenario. |
 | [`ScenarioRunOptions`](OneGame.Testing/ScenarioRunOptions.md) | record | Settings for running scenarios. |
-| [`ScenarioRunner`](OneGame.Testing/ScenarioRunner.md) | class | Runs scenarios against a game through the control layer, the same operations an agent calls over MCP. |
+| [`ScenarioRunner`](OneGame.Testing/ScenarioRunner.md) | class | Runs scenarios against a game through the control layer, the same operations exposed over MCP. |
 | [`ScenarioStep`](OneGame.Testing/ScenarioStep.md) | record | One step of a scenario. |
 | [`ScopeSpec`](OneGame.Testing/ScopeSpec.md) | record | A scope a server node hosts. |
 | [`ServerTestClient`](OneGame.Testing/ServerTestClient.md) | class | A client of a [`TestServer`](OneGame.Testing/TestServer.md): a node holding a replica of one scope. |

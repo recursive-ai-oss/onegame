@@ -10,7 +10,7 @@
 public sealed class AudioOutput : IDisposable
 ```
 
-The real-time side of audio: a thread pulls frames from an [`IAudioRenderSource`](IAudioRenderSource.md), limits them and writes them to an [`IAudioSink`](IAudioSink.md). After construction the thread allocates nothing, takes no lock shared with the game thread and lets no exception out. A lost device drops to a silent, real-time-paced mode and is reopened at the same format when it comes back.
+The real-time side of audio: a thread pulls frames from an [`IAudioRenderSource`](IAudioRenderSource.md), limits them and writes them to an [`IAudioSink`](IAudioSink.md). After construction the thread allocates nothing and lets no exception out. A service may serialize the source while handing its timeline to a manual recording. A lost device drops to a silent, real-time-paced mode and is reopened at the same format when it comes back.
 
 ## Properties
 

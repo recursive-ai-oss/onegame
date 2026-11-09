@@ -16,6 +16,7 @@ What an entity's [`IView3D.Describe3D()`](IView3D.md#m-describe3d-scenewriter) w
 | Member | Description |
 | --- | --- |
 | [`Alpha`](#m-alpha) | How far past [`SceneWriter.Tick`](SceneWriter.md#m-tick) the frame is, from 0 to just under 1: pass both to `Timed<T>.ValueAt(tick, alpha)` to move smoothly between ticks. |
+| [`DebugVisible`](#m-debugvisible) | Whether the view is collecting debug geometry this frame. |
 | [`DeltaTime`](#m-deltatime) | View time since the previous prepared frame, in seconds; zero when the same moment is described again or time went backwards. |
 | [`Entity`](#m-entity) | The entity being described. |
 | [`ParticleEmitters`](#m-particleemitters) | The emitters handed to `Particles` in the last prepared frame, in call order. |
@@ -31,6 +32,16 @@ public Fixed Alpha { get; }
 How far past [`SceneWriter.Tick`](SceneWriter.md#m-tick) the frame is, from 0 to just under 1: pass both to `Timed<T>.ValueAt(tick, alpha)` to move smoothly between ticks.
 
 **Type:** [`Fixed`](../../OneGame.Core/OneGame.Core/Fixed.md)
+
+### <a id="m-debugvisible"></a>DebugVisible
+
+```csharp
+public bool DebugVisible { get; }
+```
+
+Whether the view is collecting debug geometry this frame.
+
+**Type:** `bool`
 
 ### <a id="m-deltatime"></a>DeltaTime
 
@@ -88,6 +99,12 @@ View time in seconds: the shown tick and fraction at the simulation's rate. Part
 | --- | --- |
 | [`Camera(in Matrix4x4, float, int, float, float)`](#m-camera-matrix4x4-float-int-float-float) | Offers a camera placed by a rigid camera-to-world matrix (it looks down its -Z). |
 | [`Camera(Transform3, float, int, float, float, float)`](#m-camera-transform3-float-int-float-float-float) | Offers a camera. |
+| [`DebugArrow(FVec3, FVec3, Vector4, float, DebugSize3D, DebugDepth3D)`](#m-debugarrow-fvec3-fvec3-vector4-float-debugsize3d-debugdepth3d) | Adds a debug arrow at fixed-point positions when debug drawing is enabled. |
+| [`DebugArrow(Vector3, Vector3, Vector4, float, DebugSize3D, DebugDepth3D)`](#m-debugarrow-vector3-vector3-vector4-float-debugsize3d-debugdepth3d) | Adds a debug arrow when debug drawing is enabled. |
+| [`DebugLine(FVec3, FVec3, Vector4, float, DebugSize3D, DebugDepth3D)`](#m-debugline-fvec3-fvec3-vector4-float-debugsize3d-debugdepth3d) | Adds a debug line at fixed-point positions when debug drawing is enabled. |
+| [`DebugLine(Vector3, Vector3, Vector4, float, DebugSize3D, DebugDepth3D)`](#m-debugline-vector3-vector3-vector4-float-debugsize3d-debugdepth3d) | Adds a debug line when debug drawing is enabled. |
+| [`DebugPoint(FVec3, Vector4, float, DebugSize3D, DebugDepth3D)`](#m-debugpoint-fvec3-vector4-float-debugsize3d-debugdepth3d) | Adds a debug point at fixed-point positions when debug drawing is enabled. |
+| [`DebugPoint(Vector3, Vector4, float, DebugSize3D, DebugDepth3D)`](#m-debugpoint-vector3-vector4-float-debugsize3d-debugdepth3d) | Adds a debug point when debug drawing is enabled. |
 | [`DirectionalLight(Transform3, Vector3, float)`](#m-directionallight-transform3-vector3-float) | A light that shines along the transform's forward direction, as from infinitely far away. |
 | [`DirectionalLight(Vector3, Vector3, float, bool)`](#m-directionallight-vector3-vector3-float-bool) | A light from infinitely far away. |
 | [`Instance(string, Transform3, Vector4?)`](#m-instance-string-transform3-vector4) | Shows one copy of a static model among many: every copy of the same model in a frame is drawn with one instanced draw per primitive and culled against the camera and the shadow maps, so thousands of trees or rocks are cheap. |
@@ -135,6 +152,106 @@ Offers a camera. The frame uses the offered camera with the highest `priority` (
 - `near` (`float`): Near plane distance.
 - `far` (`float`): Far plane distance.
 - `orthoHeight` (`float`): Greater than zero for an orthographic camera that shows this much world height.
+
+### <a id="m-debugarrow-fvec3-fvec3-vector4-float-debugsize3d-debugdepth3d"></a>DebugArrow(FVec3, FVec3, Vector4, float, DebugSize3D, DebugDepth3D)
+
+```csharp
+public void DebugArrow(FVec3 from, FVec3 to, Vector4 color, float width = 1f, DebugSize3D units = 0, DebugDepth3D mode = 0);
+```
+
+Adds a debug arrow at fixed-point positions when debug drawing is enabled.
+
+**Parameters**
+
+- `from` ([`FVec3`](../../OneGame.Core/OneGame.Core/FVec3.md))
+- `to` ([`FVec3`](../../OneGame.Core/OneGame.Core/FVec3.md))
+- `color` ([`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4))
+- `width` (`float`)
+- `units` ([`DebugSize3D`](../../OneGame.Render3D/OneGame.Render3D/DebugSize3D.md))
+- `mode` ([`DebugDepth3D`](../../OneGame.Render3D/OneGame.Render3D/DebugDepth3D.md))
+
+### <a id="m-debugarrow-vector3-vector3-vector4-float-debugsize3d-debugdepth3d"></a>DebugArrow(Vector3, Vector3, Vector4, float, DebugSize3D, DebugDepth3D)
+
+```csharp
+public void DebugArrow(Vector3 from, Vector3 to, Vector4 color, float width = 1f, DebugSize3D units = 0, DebugDepth3D mode = 0);
+```
+
+Adds a debug arrow when debug drawing is enabled. Colour is linear straight-alpha; size is in the chosen units.
+
+**Parameters**
+
+- `from` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
+- `to` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
+- `color` ([`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4))
+- `width` (`float`)
+- `units` ([`DebugSize3D`](../../OneGame.Render3D/OneGame.Render3D/DebugSize3D.md))
+- `mode` ([`DebugDepth3D`](../../OneGame.Render3D/OneGame.Render3D/DebugDepth3D.md))
+
+### <a id="m-debugline-fvec3-fvec3-vector4-float-debugsize3d-debugdepth3d"></a>DebugLine(FVec3, FVec3, Vector4, float, DebugSize3D, DebugDepth3D)
+
+```csharp
+public void DebugLine(FVec3 from, FVec3 to, Vector4 color, float width = 1f, DebugSize3D units = 0, DebugDepth3D mode = 0);
+```
+
+Adds a debug line at fixed-point positions when debug drawing is enabled.
+
+**Parameters**
+
+- `from` ([`FVec3`](../../OneGame.Core/OneGame.Core/FVec3.md))
+- `to` ([`FVec3`](../../OneGame.Core/OneGame.Core/FVec3.md))
+- `color` ([`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4))
+- `width` (`float`)
+- `units` ([`DebugSize3D`](../../OneGame.Render3D/OneGame.Render3D/DebugSize3D.md))
+- `mode` ([`DebugDepth3D`](../../OneGame.Render3D/OneGame.Render3D/DebugDepth3D.md))
+
+### <a id="m-debugline-vector3-vector3-vector4-float-debugsize3d-debugdepth3d"></a>DebugLine(Vector3, Vector3, Vector4, float, DebugSize3D, DebugDepth3D)
+
+```csharp
+public void DebugLine(Vector3 from, Vector3 to, Vector4 color, float width = 1f, DebugSize3D units = 0, DebugDepth3D mode = 0);
+```
+
+Adds a debug line when debug drawing is enabled. Colour is linear straight-alpha; size is in the chosen units.
+
+**Parameters**
+
+- `from` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
+- `to` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
+- `color` ([`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4))
+- `width` (`float`)
+- `units` ([`DebugSize3D`](../../OneGame.Render3D/OneGame.Render3D/DebugSize3D.md))
+- `mode` ([`DebugDepth3D`](../../OneGame.Render3D/OneGame.Render3D/DebugDepth3D.md))
+
+### <a id="m-debugpoint-fvec3-vector4-float-debugsize3d-debugdepth3d"></a>DebugPoint(FVec3, Vector4, float, DebugSize3D, DebugDepth3D)
+
+```csharp
+public void DebugPoint(FVec3 position, Vector4 color, float size = 4f, DebugSize3D units = 0, DebugDepth3D mode = 0);
+```
+
+Adds a debug point at fixed-point positions when debug drawing is enabled.
+
+**Parameters**
+
+- `position` ([`FVec3`](../../OneGame.Core/OneGame.Core/FVec3.md))
+- `color` ([`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4))
+- `size` (`float`)
+- `units` ([`DebugSize3D`](../../OneGame.Render3D/OneGame.Render3D/DebugSize3D.md))
+- `mode` ([`DebugDepth3D`](../../OneGame.Render3D/OneGame.Render3D/DebugDepth3D.md))
+
+### <a id="m-debugpoint-vector3-vector4-float-debugsize3d-debugdepth3d"></a>DebugPoint(Vector3, Vector4, float, DebugSize3D, DebugDepth3D)
+
+```csharp
+public void DebugPoint(Vector3 position, Vector4 color, float size = 4f, DebugSize3D units = 0, DebugDepth3D mode = 0);
+```
+
+Adds a debug point when debug drawing is enabled. Colour is linear straight-alpha; size is in the chosen units.
+
+**Parameters**
+
+- `position` ([`Vector3`](https://learn.microsoft.com/dotnet/api/system.numerics.vector3))
+- `color` ([`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4))
+- `size` (`float`)
+- `units` ([`DebugSize3D`](../../OneGame.Render3D/OneGame.Render3D/DebugSize3D.md))
+- `mode` ([`DebugDepth3D`](../../OneGame.Render3D/OneGame.Render3D/DebugDepth3D.md))
 
 ### <a id="m-directionallight-transform3-vector3-float"></a>DirectionalLight(Transform3, Vector3, float)
 

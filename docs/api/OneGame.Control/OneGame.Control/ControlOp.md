@@ -29,7 +29,7 @@ One operation of the control layer: the name every face uses, what it does, and 
 **Parameters**
 
 - `Name` (`string`): The operation name, also the MCP tool name.
-- `Description` (`string`): What it does, for an agent that reads the tool list.
+- `Description` (`string`): What it does, for a client reading the tool list.
 - `InputSchema` (`string`): JSON schema of the arguments object.
 - `ChangesState` (`bool`): True when the operation can change the simulation (as opposed to only reading it).
 
@@ -38,7 +38,7 @@ One operation of the control layer: the name every face uses, what it does, and 
 | Member | Description |
 | --- | --- |
 | [`ChangesState`](#m-changesstate) | True when the operation can change the simulation (as opposed to only reading it). |
-| [`Description`](#m-description) | What it does, for an agent that reads the tool list. |
+| [`Description`](#m-description) | What it does, for a client reading the tool list. |
 | [`InputSchema`](#m-inputschema) | JSON schema of the arguments object. |
 | [`Name`](#m-name) | The operation name, also the MCP tool name. |
 
@@ -58,7 +58,7 @@ True when the operation can change the simulation (as opposed to only reading it
 public string Description { get; init; }
 ```
 
-What it does, for an agent that reads the tool list.
+What it does, for a client reading the tool list.
 
 **Type:** `string`
 

@@ -48,7 +48,7 @@ Creates a control surface over a game.
 | --- | --- |
 | [`Audio`](#m-audio) | The game's audio, for the `audio` operations. |
 | [`Game`](#m-game) | The controlled game. |
-| [`Instructions`](#m-instructions) | A sentence or two for an agent that connects: where to start and what changes state. |
+| [`Instructions`](#m-instructions) | A sentence or two for a connecting client: where to start and what changes state. |
 | [`Operations`](#m-operations) | The operations, each of which is an MCP tool. |
 | [`OutputDirectory`](#m-outputdirectory) | The folder operations may write to and read from. |
 | [`Overlay`](#m-overlay) | The debug panel of this game. |
@@ -80,7 +80,7 @@ The controlled game.
 public string Instructions { get; }
 ```
 
-A sentence or two for an agent that connects: where to start and what changes state.
+A sentence or two for a connecting client: where to start and what changes state.
 
 **Type:** `string`
 

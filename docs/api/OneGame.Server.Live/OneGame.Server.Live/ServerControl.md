@@ -34,7 +34,7 @@ Creates the control surface for a server.
 
 | Member | Description |
 | --- | --- |
-| [`Instructions`](#m-instructions) | A sentence or two for an agent that connects: where to start and what changes state. |
+| [`Instructions`](#m-instructions) | A sentence or two for a connecting client: where to start and what changes state. |
 | [`Operations`](#m-operations) | The operations, each of which is an MCP tool. |
 
 ### <a id="m-instructions"></a>Instructions
@@ -43,7 +43,7 @@ Creates the control surface for a server.
 public string Instructions { get; }
 ```
 
-A sentence or two for an agent that connects: where to start and what changes state.
+A sentence or two for a connecting client: where to start and what changes state.
 
 **Type:** `string`
 

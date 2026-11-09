@@ -30,6 +30,7 @@ dotnet add package RecursiveAI.OneGame.Audio
 | [`AudioOutput`](OneGame.Audio/AudioOutput.md) | class | The real-time side of audio: a thread pulls frames from an [`IAudioRenderSource`](OneGame.Audio/IAudioRenderSource.md), limits them and writes them to an [`IAudioSink`](OneGame.Audio/IAudioSink.md). |
 | [`AudioOutputStatus`](OneGame.Audio/AudioOutputStatus.md) | enum | Where an [`AudioOutput`](OneGame.Audio/AudioOutput.md) is in its life. |
 | [`AudioService`](OneGame.Audio/AudioService.md) | class | The game-facing audio service: load clips, play sounds and music on buses, set volumes, crossfade, and pump events. |
+| [`AudioService.MixCapture`](OneGame.Audio/AudioService.MixCapture.md) | class | An exclusive, manually stepped recording of an audio service. |
 | [`AudioServiceOptions`](OneGame.Audio/AudioServiceOptions.md) | record | Settings for [`AudioService.Create()`](OneGame.Audio/AudioService.md#m-create-audioserviceoptions). |
 | [`AudioSessionCategory`](OneGame.Audio/AudioSessionCategory.md) | enum | How an iOS app's audio relates to other apps' audio and the ring/silent switch (AVAudioSession categories). |
 | [`AudioSinkReport`](OneGame.Audio/AudioSinkReport.md) | struct | What a sink can say about the device behind it, measured on the device's side of the hand-over. |

@@ -25,6 +25,12 @@ audio.SetBusVolume(AudioBus.Music, 0.6f);                          // a settings
 audio.PlayMusic(File.OpenRead("data/theme.ogg"), new MusicOptions { CrossfadeSeconds = 1.5 });
 ```
 
+## Nested types
+
+| Type | Description |
+| --- | --- |
+| [`AudioService.MixCapture`](AudioService.MixCapture.md) | An exclusive, manually stepped recording of an audio service. |
+
 ## Properties
 
 | Member | Description |
@@ -194,6 +200,7 @@ Raised from [`AudioService.Update()`](AudioService.md#m-update) for each event t
 | Member | Description |
 | --- | --- |
 | [`Advance(int)`](#m-advance-int) | Capture mode only: feeds streams, then renders exactly `frames` frames into [`AudioService.Capture`](AudioService.md#m-capture). |
+| [`BeginMixCapture()`](#m-beginmixcapture) | Takes exclusive control of the mixer timeline until disposed. |
 | [`ClearBusFilter(AudioBus, AudioFilterKind, double)`](#m-clearbusfilter-audiobus-audiofilterkind-double) | Turns a bus filter off. |
 | [`ClearBusReverb(AudioBus)`](#m-clearbusreverb-audiobus) | Removes a bus's reverb. |
 | [`ClearDucking(AudioBus)`](#m-clearducking-audiobus) | Removes the ducking of a bus. |
@@ -247,6 +254,20 @@ Capture mode only: feeds streams, then renders exactly `frames` frames into [`Au
 **Exceptions**
 
 - [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): The service is not in capture mode.
+
+### <a id="m-beginmixcapture"></a>BeginMixCapture()
+
+```csharp
+public AudioService.MixCapture BeginMixCapture();
+```
+
+Takes exclusive control of the mixer timeline until disposed. The device receives silence while the caller renders exact sample counts, including in a live game. Existing voices continue from their current positions.
+
+**Returns:** `AudioService.`[`MixCapture`](AudioService.MixCapture.md) — A manual recording of the mixed output, after output limiting.
+
+**Exceptions**
+
+- [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): A recording is already active.
 
 ### <a id="m-clearbusfilter-audiobus-audiofilterkind-double"></a>ClearBusFilter(AudioBus, AudioFilterKind, double)
 

@@ -9,7 +9,7 @@
 public sealed class ScenarioRunner
 ```
 
-Runs scenarios against a game through the control layer, the same operations an agent calls over MCP.
+Runs scenarios against a game through the control layer, the same operations exposed over MCP.
 
 ## Constructors
 
@@ -34,7 +34,7 @@ Creates a runner for a control surface.
 
 | Member | Description |
 | --- | --- |
-| [`Run(Scenario)`](#m-run-scenario) | Runs one scenario. |
+| [`Run(Scenario)`](#m-run-scenario) | Runs one scenario, first calling [`GameDefinition.OnScenarioStarting()`](../../OneGame.Host/OneGame.Host/GameDefinition.md#m-onscenariostarting-gameinstance) and rebuilding the current screen. |
 | [`RunAsync(Scenario)`](#m-runasync-scenario) | Runs one scenario like [`ScenarioRunner.Run()`](ScenarioRunner.md#m-run-scenario). |
 
 ### <a id="m-run-scenario"></a>Run(Scenario)
@@ -43,7 +43,7 @@ Creates a runner for a control surface.
 public ScenarioResult Run(Scenario scenario);
 ```
 
-Runs one scenario. Steps stop at the first failure; expectations are checked only when every step ran.
+Runs one scenario, first calling [`GameDefinition.OnScenarioStarting()`](../../OneGame.Host/OneGame.Host/GameDefinition.md#m-onscenariostarting-gameinstance) and rebuilding the current screen. Steps stop at the first failure; expectations are checked only when every step ran.
 
 **Parameters**
 

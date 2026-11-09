@@ -111,6 +111,7 @@ The game's version text, recorded in each save slot's description (for a load sc
 | [`OnEachFrame(GameInstance)`](#m-oneachframe-gameinstance) | Called at the start of every frame of every game, local or connected, right after pending input was handled. |
 | [`OnFrame(GameInstance)`](#m-onframe-gameinstance) | Called once per frame of a game connected to a server, after the network was pumped and before the UI updates. |
 | [`OnInput(GameInstance, in PlatformEvent)`](#m-oninput-gameinstance-platformevent) | Called for an input event the UI did not consume, such as a click on empty space or a gameplay key. |
+| [`OnScenarioStarting(GameInstance)`](#m-onscenariostarting-gameinstance) | Called before each scenario, before its seed, fixture, snapshot, screen or steps are applied. |
 | [`RegisterEntities(EntityRegistry)`](#m-registerentities-entityregistry) | Registers every entity type, normally with the generated `EntityTypes.Register(registry)` of the game's assembly. |
 | [`RegisterSystems(World)`](#m-registersystems-world) | Adds systems and hot-data tables to a new world. |
 | [`Setup(World)`](#m-setup-world) | Creates the starting entities of a new game. |
@@ -250,6 +251,18 @@ Called for an input event the UI did not consume, such as a click on empty space
 
 - `game` ([`GameInstance`](GameInstance.md)): The running game.
 - `input` ([`PlatformEvent`](../../OneGame.Platform/OneGame.Platform/PlatformEvent.md)): The event: a key, pointer, touch or gamepad change in screen pixels.
+
+### <a id="m-onscenariostarting-gameinstance"></a>OnScenarioStarting(GameInstance)
+
+```csharp
+public virtual void OnScenarioStarting(GameInstance game);
+```
+
+Called before each scenario, before its seed, fixture, snapshot, screen or steps are applied. Restore view-only defaults here: settings, selection, animation clocks and any other state held outside the world. The default does nothing. The harness reuses the game and its graphics resources; it cannot reset fields owned by the game. This hook is not called by an in-scenario reset.
+
+**Parameters**
+
+- `game` ([`GameInstance`](GameInstance.md)): The running game whose view state should be reset. Do not advance or change synced state here.
 
 ### <a id="m-registerentities-entityregistry"></a>RegisterEntities(EntityRegistry)
 

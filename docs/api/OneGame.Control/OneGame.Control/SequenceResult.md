@@ -10,21 +10,21 @@
 public sealed record SequenceResult : IEquatable<SequenceResult>
 ```
 
-Result of `capture_sequence`: a folder of numbered PNGs and a manifest.
+Result of `capture_sequence`: numbered PNGs, a manifest, mixed WAV audio and optional video.
 
 ## Constructors
 
 | Member | Description |
 | --- | --- |
-| [`SequenceResult(string, string, int, int, int, int)`](#m-ctor-string-string-int-int-int-int) | Result of `capture_sequence`: a folder of numbered PNGs and a manifest. |
+| [`SequenceResult(string, string, int, int, int, int, string?, string?, string?)`](#m-ctor-string-string-int-int-int-int-string-string-string) | Result of `capture_sequence`: numbered PNGs, a manifest, mixed WAV audio and optional video. |
 
-### <a id="m-ctor-string-string-int-int-int-int"></a>SequenceResult(string, string, int, int, int, int)
+### <a id="m-ctor-string-string-int-int-int-int-string-string-string"></a>SequenceResult(string, string, int, int, int, int, string?, string?, string?)
 
 ```csharp
-public SequenceResult(string Directory, string Manifest, int Frames, int Width, int Height, int Fps);
+public SequenceResult(string Directory, string Manifest, int Frames, int Width, int Height, int Fps, string? Wav = null, string? Mp4 = null, string? Mp4SkipReason = null);
 ```
 
-Result of `capture_sequence`: a folder of numbered PNGs and a manifest.
+Result of `capture_sequence`: numbered PNGs, a manifest, mixed WAV audio and optional video.
 
 **Parameters**
 
@@ -34,6 +34,9 @@ Result of `capture_sequence`: a folder of numbered PNGs and a manifest.
 - `Width` (`int`): Pixel width of each frame.
 - `Height` (`int`): Pixel height of each frame.
 - `Fps` (`int`): Playback frames per second.
+- `Wav` (`string?`): Path of the mixed audio, including silence.
+- `Mp4` (`string?`): Path of the muxed video, or null when skipped.
+- `Mp4SkipReason` (`string?`): Why no video was produced, or null on success.
 
 ## Properties
 
@@ -44,6 +47,9 @@ Result of `capture_sequence`: a folder of numbered PNGs and a manifest.
 | [`Frames`](#m-frames) | How many frames were captured. |
 | [`Height`](#m-height) | Pixel height of each frame. |
 | [`Manifest`](#m-manifest) | The manifest file's path. |
+| [`Mp4`](#m-mp4) | Path of the muxed video, or null when skipped. |
+| [`Mp4SkipReason`](#m-mp4skipreason) | Why no video was produced, or null on success. |
+| [`Wav`](#m-wav) | Path of the mixed audio, including silence. |
 | [`Width`](#m-width) | Pixel width of each frame. |
 
 ### <a id="m-directory"></a>Directory
@@ -95,6 +101,36 @@ public string Manifest { get; init; }
 The manifest file's path.
 
 **Type:** `string`
+
+### <a id="m-mp4"></a>Mp4
+
+```csharp
+public string? Mp4 { get; init; }
+```
+
+Path of the muxed video, or null when skipped.
+
+**Type:** `string?`
+
+### <a id="m-mp4skipreason"></a>Mp4SkipReason
+
+```csharp
+public string? Mp4SkipReason { get; init; }
+```
+
+Why no video was produced, or null on success.
+
+**Type:** `string?`
+
+### <a id="m-wav"></a>Wav
+
+```csharp
+public string? Wav { get; init; }
+```
+
+Path of the mixed audio, including silence.
+
+**Type:** `string?`
 
 ### <a id="m-width"></a>Width
 

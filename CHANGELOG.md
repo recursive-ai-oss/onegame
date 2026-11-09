@@ -2,10 +2,13 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
-## [Unreleased]
+## [1.16.0] - 2026-11-08
+
+Recorded clips get their sound, scenario checks see hidden ancestors, scenarios can reset view-side state, and 3D views can draw debug lines, points and arrows. `RecursiveAI.OneGame.Physics` ships as 1.16.0-preview.1.
 
 ### Added
 
+- 3D debug drawing: `SceneWriter.DebugLine`, `DebugPoint` and `DebugArrow` (and `Scene3D.Debug`, a `DebugDraw3D`) draw instanced lines, points and arrows sized in pixels or world units, depth-tested or on top of the scene; `SceneWriter` collects them only while debug drawing is on (`DebugVisible`).
 - `capture_sequence` records sample-aligned mixed WAV audio alongside its unchanged PNG frames and manifest. When ffmpeg is on PATH it also produces an MP4 with sound; otherwise the reply explains why video was skipped.
 
 ### Fixed
@@ -14,6 +17,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Changed
 
+- The build requires .NET SDK 10.0.403 (runtime 10.0.14), whose NativeAOT compiler has the fix for CVE-2026-111497; older SDKs fail NativeAOT publishes with a NuGet audit error.
 - Scenario runs call `GameDefinition.OnScenarioStarting(game)` before setup and rebuild the current screen afterwards. Games can restore view-side defaults in this hook without recreating graphics resources between scenarios; an in-scenario world reset does not call it.
 
 ## [1.15.2] - 2026-10-29

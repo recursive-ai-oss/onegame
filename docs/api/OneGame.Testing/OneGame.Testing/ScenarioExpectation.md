@@ -78,7 +78,7 @@ A check on the game's state. Unset fields are not checked.
 | [`Text`](#m-text) | The first match's text (ui). |
 | [`Tolerance`](#m-tolerance) | Per-channel difference (0-255) a pixel may have and still count as equal. |
 | [`UpAction`](#m-upaction) | A digital action that must not be down on any controller (steam-input). |
-| [`Visible`](#m-visible) | The first match is visible or hidden (ui). |
+| [`Visible`](#m-visible) | The first match and all its ancestors are shown, or at least one is hidden (ui). |
 | [`WithinMs`](#m-withinms) | Cluster state expectations: keep checking for up to this many milliseconds before failing, since a command takes real time to reach the server. |
 
 ### <a id="m-actionheld"></a>ActionHeld
@@ -513,7 +513,7 @@ A digital action that must not be down on any controller (steam-input).
 public bool? Visible { get; init; }
 ```
 
-The first match is visible or hidden (ui).
+The first match and all its ancestors are shown, or at least one is hidden (ui).
 
 **Type:** `bool?`
 

@@ -55,7 +55,7 @@ dotnet add package RecursiveAI.OneGame.Control
 | [`SendResult`](OneGame.Control/SendResult.md) | record | Result of `command_send`: `Queued` means it runs on the next tick. |
 | [`SequenceFrame`](OneGame.Control/SequenceFrame.md) | record | One frame of a captured sequence. |
 | [`SequenceManifest`](OneGame.Control/SequenceManifest.md) | record | The manifest of a captured sequence (also written to `manifest.json` beside the frames). |
-| [`SequenceResult`](OneGame.Control/SequenceResult.md) | record | Result of `capture_sequence`: a folder of numbered PNGs and a manifest. |
+| [`SequenceResult`](OneGame.Control/SequenceResult.md) | record | Result of `capture_sequence`: numbered PNGs, a manifest, mixed WAV audio and optional video. |
 | [`SettingsEntry`](OneGame.Control/SettingsEntry.md) | record | One settings file in the `saves` report. |
 | [`ShaderProblem`](OneGame.Control/ShaderProblem.md) | record | One diagnostic of a failed shader compile. |
 | [`ShaderReloader`](OneGame.Control/ShaderReloader.md) | class | Development-build shader hot reload. |

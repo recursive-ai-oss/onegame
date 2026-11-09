@@ -44,6 +44,7 @@ Creates an element. `kind` is what type selectors match; layout and painting do 
 | [`Id`](#m-id) | The id selectors and the harness find the element by; null for none. |
 | [`IntrinsicSize`](#m-intrinsicsize) | Natural size of the content for leaf elements such as images; layout uses it when no width or height is set. |
 | [`IsEffectivelyEnabled`](#m-iseffectivelyenabled) | True when the element and all its ancestors are enabled. |
+| [`IsEffectivelyVisible`](#m-iseffectivelyvisible) | True when this element and every ancestor are shown: their visible flags are true and their computed styles are neither `display: none` nor `visibility: hidden`. |
 | [`IsEnabled`](#m-isenabled) | False disables the element and its descendants: no pointer or focus input, and `:disabled` matches the element and its descendants, as it matches the controls inside a disabled fieldset in CSS. |
 | [`IsFocusable`](#m-isfocusable) | True when the element can take keyboard or gamepad focus (while enabled and shown). |
 | [`IsFocused`](#m-isfocused) | True when the element has keyboard focus. |
@@ -172,6 +173,16 @@ public bool IsEffectivelyEnabled { get; }
 ```
 
 True when the element and all its ancestors are enabled.
+
+**Type:** `bool`
+
+### <a id="m-iseffectivelyvisible"></a>IsEffectivelyVisible
+
+```csharp
+public bool IsEffectivelyVisible { get; }
+```
+
+True when this element and every ancestor are shown: their visible flags are true and their computed styles are neither `display: none` nor `visibility: hidden`. Update the tree first to resolve bindings and styles.
 
 **Type:** `bool`
 
