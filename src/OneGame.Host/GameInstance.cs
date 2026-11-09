@@ -1039,8 +1039,11 @@ public sealed partial class GameInstance : IDisposable
     // On Wayland the driver's vsync (FIFO) present waits inside the call for the compositor's frame callback, and a compositor that is not
     // drawing the window (covered, minimized) never sends it: the thread running the simulation would park. So vsync there is done by
     // the host instead: queue-replacing presents that never wait, paced by the window's own frame callbacks (Window.PresentWouldBlock).
+    // Stepped runs keep the driver's own vsync: they present once per step and nothing there can be starved of ticks.
     private PresentMode SwapchainPresentMode(NativeWindowKind kind) =>
-        kind == NativeWindowKind.Wayland && Options.PresentMode == PresentMode.Vsync ? PresentMode.LowLatency : Options.PresentMode;
+        _realtime && kind == NativeWindowKind.Wayland && Options.PresentMode == PresentMode.Vsync ? PresentMode.LowLatency : Options.PresentMode;
+
+    private PresentMode _swapchainMode;
 
     /// <summary>True while the last frame was not drawn because the window system is not showing the window.</summary>
     public bool PresentThrottled { get; private set; }
@@ -1054,9 +1057,16 @@ public sealed partial class GameInstance : IDisposable
             return;
         }
 
+        // A run that starts stepping and then turns realtime (or back) changes how vsync must be done on Wayland: remake the swapchain.
+        if (_swapchain is not null && _swapchainMode != SwapchainPresentMode(Window.NativeHandle.Kind))
+        {
+            DropSwapchain();
+        }
+
         if (_swapchain is null)
         {
             var h = Window.NativeHandle;
+            _swapchainMode = SwapchainPresentMode(h.Kind);
             var source = h.Kind switch
             {
                 NativeWindowKind.X11 => SurfaceSource.X11(h.Display, h.Window),
@@ -1067,7 +1077,7 @@ public sealed partial class GameInstance : IDisposable
                 NativeWindowKind.MetalLayer => SurfaceSource.MetalLayer(h.Window),
                 _ => SurfaceSource.Win32(h.Display, h.Window),
             };
-            _swapchain = _device.CreateSwapchain(source, new SwapchainDesc((uint)Window.Width, (uint)Window.Height) { Srgb = _stage.RequiresSrgb, PresentMode = SwapchainPresentMode(h.Kind) });
+            _swapchain = _device.CreateSwapchain(source, new SwapchainDesc((uint)Window.Width, (uint)Window.Height) { Srgb = _stage.RequiresSrgb, PresentMode = _swapchainMode });
         }
 
         // A window the system has stopped drawing (covered, minimized) can park the driver's present for as long as it stays hidden.
@@ -1092,7 +1102,11 @@ public sealed partial class GameInstance : IDisposable
             _acquireMissed = acquired != AcquireStatus.Ready;
             if (acquired == AcquireStatus.Ready)
             {
-                Window.OnPresenting();
+                if (_realtime)
+                {
+                    Window.OnPresenting();
+                }
+
                 _stage.Render(_device, backbuffer, new FrameInfo(Window.Width, Window.Height, UiScale, World.Tick, list, World, FrameAlpha));
                 if (_grabNext)
                 {
