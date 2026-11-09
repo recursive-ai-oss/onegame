@@ -107,6 +107,39 @@ internal static class Render3DSmoke
         var probe = new OneGame.Host.ManualScene3D(scene);
         if (probe.Cast(probe.Ray(48, 36, 96, 72)) is not { Model: "fox" }) { return "the hand-filled scene probe did not pick the model"; }
         device.WaitIdle();
-        return null;
+
+        // Meshes built at run time: a shared material, a mesh updated in place and replaced by a bigger one, and the same through a scene view with a label and opacity.
+        var lime = renderer.CreateMaterial("lime", baseColor: new Vector4(0.2f, 0.9f, 0.1f, 1f));
+        MeshVertex3D[] quad = [new(new Vector3(-1, 0, -1), Vector3.UnitY, Vector2.Zero), new(new Vector3(1, 0, -1), Vector3.UnitY, Vector2.UnitX), new(new Vector3(1, 0, 1), Vector3.UnitY, Vector2.One), new(new Vector3(-1, 0, 1), Vector3.UnitY, Vector2.UnitY)];
+        uint[] quadIndices = [0, 2, 1, 0, 3, 2];
+        using var mesh = renderer.CreateMesh(lime, quad, quadIndices, "smoke");
+        mesh.Update(quad, quadIndices);
+        var meshScene = new Scene3D();
+        meshScene.Add(mesh.Model);
+        meshScene.Camera = Camera3D.LookAt(new Vector3(0, 4, 0.01f), Vector3.Zero, -Vector3.UnitZ);
+        meshScene.Lights.Add(Light3D.Directional(new Vector3(0.2f, -1, -0.3f), Vector3.One, 3f));
+        var drawn = target.Capture(meshScene);
+        var view = new OneGame.Host.SceneView3D();
+        view.Models.SetMesh("chunk", lime, quad, quadIndices);
+        view.Describer = (_, w) => w.Model("chunk", Matrix4x4.Identity, new OneGame.Host.ModelOptions { Label = "chunk", Opacity = 0.5f });
+        view.Prepare(new OneGame.Core.World(1, new OneGame.Core.EntityRegistry()), 0, default);
+        view.Build(meshScene, renderer);
+        target.Capture(meshScene);
+        var listed = view.ListModels();
+        if (meshScene.Models.Count != 1 || meshScene.Models[0].Label != "chunk" || meshScene.Models[0].Opacity != 0.5f || listed.Count != 1 || !listed[0].Dynamic || mesh.TriangleCount != 2) { return "a mesh built at run time was not drawn with its label and opacity"; }
+        view.Models.Remove("chunk");
+        view.Describer = null;
+        view.Prepare(new OneGame.Core.World(1, new OneGame.Core.EntityRegistry()), 0, default);
+        view.Build(meshScene, renderer);
+        if (meshScene.Models.Count != 0) { return "a removed mesh is still in the scene"; }
+        device.WaitIdle();
+        view.Dispose();
+        var greenPixels = 0;
+        for (var i = 0; i < drawn.Length; i += 4)
+        {
+            greenPixels += drawn[i + 1] > 100 && drawn[i] < 100 ? 1 : 0;
+        }
+
+        return greenPixels < 100 ? $"the mesh covers {greenPixels} pixels" : null;
     }
 }

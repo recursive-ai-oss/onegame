@@ -88,6 +88,8 @@ A pipeline is immutable. Replacing a shader means making a new pipeline and rele
 
 ## Timing and capabilities
 
+`device.MemoryStats` is the backend's own tally of device memory (`ReservedBytes` held from the driver, `UsedBytes` in live resources, `Allocations`); Vulkan fills it, other backends report zeros. Disposed resources count until the GPU has finished with them.
+
 `device.Capabilities` (`GpuCapabilities`) lists what is optional: `Timestamps`, `MultiDrawIndirect`, `IndirectFirstInstance`, `DepthClamp`, `DepthBiasClamp`, `NonUniformArrayIndexing`, `MaxSampleCount`, `MaxTextureSize`, `MaxTextureSize3D`, `MaxArrayLayers`, `MaxResourceArrayCount`.
 
 Pass times: `device.CreateTimestampSet(n)`, then `encoder.BeginPassTiming(new PassTiming(set, firstQuery, maxPasses))` makes each following render or compute pass write a start and an end timestamp (queries `first + 2k`, `first + 2k + 1`); `EndPassTiming()` returns how many were timed. `device.TryReadTimestamps(set, first, span)` returns nanoseconds, or false while the GPU has not finished. Resetting is the backend's business. The render graph does all this per pass.

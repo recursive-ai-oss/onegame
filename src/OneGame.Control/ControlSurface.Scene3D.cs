@@ -16,6 +16,7 @@ public sealed partial class ControlSurface
         {
             "camera" => Json(Camera3D(view, a), ControlJson.Default.CameraResult),
             "pick" => Json(Pick3D(view, a), ControlJson.Default.PickResult),
+            "scene_models" => Json(SceneModels(view, a), ControlJson.Default.SceneModelsResult),
             _ => Json(Project3D(view, a), ControlJson.Default.ProjectResult),
         };
     }
@@ -114,6 +115,27 @@ public sealed partial class ControlSurface
 
         var entity = Game.World.Find(found.Entity);
         return new PickResult(true, entity is null ? null : Label(entity), entity is null ? null : found.Entity.Value, entity is null ? null : Address(entity), found.Model, Math.Round(found.Distance, 5), Round3(found.Point), Round3(ray.Origin), Round3(ray.Direction), tick);
+    }
+
+    private SceneModelsResult SceneModels(IScene3DProbe view, Args a)
+    {
+        var limit = (int)Math.Clamp(a.Double("limit", 200), 1, 5000);
+        var all = view.ListModels();
+        var shown = new List<SceneModelEntry>(Math.Min(all.Count, limit));
+        long triangles = 0;
+        var dynamic = 0;
+        foreach (var m in all)
+        {
+            triangles += m.Triangles;
+            dynamic += m.Dynamic ? 1 : 0;
+            if (shown.Count < limit)
+            {
+                var entity = m.Entity.IsValid && Game.World.Find(m.Entity) is { } e ? Label(e) : null;
+                shown.Add(new SceneModelEntry(m.Model, m.Label, Math.Round(m.Opacity, 4), entity, m.Dynamic, m.Triangles, Round3(m.Position)));
+            }
+        }
+
+        return new SceneModelsResult(all.Count, dynamic, triangles, shown.Count < all.Count, [.. shown]);
     }
 
     private ProjectResult Project3D(IScene3DProbe view, Args a)

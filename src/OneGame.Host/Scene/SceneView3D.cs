@@ -113,6 +113,7 @@ public sealed class SceneView3D : IScene3DProbe, IDisposable
         scene.Debug.Clear();
         scene.Debug.Append(_writer.Debug);
         scene.Models.Clear();
+        Models.Collect(renderer);
         for (var i = 0; i < Models.Count; i++)
         {
             Models.At(i).Used = 0;
@@ -124,6 +125,11 @@ public sealed class SceneView3D : IScene3DProbe, IDisposable
         {
             var d = draws[i];
             var entry = Models.At(d.Model);
+            if (entry.NothingToDraw)
+            {
+                continue;
+            }
+
             entry.Gpu ??= renderer.Upload(entry.Source);
             ModelInstance3D instance;
             if (entry.Used < entry.Pool.Count)
@@ -138,7 +144,7 @@ public sealed class SceneView3D : IScene3DProbe, IDisposable
             }
 
             entry.Used++;
-            if (d.Pose is { } pose)
+            if (d.Pose is { } pose && !entry.IsMesh)
             {
                 instance.Pose.CopyFrom(pose);
                 instance.UpdateTransforms();
@@ -152,6 +158,8 @@ public sealed class SceneView3D : IScene3DProbe, IDisposable
             }
 
             instance.Transform = d.World;
+            instance.Opacity = d.Opacity;
+            instance.Label = d.Label;
             instance.Visible = true;
         }
 
@@ -166,6 +174,11 @@ public sealed class SceneView3D : IScene3DProbe, IDisposable
         {
             var d = instances[i];
             var entry = Models.At(d.Model);
+            if (entry.NothingToDraw)
+            {
+                continue;
+            }
+
             entry.Gpu ??= renderer.Upload(entry.Source);
             if (entry.Batch is null)
             {
@@ -332,6 +345,24 @@ public sealed class SceneView3D : IScene3DProbe, IDisposable
         }
 
         return best;
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<SceneModelInfo> ListModels()
+    {
+        var list = new List<SceneModelInfo>(_writer.Draws.Count);
+        foreach (var d in _writer.Draws)
+        {
+            var entry = Models.At(d.Model);
+            if (entry.IsDead)
+            {
+                continue;
+            }
+
+            list.Add(new SceneModelInfo(entry.Id, d.Label, d.Opacity, d.Entity, entry.IsMesh, entry.TriangleCount, d.World.Translation));
+        }
+
+        return list;
     }
 
     /// <summary>Releases the GPU copies of the models. The renderer must still be alive.</summary>

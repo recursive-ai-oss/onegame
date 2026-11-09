@@ -159,7 +159,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         "quality" => Json(Quality(a), ControlJson.Default.QualityResult),
         "draw_view" => Json(Draw2DOp(a), ControlJson.Default.Draw2DReport),
         "particles" => Json(ParticlesOp(a), ControlJson.Default.ParticlesReport),
-        "camera" or "pick" or "project" => Dispatch3D(op, a),
+        "camera" or "pick" or "project" or "scene_models" => Dispatch3D(op, a),
         "input_touch" => Json(InputTouch(a), ControlJson.Default.InputResult),
         "ui_tap" => Json(UiTap(a), ControlJson.Default.InputResult),
         "app_lifecycle" => Json(AppLifecycle(a), ControlJson.Default.InputResult),

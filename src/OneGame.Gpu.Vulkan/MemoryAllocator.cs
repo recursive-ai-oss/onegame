@@ -48,6 +48,15 @@ internal sealed unsafe class MemoryAllocator
     readonly VkPhysicalDeviceMemoryProperties _props;
     readonly ulong _granularity;
 
+    /// <summary>Bytes of device memory held from the driver, all memory types.</summary>
+    public ulong ReservedBytes { get; private set; }
+
+    /// <summary>Bytes handed out to live resources (alignment padding included).</summary>
+    public ulong UsedBytes { get; private set; }
+
+    /// <summary>Number of live sub-allocations.</summary>
+    public int Allocations { get; private set; }
+
     public MemoryAllocator(VulkanDevice device, in VkPhysicalDeviceMemoryProperties props, ulong bufferImageGranularity)
     {
         _device = device;
@@ -102,6 +111,8 @@ internal sealed unsafe class MemoryAllocator
             {
                 if (pool[b].InUse && TryCarve(pool[b], size, align, out var off))
                 {
+                    UsedBytes += size;
+                    Allocations++;
                     return Make(pool[b], b, (int)type, off, size);
                 }
             }
@@ -120,6 +131,8 @@ internal sealed unsafe class MemoryAllocator
         }
 
         TryCarve(blk, size, align, out var offset);
+        UsedBytes += size;
+        Allocations++;
         return Make(blk, slot, (int)type, offset, size);
     }
 
@@ -191,6 +204,7 @@ internal sealed unsafe class MemoryAllocator
             mapped = (byte*)p;
         }
 
+        ReservedBytes += size;
         var blk = new Block { Memory = mem, Size = size, Mapped = mapped, InUse = true };
         blk.Free.Add((0, size));
         return blk;
@@ -199,6 +213,8 @@ internal sealed unsafe class MemoryAllocator
     public void Free(in MemoryAllocation a)
     {
         var blk = _pools[a.Pool][a.Block];
+        UsedBytes -= a.Size;
+        Allocations--;
         var list = blk.Free;
         var i = 0;
         while (i < list.Count && list[i].Offset < a.Offset)
@@ -223,6 +239,7 @@ internal sealed unsafe class MemoryAllocator
         if (blk.Size != BlockSize && list.Count == 1 && list[0].Size == blk.Size)
         {
             _device.Fns.vkFreeMemory(_device.Handle, blk.Memory, null);
+            ReservedBytes -= blk.Size;
             blk.InUse = false;
             blk.Free.Clear();
         }
