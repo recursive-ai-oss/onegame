@@ -263,6 +263,8 @@ internal sealed unsafe class WaylandWindow : Window
 
     private protected override void DestroyNative()
     {
+        _frame?.Release();
+        _frame = null;
         _lock?.Release();
         _lock = null;
         _decoration?.Destroy(ZxdgToplevelDecorationV1.Request.Destroy);
