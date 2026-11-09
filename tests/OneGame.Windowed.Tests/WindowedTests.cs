@@ -428,6 +428,7 @@ public sealed class X11WindowedTests : WindowedTests, IClassFixture<XvfbFixture>
     }
 }
 
+[Collection("weston")]
 public sealed class WestonWindowedTests : WindowedTests, IClassFixture<WestonFixture>
 {
     private readonly WestonFixture _weston;
@@ -440,75 +441,6 @@ public sealed class WestonWindowedTests : WindowedTests, IClassFixture<WestonFix
     {
         Assert.SkipUnless(_weston.Available, "weston is not installed");
         return new Session(PlatformBackendKind.Wayland, _weston.SocketPath!);
-    }
-
-    /// <summary>
-    /// A window whose compositor withholds frame callbacks (covered or minimized) used to park the thread that runs the simulation inside
-    /// the vsync present, so ticking and networking stopped. Rendering may pause; the simulation must keep its rate.
-    /// </summary>
-    [Fact]
-    public void AVsyncWindowWhoseCompositorStopsAnsweringKeepsTicking()
-    {
-        Assert.SkipUnless(_weston.Available, "weston is not installed");
-
-        using var s = new Session(PlatformBackendKind.Wayland, _weston.SocketPath!, OneGame.Gpu.PresentMode.Vsync);
-        s.StepUntil(() => s.Game.PresentedFrames >= 5);
-        var thawed = false;
-        _weston.Freeze(true);
-        using var watchdog = new Timer(_ =>
-        {
-            thawed = true;
-            _weston.Freeze(false);
-        }, null, TimeSpan.FromSeconds(40), Timeout.InfiniteTimeSpan);
-        long ticks;
-        double seconds;
-        try
-        {
-            var start = s.Game.World.Tick;
-            var clock = System.Diagnostics.Stopwatch.StartNew();
-            s.Game.RunRealtime(0, () =>
-            {
-                if (clock.Elapsed >= TimeSpan.FromSeconds(4) || thawed)
-                {
-                    s.Game.Platform.RequestQuit();
-                }
-            });
-
-            seconds = clock.Elapsed.TotalSeconds;
-            ticks = s.Game.World.Tick - start;
-        }
-        finally
-        {
-            _weston.Freeze(false);
-        }
-
-        Assert.False(thawed, "the frame loop was blocked until the watchdog thawed the compositor");
-        Assert.True(ticks >= seconds * GameInstance.TickRate * 0.8, $"only {ticks} ticks in {seconds:F1} s while the compositor was frozen");
-    }
-
-    /// <summary>The same window while the compositor answers: vsync pacing by frame callbacks still presents every refresh.</summary>
-    [Fact]
-    public void AVsyncWindowWhoseCompositorAnswersKeepsPresentingAndTicking()
-    {
-        Assert.SkipUnless(_weston.Available, "weston is not installed");
-
-        using var s = new Session(PlatformBackendKind.Wayland, _weston.SocketPath!, OneGame.Gpu.PresentMode.Vsync);
-        var clock = System.Diagnostics.Stopwatch.StartNew();
-        var start = s.Game.World.Tick;
-        var presented = s.Game.PresentedFrames;
-        s.Game.RunRealtime(0, () =>
-        {
-            if (clock.Elapsed >= TimeSpan.FromSeconds(3))
-            {
-                s.Game.Platform.RequestQuit();
-            }
-        });
-
-        var seconds = clock.Elapsed.TotalSeconds;
-        var ticks = s.Game.World.Tick - start;
-        var frames = s.Game.PresentedFrames - presented;
-        Assert.True(ticks >= seconds * GameInstance.TickRate * 0.8, $"only {ticks} ticks in {seconds:F1} s");
-        Assert.True(frames >= seconds * 20, $"only {frames} frames presented in {seconds:F1} s");
     }
 
     /// <summary>
@@ -546,5 +478,89 @@ public sealed class WestonWindowedTests : WindowedTests, IClassFixture<WestonFix
 
         Assert.False(thawed, "the frame loop was blocked until the watchdog thawed the compositor");
         Assert.Equal("wayland", s.Call("info").GetProperty("backend").GetString());
+    }
+}
+
+/// <summary>
+/// Windows whose compositor stops showing them. Each test starts its own compositor, so a frozen or killed one cannot leak into the
+/// tests that share the class compositor.
+/// </summary>
+[Collection("weston")]
+public sealed class WestonHiddenWindowTests
+{
+    /// <summary>
+    /// A window whose compositor withholds frame callbacks (covered or minimized) used to park the thread that runs the simulation inside
+    /// the vsync present, so ticking and networking stopped. Rendering may pause; the simulation must keep its rate.
+    /// </summary>
+    [Fact]
+    public void AVsyncWindowWhoseCompositorStopsAnsweringKeepsTicking()
+    {
+        using var weston = new WestonFixture();
+        Assert.SkipUnless(weston.Available, "weston is not installed");
+
+        using var s = new Session(PlatformBackendKind.Wayland, weston.SocketPath!, OneGame.Gpu.PresentMode.Vsync);
+        var frozen = false;
+        var thawed = false;
+        using var watchdog = new Timer(_ =>
+        {
+            thawed = true;
+            weston.Freeze(false);
+        }, null, TimeSpan.FromSeconds(40), Timeout.InfiniteTimeSpan);
+        long startTick = 0;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var frozenAt = TimeSpan.Zero;
+        try
+        {
+            // The window runs normally for a moment, then the compositor stops answering.
+            s.Game.RunRealtime(0, () =>
+            {
+                if (!frozen && clock.Elapsed >= TimeSpan.FromSeconds(1))
+                {
+                    frozen = true;
+                    weston.Freeze(true);
+                    startTick = s.Game.World.Tick;
+                    frozenAt = clock.Elapsed;
+                }
+                else if (frozen && (clock.Elapsed - frozenAt >= TimeSpan.FromSeconds(4) || thawed))
+                {
+                    s.Game.Platform.RequestQuit();
+                }
+            });
+        }
+        finally
+        {
+            weston.Freeze(false);
+        }
+
+        var seconds = (clock.Elapsed - frozenAt).TotalSeconds;
+        var ticks = s.Game.World.Tick - startTick;
+        Assert.False(thawed, "the frame loop was blocked until the watchdog thawed the compositor");
+        Assert.True(ticks >= seconds * GameInstance.TickRate * 0.8, $"only {ticks} ticks in {seconds:F1} s while the compositor was frozen");
+    }
+
+    /// <summary>The same window while the compositor answers: vsync pacing by frame callbacks still presents every refresh.</summary>
+    [Fact]
+    public void AVsyncWindowWhoseCompositorAnswersKeepsPresentingAndTicking()
+    {
+        using var weston = new WestonFixture();
+        Assert.SkipUnless(weston.Available, "weston is not installed");
+
+        using var s = new Session(PlatformBackendKind.Wayland, weston.SocketPath!, OneGame.Gpu.PresentMode.Vsync);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var start = s.Game.World.Tick;
+        var presented = s.Game.PresentedFrames;
+        s.Game.RunRealtime(0, () =>
+        {
+            if (clock.Elapsed >= TimeSpan.FromSeconds(3))
+            {
+                s.Game.Platform.RequestQuit();
+            }
+        });
+
+        var seconds = clock.Elapsed.TotalSeconds;
+        var ticks = s.Game.World.Tick - start;
+        var frames = s.Game.PresentedFrames - presented;
+        Assert.True(ticks >= seconds * GameInstance.TickRate * 0.8, $"only {ticks} ticks in {seconds:F1} s");
+        Assert.True(frames >= seconds * 20, $"only {frames} frames presented in {seconds:F1} s");
     }
 }
