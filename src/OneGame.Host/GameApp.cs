@@ -150,7 +150,12 @@ public static class GameApp
     /// <param name="game">The game to run.</param>
     /// <param name="args">The command line, normally the <c>args</c> of <c>Main</c>.</param>
     /// <returns>An exit code from <see cref="ExitCodes"/>: 0 when the run completed.</returns>
-    public static int Run(GameDefinition game, string[] args) => Run(game, args, Console.Out, Console.Error);
+    public static int Run(GameDefinition game, string[] args)
+    {
+        // A Windows release has no console window of its own; print to the terminal it was started from, when there is one.
+        _ = OneGame.Platform.ParentConsole.Attach();
+        return Run(game, args, Console.Out, Console.Error);
+    }
 
     /// <summary>Runs a game with explicit output streams, so a test or tool can capture what a command line run would print.</summary>
     /// <param name="game">The game to run.</param>

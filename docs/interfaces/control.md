@@ -35,6 +35,7 @@ Without `--headless` the game opens a window (Wayland when `WAYLAND_DISPLAY` is 
 | Read | `info` (game, tick, frame, hash, size, screen, screens, fixtures, stage, adapter, drift, backend, presented), `hash`, `state_query`, `commands_list` |
 | Change state | `state_patch`, `command_send`, `reset`, `fixture_load`, `snapshot_load`, `step` (frames) |
 | Input | `input_pointer`, `input_key`, `input_text`, `input_composition`, `input_nav` (menu actions, or any `GamepadButton` by name: see `NavActions`), `ui_click`, `ui_invoke` |
+| Window | `window` (read or set the window's placement: position, size, normal/maximized/fullscreen; `docs/interfaces/platform.md`) |
 | Clipboard | `clipboard_get`, `clipboard_set` (`selection`: `clipboard` or `primary`) |
 | UI | `ui_tree`, `ui_query`, `ui_hit`, `screen_open`, `ui_scale` (override the UI scale; `scale: null` or `reset: true` follows the window) |
 | Output | `snapshot_save`, `capture_frame`, `capture_sequence` |

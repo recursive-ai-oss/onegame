@@ -10,6 +10,9 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 - `SceneWriter.Model(..., ModelOptions)` sets a per-draw opacity and label (`ModelOptions.Opacity`, `Label`, `Pickable`).
 - `scene_models` live-control operation lists what the 3D view draws: model, label, opacity, entity, triangle count, position, and whether the mesh was built at run time.
 - `GpuDevice.MemoryStats` reports the backend's device-memory tally (Vulkan).
+- Window placement. `Window.Placement` reads where a window is and how it is shown as a plain `WindowPlacement` value (normal rectangle in screen pixels plus `Normal`/`Maximized`/`Fullscreen`) that a game can save with `Format()` and read back with `TryParse`; `WindowOptions.Placement` creates a window from it (a maximized window is created maximized, remembering the rectangle to restore to), and `Window.ApplyPlacement`, `Maximize`, `Restore` and `MoveTo` change a live one. A placement saved on a monitor that is gone is moved onto a connected screen (`PlatformApp.GetWorkAreas`, `WindowPlacement.ClampTo`). Win32 and X11 (EWMH) place position and state; Wayland and Cocoa place size and state only (xdg-shell has no position request); phones and browsers do nothing. `Window` keeps all its existing members.
+- Live control `window` operation: read and set the placement (`x`, `y`, `width`, `height`, `state`, or a whole placement as `text`).
+- A Windows game is built as a GUI-subsystem program with no console window by default (a `win-*` runtime identifier, or a Release build on Windows). `OneGameConsole=true` keeps the console and `OneGameConsole=false` makes a Debug build GUI too; a game that sets `OutputType` to `WinExe` itself is unchanged. `ParentConsole.Attach()`, called by `GameApp.Run`, prints to the terminal that started the program; redirected output is untouched.
 
 ## [1.18.0] - 2026-11-09
 

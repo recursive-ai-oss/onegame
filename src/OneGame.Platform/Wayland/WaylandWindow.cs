@@ -19,7 +19,7 @@ internal sealed unsafe class WaylandWindow : Window
     private WaylandPointerLock? _lock;
     private int _logicalWidth, _logicalHeight;
     private int _pendingWidth, _pendingHeight;
-    private bool _pendingFullscreen, _pendingActivated, _hiddenBeforeLock;
+    private bool _pendingFullscreen, _pendingMaximized, _pendingActivated, _hiddenBeforeLock;
     private uint _color = 0xFF1E1E1E;
 
     public WaylandWindow(WaylandBackend backend, PlatformApp app, int id, WindowOptions o)
@@ -64,10 +64,37 @@ internal sealed unsafe class WaylandWindow : Window
             _scaleFromFractional = true;
         }
 
+        // xdg-shell lets a client ask for a state and a size but never for a position, so only those are placed here.
+        InitNormalRect(0, 0, o.Width, o.Height);
+        if (o.Placement?.State == WindowState.Maximized)
+        {
+            _toplevel.Send(XdgToplevel.Request.SetMaximized);
+        }
+
         if (o.Fullscreen)
         {
             _toplevel.Send(XdgToplevel.Request.SetFullscreen, [0]);
         }
+    }
+
+    public override void Maximize()
+    {
+        if (IsFullscreen)
+        {
+            SetFullscreen(false);
+        }
+
+        _toplevel.Send(XdgToplevel.Request.SetMaximized);
+    }
+
+    public override void Restore()
+    {
+        if (IsFullscreen)
+        {
+            SetFullscreen(false);
+        }
+
+        _toplevel.Send(XdgToplevel.Request.UnsetMaximized);
     }
 
     public WlObject Surface { get; }
@@ -325,6 +352,17 @@ internal sealed unsafe class WaylandWindow : Window
         }
 
         sender.Send(XdgSurface.Request.AckConfigure, [a.Uint(0)]);
+        var wasBig = IsMaximized || IsFullscreen;
+        IsMaximized = _pendingMaximized && !_pendingFullscreen;
+        IsFullscreen = _pendingFullscreen;
+        if (_pendingWidth <= 0 && _pendingHeight <= 0 && wasBig && !IsMaximized && !IsFullscreen)
+        {
+            // Leaving a big state with "any size you like": go back to the size the window had before.
+            var normal = Placement;
+            _pendingWidth = Math.Max(1, (int)Math.Round(normal.Width / Scale));
+            _pendingHeight = Math.Max(1, (int)Math.Round(normal.Height / Scale));
+        }
+
         if (_pendingWidth > 0 && _pendingHeight > 0)
         {
             _logicalWidth = _pendingWidth;
@@ -332,7 +370,6 @@ internal sealed unsafe class WaylandWindow : Window
             ApplySize(Math.Max(1, (int)Math.Round(_logicalWidth * Scale)), Math.Max(1, (int)Math.Round(_logicalHeight * Scale)));
         }
 
-        IsFullscreen = _pendingFullscreen;
         Configured = true;
         ApplyFocus(_pendingActivated);
         Present();
@@ -346,12 +383,14 @@ internal sealed unsafe class WaylandWindow : Window
                 _pendingWidth = a.Int(0);
                 _pendingHeight = a.Int(1);
                 _pendingFullscreen = false;
+                _pendingMaximized = false;
                 _pendingActivated = false;
                 var states = a.Array(2);
                 for (var i = 0; i + 4 <= states.Length; i += 4)
                 {
                     var state = BitConverter.ToUInt32(states[i..]);
                     _pendingFullscreen |= state == XdgToplevel.StateEnum.Fullscreen;
+                    _pendingMaximized |= state == XdgToplevel.StateEnum.Maximized;
                     _pendingActivated |= state == XdgToplevel.StateEnum.Activated;
                 }
 

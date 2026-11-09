@@ -14,7 +14,8 @@ internal sealed unsafe partial class X11Backend : PlatformBackend
     private readonly nuint _root;
     private readonly XkbKeyboard _keyboard;
     private readonly Dictionary<nuint, X11Window> _windows = [];
-    private readonly nuint _wmProtocols, _wmDeleteWindow, _netWmName, _utf8String, _netWmState, _netWmStateFullscreen;
+    private readonly nuint _wmProtocols, _wmDeleteWindow, _netWmName, _utf8String, _netWmState, _netWmStateFullscreen,
+        _netWmStateMaxHorz, _netWmStateMaxVert, _netWorkArea, _netSupportingWmCheck;
     private float _scale;
     private readonly nuint _resourceManager;
 
@@ -47,6 +48,10 @@ internal sealed unsafe partial class X11Backend : PlatformBackend
             _utf8String = Atom("UTF8_STRING");
             _netWmState = Atom("_NET_WM_STATE");
             _netWmStateFullscreen = Atom("_NET_WM_STATE_FULLSCREEN");
+            _netWmStateMaxHorz = Atom("_NET_WM_STATE_MAXIMIZED_HORZ");
+            _netWmStateMaxVert = Atom("_NET_WM_STATE_MAXIMIZED_VERT");
+            _netWorkArea = Atom("_NET_WORKAREA");
+            _netSupportingWmCheck = Atom("_NET_SUPPORTING_WM_CHECK");
             _resourceManager = Atom("RESOURCE_MANAGER");
             _scale = ReadScale();
 
@@ -280,6 +285,13 @@ internal sealed unsafe partial class X11Backend : PlatformBackend
             case Xlib.ConfigureNotify:
                 w.OnConfigure(Xlib.At<int>(e, 56), Xlib.At<int>(e, 60));
                 break;
+            case Xlib.PropertyNotify:
+                if (Xlib.At<nuint>(e, 40) == _netWmState)
+                {
+                    w.RefreshState();
+                }
+
+                break;
             case Xlib.MapNotify:
                 w.OnMapped();
                 break;
@@ -369,6 +381,51 @@ internal sealed unsafe partial class X11Backend : PlatformBackend
         }
     }
 
+    // EWMH _NET_WORKAREA: the screen minus panels, one rectangle per desktop; the first desktop is the one that matters here.
+    // There is no RandR use, so the screen counts as a single monitor.
+    public override IReadOnlyList<ScreenRect> WorkAreas()
+    {
+        nuint type;
+        int format;
+        nuint count, after;
+        byte* data;
+        if (Xlib.GetWindowProperty(_display, _root, _netWorkArea, 0, 4, 0, 6 /* XA_CARDINAL */, &type, &format, &count, &after, &data) == 0 && data != null)
+        {
+            try
+            {
+                if (format == 32 && count >= 4)
+                {
+                    var v = (nint*)data;
+                    if (v[2] > 0 && v[3] > 0 && v[2] < 1_000_000 && v[3] < 1_000_000)
+                    {
+                        return [new ScreenRect((int)v[0], (int)v[1], (int)v[2], (int)v[3])];
+                    }
+                }
+            }
+            finally
+            {
+                Xlib.Free(data);
+            }
+        }
+
+        return [new ScreenRect(0, 0, Xlib.DisplayWidth(_display, _screen), Xlib.DisplayHeight(_display, _screen))];
+    }
+
+    // EWMH: a running window manager announces itself with _NET_SUPPORTING_WM_CHECK on the root window.
+    private bool HasWindowManager()
+    {
+        nuint type, count, after;
+        int format;
+        byte* data;
+        var found = Xlib.GetWindowProperty(_display, _root, _netSupportingWmCheck, 0, 1, 0, 33 /* XA_WINDOW */, &type, &format, &count, &after, &data) == 0 && data != null && count > 0;
+        if (data != null)
+        {
+            Xlib.Free(data);
+        }
+
+        return found;
+    }
+
     private sealed class X11Window : Window
     {
         private readonly X11Backend _b;
@@ -382,7 +439,8 @@ internal sealed unsafe partial class X11Backend : PlatformBackend
         {
             _b = backend;
             var d = backend._display;
-            Handle = Xlib.CreateSimpleWindow(d, backend._root, 0, 0, (uint)o.Width, (uint)o.Height, 0, 0, 0);
+            var at = o.Placement is { HasPosition: true } saved ? saved : (WindowPlacement?)null;
+            Handle = Xlib.CreateSimpleWindow(d, backend._root, at?.X ?? 0, at?.Y ?? 0, (uint)o.Width, (uint)o.Height, 0, 0, 0);
             if (Handle == 0)
             {
                 throw new PlatformException("The X server refused to create a window.");
@@ -395,14 +453,42 @@ internal sealed unsafe partial class X11Backend : PlatformBackend
                 d,
                 Handle,
                 (nint)(Xlib.KeyPressMask | Xlib.KeyReleaseMask | Xlib.ButtonPressMask | Xlib.ButtonReleaseMask | Xlib.EnterWindowMask | Xlib.LeaveWindowMask
-                    | Xlib.PointerMotionMask | Xlib.StructureNotifyMask | Xlib.FocusChangeMask));
+                    | Xlib.PointerMotionMask | Xlib.StructureNotifyMask | Xlib.FocusChangeMask | Xlib.PropertyChangeMask));
             var del = backend._wmDeleteWindow;
             Xlib.SetWMProtocols(d, Handle, &del, 1);
             SetTitle(o.Title);
-            if (!o.Resizable)
+            if (!o.Resizable || at is not null)
             {
-                var hints = new Xlib.XSizeHints { Flags = (1 << 4) | (1 << 5), MinWidth = o.Width, MinHeight = o.Height, MaxWidth = o.Width, MaxHeight = o.Height };
+                // USPosition asks the window manager to honour the position, and StaticGravity makes it the client area's corner rather
+                // than the frame's (ICCCM 4.1.2.3), so a position read back from one window puts the next one in the same place.
+                var hints = new Xlib.XSizeHints();
+                if (at is { } place)
+                {
+                    hints.Flags |= (1 << 0) | (1 << 9);
+                    hints.X = place.X;
+                    hints.Y = place.Y;
+                    hints.WinGravity = 10;
+                }
+
+                if (!o.Resizable)
+                {
+                    hints.Flags |= (1 << 4) | (1 << 5);
+                    hints.MinWidth = o.Width;
+                    hints.MinHeight = o.Height;
+                    hints.MaxWidth = o.Width;
+                    hints.MaxHeight = o.Height;
+                }
+
                 Xlib.SetWMNormalHints(d, Handle, &hints);
+            }
+
+            InitNormalRect(at?.X ?? 0, at?.Y ?? 0, o.Width, o.Height);
+            if (o.Placement?.State == WindowState.Maximized && backend.HasWindowManager())
+            {
+                // A window that is not mapped yet takes its initial state from the property itself (EWMH, _NET_WM_STATE).
+                var initial = stackalloc nuint[2] { backend._netWmStateMaxHorz, backend._netWmStateMaxVert };
+                Xlib.ChangeProperty(d, Handle, backend._netWmState, 4 /* XA_ATOM */, 32, Xlib.PropModeReplace, (byte*)initial, 2);
+                IsMaximized = true;
             }
 
             Xlib.MapWindow(d, Handle);
@@ -437,6 +523,95 @@ internal sealed unsafe partial class X11Backend : PlatformBackend
             Xlib.Flush(_b._display);
         }
 
+        public override bool CanPlace => true;
+
+        // EWMH _NET_WM_STATE client message (action 0 remove, 1 add) to the root window; the window manager acts on it and updates the
+        // property, which RefreshState reads back. Without a window manager nothing changes.
+        private void SendState(int action, nuint first, nuint second)
+        {
+            Xlib.XEvent ev = default;
+            ev.Type = Xlib.ClientMessage;
+            *(int*)((byte*)&ev + 16) = 1; // send_event
+            *(nint*)((byte*)&ev + 24) = _b._display;
+            *(nuint*)((byte*)&ev + 32) = Handle;
+            *(nuint*)((byte*)&ev + 40) = _b._netWmState;
+            *(int*)((byte*)&ev + 48) = 32;
+            *(nint*)((byte*)&ev + 56) = action;
+            *(nuint*)((byte*)&ev + 64) = first;
+            *(nuint*)((byte*)&ev + 72) = second;
+            *(nint*)((byte*)&ev + 80) = 1; // source indication: a normal application
+            Xlib.SendEvent(_b._display, _b._root, 0, (nint)(Xlib.SubstructureNotifyMask | Xlib.SubstructureRedirectMask), &ev);
+            Xlib.Flush(_b._display);
+        }
+
+        public override void Maximize()
+        {
+            if (IsFullscreen)
+            {
+                SetFullscreen(false);
+            }
+
+            SendState(1, _b._netWmStateMaxHorz, _b._netWmStateMaxVert);
+        }
+
+        public override void Restore()
+        {
+            if (IsFullscreen)
+            {
+                SetFullscreen(false);
+            }
+
+            SendState(0, _b._netWmStateMaxHorz, _b._netWmStateMaxVert);
+        }
+
+        public override void MoveTo(int x, int y)
+        {
+            Xlib.MoveWindow(_b._display, Handle, x, y);
+            Xlib.Flush(_b._display);
+        }
+
+        private protected override void PlaceNormal(WindowPlacement placement)
+        {
+            var w = (uint)Math.Max(1, placement.Width);
+            var h = (uint)Math.Max(1, placement.Height);
+            if (placement.HasPosition)
+            {
+                Xlib.MoveResizeWindow(_b._display, Handle, placement.X, placement.Y, w, h);
+            }
+            else
+            {
+                Xlib.ResizeWindow(_b._display, Handle, w, h);
+            }
+
+            Xlib.Flush(_b._display);
+        }
+
+        // Reads the window manager's view of this window: maximized when both directions are set.
+        public void RefreshState()
+        {
+            nuint type, count, after;
+            int format;
+            byte* data;
+            var horz = false;
+            var vert = false;
+            if (Xlib.GetWindowProperty(_b._display, Handle, _b._netWmState, 0, 32, 0, 4 /* XA_ATOM */, &type, &format, &count, &after, &data) == 0 && data != null)
+            {
+                if (format == 32)
+                {
+                    var atoms = (nuint*)data;
+                    for (nuint i = 0; i < count && i < 32; i++)
+                    {
+                        horz |= atoms[i] == _b._netWmStateMaxHorz;
+                        vert |= atoms[i] == _b._netWmStateMaxVert;
+                    }
+                }
+
+                Xlib.Free(data);
+            }
+
+            IsMaximized = horz && vert;
+        }
+
         public override void SetFullscreen(bool fullscreen)
         {
             // EWMH: ask the window manager through a client message to the root window. Without a window manager nothing changes.
@@ -453,6 +628,10 @@ internal sealed unsafe partial class X11Backend : PlatformBackend
             Xlib.SendEvent(_b._display, _b._root, 0, (nint)(Xlib.SubstructureNotifyMask | Xlib.SubstructureRedirectMask), &ev);
             Xlib.Flush(_b._display);
             IsFullscreen = fullscreen;
+            if (fullscreen)
+            {
+                IsMaximized = false;
+            }
         }
 
         public override void Minimize()
@@ -527,9 +706,22 @@ internal sealed unsafe partial class X11Backend : PlatformBackend
 
         public void OnConfigure(int width, int height)
         {
+            // The state and the position are asked of the server now, which can be ahead of this event: a move and a maximize sent close
+            // together give two events, and by the first one the window is already maximized. An event whose size is no longer the
+            // window's size is stale, and the one that follows describes the window, so a stale one never updates the normal rectangle.
+            RefreshState();
+            nuint root, child;
+            int gx, gy, x, y;
+            uint gw, gh, border, depth;
+            var stale = Xlib.GetGeometry(_b._display, Handle, &root, &gx, &gy, &gw, &gh, &border, &depth) != 0 && (gw != (uint)width || gh != (uint)height);
+            if (Xlib.TranslateCoordinates(_b._display, Handle, _b._root, 0, 0, &x, &y, &child) != 0)
+            {
+                SetPosition(x, y, !stale);
+            }
+
             if (width > 0 && height > 0)
             {
-                ApplySize(width, height);
+                ApplySize(width, height, !stale);
                 if (CursorLocked)
                 {
                     _lockCenterX = width / 2;

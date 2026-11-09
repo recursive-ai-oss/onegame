@@ -99,6 +99,24 @@ internal static unsafe partial class Xlib
     [LibraryImport(Lib, EntryPoint = "XChangeProperty")]
     public static partial void ChangeProperty(nint display, nuint window, nuint property, nuint type, int format, int mode, byte* data, int elements);
 
+    [LibraryImport(Lib, EntryPoint = "XMoveWindow")]
+    public static partial void MoveWindow(nint display, nuint window, int x, int y);
+
+    [LibraryImport(Lib, EntryPoint = "XMoveResizeWindow")]
+    public static partial void MoveResizeWindow(nint display, nuint window, int x, int y, uint width, uint height);
+
+    [LibraryImport(Lib, EntryPoint = "XTranslateCoordinates")]
+    public static partial int TranslateCoordinates(nint display, nuint source, nuint destination, int x, int y, int* destX, int* destY, nuint* child);
+
+    [LibraryImport(Lib, EntryPoint = "XGetGeometry")]
+    public static partial int GetGeometry(nint display, nuint drawable, nuint* root, int* x, int* y, uint* width, uint* height, uint* border, uint* depth);
+
+    [LibraryImport(Lib, EntryPoint = "XDisplayWidth")]
+    public static partial int DisplayWidth(nint display, int screen);
+
+    [LibraryImport(Lib, EntryPoint = "XDisplayHeight")]
+    public static partial int DisplayHeight(nint display, int screen);
+
     [LibraryImport(Lib, EntryPoint = "XResizeWindow")]
     public static partial void ResizeWindow(nint display, nuint window, uint width, uint height);
 

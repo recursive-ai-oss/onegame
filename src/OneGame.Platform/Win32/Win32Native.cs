@@ -6,13 +6,14 @@ namespace OneGame.Platform;
 internal static unsafe partial class Win32Native
 {
     public const uint WsOverlappedWindow = 0x00CF0000, WsPopup = 0x80000000, WsVisible = 0x10000000, WsThickFrame = 0x00040000, WsMaximizeBox = 0x00010000;
-    public const int SwShow = 5, SwMinimize = 6;
+    public const int SwShow = 5, SwMinimize = 6, SwMaximize = 3, SwRestore = 9;
     public const uint SwpNoZOrder = 0x0004, SwpNoActivate = 0x0010, SwpFrameChanged = 0x0020, SwpNoMove = 0x0002, SwpNoSize = 0x0001;
     public const uint PmRemove = 1, QsAllInput = 0x04FF;
     public const int GwlStyle = -16, GwlpUserData = -21;
     public const nint DpiAwarenessPerMonitorV2 = -4;
     public const uint TmeLeave = 2, RidInput = 0x10000003, RidevRemove = 1;
-    public const uint WmInput = 0x00FF, WmSetCursor = 0x0020;
+    public const uint WmInput = 0x00FF, WmSetCursor = 0x0020, WmMove = 0x0003, WmSize = 0x0005;
+    public const int SizeRestored = 0, SizeMinimized = 1, SizeMaximized = 2;
     public const nint HtClient = 1;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -111,6 +112,19 @@ internal static unsafe partial class Win32Native
 
     [LibraryImport("user32.dll", EntryPoint = "AdjustWindowRectEx")]
     public static partial void AdjustWindowRectEx(Rect* rect, uint style, int menu, uint exStyle);
+
+    // Microsoft Learn, AdjustWindowRectExForDpi: the frame size depends on the monitor's dpi under per-monitor awareness.
+    [LibraryImport("user32.dll", EntryPoint = "AdjustWindowRectExForDpi")]
+    public static partial int AdjustWindowRectExForDpi(Rect* rect, uint style, int menu, uint exStyle, uint dpi);
+
+    [LibraryImport("user32.dll", EntryPoint = "EnumDisplayMonitors")]
+    public static partial int EnumDisplayMonitors(nint hdc, Rect* clip, delegate* unmanaged<nint, nint, Rect*, nint, int> callback, nint data);
+
+    [LibraryImport("user32.dll", EntryPoint = "IsZoomed")]
+    public static partial int IsZoomed(nint hwnd);
+
+    [LibraryImport("user32.dll", EntryPoint = "IsIconic")]
+    public static partial int IsIconic(nint hwnd);
 
     [LibraryImport("user32.dll", EntryPoint = "GetClientRect")]
     public static partial void GetClientRect(nint hwnd, Rect* rect);

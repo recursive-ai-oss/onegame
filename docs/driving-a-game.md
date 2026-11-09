@@ -125,6 +125,8 @@ onegame run -- --live /tmp/shop.sock --realtime --backend x11 --display :88
 onegame mcp --socket /tmp/shop.sock     # then: info, ui_click, input_text, clipboard_set, capture_frame {"presented":true}
 ```
 
+`window` reads and sets the window's placement: with no arguments it returns `x`, `y`, `width`, `height` (the normal rectangle in screen pixels; `x` and `y` are absent on Wayland, where the compositor places windows), `state` (`normal`, `maximized`, `fullscreen`), the current `clientWidth`/`clientHeight`, `canPlace`, `workAreas`, and `text`, the placement as a settings string. Any of `x`, `y`, `width`, `height`, `state` changes just those fields; `text` applies a whole placement, so `{"text":"100,80,1280x720,maximized"}` restores what an earlier read returned. A position no screen would show is moved onto one. Headless runs keep the value in memory.
+
 `capture_frame` renders offscreen at any size; with `"presented": true` it returns the frame the window actually shows. `input_*` operations go through the same queue as the keyboard and mouse, so a text field cannot tell them apart; `input_composition` plays an input method's pre-edit text and `clipboard_get`/`clipboard_set` read and write the system clipboard (paste with `input_key` `v` + `Control`). With no display (a CI machine) run headless, or start `Xvfb :88 -noreset` for a window.
 
 ### Shader hot reload

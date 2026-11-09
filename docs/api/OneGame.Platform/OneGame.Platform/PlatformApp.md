@@ -123,6 +123,7 @@ The open windows.
 | [`Create(PlatformOptions?)`](#m-create-platformoptions) | Connects to the windowing system. |
 | [`CreateWindow(WindowOptions?)`](#m-createwindow-windowoptions) | Creates a window. |
 | [`Dispose()`](#m-dispose) | Closes every window and disconnects. |
+| [`GetWorkAreas()`](#m-getworkareas) | The usable rectangle (screen minus taskbars and docks) of each connected screen in virtual-screen pixels, the primary screen first. |
 | [`NativeCommand(string, string?)`](#m-nativecommand-string-string) | Runs a command that only one backend understands, for the harness and tests: on iOS `describe`, `orientation`, `text_insert`, `text_mark`, `text_unmark` and `text_delete` (see docs/interfaces/ios.md). |
 | [`PumpEvents(int)`](#m-pumpevents-int) | Reads everything the operating system and the gamepads have to say and queues it. |
 | [`RequestQuit()`](#m-requestquit) | Asks the application to quit; the game sees [`PlatformEventKind.QuitRequested`](PlatformEventKind.md#m-quitrequested). |
@@ -171,6 +172,16 @@ public void Dispose();
 ```
 
 Closes every window and disconnects.
+
+### <a id="m-getworkareas"></a>GetWorkAreas()
+
+```csharp
+public IReadOnlyList<ScreenRect> GetWorkAreas();
+```
+
+The usable rectangle (screen minus taskbars and docks) of each connected screen in virtual-screen pixels, the primary screen first. Empty where a program cannot know (Wayland, phones, browsers, headless). [`WindowPlacement.ClampTo()`](WindowPlacement.md#m-clampto-ireadonlylist-screenrect) takes this list.
+
+**Returns:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`ScreenRect`](ScreenRect.md)&gt; — One rectangle per screen.
 
 ### <a id="m-nativecommand-string-string"></a>NativeCommand(string, string?)
 

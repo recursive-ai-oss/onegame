@@ -112,4 +112,11 @@ public sealed record WindowOptions
     /// so tests and tools with no GPU surface set this. Leave it off when a GPU swapchain presents to the window.
     /// </summary>
     public bool SoftwareSurface { get; init; }
+
+    /// <summary>
+    /// Where to put the window and how to show it, usually read from an earlier window's <see cref="Window.Placement"/>. When set it
+    /// replaces <see cref="Width"/>, <see cref="Height"/> and <see cref="Fullscreen"/>; a position the connected screens would not show is
+    /// moved onto one. Where the window system places windows itself (Wayland, phones, browsers) only size and state apply.
+    /// </summary>
+    public WindowPlacement? Placement { get; init; }
 }

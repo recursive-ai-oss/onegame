@@ -108,6 +108,15 @@ The 2D renderer's shaders are HLSL compiled into the engine during its build, so
 
 Every export carries `THIRD-PARTY-NOTICES.txt`: the engine's list (`THIRD-PARTY-NOTICES.md` in the repository: the Wayland protocol files and the Vulkan registry the generated code derives from, and the .NET runtime), then every text file found in the game's `fonts/` (put each font's licence there; `onegame new` starts a game with Noto Sans Regular and its SIL Open Font License text), then a line for the Steam library when it ships. Fonts without a licence text give a `font_licence_missing` warning. If you add other non-code content with licence terms (art, sounds), add its notice to the file yourself, for example by shipping it under `data/` and in your own list; the export only knows fonts.
 
+## No console window on Windows
+
+A game built for Windows (`onegame export --target win`, or any build with a `win-*` runtime identifier, or a Release build on Windows) is a GUI-subsystem program: starting it opens no console window. Debug builds keep the console, because they carry the development tools and a developer wants to see the log. One property controls it, in the game's project file or on the command line:
+
+- `OneGameConsole=true`: keep the console in every build (a game that is driven from a terminal and prints to it);
+- `OneGameConsole=false`: GUI program in every build, Debug included.
+
+A game that sets `<OutputType>WinExe</OutputType>` itself is left as it is. Linux and macOS programs are never touched. Where output goes in a GUI program: to whatever the parent redirected (`game.exe > log.txt`, a pipe from a test runner or `onegame cluster`), and otherwise to the terminal it was started from, which `GameApp.Run` attaches to at start-up. Started from Explorer, Steam or a shortcut it has no terminal and prints nowhere, so a game that wants a log file writes one (`--data` names a folder for saves and settings). Live control (`--live`) uses a socket and works the same. Note that a shell does not wait for a GUI program: `game.exe` at a `cmd` or PowerShell prompt returns at once (use `start /wait`, or `Start-Process -Wait`); a process started from code is waited for as usual.
+
 ## What a Windows run must prove
 
 Not run from the Linux host that builds the Windows export, so still open:

@@ -19,6 +19,15 @@ internal static class WindowedSmoke
             app.Clipboard.SetText("smoke clip");
             app.Injector.Composition(window.Id, "ni", 0, 2);
             window.SetTextInput(true, 1, 2, 3, 4);
+            window.ApplyPlacement(new WindowPlacement(10, 20, 400, 300, WindowState.Maximized));
+            var placed = window.Placement;
+            if (placed.State != WindowState.Maximized || !WindowPlacement.TryParse(placed.Format(), out var back) || back != placed
+                || app.GetWorkAreas().Count != 0 || ParentConsole.Attach())
+            {
+                Console.Error.WriteLine("placement smoke failed");
+                return 1;
+            }
+
             if (app.Clipboard.GetText() != "smoke clip" || !app.TryGetEvent(out var e) || e.Kind != PlatformEventKind.TextComposition || e.Text != "ni" || !window.TextInputActive)
             {
                 Console.Error.WriteLine("clipboard/composition smoke failed");

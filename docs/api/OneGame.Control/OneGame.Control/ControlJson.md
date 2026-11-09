@@ -100,6 +100,7 @@ Creates a new instance.
 | [`NetStatus`](#m-netstatus) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`NetWaitResult`](#m-netwaitresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`NullableDouble`](#m-nullabledouble) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`NullableInt32`](#m-nullableint32) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`NullableReverbOptions`](#m-nullablereverboptions) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`NullableSingle`](#m-nullablesingle) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`NullableUInt64`](#m-nullableuint64) | Defines the source generated JSON serialization contract metadata for a given type. |
@@ -156,6 +157,9 @@ Creates a new instance.
 | [`UInt32`](#m-uint32) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`UInt64`](#m-uint64) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`UiScaleResult`](#m-uiscaleresult) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`WindowResult`](#m-windowresult) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`WorkAreaInfo`](#m-workareainfo) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`WorkAreaInfoArray`](#m-workareainfoarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 
 ### <a id="m-accessreport"></a>AccessReport
 
@@ -717,6 +721,16 @@ Defines the source generated JSON serialization contract metadata for a given ty
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)`<double?>`
 
+### <a id="m-nullableint32"></a>NullableInt32
+
+```csharp
+public JsonTypeInfo<int?> NullableInt32 { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)`<int?>`
+
 ### <a id="m-nullablereverboptions"></a>NullableReverbOptions
 
 ```csharp
@@ -1276,6 +1290,36 @@ public JsonTypeInfo<UiScaleResult> UiScaleResult { get; }
 Defines the source generated JSON serialization contract metadata for a given type.
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`UiScaleResult`](UiScaleResult.md)&gt;
+
+### <a id="m-windowresult"></a>WindowResult
+
+```csharp
+public JsonTypeInfo<WindowResult> WindowResult { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`WindowResult`](WindowResult.md)&gt;
+
+### <a id="m-workareainfo"></a>WorkAreaInfo
+
+```csharp
+public JsonTypeInfo<WorkAreaInfo> WorkAreaInfo { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`WorkAreaInfo`](WorkAreaInfo.md)&gt;
+
+### <a id="m-workareainfoarray"></a>WorkAreaInfoArray
+
+```csharp
+public JsonTypeInfo<WorkAreaInfo[]> WorkAreaInfoArray { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`WorkAreaInfo`](WorkAreaInfo.md)\[\]&gt;
 
 ## Methods
 

@@ -61,6 +61,44 @@ public sealed partial class Win32LiveTests : IDisposable
     }
 
     [Fact]
+    public void MaximizeReadCloseCreateFromThePlacementAndItIsMaximizedAtTheSamePosition()
+    {
+        var app = App;
+        var first = app.CreateWindow(new WindowOptions { Title = "placed", Placement = new WindowPlacement(100, 80, 320, 200) });
+        Pump.For(app, 100);
+        Assert.Equal(new WindowPlacement(100, 80, 320, 200), first.Placement);
+
+        first.Maximize();
+        Pump.Until(app, _ => first.IsMaximized);
+        Assert.True(first.IsMaximized);
+        Assert.True(first.Width > 320);
+        var saved = first.Placement;
+        Assert.Equal(new WindowPlacement(100, 80, 320, 200, WindowState.Maximized), saved);
+        first.Close();
+
+        var second = app.CreateWindow(new WindowOptions { Title = "placed again", Placement = saved });
+        Pump.For(app, 100);
+        Assert.True(second.IsMaximized);
+        Assert.Equal(saved, second.Placement);
+
+        second.Restore();
+        Pump.Until(app, _ => !second.IsMaximized && second.Width == 320);
+        Assert.Equal(new WindowPlacement(100, 80, 320, 200), second.Placement);
+        Assert.Equal((100, 80), (second.X, second.Y));
+    }
+
+    [Fact]
+    public void APlacementOnADisconnectedMonitorLandsOnAScreen()
+    {
+        var app = App;
+        Assert.NotEmpty(app.GetWorkAreas());
+        var w = app.CreateWindow(new WindowOptions { Placement = new WindowPlacement(40000, 30000, 320, 200) });
+        Pump.For(app, 100);
+        var area = app.GetWorkAreas()[0];
+        Assert.True(w.X >= area.X && w.X < area.Right && w.Y >= area.Y && w.Y < area.Bottom, w.Placement.ToString());
+    }
+
+    [Fact]
     public void ResizeIsReportedWithTheClientSize()
     {
         var app = App;

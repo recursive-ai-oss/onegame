@@ -5,7 +5,7 @@
        engine checkout before importing, or use the RecursiveAI.OneGame.Sdk package, which imports this file itself. -->
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType Condition="'$(OutputType)' != 'WinExe'">Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
@@ -40,6 +40,21 @@
 
   <Import Project="$(MSBuildThisFileDirectory)Android.targets" />
   <Import Project="$(MSBuildThisFileDirectory)iOS.targets" />
+
+  <!-- A game for Windows is a GUI-subsystem program: it opens no console window. That is the default for a Windows target (a runtime
+       identifier starting with win, or no identifier on a Windows machine) in Release builds; Debug builds, which carry the development tools,
+       keep the console so a developer sees the log. OneGameConsole=true keeps the console in every build (a game that prints to its
+       terminal), and OneGameConsole=false makes even a Debug build a GUI program. A game that sets OutputType to WinExe itself is
+       unchanged. Linux and macOS programs are never touched.
+       Where output goes in a GUI program: to the handles the parent redirected (a pipe, a file), and otherwise to the console of the
+       terminal it was started from, which the engine attaches to at start-up (OneGame.Platform.ParentConsole). Started from Explorer or
+       Steam it has no console, so nothing is printed. Live control uses a socket and is not affected. -->
+  <PropertyGroup>
+    <_OneGameWindowsTarget Condition="$(RuntimeIdentifier.StartsWith('win'))">true</_OneGameWindowsTarget>
+    <_OneGameWindowsTarget Condition="'$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">true</_OneGameWindowsTarget>
+    <OneGameConsole Condition="'$(OneGameConsole)' == '' and '$(OneGameDev)' == 'true'">true</OneGameConsole>
+    <OutputType Condition="'$(_OneGameWindowsTarget)' == 'true' and '$(OneGameConsole)' != 'true' and '$(OutputType)' == 'Exe'">WinExe</OutputType>
+  </PropertyGroup>
 
   <!-- With OneGameRoot set (a game inside an engine checkout) the engine comes from its projects. Without it (a game on the
        RecursiveAI.OneGame.Sdk package) the same libraries come from nuget.org at the SDK's version. The generator and analyzers

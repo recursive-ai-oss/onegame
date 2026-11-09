@@ -50,7 +50,31 @@ Single-threaded: use an app from the thread that created it. All real and synthe
 
 ## Windows (`Window`)
 
-`Width Height Scale SafeArea IsFocused IsFullscreen IsMinimized IsClosed CursorHidden CursorLocked Title NativeHandle`; `SetTitle`, `RequestSize(w,h)` (takes effect through a `WindowResized` event; on Wayland the client decides, so it applies immediately), `SetFullscreen`, `Minimize`, `SetCursorHidden`, `SetCursorLocked` (hides the cursor and reports `PointerRelativeMotion`; refused, `CursorLocked` stays false, when the OS has no way to do it), `TextInputActive`/`TextInputArea`/`SetTextInput` (above), `FillSolid(argb)` for windows made with `WindowOptions.SoftwareSurface` (tests and tools with no GPU surface: Wayland shows nothing until a buffer is attached), `Close`.
+`Width Height Scale SafeArea IsFocused IsFullscreen IsMinimized IsClosed CursorHidden CursorLocked Title NativeHandle`; `IsMaximized X Y CanPlace Placement State`; `SetTitle`, `Maximize`, `Restore`, `MoveTo(x,y)`, `ApplyPlacement(p)` (see Placement below), `RequestSize(w,h)` (takes effect through a `WindowResized` event; on Wayland the client decides, so it applies immediately), `SetFullscreen`, `Minimize`, `SetCursorHidden`, `SetCursorLocked` (hides the cursor and reports `PointerRelativeMotion`; refused, `CursorLocked` stays false, when the OS has no way to do it), `TextInputActive`/`TextInputArea`/`SetTextInput` (above), `FillSolid(argb)` for windows made with `WindowOptions.SoftwareSurface` (tests and tools with no GPU surface: Wayland shows nothing until a buffer is attached), `Close`.
+
+### Placement
+
+`Window.Placement` is a plain value, `WindowPlacement(X, Y, Width, Height, State, HasPosition)`, to keep in a game's settings and give to the next window. X, Y, Width and Height are the **normal (restored) client rectangle** in screen pixels, kept while the window is maximized or fullscreen, so restoring from either returns to where the player left it; `State` is `Normal`, `Maximized` or `Fullscreen`; `Format()`/`TryParse` turn it into text such as `100,80,1280x720,maximized` (`-,-,1280x720,normal` without a position) and refuse malformed or absurd text.
+
+- **Read:** `Window.Placement`, `State`, `IsMaximized`, `X`, `Y`, `CanPlace`. Reading never changes the window.
+- **Apply to a new window:** `WindowOptions.Placement` (it replaces `Width`, `Height` and `Fullscreen`). A maximized window is created maximized, with the saved rectangle as its restore size.
+- **Apply to a live window:** `ApplyPlacement(p)` (leaves maximized/fullscreen, sets the normal rectangle, then enters the wanted state), or `Maximize()`, `Restore()`, `MoveTo(x, y)`. Like `RequestSize` these are requests; the result is read back after the system answers, and a size event follows.
+- **Screens that are gone:** `PlatformApp.GetWorkAreas()` lists the usable rectangle (screen minus taskbars and panels) of each connected screen, primary first, and `WindowPlacement.ClampTo(areas)` moves and shrinks a rectangle so a title bar's worth of it (96 x 48 pixels) is on a screen and it is no bigger than all screens together. `CreateWindow` and `ApplyPlacement` do this themselves, so a placement saved on a monitor that is unplugged still opens visible. A rectangle that is already reachable is never touched.
+
+| Backend | Position | Maximized | Notes |
+|---|---|---|---|
+| Win32 | read and set (client origin, screen pixels, per-monitor dpi) | `SW_MAXIMIZE`/`SW_RESTORE`; a window created maximized is shown maximized at once | work areas from the monitors (taskbar excluded), primary first |
+| X11 | read and set; the position is the client area's corner (the window asks the manager for static gravity) | EWMH `_NET_WM_STATE_MAXIMIZED_HORZ/VERT`; state is read back from the property | no window manager: moving works, maximizing does nothing and `IsMaximized` stays false. One work area (`_NET_WORKAREA`, else the screen); no RandR, so several monitors count as one |
+| Wayland | **not available** (xdg-shell lets a client ask for a state and a size, never a position): `CanPlace` false, `HasPosition` false | `set_maximized`/`unset_maximized`; state follows the compositor's configure | no work areas, so no clamping |
+| Cocoa | same as Wayland: size and state only | `zoom:` | written against the AppKit docs, not yet run on a Mac |
+| Android, iOS, browser | no-op: `CanPlace` false; the system owns the window | no-op | `Placement` reports the current size |
+| Headless | kept in memory, so scenarios and tests can exercise saved placements | state only | no work areas |
+
+The live-control `window` operation reads and sets the same value (`docs/driving-a-game.md`).
+
+### Console of a Windows release
+
+A Windows game is built as a GUI-subsystem program with no console window (`docs/exporting.md`). `ParentConsole.Attach()` (called by `GameApp.Run`) attaches to the terminal that started the program so `Console.Out` and `Console.Error` print there; output the parent redirected (a pipe, a file) is left alone, and a program started from Explorer or a launcher prints nowhere.
 
 `NativeHandle` (`NativeWindowHandle(Kind, Display, Window)`) is what the GPU layer needs to build a surface; neither project references the other:
 
