@@ -1,6 +1,6 @@
 # Your first game
 
-From nothing to an exported program, with only the .NET 10 SDK and nuget.org.
+From nothing to an exported program, with only the .NET SDK 10.0.403 or later and nuget.org.
 
 ```
 dotnet tool install -g RecursiveAI.OneGame.Cli

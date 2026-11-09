@@ -40,7 +40,7 @@ public partial class Ship : Entity, IView2D
 
 ## Getting started
 
-You need the .NET 10 SDK and nothing else (a NativeAOT export also needs the platform's C++ linker: `clang` and `zlib1g-dev` on Linux, the Visual Studio C++ tools on Windows).
+You need the .NET SDK 10.0.403 or later and nothing else (older SDKs fail NativeAOT publishes; a NativeAOT export also needs the platform's C++ linker: `clang` and `zlib1g-dev` on Linux, the Visual Studio C++ tools on Windows).
 
 ```
 dotnet tool install -g RecursiveAI.OneGame.Cli     # the onegame command
