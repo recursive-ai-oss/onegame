@@ -100,6 +100,7 @@ public sealed class ScenarioRunner
         var steps = new List<StepResult>();
         var results = new List<ExpectationResult>();
         var game = _surface.Game;
+        _refusalBase = game.Art.Refusals;
         var setup = Guarded(() =>
         {
             game.Definition.OnScenarioStarting(game);
@@ -155,6 +156,14 @@ public sealed class ScenarioRunner
             }
         }
 
+        // A run that asked for an image the atlas could not give drew a magenta box; that is a failure whatever else was checked.
+        var refused = game.Art.Refusals - _refusalBase;
+        if (refused > 0)
+        {
+            results.Add(new ExpectationResult(
+                results.Count, "atlas", 0, false, "art", "no refused images", $"{refused} refused", game.Art.LastRefusal));
+        }
+
         var passed = !failed && results.TrueForAll(r => r.Passed);
         return new ScenarioResult(
             scenario.Name, scenario.SourcePath, passed, game.World.Tick, game.World.ComputeHash().ToString("x16", CultureInfo.InvariantCulture),
@@ -162,6 +171,7 @@ public sealed class ScenarioRunner
     }
 
     private long _soundBase;
+    private long _refusalBase;
 
     // The sequence number of the newest sound before the scenario began, or 0 when the game has no audio service yet.
     private long SoundLastSequence()

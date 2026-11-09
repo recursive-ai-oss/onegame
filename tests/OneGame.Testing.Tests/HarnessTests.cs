@@ -26,6 +26,10 @@ public class HarnessTests
         {
             Assert.Equal("ShopGame", info.RootElement.GetProperty("game").GetString());
             Assert.Equal(1, info.RootElement.GetProperty("entities").GetInt32());
+            var atlas = info.RootElement.GetProperty("atlas");
+            Assert.Equal(4, atlas.GetProperty("maxPages").GetInt32());
+            Assert.Equal(0, atlas.GetProperty("refusals").GetInt32());
+            Assert.Equal(1024, atlas.GetProperty("pageSize").GetInt32());
         }
 
         Assert.Equal("3", c.Get("Shop", "Stock"));
@@ -49,6 +53,31 @@ public class HarnessTests
         Assert.Equal("rejected", Assert.Throws<ControlException>(() => c.Call("state_patch", """{"entity":"Shop","property":"Stock","value":"many"}""")).Code);
         Assert.Equal("unknown_op", Assert.Throws<ControlException>(() => c.Call("explode")).Code);
         Assert.Equal("bad_args", Assert.Throws<ControlException>(() => c.Call("step", "{\"frames\":0}")).Code);
+    }
+
+    private sealed class RefusingArtGame : ShopGame
+    {
+        public override void DefineArt(OneGame.Atlas.ArtAtlas art) =>
+            art.AddSvg("big", Encoding.UTF8.GetBytes("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\" height=\"10\"><rect width=\"10\" height=\"10\"/></svg>"));
+
+        public override void OnScenarioStarting(GameInstance game) => game.Art.TryGet("big", 9000, 9000, out _);
+    }
+
+    [Fact]
+    public void ARunThatTheAtlasRefusedAnImageInFailsTheScenarioAndInfoSaysSo()
+    {
+        using var cluster = TestCluster.Start(new RefusingArtGame(), Options());
+        var result = cluster.Run(ScenarioParser.Parse("name: refused\nsteps:\n  - step: 1\n"));
+        Assert.False(result.Passed);
+        var failure = Assert.Single(result.Expectations, e => !e.Passed);
+        Assert.Equal("atlas", failure.Kind);
+        Assert.Contains("'big'", failure.Message, StringComparison.Ordinal);
+        using var info = JsonDocument.Parse(cluster.Client.Call("info"));
+        Assert.Equal(1, info.RootElement.GetProperty("atlas").GetProperty("refusals").GetInt32());
+
+        // A clean game passes the same scenario.
+        using var clean = TestCluster.Start(new ShopGame(), Options());
+        Assert.True(clean.Run(ScenarioParser.Parse("name: fine\nsteps:\n  - step: 1\n")).Passed);
     }
 
     [Fact]

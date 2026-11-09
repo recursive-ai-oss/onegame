@@ -307,6 +307,8 @@ ui.Root.Add(Ui.Box().Style(s => s.Size(Length.Ui(300), Length.Ui(160))
 
 A raster or SVG whose side is over 512 pixels gets a texture of its own instead of a place on the shared 1024-pixel atlas pages, so a painted full-panel backdrop is drawn at its full resolution at any UI scale.
 An SVG in a box bigger than 512 pixels is rasterized at the box's own size, not at its natural size times the scale and then stretched, so a vector backdrop stays sharp at 1080p and UI scale 1.5.
+Art that does not fit the shared pages in one frame (many portraits at once) also gets textures of its own within the same budget, so nothing draws as a magenta box; if an image cannot be drawn at all, the log warns, `info` shows `atlas.refusals`, and scenarios fail.
+
 Limits (`ArtLimits`): 8192 pixels and 16 megapixels per raster, and 256 MiB of such textures at once; past that the least recently drawn ones are released and rasterized again when needed (`docs/interfaces/atlas.md`).
 Stay under them by registering art at the size you draw it: a 2048x1152 backdrop is 9 MiB on the GPU.
 

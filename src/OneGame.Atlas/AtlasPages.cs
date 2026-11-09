@@ -82,6 +82,9 @@ public sealed class AtlasPages
     /// <summary>Gets a counter that grows whenever a page is cleared. Quads built from earlier lookups must be rebuilt when it changes.</summary>
     public int Epoch { get; private set; }
 
+    /// <summary>Gets how many pages may exist (<see cref="AtlasOptions.MaxPages"/>).</summary>
+    public int MaxPages => _options.MaxPages;
+
     /// <summary>Gets the pages created so far, in index order.</summary>
     public int PageCount => _pages.Count;
 

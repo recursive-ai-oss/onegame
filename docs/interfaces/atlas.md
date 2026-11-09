@@ -70,6 +70,19 @@ lazy:
 After each frame's lookups call `TakeReleased(list)` and dispose the textures of the handles it returns (the atlas gave them up to stay inside `MaxStandaloneBytes`, or the resource was replaced). `StandaloneCount` and `StandaloneBytes` report what is held.
 Eviction is least recently used, and a texture looked up in the current frame (`BeginFrame`) is never evicted: when the frame itself needs more than the budget the lookup returns `AtlasStatus.Full` and the caller skips that image for the frame.
 
+**Overflow.** The pages are the fast path, not a limit: 4 pages of 1024 px are 16 MiB. When a frame has already used every page and one
+more raster is asked for, it gets a standalone texture of its own instead, counted in the same 256 MiB `MaxStandaloneBytes` budget
+and released least-recently-used (never one drawn this frame). So a screen of a hundred portraits draws all of them; later frames
+clear idle pages and rasterize again as needed. Worst case GPU memory for art is therefore 16 MiB of pages plus 256 MiB of standalone
+textures, the same bound the big rasters already had: nothing is added to what a phone or a browser must hold. `Full` now means the
+frame needs more than the whole 256 MiB budget at once (about a thousand 256 x 256 images).
+
+**Refusals are loud.** A lookup that ends `Full`, `TooLarge` or `Invalid` increments `ArtAtlas.Refusals`, sets `LastRefusal`, and calls
+`ArtAtlas.Warning` (the host writes it to stderr; each image and status once, at most 16 sentences). The renderer still draws the
+magenta box. The `info` op reports `atlas` (`pages`, `maxPages`, `pageSize`, `entries`, `standalone`, `standaloneBytes`,
+`standaloneLimit`, `overflowed`, `pageClears`, `refusals`, `lastRefusal`), and a scenario whose run refused any image fails with an
+`atlas` expectation naming the image, so `onegame test` and scenario captures cannot pass over it.
+
 `ArtRegion`: `Page`, `X Y Width Height`, `U0 V0 U1 V1`, `Slice`, `Standalone`. The renderer draws the region as a textured quad over the command's
 `Bounds`, tinted by `Color` (multiply the premultiplied texel by the tint, alpha included), blending source-over premultiplied
 (`One, OneMinusSrcAlpha`).

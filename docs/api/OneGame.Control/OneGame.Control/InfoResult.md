@@ -16,12 +16,12 @@ Result of `info`, the operation to call first: which game this is, where it is i
 
 | Member | Description |
 | --- | --- |
-| [`InfoResult(string, long, long, string, int, int, float, bool, string?, int, string[], string[], string, string?, int, string, long, float?)`](#m-ctor-string-long-long-string-int-int-float-bool-string-int-string-string-string-string-int-string-long-float) | Result of `info`, the operation to call first: which game this is, where it is in time, and what it is drawing with. |
+| [`InfoResult(string, long, long, string, int, int, float, bool, string?, int, string[], string[], string, string?, int, string, long, float?, AtlasInfo?)`](#m-ctor-string-long-long-string-int-int-float-bool-string-int-string-string-string-string-int-string-long-float-atlasinfo) | Result of `info`, the operation to call first: which game this is, where it is in time, and what it is drawing with. |
 
-### <a id="m-ctor-string-long-long-string-int-int-float-bool-string-int-string-string-string-string-int-string-long-float"></a>InfoResult(string, long, long, string, int, int, float, bool, string?, int, string\[\], string\[\], string, string?, int, string, long, float?)
+### <a id="m-ctor-string-long-long-string-int-int-float-bool-string-int-string-string-string-string-int-string-long-float-atlasinfo"></a>InfoResult(string, long, long, string, int, int, float, bool, string?, int, string\[\], string\[\], string, string?, int, string, long, float?, AtlasInfo?)
 
 ```csharp
-public InfoResult(string Game, long Tick, long Frame, string Hash, int Width, int Height, float Scale, bool Headless, string? Screen, int Entities, string[] Screens, string[] Fixtures, string Stage, string? Adapter, int Drift, string Backend, long Presented, float? ScaleOverride = default);
+public InfoResult(string Game, long Tick, long Frame, string Hash, int Width, int Height, float Scale, bool Headless, string? Screen, int Entities, string[] Screens, string[] Fixtures, string Stage, string? Adapter, int Drift, string Backend, long Presented, float? ScaleOverride = default, AtlasInfo? Atlas = null);
 ```
 
 Result of `info`, the operation to call first: which game this is, where it is in time, and what it is drawing with.
@@ -46,12 +46,14 @@ Result of `info`, the operation to call first: which game this is, where it is i
 - `Backend` (`string`): The platform backend, such as `headless`, `x11` or `wayland` (the platform backend's name in lower case).
 - `Presented` (`long`): Frames presented to the window so far.
 - `ScaleOverride` (`float?`): The UI scale set by `ui_scale`, or null when the scale follows the window.
+- `Atlas` ([`AtlasInfo`](AtlasInfo.md)?): The art atlas: pages, entries, standalone textures and how many images were refused.
 
 ## Properties
 
 | Member | Description |
 | --- | --- |
 | [`Adapter`](#m-adapter) | The graphics adapter's name, or null when drawing on the CPU. |
+| [`Atlas`](#m-atlas) | The art atlas: pages, entries, standalone textures and how many images were refused. |
 | [`Backend`](#m-backend) | The platform backend, such as `headless`, `x11` or `wayland` (the platform backend's name in lower case). |
 | [`Drift`](#m-drift) | Drift reports filed by the local replica; it must stay 0. |
 | [`Entities`](#m-entities) | How many entities the world holds. |
@@ -79,6 +81,16 @@ public string? Adapter { get; init; }
 The graphics adapter's name, or null when drawing on the CPU.
 
 **Type:** `string?`
+
+### <a id="m-atlas"></a>Atlas
+
+```csharp
+public AtlasInfo? Atlas { get; init; }
+```
+
+The art atlas: pages, entries, standalone textures and how many images were refused.
+
+**Type:** [`AtlasInfo`](AtlasInfo.md)?
 
 ### <a id="m-backend"></a>Backend
 

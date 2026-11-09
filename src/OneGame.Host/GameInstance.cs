@@ -164,7 +164,7 @@ public sealed partial class GameInstance : IDisposable
         definition.DefineFonts(fonts);
         var haveFonts = fonts.FaceCount > 0;
         var measurer = haveFonts ? new FontTextMeasurer(fonts) : null;
-        var art = new ArtAtlas();
+        var art = new ArtAtlas { Warning = static message => Console.Error.WriteLine("onegame: " + message) };
         Art = art;
         Fonts = fonts;
         definition.DefineArt(art);

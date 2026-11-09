@@ -2,6 +2,16 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
+## [Unreleased]
+
+### Fixed
+
+- A screen with more art than the four atlas pages hold (about a hundred portraits at once) no longer draws the overflow as magenta boxes: rasters that find every page in use get a texture of their own, inside the same 256 MiB budget as large rasters, so GPU memory stays bounded as before.
+
+### Added
+
+- An image the atlas truly cannot draw is reported: `ArtAtlas.Refusals`, `LastRefusal` and `Warning` (written to stderr by the host), an `atlas` section in the `info` op, and an automatic `atlas` failure in any scenario whose run refused an image.
+
 ## [1.16.0] - 2026-11-08
 
 Recorded clips get their sound, scenario checks see hidden ancestors, scenarios can reset view-side state, and 3D views can draw debug lines, points and arrows. `RecursiveAI.OneGame.Physics` ships as 1.16.0-preview.1.
