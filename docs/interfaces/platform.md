@@ -66,6 +66,8 @@ Single-threaded: use an app from the thread that created it. All real and synthe
 
 A GPU swapchain that presents to a Wayland window must not be combined with `SoftwareSurface`.
 
+Hidden windows: Wayland has no occlusion event; a compositor simply stops answering the window's frame requests, and the driver's FIFO present waits for that answer without a limit. `Window.OnPresenting()` asks for a frame callback just before each present and `Window.PresentWouldBlock(strict)` reports that one is still unanswered (strict: any; otherwise one older than 100 ms). A realtime `GameInstance` skips drawing while it is true and keeps simulating, and on Wayland maps `PresentMode.Vsync` to queue-replacing presents (where the driver offers them) paced by those callbacks, so no engine thread waits inside the driver. The base `Window` returns false everywhere else. Stepped runs (tests, scenarios, captures) present on every step as before.
+
 ## Clipboard
 
 `app.Clipboard` (`PlatformClipboard`): `GetText(selection)`, `SetText(text, selection)`, `IsAvailable`, `Supports(selection)`. UTF-8 text only, up to `MaxTextBytes` (4 MB); longer content reads as absent and `SetText` returns false. Calls are synchronous on the app's thread.

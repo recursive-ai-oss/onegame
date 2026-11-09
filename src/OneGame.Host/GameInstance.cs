@@ -834,6 +834,7 @@ public sealed partial class GameInstance : IDisposable
         long owed = 0;
         var last = clock.ElapsedTicks;
         var started = Frame;
+        _realtime = true;
         while (!QuitRequested && (maxFrames == 0 || Frame - started < maxFrames))
         {
             beforeFrame?.Invoke();
@@ -870,7 +871,8 @@ public sealed partial class GameInstance : IDisposable
                 var waitMs = (int)((step - owed) * 1000 / Stopwatch.Frequency);
                 if (waitMs > 0)
                 {
-                    Platform.PumpEvents(Math.Min(waitMs, 16));
+                    // A frame held back for the display's answer is retried as soon as the answer arrives, not at the next tick.
+                    Platform.PumpEvents(Math.Min(waitMs, PresentThrottled ? 2 : 16));
                 }
             }
             else if (Options.PresentMode != PresentMode.Immediate)
@@ -884,6 +886,8 @@ public sealed partial class GameInstance : IDisposable
                 }
             }
         }
+
+        _realtime = false;
     }
 
     private Stopwatch? _hostClock;
@@ -966,6 +970,20 @@ public sealed partial class GameInstance : IDisposable
         }
     }
 
+    // Stepped runs (tests, scenarios, captures) present on every step and may wait for the display; only a run paced by the clock
+    // must never stop ticking because of one.
+    private bool _realtime;
+    private bool _acquireMissed;
+
+    // On Wayland the driver's vsync (FIFO) present waits inside the call for the compositor's frame callback, and a compositor that is not
+    // drawing the window (covered, minimized) never sends it: the thread running the simulation would park. So vsync there is done by
+    // the host instead: queue-replacing presents that never wait, paced by the window's own frame callbacks (Window.PresentWouldBlock).
+    private PresentMode SwapchainPresentMode(NativeWindowKind kind) =>
+        kind == NativeWindowKind.Wayland && Options.PresentMode == PresentMode.Vsync ? PresentMode.LowLatency : Options.PresentMode;
+
+    /// <summary>True while the last frame was not drawn because the window system is not showing the window.</summary>
+    public bool PresentThrottled { get; private set; }
+
     private void Present()
     {
         EnsureDevice();
@@ -988,13 +1006,32 @@ public sealed partial class GameInstance : IDisposable
                 NativeWindowKind.MetalLayer => SurfaceSource.MetalLayer(h.Window),
                 _ => SurfaceSource.Win32(h.Display, h.Window),
             };
-            _swapchain = _device.CreateSwapchain(source, new SwapchainDesc((uint)Window.Width, (uint)Window.Height) { Srgb = _stage.RequiresSrgb, PresentMode = Options.PresentMode });
+            _swapchain = _device.CreateSwapchain(source, new SwapchainDesc((uint)Window.Width, (uint)Window.Height) { Srgb = _stage.RequiresSrgb, PresentMode = SwapchainPresentMode(h.Kind) });
         }
 
+        // A window the system has stopped drawing (covered, minimized) can park the driver's present for as long as it stays hidden.
+        // Drawing waits; this thread keeps simulating and serving the network.
+        if (_realtime && Window.PresentWouldBlock(Options.PresentMode == PresentMode.Vsync))
+        {
+            PresentThrottled = true;
+            return;
+        }
+
+        PresentThrottled = false;
         try
         {
-            if (_swapchain.TryAcquire(out var backbuffer) == AcquireStatus.Ready)
+            // A short wait covers ordinary pacing; after a miss the next tries don't wait at all, so a stalled display costs one short
+            // wait rather than one per frame.
+            if (_realtime)
             {
+                _swapchain.AcquireTimeout = _acquireMissed ? TimeSpan.Zero : TimeSpan.FromMilliseconds(100);
+            }
+
+            var acquired = _swapchain.TryAcquire(out var backbuffer);
+            _acquireMissed = acquired != AcquireStatus.Ready;
+            if (acquired == AcquireStatus.Ready)
+            {
+                Window.OnPresenting();
                 _stage.Render(_device, backbuffer, new FrameInfo(Window.Width, Window.Height, UiScale, World.Tick, list, World, FrameAlpha));
                 if (_grabNext)
                 {

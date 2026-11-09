@@ -95,6 +95,39 @@ internal sealed unsafe class WaylandWindow : Window
 
     private protected override void ApplyTextInput() => _b.SetTextInput(this);
 
+    // Wayland has no "occluded" event. A compositor that is not drawing a window stops answering its frame requests, and the driver's
+    // FIFO present then waits for that answer without a time limit. So each present is preceded by a frame request of our own, and
+    // while one is unanswered the host does not call the driver at all.
+    private WlObject? _frame;
+    private long _frameAsked;
+
+    // Long enough for several refreshes of the slowest ordinary display, short enough that hiding shows within a few frames.
+    private static readonly long s_stallTicks = System.Diagnostics.Stopwatch.Frequency / 10;
+
+    public override bool PresentWouldBlock(bool strict) =>
+        _frame is not null && (strict || System.Diagnostics.Stopwatch.GetTimestamp() - _frameAsked > s_stallTicks);
+
+    public override void OnPresenting()
+    {
+        if (_frame is not null || IsClosed)
+        {
+            return;
+        }
+
+        // The request belongs to the next commit, which the driver makes inside its present.
+        var frame = Surface.Create(WlSurface.Request.Frame, WlCallback.Info, 1, [0]);
+        frame.Handler = (sender, _, _) =>
+        {
+            sender.Release();
+            if (ReferenceEquals(_frame, sender))
+            {
+                _frame = null;
+            }
+        };
+        _frame = frame;
+        _frameAsked = System.Diagnostics.Stopwatch.GetTimestamp();
+    }
+
     public override void SetTitle(string title)
     {
         Title = title;

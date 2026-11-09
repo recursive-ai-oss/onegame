@@ -2,6 +2,12 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
+## [Unreleased]
+
+### Fixed
+
+- A Wayland window with vsync presenting while its compositor withholds frame callbacks (covered, minimized or on another desktop) no longer parks the thread that runs the simulation and network pump, so a connected game keeps ticking and stays connected. The host now paces vsync on Wayland itself with the window's own frame callbacks and queue-replacing presents, skips drawing while a callback is outstanding, and never waits more than 100 ms for a swapchain image in a realtime run. `Window.PresentWouldBlock` and `Window.OnPresenting` are the platform hooks.
+
 ## [1.17.0] - 2026-11-09
 
 Screens with more art than the atlas pages hold draw correctly, and an image that truly cannot be drawn fails loudly instead of showing as magenta. `RecursiveAI.OneGame.Physics` ships as 1.17.0-preview.1.
