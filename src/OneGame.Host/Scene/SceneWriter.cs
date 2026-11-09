@@ -88,6 +88,14 @@ public sealed partial class SceneWriter
     public void Model(string model, Transform3 transform, bool pickable = true)
         => _draws.Add(new ModelDraw(_models.IndexOf(model), Entity, ToMatrix(transform), pickable));
 
+    /// <summary>Shows a model with an opacity and a label, for example to fade an island in.</summary>
+    /// <param name="model">The name the model (or mesh) was added under.</param>
+    /// <param name="transform">Where it is.</param>
+    /// <param name="options">Opacity, label and pickability.</param>
+    /// <exception cref="UnknownModelException">The library has no such model.</exception>
+    public void Model(string model, Transform3 transform, in ModelOptions options)
+        => _draws.Add(new ModelDraw(_models.IndexOf(model), Entity, ToMatrix(transform), options.Pickable, null, options.Opacity, options.Label));
+
     /// <summary>Shows a model in an animated pose, for example <c>Animator.Pose</c>. The pose is copied when the frame is built, so the caller keeps its buffer.</summary>
     /// <param name="model">The name the model was added under.</param>
     /// <param name="transform">Where it is.</param>
@@ -183,7 +191,7 @@ public sealed partial class SceneWriter
         return m;
     }
 
-    internal readonly record struct ModelDraw(int Model, EntityId Entity, Matrix4x4 World, bool Pickable, NodePose? Pose = null);
+    internal readonly record struct ModelDraw(int Model, EntityId Entity, Matrix4x4 World, bool Pickable, NodePose? Pose = null, float Opacity = 1f, string? Label = null);
 
     internal readonly record struct InstanceDraw(int Model, Matrix4x4 World, Vector4 Tint);
 

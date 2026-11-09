@@ -36,6 +36,24 @@ public sealed record PickResult(bool Hit, string? Entity, ulong? Id, string? Add
 /// <param name="Height">Target height used.</param>
 public sealed record ProjectResult(bool OnScreen, bool InFront, double X, double Y, double Depth, int Width, int Height);
 
+/// <summary>One model of <c>scene_models</c>.</summary>
+/// <param name="Model">The library name.</param>
+/// <param name="Label">The label the game gave this draw, or null.</param>
+/// <param name="Opacity">1 for solid, less when faded.</param>
+/// <param name="Entity">The entity that drew it (<c>Type#id</c>), or null.</param>
+/// <param name="Dynamic">True for a mesh built at run time.</param>
+/// <param name="Triangles">Triangles drawn.</param>
+/// <param name="Position">World position.</param>
+public sealed record SceneModelEntry(string Model, string? Label, double Opacity, string? Entity, bool Dynamic, int Triangles, double[] Position);
+
+/// <summary>Result of <c>scene_models</c>: what the 3D view draws this frame.</summary>
+/// <param name="Count">Models drawn.</param>
+/// <param name="Dynamic">How many of them are meshes built at run time.</param>
+/// <param name="Triangles">Triangles across all of them.</param>
+/// <param name="Truncated">True when <c>limit</c> cut the list.</param>
+/// <param name="Models">The models, in draw order.</param>
+public sealed record SceneModelsResult(int Count, int Dynamic, long Triangles, bool Truncated, SceneModelEntry[] Models);
+
 public static partial class ControlOps
 {
     private static ControlOp[] Scene3DOps =>
@@ -46,6 +64,9 @@ public static partial class ControlOps
         new("pick",
             "Which entity's model is under a pixel (x, y from the top left of a target of 'size', default the window) or along a ray (origin [x,y,z] and direction [x,y,z]). Reports the entity, model, distance and world point; hit=false when nothing pickable is there.",
             """{"type":"object","properties":{"x":{"type":"number"},"y":{"type":"number"},"size":{"type":"string"},"origin":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3},"direction":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3}}}""", false),
+        new("scene_models",
+            "List what the 3D view draws now: each model's name, label, opacity, entity, whether it is a mesh built at run time, triangle count and position (up to 'limit', default 200), with totals.",
+            """{"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":5000}}}""", false),
         new("project",
             "Where a world point [x,y,z] lands on the screen of a target of 'size' (default the window): pixel x and y from the top left, depth, and whether it is visible.",
             """{"type":"object","properties":{"point":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3},"size":{"type":"string"}},"required":["point"]}""", false),

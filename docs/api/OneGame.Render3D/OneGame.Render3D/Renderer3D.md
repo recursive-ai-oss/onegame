@@ -208,6 +208,8 @@ A round white spot that fades smoothly to nothing at its edge: what billboards s
 | --- | --- |
 | [`CreateBillboardTexture(int, int, ReadOnlySpan<byte>, string?)`](#m-createbillboardtexture-int-int-readonlyspan-byte-string) | Uploads an image for billboards. |
 | [`CreateEnvironment(HdrImage, int)`](#m-createenvironment-hdrimage-int) | Makes an environment from an equirectangular panorama (see [`HdrImage`](HdrImage.md) for the orientation). |
+| [`CreateMaterial(string, MaterialAlpha3D, bool, Vector4?, float)`](#m-creatematerial-string-materialalpha3d-bool-vector4-float) | Makes a material for [`DynamicMesh3D`](DynamicMesh3D.md)s without a glTF file. |
+| [`CreateMesh(Material3D, ReadOnlySpan<MeshVertex3D>, ReadOnlySpan<uint>, string)`](#m-createmesh-material3d-readonlyspan-meshvertex3d-readonlyspan-uint-string) | Creates a mesh. |
 | [`Dispose()`](#m-dispose) | Releases everything the renderer created. |
 | [`PrepareEnvironment(EnvironmentMap)`](#m-prepareenvironment-environmentmap) | Runs the filtering of an environment now, on its own graph, and waits for it. |
 | [`Render(RenderGraph, Scene3D, GraphTexture, int, int, GpuFormat)`](#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat) | Adds this frame's passes to a render graph that has begun a frame: shadow maps, the depth prepass and ambient occlusion when the scene asks for them, light clustering, the forward pass, bloom and tone mapping into `target`. |
@@ -248,6 +250,45 @@ Makes an environment from an equirectangular panorama (see [`HdrImage`](HdrImage
 - `size` (`int`): Face size of the specular cube, a power of two from 16 to 1024; 0 (the default) follows the scene's quality level.
 
 **Returns:** [`EnvironmentMap`](EnvironmentMap.md) — The environment. Dispose it before the renderer.
+
+### <a id="m-creatematerial-string-materialalpha3d-bool-vector4-float"></a>CreateMaterial(string, MaterialAlpha3D, bool, Vector4?, float)
+
+```csharp
+public Material3D CreateMaterial(string name, MaterialAlpha3D alpha = 0, bool doubleSided = false, Vector4? baseColor = default, float alphaCutoff = 0.5f);
+```
+
+Makes a material for [`DynamicMesh3D`](DynamicMesh3D.md)s without a glTF file. It starts as white, rough, non-metal; set its textures, colours and style through [`Material3D`](Material3D.md). Materials live as long as the renderer; make a few and share them.
+
+**Parameters**
+
+- `name` (`string`): A name for tools.
+- `alpha` ([`MaterialAlpha3D`](MaterialAlpha3D.md)): How alpha is treated.
+- `doubleSided` (`bool`): Draw back faces too.
+- `baseColor` ([`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)?): Linear RGBA multiplied into the base colour texture; null for white.
+- `alphaCutoff` (`float`): Threshold for [`MaterialAlpha3D.Mask`](MaterialAlpha3D.md#m-mask).
+
+**Returns:** [`Material3D`](Material3D.md) — The material.
+
+### <a id="m-createmesh-material3d-readonlyspan-meshvertex3d-readonlyspan-uint-string"></a>CreateMesh(Material3D, ReadOnlySpan&lt;MeshVertex3D&gt;, ReadOnlySpan&lt;uint&gt;, string)
+
+```csharp
+public DynamicMesh3D CreateMesh(Material3D material, ReadOnlySpan<MeshVertex3D> vertices, ReadOnlySpan<uint> indices, string name = "mesh");
+```
+
+Creates a mesh. See [`DynamicMesh3D`](DynamicMesh3D.md).
+
+**Parameters**
+
+- `material` ([`Material3D`](Material3D.md)): The shared material (from [`Renderer3D.CreateMaterial()`](Renderer3D.md#m-creatematerial-string-materialalpha3d-bool-vector4-float) or a model's [`Model3D.Materials`](Model3D.md#m-materials)).
+- `vertices` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)&lt;[`MeshVertex3D`](MeshVertex3D.md)&gt;): The vertices.
+- `indices` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<uint>`): Triangle list indices; a multiple of 3, each below the vertex count.
+- `name` (`string`): A label for GPU debugging tools.
+
+**Returns:** [`DynamicMesh3D`](DynamicMesh3D.md) — The mesh. Dispose it before the renderer.
+
+**Exceptions**
+
+- [`ArgumentException`](https://learn.microsoft.com/dotnet/api/system.argumentexception): The geometry is empty or invalid.
 
 ### <a id="m-dispose"></a>Dispose()
 

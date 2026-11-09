@@ -43,6 +43,7 @@ A view-only camera that replaces the game's own; null follows the game again.
 | Member | Description |
 | --- | --- |
 | [`Cast(PickRay)`](#m-cast-pickray) | The nearest model along a ray, or null. |
+| [`ListModels()`](#m-listmodels) | What the last [`IScene3DProbe.Prepare()`](IScene3DProbe.md#m-prepare-world-long-fixed) shows, one entry per model drawn (the `scene_models` operation lists it). |
 | [`Prepare(World, long, Fixed)`](#m-prepare-world-long-fixed) | Brings the answers up to date with the world before a question is asked. |
 | [`Ray(float, float, int, int)`](#m-ray-float-float-int-int) | The ray through a pixel of a target of the given size. |
 | [`TryProject(Vector3, int, int, out Vector2, out float)`](#m-tryproject-vector3-int-int-vector2-float) | Where a world point lands in a target of the given size. |
@@ -60,6 +61,16 @@ The nearest model along a ray, or null.
 - `ray` ([`PickRay`](PickRay.md)): The ray.
 
 **Returns:** [`PickHit`](PickHit.md)?
+
+### <a id="m-listmodels"></a>ListModels()
+
+```csharp
+IReadOnlyList<SceneModelInfo> ListModels();
+```
+
+What the last [`IScene3DProbe.Prepare()`](IScene3DProbe.md#m-prepare-world-long-fixed) shows, one entry per model drawn (the `scene_models` operation lists it). Probes that cannot say return nothing.
+
+**Returns:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`SceneModelInfo`](SceneModelInfo.md)&gt;
 
 ### <a id="m-prepare-world-long-fixed"></a>Prepare(World, long, Fixed)
 

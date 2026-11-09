@@ -54,6 +54,8 @@ dotnet add package RecursiveAI.OneGame.Control
 | [`ProjectResult`](OneGame.Control/ProjectResult.md) | record | Result of `project`: where a world point lands on the screen. |
 | [`QualityResult`](OneGame.Control/QualityResult.md) | record | Result of `quality`: the level of the 3D renderer and what it means, with what the last frame did. |
 | [`SavesResult`](OneGame.Control/SavesResult.md) | record | Result of the `saves` operation. |
+| [`SceneModelEntry`](OneGame.Control/SceneModelEntry.md) | record | One model of `scene_models`. |
+| [`SceneModelsResult`](OneGame.Control/SceneModelsResult.md) | record | Result of `scene_models`: what the 3D view draws this frame. |
 | [`SendResult`](OneGame.Control/SendResult.md) | record | Result of `command_send`: `Queued` means it runs on the next tick. |
 | [`SequenceFrame`](OneGame.Control/SequenceFrame.md) | record | One frame of a captured sequence. |
 | [`SequenceManifest`](OneGame.Control/SequenceManifest.md) | record | The manifest of a captured sequence (also written to `manifest.json` beside the frames). |

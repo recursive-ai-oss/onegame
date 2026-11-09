@@ -87,6 +87,7 @@ Most bytes of push constants a pipeline layout may declare. 128 is guaranteed on
 | [`Adapter`](#m-adapter) | The adapter this device runs on. |
 | [`Backend`](#m-backend) | The graphics API this device runs on. |
 | [`Capabilities`](#m-capabilities) | Optional features and limits of this device. |
+| [`MemoryStats`](#m-memorystats) | The backend's own tally of device memory: what it holds from the driver and what live resources occupy. |
 
 ### <a id="m-adapter"></a>Adapter
 
@@ -117,6 +118,16 @@ public abstract GpuCapabilities Capabilities { get; }
 Optional features and limits of this device.
 
 **Type:** [`GpuCapabilities`](GpuCapabilities.md)
+
+### <a id="m-memorystats"></a>MemoryStats
+
+```csharp
+public virtual GpuMemoryStats MemoryStats { get; }
+```
+
+The backend's own tally of device memory: what it holds from the driver and what live resources occupy. Resources that were disposed count until the GPU has finished with them. Backends without a tally report zeros.
+
+**Type:** [`GpuMemoryStats`](GpuMemoryStats.md)
 
 ## Methods
 

@@ -80,6 +80,8 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
     internal VkPhysicalDevice Physical => _physical;
     internal VkQueue Queue => _queue;
     internal MemoryAllocator Memory => _memory;
+
+    public override GpuMemoryStats MemoryStats => new(_memory.ReservedBytes, _memory.UsedBytes, _memory.Allocations);
     internal ulong CompletedSerial { get; private set; }
 
     public override GpuAdapterInfo Adapter => _adapter;

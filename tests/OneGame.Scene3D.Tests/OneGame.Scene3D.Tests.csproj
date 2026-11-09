@@ -8,6 +8,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="../OneGame.Render3D.Tests/Png.cs" Link="Png.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="../Scene3DGame/scenarios/**" CopyToOutputDirectory="PreserveNewest" LinkBase="scenarios" />
   </ItemGroup>
 

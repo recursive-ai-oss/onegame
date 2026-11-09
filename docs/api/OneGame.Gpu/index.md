@@ -51,6 +51,7 @@ dotnet add package RecursiveAI.OneGame.Gpu
 | [`GpuException`](OneGame.Gpu/GpuException.md) | class | An error from the graphics layer. |
 | [`GpuFormat`](OneGame.Gpu/GpuFormat.md) | enum | Pixel formats of textures and render targets. |
 | [`GpuGraphicsPipeline`](OneGame.Gpu/GpuGraphicsPipeline.md) | class | A compiled graphics pipeline. |
+| [`GpuMemoryStats`](OneGame.Gpu/GpuMemoryStats.md) | struct | A backend's tally of device memory, from [`GpuDevice.MemoryStats`](OneGame.Gpu/GpuDevice.md#m-memorystats). |
 | [`GpuModule`](OneGame.Gpu/GpuModule.md) | static class | Identifies the Gpu assembly; a placeholder until its first feature lands. |
 | [`GpuObject`](OneGame.Gpu/GpuObject.md) | class | Base class of every GPU object. |
 | [`GpuOutOfMemoryException`](OneGame.Gpu/GpuOutOfMemoryException.md) | class | The device ran out of memory. |

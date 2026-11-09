@@ -44,6 +44,12 @@ public abstract class GpuDevice : IDisposable
     /// <summary>Optional features and limits of this device.</summary>
     public abstract GpuCapabilities Capabilities { get; }
 
+    /// <summary>
+    /// The backend's own tally of device memory: what it holds from the driver and what live resources occupy. Resources that were disposed
+    /// count until the GPU has finished with them. Backends without a tally report zeros.
+    /// </summary>
+    public virtual GpuMemoryStats MemoryStats => default;
+
     /// <summary>Creates a buffer. Contents are undefined until written with <see cref="WriteBuffer"/>.</summary>
     /// <param name="desc">Size and allowed uses.</param>
     /// <exception cref="GpuOutOfMemoryException">The device has no memory left.</exception>

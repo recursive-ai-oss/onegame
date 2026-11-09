@@ -42,7 +42,20 @@ public interface IScene3DProbe
     /// <summary>The nearest model along a ray, or null.</summary>
     /// <param name="ray">The ray.</param>
     PickHit? Cast(PickRay ray);
+
+    /// <summary>What the last <see cref="Prepare"/> shows, one entry per model drawn (the <c>scene_models</c> operation lists it). Probes that cannot say return nothing.</summary>
+    IReadOnlyList<SceneModelInfo> ListModels() => [];
 }
+
+/// <summary>One model drawn in a frame, as the <c>scene_models</c> operation reports it.</summary>
+/// <param name="Model">The library name of the model or mesh (the instance's label for a hand-filled scene).</param>
+/// <param name="Label">The label given with <see cref="ModelOptions.Label"/>, or null.</param>
+/// <param name="Opacity">1 for solid; below 1 the model is blended.</param>
+/// <param name="Entity">The entity that drew it, or the default id for a describer or a hand-filled scene.</param>
+/// <param name="Dynamic">True for a mesh built at run time (<see cref="ModelLibrary.SetMesh"/>).</param>
+/// <param name="Triangles">Triangles drawn (0 until a mesh's first upload).</param>
+/// <param name="Position">Where the model is, in world space.</param>
+public readonly record struct SceneModelInfo(string Model, string? Label, float Opacity, EntityId Entity, bool Dynamic, int Triangles, Vector3 Position);
 
 /// <summary>
 /// Lets the live-control operations <c>camera</c>, <c>pick</c> and <c>project</c> work on a scene a game fills by hand (a
@@ -173,6 +186,23 @@ public sealed class ManualScene3D : IScene3DProbe
         }
 
         return best;
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<SceneModelInfo> ListModels()
+    {
+        var list = new List<SceneModelInfo>();
+        var models = Scene.Models;
+        for (var i = 0; i < models.Count; i++)
+        {
+            var m = models[i];
+            if (m.Visible)
+            {
+                list.Add(new SceneModelInfo(m.Label ?? "model#" + i.ToString(System.Globalization.CultureInfo.InvariantCulture), m.Label, m.Opacity, default, false, m.Model.TriangleCount, m.Transform.Translation));
+            }
+        }
+
+        return list;
     }
 
     private static ViewCamera From(Camera3D c) => new(c.World, c.YFov, c.Orthographic ? c.OrthoHeight : 0f, c.Near, c.Far, default);

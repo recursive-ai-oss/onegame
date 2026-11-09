@@ -15,6 +15,14 @@ public sealed partial class SceneWriter
     public void Model(string model, in Matrix4x4 world, bool pickable = true)
         => _draws.Add(new ModelDraw(_models.IndexOf(model), Entity, world, pickable));
 
+    /// <summary>Shows a model at a world matrix with an opacity and a label.</summary>
+    /// <param name="model">The name the model (or mesh) was added under.</param>
+    /// <param name="world">Where it is (row vectors, +Y up).</param>
+    /// <param name="options">Opacity, label and pickability.</param>
+    /// <exception cref="UnknownModelException">The library has no such model.</exception>
+    public void Model(string model, in Matrix4x4 world, in ModelOptions options)
+        => _draws.Add(new ModelDraw(_models.IndexOf(model), Entity, world, options.Pickable, null, options.Opacity, options.Label));
+
     /// <summary>A light that shines in all directions from a position.</summary>
     /// <param name="position">Where it is.</param>
     /// <param name="color">Linear RGB.</param>

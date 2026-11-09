@@ -2,6 +2,15 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
+## [Unreleased]
+
+### Added
+
+- Meshes built, replaced and freed at run time. `SceneView3D.Models.SetMesh(id, material, vertices, indices)` adds or replaces a mesh by name (entities draw it with `SceneWriter.Model` like any model), `Remove` and `Replace` free or swap models and meshes, and `Contains` checks a name. `Renderer3D.CreateMaterial` makes a shared material without a glTF file, and `Renderer3D.CreateMesh` returns a `DynamicMesh3D` (`Update`, `Dispose`) for a hand-filled `Scene3D`. Buffers are sized in classes and reused, updates copy through the device's staging memory, freed buffers are released once the GPU has finished with them, and nothing waits for the GPU; a soak of thousands of swaps holds GPU memory flat and steady frames allocate nothing.
+- `SceneWriter.Model(..., ModelOptions)` sets a per-draw opacity and label (`ModelOptions.Opacity`, `Label`, `Pickable`).
+- `scene_models` live-control operation lists what the 3D view draws: model, label, opacity, entity, triangle count, position, and whether the mesh was built at run time.
+- `GpuDevice.MemoryStats` reports the backend's device-memory tally (Vulkan).
+
 ## [1.18.0] - 2026-11-09
 
 Cluster scenarios reach every followed scope, servers report per-connection view hashes, damaged save slots read as missing, and 3D views gain portals, runtime emissive and opacity, frame timing in the overlay and camera/pick on hand-filled scenes. `RecursiveAI.OneGame.Physics` ships as 1.18.0-preview.1.

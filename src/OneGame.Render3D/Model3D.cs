@@ -14,27 +14,52 @@ public sealed class Primitive3D
         IndexFormat = format;
         IndexCount = (uint)source.Indices.Length;
         Material = material;
-        Center = (source.Bounds.Min + source.Bounds.Max) * 0.5f;
-        Radius = Vector3.Distance(source.Bounds.Min, source.Bounds.Max) * 0.5f;
+        SetBounds(source.Bounds.Min, source.Bounds.Max);
     }
 
-    /// <summary>The imported primitive.</summary>
+    // A primitive of a dynamic mesh: its data lives in the buffers only, and a later update may replace them.
+    internal Primitive3D(GpuBuffer vertices, GpuBuffer indices, IndexFormat format, uint indexCount, Material3D material, Vector3 min, Vector3 max)
+    {
+        Source = Empty;
+        Vertices = vertices;
+        Indices = indices;
+        IndexFormat = format;
+        IndexCount = indexCount;
+        Material = material;
+        SetBounds(min, max);
+    }
+
+    private static readonly GltfPrimitive Empty = new();
+
+    /// <summary>The imported primitive (an empty one for a <see cref="DynamicMesh3D"/>).</summary>
     public GltfPrimitive Source { get; }
 
-    internal GpuBuffer Vertices { get; }
+    internal GpuBuffer Vertices { get; set; }
 
-    internal GpuBuffer Indices { get; }
+    internal GpuBuffer Indices { get; set; }
 
-    internal IndexFormat IndexFormat { get; }
+    internal IndexFormat IndexFormat { get; set; }
 
-    internal uint IndexCount { get; }
+    internal uint IndexCount { get; set; }
+
+    internal Vector3 BoundsMin { get; private set; }
+
+    internal Vector3 BoundsMax { get; private set; }
+
+    internal void SetBounds(Vector3 min, Vector3 max)
+    {
+        BoundsMin = min;
+        BoundsMax = max;
+        Center = (min + max) * 0.5f;
+        Radius = Vector3.Distance(min, max) * 0.5f;
+    }
 
     internal Material3D Material { get; }
 
     /// <summary>Centre of the bounding sphere, in mesh space.</summary>
-    internal Vector3 Center { get; }
+    internal Vector3 Center { get; private set; }
 
-    internal float Radius { get; }
+    internal float Radius { get; private set; }
 
     /// <summary>The packed rest-pose vertices, kept only for primitives with morph targets.</summary>
     internal byte[]? BaseVertices { get; set; }
@@ -239,6 +264,8 @@ public sealed class Model3D : IDisposable
         }
     }
 
+    internal void InvalidateBounds() => _restBounds = null;
+
     private Matrix4x4[]? _restWorlds;
     private (Vector3 Min, Vector3 Max)? _restBounds;
 
@@ -271,7 +298,7 @@ public sealed class Model3D : IDisposable
                 {
                     foreach (var p in Meshes[Source.Nodes[n].Mesh]!)
                     {
-                        var b = p.Source.Bounds;
+                        var b = (Min: p.BoundsMin, Max: p.BoundsMax);
                         for (var c = 0; c < 8; c++)
                         {
                             var corner = new Vector3((c & 1) == 0 ? b.Min.X : b.Max.X, (c & 2) == 0 ? b.Min.Y : b.Max.Y, (c & 4) == 0 ? b.Min.Z : b.Max.Z);
@@ -303,7 +330,7 @@ public sealed class Model3D : IDisposable
             {
                 foreach (var p in Meshes[Source.Nodes[node].Mesh]!)
                 {
-                    n += p.Source.Indices.Length / 3;
+                    n += (int)p.IndexCount / 3;
                 }
             }
 
