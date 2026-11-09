@@ -2,6 +2,18 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
+## [Unreleased]
+
+### Added
+
+- Cluster scenarios can command a followed scope: `command: { entity: Arena, name: Hit, scope: 2 }` on a client node (and the `command_send` op's new `scope` argument) looks the entity up in that scope's replica and forwards the command to its authority, whose trust checks apply as for any player. Unfollowed scopes fail with `not_found`.
+- `net_status.followed` lists every other scope the client's node is subscribed to, including ones the game subscribed to itself, and each entry carries `fullHash` and `filtered`; for a filtered replica `hash` is the view hash the authority computes for that connection.
+- Server `hash_at` names the connection of each view (`clients`) and takes an optional `client`, returning that connection's view hash as `view`; `ServerHost.HashesAt(tick, client)` is the API form.
+
+### Fixed
+
+- `SaveSlots.Exists` is false for a slot whose save bytes are damaged (truncated or garbled): it now checks the recorded payload hash, without restoring a world. `List` leaves such slots out too.
+
 ## [1.17.1] - 2026-11-09
 
 A fix for Wayland windows presenting with vsync. `RecursiveAI.OneGame.Physics` ships as 1.17.1-preview.1.

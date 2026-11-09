@@ -206,8 +206,8 @@ public class SaveSlotTests : IDisposable
         store.Write("slot-newer.sav", newer);
         Assert.Equal(SlotStatus.UnsupportedFormat, slots.Load("newer", world).Status);
 
-        // Damaged slots are left out of the list; the good one stays.
-        Assert.Equal(A("flip", "ok").Order(), slots.List().Select(i => i.Slot).Order());
+        // Damaged slots, including one whose save bytes fail their hash, are left out of the list; the good one stays.
+        Assert.Equal("ok", Assert.Single(slots.List()).Slot);
         Assert.Equal(SlotStatus.BadSlotFile, slots.TryGetInfo("junk", out _).Status);
     }
 
@@ -253,5 +253,30 @@ public class SaveSlotTests : IDisposable
         a.TryRead("slot-s.sav", int.MaxValue, out var one);
         b.TryRead("slot-s.sav", int.MaxValue, out var two);
         Assert.Equal(one, two);
+    }
+
+    [Fact]
+    public void ExistsIsFalseForTruncatedAndGarbledSlotsAndTheyLeaveTheListing()
+    {
+        var store = new MemoryByteStore();
+        var slots = Slots(store);
+        Assert.True(slots.Save("good", Played(20), "ok").Ok);
+        Assert.True(slots.Save("cut", Played(20), "cut").Ok);
+        Assert.True(slots.Save("flip", Played(20), "flipped").Ok);
+        Assert.True(slots.Save("junk", Played(20), "junk").Ok);
+
+        store.TryRead("slot-cut.sav", int.MaxValue, out var bytes);
+        store.Write("slot-cut.sav", bytes.AsSpan(0, bytes.Length - 5));
+        store.TryRead("slot-flip.sav", int.MaxValue, out bytes);
+        bytes[^3] ^= 0x5A; // inside the world save: the header still parses
+        store.Write("slot-flip.sav", bytes);
+        store.Write("slot-junk.sav", new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 });
+
+        Assert.True(slots.Exists("good"));
+        Assert.False(slots.Exists("cut"));
+        Assert.False(slots.Exists("flip"));
+        Assert.False(slots.Exists("junk"));
+        Assert.False(slots.Exists("missing"));
+        Assert.Equal("good", Assert.Single(slots.List()).Slot);
     }
 }

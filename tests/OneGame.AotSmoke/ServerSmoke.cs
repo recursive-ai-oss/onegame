@@ -83,8 +83,10 @@ internal static class ServerSmoke
             Thread.Sleep(1);
         }
 
+        // The named-connection form: the one client's own view hash is what its replica holds.
+        var named = host.HashesAt(session.Replica.World.Tick, host.Clients()[0].Name)[0];
         var at = host.HashesAt(session.Replica.World.Tick)[0];
-        var matches = session.Replica.State == ReplicaState.Live && at.Views.Contains(session.Replica.ViewHash.ToString("x16", System.Globalization.CultureInfo.InvariantCulture));
+        var matches = session.Replica.State == ReplicaState.Live && named.View == session.Replica.ViewHash.ToString("x16", System.Globalization.CultureInfo.InvariantCulture) && at.Views.Contains(session.Replica.ViewHash.ToString("x16", System.Globalization.CultureInfo.InvariantCulture));
         var clients = new ServerControl(host).Call("clients");
         host.Stop();
 

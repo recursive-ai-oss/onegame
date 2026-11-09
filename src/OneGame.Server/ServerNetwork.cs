@@ -37,7 +37,17 @@ public sealed record ClientInfo(int Id, string Name, string Transport, string Ad
 /// <param name="Tick">The tick asked for.</param>
 /// <param name="Hash">The hash of the whole scope as 16 hex digits, or null when that tick is not (or no longer) recorded.</param>
 /// <param name="Views">The hash of what each connected client's replica must hold at that tick (its audience's view of the scope); equal to <c>Hash</c> when everything is visible to everyone.</param>
-public sealed record ScopeHashAt(uint Scope, long Tick, string? Hash, string[] Views);
+public sealed record ScopeHashAt(uint Scope, long Tick, string? Hash, string[] Views)
+{
+    /// <summary>The names of the connections the entries of <see cref="Views"/> belong to, in the same order (empty for a tick that is not recorded).</summary>
+    public string[] Clients { get; init; } = [];
+
+    /// <summary>
+    /// When a client was named in the question: the view hash that client's replica must hold at this tick (16 hex digits), or null when the tick is not
+    /// recorded or that client was not subscribed to the scope then. This is the authority's <c>ViewHashFor(connection)</c>.
+    /// </summary>
+    public string? View { get; init; }
+}
 
 /// <summary>
 /// The server's side of its network clients: listeners, the authentication decision, and <see cref="Node.Accept(IMessageChannel, Trust, string?)"/> for every accepted

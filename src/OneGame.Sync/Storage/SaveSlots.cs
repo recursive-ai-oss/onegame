@@ -209,7 +209,7 @@ public sealed class SaveSlots
 
     // ---- reading ----
 
-    /// <summary>Describes every slot that can be read, newest first (ties by name). Damaged slot files are left out; see <see cref="TryGetInfo"/> for why one is.</summary>
+    /// <summary>Describes every slot that can be read, newest first (ties by name). Damaged slot files (including ones whose save bytes fail their hash) are left out; see <see cref="TryGetInfo"/> for why one is.</summary>
     public IReadOnlyList<SlotInfo> List()
     {
         var infos = new List<SlotInfo>();
@@ -221,7 +221,7 @@ public sealed class SaveSlots
             }
 
             var slot = file.Substring(Prefix.Length, file.Length - Prefix.Length - Suffix.Length);
-            if (IsValidSlotName(slot) && TryGetInfo(slot, out var info).Ok)
+            if (IsIntact(slot, out var info))
             {
                 infos.Add(info!);
             }
@@ -249,8 +249,31 @@ public sealed class SaveSlots
         return status == SlotStatus.Ok ? new SlotResult(SlotStatus.Ok, info, null, string.Empty) : new SlotResult(status, null, null, Describe(status, slot));
     }
 
-    /// <summary>True when the slot exists and can be read.</summary>
-    public bool Exists(string slot) => TryGetInfo(slot, out _).Ok;
+    /// <summary>
+    /// True when the slot holds a save that can be loaded: the file parses and the world save inside matches its recorded payload
+    /// hash. A truncated or garbled slot is false. This hashes the bytes; it does not restore a world, so a save a world's
+    /// migrations later refuse still reads true (<see cref="Load(string, World)"/> reports that).
+    /// </summary>
+    public bool Exists(string slot) => IsIntact(slot, out _);
+
+    private bool IsIntact(string slot, out SlotInfo? info)
+    {
+        info = null;
+        if (!IsValidSlotName(slot) || !ReadFile(slot, out var file).Ok)
+        {
+            return false;
+        }
+
+        if (TryParse(file, slot, out info, out var save) != SlotStatus.Ok
+            || SaveFile.TryReadHeader(save, out var header, out var payload, out _) != SaveStatus.Ok
+            || header is null || StateHash.Of(payload) != header.PayloadHash)
+        {
+            info = null;
+            return false;
+        }
+
+        return true;
+    }
 
     /// <summary>
     /// Reads a slot's save bytes (for <c>GameInstance.LoadSnapshot</c>, which builds a fresh world and swaps it in only when the load

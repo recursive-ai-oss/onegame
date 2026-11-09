@@ -37,6 +37,29 @@ public class ClusterTests
     }
 
     [Fact]
+    public void AClusterScenarioCommandNamesTheScopeItGoesToAndAnUnfollowedScopeIsRefused()
+    {
+        var server = Fixture.ServerNode("srv", tickRate: 120) with { Scopes = [new ScopeSpec(1, 7), new ScopeSpec(2, 9)] };
+        var client = Fixture.ClientNode("p1", "srv") with { Args = ["--also-scopes", "2"] };
+        using var cluster = TestCluster.Launch(Spec("two-scope", server, client));
+        var result = cluster.Run(Fixture.Scenario("two-scope.yaml"));
+        Assert.True(result.Passed, JsonSerializer.Serialize(result, ScenarioJson.Default.ScenarioResult));
+
+        // The command reached scope 2's authority and only that one; the main scope is untouched.
+        Assert.Equal("3", Json(cluster.Call("srv", "state_query", "{\"scope\":2,\"entity\":\"Arena\",\"property\":\"Hits\"}")));
+        Assert.Equal("0", Json(cluster.Call("srv", "state_query", "{\"scope\":1,\"entity\":\"Arena\",\"property\":\"Hits\"}")));
+        var refused = Assert.Throws<ControlException>(() => cluster.Call("p1", "command_send", "{\"scope\":9,\"entity\":\"Arena\",\"command\":\"Hit\",\"args\":[\"1\",\"x\"]}"));
+        Assert.Equal("not_found", refused.Code);
+
+        // Both scopes' replicas are in the status with their hashes, and the cluster check still agrees.
+        using var status = JsonDocument.Parse(cluster.Call("p1", "net_status"));
+        var followed = Assert.Single(status.RootElement.GetProperty("followed").EnumerateArray());
+        Assert.Equal(2u, followed.GetProperty("scope").GetUInt32());
+        Assert.False(followed.GetProperty("filtered").GetBoolean());
+        Assert.True(cluster.Hashes().Ok);
+    }
+
+    [Fact]
     public void AServerWhosePortWasTakenBeforeItBoundIsStartedAgainOnOtherPorts()
     {
         // Hold a port on both protocols, as another process would, and hand it out as the server's port once.

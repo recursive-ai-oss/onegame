@@ -95,13 +95,59 @@ public sealed class ServerHost
 
     /// <summary>The recorded hash of every scope at <paramref name="tick"/>; the hash is null for a tick that is not recorded (see <c>hashHistory</c> in the configuration).</summary>
     /// <param name="tick">The scope tick.</param>
-    public ScopeHashAt[] HashesAt(long tick)
+    public ScopeHashAt[] HashesAt(long tick) => HashesAt(tick, null);
+
+    /// <summary>
+    /// As <see cref="HashesAt(long)"/>, also naming the connection of each view and, when <paramref name="client"/> is given, the view hash of that
+    /// client in <see cref="ScopeHashAt.View"/>: what its replica must hold at that tick, equal to its audience's filtered view of the scope.
+    /// </summary>
+    /// <param name="tick">The scope tick.</param>
+    /// <param name="client">A connected client's name (as <see cref="Clients"/> lists it), or null.</param>
+    /// <exception cref="ArgumentException">No connected client has that name.</exception>
+    public ScopeHashAt[] HashesAt(long tick, string? client)
     {
+        var names = new Dictionary<int, string>();
+        foreach (var c in Node.Connections)
+        {
+            names[c.Id] = c.Name;
+        }
+
+        var wanted = -1;
+        if (client is not null)
+        {
+            foreach (var c in Node.Connections)
+            {
+                if (c.Name == client)
+                {
+                    wanted = c.Id;
+                    break;
+                }
+            }
+
+            if (wanted < 0)
+            {
+                throw new ArgumentException($"No connected client is named '{client}'.", nameof(client));
+            }
+        }
+
         var list = new ScopeHashAt[_scopes.Count];
         for (var i = 0; i < list.Length; i++)
         {
-            var found = _scopes[i].History.TryGet(tick, out var h, out var views);
-            list[i] = new ScopeHashAt(_scopes[i].Id.Value, tick, found ? h.ToString("x16", CultureInfo.InvariantCulture) : null, [.. views.Select(v => v.ToString("x16", CultureInfo.InvariantCulture))]);
+            var found = _scopes[i].History.TryGet(tick, out var h, out var views, out var ids);
+            string? view = null;
+            for (var v = 0; v < ids.Length; v++)
+            {
+                if (ids[v] == wanted)
+                {
+                    view = views[v].ToString("x16", CultureInfo.InvariantCulture);
+                }
+            }
+
+            list[i] = new ScopeHashAt(_scopes[i].Id.Value, tick, found ? h.ToString("x16", CultureInfo.InvariantCulture) : null, [.. views.Select(v => v.ToString("x16", CultureInfo.InvariantCulture))])
+            {
+                Clients = [.. ids.Select(id => names.TryGetValue(id, out var n) ? n : "(gone)")],
+                View = view,
+            };
         }
 
         return list;

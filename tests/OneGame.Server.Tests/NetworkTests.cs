@@ -94,6 +94,41 @@ public class NetworkTests : IDisposable
     }
 
     [Fact]
+    public void HashAtNamesEachClientsViewAndAnswersForOneNamedClient()
+    {
+        var host = new ServerHost(Config()) { Authenticate = request => Trust.Player(new ScopeId(1)).As(request.Transport == "udp" ? 1u : 2u) };
+        host.Start();
+        var (alice, _) = Connect(host, "udp", "alice");
+        var (bob, _) = Connect(host, "ws", "bob");
+        for (var i = 0; i < 100; i++)
+        {
+            Round(host, alice, bob);
+        }
+
+        // A connection is named as the server's client list shows it: transport and remote address.
+        var names = host.Clients().ToDictionary(c => c.Transport, c => c.Name);
+        var tick = Math.Min(alice.Replica.World.Tick, bob.Replica.World.Tick);
+        var all = host.HashesAt(tick)[0];
+        Assert.Equal(names.Values.Order().ToArray(), all.Clients.Order().ToArray());
+
+        // Each client's replica must hold exactly the view the authority computes for that connection.
+        foreach (var (session, name) in new[] { (alice, names["udp"]), (bob, names["ws"]) })
+        {
+            while (session.Replica.World.Tick < tick)
+            {
+                Round(host, alice, bob);
+            }
+
+            var at = host.HashesAt(session.Replica.World.Tick, name)[0];
+            Assert.NotNull(at.View);
+            Assert.Equal(at.View, session.Replica.ViewHash.ToString("x16"));
+        }
+
+        Assert.Throws<ArgumentException>(() => host.HashesAt(tick, "carol"));
+        host.Stop();
+    }
+
+    [Fact]
     public void TheAuthenticationHookSeesTheKeyTheClientProved()
     {
         PeerKey? seen = null;

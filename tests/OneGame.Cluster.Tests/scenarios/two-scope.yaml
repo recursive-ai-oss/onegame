@@ -1,0 +1,11 @@
+name: two-scope
+description: A client follows two scopes of one server and commands the entity of the second one.
+steps:
+  - command: { entity: Arena, name: Hit, args: ["3", "p1"], scope: 2 }
+    node: p1
+  - wait: { node: p1, tick: 40 }
+expect:
+  - state: { entity: Arena, property: Hits, equals: 3, within: 5000, scope: 2 }
+    node: srv
+  - state: { entity: Arena, property: Hits, equals: 0, scope: 1 }
+    node: srv

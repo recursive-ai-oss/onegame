@@ -421,7 +421,7 @@ public sealed class ScenarioRunner
                 _surface.Call("input_nav", Obj(("action", s.Text)));
                 break;
             case StepKind.Command:
-                _surface.Call("command_send", Obj(("entity", s.Entity), ("command", s.Name), ("args", s.Args)));
+                _surface.Call("command_send", Obj(("entity", s.Entity), ("command", s.Name), ("args", s.Args), ("scope", s.CommandScope)));
                 break;
             case StepKind.Set:
                 _surface.Call("state_patch", Obj(("entity", s.Entity), ("table", s.Table), ("row", s.Row), ("property", s.Name), ("value", s.Args[0])));

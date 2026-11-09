@@ -64,7 +64,7 @@ internal sealed class ClusterScenarioRunner(ProcessCluster cluster)
         switch (s.Kind)
         {
             case StepKind.Command:
-                cluster.Call(RequireNode(s), "command_send", obj(("entity", s.Entity), ("command", s.Name), ("args", s.Args)));
+                cluster.Call(RequireNode(s), "command_send", obj(("entity", s.Entity), ("command", s.Name), ("args", s.Args), ("scope", s.CommandScope)));
                 break;
             case StepKind.Set:
                 cluster.Call(RequireNode(s), "state_patch", obj(("entity", s.Entity), ("table", s.Table), ("row", s.Row), ("property", s.Name), ("value", s.Args[0])));

@@ -94,7 +94,7 @@ The store the slots live in.
 | [`Autosave(AuthorityScope, string)`](#m-autosave-authorityscope-string) | Writes an autosave of an authority scope (see [`SaveSlots.Autosave()`](SaveSlots.md#m-autosave-world-string)). |
 | [`AutosaveName(int)`](#m-autosavename-int) | The slot name of autosave number `index`. |
 | [`Delete(string)`](#m-delete-string) | Deletes a slot. |
-| [`Exists(string)`](#m-exists-string) | True when the slot exists and can be read. |
+| [`Exists(string)`](#m-exists-string) | True when the slot holds a save that can be loaded: the file parses and the world save inside matches its recorded payload hash. |
 | [`Import(string, byte[], string, SlotKind)`](#m-import-string-byte-string-slotkind) | Puts a save you already hold (for example one read from another store, or written by an earlier version of the game) into a slot. |
 | [`IsValidSlotName(string?)`](#m-isvalidslotname-string) | True when `slot` is a usable name: 1 to 48 ASCII letters, digits, `_` or `-`. |
 | [`Latest()`](#m-latest) | The newest slot of any kind, or null when there are none (what a "Continue" button loads). |
@@ -173,7 +173,7 @@ Deletes a slot. Returns true when it is gone afterwards.
 public bool Exists(string slot);
 ```
 
-True when the slot exists and can be read.
+True when the slot holds a save that can be loaded: the file parses and the world save inside matches its recorded payload hash. A truncated or garbled slot is false. This hashes the bytes; it does not restore a world, so a save a world's migrations later refuse still reads true ([`SaveSlots.Load()`](SaveSlots.md#m-load-string-world) reports that).
 
 **Parameters**
 
@@ -228,7 +228,7 @@ The newest slot of any kind, or null when there are none (what a "Continue" butt
 public IReadOnlyList<SlotInfo> List();
 ```
 
-Describes every slot that can be read, newest first (ties by name). Damaged slot files are left out; see [`SaveSlots.TryGetInfo()`](SaveSlots.md#m-trygetinfo-string-slotinfo) for why one is.
+Describes every slot that can be read, newest first (ties by name). Damaged slot files (including ones whose save bytes fail their hash) are left out; see [`SaveSlots.TryGetInfo()`](SaveSlots.md#m-trygetinfo-string-slotinfo) for why one is.
 
 **Returns:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`SlotInfo`](SlotInfo.md)&gt;
 

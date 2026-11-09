@@ -135,6 +135,7 @@ internal sealed class HashRing
     private readonly long[] _ticks;
     private readonly ulong[] _hashes;
     private readonly ulong[][] _views;
+    private readonly int[][] _viewConnections;
     private readonly int[] _viewCounts;
     private int _next;
 
@@ -144,7 +145,9 @@ internal sealed class HashRing
         _hashes = new ulong[capacity];
         _views = new ulong[capacity][];
         _viewCounts = new int[capacity];
+        _viewConnections = new int[capacity][];
         Array.Fill(_views, Array.Empty<ulong>());
+        Array.Fill(_viewConnections, Array.Empty<int>());
         Array.Fill(_ticks, -1);
     }
 
@@ -166,16 +169,26 @@ internal sealed class HashRing
             views = _views[_next] = new ulong[Math.Max(subscribers.Count, 4)];
         }
 
+        if (_viewConnections[_next].Length < subscribers.Count)
+        {
+            _viewConnections[_next] = new int[views.Length];
+        }
+
+        var ids = _viewConnections[_next];
+
         _viewCounts[_next] = subscribers.Count;
         for (var i = 0; i < subscribers.Count; i++)
         {
             views[i] = scope.ViewHashFor(subscribers[i]);
+            ids[i] = subscribers[i].Id;
         }
 
         _next = (_next + 1) % _ticks.Length;
     }
 
-    public bool TryGet(long tick, out ulong hash, out ulong[] views)
+    public bool TryGet(long tick, out ulong hash, out ulong[] views) => TryGet(tick, out hash, out views, out _);
+
+    public bool TryGet(long tick, out ulong hash, out ulong[] views, out int[] connections)
     {
         for (var i = 0; i < _ticks.Length; i++)
         {
@@ -183,12 +196,14 @@ internal sealed class HashRing
             {
                 hash = _hashes[i];
                 views = _views[i].AsSpan(0, _viewCounts[i]).ToArray();
+                connections = _viewConnections[i].AsSpan(0, _viewCounts[i]).ToArray();
                 return true;
             }
         }
 
         hash = 0;
         views = [];
+        connections = [];
         return false;
     }
 }

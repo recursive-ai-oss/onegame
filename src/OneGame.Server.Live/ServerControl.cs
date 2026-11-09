@@ -67,8 +67,8 @@ public sealed class ServerControl : IControlEndpoint
         new("state_query", "Read a scope's synced state as JSON, or one entity's with 'entity' (a numeric id, a type name for the first of that type, or 'Type#n'), or one value with 'property' too.",
             """{"type":"object","properties":{"scope":{"type":"integer"},"entity":{"type":["string","integer"]},"property":{"type":"string"}}}""", false),
         new("clients", "The connected network clients: name, transport, address, state, round-trip time, loss and retransmits.", NoArgs, false),
-        new("hash_at", "The recorded state hash of every scope at one tick (null when not recorded; see hashHistory). Compare it with a client's hash at the same tick.",
-            """{"type":"object","properties":{"tick":{"type":"integer","minimum":0}},"required":["tick"]}""", false),
+        new("hash_at", "The recorded state hash of every scope at one tick (null when not recorded; see hashHistory), with each connected client's view hash (views, clients in the same order). Give 'client' (a connection name) to get that client's view hash as 'view': what its replica must hold, a filtered replica's hash included.",
+            """{"type":"object","properties":{"tick":{"type":"integer","minimum":0},"client":{"type":"string"}},"required":["tick"]}""", false),
         new("log_tail", "The last N server log lines (default 50).", """{"type":"object","properties":{"max":{"type":"integer"}}}""", false),
         new("shutdown", "Ask the server to finish its tick, run plugin unload hooks and stop.", NoArgs, true),
     ];
@@ -130,6 +130,19 @@ public sealed class ServerControl : IControlEndpoint
         }
     }
 
+    private ScopeHashAt[] HashAt(JsonElement a)
+    {
+        var tick = Long(a, "tick") ?? throw new ControlException("bad_args", "tick is required.");
+        try
+        {
+            return _host.HashesAt(tick, Str(a, "client"));
+        }
+        catch (ArgumentException ex)
+        {
+            throw new ControlException("no_such_client", ex.Message);
+        }
+    }
+
     private string Dispatch(string op, JsonElement a) => op switch
     {
         "server_info" => Serialize(Info(), ServerJson.Default.ServerInfoResult),
@@ -142,7 +155,7 @@ public sealed class ServerControl : IControlEndpoint
         "command_send" => Send(a),
         "state_query" => Query(a),
         "clients" => Serialize(_host.Clients(), ServerJson.Default.ClientInfoArray),
-        "hash_at" => Serialize(_host.HashesAt(Long(a, "tick") ?? throw new ControlException("bad_args", "tick is required.")), ServerJson.Default.ScopeHashAtArray),
+        "hash_at" => Serialize(HashAt(a), ServerJson.Default.ScopeHashAtArray),
         "log_tail" => Serialize([.. _host.Log.Tail(Math.Clamp(Int(a, "max") ?? 50, 1, 512))], ServerJson.Default.LogEntryArray),
         "shutdown" => Shutdown(),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", All.Select(o => o.Name))}."),
