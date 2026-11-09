@@ -2,15 +2,9 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
-## [Unreleased]
-
-### Fixed
-
-- Captures taken in a windowed game (`capture_frame`, `capture_sequence`, scenario and `onegame capture` captures) could miss art the window had not drawn before, and could show stale glyph pages. The capture rendered in a different pixel format than the window's swapchain, which gave it a second renderer, and the art atlas hands each upload (large standalone rasters, changed pages) to one renderer only. Captures now render in the swapchain's format, so there is one renderer and one set of textures, and the read-back swaps the channels.
-
 ## [1.19.0] - 2026-11-09
 
-Meshes a game builds can be added, replaced and freed while it runs, windows remember where they were and how they were shown, and Windows games open without a console window. `RecursiveAI.OneGame.Physics` ships as 1.19.0-preview.1.
+Meshes a game builds can be added, replaced and freed while it runs, windows remember where they were and how they were shown, Windows games open without a console window, and captures of windowed games show all their art. `RecursiveAI.OneGame.Physics` ships as 1.19.0-preview.1.
 
 ### Added
 
@@ -21,6 +15,10 @@ Meshes a game builds can be added, replaced and freed while it runs, windows rem
 - Window placement. `Window.Placement` reads where a window is and how it is shown as a plain `WindowPlacement` value (normal rectangle in screen pixels plus `Normal`/`Maximized`/`Fullscreen`) that a game can save with `Format()` and read back with `TryParse`; `WindowOptions.Placement` creates a window from it (a maximized window is created maximized, remembering the rectangle to restore to), and `Window.ApplyPlacement`, `Maximize`, `Restore` and `MoveTo` change a live one. A placement saved on a monitor that is gone is moved onto a connected screen (`PlatformApp.GetWorkAreas`, `WindowPlacement.ClampTo`). Win32 and X11 (EWMH) place position and state; Wayland and Cocoa place size and state only (xdg-shell has no position request); phones and browsers do nothing. `Window` keeps all its existing members.
 - Live control `window` operation: read and set the placement (`x`, `y`, `width`, `height`, `state`, or a whole placement as `text`).
 - A Windows game is built as a GUI-subsystem program with no console window by default (a `win-*` runtime identifier, or a Release build on Windows). `OneGameConsole=true` keeps the console and `OneGameConsole=false` makes a Debug build GUI too; a game that sets `OutputType` to `WinExe` itself is unchanged. `ParentConsole.Attach()`, called by `GameApp.Run`, prints to the terminal that started the program; redirected output is untouched.
+
+### Fixed
+
+- Captures taken in a windowed game (`capture_frame`, `capture_sequence`, scenario and `onegame capture` captures) could miss art the window had not drawn before, and could show stale glyph pages. The capture rendered in a different pixel format than the window's swapchain, which gave it a second renderer, and the art atlas hands each upload (large standalone rasters, changed pages) to one renderer only. Captures now render in the swapchain's format, so there is one renderer and one set of textures, and the read-back swaps the channels.
 
 ## [1.18.0] - 2026-11-09
 
