@@ -22,6 +22,7 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`DebugDepth3D`](OneGame.Render3D/DebugDepth3D.md) | enum | Whether scene surfaces hide debug geometry. |
 | [`DebugDraw3D`](OneGame.Render3D/DebugDraw3D.md) | class | Reusable immediate-mode debug primitives. |
 | [`DebugSize3D`](OneGame.Render3D/DebugSize3D.md) | enum | How debug primitive widths and point sizes are measured. |
+| [`DynamicMesh3D`](OneGame.Render3D/DynamicMesh3D.md) | class | A triangle mesh a game builds and changes while running, such as a streamed voxel chunk. |
 | [`Environment3D`](OneGame.Render3D/Environment3D.md) | class | Image-based lighting and backdrop of a scene. |
 | [`EnvironmentMap`](OneGame.Render3D/EnvironmentMap.md) | class | An environment prepared for lighting: a GGX-prefiltered specular cube (roughness grows with the mip level, mip 0 is the sharp environment) and a cosine-convolved diffuse cube. |
 | [`FrameStats3D`](OneGame.Render3D/FrameStats3D.md) | struct | What one frame of 3D drew. |
@@ -33,8 +34,10 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`Light3D`](OneGame.Render3D/Light3D.md) | class | A punctual light. |
 | [`LightKind`](OneGame.Render3D/LightKind.md) | enum | The kind of a punctual light (KHR\_lights\_punctual). |
 | [`Material3D`](OneGame.Render3D/Material3D.md) | class | A material on the GPU: constants and textures bound as one group. |
+| [`MaterialAlpha3D`](OneGame.Render3D/MaterialAlpha3D.md) | enum | How a material from [`Renderer3D.CreateMaterial()`](OneGame.Render3D/Renderer3D.md#m-creatematerial-string-materialalpha3d-bool-vector4-float) treats alpha. |
 | [`MaterialSlot3D`](OneGame.Render3D/MaterialSlot3D.md) | enum | The texture slots of a [`Material3D`](OneGame.Render3D/Material3D.md) that [`Material3D.SetTexture()`](OneGame.Render3D/Material3D.md#m-settexture-materialslot3d-gputexture) can replace. |
 | [`MaterialStyle3D`](OneGame.Render3D/MaterialStyle3D.md) | enum | How a material is lit. |
+| [`MeshVertex3D`](OneGame.Render3D/MeshVertex3D.md) | struct | One vertex of a [`DynamicMesh3D`](OneGame.Render3D/DynamicMesh3D.md). |
 | [`Model3D`](OneGame.Render3D/Model3D.md) | class | A glTF model uploaded to the GPU: meshes, materials and textures. |
 | [`ModelInstance3D`](OneGame.Render3D/ModelInstance3D.md) | class | One placed copy of a [`Model3D`](OneGame.Render3D/Model3D.md), with its own pose. |
 | [`Offscreen3D`](OneGame.Render3D/Offscreen3D.md) | class | Renders a scene into an offscreen colour image and reads it back: the capture path for tools and tests. |

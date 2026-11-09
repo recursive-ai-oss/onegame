@@ -109,7 +109,9 @@ View time in seconds: the shown tick and fraction at the simulation's rate. Part
 | [`DirectionalLight(Vector3, Vector3, float, bool)`](#m-directionallight-vector3-vector3-float-bool) | A light from infinitely far away. |
 | [`Instance(string, Transform3, Vector4?)`](#m-instance-string-transform3-vector4) | Shows one copy of a static model among many: every copy of the same model in a frame is drawn with one instanced draw per primitive and culled against the camera and the shadow maps, so thousands of trees or rocks are cheap. |
 | [`Instance(string, in Matrix4x4, Vector4?)`](#m-instance-string-matrix4x4-vector4) | Shows one copy of a static model among many at a world matrix; see the [`Transform3`](../../OneGame.Core/OneGame.Core/Transform3.md) form. |
+| [`Model(string, Transform3, in ModelOptions)`](#m-model-string-transform3-modeloptions) | Shows a model with an opacity and a label, for example to fade an island in. |
 | [`Model(string, Transform3, bool)`](#m-model-string-transform3-bool) | Shows a model from the [`ModelLibrary`](ModelLibrary.md) at a transform. |
+| [`Model(string, in Matrix4x4, in ModelOptions)`](#m-model-string-matrix4x4-modeloptions) | Shows a model at a world matrix with an opacity and a label. |
 | [`Model(string, in Matrix4x4, bool)`](#m-model-string-matrix4x4-bool) | Shows a model at a world matrix. |
 | [`Model(string, Transform3, NodePose, bool)`](#m-model-string-transform3-nodepose-bool) | Shows a model in an animated pose, for example `Animator.Pose`. |
 | [`Model(string, Transform3, float, bool)`](#m-model-string-transform3-float-bool) | Shows a model with an extra view-only scale on top of its transform, for a pulse or a hover highlight. |
@@ -318,6 +320,24 @@ Shows one copy of a static model among many at a world matrix; see the [`Transfo
 
 - [`UnknownModelException`](UnknownModelException.md): The library has no such model.
 
+### <a id="m-model-string-transform3-modeloptions"></a>Model(string, Transform3, in ModelOptions)
+
+```csharp
+public void Model(string model, Transform3 transform, in ModelOptions options);
+```
+
+Shows a model with an opacity and a label, for example to fade an island in.
+
+**Parameters**
+
+- `model` (`string`): The name the model (or mesh) was added under.
+- `transform` ([`Transform3`](../../OneGame.Core/OneGame.Core/Transform3.md)): Where it is.
+- `options` ([`ModelOptions`](ModelOptions.md)): Opacity, label and pickability.
+
+**Exceptions**
+
+- [`UnknownModelException`](UnknownModelException.md): The library has no such model.
+
 ### <a id="m-model-string-transform3-bool"></a>Model(string, Transform3, bool)
 
 ```csharp
@@ -331,6 +351,24 @@ Shows a model from the [`ModelLibrary`](ModelLibrary.md) at a transform.
 - `model` (`string`): The name the model was added under.
 - `transform` ([`Transform3`](../../OneGame.Core/OneGame.Core/Transform3.md)): Where it is.
 - `pickable` (`bool`): Whether `pick` can hit it.
+
+**Exceptions**
+
+- [`UnknownModelException`](UnknownModelException.md): The library has no such model.
+
+### <a id="m-model-string-matrix4x4-modeloptions"></a>Model(string, in Matrix4x4, in ModelOptions)
+
+```csharp
+public void Model(string model, in Matrix4x4 world, in ModelOptions options);
+```
+
+Shows a model at a world matrix with an opacity and a label.
+
+**Parameters**
+
+- `model` (`string`): The name the model (or mesh) was added under.
+- `world` ([`Matrix4x4`](https://learn.microsoft.com/dotnet/api/system.numerics.matrix4x4)): Where it is (row vectors, +Y up).
+- `options` ([`ModelOptions`](ModelOptions.md)): Opacity, label and pickability.
 
 **Exceptions**
 

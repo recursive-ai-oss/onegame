@@ -59,6 +59,7 @@ dotnet add package RecursiveAI.OneGame.Host
 | [`LoadedFont`](OneGame.Host/LoadedFont.md) | record | A font added to a library by [`Assets.LoadFont()`](OneGame.Host/Assets.md#m-loadfont-string-fontlibrary). |
 | [`ManualScene3D`](OneGame.Host/ManualScene3D.md) | class | Lets the live-control operations `camera`, `pick` and `project` work on a scene a game fills by hand (a [`Render3DStage`](OneGame.Host/Render3DStage.md) built without a [`SceneView3D`](OneGame.Host/SceneView3D.md)). |
 | [`ModelLibrary`](OneGame.Host/ModelLibrary.md) | class | The models a game's entities can show, by name. |
+| [`ModelOptions`](OneGame.Host/ModelOptions.md) | struct | Per-draw settings for `SceneWriter.Model` beyond placement: how see-through the model is, and the name tools show for it. |
 | [`NetStatus`](OneGame.Host/NetStatus.md) | record | A snapshot of a client's connection, for `net_status`. |
 | [`OverlayCanvas`](OneGame.Host/OverlayCanvas.md) | class | The few drawing calls an [`IFrameOverlay`](OneGame.Host/IFrameOverlay.md) has: filled rectangles and one-line text, in framebuffer pixels. |
 | [`PickHit`](OneGame.Host/PickHit.md) | struct | What a pick found. |
@@ -70,6 +71,7 @@ dotnet add package RecursiveAI.OneGame.Host
 | [`Render2DStage`](OneGame.Host/Render2DStage.md) | class | The default render stage: the 2D renderer draws the UI display list into the host's target. |
 | [`Render3DStage`](OneGame.Host/Render3DStage.md) | class | A render stage that draws a 3D scene first and the 2D scene and UI over it. |
 | [`Resolution`](OneGame.Host/Resolution.md) | static class | Named capture sizes. |
+| [`SceneModelInfo`](OneGame.Host/SceneModelInfo.md) | struct | One model drawn in a frame, as the `scene_models` operation reports it. |
 | [`SceneView3D`](OneGame.Host/SceneView3D.md) | class | Turns a world of [`IView3D`](OneGame.Host/IView3D.md) entities into a 3D scene and answers questions about it: which camera is in use, where a world point lands on screen, which entity is under a screen point. |
 | [`SceneWriter`](OneGame.Host/SceneWriter.md) | class | What an entity's [`IView3D.Describe3D()`](OneGame.Host/IView3D.md#m-describe3d-scenewriter) writes into: models, lights and cameras for one frame. |
 | [`ScreenSet`](OneGame.Host/ScreenSet.md) | class | The named screens of a game. |

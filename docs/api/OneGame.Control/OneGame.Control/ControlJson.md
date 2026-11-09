@@ -121,6 +121,9 @@ Creates a new instance.
 | [`ResourceReportArray`](#m-resourcereportarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ReverbOptions`](#m-reverboptions) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`SavesResult`](#m-savesresult) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`SceneModelEntry`](#m-scenemodelentry) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`SceneModelEntryArray`](#m-scenemodelentryarray) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`SceneModelsResult`](#m-scenemodelsresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`SendResult`](#m-sendresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`SequenceFrame`](#m-sequenceframe) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`SequenceFrameArray`](#m-sequenceframearray) | Defines the source generated JSON serialization contract metadata for a given type. |
@@ -923,6 +926,36 @@ public JsonTypeInfo<SavesResult> SavesResult { get; }
 Defines the source generated JSON serialization contract metadata for a given type.
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`SavesResult`](SavesResult.md)&gt;
+
+### <a id="m-scenemodelentry"></a>SceneModelEntry
+
+```csharp
+public JsonTypeInfo<SceneModelEntry> SceneModelEntry { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`SceneModelEntry`](SceneModelEntry.md)&gt;
+
+### <a id="m-scenemodelentryarray"></a>SceneModelEntryArray
+
+```csharp
+public JsonTypeInfo<SceneModelEntry[]> SceneModelEntryArray { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`SceneModelEntry`](SceneModelEntry.md)\[\]&gt;
+
+### <a id="m-scenemodelsresult"></a>SceneModelsResult
+
+```csharp
+public JsonTypeInfo<SceneModelsResult> SceneModelsResult { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`SceneModelsResult`](SceneModelsResult.md)&gt;
 
 ### <a id="m-sendresult"></a>SendResult
 

@@ -119,6 +119,7 @@ The particle emitters entities showed in the last [`SceneView3D.Prepare()`](Scen
 | [`Build(Scene3D, Renderer3D)`](#m-build-scene3d-renderer3d) | Fills a renderer scene from the last [`SceneView3D.Prepare()`](SceneView3D.md#m-prepare-world-long-fixed): camera, model instances and lights. |
 | [`Cast(PickRay)`](#m-cast-pickray) | The nearest entity model along a ray, from the last [`SceneView3D.Prepare()`](SceneView3D.md#m-prepare-world-long-fixed). |
 | [`Dispose()`](#m-dispose) | Releases the GPU copies of the models. |
+| [`ListModels()`](#m-listmodels) | What the last [`IScene3DProbe.Prepare()`](IScene3DProbe.md#m-prepare-world-long-fixed) shows, one entry per model drawn (the `scene_models` operation lists it). |
 | [`Pick(float, float, int, int)`](#m-pick-float-float-int-int) | The nearest entity model under a pixel, from the last [`SceneView3D.Prepare()`](SceneView3D.md#m-prepare-world-long-fixed). |
 | [`Prepare(World, long, Fixed)`](#m-prepare-world-long-fixed) | Asks every [`IView3D`](IView3D.md) entity of `world` what it looks like at a moment. |
 | [`Ray(float, float, int, int)`](#m-ray-float-float-int-int) | The ray through a pixel of a target of the given size. |
@@ -158,6 +159,16 @@ public void Dispose();
 ```
 
 Releases the GPU copies of the models. The renderer must still be alive.
+
+### <a id="m-listmodels"></a>ListModels()
+
+```csharp
+public IReadOnlyList<SceneModelInfo> ListModels();
+```
+
+What the last [`IScene3DProbe.Prepare()`](IScene3DProbe.md#m-prepare-world-long-fixed) shows, one entry per model drawn (the `scene_models` operation lists it). Probes that cannot say return nothing.
+
+**Returns:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`SceneModelInfo`](SceneModelInfo.md)&gt;
 
 ### <a id="m-pick-float-float-int-int"></a>Pick(float, float, int, int)
 

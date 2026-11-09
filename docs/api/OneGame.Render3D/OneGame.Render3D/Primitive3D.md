@@ -15,7 +15,7 @@ A drawable triangle list of a mesh, with its GPU buffers and material.
 
 | Member | Description |
 | --- | --- |
-| [`Source`](#m-source) | The imported primitive. |
+| [`Source`](#m-source) | The imported primitive (an empty one for a [`DynamicMesh3D`](DynamicMesh3D.md)). |
 
 ### <a id="m-source"></a>Source
 
@@ -23,6 +23,6 @@ A drawable triangle list of a mesh, with its GPU buffers and material.
 public GltfPrimitive Source { get; }
 ```
 
-The imported primitive.
+The imported primitive (an empty one for a [`DynamicMesh3D`](DynamicMesh3D.md)).
 
 **Type:** [`GltfPrimitive`](../../OneGame.Gltf/OneGame.Gltf/GltfPrimitive.md)
