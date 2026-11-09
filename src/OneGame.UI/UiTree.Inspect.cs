@@ -194,7 +194,7 @@ public sealed partial class UiTree
             states.Add("disabled");
         }
 
-        if (!e.IsVisible)
+        if (!e.IsEffectivelyVisible)
         {
             states.Add("hidden");
         }

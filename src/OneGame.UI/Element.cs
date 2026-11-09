@@ -143,6 +143,24 @@ public partial class Element
         }
     }
 
+    /// <summary>True when this element and every ancestor are shown: their visible flags are true and their computed styles are neither <c>display: none</c> nor <c>visibility: hidden</c>. Update the tree first to resolve bindings and styles.</summary>
+    public bool IsEffectivelyVisible
+    {
+        get
+        {
+            for (Element? element = this; element is not null; element = element.Parent)
+            {
+                if (!element.IsVisible || element.Computed.E(StyleProp.Display) == (int)DisplayMode.None ||
+                    element.Computed.E(StyleProp.Visibility) == (int)VisibilityMode.Hidden)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
     /// <summary>True when the element can take keyboard or gamepad focus (while enabled and shown).</summary>
     public bool IsFocusable { get; set; }
 

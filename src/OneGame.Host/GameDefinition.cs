@@ -92,6 +92,16 @@ public abstract class GameDefinition
     {
     }
 
+    /// <summary>
+    /// Called before each scenario, before its seed, fixture, snapshot, screen or steps are applied. Restore view-only defaults here:
+    /// settings, selection, animation clocks and any other state held outside the world. The default does nothing. The harness reuses
+    /// the game and its graphics resources; it cannot reset fields owned by the game. This hook is not called by an in-scenario reset.
+    /// </summary>
+    /// <param name="game">The running game whose view state should be reset. Do not advance or change synced state here.</param>
+    public virtual void OnScenarioStarting(GameInstance game)
+    {
+    }
+
     /// <summary>Called once per frame of a game connected to a server, after the network was pumped and before the UI updates. Advance predicted worlds here.</summary>
     /// <param name="game">The running game.</param>
     public virtual void OnFrame(GameInstance game)

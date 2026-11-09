@@ -15,6 +15,10 @@ internal sealed class SmokeGame : GameDefinition
 {
     public override string Name => "AotSmokeGame";
 
+    public int ScenarioStarts { get; private set; }
+
+    public override void OnScenarioStarting(GameInstance game) => ScenarioStarts++;
+
     public override void RegisterEntities(EntityRegistry registry) => OneGame.Generated.OneGame_AotSmoke.EntityTypes.Register(registry);
 
     public override void RegisterSystems(World world) => world.AddTable(new SparkTable());
@@ -27,6 +31,7 @@ internal sealed class SmokeGame : GameDefinition
 
     public override void DefineScreens(ScreenSet screens) =>
         screens.Add("main", game => Ui.Column(
+            Ui.Column(Ui.Label("hidden").Named("hidden-child")).Style(s => s.Display(DisplayMode.None)),
             Ui.Label(() => "Total " + ((Purse)game.World.Entities[0]).Total).Named("total"),
             Ui.Button("Add", () => ((Purse)game.World.Entities[0]).Send.Add(1, Fixed.FromInt(2))).Named("add").Padding(6))
             .Padding(8).Background(Color.Rgb(0x203040)).TextColor(Color.White));
@@ -79,6 +84,7 @@ internal static class HarnessSmoke
               - step: 1
             expect:
               - ui: { id: total, contains: Total }
+              - ui: { id: hidden-child, visible: false }
               - tick: 6
             """);
         var result = new ScenarioRunner(surface, new ScenarioRunOptions { ArtifactsDirectory = Path.GetTempPath() }).Run(scenario);
@@ -151,6 +157,11 @@ internal static class HarnessSmoke
         {
             Console.Error.WriteLine($"harness smoke failed: dev run exit {devExit}: {devOutput}");
             return 1;
+        }
+
+        if (((SmokeGame)game.Definition).ScenarioStarts != 1 || game.Ui.Find("hidden-child")!.IsEffectivelyVisible)
+        {
+            throw new InvalidOperationException("Scenario start or effective visibility failed.");
         }
 
         if (!result.Passed || back.Width != 160 || back.Height != 100 || !replay.Ok || tools is null || !tools.Contains("capture_frame", StringComparison.Ordinal)
