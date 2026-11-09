@@ -22,7 +22,7 @@ public readonly record struct PickHit(EntityId Entity, string Model, float Dista
 /// point lands on screen, which entity is under a screen point. It only reads the world; it never changes state. Everything but
 /// <see cref="Build"/> works without a graphics device.
 /// </summary>
-public sealed class SceneView3D : IDisposable
+public sealed class SceneView3D : IScene3DProbe, IDisposable
 {
     private readonly SceneWriter _writer;
     private readonly List<Light3D> _lightPool = [];

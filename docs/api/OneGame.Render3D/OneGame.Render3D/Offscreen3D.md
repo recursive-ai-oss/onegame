@@ -17,6 +17,7 @@ Renders a scene into an offscreen colour image and reads it back: the capture pa
 | Member | Description |
 | --- | --- |
 | [`Offscreen3D(Renderer3D, int, int, GpuFormat)`](#m-ctor-renderer3d-int-int-gpuformat) | Creates a target of `width` x `height` pixels. |
+| [`Offscreen3D(Renderer3D, int, int, GpuFormat, bool)`](#m-ctor-renderer3d-int-int-gpuformat-bool) | Creates a target that materials can sample: the way to show one view inside another (a portal window, a monitor, a mirror). |
 
 ### <a id="m-ctor-renderer3d-int-int-gpuformat"></a>Offscreen3D(Renderer3D, int, int, GpuFormat)
 
@@ -32,6 +33,22 @@ Creates a target of `width` x `height` pixels.
 - `width` (`int`): Width in pixels.
 - `height` (`int`): Height in pixels.
 - `format` ([`GpuFormat`](../../OneGame.Gpu/OneGame.Gpu/GpuFormat.md)): `Rgba8UnormSrgb` (default), `Rgba8Unorm` or `Rgba16Float`.
+
+### <a id="m-ctor-renderer3d-int-int-gpuformat-bool"></a>Offscreen3D(Renderer3D, int, int, GpuFormat, bool)
+
+```csharp
+public Offscreen3D(Renderer3D renderer, int width, int height, GpuFormat format, bool sampled);
+```
+
+Creates a target that materials can sample: the way to show one view inside another (a portal window, a monitor, a mirror). Call [`Offscreen3D.Render()`](Offscreen3D.md#m-render-scene3d) with the other place's scene before the frame that draws the surface, and bind [`Offscreen3D.Target`](Offscreen3D.md#m-target) with [`Material3D.SetTexture()`](Material3D.md#m-settexture-materialslot3d-gputexture). The view is drawn on the render graph and costs one more pass set per frame, and nothing is uploaded again: the models, textures and buffers are the ones the main scene uses.
+
+**Parameters**
+
+- `renderer` ([`Renderer3D`](Renderer3D.md)): The renderer to draw with (the same one that draws the main scene).
+- `width` (`int`): Width in pixels.
+- `height` (`int`): Height in pixels.
+- `format` ([`GpuFormat`](../../OneGame.Gpu/OneGame.Gpu/GpuFormat.md)): `Rgba8UnormSrgb` (so sampling returns linear light), `Rgba8Unorm` or `Rgba16Float`.
+- `sampled` (`bool`): True to allow shaders to sample [`Offscreen3D.Target`](Offscreen3D.md#m-target).
 
 ## Properties
 

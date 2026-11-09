@@ -255,7 +255,7 @@ public sealed partial class Renderer3D : IDisposable
             var constants = BuildMaterial(m);
             var buffer = result.Own(device.CreateBuffer(new BufferDesc((ulong)Marshal.SizeOf<MaterialConstants>(), BufferUsage.Uniform | BufferUsage.CopyDestination) { Label = "material " + m.Name }));
             device.WriteBuffer(buffer, 0, MemoryMarshal.AsBytes(new ReadOnlySpan<MaterialConstants>(in constants)));
-            var group = result.Own(device.CreateBindGroup(_layout, 2,
+            BindGroupEntry[] entries =
             [
                 BindGroupEntry.ForBuffer(0, buffer),
                 BindGroupEntry.ForTexture(1, TextureFor(m.BaseColorTexture, srgb: true)),
@@ -268,8 +268,9 @@ public sealed partial class Renderer3D : IDisposable
                 BindGroupEntry.ForSampler(8, SamplerFor(m.NormalTexture)),
                 BindGroupEntry.ForSampler(9, SamplerFor(m.OcclusionTexture)),
                 BindGroupEntry.ForSampler(10, SamplerFor(m.EmissiveTexture)),
-            ]));
-            materials[i] = new Material3D(device, m.Name ?? "", constants, buffer, group, m.AlphaMode == GltfAlphaMode.Blend, m.DoubleSided, m.AlphaMode == GltfAlphaMode.Mask);
+            ];
+            var group = result.Own(CreateMaterialGroup(entries));
+            materials[i] = new Material3D(this, result, m.Name ?? "", constants, buffer, group, entries, m.AlphaMode == GltfAlphaMode.Blend, m.DoubleSided, m.AlphaMode == GltfAlphaMode.Mask);
         }
 
         var meshes = new Primitive3D[]?[model.Meshes.Length];
@@ -425,6 +426,11 @@ public sealed partial class Renderer3D : IDisposable
 
         _owned.Clear();
     }
+
+    internal GpuBindGroup CreateMaterialGroup(BindGroupEntry[] entries) => Device.CreateBindGroup(_layout, 2, entries);
+
+    // Frames already recorded may still use the group: it is freed at the start of the next render.
+    internal void Retire(IDisposable resource) => _deferred.Add(resource);
 
     private void DisposeDeferred()
     {

@@ -88,6 +88,18 @@ public sealed class ModelInstance3D : IDisposable
     /// <summary>Whether the instance is drawn.</summary>
     public bool Visible { get; set; } = true;
 
+    private float _opacity = 1f;
+
+    /// <summary>
+    /// 1 (default) draws the model as its materials say; below 1 every surface is multiplied by this alpha and drawn in the blended pass
+    /// (sorted far to near, no depth write, like a glTF BLEND material), so it combines with each material's own <see cref="Material3D.Opacity"/>.
+    /// A translucent instance casts no shadow and has no outline. Values are clamped to 0..1.
+    /// </summary>
+    public float Opacity { get => _opacity; set => _opacity = Math.Clamp(value, 0f, 1f); }
+
+    /// <summary>A name tools show for this instance, for example in <c>pick</c> results of a game that fills the scene by hand.</summary>
+    public string? Label { get; set; }
+
     /// <summary>Per-node translation, rotation, scale and morph weights. Change them, then call <see cref="UpdateTransforms"/>.</summary>
     public NodePose Pose { get; }
 

@@ -164,8 +164,11 @@ internal static class HarnessSmoke
             throw new InvalidOperationException("Scenario start or effective visibility failed.");
         }
 
+        // Frame timing runs while the panel is visible, and the overlay operation reports it.
+        game.Step(3);
+        var timed = surface.Call("overlay", """{"visible":true}""");
         if (!result.Passed || back.Width != 160 || back.Height != 100 || !replay.Ok || tools is null || !tools.Contains("capture_frame", StringComparison.Ordinal)
-            || state.Length == 0 || tree.Length == 0 || !themeLint.Contains("\"checks\"", StringComparison.Ordinal) || !overlay.Contains("entities", StringComparison.Ordinal) || applied != 1 || !shaders.Contains("\"changed\":[\"smoke\"]", StringComparison.Ordinal))
+            || state.Length == 0 || tree.Length == 0 || !themeLint.Contains("\"checks\"", StringComparison.Ordinal) || !overlay.Contains("entities", StringComparison.Ordinal) || !timed.Contains("\"timing\":{\"samples\":", StringComparison.Ordinal) || applied != 1 || !shaders.Contains("\"changed\":[\"smoke\"]", StringComparison.Ordinal))
         {
             Console.Error.WriteLine($"harness smoke failed: scenario={result.Passed} image={back.Width}x{back.Height} replay={replay.Ok}");
             return 1;

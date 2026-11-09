@@ -78,6 +78,7 @@ Simulation ticks per second of a realtime run.
 | [`Stage`](#m-stage) | The render stage. |
 | [`Storage`](#m-storage) | Save slots, settings and files for this game. |
 | [`Suspended`](#m-suspended) | True while the app is in the background (the platform reported [`AppLifecycleState.Paused`](../../OneGame.Platform/OneGame.Platform/AppLifecycleState.md#m-paused)). |
+| [`Timings`](#m-timings) | CPU frame times of the last frames. |
 | [`Tweens`](#m-tweens) | The tweens of this game's UI: style transitions and the ones game code starts. |
 | [`Ui`](#m-ui) | The retained UI tree of the current screen. |
 | [`UiScale`](#m-uiscale) | The current UI scale: [`GameInstance.UiScaleOverride`](GameInstance.md#m-uiscaleoverride) when set, otherwise the window's scale. |
@@ -404,6 +405,16 @@ True while the app is in the background (the platform reported [`AppLifecycleSta
 
 **Type:** `bool`
 
+### <a id="m-timings"></a>Timings
+
+```csharp
+public FrameTimings Timings { get; }
+```
+
+CPU frame times of the last frames. Off until [`FrameTimings.Enabled`](FrameTimings.md#m-enabled) is set (the debug panel does it while shown); a frame then costs a few timestamps and no allocation.
+
+**Type:** [`FrameTimings`](FrameTimings.md)
+
 ### <a id="m-tweens"></a>Tweens
 
 ```csharp
@@ -535,6 +546,7 @@ Raised after the world is replaced by a reset, a fixture or a snapshot load. Rec
 | [`LoadFixture(string)`](#m-loadfixture-string) | Replaces the world with one filled by a named fixture. |
 | [`LoadSnapshot(ReadOnlySpan<byte>)`](#m-loadsnapshot-readonlyspan-byte) | Replaces the world with the state in a save (see [`SaveFile`](../../OneGame.Sync/OneGame.Sync/SaveFile.md)). |
 | [`OpenScreen(string)`](#m-openscreen-string) | Replaces the UI with a declared screen. |
+| [`ReadGpuTimings(List<GpuPassTime>)`](#m-readgputimings-list-gpupasstime) | Reads how long the GPU spent on each pass of the newest finished frame, from the stage's render graph. |
 | [`Redraw()`](#m-redraw) | Draws and presents the current state in a windowed instance. |
 | [`RefreshScreens()`](#m-refreshscreens) | Declares the screens again from the game's current code and rebuilds the open screen, so an edit to [`GameDefinition.DefineScreens()`](GameDefinition.md#m-definescreens-screenset) shows on the next frame. |
 | [`Replay(SessionRecording)`](#m-replay-sessionrecording) | Replays every segment of a session, each on a fresh world, and stops at the first divergence. |
@@ -754,6 +766,20 @@ Replaces the UI with a declared screen.
 **Exceptions**
 
 - [`KeyNotFoundException`](https://learn.microsoft.com/dotnet/api/system.collections.generic.keynotfoundexception): No screen has that name.
+
+### <a id="m-readgputimings-list-gpupasstime"></a>ReadGpuTimings(List&lt;GpuPassTime&gt;)
+
+```csharp
+public GpuTimingStatus ReadGpuTimings(List<GpuPassTime> passes);
+```
+
+Reads how long the GPU spent on each pass of the newest finished frame, from the stage's render graph. It is safe to call while a frame is being drawn (the debug panel does). The times trail the frame being drawn by a frame or two.
+
+**Parameters**
+
+- `passes` ([`List`](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)&lt;[`GpuPassTime`](GpuPassTime.md)&gt;): Receives the passes that have a time, in frame order (cleared first).
+
+**Returns:** [`GpuTimingStatus`](GpuTimingStatus.md) — [`GpuTimingStatus.Ready`](GpuTimingStatus.md#m-ready) when times were read; [`GpuTimingStatus.Unsupported`](GpuTimingStatus.md#m-unsupported) on a backend without timestamps.
 
 ### <a id="m-redraw"></a>Redraw()
 

@@ -84,6 +84,29 @@ internal static class Render3DSmoke
             return $"instancing or shadows did not run: {stats}";
         }
 
+        // A view inside a view, runtime emissive and opacity, and the probe a hand-filled scene answers the control operations with.
+        scene.Models.Clear();
+        scene.Lights.Clear();
+        scene.Ssao.Enabled = false;
+        scene.Quality = QualityLevel.Medium;
+        scene.Environment.Background = BackgroundMode.Color;
+        scene.Environment.BackgroundColor = new Vector3(0.1f, 0.2f, 0.6f);
+        scene.Camera = Camera3D.Frame(bounds.Min, bounds.Max, 30, 20, 96 / 72f);
+        var fox = scene.Add(model);
+        fox.Label = "fox";
+        using var portal = new Offscreen3D(renderer, 96, 72, GpuFormat.Rgba8UnormSrgb, sampled: true);
+        portal.Render(scene);
+        var emissive = model.Materials[0];
+        emissive.SetTexture(MaterialSlot3D.Emissive, portal.Target);
+        emissive.Emissive = new Vector3(0.5f);
+        emissive.EmissiveStrength = 2f;
+        emissive.Opacity = 0.5f;
+        fox.Opacity = 0.75f;
+        target.Capture(scene);
+        emissive.ResetTexture(MaterialSlot3D.Emissive);
+        var probe = new OneGame.Host.ManualScene3D(scene);
+        if (probe.Cast(probe.Ray(48, 36, 96, 72)) is not { Model: "fox" }) { return "the hand-filled scene probe did not pick the model"; }
+        device.WaitIdle();
         return null;
     }
 }

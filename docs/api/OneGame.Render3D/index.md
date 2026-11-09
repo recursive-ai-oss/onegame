@@ -33,6 +33,7 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`Light3D`](OneGame.Render3D/Light3D.md) | class | A punctual light. |
 | [`LightKind`](OneGame.Render3D/LightKind.md) | enum | The kind of a punctual light (KHR\_lights\_punctual). |
 | [`Material3D`](OneGame.Render3D/Material3D.md) | class | A material on the GPU: constants and textures bound as one group. |
+| [`MaterialSlot3D`](OneGame.Render3D/MaterialSlot3D.md) | enum | The texture slots of a [`Material3D`](OneGame.Render3D/Material3D.md) that [`Material3D.SetTexture()`](OneGame.Render3D/Material3D.md#m-settexture-materialslot3d-gputexture) can replace. |
 | [`MaterialStyle3D`](OneGame.Render3D/MaterialStyle3D.md) | enum | How a material is lit. |
 | [`Model3D`](OneGame.Render3D/Model3D.md) | class | A glTF model uploaded to the GPU: meshes, materials and textures. |
 | [`ModelInstance3D`](OneGame.Render3D/ModelInstance3D.md) | class | One placed copy of a [`Model3D`](OneGame.Render3D/Model3D.md), with its own pose. |

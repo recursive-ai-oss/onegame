@@ -19,6 +19,22 @@ public sealed class Offscreen3D : IDisposable
     /// <param name="height">Height in pixels.</param>
     /// <param name="format"><c>Rgba8UnormSrgb</c> (default), <c>Rgba8Unorm</c> or <c>Rgba16Float</c>.</param>
     public Offscreen3D(Renderer3D renderer, int width, int height, GpuFormat format = GpuFormat.Rgba8UnormSrgb)
+        : this(renderer, width, height, format, sampled: false)
+    {
+    }
+
+    /// <summary>
+    /// Creates a target that materials can sample: the way to show one view inside another (a portal window, a monitor, a mirror). Call
+    /// <see cref="Render"/> with the other place's scene before the frame that draws the surface, and bind <see cref="Target"/> with
+    /// <see cref="Material3D.SetTexture"/>. The view is drawn on the render graph and costs one more pass set per frame, and nothing is
+    /// uploaded again: the models, textures and buffers are the ones the main scene uses.
+    /// </summary>
+    /// <param name="renderer">The renderer to draw with (the same one that draws the main scene).</param>
+    /// <param name="width">Width in pixels.</param>
+    /// <param name="height">Height in pixels.</param>
+    /// <param name="format"><c>Rgba8UnormSrgb</c> (so sampling returns linear light), <c>Rgba8Unorm</c> or <c>Rgba16Float</c>.</param>
+    /// <param name="sampled">True to allow shaders to sample <see cref="Target"/>.</param>
+    public Offscreen3D(Renderer3D renderer, int width, int height, GpuFormat format, bool sampled)
     {
         ArgumentNullException.ThrowIfNull(renderer);
         _renderer = renderer;
@@ -26,7 +42,7 @@ public sealed class Offscreen3D : IDisposable
         Height = height;
         Format = format;
         _graph = new RenderGraph(renderer.Device);
-        Target = renderer.Device.CreateTexture(new TextureDesc((uint)width, (uint)height, format, TextureUsage.RenderTarget | TextureUsage.CopySource) { Label = "3d capture" });
+        Target = renderer.Device.CreateTexture(new TextureDesc((uint)width, (uint)height, format, TextureUsage.RenderTarget | TextureUsage.CopySource | (sampled ? TextureUsage.Sampled : TextureUsage.None)) { Label = "3d capture" });
     }
 
     /// <summary>Width in pixels.</summary>

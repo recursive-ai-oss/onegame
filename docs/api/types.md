@@ -304,6 +304,8 @@ Every public type in every package, in alphabetical order.
 | [`FrameOptions`](OneGame.Render2D/OneGame.Render2D/FrameOptions.md) | struct | `OneGame.Render2D` | [OneGame.Render2D](OneGame.Render2D/index.md) | Per-frame settings. |
 | [`FrameStats`](OneGame.Render2D/OneGame.Render2D/FrameStats.md) | struct | `OneGame.Render2D` | [OneGame.Render2D](OneGame.Render2D/index.md) | What a frame cost, counted when it was recorded. |
 | [`FrameStats3D`](OneGame.Render3D/OneGame.Render3D/FrameStats3D.md) | struct | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | What one frame of 3D drew. |
+| [`FrameTiming`](OneGame.Host/OneGame.Host/FrameTiming.md) | struct | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | How long one frame took on the CPU. |
+| [`FrameTimings`](OneGame.Host/OneGame.Host/FrameTimings.md) | class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | A short history of CPU frame times, filled by [`GameInstance`](OneGame.Host/OneGame.Host/GameInstance.md) only while [`FrameTimings.Enabled`](OneGame.Host/OneGame.Host/FrameTimings.md#m-enabled) is set; the debug panel sets it while it is shown. |
 | [`FrontFace`](OneGame.Gpu/OneGame.Gpu/FrontFace.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Winding order that makes a triangle front-facing, as seen with clip-space +Y up. |
 | [`FVec2`](OneGame.Core/OneGame.Core/FVec2.md) | struct | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | A two-dimensional point or vector in [`Fixed`](OneGame.Core/OneGame.Core/Fixed.md) numbers. |
 | [`FVec3`](OneGame.Core/OneGame.Core/FVec3.md) | struct | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | A three-dimensional point or vector in [`Fixed`](OneGame.Core/OneGame.Core/Fixed.md) numbers. +X is right, +Y is up and -Z is forward, as in the 3D renderer. |
@@ -370,6 +372,8 @@ Every public type in every package, in alphabetical order.
 | [`GpuModule`](OneGame.Gpu/OneGame.Gpu/GpuModule.md) | static class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Identifies the Gpu assembly; a placeholder until its first feature lands. |
 | [`GpuObject`](OneGame.Gpu/OneGame.Gpu/GpuObject.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Base class of every GPU object. |
 | [`GpuOutOfMemoryException`](OneGame.Gpu/OneGame.Gpu/GpuOutOfMemoryException.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | The device ran out of memory. |
+| [`GpuPassReport`](OneGame.Control/OneGame.Control/GpuPassReport.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | One pass of the render graph and its GPU time. |
+| [`GpuPassTime`](OneGame.Host/OneGame.Host/GpuPassTime.md) | struct | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | One pass of the render graph and how long the GPU spent on it. |
 | [`GpuPipelineLayout`](OneGame.Gpu/OneGame.Gpu/GpuPipelineLayout.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | The resource interface shared by pipelines and bind groups. |
 | [`GpuRenderPass`](OneGame.Gpu/OneGame.Gpu/GpuRenderPass.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Records draws inside a render pass. |
 | [`GpuSampler`](OneGame.Gpu/OneGame.Gpu/GpuSampler.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Sampler state. |
@@ -378,6 +382,7 @@ Every public type in every package, in alphabetical order.
 | [`GpuSwapchain`](OneGame.Gpu/OneGame.Gpu/GpuSwapchain.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Presents rendered images to a window. |
 | [`GpuTexture`](OneGame.Gpu/OneGame.Gpu/GpuTexture.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | A 2D image, 2D array, cube map, cube array or 3D volume. |
 | [`GpuTimestampSet`](OneGame.Gpu/OneGame.Gpu/GpuTimestampSet.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | A set of GPU timestamp queries. |
+| [`GpuTimingStatus`](OneGame.Host/OneGame.Host/GpuTimingStatus.md) | enum | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | Whether GPU pass times can be read. |
 | [`GpuUnsupportedException`](OneGame.Gpu/OneGame.Gpu/GpuUnsupportedException.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | The system has no usable graphics API, adapter or required feature. |
 | [`Gradient`](OneGame.Render2D/OneGame.Render2D/Gradient.md) | struct | `OneGame.Render2D` | [OneGame.Render2D](OneGame.Render2D/index.md) | A colour ramp for a filled shape. |
 | [`GraphBuffer`](OneGame.Gpu/OneGame.Gpu.Graph/GraphBuffer.md) | struct | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | A buffer inside one frame of a [`RenderGraph`](OneGame.Gpu/OneGame.Gpu.Graph/RenderGraph.md). |
@@ -472,6 +477,7 @@ Every public type in every package, in alphabetical order.
 | [`IPurchaseBackend`](OneGame.Purchases/OneGame.Purchases/IPurchaseBackend.md) | interface | `OneGame.Purchases` | [OneGame.Purchases](OneGame.Purchases/index.md) | What a purchase backend implements. |
 | [`IRenderStage`](OneGame.Host/OneGame.Host/IRenderStage.md) | interface | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | Draws one frame. |
 | [`IRichPresence`](OneGame.Steam/OneGame.Stores/IRichPresence.md) | interface | `OneGame.Stores` | [OneGame.Steam](OneGame.Steam/index.md) | Rich presence: key/value text friends see next to the player's name. |
+| [`IScene3DProbe`](OneGame.Host/OneGame.Host/IScene3DProbe.md) | interface | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | What the `camera`, `pick` and `project` operations ask of a 3D scene: the camera in use, a view-only override of it, a world point's place on screen and the model under a pixel. |
 | [`IScene3DStage`](OneGame.Host/OneGame.Host/IScene3DStage.md) | interface | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | What a render stage that draws a 3D scene shows, for tools that ask about it (the `camera` and `pick` operations). |
 | [`ISettingsFile`](OneGame.Core/OneGame.Storage/ISettingsFile.md) | interface | `OneGame.Storage` | [OneGame.Core](OneGame.Core/index.md) | The type-independent face of a [`SettingsFile<T>`](OneGame.Core/OneGame.Storage/SettingsFile-1.md), for tools that list a game's settings. |
 | [`IShaderSource`](OneGame.Render2D/OneGame.Render2D/IShaderSource.md) | interface | `OneGame.Render2D` | [OneGame.Render2D](OneGame.Render2D/index.md) | Supplies the renderer's built-in shaders by program and entry point name. |
@@ -524,8 +530,10 @@ Every public type in every package, in alphabetical order.
 | [`LoudnessReading`](OneGame.Audio/OneGame.Audio/LoudnessReading.md) | struct | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | What the loudness meter reads at the output (EBU R 128 / ITU-R BS.1770). |
 | [`LoudnessStatus`](OneGame.Audio/OneGame.Audio/LoudnessStatus.md) | record | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | Loudness at the output. |
 | [`ManualNetClock`](OneGame.Net/OneGame.Net/ManualNetClock.md) | class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | A clock the caller advances by hand. |
+| [`ManualScene3D`](OneGame.Host/OneGame.Host/ManualScene3D.md) | class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | Lets the live-control operations `camera`, `pick` and `project` work on a scene a game fills by hand (a [`Render3DStage`](OneGame.Host/OneGame.Host/Render3DStage.md) built without a [`SceneView3D`](OneGame.Host/OneGame.Host/SceneView3D.md)). |
 | [`Material`](OneGame.Render2D/OneGame.Render2D/Material.md) | class | `OneGame.Render2D` | [OneGame.Render2D](OneGame.Render2D/index.md) | A pixel shader with parameters, usable on sprites. |
 | [`Material3D`](OneGame.Render3D/OneGame.Render3D/Material3D.md) | class | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | A material on the GPU: constants and textures bound as one group. |
+| [`MaterialSlot3D`](OneGame.Render3D/OneGame.Render3D/MaterialSlot3D.md) | enum | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | The texture slots of a [`Material3D`](OneGame.Render3D/OneGame.Render3D/Material3D.md) that [`Material3D.SetTexture()`](OneGame.Render3D/OneGame.Render3D/Material3D.md#m-settexture-materialslot3d-gputexture) can replace. |
 | [`MaterialStyle3D`](OneGame.Render3D/OneGame.Render3D/MaterialStyle3D.md) | enum | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | How a material is lit. |
 | [`McpProtocol`](OneGame.Control/OneGame.Control/McpProtocol.md) | class | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | The Model Context Protocol (https://modelcontextprotocol.io, revision 2025-06-18) for one game: JSON-RPC 2.0 messages in, messages out. |
 | [`MemoryByteStore`](OneGame.Core/OneGame.Storage/MemoryByteStore.md) | class | `OneGame.Storage` | [OneGame.Core](OneGame.Core/index.md) | Files held in memory only. |
@@ -646,6 +654,7 @@ Every public type in every package, in alphabetical order.
 | [`PassBuilder`](OneGame.Gpu/OneGame.Gpu.Graph/PassBuilder.md) | class | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | Declares what one pass touches. |
 | [`PassContext`](OneGame.Gpu/OneGame.Gpu.Graph/PassContext.md) | class | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | What a pass may do while it records: get the physical textures and buffers it declared, and the render or compute pass the graph opened for it. |
 | [`PassReport`](OneGame.Gpu/OneGame.Gpu.Graph/PassReport.md) | record | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | One pass of the last frame. |
+| [`PassTime`](OneGame.Gpu/OneGame.Gpu.Graph/PassTime.md) | struct | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | The GPU time of one pass, from [`RenderGraph.ReadPassTimes()`](OneGame.Gpu/OneGame.Gpu.Graph/RenderGraph.md#m-readpasstimes-list-passtime). |
 | [`PassTiming`](OneGame.Gpu/OneGame.Gpu/PassTiming.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Where a group of passes writes its GPU start and end times: pass `k` of the group uses queries `First + 2k` and `First + 2k + 1`. |
 | [`PassType`](OneGame.Gpu/OneGame.Gpu.Graph/PassType.md) | enum | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | What kind of work a pass records, which decides how the graph runs it. |
 | [`PatchResult`](OneGame.Control/OneGame.Control/PatchResult.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | Result of `state_patch`: a synced property written directly, bypassing commands (for building a situation in a test). |
@@ -1048,6 +1057,7 @@ Every public type in every package, in alphabetical order.
 | [`TileMapStats`](OneGame.Render2D/OneGame.Render2D/TileMapStats.md) | struct | `OneGame.Render2D` | [OneGame.Render2D](OneGame.Render2D/index.md) | What the tilemap drew last frame; for tests, captures and tuning. |
 | [`TileSet`](OneGame.Render2D/OneGame.Render2D/TileSet.md) | class | `OneGame.Render2D` | [OneGame.Render2D](OneGame.Render2D/index.md) | A grid of equally sized tiles in one texture. |
 | [`Timed<T>`](OneGame.Core/OneGame.Core/Timed-1.md) | struct | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | A value that moves from one value to another over a span of ticks. |
+| [`TimingReport`](OneGame.Control/OneGame.Control/TimingReport.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | Frame timing over the last [`FrameTimings.Capacity`](OneGame.Host/OneGame.Host/FrameTimings.md#m-capacity) frames. |
 | [`ToneMapper`](OneGame.Render3D/OneGame.Render3D/ToneMapper.md) | enum | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | The curve that maps scene-referred HDR light to display values. |
 | [`TouchRegion`](OneGame.Platform/OneGame.Platform/TouchRegion.md) | enum | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | The part of the window a touch binding listens to. |
 | [`TransactionState`](OneGame.Purchases/OneGame.Purchases/TransactionState.md) | enum | `OneGame.Purchases` | [OneGame.Purchases](OneGame.Purchases/index.md) | Where a transaction stands. |

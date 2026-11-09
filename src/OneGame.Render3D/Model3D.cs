@@ -40,13 +40,38 @@ public sealed class Primitive3D
     internal byte[]? BaseVertices { get; set; }
 }
 
+/// <summary>The texture slots of a <see cref="Material3D"/> that <see cref="Material3D.SetTexture"/> can replace.</summary>
+public enum MaterialSlot3D
+{
+    /// <summary>Base colour (sRGB colour; multiplied by the base colour factor).</summary>
+    BaseColor = 0,
+
+    /// <summary>Metallic (blue) and roughness (green).</summary>
+    MetallicRoughness = 1,
+
+    /// <summary>Tangent-space normal map.</summary>
+    Normal = 2,
+
+    /// <summary>Occlusion (red).</summary>
+    Occlusion = 3,
+
+    /// <summary>Emissive colour (multiplied by <see cref="Material3D.Emissive"/>).</summary>
+    Emissive = 4,
+}
+
 /// <summary>
 /// A material on the GPU: constants and textures bound as one group. Its <see cref="Style"/> picks physically based, cel-shaded or flat
-/// lighting, and its outline settings add a silhouette line; changes apply to the next frame.
+/// lighting, and its outline settings add a silhouette line; changes apply to the next frame. Emissive light, opacity and textures can be
+/// changed at any time without reloading the model.
 /// </summary>
 public sealed class Material3D
 {
     private readonly GpuDevice _device;
+    private readonly Renderer3D _renderer;
+    private readonly Model3D _owner;
+    private readonly BindGroupEntry[] _entries;
+    private readonly bool _blendAtLoad;
+    private GpuBindGroup _group;
     private MaterialConstants _constants;
     private MaterialStyle3D _style;
     private int _bands = 3;
@@ -54,15 +79,22 @@ public sealed class Material3D
     private float _highlight = 0.5f;
     private float _outlineWidth;
     private Vector3 _outlineColor = new(0.02f, 0.02f, 0.03f);
+    private Vector3 _emissive;
+    private float _emissiveStrength = 1f;
+    private float _opacity = 1f;
 
-    internal Material3D(GpuDevice device, string name, in MaterialConstants constants, GpuBuffer buffer, GpuBindGroup group, bool blend, bool doubleSided, bool mask)
+    internal Material3D(Renderer3D renderer, Model3D owner, string name, in MaterialConstants constants, GpuBuffer buffer, GpuBindGroup group, BindGroupEntry[] entries, bool blend, bool doubleSided, bool mask)
     {
-        _device = device;
+        _device = renderer.Device;
+        _renderer = renderer;
+        _owner = owner;
         _constants = constants;
+        _entries = entries;
+        _emissive = new Vector3(constants.Emissive.X, constants.Emissive.Y, constants.Emissive.Z);
         Name = name;
         Constants = buffer;
-        Group = group;
-        Blend = blend;
+        _group = group;
+        _blendAtLoad = blend;
         DoubleSided = doubleSided;
         Mask = mask;
     }
@@ -72,9 +104,10 @@ public sealed class Material3D
 
     internal GpuBuffer Constants { get; }
 
-    internal GpuBindGroup Group { get; }
+    internal GpuBindGroup Group => _group;
 
-    internal bool Blend { get; }
+    /// <summary>Drawn in the blended pass (far to near, no depth write): a glTF BLEND material, or any material made translucent with <see cref="Opacity"/>.</summary>
+    internal bool Blend => _blendAtLoad || _opacity < 1f;
 
     internal bool DoubleSided { get; }
 
@@ -99,6 +132,66 @@ public sealed class Material3D
     /// <summary>Outline colour, linear RGB.</summary>
     public Vector3 OutlineColor { get => _outlineColor; set => Set(ref _outlineColor, value); }
 
+    /// <summary>Emitted colour, linear RGB (the file's emissive factor times its strength at load). It is multiplied by the emissive texture and by <see cref="EmissiveStrength"/>.</summary>
+    public Vector3 Emissive { get => _emissive; set => Set(ref _emissive, Vector3.Max(value, Vector3.Zero)); }
+
+    /// <summary>A multiplier on <see cref="Emissive"/> (1 by default), for pulsing or fading a glow without touching its colour.</summary>
+    public float EmissiveStrength { get => _emissiveStrength; set => Set(ref _emissiveStrength, Math.Max(value, 0f)); }
+
+    /// <summary>
+    /// 1 (default) draws the material as the file says; below 1 it multiplies the alpha and moves the material to the blended pass, which sorts
+    /// far to near and writes no depth, as for a glTF BLEND material. Translucent materials cast no shadows and have no outline.
+    /// </summary>
+    public float Opacity { get => _opacity; set => Set(ref _opacity, Math.Clamp(value, 0f, 1f)); }
+
+    /// <summary>
+    /// Replaces one texture of this material, for example with the target of an <see cref="Offscreen3D"/> built with <c>sampled: true</c>, so a
+    /// portal window shows another view. The texture keeps being used until <see cref="ResetTexture"/>; it must outlive the frames that draw it.
+    /// Rendered targets are tone-mapped already: show one through <see cref="MaterialSlot3D.Emissive"/> (base colour black) or the
+    /// <see cref="MaterialStyle3D.Flat"/> style on the base colour slot. Use an <c>Rgba8UnormSrgb</c> target so sampling returns linear light.
+    /// </summary>
+    /// <param name="slot">Which texture to replace.</param>
+    /// <param name="texture">A texture with <see cref="TextureUsage.Sampled"/>.</param>
+    public void SetTexture(MaterialSlot3D slot, GpuTexture texture)
+    {
+        ArgumentNullException.ThrowIfNull(texture);
+        Rebind(slot, texture);
+    }
+
+    /// <summary>Puts back the texture the file gave (or the plain white one) in a slot.</summary>
+    /// <param name="slot">Which texture to restore.</param>
+    public void ResetTexture(MaterialSlot3D slot) => Rebind(slot, null);
+
+    private void Rebind(MaterialSlot3D slot, GpuTexture? texture)
+    {
+        var binding = (uint)slot + 1;
+        var index = Array.FindIndex(_entries, e => e.Binding == binding);
+        _originalTextures ??= new GpuTexture?[5];
+        if (texture is null)
+        {
+            if (_originalTextures[(int)slot] is not { } original)
+            {
+                return;
+            }
+
+            _entries[index] = BindGroupEntry.ForTexture(binding, original);
+            _originalTextures[(int)slot] = null;
+        }
+        else
+        {
+            _originalTextures[(int)slot] ??= _entries[index].Texture;
+            _entries[index] = BindGroupEntry.ForTexture(binding, texture);
+        }
+
+        var made = _renderer.CreateMaterialGroup(_entries);
+        _renderer.Retire(_group);
+        _owner.Disown(_group);
+        _owner.Own(made);
+        _group = made;
+    }
+
+    private GpuTexture?[]? _originalTextures;
+
     private void Set<T>(ref T field, T value)
     {
         if (EqualityComparer<T>.Default.Equals(field, value))
@@ -111,6 +204,7 @@ public sealed class Material3D
         c.StyleA = new Vector4((float)(int)_style, _bands, _softness, _highlight);
         c.StyleB = new Vector4(_outlineWidth, 0, 0, 0);
         c.OutlineColor = new Vector4(_outlineColor, 1f);
+        c.Emissive = new Vector4(_emissive * _emissiveStrength, 1f - _opacity);
         _device.WriteBuffer(Constants, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(new ReadOnlySpan<MaterialConstants>(in c)));
     }
 }
@@ -223,6 +317,8 @@ public sealed class Model3D : IDisposable
         _owned.Add(resource);
         return resource;
     }
+
+    internal void Disown(IDisposable resource) => _owned.Remove(resource);
 
     /// <inheritdoc />
     public void Dispose()

@@ -19,6 +19,8 @@ Toggle it with [`DebugOverlay.ToggleKey`](DebugOverlay.md#m-togglekey) (F3) or t
 | Member | Description |
 | --- | --- |
 | [`AudioSource`](#m-audiosource) | The audio service whose device is reported; the newest one when null. |
+| [`GpuPasses`](#m-gpupasses) | The most recent GPU pass times the panel read (empty when the backend has no timestamps or nothing was drawn yet). |
+| [`GpuStatus`](#m-gpustatus) | Whether GPU pass times could be read when the panel last built its text. |
 | [`IsMasked`](#m-ismasked) | Whether the figures are masked now. |
 | [`Lines`](#m-lines) | The lines of the panel as last built. |
 | [`Masked`](#m-masked) | Shows `--` for every figure that depends on the machine or the moment (frame times, network rates, audio counters), so a capture is the same everywhere. |
@@ -35,6 +37,26 @@ public Func<AudioService?>? AudioSource { get; set; }
 The audio service whose device is reported; the newest one when null.
 
 **Type:** [`Func`](https://learn.microsoft.com/dotnet/api/system.func-1)&lt;[`AudioService`](../../OneGame.Audio/OneGame.Audio/AudioService.md)?&gt;?
+
+### <a id="m-gpupasses"></a>GpuPasses
+
+```csharp
+public IReadOnlyList<GpuPassTime> GpuPasses { get; }
+```
+
+The most recent GPU pass times the panel read (empty when the backend has no timestamps or nothing was drawn yet).
+
+**Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`GpuPassTime`](../../OneGame.Host/OneGame.Host/GpuPassTime.md)&gt;
+
+### <a id="m-gpustatus"></a>GpuStatus
+
+```csharp
+public GpuTimingStatus GpuStatus { get; }
+```
+
+Whether GPU pass times could be read when the panel last built its text.
+
+**Type:** [`GpuTimingStatus`](../../OneGame.Host/OneGame.Host/GpuTimingStatus.md)
 
 ### <a id="m-ismasked"></a>IsMasked
 

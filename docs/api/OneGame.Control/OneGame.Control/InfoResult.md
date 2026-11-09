@@ -69,6 +69,7 @@ Result of `info`, the operation to call first: which game this is, where it is i
 | [`Screens`](#m-screens) | Names that `screen_open` accepts. |
 | [`Stage`](#m-stage) | The name of the render stage drawing the game. |
 | [`Tick`](#m-tick) | The world's simulation tick. |
+| [`Timing`](#m-timing) | Gets frame timing as `overlay` reports it; present only while timing runs (the debug panel is visible). |
 | [`Width`](#m-width) | Window width in pixels. |
 
 ### <a id="m-adapter"></a>Adapter
@@ -250,6 +251,16 @@ public long Tick { get; init; }
 The world's simulation tick.
 
 **Type:** `long`
+
+### <a id="m-timing"></a>Timing
+
+```csharp
+public TimingReport? Timing { get; init; }
+```
+
+Gets frame timing as `overlay` reports it; present only while timing runs (the debug panel is visible).
+
+**Type:** [`TimingReport`](TimingReport.md)?
 
 ### <a id="m-width"></a>Width
 

@@ -35,6 +35,7 @@ dotnet add package RecursiveAI.OneGame.Control
 | [`ControlSurface`](OneGame.Control/ControlSurface.md) | class | The control layer: every operation of [`ControlOps`](OneGame.Control/ControlOps.md) run against one [`GameInstance`](../OneGame.Host/OneGame.Host/GameInstance.md). |
 | [`DebugOverlay`](OneGame.Control/DebugOverlay.md) | class | The on-screen debug panel of development builds: frame time, entity count, network figures when the game is connected, and the audio device's counters. |
 | [`Draw2DReport`](OneGame.Control/Draw2DReport.md) | record | Result of `draw2d`: what the 2D happy path drew in the last frame and where its camera looks. |
+| [`GpuPassReport`](OneGame.Control/GpuPassReport.md) | record | One pass of the render graph and its GPU time. |
 | [`HitResult`](OneGame.Control/HitResult.md) | record | Result of `ui_hit`: the element a pointer event at a position would reach. |
 | [`HotReloadResult`](OneGame.Control/HotReloadResult.md) | record | What a game's live control reports about development hot reload: the `hot_reload` operation. |
 | [`IControlEndpoint`](OneGame.Control/IControlEndpoint.md) | interface | Anything the MCP face can drive: a list of operations and a way to run one. |
@@ -65,5 +66,6 @@ dotnet add package RecursiveAI.OneGame.Control
 | [`SlotEntry`](OneGame.Control/SlotEntry.md) | record | One save slot in the `saves` report. |
 | [`SnapshotResult`](OneGame.Control/SnapshotResult.md) | record | Result of `snapshot_save`: the world written as a snapshot, which `snapshot_load` (or a scenario's `snapshot` step) restores exactly. |
 | [`StateResult`](OneGame.Control/StateResult.md) | record | Result of `step`, `hash` and the operations that change the world (`screen_open`, `fixture_load`, `reset`, `snapshot_load`). |
+| [`TimingReport`](OneGame.Control/TimingReport.md) | record | Frame timing over the last [`FrameTimings.Capacity`](../OneGame.Host/OneGame.Host/FrameTimings.md#m-capacity) frames. |
 | [`TweensResult`](OneGame.Control/TweensResult.md) | record | Result of the `tweens` operation. |
 | [`UiScaleResult`](OneGame.Control/UiScaleResult.md) | record | Result of `ui_scale`: the scale in effect, the override (null when following the window) and the window's own scale. |

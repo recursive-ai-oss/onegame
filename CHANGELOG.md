@@ -2,6 +2,15 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
+## [Unreleased]
+
+### Added
+
+- A 3D view can be shown inside another (portal windows, monitors, mirrors): `new Offscreen3D(renderer, w, h, format, sampled: true)` renders another `Scene3D` into a target that `Material3D.SetTexture(MaterialSlot3D, texture)` binds to any material texture slot, with no model re-upload. `ResetTexture` restores the file's texture.
+- Runtime material changes without reloading a model: `Material3D.Emissive`, `EmissiveStrength` and `Opacity`, and `ModelInstance3D.Opacity` (plus `Label`). Translucent surfaces use the existing blended path (far to near, no depth write, no shadow or outline).
+- The debug overlay shows per-frame timing: CPU frame, simulation and draw times with a history bar chart, and GPU pass times where the backend has timestamps. The `overlay` and `info` operations return the same numbers as `timing`. `GameInstance.Timings`, `GameInstance.ReadGpuTimings` and `RenderGraph.ReadPassTimes` are the API; timing runs only while the overlay is shown.
+- `camera`, `pick` and `project` work for a `Render3DStage` that has no `SceneView3D`: `Render3DStage.Manual` (`ManualScene3D`, `IScene3DProbe`) answers over the stage's `Scene`, and games with their own stage implement `IScene3DStage.Manual`.
+
 ## [1.17.0] - 2026-11-09
 
 Screens with more art than the atlas pages hold draw correctly, and an image that truly cannot be drawn fails loudly instead of showing as magenta. `RecursiveAI.OneGame.Physics` ships as 1.17.0-preview.1.

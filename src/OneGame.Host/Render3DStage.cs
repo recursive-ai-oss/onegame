@@ -9,6 +9,12 @@ public interface IScene3DStage
 {
     /// <summary>The view that builds the scene from the world's <see cref="IView3D"/> entities; null for a stage whose game fills the scene by hand.</summary>
     SceneView3D? View { get; }
+
+    /// <summary>
+    /// The probe for a scene the game fills by hand, so the <c>camera</c>, <c>pick</c> and <c>project</c> operations work without a
+    /// <see cref="SceneView3D"/>; null for a stage that has a view or draws no 3D scene.
+    /// </summary>
+    ManualScene3D? Manual => null;
 }
 
 /// <summary>
@@ -41,6 +47,14 @@ public class Render3DStage : Render2DStage, IScene3DStage
 
     /// <inheritdoc />
     public SceneView3D? View { get; }
+
+    private ManualScene3D? _manual;
+
+    /// <summary>
+    /// For a stage built without a <see cref="View"/>: the probe the live <c>camera</c>, <c>pick</c> and <c>project</c> operations use on
+    /// <see cref="Scene"/>. Null when there is a view (it answers instead). Give models a <see cref="ModelInstance3D.Label"/> to see them named in <c>pick</c>.
+    /// </summary>
+    public ManualScene3D? Manual => View is null ? _manual ??= new ManualScene3D(Scene) : null;
 
     /// <summary>The 3D renderer, once the first frame has created it.</summary>
     public Renderer3D? Renderer => _renderer;
@@ -77,6 +91,7 @@ public class Render3DStage : Render2DStage, IScene3DStage
         }
 
         UpdateScene(Scene, frame);
+        Manual?.ApplyOverride();
         _renderer.Render(graph, Scene, target, (int)targetTexture.Width, (int)targetTexture.Height, targetTexture.Format);
         return true;
     }

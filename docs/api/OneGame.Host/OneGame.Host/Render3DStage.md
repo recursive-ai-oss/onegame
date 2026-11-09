@@ -39,10 +39,21 @@ Creates the stage.
 
 | Member | Description |
 | --- | --- |
+| [`Manual`](#m-manual) | For a stage built without a [`Render3DStage.View`](Render3DStage.md#m-view): the probe the live `camera`, `pick` and `project` operations use on [`Render3DStage.Scene`](Render3DStage.md#m-scene). |
 | [`Name`](#m-name) | A short name shown in harness output. |
 | [`Renderer`](#m-renderer) | The 3D renderer, once the first frame has created it. |
 | [`Scene`](#m-scene) | The scene drawn every frame. |
 | [`View`](#m-view) | The view that builds the scene from the world's [`IView3D`](IView3D.md) entities; null for a stage whose game fills the scene by hand. |
+
+### <a id="m-manual"></a>Manual
+
+```csharp
+public ManualScene3D? Manual { get; }
+```
+
+For a stage built without a [`Render3DStage.View`](Render3DStage.md#m-view): the probe the live `camera`, `pick` and `project` operations use on [`Render3DStage.Scene`](Render3DStage.md#m-scene). Null when there is a view (it answers instead). Give models a [`ModelInstance3D.Label`](../../OneGame.Render3D/OneGame.Render3D/ModelInstance3D.md#m-label) to see them named in `pick`.
+
+**Type:** [`ManualScene3D`](ManualScene3D.md)?
 
 ### <a id="m-name"></a>Name
 

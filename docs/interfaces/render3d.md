@@ -56,6 +56,25 @@ Harness: control op `quality` (`level`, `ssao`, `ssaoRadius`; returns the settin
 
 `Scene3D.Billboards` holds `BillboardBatch3D`s: lists of `Billboard3D` camera-facing quads (position, size, rotation, linear RGBA that may exceed 1, texture rectangle, additive flag) over one `BillboardTexture3D` (`renderer.CreateBillboardTexture`, premultiplied in linear light on upload; null shows `renderer.SoftSpot`). They are drawn at the end of the `forward` pass, after blended surfaces: depth tested (`Less`), no depth write, one instanced draw per batch from one shared vertex buffer written once per frame. Blended quads of a batch are sorted far to near by view depth (`Array.Sort` on reused arrays); a batch with only additive quads keeps the caller's order. Blend is `One, OneMinusSrcAlpha` with additive quads writing alpha 0, so both kinds share one pipeline. Quads are not culled, lit, shadowed or pickable, and no depth fade (soft particles) is applied. `FrameStats3D.Billboards` counts them. Shader: `Billboard.hlsl`, layout set 0 = frame constants, set 1 = texture and sampler. Steady frames allocate nothing (test: 2,000 quads in two batches).
 
+## Runtime materials: emissive, opacity, textures
+
+A material changes without reloading the model; each setter applies to the next frame.
+
+- `Material3D.Emissive` (linear RGB, the file's factor times its strength at load) and `EmissiveStrength` (a multiplier, 1 by default), for glows that pulse or fade.
+- `Material3D.Opacity` (0..1) and `ModelInstance3D.Opacity` (0..1, per instance; the two multiply). Below 1 a surface goes to the same path as a glTF BLEND material: drawn after the opaque surfaces and the sky, sorted far to near by its centre, no depth write, alpha blend (`BlendState.AlphaBlend`), no shadow and no outline. Back at 1 it returns to the opaque path. The shader reads the material's `1 - opacity` from `Emissive.w` and the instance's from bits of `ObjInfo.z`, so zeroed constants mean opaque. Instanced batches keep their per-copy tint.
+- `Material3D.SetTexture(MaterialSlot3D, GpuTexture)` / `ResetTexture(slot)` replace one texture (base colour, metallic-roughness, normal, occlusion, emissive) by rebuilding the material's bind group; the old group is freed at the start of the next render.
+
+## A view inside a view (portal windows, monitors, mirrors)
+
+```csharp
+using var portal = new Offscreen3D(renderer, 512, 288, GpuFormat.Rgba8UnormSrgb, sampled: true);   // a render target shaders may sample
+window.Materials[0].SetTexture(MaterialSlot3D.Emissive, portal.Target);                            // the surface shows it (base colour black, emissive 1)
+// each frame, before the main scene is rendered:
+portal.Render(otherPlace);                                                                          // its own Scene3D and camera
+```
+
+`Offscreen3D.Render` runs its own render graph frame and submits it, so the main frame (`Render3DStage` or `renderer.Render`) that samples `Target` comes later in submission order; the backend inserts the layout change when the material's group is bound. Models, textures and buffers are the ones both scenes share: nothing is uploaded per frame, only the portal's draws, lights and passes are recorded again. Costs: one more set of passes per portal per frame at the portal's resolution, and its own `Scene3D` (quality, MSAA, post settings). The image is tone-mapped already, so show it through the emissive slot with a black base colour (or the flat style on the base colour slot). One level only: a portal scene may not contain a surface that samples the same target, and two views of one renderer cannot be recorded into one graph frame (the renderer keeps one frame's constants at a time), which is why the portal has its own frame. A game that draws the portal from `Render3DStage.UpdateScene` renders it there, before the main frame is recorded.
+
 ## Conventions
 
 - Matrices are `System.Numerics` (row vectors, right-handed, depth 0..1). Cameras look down their -Z. Panorama: `u = atan2(d.x, -d.z)/2pi + 1 (wrapping)`, `v = acos(d.y)/pi`; `Environment3D.Yaw` turns it.
