@@ -201,6 +201,8 @@ Client width in physical pixels: the width a swapchain should have. Divide by [`
 | [`Dispose()`](#m-dispose) |  |
 | [`FillSolid(uint)`](#m-fillsolid-uint) | Fills a window made with [`WindowOptions.SoftwareSurface`](WindowOptions.md#m-softwaresurface) with one colour (0xAARRGGBB). |
 | [`Minimize()`](#m-minimize) | Minimizes the window. |
+| [`OnPresenting()`](#m-onpresenting) | Called right before a frame is presented, so a window system that reports when frames were shown can be asked about this one. |
+| [`PresentWouldBlock(bool)`](#m-presentwouldblock-bool) | Whether presenting now could park the calling thread because the window system has stopped drawing this window (covered, minimized or on another desktop). |
 | [`RequestSize(int, int)`](#m-requestsize-int-int) | Asks for a new client size in pixels. |
 | [`SetCursorHidden(bool)`](#m-setcursorhidden-bool) | Shows or hides the cursor over the window. |
 | [`SetCursorLocked(bool)`](#m-setcursorlocked-bool) | Locks or unlocks the cursor for relative motion (mouse look). |
@@ -243,6 +245,28 @@ public abstract void Minimize();
 ```
 
 Minimizes the window.
+
+### <a id="m-onpresenting"></a>OnPresenting()
+
+```csharp
+public virtual void OnPresenting();
+```
+
+Called right before a frame is presented, so a window system that reports when frames were shown can be asked about this one.
+
+### <a id="m-presentwouldblock-bool"></a>PresentWouldBlock(bool)
+
+```csharp
+public virtual bool PresentWouldBlock(bool strict);
+```
+
+Whether presenting now could park the calling thread because the window system has stopped drawing this window (covered, minimized or on another desktop). A host that gets true skips drawing for that frame and keeps simulating; it asks again next frame. Always false where the system never withholds frames. With `strict` any frame still unanswered counts (vsync presents wait for the previous one); otherwise only one that has been unanswered for a while does.
+
+**Parameters**
+
+- `strict` (`bool`)
+
+**Returns:** `bool`
 
 ### <a id="m-requestsize-int-int"></a>RequestSize(int, int)
 

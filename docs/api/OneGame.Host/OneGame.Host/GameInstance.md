@@ -67,6 +67,7 @@ Simulation ticks per second of a realtime run.
 | [`Options`](#m-options) | The options the instance was created with. |
 | [`Pages`](#m-pages) | OneRender pages shown as screens (builder trees or HTML and CSS), drawn over the 2D pass and the `OneGame.UI` tree. |
 | [`Platform`](#m-platform) | The platform app (window, events, injection). |
+| [`PresentThrottled`](#m-presentthrottled) | True while the last frame was not drawn because the window system is not showing the window. |
 | [`PresentedFrames`](#m-presentedframes) | Frames drawn to the window and handed to the display so far. |
 | [`QuitRequested`](#m-quitrequested) | True once the window was closed or a quit was requested. |
 | [`Remote`](#m-remote) | The connection to the server when the game was started with [`GameOptions.Connect`](GameOptions.md#m-connect); null for a game that runs its own world. |
@@ -289,6 +290,16 @@ public PlatformApp Platform { get; }
 The platform app (window, events, injection).
 
 **Type:** [`PlatformApp`](../../OneGame.Platform/OneGame.Platform/PlatformApp.md)
+
+### <a id="m-presentthrottled"></a>PresentThrottled
+
+```csharp
+public bool PresentThrottled { get; }
+```
+
+True while the last frame was not drawn because the window system is not showing the window.
+
+**Type:** `bool`
 
 ### <a id="m-presentedframes"></a>PresentedFrames
 
