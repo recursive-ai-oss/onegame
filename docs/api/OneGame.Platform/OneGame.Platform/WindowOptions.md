@@ -30,6 +30,7 @@ public WindowOptions();
 | --- | --- |
 | [`Fullscreen`](#m-fullscreen) | Start in fullscreen. |
 | [`Height`](#m-height) | Initial client height in pixels. |
+| [`Placement`](#m-placement) | Where to put the window and how to show it, usually read from an earlier window's [`Window.Placement`](Window.md#m-placement). |
 | [`Resizable`](#m-resizable) | Whether the user can resize the window. |
 | [`SoftwareSurface`](#m-softwaresurface) | Give the window a CPU-drawn surface (see [`Window.FillSolid()`](Window.md#m-fillsolid-uint)). |
 | [`Title`](#m-title) | The window title. |
@@ -54,6 +55,16 @@ public int Height { get; init; }
 Initial client height in pixels.
 
 **Type:** `int`
+
+### <a id="m-placement"></a>Placement
+
+```csharp
+public WindowPlacement? Placement { get; init; }
+```
+
+Where to put the window and how to show it, usually read from an earlier window's [`Window.Placement`](Window.md#m-placement). When set it replaces [`WindowOptions.Width`](WindowOptions.md#m-width), [`WindowOptions.Height`](WindowOptions.md#m-height) and [`WindowOptions.Fullscreen`](WindowOptions.md#m-fullscreen); a position the connected screens would not show is moved onto one. Where the window system places windows itself (Wayland, phones, browsers) only size and state apply.
+
+**Type:** [`WindowPlacement`](WindowPlacement.md)?
 
 ### <a id="m-resizable"></a>Resizable
 

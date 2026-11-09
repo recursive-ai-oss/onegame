@@ -48,6 +48,7 @@ dotnet add package RecursiveAI.OneGame.Platform
 | [`MouseButton`](OneGame.Platform/MouseButton.md) | enum | A mouse or pointer button. |
 | [`NativeWindowHandle`](OneGame.Platform/NativeWindowHandle.md) | struct | The raw handles a graphics API needs to create a presentable surface for a window. |
 | [`NativeWindowKind`](OneGame.Platform/NativeWindowKind.md) | enum | The kind of native window system handles in a [`NativeWindowHandle`](OneGame.Platform/NativeWindowHandle.md). |
+| [`ParentConsole`](OneGame.Platform/ParentConsole.md) | static class | Gives a program built for the Windows GUI subsystem (no console window of its own, the default for released Windows games) somewhere to print when it was started from a terminal. |
 | [`PlatformApp`](OneGame.Platform/PlatformApp.md) | class | The entry point of the platform layer: owns the connection to the windowing system, the windows, the gamepads and the single event queue. |
 | [`PlatformBackendKind`](OneGame.Platform/PlatformBackendKind.md) | enum | Which windowing system a [`PlatformApp`](OneGame.Platform/PlatformApp.md) talks to. |
 | [`PlatformClipboard`](OneGame.Platform/PlatformClipboard.md) | class | Text on the system clipboard. |
@@ -59,6 +60,9 @@ dotnet add package RecursiveAI.OneGame.Platform
 | [`RebindRequest`](OneGame.Platform/RebindRequest.md) | record | A rebinding waiting for the player's next input. |
 | [`RebindResult`](OneGame.Platform/RebindResult.md) | record | The outcome of a rebinding capture. |
 | [`RunningOn`](OneGame.Platform/RunningOn.md) | static class | Which kind of system the game is running on. |
+| [`ScreenRect`](OneGame.Platform/ScreenRect.md) | struct | A rectangle in screen pixels, such as the usable area of a monitor. |
 | [`TouchRegion`](OneGame.Platform/TouchRegion.md) | enum | The part of the window a touch binding listens to. |
 | [`Window`](OneGame.Platform/Window.md) | class | An application window. |
 | [`WindowOptions`](OneGame.Platform/WindowOptions.md) | record | Options for [`PlatformApp.CreateWindow()`](OneGame.Platform/PlatformApp.md#m-createwindow-windowoptions). |
+| [`WindowPlacement`](OneGame.Platform/WindowPlacement.md) | struct | Where a window is and how it is shown, as a plain value a game can keep in its settings and apply to a later window. |
+| [`WindowState`](OneGame.Platform/WindowState.md) | enum | How a window is shown. |

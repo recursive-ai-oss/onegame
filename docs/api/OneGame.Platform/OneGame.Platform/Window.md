@@ -17,6 +17,7 @@ An application window. Sizes are physical pixels (the size of the framebuffer a 
 | Member | Description |
 | --- | --- |
 | [`App`](#m-app) | The owning application. |
+| [`CanPlace`](#m-canplace) | Whether a program can read and choose this window's position on the screen. |
 | [`CursorHidden`](#m-cursorhidden) | Whether the cursor is hidden while over the window. |
 | [`CursorLocked`](#m-cursorlocked) | Whether the cursor is locked: it stays put and [`PlatformEventKind.PointerRelativeMotion`](PlatformEventKind.md#m-pointerrelativemotion) events report movement. |
 | [`Height`](#m-height) | Client height in physical pixels: the height a swapchain should have. |
@@ -24,14 +25,19 @@ An application window. Sizes are physical pixels (the size of the framebuffer a 
 | [`IsClosed`](#m-isclosed) | Whether the window has been closed. |
 | [`IsFocused`](#m-isfocused) | Whether the window has input focus. |
 | [`IsFullscreen`](#m-isfullscreen) | Whether the window is fullscreen. |
+| [`IsMaximized`](#m-ismaximized) | Whether the window is maximized (filling its screen's work area, with a frame). |
 | [`IsMinimized`](#m-isminimized) | Whether the window is minimized. |
 | [`NativeHandle`](#m-nativehandle) | Handles for creating a graphics surface. |
+| [`Placement`](#m-placement) | Where the window is and how it is shown, as a value to save. |
 | [`SafeArea`](#m-safearea) | The distances in pixels from each edge that content must keep clear of: display cut-outs, rounded corners, system bars and the gesture area. |
 | [`Scale`](#m-scale) | Content scale: 1.0 at 96 dpi, 2.0 on a typical HiDPI screen, fractional where the system offers it. |
+| [`State`](#m-state) | Normal, maximized or fullscreen. |
 | [`TextInputActive`](#m-textinputactive) | Whether a text field has focus and the game asked for input-method (IME) support; see [`Window.SetTextInput()`](Window.md#m-settextinput-bool-int-int-int-int). |
 | [`TextInputArea`](#m-textinputarea) | Where the caret is, in window pixels, as last given to [`Window.SetTextInput()`](Window.md#m-settextinput-bool-int-int-int-int): left, top, width and height. |
 | [`Title`](#m-title) | The window title as last set by [`Window.SetTitle()`](Window.md#m-settitle-string). |
 | [`Width`](#m-width) | Client width in physical pixels: the width a swapchain should have. |
+| [`X`](#m-x) | The client area's left edge on the virtual screen, or 0 when [`Window.CanPlace`](Window.md#m-canplace) is false. |
+| [`Y`](#m-y) | The client area's top edge on the virtual screen, or 0 when [`Window.CanPlace`](Window.md#m-canplace) is false. |
 
 ### <a id="m-app"></a>App
 
@@ -42,6 +48,16 @@ public PlatformApp App { get; }
 The owning application.
 
 **Type:** [`PlatformApp`](PlatformApp.md)
+
+### <a id="m-canplace"></a>CanPlace
+
+```csharp
+public virtual bool CanPlace { get; }
+```
+
+Whether a program can read and choose this window's position on the screen. True on Windows, X11 and a headless window; false on Wayland (the compositor places windows), macOS, phones and browsers, where [`Window.Placement`](Window.md#m-placement) has no position.
+
+**Type:** `bool`
 
 ### <a id="m-cursorhidden"></a>CursorHidden
 
@@ -113,6 +129,16 @@ Whether the window is fullscreen.
 
 **Type:** `bool`
 
+### <a id="m-ismaximized"></a>IsMaximized
+
+```csharp
+public bool IsMaximized { get; }
+```
+
+Whether the window is maximized (filling its screen's work area, with a frame). False while fullscreen.
+
+**Type:** `bool`
+
 ### <a id="m-isminimized"></a>IsMinimized
 
 ```csharp
@@ -133,6 +159,16 @@ Handles for creating a graphics surface.
 
 **Type:** [`NativeWindowHandle`](NativeWindowHandle.md)
 
+### <a id="m-placement"></a>Placement
+
+```csharp
+public WindowPlacement Placement { get; }
+```
+
+Where the window is and how it is shown, as a value to save. The rectangle is the normal (restored) one even while the window is maximized or fullscreen. Reading it never changes the window.
+
+**Type:** [`WindowPlacement`](WindowPlacement.md)
+
 ### <a id="m-safearea"></a>SafeArea
 
 ```csharp
@@ -152,6 +188,16 @@ public float Scale { get; }
 Content scale: 1.0 at 96 dpi, 2.0 on a typical HiDPI screen, fractional where the system offers it.
 
 **Type:** `float`
+
+### <a id="m-state"></a>State
+
+```csharp
+public WindowState State { get; }
+```
+
+Normal, maximized or fullscreen.
+
+**Type:** [`WindowState`](WindowState.md)
 
 ### <a id="m-textinputactive"></a>TextInputActive
 
@@ -193,22 +239,58 @@ Client width in physical pixels: the width a swapchain should have. Divide by [`
 
 **Type:** `int`
 
+### <a id="m-x"></a>X
+
+```csharp
+public int X { get; }
+```
+
+The client area's left edge on the virtual screen, or 0 when [`Window.CanPlace`](Window.md#m-canplace) is false.
+
+**Type:** `int`
+
+### <a id="m-y"></a>Y
+
+```csharp
+public int Y { get; }
+```
+
+The client area's top edge on the virtual screen, or 0 when [`Window.CanPlace`](Window.md#m-canplace) is false.
+
+**Type:** `int`
+
 ## Methods
 
 | Member | Description |
 | --- | --- |
+| [`ApplyPlacement(WindowPlacement)`](#m-applyplacement-windowplacement) | Applies a saved placement to this window: the normal rectangle first (where the system lets a program move windows), then the maximized or fullscreen state. |
 | [`Close()`](#m-close) | Closes the window. |
 | [`Dispose()`](#m-dispose) |  |
 | [`FillSolid(uint)`](#m-fillsolid-uint) | Fills a window made with [`WindowOptions.SoftwareSurface`](WindowOptions.md#m-softwaresurface) with one colour (0xAARRGGBB). |
+| [`Maximize()`](#m-maximize) | Maximizes the window so it fills its screen's work area. |
 | [`Minimize()`](#m-minimize) | Minimizes the window. |
+| [`MoveTo(int, int)`](#m-moveto-int-int) | Moves the window's client area to a position on the virtual screen. |
 | [`OnPresenting()`](#m-onpresenting) | Called right before a frame is presented, so a window system that reports when frames were shown can be asked about this one. |
 | [`PresentWouldBlock(bool)`](#m-presentwouldblock-bool) | Whether presenting now could park the calling thread because the window system has stopped drawing this window (covered, minimized or on another desktop). |
 | [`RequestSize(int, int)`](#m-requestsize-int-int) | Asks for a new client size in pixels. |
+| [`Restore()`](#m-restore) | Leaves maximized or fullscreen and returns to the normal rectangle. |
 | [`SetCursorHidden(bool)`](#m-setcursorhidden-bool) | Shows or hides the cursor over the window. |
 | [`SetCursorLocked(bool)`](#m-setcursorlocked-bool) | Locks or unlocks the cursor for relative motion (mouse look). |
 | [`SetFullscreen(bool)`](#m-setfullscreen-bool) | Enters or leaves fullscreen. |
 | [`SetTextInput(bool, int, int, int, int)`](#m-settextinput-bool-int-int-int-int) | Tells the system that a text field has (or no longer has) focus, and where its caret is, so an input method can show its candidate window beside it and send [`PlatformEventKind.TextComposition`](PlatformEventKind.md#m-textcomposition) events. |
 | [`SetTitle(string)`](#m-settitle-string) | Sets the title shown in the title bar and task switcher, where the system has them. |
+
+### <a id="m-applyplacement-windowplacement"></a>ApplyPlacement(WindowPlacement)
+
+```csharp
+public void ApplyPlacement(WindowPlacement placement);
+```
+
+Applies a saved placement to this window: the normal rectangle first (where the system lets a program move windows), then the maximized or fullscreen state. A rectangle that no connected screen would show is moved onto one first (see [`WindowPlacement.ClampTo()`](WindowPlacement.md#m-clampto-ireadonlylist-screenrect)). Like [`Window.RequestSize()`](Window.md#m-requestsize-int-int) it is a request; the result is read back from [`Window.Placement`](Window.md#m-placement) once the system has answered, and a size event follows.
+
+**Parameters**
+
+- `placement` ([`WindowPlacement`](WindowPlacement.md)): The placement to apply, usually one read earlier with [`Window.Placement`](Window.md#m-placement).
 
 ### <a id="m-close"></a>Close()
 
@@ -238,6 +320,14 @@ Fills a window made with [`WindowOptions.SoftwareSurface`](WindowOptions.md#m-so
 
 - `argb` (`uint`): The colour as `0xAARRGGBB`.
 
+### <a id="m-maximize"></a>Maximize()
+
+```csharp
+public virtual void Maximize();
+```
+
+Maximizes the window so it fills its screen's work area. It takes effect when the system agrees (a size event follows). Where the system has no such state (phones, browsers) or there is no window manager, nothing happens.
+
 ### <a id="m-minimize"></a>Minimize()
 
 ```csharp
@@ -245,6 +335,19 @@ public abstract void Minimize();
 ```
 
 Minimizes the window.
+
+### <a id="m-moveto-int-int"></a>MoveTo(int, int)
+
+```csharp
+public virtual void MoveTo(int x, int y);
+```
+
+Moves the window's client area to a position on the virtual screen. Ignored where [`Window.CanPlace`](Window.md#m-canplace) is false.
+
+**Parameters**
+
+- `x` (`int`): Left edge in pixels.
+- `y` (`int`): Top edge in pixels.
 
 ### <a id="m-onpresenting"></a>OnPresenting()
 
@@ -280,6 +383,14 @@ Asks for a new client size in pixels. The size takes effect when the system conf
 
 - `width` (`int`): Wanted client width in pixels.
 - `height` (`int`): Wanted client height in pixels.
+
+### <a id="m-restore"></a>Restore()
+
+```csharp
+public virtual void Restore();
+```
+
+Leaves maximized or fullscreen and returns to the normal rectangle. Does nothing for a normal window.
 
 ### <a id="m-setcursorhidden-bool"></a>SetCursorHidden(bool)
 

@@ -69,3 +69,5 @@ dotnet add package RecursiveAI.OneGame.Control
 | [`TimingReport`](OneGame.Control/TimingReport.md) | record | Frame timing over the last [`FrameTimings.Capacity`](../OneGame.Host/OneGame.Host/FrameTimings.md#m-capacity) frames. |
 | [`TweensResult`](OneGame.Control/TweensResult.md) | record | Result of the `tweens` operation. |
 | [`UiScaleResult`](OneGame.Control/UiScaleResult.md) | record | Result of `ui_scale`: the scale in effect, the override (null when following the window) and the window's own scale. |
+| [`WindowResult`](OneGame.Control/WindowResult.md) | record | Result of `window`: the window's placement. |
+| [`WorkAreaInfo`](OneGame.Control/WorkAreaInfo.md) | record | A screen's usable rectangle in [`WindowResult`](OneGame.Control/WindowResult.md). |
