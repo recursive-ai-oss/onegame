@@ -77,10 +77,24 @@ public sealed class PlatformApp : IDisposable
             throw new ArgumentOutOfRangeException(nameof(options), "Window size must be positive.");
         }
 
+        if (options.Placement is { } saved)
+        {
+            // A saved placement wins over Width, Height and Fullscreen, after it has been moved onto a screen that exists now.
+            var placement = saved.ClampTo(GetWorkAreas());
+            options = options with { Width = placement.Width, Height = placement.Height, Fullscreen = placement.State == WindowState.Fullscreen, Placement = placement };
+        }
+
         var window = _backend.CreateWindow(options, _nextWindowId++);
         _windows.Add(window);
         return window;
     }
+
+    /// <summary>
+    /// The usable rectangle (screen minus taskbars and docks) of each connected screen in virtual-screen pixels, the primary screen first.
+    /// Empty where a program cannot know (Wayland, phones, browsers, headless). <see cref="WindowPlacement.ClampTo"/> takes this list.
+    /// </summary>
+    /// <returns>One rectangle per screen.</returns>
+    public IReadOnlyList<ScreenRect> GetWorkAreas() => _backend.WorkAreas();
 
     /// <summary>
     /// Reads everything the operating system and the gamepads have to say and queues it. Call it once per frame.
@@ -211,6 +225,8 @@ internal abstract class PlatformBackend : IDisposable
     public abstract Window CreateWindow(WindowOptions options, int id);
 
     public abstract void Pump(int timeoutMilliseconds);
+
+    public virtual IReadOnlyList<ScreenRect> WorkAreas() => [];
 
     /// <summary>A command only this backend understands; see <see cref="PlatformApp.NativeCommand"/>.</summary>
     public virtual string NativeCommand(string action, string? argument) =>

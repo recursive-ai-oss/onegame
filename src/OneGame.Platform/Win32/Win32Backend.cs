@@ -44,6 +44,43 @@ internal sealed unsafe class Win32Backend : PlatformBackend
 
     public override Window CreateWindow(WindowOptions options, int id) => new Win32Window(this, App, id, options);
 
+    // Work areas exclude the taskbar; the primary monitor comes first (MONITORINFOF_PRIMARY, Microsoft Learn "MONITORINFO").
+    public override IReadOnlyList<ScreenRect> WorkAreas()
+    {
+        var found = new List<(ScreenRect Area, bool Primary)>();
+        var handle = GCHandle.Alloc(found);
+        try
+        {
+            _ = Win32Native.EnumDisplayMonitors(0, null, &MonitorFound, GCHandle.ToIntPtr(handle));
+        }
+        finally
+        {
+            handle.Free();
+        }
+
+        var areas = new List<ScreenRect>(found.Count);
+        foreach (var (area, primary) in found)
+        {
+            areas.Insert(primary ? 0 : areas.Count, area);
+        }
+
+        return areas;
+    }
+
+    [UnmanagedCallersOnly]
+    private static int MonitorFound(nint monitor, nint hdc, Win32Native.Rect* rect, nint data)
+    {
+        var info = new Win32Native.MonitorInfo { Size = (uint)sizeof(Win32Native.MonitorInfo) };
+        Win32Native.GetMonitorInfo(monitor, &info);
+        if (GCHandle.FromIntPtr(data).Target is List<(ScreenRect, bool)> list)
+        {
+            var w = info.Work;
+            list.Add((new ScreenRect(w.Left, w.Top, w.Right - w.Left, w.Bottom - w.Top), (info.Flags & 1) != 0));
+        }
+
+        return 1;
+    }
+
     // CF_UNICODETEXT (Microsoft Learn, "Standard Clipboard Formats"): UTF-16 with CR LF line ends and a terminating NUL, in a movable global block.
     public override bool ClipboardAvailable => App.Windows.Count > 0;
 
@@ -215,6 +252,7 @@ internal sealed unsafe class Win32Window : Window, IWin32MessageSink
     private Win32Native.Rect _windowedRect;
     private uint _windowedStyle;
     private bool _hiddenBeforeLock;
+    private bool _maximizedBeforeFullscreen;
 
     public Win32Window(Win32Backend backend, PlatformApp app, int id, WindowOptions o)
         : base(app, id)
@@ -227,10 +265,12 @@ internal sealed unsafe class Win32Window : Window, IWin32MessageSink
             _style &= ~(Win32Native.WsThickFrame | Win32Native.WsMaximizeBox);
         }
 
-        var outer = new Win32Native.Rect { Right = o.Width, Bottom = o.Height };
+        var at = o.Placement is { HasPosition: true } saved ? saved : (WindowPlacement?)null;
+        var outer = new Win32Native.Rect { Left = at?.X ?? 0, Top = at?.Y ?? 0, Right = (at?.X ?? 0) + o.Width, Bottom = (at?.Y ?? 0) + o.Height };
         Win32Native.AdjustWindowRectEx(&outer, _style, 0, 0);
+        var useDefault = unchecked((int)0x80000000); // CW_USEDEFAULT
         _hwnd = Win32Native.CreateWindowEx(
-            0, Win32Backend.WindowClassName, o.Title, _style, unchecked((int)0x80000000) /* CW_USEDEFAULT */, unchecked((int)0x80000000), outer.Right - outer.Left, outer.Bottom - outer.Top, 0, 0, backend.Instance, 0);
+            0, Win32Backend.WindowClassName, o.Title, _style, at is null ? useDefault : outer.Left, at is null ? useDefault : outer.Top, outer.Right - outer.Left, outer.Bottom - outer.Top, 0, 0, backend.Instance, 0);
         if (_hwnd == 0)
         {
             throw new PlatformException("CreateWindowEx failed (error " + Marshal.GetLastPInvokeError() + ").");
@@ -243,8 +283,24 @@ internal sealed unsafe class Win32Window : Window, IWin32MessageSink
         Height = o.Height;
         var dpi = Win32Native.GetDpiForWindow(_hwnd);
         Scale = dpi == 0 ? 1f : dpi / 96f;
-        Win32Native.ShowWindow(_hwnd, Win32Native.SwShow);
+        var origin = new Win32Native.Point();
+        Win32Native.ClientToScreen(_hwnd, &origin);
+        InitNormalRect(origin.X, origin.Y, o.Width, o.Height);
+        var maximize = o.Placement?.State == WindowState.Maximized;
+        // Showing it maximized straight away keeps the normal rectangle just created as the one to restore to.
+        Win32Native.ShowWindow(_hwnd, maximize ? Win32Native.SwMaximize : Win32Native.SwShow);
         Win32Native.SetFocus(_hwnd);
+        if (maximize)
+        {
+            Win32Native.Rect client;
+            Win32Native.GetClientRect(_hwnd, &client);
+            if (client.Right > 0 && client.Bottom > 0)
+            {
+                Width = client.Right;
+                Height = client.Bottom;
+            }
+        }
+
         if (o.Fullscreen)
         {
             SetFullscreen(true);
@@ -294,6 +350,56 @@ internal sealed unsafe class Win32Window : Window, IWin32MessageSink
 
     public override NativeWindowHandle NativeHandle => new(NativeWindowKind.Win32, _b.Instance, _hwnd);
 
+    public override bool CanPlace => true;
+
+    // Outer window rectangle for a client rectangle at (x, y), using the frame of this window at its monitor's dpi.
+    private Win32Native.Rect OuterFor(int x, int y, int width, int height)
+    {
+        var outer = new Win32Native.Rect { Left = x, Top = y, Right = x + width, Bottom = y + height };
+        var dpi = Win32Native.GetDpiForWindow(_hwnd);
+        if (dpi == 0 || Win32Native.AdjustWindowRectExForDpi(&outer, _style, 0, 0, dpi) == 0)
+        {
+            outer = new Win32Native.Rect { Left = x, Top = y, Right = x + width, Bottom = y + height };
+            Win32Native.AdjustWindowRectEx(&outer, _style, 0, 0);
+        }
+
+        return outer;
+    }
+
+    public override void Maximize()
+    {
+        if (IsFullscreen)
+        {
+            SetFullscreen(false);
+        }
+
+        Win32Native.ShowWindow(_hwnd, Win32Native.SwMaximize);
+    }
+
+    public override void Restore()
+    {
+        if (IsFullscreen)
+        {
+            SetFullscreen(false);
+            return;
+        }
+
+        Win32Native.ShowWindow(_hwnd, Win32Native.SwRestore);
+    }
+
+    public override void MoveTo(int x, int y)
+    {
+        var outer = OuterFor(x, y, Width, Height);
+        Win32Native.SetWindowPos(_hwnd, 0, outer.Left, outer.Top, 0, 0, Win32Native.SwpNoSize | Win32Native.SwpNoZOrder | Win32Native.SwpNoActivate);
+    }
+
+    private protected override void PlaceNormal(WindowPlacement placement)
+    {
+        var outer = OuterFor(placement.HasPosition ? placement.X : X, placement.HasPosition ? placement.Y : Y, placement.Width, placement.Height);
+        var flags = Win32Native.SwpNoZOrder | Win32Native.SwpNoActivate | (placement.HasPosition ? 0 : Win32Native.SwpNoMove);
+        Win32Native.SetWindowPos(_hwnd, 0, outer.Left, outer.Top, outer.Right - outer.Left, outer.Bottom - outer.Top, flags);
+    }
+
     void IWin32MessageSink.Post(in PlatformEvent e) => App.Post(e);
 
     public void Resized(int width, int height, bool minimized)
@@ -325,6 +431,24 @@ internal sealed unsafe class Win32Window : Window, IWin32MessageSink
                 Win32Native.SetCursor(CursorHidden ? 0 : _b.Arrow);
                 result = 1;
                 return true;
+            case Win32Native.WmSize:
+                // wParam says whether this is the restored, minimized or maximized size (Microsoft Learn, "WM_SIZE").
+                if ((int)wParam != Win32Native.SizeMinimized)
+                {
+                    IsMaximized = (int)wParam == Win32Native.SizeMaximized && !IsFullscreen;
+                }
+
+                return _translator.Translate(message, wParam, lParam);
+            case Win32Native.WmMove when Win32Native.IsIconic(_hwnd) == 0:
+                // lParam holds the client area's upper-left corner in screen coordinates as two signed 16-bit words. WM_MOVE comes
+                // before the WM_SIZE that says "maximized", so the live state is asked for rather than the one last recorded.
+                if (Win32Native.IsZoomed(_hwnd) != 0)
+                {
+                    IsMaximized = true;
+                }
+
+                SetPosition((short)(lParam & 0xFFFF), (short)((lParam >> 16) & 0xFFFF));
+                return false;
             case Win32Native.WmInput:
                 if (CursorLocked)
                 {
@@ -357,8 +481,12 @@ internal sealed unsafe class Win32Window : Window, IWin32MessageSink
             return;
         }
 
+        // Set first: the size and move messages the style change sends must not be taken for a new normal rectangle.
+        IsFullscreen = fullscreen;
         if (fullscreen)
         {
+            _maximizedBeforeFullscreen = IsMaximized;
+            IsMaximized = false;
             fixed (Win32Native.Rect* r = &_windowedRect)
             {
                 Win32Native.GetWindowRect(_hwnd, r);
@@ -378,9 +506,12 @@ internal sealed unsafe class Win32Window : Window, IWin32MessageSink
             _style = _windowedStyle;
             Win32Native.SetWindowLongPtr(_hwnd, Win32Native.GwlStyle, (nint)(_style | Win32Native.WsVisible));
             Win32Native.SetWindowPos(_hwnd, 0, _windowedRect.Left, _windowedRect.Top, _windowedRect.Right - _windowedRect.Left, _windowedRect.Bottom - _windowedRect.Top, Win32Native.SwpNoZOrder | Win32Native.SwpFrameChanged);
+            if (_maximizedBeforeFullscreen)
+            {
+                _maximizedBeforeFullscreen = false;
+                Win32Native.ShowWindow(_hwnd, Win32Native.SwMaximize);
+            }
         }
-
-        IsFullscreen = fullscreen;
     }
 
     public override void Minimize() => Win32Native.ShowWindow(_hwnd, Win32Native.SwMinimize);

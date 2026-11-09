@@ -67,13 +67,46 @@ internal sealed unsafe class CocoaWindow : Window
         CocoaBackend.ByView[_view] = this;
         CocoaBackend.ByWindow[_window] = this;
         ReadGeometry(silent: true);
+        InitNormalRect(0, 0, Width, Height);
 
         Msg.Void(_window, ObjC.Sel("makeFirstResponder:"), _view);
         Msg.Void(_window, ObjC.Sel("makeKeyAndOrderFront:"), (nint)0);
         IsFocused = Msg.Flag(_window, ObjC.Sel("isKeyWindow")) != 0;
+        if (options.Placement?.State == WindowState.Maximized)
+        {
+            Maximize();
+        }
+
         if (options.Fullscreen)
         {
             SetFullscreen(true);
+        }
+    }
+
+    // AppKit places windows itself and zooming is its "maximize": the size and state are placed, the position is not (see platform.md).
+    private bool IsZoomed => Msg.Flag(_window, ObjC.Sel("isZoomed")) != 0;
+
+    /// <inheritdoc />
+    public override void Maximize()
+    {
+        if (!IsFullscreen && !IsZoomed)
+        {
+            Msg.Void(_window, ObjC.Sel("zoom:"), (nint)0);
+            ReadGeometry(silent: false);
+        }
+    }
+
+    /// <inheritdoc />
+    public override void Restore()
+    {
+        if (IsFullscreen)
+        {
+            SetFullscreen(false);
+        }
+        else if (IsZoomed)
+        {
+            Msg.Void(_window, ObjC.Sel("zoom:"), (nint)0);
+            ReadGeometry(silent: false);
         }
     }
 
@@ -462,6 +495,7 @@ internal sealed unsafe class CocoaWindow : Window
         }
 
         ApplyScale(scale);
+        IsMaximized = !IsFullscreen && IsZoomed;
         ApplySize(w, h);
     }
 

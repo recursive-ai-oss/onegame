@@ -33,6 +33,21 @@ public abstract class Window : IDisposable
     /// <summary>Whether the window is fullscreen.</summary>
     public bool IsFullscreen { get; private protected set; }
 
+    /// <summary>Whether the window is maximized (filling its screen's work area, with a frame). False while fullscreen.</summary>
+    public bool IsMaximized { get; private protected set; }
+
+    /// <summary>
+    /// Whether a program can read and choose this window's position on the screen. True on Windows, X11 and a headless window; false on
+    /// Wayland (the compositor places windows), macOS, phones and browsers, where <see cref="Placement"/> has no position.
+    /// </summary>
+    public virtual bool CanPlace => false;
+
+    /// <summary>The client area's left edge on the virtual screen, or 0 when <see cref="CanPlace"/> is false.</summary>
+    public int X { get; private protected set; }
+
+    /// <summary>The client area's top edge on the virtual screen, or 0 when <see cref="CanPlace"/> is false.</summary>
+    public int Y { get; private protected set; }
+
     /// <summary>Whether the window is minimized.</summary>
     public bool IsMinimized { get; private protected set; }
 
@@ -88,6 +103,127 @@ public abstract class Window : IDisposable
 
     /// <summary>Minimizes the window.</summary>
     public abstract void Minimize();
+
+    /// <summary>
+    /// Maximizes the window so it fills its screen's work area. It takes effect when the system agrees (a size event follows). Where the
+    /// system has no such state (phones, browsers) or there is no window manager, nothing happens.
+    /// </summary>
+    public virtual void Maximize()
+    {
+    }
+
+    /// <summary>Leaves maximized or fullscreen and returns to the normal rectangle. Does nothing for a normal window.</summary>
+    public virtual void Restore()
+    {
+        if (IsFullscreen)
+        {
+            SetFullscreen(false);
+        }
+    }
+
+    /// <summary>Moves the window's client area to a position on the virtual screen. Ignored where <see cref="CanPlace"/> is false.</summary>
+    /// <param name="x">Left edge in pixels.</param>
+    /// <param name="y">Top edge in pixels.</param>
+    public virtual void MoveTo(int x, int y)
+    {
+    }
+
+    /// <summary>
+    /// Where the window is and how it is shown, as a value to save. The rectangle is the normal (restored) one even while the window is
+    /// maximized or fullscreen. Reading it never changes the window.
+    /// </summary>
+    public WindowPlacement Placement => _normalWidth > 0
+        ? new(_normalX, _normalY, _normalWidth, _normalHeight, State, CanPlace)
+        : new(X, Y, Width, Height, State, CanPlace);
+
+    /// <summary>Normal, maximized or fullscreen.</summary>
+    public WindowState State => IsFullscreen ? WindowState.Fullscreen : IsMaximized ? WindowState.Maximized : WindowState.Normal;
+
+    /// <summary>
+    /// Applies a saved placement to this window: the normal rectangle first (where the system lets a program move windows), then the
+    /// maximized or fullscreen state. A rectangle that no connected screen would show is moved onto one first (see
+    /// <see cref="WindowPlacement.ClampTo"/>). Like <see cref="RequestSize"/> it is a request; the result is read back from
+    /// <see cref="Placement"/> once the system has answered, and a size event follows.
+    /// </summary>
+    /// <param name="placement">The placement to apply, usually one read earlier with <see cref="Placement"/>.</param>
+    public void ApplyPlacement(WindowPlacement placement)
+    {
+        if (IsClosed)
+        {
+            return;
+        }
+
+        var wanted = placement.ClampTo(App.GetWorkAreas());
+        var current = Placement;
+        if (wanted.State == current.State && wanted.Width == current.Width && wanted.Height == current.Height
+            && (!wanted.HasPosition || !current.HasPosition || (wanted.X == current.X && wanted.Y == current.Y)))
+        {
+            return;
+        }
+
+        // Leave maximized or fullscreen first so the rectangle is applied to the normal window, then enter the wanted state.
+        if (State != WindowState.Normal)
+        {
+            Restore();
+        }
+
+        PlaceNormal(wanted);
+        _normalWidth = wanted.Width;
+        _normalHeight = wanted.Height;
+        if (wanted.HasPosition && CanPlace)
+        {
+            _normalX = wanted.X;
+            _normalY = wanted.Y;
+        }
+
+        switch (wanted.State)
+        {
+            case WindowState.Maximized:
+                Maximize();
+                break;
+            case WindowState.Fullscreen:
+                SetFullscreen(true);
+                break;
+        }
+    }
+
+    /// <summary>Sets the normal rectangle of a window that is in the normal state. The default asks for the size only.</summary>
+    private protected virtual void PlaceNormal(WindowPlacement placement) => RequestSize(placement.Width, placement.Height);
+
+    private int _normalX, _normalY, _normalWidth, _normalHeight;
+
+    // Backends call this with what the system reports. The normal rectangle follows only while the window is in the normal state, so
+    // the size a maximized window has never replaces the one to restore to.
+    private protected void TrackNormalRect(int x, int y, int width, int height)
+    {
+        if (IsMaximized || IsFullscreen || IsMinimized || width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        _normalX = x;
+        _normalY = y;
+        _normalWidth = width;
+        _normalHeight = height;
+    }
+
+    private protected void SetPosition(int x, int y)
+    {
+        X = x;
+        Y = y;
+        TrackNormalRect(x, y, Width, Height);
+    }
+
+    // A new window starts with its creation options as the normal rectangle.
+    private protected void InitNormalRect(int x, int y, int width, int height)
+    {
+        _normalX = x;
+        _normalY = y;
+        _normalWidth = width;
+        _normalHeight = height;
+        X = x;
+        Y = y;
+    }
 
     /// <summary>Shows or hides the cursor over the window.</summary>
     /// <param name="hidden">True to hide the cursor while it is over the window.</param>
@@ -173,6 +309,7 @@ public abstract class Window : IDisposable
 
         Width = width;
         Height = height;
+        TrackNormalRect(X, Y, width, height);
         App.Post(new PlatformEvent { Kind = PlatformEventKind.WindowResized, WindowId = Id, Width = width, Height = height });
     }
 

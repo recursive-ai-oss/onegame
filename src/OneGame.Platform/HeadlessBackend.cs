@@ -40,7 +40,37 @@ internal sealed class HeadlessBackend : PlatformBackend
             Height = options.Height;
             Title = options.Title;
             IsFullscreen = options.Fullscreen;
+            IsMaximized = options.Placement?.State == WindowState.Maximized;
             IsFocused = true;
+            var at = options.Placement is { HasPosition: true } p ? p : default;
+            InitNormalRect(at.X, at.Y, options.Width, options.Height);
+        }
+
+        // A headless window pretends to be placeable so scenarios and tests can exercise saved placements; there is no screen to fill,
+        // so maximizing changes the state only.
+        public override bool CanPlace => true;
+
+        public override void Maximize()
+        {
+            IsFullscreen = false;
+            IsMaximized = true;
+        }
+
+        public override void Restore()
+        {
+            IsFullscreen = false;
+            IsMaximized = false;
+        }
+
+        public override void MoveTo(int x, int y) => SetPosition(x, y);
+
+        private protected override void PlaceNormal(WindowPlacement placement)
+        {
+            ApplySize(placement.Width, placement.Height);
+            if (placement.HasPosition)
+            {
+                SetPosition(placement.X, placement.Y);
+            }
         }
 
         public override NativeWindowHandle NativeHandle => default;
@@ -49,7 +79,14 @@ internal sealed class HeadlessBackend : PlatformBackend
 
         public override void RequestSize(int width, int height) => ApplySize(width, height);
 
-        public override void SetFullscreen(bool fullscreen) => IsFullscreen = fullscreen;
+        public override void SetFullscreen(bool fullscreen)
+        {
+            IsFullscreen = fullscreen;
+            if (fullscreen)
+            {
+                IsMaximized = false;
+            }
+        }
 
         public override void Minimize() => IsMinimized = true;
 

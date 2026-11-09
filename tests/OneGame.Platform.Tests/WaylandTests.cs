@@ -85,6 +85,33 @@ public sealed class WaylandWestonTests : IClassFixture<WestonFixture>, IDisposab
         Assert.Equal("renamed", _window.Title);
         Assert.True(_window.IsMinimized);
     }
+
+    [Fact]
+    public void PlacementCarriesSizeAndStateButNeverAPosition()
+    {
+        var app = App;
+        var window = _window!;
+        Assert.False(window.CanPlace);
+        Assert.False(window.Placement.HasPosition);
+
+        // xdg-shell has requests for the state but none for a position; the compositor answers with a configure.
+        window.Maximize();
+        Pump.For(app, 200);
+        window.Restore();
+        Pump.For(app, 200);
+        Assert.False(window.IsClosed);
+
+        var saved = WindowPlacement.SizeOnly(400, 300, WindowState.Maximized);
+        var second = app.CreateWindow(new WindowOptions { Title = "restored", Placement = saved, SoftwareSurface = true });
+        Pump.For(app, 200);
+        Assert.False(second.IsClosed);
+        Assert.False(second.Placement.HasPosition);
+        // The kiosk shell makes every window fullscreen; a desktop shell would answer maximized. Either way the state is what the compositor says.
+        Assert.NotEqual(WindowState.Normal, second.State);
+        second.ApplyPlacement(WindowPlacement.SizeOnly(500, 350));
+        Pump.For(app, 200);
+        Assert.False(second.IsClosed);
+    }
 }
 
 /// <summary>The Wayland backend against a scripted compositor that sends exact input events on the wire.</summary>
