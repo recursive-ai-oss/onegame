@@ -34,13 +34,13 @@ struct ShadowData
 {
     row_major float4x4 Model;
     row_major float4x4 NormalMat;   // transpose(inverse(Model))
-    uint4 ObjInfo;                  // x first joint, y 1 when skinned
+    uint4 ObjInfo;                  // x first joint, y 1 when skinned, z bits of (1 - instance opacity), so zeroed constants mean opaque
 };
 
 [[vk::binding(0, 2)]] cbuffer Material
 {
     float4 BaseColor;
-    float4 Emissive;       // rgb already multiplied by emissive strength
+    float4 Emissive;       // rgb already multiplied by emissive strength, w = 1 - material opacity (0 by default)
     float4 P0;             // x metallic, y roughness, z normal scale, w occlusion strength
     float4 P1;             // x alpha cutoff, y alpha mode (0 opaque, 1 mask, 2 blend), z unlit, w dielectric f0
     uint4 Flags;           // x has normal map
@@ -452,7 +452,7 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
         discard;
     }
 
-    float alpha = P1.y > 1.5 ? base.a : 1.0;
+    float alpha = (P1.y > 1.5 ? base.a : 1.0) * (1.0 - Emissive.w) * (1.0 - asfloat(ObjInfo.z));
     if (P1.z > 0.5 || StyleA.x > 1.5)
     {
         // KHR_materials_unlit, or the flat style

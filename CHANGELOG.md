@@ -9,6 +9,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 - Cluster scenarios can command a followed scope: `command: { entity: Arena, name: Hit, scope: 2 }` on a client node (and the `command_send` op's new `scope` argument) looks the entity up in that scope's replica and forwards the command to its authority, whose trust checks apply as for any player. Unfollowed scopes fail with `not_found`.
 - `net_status.followed` lists every other scope the client's node is subscribed to, including ones the game subscribed to itself, and each entry carries `fullHash` and `filtered`; for a filtered replica `hash` is the view hash the authority computes for that connection.
 - Server `hash_at` names the connection of each view (`clients`) and takes an optional `client`, returning that connection's view hash as `view`; `ServerHost.HashesAt(tick, client)` is the API form.
+- A 3D view can be shown inside another (portal windows, monitors, mirrors): `new Offscreen3D(renderer, w, h, format, sampled: true)` renders another `Scene3D` into a target that `Material3D.SetTexture(MaterialSlot3D, texture)` binds to any material texture slot, with no model re-upload. `ResetTexture` restores the file's texture.
+- Runtime material changes without reloading a model: `Material3D.Emissive`, `EmissiveStrength` and `Opacity`, and `ModelInstance3D.Opacity` (plus `Label`). Translucent surfaces use the existing blended path (far to near, no depth write, no shadow or outline).
+- The debug overlay shows per-frame timing: CPU frame, simulation and draw times with a history bar chart, and GPU pass times where the backend has timestamps. The `overlay` and `info` operations return the same numbers as `timing`. `GameInstance.Timings`, `GameInstance.ReadGpuTimings` and `RenderGraph.ReadPassTimes` are the API; timing runs only while the overlay is shown.
+- `camera`, `pick` and `project` work for a `Render3DStage` that has no `SceneView3D`: `Render3DStage.Manual` (`ManualScene3D`, `IScene3DProbe`) answers over the stage's `Scene`, and games with their own stage implement `IScene3DStage.Manual`.
 
 ### Fixed
 

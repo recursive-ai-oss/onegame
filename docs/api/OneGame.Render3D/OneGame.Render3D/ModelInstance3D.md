@@ -16,11 +16,23 @@ One placed copy of a [`Model3D`](Model3D.md), with its own pose.
 
 | Member | Description |
 | --- | --- |
+| [`Label`](#m-label) | A name tools show for this instance, for example in `pick` results of a game that fills the scene by hand. |
 | [`Model`](#m-model) | The model this instance draws. |
 | [`NodeWorlds`](#m-nodeworlds) | World matrix of every node of the model (before [`ModelInstance3D.Transform`](ModelInstance3D.md#m-transform)), as of the last [`ModelInstance3D.UpdateTransforms()`](ModelInstance3D.md#m-updatetransforms). |
+| [`Opacity`](#m-opacity) | 1 (default) draws the model as its materials say; below 1 every surface is multiplied by this alpha and drawn in the blended pass (sorted far to near, no depth write, like a glTF BLEND material), so it combines with each material's own [`Material3D.Opacity`](Material3D.md#m-opacity). |
 | [`Pose`](#m-pose) | Per-node translation, rotation, scale and morph weights. |
 | [`Transform`](#m-transform) | Placement of the whole model in the world. |
 | [`Visible`](#m-visible) | Whether the instance is drawn. |
+
+### <a id="m-label"></a>Label
+
+```csharp
+public string? Label { get; set; }
+```
+
+A name tools show for this instance, for example in `pick` results of a game that fills the scene by hand.
+
+**Type:** `string?`
 
 ### <a id="m-model"></a>Model
 
@@ -41,6 +53,16 @@ public ReadOnlySpan<Matrix4x4> NodeWorlds { get; }
 World matrix of every node of the model (before [`ModelInstance3D.Transform`](ModelInstance3D.md#m-transform)), as of the last [`ModelInstance3D.UpdateTransforms()`](ModelInstance3D.md#m-updatetransforms).
 
 **Type:** [`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)&lt;[`Matrix4x4`](https://learn.microsoft.com/dotnet/api/system.numerics.matrix4x4)&gt;
+
+### <a id="m-opacity"></a>Opacity
+
+```csharp
+public float Opacity { get; set; }
+```
+
+1 (default) draws the model as its materials say; below 1 every surface is multiplied by this alpha and drawn in the blended pass (sorted far to near, no depth write, like a glTF BLEND material), so it combines with each material's own [`Material3D.Opacity`](Material3D.md#m-opacity). A translucent instance casts no shadow and has no outline. Values are clamped to 0..1.
+
+**Type:** `float`
 
 ### <a id="m-pose"></a>Pose
 

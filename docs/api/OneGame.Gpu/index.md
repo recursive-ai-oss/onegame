@@ -104,6 +104,7 @@ dotnet add package RecursiveAI.OneGame.Gpu
 | [`PassBuilder`](OneGame.Gpu.Graph/PassBuilder.md) | class | Declares what one pass touches. |
 | [`PassContext`](OneGame.Gpu.Graph/PassContext.md) | class | What a pass may do while it records: get the physical textures and buffers it declared, and the render or compute pass the graph opened for it. |
 | [`PassReport`](OneGame.Gpu.Graph/PassReport.md) | record | One pass of the last frame. |
+| [`PassTime`](OneGame.Gpu.Graph/PassTime.md) | struct | The GPU time of one pass, from [`RenderGraph.ReadPassTimes()`](OneGame.Gpu.Graph/RenderGraph.md#m-readpasstimes-list-passtime). |
 | [`PassType`](OneGame.Gpu.Graph/PassType.md) | enum | What kind of work a pass records, which decides how the graph runs it. |
 | [`RenderGraph`](OneGame.Gpu.Graph/RenderGraph.md) | class | One frame structure for every renderer. |
 | [`RenderGraphException`](OneGame.Gpu.Graph/RenderGraphException.md) | class | A problem in how a graph was declared: reading something no pass wrote, using a stale handle, touching a resource a pass did not declare. |

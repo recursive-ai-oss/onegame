@@ -8,8 +8,9 @@ public sealed partial class ControlSurface
 {
     private ControlResult Dispatch3D(string op, Args a)
     {
-        var view = (Game.Stage as IScene3DStage)?.View
-            ?? throw new ControlException("no_scene3d", "This game does not draw entities in 3D. Return a Render3DStage built with a SceneView3D from GameDefinition.CreateRenderStage.");
+        var stage = Game.Stage as IScene3DStage;
+        IScene3DProbe view = (IScene3DProbe?)stage?.View ?? stage?.Manual
+            ?? throw new ControlException("no_scene3d", "This game does not draw a 3D scene. Return a Render3DStage from GameDefinition.CreateRenderStage (with a SceneView3D to draw entities, or without one to fill Scene by hand).");
         view.Prepare(Game.World, Game.World.Tick, default);
         return op switch
         {
@@ -25,7 +26,7 @@ public sealed partial class ControlSurface
     /// <exception cref="ControlException">There is no such entity.</exception>
     public EntityId ResolveEntityId(string spec) => ResolveEntity(spec).Id;
 
-    private CameraResult Camera3D(SceneView3D view, Args a)
+    private CameraResult Camera3D(IScene3DProbe view, Args a)
     {
         if (a.Bool("reset", false))
         {
@@ -78,7 +79,7 @@ public sealed partial class ControlSurface
         return new CameraResult(Round3(cam.Position), Round3(forward), Round3(upAxis), Math.Round(cam.YFov * 180.0 / Math.PI, 4), Math.Round(cam.OrthoHeight, 5), Math.Round(cam.Near, 5), Math.Round(cam.Far, 5), entity, view.CameraOverride is not null);
     }
 
-    private PickResult Pick3D(SceneView3D view, Args a)
+    private PickResult Pick3D(IScene3DProbe view, Args a)
     {
         PickRay ray;
         if (a.Has("origin") || a.Has("direction"))
@@ -112,10 +113,10 @@ public sealed partial class ControlSurface
         }
 
         var entity = Game.World.Find(found.Entity);
-        return new PickResult(true, entity is null ? null : Label(entity), found.Entity.Value, entity is null ? null : Address(entity), found.Model, Math.Round(found.Distance, 5), Round3(found.Point), Round3(ray.Origin), Round3(ray.Direction), tick);
+        return new PickResult(true, entity is null ? null : Label(entity), entity is null ? null : found.Entity.Value, entity is null ? null : Address(entity), found.Model, Math.Round(found.Distance, 5), Round3(found.Point), Round3(ray.Origin), Round3(ray.Direction), tick);
     }
 
-    private ProjectResult Project3D(SceneView3D view, Args a)
+    private ProjectResult Project3D(IScene3DProbe view, Args a)
     {
         var p = a.Numbers("point", 3) ?? throw new ControlException("bad_args", "point is required: [x, y, z].");
         var (w, h) = TargetSize(a);

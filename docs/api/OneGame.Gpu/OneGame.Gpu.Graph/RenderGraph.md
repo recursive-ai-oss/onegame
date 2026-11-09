@@ -103,6 +103,7 @@ Whether per-pass GPU time is being measured.
 | [`Execute()`](#m-execute) | Checks, culls and allocates, then records every surviving pass into one encoder and submits it. |
 | [`ImportBuffer(string, GpuBuffer)`](#m-importbuffer-string-gpubuffer) | Brings a buffer the graph does not own into this frame. |
 | [`ImportTexture(string, GpuTexture)`](#m-importtexture-string-gputexture) | Brings a texture the graph does not own into this frame: a swapchain image, a capture target, a persistent shadow atlas. |
+| [`ReadPassTimes(List<PassTime>)`](#m-readpasstimes-list-passtime) | Copies the GPU time of every timed pass of the newest finished frame into `into` (cleared first), in execution order. |
 | [`ResolveTimings()`](#m-resolvetimings) | Collects the GPU times of frames whose work has finished. |
 
 ### <a id="m-addpass-igraphpass"></a>AddPass(IGraphPass)
@@ -236,6 +237,20 @@ Brings a texture the graph does not own into this frame: a swapchain image, a ca
 - `texture` ([`GpuTexture`](../OneGame.Gpu/GpuTexture.md))
 
 **Returns:** [`GraphTexture`](GraphTexture.md)
+
+### <a id="m-readpasstimes-list-passtime"></a>ReadPassTimes(List&lt;PassTime&gt;)
+
+```csharp
+public int ReadPassTimes(List<PassTime> into);
+```
+
+Copies the GPU time of every timed pass of the newest finished frame into `into` (cleared first), in execution order. Unlike [`RenderGraph.Describe()`](RenderGraph.md#m-describe) it may be called while a frame is being built (an overlay drawn as the last pass reads it) and allocates only to grow the list.
+
+**Parameters**
+
+- `into` ([`List`](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)&lt;[`PassTime`](PassTime.md)&gt;): Receives the passes.
+
+**Returns:** `int` — The frame the times belong to, or 0 when none has finished (timing off, no timestamps, or too early).
 
 ### <a id="m-resolvetimings"></a>ResolveTimings()
 

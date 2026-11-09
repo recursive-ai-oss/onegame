@@ -78,6 +78,8 @@ Creates a new instance.
 | [`FollowedScope`](#m-followedscope) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`FollowedScopeArray`](#m-followedscopearray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`GeneratedSerializerOptions`](#m-generatedserializeroptions) | The source-generated options associated with this context. |
+| [`GpuPassReport`](#m-gpupassreport) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`GpuPassReportArray`](#m-gpupassreportarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`GraphStats`](#m-graphstats) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`HitResult`](#m-hitresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`HotReloadResult`](#m-hotreloadresult) | Defines the source generated JSON serialization contract metadata for a given type. |
@@ -144,6 +146,7 @@ Creates a new instance.
 | [`String`](#m-string) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`StringArray`](#m-stringarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ThemeLintReport`](#m-themelintreport) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`TimingReport`](#m-timingreport) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`TweenInfo`](#m-tweeninfo) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`TweenInfoArray`](#m-tweeninfoarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`TweensResult`](#m-tweensresult) | Defines the source generated JSON serialization contract metadata for a given type. |
@@ -490,6 +493,26 @@ protected override JsonSerializerOptions? GeneratedSerializerOptions { get; }
 The source-generated options associated with this context.
 
 **Type:** [`JsonSerializerOptions`](https://learn.microsoft.com/dotnet/api/system.text.json.jsonserializeroptions)?
+
+### <a id="m-gpupassreport"></a>GpuPassReport
+
+```csharp
+public JsonTypeInfo<GpuPassReport> GpuPassReport { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`GpuPassReport`](GpuPassReport.md)&gt;
+
+### <a id="m-gpupassreportarray"></a>GpuPassReportArray
+
+```csharp
+public JsonTypeInfo<GpuPassReport[]> GpuPassReportArray { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`GpuPassReport`](GpuPassReport.md)\[\]&gt;
 
 ### <a id="m-graphstats"></a>GraphStats
 
@@ -1150,6 +1173,16 @@ public JsonTypeInfo<ThemeLintReport> ThemeLintReport { get; }
 Defines the source generated JSON serialization contract metadata for a given type.
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`ThemeLintReport`](../../OneGame.UI.Kit/OneGame.UI.Kit/ThemeLintReport.md)&gt;
+
+### <a id="m-timingreport"></a>TimingReport
+
+```csharp
+public JsonTypeInfo<TimingReport> TimingReport { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`TimingReport`](TimingReport.md)&gt;
 
 ### <a id="m-tweeninfo"></a>TweenInfo
 

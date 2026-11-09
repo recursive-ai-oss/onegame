@@ -39,3 +39,8 @@ public sealed record ResourceReport(string Name, string Kind, bool Imported, boo
 /// <param name="Resources">Every resource declared.</param>
 /// <param name="Stats">Totals.</param>
 public sealed record RenderGraphReport(int Frame, bool Timing, int TimingFrame, PassReport[] Passes, ResourceReport[] Resources, GraphStats Stats);
+
+/// <summary>The GPU time of one pass, from <see cref="RenderGraph.ReadPassTimes"/>.</summary>
+/// <param name="Name">Pass name.</param>
+/// <param name="Microseconds">GPU time in microseconds.</param>
+public readonly record struct PassTime(string Name, double Microseconds);

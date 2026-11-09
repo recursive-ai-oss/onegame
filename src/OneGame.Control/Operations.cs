@@ -82,6 +82,9 @@ public sealed record InfoResult(
 {
     /// <summary>Gets the art atlas: pages, entries, standalone textures and how many images were refused. Null when the sender predates it.</summary>
     public AtlasInfo? Atlas { get; init; }
+
+    /// <summary>Gets frame timing as <c>overlay</c> reports it; present only while timing runs (the debug panel is visible).</summary>
+    public TimingReport? Timing { get; init; }
 }
 
 /// <summary>The art atlas (SVG and image pages) as reported by <c>info</c>.</summary>
@@ -258,6 +261,7 @@ public sealed record BusLoudnessStatus(int Index, string? Name, OneGame.Audio.Lo
 [JsonSerializable(typeof(AssetsResult))]
 [JsonSerializable(typeof(TweensResult))]
 [JsonSerializable(typeof(OverlayResult))]
+[JsonSerializable(typeof(TimingReport))]
 [JsonSerializable(typeof(OneGame.Gpu.Graph.RenderGraphReport))]
 [JsonSerializable(typeof(OneGame.UI.Kit.ThemeLintReport))]
 [JsonSerializable(typeof(OneGame.Audio.AudioStatus))]

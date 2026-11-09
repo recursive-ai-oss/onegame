@@ -4,10 +4,10 @@
 
 **Namespace:** `OneGame.Host`  
 **Package:** [`RecursiveAI.OneGame.Host`](../index.md)  
-**Implements:** [`IDisposable`](https://learn.microsoft.com/dotnet/api/system.idisposable)
+**Implements:** [`IScene3DProbe`](IScene3DProbe.md), [`IDisposable`](https://learn.microsoft.com/dotnet/api/system.idisposable)
 
 ```csharp
-public sealed class SceneView3D : IDisposable
+public sealed class SceneView3D : IScene3DProbe, IDisposable
 ```
 
 Turns a world of [`IView3D`](IView3D.md) entities into a 3D scene and answers questions about it: which camera is in use, where a world point lands on screen, which entity is under a screen point. It only reads the world; it never changes state. Everything but [`SceneView3D.Build()`](SceneView3D.md#m-build-scene3d-renderer3d) works without a graphics device.

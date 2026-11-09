@@ -1007,6 +1007,44 @@ public sealed class RenderGraph : IDisposable
         return false;
     }
 
+    /// <summary>
+    /// Copies the GPU time of every timed pass of the newest finished frame into <paramref name="into"/> (cleared first), in execution order.
+    /// Unlike <see cref="Describe"/> it may be called while a frame is being built (an overlay drawn as the last pass reads it) and allocates only to
+    /// grow the list.
+    /// </summary>
+    /// <param name="into">Receives the passes.</param>
+    /// <returns>The frame the times belong to, or 0 when none has finished (timing off, no timestamps, or too early).</returns>
+    public int ReadPassTimes(List<PassTime> into)
+    {
+        ArgumentNullException.ThrowIfNull(into);
+        ThrowIfDisposed();
+        into.Clear();
+        ResolveTimings();
+        FrameTiming? best = null;
+        foreach (var t in _timings)
+        {
+            if (t.Resolved && (best is null || t.Frame > best.Frame))
+            {
+                best = t;
+            }
+        }
+
+        if (best is null)
+        {
+            return 0;
+        }
+
+        for (var k = 0; k < best.PassCount; k++)
+        {
+            if (best.Pairs[k] > 0)
+            {
+                into.Add(new PassTime(best.Names[k], best.Nanos[k] / 1000.0));
+            }
+        }
+
+        return best.Frame;
+    }
+
     // ---- inspection ----
 
     /// <summary>

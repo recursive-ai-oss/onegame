@@ -24,6 +24,8 @@ public sealed class DebugOverlay : IFrameOverlay
     private const int RefreshFrames = 15;
     private const string Separator = "  ";
     private const string FrameTemplate = "frame 000.0 ms  min 000.0  avg 000.0  max 000.0";
+    private const string CpuTemplate = "cpu 000.0 ms  sim 000.0  draw 000.0  max 000.0";
+    private const string GpuTemplate = "gpu 00.00 ms  forward + debug3d 00.00  tonemap 00.00";
     private const string NetTemplate = "net udp  rtt 000.0 ms  in 000.0 KB/s out 000.0 KB/s  drift none";
     private const string AudioTemplate = "audio wasapi  underruns 0000  peak 0.00 !";
 
@@ -46,6 +48,9 @@ public sealed class DebugOverlay : IFrameOverlay
     private bool _visible;
     private bool _hasNet;
     private bool _hasAudio;
+    private readonly List<GpuPassTime> _gpuPasses = [];
+    private GpuTimingStatus _gpuStatus;
+    private bool _hasGpu;
     private int _shape = -1;
     private float _shapeSize;
 
@@ -76,7 +81,15 @@ public sealed class DebugOverlay : IFrameOverlay
         get => _visible;
         set
         {
+            if (value && !_visible)
+            {
+                _game.Timings.Clear();
+            }
+
             _visible = value;
+
+            // Frames are timed only while the panel can show them; hidden, a frame takes no extra timestamps.
+            _game.Timings.Enabled = value;
             if (_game.Stage is Render2DStage stage)
             {
                 stage.Draw.DebugVisible = value;
@@ -106,6 +119,12 @@ public sealed class DebugOverlay : IFrameOverlay
 
     /// <summary>Whether the figures are masked now.</summary>
     public bool IsMasked => Masked ?? _game.Options.Headless;
+
+    /// <summary>The most recent GPU pass times the panel read (empty when the backend has no timestamps or nothing was drawn yet).</summary>
+    public IReadOnlyList<GpuPassTime> GpuPasses => _gpuPasses;
+
+    /// <summary>Whether GPU pass times could be read when the panel last built its text.</summary>
+    public GpuTimingStatus GpuStatus => _gpuStatus;
 
     /// <summary>The lines of the panel as last built.</summary>
     public IReadOnlyList<string> Lines => _lines;
@@ -218,12 +237,13 @@ public sealed class DebugOverlay : IFrameOverlay
 
         // The panel is as wide as the longest text each line can have, so it does not jitter as digits change; it is measured again only
         // when the size or the set of lines changes.
-        var shape = (_hasNet ? 1 : 0) | (_hasAudio ? 2 : 0);
+        var shape = (_hasNet ? 1 : 0) | (_hasAudio ? 2 : 0) | (_hasGpu ? 4 : 0) | (IsMasked ? 0 : 8);
         if (shape != _shape || size != _shapeSize)
         {
             _shape = shape;
             _shapeSize = size;
-            _width = Math.Max(canvas.Measure(FrameTemplate, size), Math.Max(canvas.Measure(_hasNet ? NetTemplate : string.Empty, size), canvas.Measure(_hasAudio ? AudioTemplate : string.Empty, size)));
+            var timing = IsMasked ? 0f : Math.Max(canvas.Measure(CpuTemplate, size), _hasGpu ? canvas.Measure(GpuTemplate, size) : 0f);
+            _width = Math.Max(Math.Max(canvas.Measure(FrameTemplate, size), timing), Math.Max(canvas.Measure(_hasNet ? NetTemplate : string.Empty, size), canvas.Measure(_hasAudio ? AudioTemplate : string.Empty, size)));
         }
 
         _drawn = true;
@@ -234,7 +254,8 @@ public sealed class DebugOverlay : IFrameOverlay
         var barW = 2 * s;
         var sparkH = 22 * s;
         var w = Math.Max(_width, History * barW) + (2 * pad);
-        var h = (_lines.Count * lineHeight) + (2 * pad) + (spark ? sparkH + (4 * s) : 0);
+        var cpuSpark = !masked && _game.Timings.Count > 1;
+        var h = (_lines.Count * lineHeight) + (2 * pad) + (spark ? sparkH + (4 * s) : 0) + (cpuSpark ? sparkH + (4 * s) : 0);
         var x = canvas.Width - w - (8 * s);
         var y = 8 * s;
         canvas.Fill(x, y, w, h, new Color(8, 10, 14, 200));
@@ -244,16 +265,34 @@ public sealed class DebugOverlay : IFrameOverlay
             canvas.Text(_lines[i], x + pad, y + pad + (i * lineHeight), size, warn ? new Color(255, 120, 100) : new Color(235, 240, 245));
         }
 
+        var baseY = y + h - pad;
         if (spark)
         {
             // One bar per recent frame, 33 ms tall at most: green under 20 ms, amber under 34, red beyond.
-            var baseY = y + h - pad;
             for (var i = 0; i < _count; i++)
             {
                 var v = _ms[(_next - _count + i + History) % History];
                 var bh = Math.Clamp(v / 33f, 0.05f, 1f) * sparkH;
                 var c = v < 20 ? new Color(90, 200, 120) : v < 34 ? new Color(230, 190, 70) : new Color(240, 90, 80);
                 canvas.Fill(x + pad + (i * barW), baseY - bh, barW - (0.5f * s), bh, c);
+            }
+
+            baseY -= sparkH + (4 * s);
+        }
+
+        if (cpuSpark)
+        {
+            // The CPU's share of each frame, drawn above the frame-interval bars: blue is simulation, the rest of the bar is everything else.
+            // The scale is 16.7 ms, one frame at 60 Hz; a longer frame fills the bar.
+            Span<FrameTiming> recent = stackalloc FrameTiming[FrameTimings.Capacity];
+            var n = _game.Timings.CopyTo(recent);
+            for (var i = 0; i < n; i++)
+            {
+                var t = recent[i];
+                var bh = Math.Clamp((float)(t.CpuMs / 16.7), 0.05f, 1f) * sparkH;
+                var sh = Math.Min(Math.Clamp((float)(t.SimMs / 16.7), 0f, 1f) * sparkH, bh);
+                canvas.Fill(x + pad + (i * barW), baseY - bh, barW - (0.5f * s), bh - sh, new Color(150, 160, 175));
+                canvas.Fill(x + pad + (i * barW), baseY - sh, barW - (0.5f * s), sh, new Color(90, 150, 240));
             }
         }
     }
@@ -283,6 +322,11 @@ public sealed class DebugOverlay : IFrameOverlay
 
             var cur = _ms[(_next - 1 + History) % History];
             _lines.Add(string.Create(inv, $"frame {cur:0.0} ms{Separator}min {min:0.0}{Separator}avg {sum / _count:0.0}{Separator}max {max:0.0}"));
+        }
+
+        if (!masked)
+        {
+            AddTimingLines(inv);
         }
 
         _lines.Add(string.Create(inv, $"tick {_game.World.Tick}{Separator}entities {_game.World.Entities.Count}"));
@@ -323,6 +367,61 @@ public sealed class DebugOverlay : IFrameOverlay
                 _lines.Add(string.Create(inv, $"audio {d.Backend}{Separator}underruns {d.Underruns + d.DeviceUnderruns}{Separator}peak {d.PeakPlayed:0.00}{(bad ? " !" : "")}"));
                 _lines.Add(string.Create(inv, $"written {d.FramesWritten} played {d.FramesPlayed}"));
             }
+        }
+    }
+
+    // CPU figures come from the host's own frame timing (set up while the panel is shown); GPU figures from the render graph's timestamps.
+    private void AddTimingLines(IFormatProvider inv)
+    {
+        var t = _game.Timings;
+        if (t.Count > 0)
+        {
+            Span<FrameTiming> recent = stackalloc FrameTiming[FrameTimings.Capacity];
+            var n = t.CopyTo(recent);
+            var max = 0.0;
+            for (var i = 0; i < n; i++)
+            {
+                max = Math.Max(max, recent[i].CpuMs);
+            }
+
+            var cur = t.Latest;
+            _lines.Add(string.Create(inv, $"cpu {cur.CpuMs:0.0} ms{Separator}sim {cur.SimMs:0.0}{Separator}draw {cur.DrawMs:0.0}{Separator}max {max:0.0}"));
+        }
+
+        _gpuStatus = _game.ReadGpuTimings(_gpuPasses);
+        _hasGpu = _gpuStatus != GpuTimingStatus.None;
+        if (_gpuStatus == GpuTimingStatus.Unsupported)
+        {
+            _lines.Add("gpu n/a (no timestamps)");
+        }
+        else if (_gpuStatus == GpuTimingStatus.Ready && _gpuPasses.Count > 0)
+        {
+            var total = 0.0;
+            foreach (var p in _gpuPasses)
+            {
+                total += p.Microseconds;
+            }
+
+            // The two longest passes, longest first.
+            var line = new System.Text.StringBuilder(string.Create(inv, $"gpu {total / 1000.0:0.00} ms"));
+            var first = -1;
+            for (var k = 0; k < Math.Min(2, _gpuPasses.Count); k++)
+            {
+                var best = -1;
+                for (var i = 0; i < _gpuPasses.Count; i++)
+                {
+                    if (i != first && (best < 0 || _gpuPasses[i].Microseconds > _gpuPasses[best].Microseconds))
+                    {
+                        best = i;
+                    }
+                }
+
+                var pick = _gpuPasses[best];
+                line.Append(Separator).Append(pick.Name).Append(string.Create(inv, $" {pick.Microseconds / 1000.0:0.00}"));
+                first = best;
+            }
+
+            _lines.Add(line.ToString());
         }
     }
 

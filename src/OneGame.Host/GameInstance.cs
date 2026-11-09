@@ -693,8 +693,49 @@ public sealed partial class GameInstance : IDisposable
         _swapchain = null;
     }
 
+    /// <summary>
+    /// CPU frame times of the last frames. Off until <see cref="FrameTimings.Enabled"/> is set (the debug panel does it while shown); a frame
+    /// then costs a few timestamps and no allocation.
+    /// </summary>
+    public FrameTimings Timings { get; } = new();
+
+    private readonly List<PassTime> _passTimes = [];
+
+    /// <summary>
+    /// Reads how long the GPU spent on each pass of the newest finished frame, from the stage's render graph. It is safe to call while a frame is
+    /// being drawn (the debug panel does). The times trail the frame being drawn by a frame or two.
+    /// </summary>
+    /// <param name="passes">Receives the passes that have a time, in frame order (cleared first).</param>
+    /// <returns><see cref="GpuTimingStatus.Ready"/> when times were read; <see cref="GpuTimingStatus.Unsupported"/> on a backend without timestamps.</returns>
+    public GpuTimingStatus ReadGpuTimings(List<GpuPassTime> passes)
+    {
+        ArgumentNullException.ThrowIfNull(passes);
+        passes.Clear();
+        if (_device is null || _stage.Graph is not { Frame: > 0 } graph)
+        {
+            return GpuTimingStatus.None;
+        }
+
+        if (!_device.Capabilities.Timestamps)
+        {
+            return GpuTimingStatus.Unsupported;
+        }
+
+        _passTimes.Clear();
+        graph.ReadPassTimes(_passTimes);
+        foreach (var p in _passTimes)
+        {
+            passes.Add(new GpuPassTime(p.Name, p.Microseconds));
+        }
+
+        return GpuTimingStatus.Ready;
+    }
+
     private void RunFrame(int ticks)
     {
+        var timed = Timings.Enabled;
+        var started = timed ? Stopwatch.GetTimestamp() : 0;
+        long simStart = 0, simEnd = 0, drawStart = 0;
         DrainInput();
         if (Actions.FollowsScreens)
         {
@@ -707,6 +748,11 @@ public sealed partial class GameInstance : IDisposable
         if (_stick.Tick(out var repeat))
         {
             Ui.Dispatch(repeat);
+        }
+
+        if (timed)
+        {
+            simStart = Stopwatch.GetTimestamp();
         }
 
         if (_remote is { } remote)
@@ -729,6 +775,11 @@ public sealed partial class GameInstance : IDisposable
             }
         }
 
+        if (timed)
+        {
+            simEnd = Stopwatch.GetTimestamp();
+        }
+
         Frame++;
         AdvanceViewClock();
         Assets.Update();
@@ -738,7 +789,17 @@ public sealed partial class GameInstance : IDisposable
         }
         else
         {
+            if (timed)
+            {
+                drawStart = Stopwatch.GetTimestamp();
+            }
+
             Present();
+        }
+
+        if (timed)
+        {
+            Timings.Record(Frame, started, simStart, simEnd, drawStart, Stopwatch.GetTimestamp());
         }
     }
 

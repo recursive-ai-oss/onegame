@@ -384,6 +384,7 @@ public sealed partial class Renderer3D
 
                 Matrix4x4.Invert(world, out var inverse);
                 var info = new UInt4();
+                var instanceBlend = instance.Opacity < 1f;
                 var shapeChanges = false;
                 if (node.Skin >= 0 && node.Skin < model.Source.Skins.Length)
                 {
@@ -415,6 +416,9 @@ public sealed partial class Renderer3D
                     jointCount += joints;
                 }
 
+                // The shader reads the bits of (1 - opacity), so the zeroed constants of other draws mean opaque.
+                info.Z = BitConverter.SingleToUInt32Bits(1f - instance.Opacity);
+
                 _objects[slot] = new ObjectConstants { Model = world, NormalMat = Matrix4x4.Transpose(inverse), Info = info };
                 var flipped = world.GetDeterminant() < 0;
                 var scale = MaxScale(world);
@@ -440,10 +444,10 @@ public sealed partial class Renderer3D
                         Slot = slot,
                         Flipped = flipped,
                         Sphere = new Vector4(center, radius),
-                        Pipeline = ScenePipeline(PipeKind.Main, p.Material.Blend, p.Material.DoubleSided, flipped, false, false, samples),
+                        Pipeline = ScenePipeline(PipeKind.Main, p.Material.Blend || instanceBlend, p.Material.DoubleSided, flipped, false, false, samples),
                     };
                     _drawnTriangles += p.IndexCount / 3;
-                    if (p.Material.Blend)
+                    if (p.Material.Blend || instanceBlend)
                     {
                         if (_blendCount == _blend.Length)
                         {

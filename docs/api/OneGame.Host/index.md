@@ -33,6 +33,8 @@ dotnet add package RecursiveAI.OneGame.Host
 | [`FixtureSet`](OneGame.Host/FixtureSet.md) | class | The named fixtures of a game. |
 | [`FollowedScope`](OneGame.Host/FollowedScope.md) | record | One scope a client follows besides its main one (served by its server's relay), for `net_status`. |
 | [`FrameInfo`](OneGame.Host/FrameInfo.md) | struct | What a render stage is given for one frame. |
+| [`FrameTiming`](OneGame.Host/FrameTiming.md) | struct | How long one frame took on the CPU. |
+| [`FrameTimings`](OneGame.Host/FrameTimings.md) | class | A short history of CPU frame times, filled by [`GameInstance`](OneGame.Host/GameInstance.md) only while [`FrameTimings.Enabled`](OneGame.Host/FrameTimings.md#m-enabled) is set; the debug panel sets it while it is shown. |
 | [`GameApp`](OneGame.Host/GameApp.md) | static class | The entry point of a game: parse the command line, create the instance, run it. |
 | [`GameArgs`](OneGame.Host/GameArgs.md) | class | The command line of a game: `--name value`, `--name=value` and bare `--flag`. |
 | [`GameDefinition`](OneGame.Host/GameDefinition.md) | class | What a game is, as far as the host cares: its entity types, how its world starts, its screens and its named fixtures. |
@@ -40,6 +42,8 @@ dotnet add package RecursiveAI.OneGame.Host
 | [`GameOptions`](OneGame.Host/GameOptions.md) | record | Options of a [`GameInstance`](OneGame.Host/GameInstance.md). |
 | [`GameStorage`](OneGame.Host/GameStorage.md) | class | A game's saves and settings: the happy path over [`IByteStore`](../OneGame.Core/OneGame.Storage/IByteStore.md), [`SaveSlots`](../OneGame.Sync/OneGame.Storage/SaveSlots.md) and [`SettingsFile<T>`](../OneGame.Core/OneGame.Storage/SettingsFile-1.md). |
 | [`GpuMode`](OneGame.Host/GpuMode.md) | enum | How the host picks a graphics device. |
+| [`GpuPassTime`](OneGame.Host/GpuPassTime.md) | struct | One pass of the render graph and how long the GPU spent on it. |
+| [`GpuTimingStatus`](OneGame.Host/GpuTimingStatus.md) | enum | Whether GPU pass times can be read. |
 | [`HostResources`](OneGame.Host/HostResources.md) | record | What the host has ready when it asks the game for a render stage. |
 | [`HotShader`](OneGame.Host/HotShader.md) | record | One shader a game wants to see edited while it runs: the HLSL file, the entry point of its pixel stage, the interface the game was built against and what to do with a recompiled version. |
 | [`HotShaders`](OneGame.Host/HotShaders.md) | class | The shaders of a running game that may be recompiled when their files change. |
@@ -47,11 +51,13 @@ dotnet add package RecursiveAI.OneGame.Host
 | [`IDevTools`](OneGame.Host/IDevTools.md) | interface | The hook through which development builds add their tools (live control, scenarios, capture, replay). |
 | [`IFrameOverlay`](OneGame.Host/IFrameOverlay.md) | interface | Something drawn on top of the finished frame, after the game's UI and sprites: the development overlay is the one user. |
 | [`IRenderStage`](OneGame.Host/IRenderStage.md) | interface | Draws one frame. |
+| [`IScene3DProbe`](OneGame.Host/IScene3DProbe.md) | interface | What the `camera`, `pick` and `project` operations ask of a 3D scene: the camera in use, a view-only override of it, a world point's place on screen and the model under a pixel. |
 | [`IScene3DStage`](OneGame.Host/IScene3DStage.md) | interface | What a render stage that draws a 3D scene shows, for tools that ask about it (the `camera` and `pick` operations). |
 | [`IView2D`](OneGame.Host/IView2D.md) | interface | Implemented by an entity that draws itself in 2D. |
 | [`IView3D`](OneGame.Host/IView3D.md) | interface | Implemented by an entity that shows itself in 3D. |
 | [`KeyNames`](OneGame.Host/KeyNames.md) | static class | Key names: the platform's physical [`Key`](../OneGame.Platform/OneGame.Platform/Key.md) to the DOM-style key strings the UI uses, and back. |
 | [`LoadedFont`](OneGame.Host/LoadedFont.md) | record | A font added to a library by [`Assets.LoadFont()`](OneGame.Host/Assets.md#m-loadfont-string-fontlibrary). |
+| [`ManualScene3D`](OneGame.Host/ManualScene3D.md) | class | Lets the live-control operations `camera`, `pick` and `project` work on a scene a game fills by hand (a [`Render3DStage`](OneGame.Host/Render3DStage.md) built without a [`SceneView3D`](OneGame.Host/SceneView3D.md)). |
 | [`ModelLibrary`](OneGame.Host/ModelLibrary.md) | class | The models a game's entities can show, by name. |
 | [`NetStatus`](OneGame.Host/NetStatus.md) | record | A snapshot of a client's connection, for `net_status`. |
 | [`OverlayCanvas`](OneGame.Host/OverlayCanvas.md) | class | The few drawing calls an [`IFrameOverlay`](OneGame.Host/IFrameOverlay.md) has: filled rectangles and one-line text, in framebuffer pixels. |

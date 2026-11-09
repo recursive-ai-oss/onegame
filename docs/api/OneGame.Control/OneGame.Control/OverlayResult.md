@@ -42,6 +42,7 @@ Result of the `overlay` operation.
 | [`Key`](#m-key) | The toggle key, or null for none. |
 | [`Lines`](#m-lines) | The panel's text now. |
 | [`Masked`](#m-masked) | Whether machine-dependent figures show as `--`. |
+| [`Timing`](#m-timing) | Gets the frame timing figures the panel shows, as numbers (never masked). |
 | [`Visible`](#m-visible) | Whether the debug panel is shown. |
 
 ### <a id="m-chord"></a>Chord
@@ -83,6 +84,16 @@ public bool Masked { get; init; }
 Whether machine-dependent figures show as `--`.
 
 **Type:** `bool`
+
+### <a id="m-timing"></a>Timing
+
+```csharp
+public TimingReport? Timing { get; init; }
+```
+
+Gets the frame timing figures the panel shows, as numbers (never masked). Null when no frame has been timed.
+
+**Type:** [`TimingReport`](TimingReport.md)?
 
 ### <a id="m-visible"></a>Visible
 
