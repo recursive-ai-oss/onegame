@@ -275,11 +275,11 @@ public sealed partial class AudioService : IDisposable
             throw new InvalidOperationException("The core was built for a different format than the output.");
         }
 
-        output.Start(core);
+        output.Start(new CaptureAwareSource(this));
         if (capture is null && output.IsPumped)
         {
             // A web page has no threads: the page's timer calls the output, and the stream feeding rides along.
-            output.BeforePump = () => Core.Pump();
+            output.BeforePump = PumpCore;
         }
         else if (capture is null)
         {
@@ -877,8 +877,16 @@ public sealed partial class AudioService : IDisposable
         const int Slice = 2048;
         for (var left = frames; left > 0; left -= Slice)
         {
-            Core.Pump();
-            Output.Advance(Math.Min(left, Slice));
+            lock (_mixGate)
+            {
+                if (_mixCapture is not null)
+                {
+                    throw new InvalidOperationException("A mix capture owns the audio timeline.");
+                }
+
+                Core.Pump();
+                Output.Advance(Math.Min(left, Slice));
+            }
         }
     }
 
@@ -924,7 +932,7 @@ public sealed partial class AudioService : IDisposable
         {
             try
             {
-                Core.Pump();
+                PumpCore();
             }
             catch (Exception e) when (e is not OutOfMemoryException)
             {

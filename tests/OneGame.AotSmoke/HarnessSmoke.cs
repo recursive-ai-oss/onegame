@@ -1,3 +1,5 @@
+using OneGame.Audio;
+using System.Text.Json;
 using OneGame.Sync;
 using OneGame.Control;
 using OneGame.Core;
@@ -85,6 +87,22 @@ internal static class HarnessSmoke
         var png = surface.Invoke("capture_frame", """{"size":"160x100"}""").Png!;
         var back = Png.Decode(png);
 
+        // Retain the sequence beside other smoke captures so the native binary's audio/video path can be inspected.
+        using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true }))
+        {
+            audio.Play(audio.LoadSound(new MemoryStream(WavTone())));
+            surface.Audio = audio;
+            using var sequence = JsonDocument.Parse(surface.Call("capture_sequence", """{"dir":"aot-sequence","count":4,"fps":60,"size":"160x100"}"""));
+            var wav = File.ReadAllBytes(sequence.RootElement.GetProperty("wav").GetString()!);
+            if (wav.Length != 44 + (3200 * 2 * 4) || !wav.AsSpan(44).ContainsAnyExcept((byte)0))
+            {
+                throw new InvalidOperationException("The native sequence did not record its mixed audio.");
+            }
+
+            Console.WriteLine("ok: sequence " + sequence.RootElement.GetRawText());
+            surface.Audio = null;
+        }
+
         // Record, replay and compare.
         using var recorded = GameInstance.Create(new SmokeGame(), new GameOptions { Headless = true, Gpu = GpuMode.Off });
         var recorder = recorded.StartRecording();
@@ -144,5 +162,29 @@ internal static class HarnessSmoke
 
         Console.WriteLine($"ok: harness; scenario hash {result.Hash}; png {png.Length} bytes; replay of {recording!.EndTick - recording.StartTick} ticks identical");
         return 0;
+    }
+
+    private static byte[] WavTone()
+    {
+        const int Rate = 48_000;
+        var bytes = new byte[44 + (Rate * 2)];
+        "RIFF"u8.CopyTo(bytes);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(4), bytes.Length - 8);
+        "WAVEfmt "u8.CopyTo(bytes.AsSpan(8));
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(16), 16);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(20), 1);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(22), 1);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(24), Rate);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(28), Rate * 2);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(32), 2);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(34), 16);
+        "data"u8.CopyTo(bytes.AsSpan(36));
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(40), Rate * 2);
+        for (var i = 0; i < Rate; i++)
+        {
+            System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(44 + i * 2), (short)(Math.Sin(i * Math.PI / 24) * 3000));
+        }
+
+        return bytes;
     }
 }

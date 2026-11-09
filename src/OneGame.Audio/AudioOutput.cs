@@ -30,7 +30,7 @@ public readonly record struct LoudnessReading(double MomentaryLufs, double Short
 
 /// <summary>
 /// The real-time side of audio: a thread pulls frames from an <see cref="IAudioRenderSource"/>, limits them and writes them to an
-/// <see cref="IAudioSink"/>. After construction the thread allocates nothing, takes no lock shared with the game thread and lets no exception out.
+/// <see cref="IAudioSink"/>. After construction the thread allocates nothing and lets no exception out. A service may serialize the source while handing its timeline to a manual recording.
 /// A lost device drops to a silent, real-time-paced mode and is reopened at the same format when it comes back.
 /// </summary>
 public sealed partial class AudioOutput : IDisposable

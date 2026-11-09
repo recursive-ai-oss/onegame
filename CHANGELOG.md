@@ -2,6 +2,12 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
+## [Unreleased]
+
+### Added
+
+- `capture_sequence` records sample-aligned mixed WAV audio alongside its unchanged PNG frames and manifest. When ffmpeg is on PATH it also produces an MP4 with sound; otherwise the reply explains why video was skipped.
+
 ## [1.15.2] - 2026-10-29
 
 `RecursiveAI.OneGame.Physics` moves to OnePhysics 0.2.0-preview.1 and ships as 1.15.2-preview.1. The other 31 packages are unchanged apart from the version.

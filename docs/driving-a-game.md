@@ -55,7 +55,7 @@ expect:
 
 **Sounds.** A scenario can assert what the game played without a sound device: `sound:` counts the sounds the game asked the audio service for since the scenario began (earlier ones don't count), matched by the name the clip was loaded under (`audio.LoadSound(stream, "coin")`; a file extension in that name is optional in the scenario). `frames: N` counts only those requested in the last N frames. Every scenario result carries the whole event log as `sounds` (sequence, frame, sound, bus, volume, loop, music, started), and the `audio_events` operation reads it live. Name clips when loading them: the default name is `sound`.
 
-**Input and assets.** `action:` and `pad:` drive the game's input actions and a virtual gamepad ([input.md](input.md)); the live operations `actions` (list or drive actions) and `input_pad` do the same from an agent. Changes show after the next `step:`. `assets:` and `asset:` check and reload loaded files, and the `assets` operation lists them with their version and state. A 2D game's drawing is visible through `draw_view` (sprites and text drawn last frame, the camera, screen to world conversion). Hot reload works in a running Debug game: save the picture and the next `capture_frame` shows it ([assets.md](assets.md)).
+**Input and assets.** `action:` and `pad:` drive the game's input actions and a virtual gamepad ([input.md](input.md)); the live operations `actions` (list or drive actions) and `input_pad` do the same from a control client. Changes show after the next `step:`. `assets:` and `asset:` check and reload loaded files, and the `assets` operation lists them with their version and state. A 2D game's drawing is visible through `draw_view` (sprites and text drawn last frame, the camera, screen to world conversion). Hot reload works in a running Debug game: save the picture and the next `capture_frame` shows it ([assets.md](assets.md)).
 
 `onegame test --json` runs them all (and the project's C# tests; `--no-unit` skips those). A failing expectation reports `expected` and `actual` with the line. Unknown keys are errors with a line number. Run one with `onegame test --scenario scenarios/x.yaml`. `onegame test --update-references` creates missing capture references and rewrites changed ones; look at them before committing. With `--json`, the result has `references: {created: [...], updated: [...]}` (absolute paths) and each such expectation carries `referenceAction`.
 
@@ -105,7 +105,7 @@ Debug builds listen on a local socket: `onegame run -- --live` (add `--realtime`
 
 ## 6. Run it in a window
 
-`onegame run` without `--headless` opens a real window on Wayland or X11, or Cocoa on a Mac (`--backend wayland|x11|cocoa`, `--display NAME`, `--present vsync|lowlatency|immediate`). Add `--live` and an agent can drive it exactly like a headless one while it presents:
+`onegame run` without `--headless` opens a real window on Wayland or X11, or Cocoa on a Mac (`--backend wayland|x11|cocoa`, `--display NAME`, `--present vsync|lowlatency|immediate`). Add `--live` and a control client can drive it exactly like a headless one while it presents:
 
 ```
 onegame run -- --live /tmp/shop.sock --realtime --backend x11 --display :88
@@ -207,3 +207,9 @@ The JSON lists every file with its size and hash, and the warnings worth acting 
 ## Reference
 
 The API behind these commands is in the reference: [OneGame.Testing](api/OneGame.Testing/index.md) (`TestCluster`, scenarios), [OneGame.Control](api/OneGame.Control/index.md) (operations) and [OneGame.Live](api/OneGame.Live/index.md).
+
+### Recording a clip with sound
+
+Call `capture_sequence` through live control, for example `{"dir":"clip","count":120,"ticksPerFrame":1,"fps":60,"size":"720p"}`, or run a development build with `--sequence clip --count 120 --every 1 --artifacts <output-folder> --json`. The reply includes `wav` alongside the PNG directory and manifest, plus `mp4` when ffmpeg on PATH successfully encoded video with audio. Otherwise `mp4SkipReason` explains the skip; no external tool is needed for the PNGs or WAV. ffmpeg is optional and is not shipped with the engine.
+
+The WAV starts at the first frame and contains exactly the captured playback span, rounded down by less than one sample if necessary. It records the game's mix, including silence, not the microphone. During capture the device is silenced and the mixer advances by exact sample counts instead of wall time, so the same initial state and sounds give identical WAV bytes in headless and stepped runs. Use the default fps (tick rate / ticks per frame) for normal-speed playback. Existing PNG reference images and simulation step counts are unchanged.

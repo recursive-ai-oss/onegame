@@ -11,7 +11,7 @@ namespace OneGame.Live;
 /// <summary>
 /// Turns the development options of a game's command line into actions: <c>--live</c>, <c>--scenario</c>, <c>--capture</c>,
 /// <c>--sequence</c>, <c>--record</c> and <c>--replay</c>. A development build calls <see cref="Dev.Enable"/> at start-up; a release build
-/// does not reference this assembly at all.
+/// does not reference this assembly at all. Sequences include mixed WAV audio and optional MP4 via ffmpeg on PATH.
 /// </summary>
 internal sealed class DevTools : IDevTools
 {
@@ -241,7 +241,7 @@ internal sealed class DevTools : IDevTools
                 w.WriteNumber("failed", failed);
                 if (options.UpdateReferences || Environment.GetEnvironmentVariable("ONEGAME_UPDATE_REFERENCES") == "1")
                 {
-                    // Every reference image the run wrote, so an agent knows which files to look at before committing.
+                    // Every reference image the run wrote, so the caller knows which files to inspect.
                     w.WritePropertyName("references");
                     w.WriteStartObject();
                     foreach (var action in new[] { "created", "updated" })

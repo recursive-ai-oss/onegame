@@ -17,6 +17,35 @@ public class ServiceCaptureTests
     private static Sound Load(AudioService s, byte[] data) => s.LoadSound(new MemoryStream(data));
 
     [Fact]
+    public void MixCaptureOwnsTimelineUntilDisposedAndLeavesRecordingReadable()
+    {
+        using var service = Capture();
+        service.Play(Load(service, TestCore.Constant(0.25f, 1000)));
+        service.Advance(100);
+        var mix = service.BeginMixCapture();
+        Assert.Throws<InvalidOperationException>(() => service.BeginMixCapture());
+        Assert.Throws<ArgumentOutOfRangeException>(() => mix.Advance(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => mix.Advance(int.MaxValue));
+        // The ordinary output may still be pulled by a device, but cannot consume the mixer's timeline.
+        service.Output.Advance(1000);
+        Assert.All(service.Capture!.Samples.ToArray().Skip(200), sample => Assert.Equal(0f, sample));
+        mix.Advance(200);
+        Assert.All(mix.Recording.Samples.ToArray(), sample => Assert.Equal(0.25f, sample));
+        service.Paused = true;
+        mix.Advance(100);
+        Assert.All(mix.Recording.Samples.ToArray().Skip(400), sample => Assert.Equal(0f, sample));
+        service.Paused = false;
+        mix.Dispose();
+        mix.Dispose();
+        Assert.Equal(300, mix.Recording.FramesCaptured);
+        Assert.Throws<ObjectDisposedException>(() => mix.Advance(1));
+        service.Capture.Clear();
+        service.Advance(701);
+        Assert.Equal(0.25f, service.Capture.Samples[699 * 2]);
+        Assert.Equal(0f, service.Capture.Samples[700 * 2]);
+    }
+
+    [Fact]
     public void CaptureHasTheRequestedFormatAndNoDevice()
     {
         using var s = Capture();

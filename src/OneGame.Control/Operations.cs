@@ -26,7 +26,7 @@ public sealed class ControlException : Exception
 
 /// <summary>One operation of the control layer: the name every face uses, what it does, and its arguments as a JSON schema.</summary>
 /// <param name="Name">The operation name, also the MCP tool name.</param>
-/// <param name="Description">What it does, for an agent that reads the tool list.</param>
+/// <param name="Description">What it does, for a client reading the tool list.</param>
 /// <param name="InputSchema">JSON schema of the arguments object.</param>
 /// <param name="ChangesState">True when the operation can change the simulation (as opposed to only reading it).</param>
 public sealed record ControlOp(string Name, string Description, string InputSchema, bool ChangesState);
@@ -37,7 +37,7 @@ public interface IControlEndpoint
     /// <summary>The operations, each of which is an MCP tool.</summary>
     IReadOnlyList<ControlOp> Operations { get; }
 
-    /// <summary>A sentence or two for an agent that connects: where to start and what changes state.</summary>
+    /// <summary>A sentence or two for a connecting client: where to start and what changes state.</summary>
     string Instructions { get; }
 
     /// <summary>Runs an operation; <paramref name="argsJson"/> is a JSON object or null.</summary>
@@ -175,14 +175,18 @@ public sealed record SequenceFrame(string File, long Tick, string Hash, string S
 public sealed record SequenceManifest(
     string Game, int Width, int Height, float Scale, int Fps, int TicksPerFrame, string Renderer, SequenceFrame[] Frames);
 
-/// <summary>Result of <c>capture_sequence</c>: a folder of numbered PNGs and a manifest.</summary>
+/// <summary>Result of <c>capture_sequence</c>: numbered PNGs, a manifest, mixed WAV audio and optional video.</summary>
 /// <param name="Directory">The folder written, under the output folder.</param>
 /// <param name="Manifest">The manifest file's path.</param>
 /// <param name="Frames">How many frames were captured.</param>
 /// <param name="Width">Pixel width of each frame.</param>
 /// <param name="Height">Pixel height of each frame.</param>
 /// <param name="Fps">Playback frames per second.</param>
-public sealed record SequenceResult(string Directory, string Manifest, int Frames, int Width, int Height, int Fps);
+/// <param name="Wav">Path of the mixed audio, including silence.</param>
+/// <param name="Mp4">Path of the muxed video, or null when skipped.</param>
+/// <param name="Mp4SkipReason">Why no video was produced, or null on success.</param>
+public sealed record SequenceResult(string Directory, string Manifest, int Frames, int Width, int Height, int Fps,
+    string? Wav = null, string? Mp4 = null, string? Mp4SkipReason = null);
 
 /// <summary>Result of <c>snapshot_save</c>: the world written as a snapshot, which <c>snapshot_load</c> (or a scenario's <c>snapshot</c> step) restores exactly.</summary>
 /// <param name="Path">The file written under the output folder, or null when the snapshot came back inline.</param>
@@ -331,8 +335,8 @@ public static partial class ControlOps
             "Render the current state offscreen to a PNG. size is WxH or a name (360p 720p 1080p 1440p 4k deck phone tablet); scale is the UI scale. With 'path' the file is written under the output folder. With presented=true, a windowed game instead returns the frame it presents to its window (the swapchain image, at the window's size; size and scale are ignored).",
             """{"type":"object","properties":{"size":{"type":"string"},"scale":{"type":"number"},"path":{"type":"string"},"presented":{"type":"boolean"}}}""", false),
         new("capture_sequence",
-            "Run frames and capture each one: 'count' captures, 'ticksPerFrame' ticks between them. Writes frame-NNNN.png and manifest.json (the video form: frames plus fps) into 'dir' under the output folder.",
-            """{"type":"object","properties":{"dir":{"type":"string"},"count":{"type":"integer","minimum":1,"maximum":3600},"ticksPerFrame":{"type":"integer","minimum":1},"size":{"type":"string"},"scale":{"type":"number"},"fps":{"type":"integer","minimum":1}},"required":["dir","count"]}""", true),
+            "Run frames and capture each one: 'count' captures, 'ticksPerFrame' ticks between them. Writes frame-NNNN.png, manifest.json and sample-aligned mixed audio.wav into 'dir' under the output folder. If ffmpeg is on PATH, also writes video.mp4 with audio; otherwise reports a skip reason.",
+            """{"type":"object","properties":{"dir":{"type":"string"},"count":{"type":"integer","minimum":1,"maximum":3600},"ticksPerFrame":{"type":"integer","minimum":1},"size":{"type":"string"},"scale":{"type":"number"},"fps":{"type":"integer","minimum":1,"maximum":1000}},"required":["dir","count"]}""", true),
         new("audio",
             "The mixing state of the game's audio as JSON: every bus (volume, mute, low-pass, high-pass, reverb, ducking), the master limiter and its gain reduction, the loudness at the output (momentary, short-term and integrated LUFS, true peak dBTP, seconds measured; null while silent), and the music track's position and length. With reset=true the loudness measurement starts over first, so a scene can be measured from its beginning. enableMeter=BUS or disableMeter=BUS moves a per-bus loudness meter, and meterRequest in the answer says what came of it: metered, no_free_slot (every slot is used by another bus; freeBusMeters is 0), queue_full (a slot is free; try again), unavailable (this service measures no buses) or disabled. Fails with 'no_audio' when the game runs no audio service. The device section says where the sound goes: backend, the device's own state (started, paused, awaiting_gesture, interrupted), underruns, frames written and frames the device has taken, and the peak among them (0 = only silence reached the device). unlock=true asks a web page to start audio (works only after a user gesture; the answer is in device.request); interrupt=begin|end posts an iOS audio-session interruption; suspend=true|false stops or starts the device as the app lifecycle does.",
             """{"type":"object","properties":{"reset":{"type":"boolean"},"enableMeter":{"type":"integer","minimum":0},"disableMeter":{"type":"integer","minimum":0},"unlock":{"type":"boolean"},"interrupt":{"type":"string","enum":["begin","end"]},"suspend":{"type":"boolean"}}}""", false),

@@ -1145,10 +1145,27 @@ public sealed partial class ControlSurface : IControlEndpoint
         }
 
         var fps = a.Int("fps", Math.Max(1, GameInstance.TickRate / every));
-        var dir = ResolveOutput(a.Required("dir"));
+        if (fps is < 1 or > 1000)
+        {
+            throw new ControlException("bad_args", "fps is 1..1000.");
+        }
+
+        var audio = Audio ?? AudioService.Active;
+        var sampleRate = audio?.Format.SampleRate ?? 48_000;
+        if ((long)count * sampleRate / fps > CaptureSink.MaxFrames)
+        {
+            throw new ControlException("too_large", "Sequence audio may not exceed the capture sample limit (ten minutes at 48 kHz).");
+        }
+
+        var relativeDir = a.Required("dir");
+        var dir = ResolveOutput(relativeDir);
+        var wav = ResolveOutput(Path.Combine(relativeDir, "audio.wav"));
+        _ = ResolveOutput(Path.Combine(relativeDir, "video.mp4"));
         Directory.CreateDirectory(dir);
         var frames = new SequenceFrame[count];
         var renderer = "";
+        using var mix = audio?.BeginMixCapture();
+        long rendered = 0;
         for (var i = 0; i < count; i++)
         {
             if (i > 0)
@@ -1160,14 +1177,35 @@ public sealed partial class ControlSurface : IControlEndpoint
             renderer = frame.Renderer;
             var png = Png.Encode(frame);
             var file = "frame-" + i.ToString("D4", CultureInfo.InvariantCulture) + ".png";
-            File.WriteAllBytes(Path.Combine(dir, file), png);
+            File.WriteAllBytes(ResolveOutput(Path.Combine(relativeDir, file)), png);
             frames[i] = new SequenceFrame(file, Game.World.Tick, HashText(), Sha256(png));
+            // Integer boundaries avoid accumulating rounding error at frame rates that do not divide the sample rate.
+            var end = (long)(i + 1) * sampleRate / fps;
+            mix?.Advance(checked((int)(end - rendered)));
+            rendered = end;
         }
 
         var manifest = new SequenceManifest(Game.Definition.Name, w, h, scale, fps, every, renderer, frames);
-        var manifestPath = Path.Combine(dir, "manifest.json");
+        var manifestPath = ResolveOutput(Path.Combine(relativeDir, "manifest.json"));
         File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest, ControlJson.Default.SequenceManifest));
-        return new SequenceResult(dir, manifestPath, count, w, h, fps);
+        using (var output = File.Create(wav))
+        {
+            if (mix is not null)
+            {
+                mix.Recording.WriteWav(output);
+            }
+            else
+            {
+                // Do not install a temporary service while game views run: a game without audio must still see none.
+                using var silence = AudioService.Create(new AudioServiceOptions { Capture = true });
+                silence.Advance(checked((int)rendered));
+                silence.Capture!.WriteWav(output);
+            }
+        }
+
+        mix?.Dispose();
+        var (mp4, skipped) = await SequenceVideo.MuxAsync(dir, fps, count);
+        return new SequenceResult(dir, manifestPath, count, w, h, fps, wav, mp4, skipped);
     }
 }
 
