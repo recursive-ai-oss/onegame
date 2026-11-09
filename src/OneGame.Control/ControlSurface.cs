@@ -268,8 +268,9 @@ public sealed partial class ControlSurface : IControlEndpoint
 
     // ---- state ----
 
-    private Entity ResolveEntity(string? spec)
+    private Entity ResolveEntity(string? spec, World? world = null)
     {
+        world ??= Game.World;
         if (string.IsNullOrWhiteSpace(spec))
         {
             throw new ControlException("bad_args", "entity is required: a numeric id, a type name, or Type#n.");
@@ -277,7 +278,7 @@ public sealed partial class ControlSurface : IControlEndpoint
 
         if (ulong.TryParse(spec, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
         {
-            return Game.World.Find(new EntityId(id)) ?? throw new ControlException("not_found", $"No entity with id {id}. Present: {Describe(Game.World.Entities)}.");
+            return world.Find(new EntityId(id)) ?? throw new ControlException("not_found", $"No entity with id {id}. Present: {Describe(world.Entities)}.");
         }
 
         var name = spec;
@@ -293,7 +294,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         }
 
         var seen = 0;
-        foreach (var e in Game.World.Entities)
+        foreach (var e in world.Entities)
         {
             if ((e.TypeName == name || e.TypeName.EndsWith("." + name, StringComparison.Ordinal)) && ++seen == nth)
             {
@@ -301,7 +302,7 @@ public sealed partial class ControlSurface : IControlEndpoint
             }
         }
 
-        throw new ControlException("not_found", $"No entity '{spec}'. Present: {Describe(Game.World.Entities)}.");
+        throw new ControlException("not_found", $"No entity '{spec}'. Present: {Describe(world.Entities)}.");
     }
 
     private static string Describe(IReadOnlyList<Entity> entities)
@@ -523,9 +524,35 @@ public sealed partial class ControlSurface : IControlEndpoint
 
     private static string Label(Entity e) => e.TypeName + "#" + e.Id.Value.ToString(CultureInfo.InvariantCulture);
 
+    // The world a command's entity is looked up in: the main one, or the replica of the scope the caller named. Sending from a replica
+    // entity forwards the command to that scope's authority, which checks the connection's trust as for any player.
+    private World CommandWorld(Args a)
+    {
+        if (!a.Has("scope"))
+        {
+            return Game.World;
+        }
+
+        var id = a.Int("scope", 0);
+        if (Game.Remote is null)
+        {
+            throw new ControlException("not_connected", "scope names a followed scope, and this game runs its own world. Start it with --connect <address>.");
+        }
+
+        foreach (var r in Game.Replicas)
+        {
+            if (r.Id.Value == (uint)id)
+            {
+                return r.World;
+            }
+        }
+
+        throw new ControlException("not_found", $"This game does not follow scope {id}. It follows: {string.Join(", ", Game.Replicas.Select(r => r.Id.Value))}.");
+    }
+
     private SendResult CommandSend(Args a)
     {
-        var e = ResolveEntity(a.Str("entity"));
+        var e = ResolveEntity(a.Str("entity"), CommandWorld(a));
         var command = a.Required("command");
         var args = a.Strings("args");
         var status = e.SendFromText(command, args);

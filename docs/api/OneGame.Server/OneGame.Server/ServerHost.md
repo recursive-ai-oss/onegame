@@ -218,6 +218,7 @@ Raised when a network client's connection closed (it left, timed out or was drop
 | [`CreateReplicaWorld(ScopeId)`](#m-createreplicaworld-scopeid) | Creates a replica world for a scope with the same entity types, tables and systems as the authority, for in-process clients and tests. |
 | [`FindScope(ScopeId)`](#m-findscope-scopeid) | The scope with this id, or null. |
 | [`HashesAt(long)`](#m-hashesat-long) | The recorded hash of every scope at `tick`; the hash is null for a tick that is not recorded (see `hashHistory` in the configuration). |
+| [`HashesAt(long, string?)`](#m-hashesat-long-string) | As [`ServerHost.HashesAt()`](ServerHost.md#m-hashesat-long), also naming the connection of each view and, when `client` is given, the view hash of that client in [`ScopeHashAt.View`](ScopeHashAt.md#m-view): what its replica must hold at that tick, equal to its audience's filtered view of the scope. |
 | [`LoadPlugin(PluginConfig)`](#m-loadplugin-pluginconfig) | Loads a plugin. |
 | [`Plugins()`](#m-plugins) | Snapshots of every loaded plugin, in load order. |
 | [`PumpNetwork()`](#m-pumpnetwork) | Moves messages between the node and its network clients without ticking: accepts connections, reads what arrived (it is handled at the next tick) and sends what the last tick published. |
@@ -301,6 +302,25 @@ The recorded hash of every scope at `tick`; the hash is null for a tick that is 
 - `tick` (`long`): The scope tick.
 
 **Returns:** [`ScopeHashAt`](ScopeHashAt.md)\[\]
+
+### <a id="m-hashesat-long-string"></a>HashesAt(long, string?)
+
+```csharp
+public ScopeHashAt[] HashesAt(long tick, string? client);
+```
+
+As [`ServerHost.HashesAt()`](ServerHost.md#m-hashesat-long), also naming the connection of each view and, when `client` is given, the view hash of that client in [`ScopeHashAt.View`](ScopeHashAt.md#m-view): what its replica must hold at that tick, equal to its audience's filtered view of the scope.
+
+**Parameters**
+
+- `tick` (`long`): The scope tick.
+- `client` (`string?`): A connected client's name (as [`ServerHost.Clients()`](ServerHost.md#m-clients) lists it), or null.
+
+**Returns:** [`ScopeHashAt`](ScopeHashAt.md)\[\]
+
+**Exceptions**
+
+- [`ArgumentException`](https://learn.microsoft.com/dotnet/api/system.argumentexception): No connected client has that name.
 
 ### <a id="m-loadplugin-pluginconfig"></a>LoadPlugin(PluginConfig)
 

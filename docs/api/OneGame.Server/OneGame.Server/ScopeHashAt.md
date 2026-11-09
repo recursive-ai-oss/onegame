@@ -37,10 +37,22 @@ The recorded hash of one scope at one tick.
 
 | Member | Description |
 | --- | --- |
+| [`Clients`](#m-clients) | The names of the connections the entries of [`ScopeHashAt.Views`](ScopeHashAt.md#m-views) belong to, in the same order (empty for a tick that is not recorded). |
 | [`Hash`](#m-hash) | The hash of the whole scope as 16 hex digits, or null when that tick is not (or no longer) recorded. |
 | [`Scope`](#m-scope) | The scope id. |
 | [`Tick`](#m-tick) | The tick asked for. |
+| [`View`](#m-view) | When a client was named in the question: the view hash that client's replica must hold at this tick (16 hex digits), or null when the tick is not recorded or that client was not subscribed to the scope then. |
 | [`Views`](#m-views) | The hash of what each connected client's replica must hold at that tick (its audience's view of the scope); equal to `Hash` when everything is visible to everyone. |
+
+### <a id="m-clients"></a>Clients
+
+```csharp
+public string[] Clients { get; init; }
+```
+
+The names of the connections the entries of [`ScopeHashAt.Views`](ScopeHashAt.md#m-views) belong to, in the same order (empty for a tick that is not recorded).
+
+**Type:** `string[]`
 
 ### <a id="m-hash"></a>Hash
 
@@ -71,6 +83,16 @@ public long Tick { get; init; }
 The tick asked for.
 
 **Type:** `long`
+
+### <a id="m-view"></a>View
+
+```csharp
+public string? View { get; init; }
+```
+
+When a client was named in the question: the view hash that client's replica must hold at this tick (16 hex digits), or null when the tick is not recorded or that client was not subscribed to the scope then. This is the authority's `ViewHashFor(connection)`.
+
+**Type:** `string?`
 
 ### <a id="m-views"></a>Views
 

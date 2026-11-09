@@ -25,7 +25,7 @@ Slot names are 1 to 48 ASCII letters, digits, `_` or `-`. Labels are cut at 128 
 ## A load screen
 
 ```csharp
-foreach (var slot in game.Storage.Slots.List())      // newest first; damaged slot files are left out
+foreach (var slot in game.Storage.Slots.List())      // newest first; damaged slot files, truncated or garbled ones included, are left out
 {
     Console.WriteLine($"{slot.Slot}: {slot.Label} ({slot.Kind}, {slot.SavedAt:g}, game {slot.GameVersion}, tick {slot.Tick})");
 }
@@ -112,6 +112,8 @@ public sealed class LoggingStore(IByteStore inner, List<string> log) : IByteStor
     public IReadOnlyList<string> List(string prefix = "") => inner.List(prefix);
 }
 ```
+
+`Slots.Exists(name)` is true only when a loadable save is there: the file parses and the save inside matches its recorded hash (a hash of the bytes, no world is restored). `TryGetInfo` still describes a slot from its header alone, so a load screen can show a label while `Exists` and `Load` say the save is damaged.
 
 ## Other worlds
 

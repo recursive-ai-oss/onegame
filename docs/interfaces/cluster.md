@@ -24,13 +24,13 @@ hashHistory: 256              # ticks of hashes kept (the scope, and what each c
 
 `ServerApp.Run(setup, args)`: `--config f.yaml` and/or `--name N --scope ID[:SEED] --listen udp:PORT|ws:PORT --tick-rate N --hash-history N`, `--live [path]`, `--manual` (tick only on `step`), `--ticks N`, `--parent PID` (exit when that process is gone), `--key FILE` (repeatable), `--game-id TEXT` and `--insecure` (the server's security; a listening server needs a key or a development run, see `transport-security.md` section 9). One JSON line goes to stdout when listening: `{"ready":true,"pid":123,"live":"/path.sock","listen":[{"transport":"udp","port":41000}]}`; `{"stopped":true,...}` follows at the end.
 
-Control ops added to the server surface: `clients`, `hash_at {tick}` (the scope hash at a recorded tick, or null, and the view hash of each connected client at that tick: what its replica must hold), `state_query` accepts `entity` as `Type`, `Type#n` or an id and `property`.
+Control ops added to the server surface: `clients`, `hash_at {tick, client?}` (the scope hash at a recorded tick, or null; `views` are the view hash of each connected client at that tick, what its replica must hold, and `clients` names the connection of each, as `clients` lists it; with `client` the answer also has `view`, that connection's own view hash, the authority's `ViewHashFor(connection)`, which a filtered replica's hash must equal), `state_query` accepts `entity` as `Type`, `Type#n` or an id and `property`.
 
 ## Client
 
 `GameApp` options: `--connect udp://host:port|ws://host:port`, `--scope N` (default 1), `--name N`, `--net latency=100,jitter=10,loss=0.02,duplicate=0.01,reorder=0.05,seed=7` (the network conditioner on this client's outgoing traffic, so the server sees the latency and loss; UDP is conditioned per datagram, WebSocket per message), `--parent PID`, and the link's security: `--server-key <public key or .pub file>[,...]`, `--identity <file>` (the player's key, made if missing), `--game-id`, `--insecure` (development only). `onegame run --connect` fills `--server-key` and `--identity` from the per-user development keys when it is given none. `GameOptions.Connect` is the API form (`ConnectOptions.Security`). The game's world is then the **replica** (`GameInstance.World.Role == Replica`): `Step` pumps the connection instead of running a tick, commands (from views, `command_send`, scenarios) are forwarded to the server, and state writes (`state_patch`, `reset`, fixtures, snapshots) fail with `replica`. If the connection closes (the server died, restarted or timed out) the client keeps trying to connect again for `ReconnectWindowMs` (60 s) and resubscribes to every scope it followed, rebuilding their replicas from fresh snapshots; to the game that is the same server with a new connection, and with the same identity key it is the same player (Lanterns maps the key to its player id and saves the table). `IsClosed` is true only for a refusal, a version mismatch, a security failure (`SecurityRequired`, `HandshakeFailed`), a kick or an expired window. Each frame the network is pumped; so is every `DrainInput`, which keeps a paused live client connected.
 
-Client control ops: `net_status` (state, `reconnects`, `reconnecting`, address, transport, replica state, tick, hash, resyncs, drift reports with node/scope/tick/differences, transport stats), `net_wait {tick|serverTick, timeoutMs}` (pump until the replica reaches a tick), `net_diverge {entity?}` (corrupts replica state locally, to prove drift detection; development builds only like all live ops).
+Client control ops: `net_status` (state, `reconnects`, `reconnecting`, address, transport, replica state, tick, hash, resyncs, drift reports with node/scope/tick/differences, transport stats; `followed` lists every other scope the node is subscribed to, with `hash` (the view hash), `fullHash` and `filtered`), `net_wait {tick|serverTick, timeoutMs}` (pump until the replica reaches a tick), `net_diverge {entity?}` (corrupts replica state locally, to prove drift detection; development builds only like all live ops).
 
 ## Process clusters (`OneGame.Testing`)
 
@@ -80,6 +80,8 @@ expect:
   - agree: { server: master, clients: [p1, p2] }   # replica hash equals the server's at the replica's tick
   - drift: { nodes: [p1, p2], equals: 0 }
 ```
+
+A `command` step takes `scope: N` to command an entity of another scope the client follows (`--also-scopes`); the client sends it to that scope's authority, whose trust checks apply unchanged. On a server node `scope` picks the scope as it always did.
 
 Without `node:` a `step` goes to every node, `state`/`tick`/`hash` expectations are an error. Failures report `{kind, line, node, message, expected, actual}`.
 

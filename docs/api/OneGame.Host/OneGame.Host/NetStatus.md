@@ -46,7 +46,7 @@ A snapshot of a client's connection, for `net_status`.
 - `MessagesSent` (`long`): Messages sent to the server.
 - `MessagesReceived` (`long`): Messages received from the server.
 - `Reports` ([`DriftInfo`](DriftInfo.md)\[\]): The latest drift reports (at most 8), oldest first.
-- `Followed` ([`FollowedScope`](FollowedScope.md)\[\]): The other scopes the client follows through its server, in subscription order.
+- `Followed` ([`FollowedScope`](FollowedScope.md)\[\]): Every other scope the client's node is subscribed to (the options' extra scopes and any the game subscribed to itself), in subscription order, with each one's view hash.
 - `Reconnects` (`int`): How many times the session connected again after losing the server.
 - `Reconnecting` (`bool`): True while the connection is lost and the session is trying to get it back.
 
@@ -58,7 +58,7 @@ A snapshot of a client's connection, for `net_status`.
 | [`CloseReason`](#m-closereason) | Why the connection closed, or null while it is open. |
 | [`Connection`](#m-connection) | Transport state: connecting, connected, closing, closed. |
 | [`Drift`](#m-drift) | Drift reports filed so far. |
-| [`Followed`](#m-followed) | The other scopes the client follows through its server, in subscription order. |
+| [`Followed`](#m-followed) | Every other scope the client's node is subscribed to (the options' extra scopes and any the game subscribed to itself), in subscription order, with each one's view hash. |
 | [`FramesApplied`](#m-framesapplied) | Frames applied so far. |
 | [`Hash`](#m-hash) | The hash of what the replica holds (its view of the scope) as 16 hex digits; the server's hash for this client's audience is equal at the same tick. |
 | [`InboundLoss`](#m-inboundloss) | Estimated share of the server's datagrams that never arrived. |
@@ -122,7 +122,7 @@ Drift reports filed so far.
 public FollowedScope[] Followed { get; init; }
 ```
 
-The other scopes the client follows through its server, in subscription order.
+Every other scope the client's node is subscribed to (the options' extra scopes and any the game subscribed to itself), in subscription order, with each one's view hash.
 
 **Type:** [`FollowedScope`](FollowedScope.md)\[\]
 

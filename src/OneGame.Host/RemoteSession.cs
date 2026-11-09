@@ -57,7 +57,14 @@ public sealed record DriftInfo(string Node, uint Scope, long Tick, string Expect
 /// <param name="Replica">Replica state: subscribing, live, resyncing, refused, failed.</param>
 /// <param name="Tick">The replica's tick.</param>
 /// <param name="Hash">The hash of what the replica holds, 16 hex digits.</param>
-public sealed record FollowedScope(uint Scope, string Replica, long Tick, string Hash);
+public sealed record FollowedScope(uint Scope, string Replica, long Tick, string Hash)
+{
+    /// <summary>The hash of everything the replica world holds, hidden data included (always the default for what the audience may not see). It differs from <see cref="FollowedScope.Hash"/> exactly when the replica is a filtered view.</summary>
+    public string FullHash { get; init; } = Hash;
+
+    /// <summary>True when this replica holds a filtered view of its scope: <c>Hash</c> is then the view hash the authority computes for this connection (<c>hash_at</c> with this client's name, <c>view</c>), not the whole scope's hash.</summary>
+    public bool Filtered => FullHash != Hash;
+}
 
 /// <summary>A snapshot of a client's connection, for <c>net_status</c>.</summary>
 /// <param name="Address">The server address as given.</param>
@@ -78,7 +85,7 @@ public sealed record FollowedScope(uint Scope, string Replica, long Tick, string
 /// <param name="MessagesSent">Messages sent to the server.</param>
 /// <param name="MessagesReceived">Messages received from the server.</param>
 /// <param name="Reports">The latest drift reports (at most 8), oldest first.</param>
-/// <param name="Followed">The other scopes the client follows through its server, in subscription order.</param>
+/// <param name="Followed">Every other scope the client's node is subscribed to (the options' extra scopes and any the game subscribed to itself), in subscription order, with each one's view hash.</param>
 /// <param name="Reconnects">How many times the session connected again after losing the server.</param>
 /// <param name="Reconnecting">True while the connection is lost and the session is trying to get it back.</param>
 public sealed record NetStatus(
@@ -322,7 +329,7 @@ public sealed class RemoteSession
             Replica.State.ToString().ToLowerInvariant(), Replica.World.Tick, Replica.ViewHash.ToString("x16", CultureInfo.InvariantCulture),
             Replica.FramesApplied, Replica.Resyncs, Node.DriftCount, Math.Round(s.RttMs, 1), s.Retransmits, Math.Round(s.InboundLoss, 4), Math.Round(s.OutboundLoss, 4),
             s.MessagesSent, s.MessagesReceived, DriftInfos(),
-            [.. Replicas.Skip(1).Select(r => new FollowedScope(r.Id.Value, r.State.ToString().ToLowerInvariant(), r.World.Tick, r.ViewHash.ToString("x16", CultureInfo.InvariantCulture)))],
+            [.. Node.ReplicaScopes.Where(r => !ReferenceEquals(r, Replica)).Select(r => new FollowedScope(r.Id.Value, r.State.ToString().ToLowerInvariant(), r.World.Tick, r.ViewHash.ToString("x16", CultureInfo.InvariantCulture)) { FullHash = r.Hash.ToString("x16", CultureInfo.InvariantCulture) })],
             Reconnects, IsReconnecting);
     }
 

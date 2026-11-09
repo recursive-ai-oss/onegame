@@ -36,6 +36,7 @@ One step of a scenario. Only the fields its [`ScenarioStep.Kind`](ScenarioStep.m
 | Member | Description |
 | --- | --- |
 | [`Args`](#m-args) | Command arguments, or the value to set (first element). |
+| [`CommandScope`](#m-commandscope) | For a `command:` in a cluster scenario: the scope whose entity is commanded (the node's main scope when absent). |
 | [`ControlArgs`](#m-controlargs) | The arguments of the `camera` operation, as JSON, for a [`StepKind.Camera`](StepKind.md#m-camera) step. |
 | [`Count`](#m-count) | Frames to run. |
 | [`Dx`](#m-dx) | Wheel delta x. |
@@ -71,6 +72,16 @@ public string[] Args { get; init; }
 Command arguments, or the value to set (first element).
 
 **Type:** `string[]`
+
+### <a id="m-commandscope"></a>CommandScope
+
+```csharp
+public int? CommandScope { get; init; }
+```
+
+For a `command:` in a cluster scenario: the scope whose entity is commanded (the node's main scope when absent). A client sends it to that scope's authority; a server runs it there.
+
+**Type:** `int?`
 
 ### <a id="m-controlargs"></a>ControlArgs
 

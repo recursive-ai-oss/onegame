@@ -156,6 +156,9 @@ public sealed record ScenarioStep(StepKind Kind, int Line)
     /// <summary>Entity spec for commands and patches.</summary>
     public string? Entity { get; init; }
 
+    /// <summary>For a <c>command:</c> in a cluster scenario: the scope whose entity is commanded (the node's main scope when absent). A client sends it to that scope's authority; a server runs it there.</summary>
+    public int? CommandScope { get; init; }
+
     /// <summary>Hot table name, for a <c>set:</c> of a table cell (instead of <see cref="Entity"/>).</summary>
     public string? Table { get; init; }
 
@@ -748,12 +751,13 @@ public static class ScenarioParser
                 case "step":
                     return new ScenarioStep(StepKind.Step, line) { Count = Whole(v, "step") };
                 case "command":
-                    var cm = Map(v, ["entity", "name", "args"], "command");
+                    var cm = Map(v, ["entity", "name", "args", "scope"], "command");
                     return new ScenarioStep(StepKind.Command, line)
                     {
                         Entity = cm.TryGetValue("entity", out var ce) ? Text(ce, "entity") : throw Error(v, "command needs an entity"),
                         Name = cm.TryGetValue("name", out var cn) ? Text(cn, "name") : throw Error(v, "command needs a name"),
                         Args = cm.TryGetValue("args", out var ca) ? StringList(this, ca, "args") : [],
+                        CommandScope = cm.TryGetValue("scope", out var cs) ? Whole(cs, "scope") : null,
                     };
                 case "set":
                     var s = Map(v, ["entity", "table", "row", "property", "value"], "set");
