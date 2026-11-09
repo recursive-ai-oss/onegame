@@ -46,6 +46,7 @@ public sealed partial class Renderer3D
     private GpuComputePipeline _clusterPipeline = null!;
     private GpuShader _clusterCs = null!;
     private EnvironmentMap? _frameEnvironment;
+    private EnvironmentMap? _frameEnvironmentB;
     private GpuBuffer? _boundCluster;
     private int _clusterCapacity;
     private int _jointCapacity;
@@ -70,7 +71,7 @@ public sealed partial class Renderer3D
     private long _drawnTriangles;
     private readonly Dictionary<Set0Key, GpuBindGroup> _set0Cache = [];
 
-    private readonly record struct Set0Key(int Slot, GpuTexture Specular, GpuTexture Atlas, GpuTexture Ao, GpuBuffer Cluster, GpuBuffer Joints, GpuBuffer Shadows);
+    private readonly record struct Set0Key(int Slot, GpuTexture Specular, GpuTexture SpecularB, GpuTexture IrradianceB, GpuTexture Atlas, GpuTexture Ao, GpuBuffer Cluster, GpuBuffer Joints, GpuBuffer Shadows);
 
     private void InitFrame()
     {
@@ -141,7 +142,13 @@ public sealed partial class Renderer3D
 
         var env = scene.Environment.Map ?? DefaultEnvironment();
         EnvironmentWork(graph, env);
-        PrepareFrame(scene, width, height, samples, env, q);
+        var envB = scene.Environment.NextMap is { } next && scene.Environment.Blend > 0f ? next : null;
+        if (envB is not null)
+        {
+            EnvironmentWork(graph, envB);
+        }
+
+        PrepareFrame(scene, width, height, samples, env, envB, q);
 
         var hdr = graph.CreateTexture("scene_hdr", new TextureDesc((uint)width, (uint)height, HdrFormat, TextureUsage.None));
         var depth = graph.CreateTexture("scene_depth", new TextureDesc((uint)width, (uint)height, DepthFormat, TextureUsage.None) { SampleCount = (uint)samples });
@@ -194,7 +201,7 @@ public sealed partial class Renderer3D
         };
     }
 
-    private void PrepareFrame(Scene3D scene, int width, int height, int samples, EnvironmentMap env, in QualitySettings q)
+    private void PrepareFrame(Scene3D scene, int width, int height, int samples, EnvironmentMap env, EnvironmentMap? envB, in QualitySettings q)
     {
         var camera = scene.Camera;
         var aspect = width / (float)height;
@@ -216,6 +223,7 @@ public sealed partial class Renderer3D
         EnsureClusterCapacity(clusters);
 
         _frameEnvironment = env;
+        _frameEnvironmentB = envB ?? env;
         CollectDraws(scene, view, samples);
 
         // Lights: directional ones first (always applied), then the clustered punctual ones. Lights that cast shadows get tiles of the atlas.
@@ -256,6 +264,10 @@ public sealed partial class Renderer3D
         var sliceScale = DepthSlices / MathF.Log2(far / near);
         var maxMip = env.SpecularMipCount - 1;
         _ssaoActive = scene.Ssao.Enabled && q.Ssao;
+        var fog = scene.Fog;
+        var fogOn = fog.Enabled && float.IsFinite(fog.Start) && float.IsFinite(fog.End) && fog.MaxDensity > 0f;
+        var fogSpan = MathF.Max(fog.End - fog.Start, 1e-4f);
+        var maxMipB = (envB ?? env).SpecularMipCount - 1;
         _frame = new FrameConstants
         {
             View = view,
@@ -272,6 +284,9 @@ public sealed partial class Renderer3D
             Sky = new Vector4(env0.BackgroundBlur * maxMip, 1f, 0, 0),
             ShadowInfo = new Vector4(_shadowCount, 0, 0, 0),
             AoInfo = new Vector4(_ssaoActive ? Math.Clamp(scene.Ssao.Intensity, 0f, 1f) : 0f, scene.Ssao.Radius, 0, 0),
+            FogColor = new Vector4(fog.Color, Math.Clamp(fog.MaxDensity, 0f, 1f)),
+            FogRange = new Vector4(fog.Start, 1f / fogSpan, fogOn ? 1f : 0f, 0),
+            EnvB = new Vector4(maxMipB, envB is null ? 0f : env0.Blend, env0.BackgroundBlur * maxMipB, 0),
         };
 
         // Slot 0 is the camera; the shadow tiles follow with their own view and projection and everything else the same.
@@ -552,7 +567,8 @@ public sealed partial class Renderer3D
     private GpuBindGroup Set0(int slot, GpuTexture atlas, GpuTexture ao)
     {
         var env = _frameEnvironment!;
-        var key = new Set0Key(slot, env.Specular, atlas, ao, _clusterBuffer, _jointBuffer, _shadowBuffer);
+        var envB = _frameEnvironmentB!;
+        var key = new Set0Key(slot, env.Specular, envB.Specular, envB.Irradiance, atlas, ao, _clusterBuffer, _jointBuffer, _shadowBuffer);
         if (_set0Cache.TryGetValue(key, out var group))
         {
             return group;
@@ -582,6 +598,8 @@ public sealed partial class Renderer3D
             BindGroupEntry.ForBuffer(9, _shadowBuffer),
             BindGroupEntry.ForTexture(10, ao),
             BindGroupEntry.ForSampler(11, _shadowSampler),
+            BindGroupEntry.ForTexture(12, envB.Irradiance),
+            BindGroupEntry.ForTexture(13, envB.Specular),
         ]);
         _set0Cache[key] = group;
         return group;

@@ -27,4 +27,21 @@ struct LightData
     float4 Sky;         // x background mip, y background intensity, z unused, w unused
     float4 ShadowInfo;  // x shadow records, y unused
     float4 AoInfo;      // x ambient occlusion strength (0 = none), y radius in world units
+    float4 FogColor;    // rgb linear fog colour, w maximum density
+    float4 FogRange;    // x start distance, y 1 / (end - start), z 1 when fog is on
+    float4 EnvB;        // x highest specular mip of the second environment, y blend weight towards it, z backdrop mip of the second environment
 };
+
+// Distance fog: linear in the distance from the camera (view depth for an orthographic camera) between start and end, scaled by the maximum density.
+float FogAmount(float3 worldPos)
+{
+    float d = CameraPos.w > 0.5 ? -mul(float4(worldPos, 1.0), View).z : length(worldPos - CameraPos.xyz);
+    return FogRange.z > 0.5 ? saturate((d - FogRange.x) * FogRange.y) * FogColor.w : 0.0;
+}
+
+// Blends a lit colour towards the fog colour. weight is the share of the fog colour a fully fogged pixel shows (1 for opaque colour,
+// the pixel's coverage for premultiplied colour, 0 for light that is only added).
+float3 ApplyFog(float3 color, float amount, float weight)
+{
+    return color * (1.0 - amount) + FogColor.rgb * (amount * weight);
+}

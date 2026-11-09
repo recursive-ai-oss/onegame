@@ -107,6 +107,49 @@ public class LiveMeshTests
         Assert.Empty(game.TakeGpuValidationMessages());
     }
 
+    [Fact]
+    public void TheEnvironmentOpReadsAndSetsFogAndBlendLive()
+    {
+        var definition = new MeshGame();
+        definition.View.Describer = (_, w) =>
+        {
+            w.DirectionalLight(new Vector3(0.2f, -1f, -0.3f), Vector3.One, 3f);
+            if (definition.View.Models.Contains("chunk"))
+            {
+                w.Model("chunk", Matrix4x4.Identity, new ModelOptions { Label = "chunk" });
+            }
+        };
+        definition.View.CameraOverride = new ViewCamera(
+            Matrix4x4.Invert(Matrix4x4.CreateLookAt(new Vector3(0, 6, 0.01f), Vector3.Zero, -Vector3.UnitZ), out var cw) ? cw : Matrix4x4.Identity,
+            50f * MathF.PI / 180f, 0f, 0.1f, 100f, default);
+        using var game = GameInstance.Create(definition, new GameOptions { Headless = true, Gpu = GpuMode.Required });
+        var surface = new ControlSurface(game);
+        game.Capture(160, 90);
+        var (v, i) = Tile();
+        definition.View.Models.SetMesh("chunk", definition.Material!, v, i);
+
+        var before = Call(surface, "environment");
+        Assert.False(before.GetProperty("fogEnabled").GetBoolean());
+        Assert.False(before.GetProperty("hasNextMap").GetBoolean());
+
+        var set = Call(surface, "environment", """{"fog":true,"fogColor":[0.9,0.1,0.1],"fogStart":1,"fogEnd":2,"fogMaxDensity":1,"blend":0.25}""");
+        Assert.True(set.GetProperty("fogEnabled").GetBoolean());
+        Assert.Equal(2.0, set.GetProperty("fogEnd").GetDouble());
+        Assert.Equal(0.25, set.GetProperty("blend").GetDouble());
+
+        var frame = game.Capture(160, 90);
+        Assert.Empty(game.TakeGpuValidationMessages());
+        var projected = Call(surface, "project", """{"point":[0,0,0],"size":"160x90"}""");
+        var o = ((((int)projected.GetProperty("y").GetDouble()) * 160) + (int)projected.GetProperty("x").GetDouble()) * 4;
+        Assert.True(frame.Rgba[o] > 150 && frame.Rgba[o + 1] < 90, $"the tile is fog red: {frame.Rgba[o]},{frame.Rgba[o + 1]},{frame.Rgba[o + 2]}");
+
+        Assert.Throws<ControlException>(() => surface.Call("environment", """{"fogEnd":0.5}"""));
+        Assert.Throws<ControlException>(() => surface.Call("environment", """{"blend":2}"""));
+        Call(surface, "environment", """{"fog":false}""");
+        frame = game.Capture(160, 90);
+        Assert.True(frame.Rgba[o + 1] > 120, "fog off again shows the lime tile");
+    }
+
     private static (MeshVertex3D[], uint[]) Tile()
     {
         var n = Vector3.UnitY;

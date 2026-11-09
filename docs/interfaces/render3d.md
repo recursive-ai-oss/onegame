@@ -34,7 +34,15 @@ A later 2D pass must declare `ReadWrite` on the target; `Render3DStage` (Host) d
 | ultra | 4096 | 4 | 5x5 | 24 samples | 8 | on | 512 |
 
 MSAA is 1, 4 or 8 (a request for 2 uses 4: many formats lack it). `CreateEnvironment` with size 0 follows the level and is rebuilt when the level changes.
-Harness: control op `quality` (`level`, `ssao`, `ssaoRadius`; returns the settings, last-frame stats and live pass names); `onegame view --quality L --shadows --ssao --ssao-radius R --style pbr|toon|flat --outline PX`.
+Harness: control op `environment` (`fog`, `fogColor`, `fogStart`, `fogEnd`, `fogMaxDensity`, `blend`, `intensity`, `yaw`; reads and sets them, returns the values; the game may overwrite them next frame if it sets them itself); control op `quality` (`level`, `ssao`, `ssaoRadius`; returns the settings, last-frame stats and live pass names); `onegame view --quality L --shadows --ssao --ssao-radius R --style pbr|toon|flat --outline PX`.
+
+## Fog
+
+`Scene3D.Fog` (`FogSettings`): `Enabled` (off by default, and then the output is identical to a build without fog), `Color` (linear), `Start`, `End`, `MaxDensity` (0..1). The amount is linear in the distance from the camera (view depth with an orthographic camera): 0 at `Start`, `MaxDensity` at `End`, constant beyond; a surface is `colour * (1 - amount) + Color * amount`, in HDR before tone mapping. It is a per-frame constant (in the frame constants, `Frame.hlsli`: `FogAmount`, `ApplyFog`), so changing it never touches meshes, pipelines or the GPU memory, and steady frames still allocate nothing. Every surface shader applies it: PBR, toon, flat and unlit, outlines, masked and blended surfaces (blended ones fade by their own alpha), instanced draws and dynamic meshes (they share the shader); billboards fade by coverage and additive quads fade out instead of turning into fog. Left alone: the backdrop (an environment or flat colour) and debug geometry. To make far terrain meet the sky, set `Color` to the sky colour at the horizon, and `MaxDensity` below 1 when the horizon should stay faintly visible. Not built: exponential or height fog, and tinting by view direction.
+
+## Environment crossfade
+
+`scene.Environment.NextMap` and `Blend` (0..1) fade from `Map` to a second `EnvironmentMap`: the visible backdrop, the diffuse irradiance and the specular prefiltered light are all `first * (1 - Blend) + second * Blend`. Both maps are filtered once, when first used (`renderer.PrepareEnvironment` does it ahead of time, for example at load); changing `Blend` costs one more cube sample per pixel (none at 0) and refilters nothing, and the weight can change every frame without allocating. `Intensity`, `Yaw` and `BackgroundBlur` are shared by both maps. A day cycle over keyframes A, B, C, D, E: show `Map = A, NextMap = B` and raise `Blend` to 1; then set `Map = B, NextMap = C, Blend = 0` (the picture is identical, test `SwappingKeyframesAtTheBoundaryChangesNothing`) and carry on. Sun and moon are the game's: set the directional light's colour, intensity and direction from the same time of day (they are not part of the environment). Maps of different size are fine; both are bound at once, so keep the keyframes to a handful.
 
 ## Shadows
 

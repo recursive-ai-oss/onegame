@@ -140,6 +140,28 @@ internal static class Render3DSmoke
             greenPixels += drawn[i + 1] > 100 && drawn[i] < 100 ? 1 : 0;
         }
 
-        return greenPixels < 100 ? $"the mesh covers {greenPixels} pixels" : null;
+        if (greenPixels < 100) { return $"the mesh covers {greenPixels} pixels"; }
+
+        // Distance fog and an environment crossfade, both set per frame.
+        using var dayMap = renderer.CreateEnvironment(HdrImage.CreateSky(32, 16, new Vector3(0.2f, 0.4f, 1f), new Vector3(0.9f, 0.9f, 1f), new Vector3(0.2f)), 32);
+        using var duskMap = renderer.CreateEnvironment(HdrImage.CreateSky(32, 16, new Vector3(0.1f, 0.05f, 0.3f), new Vector3(1.5f, 0.5f, 0.2f), new Vector3(0.1f)), 32);
+        meshScene.Add(mesh.Model);
+        meshScene.Environment.Background = BackgroundMode.Environment;
+        meshScene.Environment.Map = dayMap;
+        meshScene.Environment.NextMap = duskMap;
+        meshScene.Environment.Blend = 0.5f;
+        meshScene.Fog.Enabled = true;
+        meshScene.Fog.Color = new Vector3(1f, 0f, 0f);
+        meshScene.Fog.Start = 0.5f;
+        meshScene.Fog.End = 1f;
+        var fogged = target.Capture(meshScene);
+        var redPixels = 0;
+        for (var i = 0; i < fogged.Length; i += 4)
+        {
+            redPixels += fogged[i] > 200 && fogged[i + 1] < 60 ? 1 : 0;
+        }
+
+        device.WaitIdle();
+        return redPixels < 100 ? $"fog turned {redPixels} pixels red" : null;
     }
 }

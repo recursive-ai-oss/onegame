@@ -35,6 +35,7 @@ dotnet add package RecursiveAI.OneGame.Control
 | [`ControlSurface`](OneGame.Control/ControlSurface.md) | class | The control layer: every operation of [`ControlOps`](OneGame.Control/ControlOps.md) run against one [`GameInstance`](../OneGame.Host/OneGame.Host/GameInstance.md). |
 | [`DebugOverlay`](OneGame.Control/DebugOverlay.md) | class | The on-screen debug panel of development builds: frame time, entity count, network figures when the game is connected, and the audio device's counters. |
 | [`Draw2DReport`](OneGame.Control/Draw2DReport.md) | record | Result of `draw2d`: what the 2D happy path drew in the last frame and where its camera looks. |
+| [`EnvironmentResult`](OneGame.Control/EnvironmentResult.md) | record | Result of `environment`: the scene's distance fog and environment crossfade. |
 | [`GpuPassReport`](OneGame.Control/GpuPassReport.md) | record | One pass of the render graph and its GPU time. |
 | [`HitResult`](OneGame.Control/HitResult.md) | record | Result of `ui_hit`: the element a pointer event at a position would reach. |
 | [`HotReloadResult`](OneGame.Control/HotReloadResult.md) | record | What a game's live control reports about development hot reload: the `hot_reload` operation. |

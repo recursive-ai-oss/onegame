@@ -29,6 +29,8 @@ struct ShadowData
 [[vk::binding(9, 0)]] StructuredBuffer<ShadowData> Shadows;
 [[vk::binding(10, 0)]] Texture2D<float4> AoTex;
 [[vk::binding(11, 0)]] SamplerComparisonState ShadowSamp;
+[[vk::binding(12, 0)]] TextureCube<float4> IrradianceB;      // second environment, blended in by EnvB.y (the first one when no blend is set)
+[[vk::binding(13, 0)]] TextureCube<float4> SpecularB;
 
 [[vk::binding(0, 1)]] cbuffer Object
 {
@@ -374,6 +376,29 @@ float3 RotateEnv(float3 d)
     return float3(EnvA.z * d.x + EnvA.w * d.z, d.y, -EnvA.w * d.x + EnvA.z * d.z);
 }
 
+// Environment crossfade: with weight w the second environment contributes w and the first 1 - w. Both ends are exact (w = 0 reads
+// only the first, w = 1 gives the second's value), so swapping which map is first at a keyframe boundary changes nothing.
+float3 SampleDiffuseEnv(float3 n)
+{
+    float3 d = RotateEnv(n);
+    float3 a = Irradiance.SampleLevel(EnvSampler, d, 0).rgb;
+    return EnvB.y > 0.0 ? a * (1.0 - EnvB.y) + IrradianceB.SampleLevel(EnvSampler, d, 0).rgb * EnvB.y : a;
+}
+
+float3 SampleSpecularEnv(float3 r, float roughness)
+{
+    float3 d = RotateEnv(r);
+    float3 a = Specular.SampleLevel(EnvSampler, d, roughness * EnvA.x).rgb;
+    return EnvB.y > 0.0 ? a * (1.0 - EnvB.y) + SpecularB.SampleLevel(EnvSampler, d, roughness * EnvB.x).rgb * EnvB.y : a;
+}
+
+float3 SampleBackdrop(float3 dir)
+{
+    float3 d = RotateEnv(dir);
+    float3 a = Specular.SampleLevel(EnvSampler, d, Sky.x).rgb;
+    return EnvB.y > 0.0 ? a * (1.0 - EnvB.y) + SpecularB.SampleLevel(EnvSampler, d, EnvB.z).rgb * EnvB.y : a;
+}
+
 // ---- stylized lighting ----
 
 // Splits a 0..1 light amount into flat steps with a short smooth edge between them.
@@ -456,7 +481,7 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
     if (P1.z > 0.5 || StyleA.x > 1.5)
     {
         // KHR_materials_unlit, or the flat style
-        return float4(base.rgb, alpha);
+        return float4(ApplyFog(base.rgb, FogAmount(i.WorldPos), 1.0), alpha);
     }
 
     float3 v = normalize(CameraPos.w > 0.5 ? View._m02_m12_m22 : CameraPos.xyz - i.WorldPos);
@@ -519,8 +544,8 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
             toon += ToonLight(Lights[Clusters[at + 1u + k]], i.WorldPos, n, v, base.rgb, viewZ);
         }
 
-        float3 ambient = Irradiance.SampleLevel(EnvSampler, RotateEnv(n), 0).rgb * base.rgb * (EnvA.y * aoScreen);
-        return float4(toon + ambient + emis, alpha);
+        float3 ambient = SampleDiffuseEnv(n) * base.rgb * (EnvA.y * aoScreen);
+        return float4(ApplyFog(toon + ambient + emis, FogAmount(i.WorldPos), 1.0), alpha);
     }
 
     float metallic = saturate(P0.x * mr.b);
@@ -546,14 +571,14 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
     float ao = (1.0 + P0.w * (occ - 1.0)) * aoScreen;
     float3 r = reflect(-v, n);
     float2 ab = BrdfLut.SampleLevel(EnvSampler, float2(ndotv, roughness), 0);
-    float3 spec = Specular.SampleLevel(EnvSampler, RotateEnv(r), roughness * EnvA.x).rgb;
-    float3 diff = Irradiance.SampleLevel(EnvSampler, RotateEnv(n), 0).rgb;
+    float3 spec = SampleSpecularEnv(r, roughness);
+    float3 diff = SampleDiffuseEnv(n);
     // Fresnel with a roughness-limited grazing term (Lagarde and de Rousiers, "Moving Frostbite to PBR") decides how much light the diffuse layer keeps.
     float fdIbl = f0d + (max(1.0 - roughness, f0d) - f0d) * pow(1.0 - ndotv, 5.0);
     float3 ibl = (diff * diffuseColor * (1.0 - fdIbl) + spec * (f0 * ab.x + ab.y)) * (EnvA.y * ao);
     color += ibl;
     color += emis;
-    return float4(color, alpha);
+    return float4(ApplyFog(color, FogAmount(i.WorldPos), 1.0), alpha);
 }
 
 // ---- depth-only passes ----
@@ -594,7 +619,7 @@ float4 PSOutline(VOut i) : SV_Target
         discard;
     }
 
-    return float4(OutlineColor.rgb, 1.0);
+    return float4(ApplyFog(OutlineColor.rgb, FogAmount(i.WorldPos), 1.0), 1.0);
 }
 
 // ---- environment backdrop ----
@@ -620,6 +645,6 @@ float4 PSSky(SkyOut i) : SV_Target
 {
     float4 w = mul(float4(i.Ndc, 1.0, 1.0), InvViewProj);
     float3 dir = normalize(w.xyz / w.w - CameraPos.xyz);
-    float3 c = Specular.SampleLevel(EnvSampler, RotateEnv(dir), Sky.x).rgb * Sky.y;
+    float3 c = SampleBackdrop(dir) * Sky.y;
     return float4(c, 1.0);
 }

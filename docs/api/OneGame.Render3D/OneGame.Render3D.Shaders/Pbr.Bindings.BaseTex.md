@@ -47,7 +47,7 @@ public const ResourceKind Kind = 1;
 ### <a id="m-mslindex"></a>MslIndex
 
 ```csharp
-public const uint MslIndex = 5;
+public const uint MslIndex = 7;
 ```
 
 Metal argument index, counted within the resource's class (buffer, texture or sampler).
