@@ -2,6 +2,16 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
+## [Unreleased]
+
+### Fixed
+
+- Scenario `ui.visible` checks and the `hidden` state in UI queries now include hidden ancestors, `display: none` and `visibility: hidden`, rather than only the element's own visible flag.
+
+### Changed
+
+- Scenario runs call `GameDefinition.OnScenarioStarting(game)` before setup and rebuild the current screen afterwards. Games can restore view-side defaults in this hook without recreating graphics resources between scenarios; an in-scenario world reset does not call it.
+
 ## [1.15.2] - 2026-10-29
 
 `RecursiveAI.OneGame.Physics` moves to OnePhysics 0.2.0-preview.1 and ships as 1.15.2-preview.1. The other 31 packages are unchanged apart from the version.

@@ -70,7 +70,7 @@ public sealed record ScenarioRunOptions
     public double MinCaptureMaxDiff { get; init; }
 }
 
-/// <summary>Runs scenarios against a game through the control layer, the same operations an agent calls over MCP.</summary>
+/// <summary>Runs scenarios against a game through the control layer, the same operations exposed over MCP.</summary>
 public sealed class ScenarioRunner
 {
     private readonly ControlSurface _surface;
@@ -83,7 +83,7 @@ public sealed class ScenarioRunner
         _options = options ?? new ScenarioRunOptions();
     }
 
-    /// <summary>Runs one scenario. Steps stop at the first failure; expectations are checked only when every step ran.</summary>
+    /// <summary>Runs one scenario, first calling <see cref="GameDefinition.OnScenarioStarting"/> and rebuilding the current screen. Steps stop at the first failure; expectations are checked only when every step ran.</summary>
     public ScenarioResult Run(Scenario scenario) => RunAsync(scenario).AsTask().GetAwaiter().GetResult();
 
     /// <summary>
@@ -100,10 +100,15 @@ public sealed class ScenarioRunner
         var steps = new List<StepResult>();
         var results = new List<ExpectationResult>();
         var game = _surface.Game;
-        _soundBase = SoundLastSequence();
-
         var setup = Guarded(() =>
         {
+            game.Definition.OnScenarioStarting(game);
+            if (game.CurrentScreen is { } initialScreen)
+            {
+                game.OpenScreen(initialScreen);
+            }
+
+            _soundBase = SoundLastSequence();
             // A scenario starts a run, so data files that changed on disk while the game idled are swapped in here and nowhere mid-run.
             game.Assets.ApplyPendingData();
             if (scenario.Window is not null)

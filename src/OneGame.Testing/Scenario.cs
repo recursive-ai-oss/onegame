@@ -307,7 +307,7 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
     /// <summary>The first match's text contains this (ui).</summary>
     public string? Contains { get; init; }
 
-    /// <summary>The first match is visible or hidden (ui).</summary>
+    /// <summary>The first match and all its ancestors are shown, or at least one is hidden (ui).</summary>
     public bool? Visible { get; init; }
 
     /// <summary>The first match is enabled or disabled (ui).</summary>
