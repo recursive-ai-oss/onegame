@@ -108,6 +108,9 @@ internal static unsafe partial class Xlib
     [LibraryImport(Lib, EntryPoint = "XTranslateCoordinates")]
     public static partial int TranslateCoordinates(nint display, nuint source, nuint destination, int x, int y, int* destX, int* destY, nuint* child);
 
+    [LibraryImport(Lib, EntryPoint = "XGetGeometry")]
+    public static partial int GetGeometry(nint display, nuint drawable, nuint* root, int* x, int* y, uint* width, uint* height, uint* border, uint* depth);
+
     [LibraryImport(Lib, EntryPoint = "XDisplayWidth")]
     public static partial int DisplayWidth(nint display, int screen);
 

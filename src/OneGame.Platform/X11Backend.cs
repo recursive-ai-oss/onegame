@@ -706,18 +706,22 @@ internal sealed unsafe partial class X11Backend : PlatformBackend
 
         public void OnConfigure(int width, int height)
         {
-            // The window manager sets the state before it resizes, so reading it first keeps a maximized size out of the normal rectangle.
+            // The state and the position are asked of the server now, which can be ahead of this event: a move and a maximize sent close
+            // together give two events, and by the first one the window is already maximized. An event whose size is no longer the
+            // window's size is stale, and the one that follows describes the window, so a stale one never updates the normal rectangle.
             RefreshState();
-            int x, y;
-            nuint child;
+            nuint root, child;
+            int gx, gy, x, y;
+            uint gw, gh, border, depth;
+            var stale = Xlib.GetGeometry(_b._display, Handle, &root, &gx, &gy, &gw, &gh, &border, &depth) != 0 && (gw != (uint)width || gh != (uint)height);
             if (Xlib.TranslateCoordinates(_b._display, Handle, _b._root, 0, 0, &x, &y, &child) != 0)
             {
-                SetPosition(x, y);
+                SetPosition(x, y, !stale);
             }
 
             if (width > 0 && height > 0)
             {
-                ApplySize(width, height);
+                ApplySize(width, height, !stale);
                 if (CursorLocked)
                 {
                     _lockCenterX = width / 2;

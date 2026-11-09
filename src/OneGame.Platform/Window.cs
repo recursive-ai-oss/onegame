@@ -207,11 +207,14 @@ public abstract class Window : IDisposable
         _normalHeight = height;
     }
 
-    private protected void SetPosition(int x, int y)
+    private protected void SetPosition(int x, int y, bool track = true)
     {
         X = x;
         Y = y;
-        TrackNormalRect(x, y, Width, Height);
+        if (track)
+        {
+            TrackNormalRect(x, y, Width, Height);
+        }
     }
 
     // A new window starts with its creation options as the normal rectangle.
@@ -300,7 +303,7 @@ public abstract class Window : IDisposable
     }
 
     // Backends call these when the system reports a change; they post the matching event.
-    private protected void ApplySize(int width, int height)
+    private protected void ApplySize(int width, int height, bool track = true)
     {
         if (width == Width && height == Height)
         {
@@ -309,7 +312,11 @@ public abstract class Window : IDisposable
 
         Width = width;
         Height = height;
-        TrackNormalRect(X, Y, width, height);
+        if (track)
+        {
+            TrackNormalRect(X, Y, width, height);
+        }
+
         App.Post(new PlatformEvent { Kind = PlatformEventKind.WindowResized, WindowId = Id, Width = width, Height = height });
     }
 
