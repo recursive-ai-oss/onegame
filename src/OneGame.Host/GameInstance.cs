@@ -1048,6 +1048,43 @@ public sealed partial class GameInstance : IDisposable
     /// <summary>True while the last frame was not drawn because the window system is not showing the window.</summary>
     public bool PresentThrottled { get; private set; }
 
+    private GpuSwapchain EnsureSwapchain()
+    {
+        if (_swapchain is not null)
+        {
+            return _swapchain;
+        }
+
+        var h = Window.NativeHandle;
+        _swapchainMode = SwapchainPresentMode(h.Kind);
+        var source = h.Kind switch
+        {
+            NativeWindowKind.X11 => SurfaceSource.X11(h.Display, h.Window),
+            NativeWindowKind.Wayland => SurfaceSource.Wayland(h.Display, h.Window),
+            NativeWindowKind.Browser => SurfaceSource.Canvas(Options.CanvasId ?? "onegame-canvas"),
+            NativeWindowKind.Cocoa => SurfaceSource.MetalLayer(h.Window),
+            NativeWindowKind.Android => SurfaceSource.Android(h.Window),
+            NativeWindowKind.MetalLayer => SurfaceSource.MetalLayer(h.Window),
+            _ => SurfaceSource.Win32(h.Display, h.Window),
+        };
+        return _swapchain = _device!.CreateSwapchain(source, new SwapchainDesc((uint)Window.Width, (uint)Window.Height) { Srgb = _stage.RequiresSrgb, PresentMode = _swapchainMode });
+    }
+
+    // The format an offscreen capture renders in. The renderers keep per-format state, and the art atlas hands each upload to exactly one
+    // of them, so a capture in another format than the window's would see none of the art the window drew first. Rendering in the
+    // swapchain's own format keeps one renderer; the readback swaps the channels.
+    private GpuFormat CaptureFormat()
+    {
+        var fallback = _stage.RequiresSrgb ? GpuFormat.Rgba8UnormSrgb : GpuFormat.Rgba8Unorm;
+        if (_device is null || !Options.PresentFrames || Window.NativeHandle.Kind == NativeWindowKind.None || Window.IsMinimized)
+        {
+            return fallback;
+        }
+
+        var format = EnsureSwapchain().Format;
+        return format is GpuFormat.Bgra8Unorm or GpuFormat.Bgra8UnormSrgb or GpuFormat.Rgba8Unorm or GpuFormat.Rgba8UnormSrgb ? format : fallback;
+    }
+
     private void Present()
     {
         EnsureDevice();
@@ -1063,22 +1100,7 @@ public sealed partial class GameInstance : IDisposable
             DropSwapchain();
         }
 
-        if (_swapchain is null)
-        {
-            var h = Window.NativeHandle;
-            _swapchainMode = SwapchainPresentMode(h.Kind);
-            var source = h.Kind switch
-            {
-                NativeWindowKind.X11 => SurfaceSource.X11(h.Display, h.Window),
-                NativeWindowKind.Wayland => SurfaceSource.Wayland(h.Display, h.Window),
-                NativeWindowKind.Browser => SurfaceSource.Canvas(Options.CanvasId ?? "onegame-canvas"),
-                NativeWindowKind.Cocoa => SurfaceSource.MetalLayer(h.Window),
-                NativeWindowKind.Android => SurfaceSource.Android(h.Window),
-                NativeWindowKind.MetalLayer => SurfaceSource.MetalLayer(h.Window),
-                _ => SurfaceSource.Win32(h.Display, h.Window),
-            };
-            _swapchain = _device.CreateSwapchain(source, new SwapchainDesc((uint)Window.Width, (uint)Window.Height) { Srgb = _stage.RequiresSrgb, PresentMode = _swapchainMode });
-        }
+        var swapchain = EnsureSwapchain();
 
         // A window the system has stopped drawing (covered, minimized) can park the driver's present for as long as it stays hidden.
         // Drawing waits; this thread keeps simulating and serving the network.
@@ -1095,10 +1117,10 @@ public sealed partial class GameInstance : IDisposable
             // wait rather than one per frame.
             if (_realtime)
             {
-                _swapchain.AcquireTimeout = _acquireMissed ? TimeSpan.Zero : TimeSpan.FromMilliseconds(100);
+                swapchain.AcquireTimeout = _acquireMissed ? TimeSpan.Zero : TimeSpan.FromMilliseconds(100);
             }
 
-            var acquired = _swapchain.TryAcquire(out var backbuffer);
+            var acquired = swapchain.TryAcquire(out var backbuffer);
             _acquireMissed = acquired != AcquireStatus.Ready;
             if (acquired == AcquireStatus.Ready)
             {
@@ -1115,7 +1137,7 @@ public sealed partial class GameInstance : IDisposable
                     _grab = ReadBackbufferAsync(backbuffer).AsTask();
                 }
 
-                _swapchain.Present();
+                swapchain.Present();
                 PresentedFrames++;
             }
         }
@@ -1206,9 +1228,9 @@ public sealed partial class GameInstance : IDisposable
             }
             else
             {
-                using var target = _device.CreateTexture(new TextureDesc((uint)width, (uint)height, _stage.RequiresSrgb ? GpuFormat.Rgba8UnormSrgb : GpuFormat.Rgba8Unorm, TextureUsage.RenderTarget | TextureUsage.CopySource) { Label = "capture" });
+                using var target = _device.CreateTexture(new TextureDesc((uint)width, (uint)height, CaptureFormat(), TextureUsage.RenderTarget | TextureUsage.CopySource) { Label = "capture" });
                 _stage.Render(_device, target, info);
-                await _device.ReadTextureAsync(target, 0, 0, pixels);
+                pixels = (await ReadBackbufferAsync(target)).Rgba;
                 _stage.ReleaseTargets(target);
                 _stage.PaintOver(pixels, info);
                 renderer = _device.Adapter.Name;

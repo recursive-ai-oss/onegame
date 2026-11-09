@@ -12,7 +12,7 @@ namespace OneGame.Windowed.Tests;
 /// <summary>A windowed game on a real display server, driven through the control layer like an agent would.</summary>
 internal sealed class Session : IDisposable
 {
-    public Session(PlatformBackendKind backend, string display, OneGame.Gpu.PresentMode presentMode = OneGame.Gpu.PresentMode.Vsync)
+    public Session(PlatformBackendKind backend, string display, OneGame.Gpu.PresentMode presentMode = OneGame.Gpu.PresentMode.Vsync, GameDefinition? game = null)
     {
         // The software rasterizer is deterministic and needs no display hardware; the validation layer reports anything the game does wrong.
         // A machine that has only a real GPU (a laptop) names its adapter in ONEGAME_WINDOWED_ADAPTER instead.
@@ -29,7 +29,7 @@ internal sealed class Session : IDisposable
         OutputDirectory = Path.Combine(Path.GetTempPath(), "onegame-windowed-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(OutputDirectory);
         Game = GameInstance.Create(
-            new WindowedGame(),
+            game ?? new WindowedGame(),
             new GameOptions { Width = 640, Height = 360, Gpu = GpuMode.Required, Backend = backend, DisplayName = display, PresentMode = presentMode });
         Control = new ControlSurface(Game, OutputDirectory);
         StepUntil(() => Game.PresentedFrames >= 3 && Game.Window.IsFocused || Game.PresentedFrames >= 30);
