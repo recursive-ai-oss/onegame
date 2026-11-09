@@ -37,8 +37,7 @@ public class EnvironmentBlendTests
         return (rig, scene, a, b, c);
     }
 
-    // The target reuses its capture buffer, so a capture that is compared later must be copied.
-    private static byte[] Shot(Rig rig, Scene3D scene, string? name = null) => rig.Capture(scene, name).ToArray();
+    private static byte[] Shot(Rig rig, Scene3D scene, string? name = null) => rig.Capture(scene, name);
 
     private static Vector3 Mean(byte[] px, int x0, int y0, int w, int h)
     {

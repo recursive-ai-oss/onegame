@@ -222,7 +222,7 @@ public class FogTests
         var (rig, scene) = FogScene(out _);
         using (rig)
         {
-            var px = rig.Capture(scene, "fog_on").ToArray();
+            var px = rig.Capture(scene, "fog_on");
             scene.Fog.Enabled = false;
             var off = rig.Capture(scene, "fog_off");
             Assert.NotEqual(px, off);
