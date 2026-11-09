@@ -2,7 +2,9 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
-## [Unreleased]
+## [1.19.0] - 2026-11-09
+
+Meshes a game builds can be added, replaced and freed while it runs, windows remember where they were and how they were shown, and Windows games open without a console window. `RecursiveAI.OneGame.Physics` ships as 1.19.0-preview.1.
 
 ### Added
 
