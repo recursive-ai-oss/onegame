@@ -2,6 +2,12 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
+## [Unreleased]
+
+### Fixed
+
+- Captures taken in a windowed game (`capture_frame`, `capture_sequence`, scenario and `onegame capture` captures) could miss art the window had not drawn before, and could show stale glyph pages. The capture rendered in a different pixel format than the window's swapchain, which gave it a second renderer, and the art atlas hands each upload (large standalone rasters, changed pages) to one renderer only. Captures now render in the swapchain's format, so there is one renderer and one set of textures, and the read-back swaps the channels.
+
 ## [1.19.0] - 2026-11-09
 
 Meshes a game builds can be added, replaced and freed while it runs, windows remember where they were and how they were shown, and Windows games open without a console window. `RecursiveAI.OneGame.Physics` ships as 1.19.0-preview.1.
