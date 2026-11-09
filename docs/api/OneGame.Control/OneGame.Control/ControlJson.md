@@ -51,6 +51,7 @@ Creates a new instance.
 | [`AssetInfo`](#m-assetinfo) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`AssetInfoArray`](#m-assetinfoarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`AssetsResult`](#m-assetsresult) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`AtlasInfo`](#m-atlasinfo) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`AudioCaptureResult`](#m-audiocaptureresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`AudioDeviceStatus`](#m-audiodevicestatus) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`AudioEventsResult`](#m-audioeventsresult) | Defines the source generated JSON serialization contract metadata for a given type. |
@@ -219,6 +220,16 @@ public JsonTypeInfo<AssetsResult> AssetsResult { get; }
 Defines the source generated JSON serialization contract metadata for a given type.
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`AssetsResult`](AssetsResult.md)&gt;
+
+### <a id="m-atlasinfo"></a>AtlasInfo
+
+```csharp
+public JsonTypeInfo<AtlasInfo> AtlasInfo { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`AtlasInfo`](AtlasInfo.md)&gt;
 
 ### <a id="m-audiocaptureresult"></a>AudioCaptureResult
 

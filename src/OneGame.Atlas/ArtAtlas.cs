@@ -71,7 +71,7 @@ public enum AtlasStatus
     /// <summary>The request exceeds the size budget; nothing was decoded or allocated for it.</summary>
     TooLarge,
 
-    /// <summary>It fits a page, but every page is in use this frame.</summary>
+    /// <summary>The raster fits, but this frame already uses every page and the whole standalone texture budget.</summary>
     Full,
 
     /// <summary>The asset could not be rasterized (it was damaged, or a limit inside the decoder stopped it). The failure is remembered.</summary>
@@ -272,6 +272,9 @@ public sealed class ArtAtlas
     /// <summary>Gets the pages. The renderer uploads <see cref="AtlasPage.TakeDirty"/> of each and keeps one texture per page.</summary>
     public AtlasPages Pages => _pages;
 
+    /// <summary>Gets the standalone texture budget in bytes (<see cref="ArtLimits.MaxStandaloneBytes"/>).</summary>
+    public long StandaloneLimit => _limits.MaxStandaloneBytes;
+
     /// <summary>Gets how many standalone textures exist.</summary>
     public int StandaloneCount => _standalones.Count;
 
@@ -338,7 +341,10 @@ public sealed class ArtAtlas
     /// <param name="scale">Pixels per natural pixel: the display list's UI scale. A raster image ignores it.</param>
     /// <param name="region">The entry when the result is <see cref="AtlasStatus.Ok"/>.</param>
     /// <returns>The status.</returns>
-    public AtlasStatus TryGetScaled(string id, float scale, out ArtRegion region)
+    public AtlasStatus TryGetScaled(string id, float scale, out ArtRegion region) =>
+        Note(id, LookupScaled(id, scale, out region));
+
+    private AtlasStatus LookupScaled(string id, float scale, out ArtRegion region)
     {
         region = default;
         if (!_sources.TryGetValue(id, out var s))
@@ -348,7 +354,7 @@ public sealed class ArtAtlas
 
         if (!s.Svg)
         {
-            return TryGet(id, s.Width, s.Height, out region);
+            return Lookup(id, s.Width, s.Height, out region);
         }
 
         if (!float.IsFinite(scale) || scale <= 0 || scale > 64)
@@ -356,7 +362,7 @@ public sealed class ArtAtlas
             return AtlasStatus.TooLarge;
         }
 
-        return TryGet(id, Math.Max(1, (int)MathF.Round(s.Width * scale)), Math.Max(1, (int)MathF.Round(s.Height * scale)), out region);
+        return Lookup(id, Math.Max(1, (int)MathF.Round(s.Width * scale)), Math.Max(1, (int)MathF.Round(s.Height * scale)), out region);
     }
 
     private static bool IsFittedSize(Source s, float width, float height, float scale, int threshold) =>
@@ -386,14 +392,65 @@ public sealed class ArtAtlas
 
         if (IsFittedSize(s, width, height, scale, Math.Min(_limits.StandaloneThreshold, _pages.MaxEntrySize)))
         {
-            var status = TryGet(id, (int)MathF.Round(width), (int)MathF.Round(height), out region);
+            var status = Lookup(id, (int)MathF.Round(width), (int)MathF.Round(height), out region);
             if (status is not (AtlasStatus.TooLarge or AtlasStatus.Full))
             {
-                return status;
+                return Note(id, status);
             }
         }
 
         return TryGetScaled(id, scale, out region);
+    }
+
+    /// <summary>Looks up a vector tile at an exact pixel size, falling back to its natural size times <paramref name="scale"/> when the exact size is refused.</summary>
+    /// <param name="id">The resource id.</param>
+    /// <param name="width">Tile width in pixels.</param>
+    /// <param name="height">Tile height in pixels.</param>
+    /// <param name="scale">The display list's UI scale.</param>
+    /// <param name="region">The entry when the result is <see cref="AtlasStatus.Ok"/>.</param>
+    /// <returns>The status.</returns>
+    public AtlasStatus TryGetTile(string id, int width, int height, float scale, out ArtRegion region)
+    {
+        var status = Lookup(id, width, height, out region);
+        return status is AtlasStatus.TooLarge or AtlasStatus.Full ? TryGetScaled(id, scale, out region) : Note(id, status);
+    }
+
+    /// <summary>Gets how many lookups ended refused (<see cref="AtlasStatus.Full"/>, <see cref="AtlasStatus.TooLarge"/> or <see cref="AtlasStatus.Invalid"/>) since the atlas was made. A refused image is not drawn.</summary>
+    public long Refusals { get; private set; }
+
+    /// <summary>Gets a sentence about the most recent refusal, or null when there has been none.</summary>
+    public string? LastRefusal { get; private set; }
+
+    /// <summary>Gets how many rasters were given their own texture because every page was in use this frame.</summary>
+    public long Overflowed { get; private set; }
+
+    /// <summary>Gets how many rasterized entries (on pages and standalone) are held now.</summary>
+    public int EntryCount => _entries.Count;
+
+    /// <summary>Receives the first few refusal sentences (each distinct image and status once); the host writes them to the log. Null keeps them silent.</summary>
+    public Action<string>? Warning { get; set; }
+
+    private readonly HashSet<string> _warned = [];
+
+    private AtlasStatus Note(string id, AtlasStatus status)
+    {
+        if (status is AtlasStatus.TooLarge or AtlasStatus.Full or AtlasStatus.Invalid)
+        {
+            Refusals++;
+            var what = status switch
+            {
+                AtlasStatus.Full => $"every page and the {_limits.MaxStandaloneBytes >> 20} MiB texture budget are in use this frame",
+                AtlasStatus.TooLarge => "it is beyond the raster size or memory limits",
+                _ => "it could not be decoded",
+            };
+            LastRefusal = $"Art '{id}' was not drawn: {what}.";
+            if (_warned.Count < 16 && _warned.Add(id + "|" + status))
+            {
+                Warning?.Invoke(LastRefusal);
+            }
+        }
+
+        return status;
     }
 
     /// <summary>Looks up (rasterizing on first use) the resource at an exact pixel size. A raster image is always stored at its own size.</summary>
@@ -402,7 +459,11 @@ public sealed class ArtAtlas
     /// <param name="height">Height in pixels.</param>
     /// <param name="region">The entry when the result is <see cref="AtlasStatus.Ok"/>.</param>
     /// <returns>The status. Sizes beyond the budget return <see cref="AtlasStatus.TooLarge"/> before anything is decoded or allocated.</returns>
-    public AtlasStatus TryGet(string id, int width, int height, out ArtRegion region)
+    public AtlasStatus TryGet(string id, int width, int height, out ArtRegion region) =>
+        Note(id, Lookup(id, width, height, out region));
+
+    // The lookup without the refusal bookkeeping, for callers that have a fallback to try.
+    private AtlasStatus Lookup(string id, int width, int height, out ArtRegion region)
     {
         region = default;
         if (!_sources.TryGetValue(id, out var s))
@@ -489,7 +550,20 @@ public sealed class ArtAtlas
 
         if (!_pages.TryAllocate(width, height, out var slot, out var cleared))
         {
-            return AtlasStatus.Full;
+            // Every page was drawn from this frame, so none can be cleared. The raster still has to be resident for the frame:
+            // give it its own texture, under the same least-recently-used budget as the big rasters.
+            if (!MakeRoom((long)width * height * 4))
+            {
+                return AtlasStatus.Full;
+            }
+
+            Overflowed++;
+            var own = new StandaloneArt(_nextHandle++, width, height, pixels) { LastUsedFrame = _pages.Frame };
+            _standalones[own.Handle] = own;
+            StandaloneBytes += own.Bytes;
+            region = new ArtRegion(-1, 0, 0, width, height, 0, 0, 1, 1, scaled, own.Handle);
+            _entries[key] = new Entry(region, false);
+            return AtlasStatus.Ok;
         }
 
         if (cleared >= 0)

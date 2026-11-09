@@ -18,6 +18,7 @@ dotnet add package RecursiveAI.OneGame.Control
 | [`AssetInfo`](OneGame.Control/AssetInfo.md) | record | One loaded asset in the `assets` report. |
 | [`AssetReloader`](OneGame.Control/AssetReloader.md) | class | Development-build asset hot reload. |
 | [`AssetsResult`](OneGame.Control/AssetsResult.md) | record | Result of the `assets` operation. |
+| [`AtlasInfo`](OneGame.Control/AtlasInfo.md) | record | The art atlas (SVG and image pages) as reported by `info`. |
 | [`AudioCaptureResult`](OneGame.Control/AudioCaptureResult.md) | record | Result of `audio_capture`: what the capture sink holds after the advance. |
 | [`AudioEventsResult`](OneGame.Control/AudioEventsResult.md) | record | Result of `audio_events`. |
 | [`BusLoudnessStatus`](OneGame.Control/BusLoudnessStatus.md) | record | One metered bus in [`AudioCaptureResult`](OneGame.Control/AudioCaptureResult.md). |

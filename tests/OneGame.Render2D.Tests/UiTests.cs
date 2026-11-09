@@ -197,4 +197,48 @@ public class UiTests
         rig.Render(() => rig.Renderer.Ui.Draw(list, s.Text, s.Glyphs, s.Art));
         Assert.True(rig.Renderer.Ui.MissingArt >= 1);
     }
+
+    [Fact]
+    public void OneFrameWithMorePortraitsThanThePagesHoldDrawsEveryOneInItsOwnColour()
+    {
+        // 120 rasters of 256 x 320 are about 39 MB; the four atlas pages hold 16 MiB. Each is drawn 16 x 20 px, in a 12 x 10 grid.
+        const int Cols = 12, Rows = 10;
+        var lib = Library();
+        var measurer = new FontTextMeasurer(lib);
+        var art = new ArtAtlas();
+        var glyphs = new GlyphAtlas(lib);
+        for (var i = 0; i < Cols * Rows; i++)
+        {
+            art.AddSvg("p" + i, System.Text.Encoding.UTF8.GetBytes($"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"256\" height=\"320\" viewBox=\"0 0 256 320\"><rect width=\"256\" height=\"320\" fill=\"rgb({i * 2},{i},{255 - i})\"/></svg>"));
+        }
+
+        var tree = new UiTree(measurer);
+        tree.SetViewport(Cols * 16, Rows * 20, 1);
+        var rows = new List<Element>();
+        for (var r = 0; r < Rows; r++)
+        {
+            var cells = new List<Element>();
+            for (var c = 0; c < Cols; c++)
+            {
+                cells.Add(Ui.Image("p" + ((r * Cols) + c), 16, 20));
+            }
+
+            rows.Add(Ui.Row([.. cells]));
+        }
+
+        tree.Root.With(Ui.Column([.. rows]));
+        var list = tree.Frame();
+        using var rig = new Rig(Cols * 16, Rows * 20);
+        var px = rig.Render(() => rig.Renderer.Ui.Draw(list, new TextQuadBuilder(measurer, glyphs), glyphs, art), new Color(0, 0, 0, 255));
+        Assert.Equal(0, rig.Renderer.Ui.MissingArt);
+        Assert.Equal(0, art.Refusals);
+        Assert.True(art.Overflowed > 0);
+        for (var i = 0; i < Cols * Rows; i++)
+        {
+            var x = ((i % Cols) * 16) + 8;
+            var y = ((i / Cols) * 20) + 10;
+            var o = ((y * Cols * 16) + x) * 4;
+            Assert.True(Math.Abs(px[o] - (i * 2)) <= 2 && Math.Abs(px[o + 1] - i) <= 2 && Math.Abs(px[o + 2] - (255 - i)) <= 2, $"image {i}: got {px[o]},{px[o + 1]},{px[o + 2]}");
+        }
+    }
 }

@@ -429,11 +429,7 @@ public sealed class UiCanvas : IDisposable
         else if (tiled)
         {
             // A vector tile is rasterized at the tile's own whole-pixel size, so the pattern is crisp at every UI scale.
-            status = art.TryGet(c.Resource, (int)Math.Clamp(MathF.Round(c.TileSize.X), 1, int.MaxValue), (int)Math.Clamp(MathF.Round(c.TileSize.Y), 1, int.MaxValue), out region);
-            if (status is AtlasStatus.TooLarge or AtlasStatus.Full)
-            {
-                status = art.TryGetScaled(c.Resource, scale, out region);
-            }
+            status = art.TryGetTile(c.Resource, (int)Math.Clamp(MathF.Round(c.TileSize.X), 1, int.MaxValue), (int)Math.Clamp(MathF.Round(c.TileSize.Y), 1, int.MaxValue), scale, out region);
         }
         else if (c.Slice.IsZero)
         {

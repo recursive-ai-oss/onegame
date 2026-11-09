@@ -52,6 +52,7 @@ Result of `info`, the operation to call first: which game this is, where it is i
 | Member | Description |
 | --- | --- |
 | [`Adapter`](#m-adapter) | The graphics adapter's name, or null when drawing on the CPU. |
+| [`Atlas`](#m-atlas) | Gets the art atlas: pages, entries, standalone textures and how many images were refused. |
 | [`Backend`](#m-backend) | The platform backend, such as `headless`, `x11` or `wayland` (the platform backend's name in lower case). |
 | [`Drift`](#m-drift) | Drift reports filed by the local replica; it must stay 0. |
 | [`Entities`](#m-entities) | How many entities the world holds. |
@@ -79,6 +80,16 @@ public string? Adapter { get; init; }
 The graphics adapter's name, or null when drawing on the CPU.
 
 **Type:** `string?`
+
+### <a id="m-atlas"></a>Atlas
+
+```csharp
+public AtlasInfo? Atlas { get; init; }
+```
+
+Gets the art atlas: pages, entries, standalone textures and how many images were refused. Null when the sender predates it.
+
+**Type:** [`AtlasInfo`](AtlasInfo.md)?
 
 ### <a id="m-backend"></a>Backend
 

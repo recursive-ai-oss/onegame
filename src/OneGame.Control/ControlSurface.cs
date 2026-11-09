@@ -220,7 +220,15 @@ public sealed partial class ControlSurface : IControlEndpoint
     private InfoResult Info() => new(
         Game.Definition.Name, Game.World.Tick, Game.Frame, HashText(), Game.Window.Width, Game.Window.Height, Game.UiScale,
         Game.Options.Headless, Game.CurrentScreen, Game.World.Entities.Count, [.. Game.ScreenNames], [.. Game.FixtureNames], Game.Stage.Name, Game.AdapterName, Game.DriftReports.Count,
-        Game.Platform.Backend.ToString().ToLowerInvariant(), Game.PresentedFrames, Game.UiScaleOverride);
+        Game.Platform.Backend.ToString().ToLowerInvariant(), Game.PresentedFrames, Game.UiScaleOverride) { Atlas = AtlasReport() };
+
+    private AtlasInfo AtlasReport()
+    {
+        var art = Game.Art;
+        return new AtlasInfo(
+            art.Pages.PageCount, art.Pages.MaxPages, art.Pages.PageSize, art.EntryCount, art.StandaloneCount, art.StandaloneBytes, art.StandaloneLimit,
+            art.Overflowed, art.Pages.Epoch, art.Refusals, art.LastRefusal);
+    }
 
     private StateResult Mutate(string op, Args a)
     {

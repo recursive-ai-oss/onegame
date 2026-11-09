@@ -38,6 +38,7 @@ Creates an empty atlas; pages are allocated when the first entry needs them.
 | [`Format`](#m-format) | Gets the pixel layout of every page. |
 | [`Frame`](#m-frame) | Gets the current frame number, as set by [`AtlasPages.BeginFrame()`](AtlasPages.md#m-beginframe-long). |
 | [`MaxEntrySize`](#m-maxentrysize) | Gets the largest entry edge that can ever fit: the page minus both paddings. |
+| [`MaxPages`](#m-maxpages) | Gets how many pages may exist ([`AtlasOptions.MaxPages`](AtlasOptions.md#m-maxpages)). |
 | [`PageCount`](#m-pagecount) | Gets the pages created so far, in index order. |
 | [`PageSize`](#m-pagesize) | Gets the page edge in pixels. |
 | [`this[int]`](#m-item-int) | Returns a page. |
@@ -79,6 +80,16 @@ public int MaxEntrySize { get; }
 ```
 
 Gets the largest entry edge that can ever fit: the page minus both paddings.
+
+**Type:** `int`
+
+### <a id="m-maxpages"></a>MaxPages
+
+```csharp
+public int MaxPages { get; }
+```
+
+Gets how many pages may exist ([`AtlasOptions.MaxPages`](AtlasOptions.md#m-maxpages)).
 
 **Type:** `int`
 

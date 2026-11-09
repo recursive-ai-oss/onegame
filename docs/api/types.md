@@ -48,6 +48,7 @@ Every public type in every package, in alphabetical order.
 | [`AssetsResult`](OneGame.Control/OneGame.Control/AssetsResult.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | Result of the `assets` operation. |
 | [`AtlasAssetException`](OneGame.Atlas/OneGame.Atlas/AtlasAssetException.md) | class | `OneGame.Atlas` | [OneGame.Atlas](OneGame.Atlas/index.md) | A registered asset was refused: it is damaged or breaks a size budget. |
 | [`AtlasFormat`](OneGame.Atlas/OneGame.Atlas/AtlasFormat.md) | enum | `OneGame.Atlas` | [OneGame.Atlas](OneGame.Atlas/index.md) | The pixel layout of an atlas page. |
+| [`AtlasInfo`](OneGame.Control/OneGame.Control/AtlasInfo.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | The art atlas (SVG and image pages) as reported by `info`. |
 | [`AtlasOptions`](OneGame.Atlas/OneGame.Atlas/AtlasOptions.md) | class | `OneGame.Atlas` | [OneGame.Atlas](OneGame.Atlas/index.md) | How an atlas is sized. |
 | [`AtlasPage`](OneGame.Atlas/OneGame.Atlas/AtlasPage.md) | class | `OneGame.Atlas` | [OneGame.Atlas](OneGame.Atlas/index.md) | One texture-sized page of pixels in system memory. |
 | [`AtlasPages`](OneGame.Atlas/OneGame.Atlas/AtlasPages.md) | class | `OneGame.Atlas` | [OneGame.Atlas](OneGame.Atlas/index.md) | A growing set of equal-sized pages with a shelf packer. |

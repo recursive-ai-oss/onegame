@@ -78,7 +78,26 @@ public sealed record ControlResult(string Json, byte[]? Png = null);
 /// <param name="ScaleOverride">The UI scale set by <c>ui_scale</c>, or null when the scale follows the window.</param>
 public sealed record InfoResult(
     string Game, long Tick, long Frame, string Hash, int Width, int Height, float Scale, bool Headless, string? Screen,
-    int Entities, string[] Screens, string[] Fixtures, string Stage, string? Adapter, int Drift, string Backend, long Presented, float? ScaleOverride = null);
+    int Entities, string[] Screens, string[] Fixtures, string Stage, string? Adapter, int Drift, string Backend, long Presented, float? ScaleOverride = null)
+{
+    /// <summary>Gets the art atlas: pages, entries, standalone textures and how many images were refused. Null when the sender predates it.</summary>
+    public AtlasInfo? Atlas { get; init; }
+}
+
+/// <summary>The art atlas (SVG and image pages) as reported by <c>info</c>.</summary>
+/// <param name="Pages">Pages in use.</param>
+/// <param name="MaxPages">Pages the atlas may grow to.</param>
+/// <param name="PageSize">Page edge in pixels.</param>
+/// <param name="Entries">Rasterized entries held, on pages and standalone.</param>
+/// <param name="Standalone">Standalone textures held (big rasters and overflow from full pages).</param>
+/// <param name="StandaloneBytes">GPU bytes the standalone textures take.</param>
+/// <param name="StandaloneLimit">The standalone texture budget in bytes.</param>
+/// <param name="Overflowed">Rasters that got their own texture because every page was in use in the frame, since start.</param>
+/// <param name="PageClears">Pages cleared to make room, since start.</param>
+/// <param name="Refusals">Images that could not be drawn (atlas full for the frame, too large, undecodable), since start. Anything above zero is a defect.</param>
+/// <param name="LastRefusal">What the latest refusal was, or null.</param>
+public sealed record AtlasInfo(
+    int Pages, int MaxPages, int PageSize, int Entries, int Standalone, long StandaloneBytes, long StandaloneLimit, long Overflowed, int PageClears, long Refusals, string? LastRefusal);
 
 /// <summary>Result of <c>ui_scale</c>: the scale in effect, the override (null when following the window) and the window's own scale.</summary>
 /// <param name="Scale">The UI scale in effect.</param>

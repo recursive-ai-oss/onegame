@@ -46,12 +46,18 @@ Creates an empty atlas.
 | Member | Description |
 | --- | --- |
 | [`BackgroundThreads`](#m-backgroundthreads) | Gets or sets whether preload may rasterize on worker threads. |
+| [`EntryCount`](#m-entrycount) | Gets how many rasterized entries (on pages and standalone) are held now. |
+| [`LastRefusal`](#m-lastrefusal) | Gets a sentence about the most recent refusal, or null when there has been none. |
+| [`Overflowed`](#m-overflowed) | Gets how many rasters were given their own texture because every page was in use this frame. |
 | [`Pages`](#m-pages) | Gets the pages. |
 | [`PreloadFrameBudget`](#m-preloadframebudget) | Gets or sets the time [`ArtAtlas.BeginFrame()`](ArtAtlas.md#m-beginframe-long) may spend rasterizing preload work when [`ArtAtlas.BackgroundThreads`](ArtAtlas.md#m-backgroundthreads) is false (at least one item is always done). |
 | [`PreloadRasterizations`](#m-preloadrasterizations) | Gets how many rasterizations ran for [`ArtAtlas.Preload()`](ArtAtlas.md#m-preload-ienumerable-string-float), on a worker thread or in [`ArtAtlas.PumpPreload()`](ArtAtlas.md#m-pumppreload). |
+| [`Refusals`](#m-refusals) | Gets how many lookups ended refused ([`AtlasStatus.Full`](AtlasStatus.md#m-full), [`AtlasStatus.TooLarge`](AtlasStatus.md#m-toolarge) or [`AtlasStatus.Invalid`](AtlasStatus.md#m-invalid)) since the atlas was made. |
 | [`StandaloneBytes`](#m-standalonebytes) | Gets the GPU bytes the standalone textures take; never above [`ArtLimits.MaxStandaloneBytes`](ArtLimits.md#m-maxstandalonebytes). |
 | [`StandaloneCount`](#m-standalonecount) | Gets how many standalone textures exist. |
+| [`StandaloneLimit`](#m-standalonelimit) | Gets the standalone texture budget in bytes ([`ArtLimits.MaxStandaloneBytes`](ArtLimits.md#m-maxstandalonebytes)). |
 | [`SyncRasterizations`](#m-syncrasterizations) | Gets how many rasterizations ran inside a lookup ([`ArtAtlas.TryGet()`](ArtAtlas.md#m-tryget-string-int-int-artregion) and its variants), that is on the caller's thread, because the art was not ready. |
+| [`Warning`](#m-warning) | Receives the first few refusal sentences (each distinct image and status once); the host writes them to the log. |
 
 ### <a id="m-backgroundthreads"></a>BackgroundThreads
 
@@ -62,6 +68,36 @@ public bool BackgroundThreads { get; set; }
 Gets or sets whether preload may rasterize on worker threads. The default is true everywhere threads exist and false in the browser (WebAssembly without threads), where preload work is done a little at a time by [`ArtAtlas.PumpPreload()`](ArtAtlas.md#m-pumppreload) instead.
 
 **Type:** `bool`
+
+### <a id="m-entrycount"></a>EntryCount
+
+```csharp
+public int EntryCount { get; }
+```
+
+Gets how many rasterized entries (on pages and standalone) are held now.
+
+**Type:** `int`
+
+### <a id="m-lastrefusal"></a>LastRefusal
+
+```csharp
+public string? LastRefusal { get; }
+```
+
+Gets a sentence about the most recent refusal, or null when there has been none.
+
+**Type:** `string?`
+
+### <a id="m-overflowed"></a>Overflowed
+
+```csharp
+public long Overflowed { get; }
+```
+
+Gets how many rasters were given their own texture because every page was in use this frame.
+
+**Type:** `long`
 
 ### <a id="m-pages"></a>Pages
 
@@ -93,6 +129,16 @@ Gets how many rasterizations ran for [`ArtAtlas.Preload()`](ArtAtlas.md#m-preloa
 
 **Type:** `long`
 
+### <a id="m-refusals"></a>Refusals
+
+```csharp
+public long Refusals { get; }
+```
+
+Gets how many lookups ended refused ([`AtlasStatus.Full`](AtlasStatus.md#m-full), [`AtlasStatus.TooLarge`](AtlasStatus.md#m-toolarge) or [`AtlasStatus.Invalid`](AtlasStatus.md#m-invalid)) since the atlas was made. A refused image is not drawn.
+
+**Type:** `long`
+
 ### <a id="m-standalonebytes"></a>StandaloneBytes
 
 ```csharp
@@ -113,6 +159,16 @@ Gets how many standalone textures exist.
 
 **Type:** `int`
 
+### <a id="m-standalonelimit"></a>StandaloneLimit
+
+```csharp
+public long StandaloneLimit { get; }
+```
+
+Gets the standalone texture budget in bytes ([`ArtLimits.MaxStandaloneBytes`](ArtLimits.md#m-maxstandalonebytes)).
+
+**Type:** `long`
+
 ### <a id="m-syncrasterizations"></a>SyncRasterizations
 
 ```csharp
@@ -122,6 +178,16 @@ public long SyncRasterizations { get; }
 Gets how many rasterizations ran inside a lookup ([`ArtAtlas.TryGet()`](ArtAtlas.md#m-tryget-string-int-int-artregion) and its variants), that is on the caller's thread, because the art was not ready.
 
 **Type:** `long`
+
+### <a id="m-warning"></a>Warning
+
+```csharp
+public Action<string>? Warning { get; set; }
+```
+
+Receives the first few refusal sentences (each distinct image and status once); the host writes them to the log. Null keeps them silent.
+
+**Type:** [`Action`](https://learn.microsoft.com/dotnet/api/system.action-1)`<string>?`
 
 ## Methods
 
@@ -140,6 +206,7 @@ Gets how many rasterizations ran inside a lookup ([`ArtAtlas.TryGet()`](ArtAtlas
 | [`TryGetNaturalSize(string, out int, out int)`](#m-trygetnaturalsize-string-int-int) | Returns the natural size of a registered resource: the SVG's own size, or the image's pixel size. |
 | [`TryGetScaled(string, float, out ArtRegion)`](#m-trygetscaled-string-float-artregion) | Looks up (rasterizing on first use) the resource at its natural size times `scale`, rounded to whole pixels. |
 | [`TryGetStandalone(int, out StandaloneArt)`](#m-trygetstandalone-int-standaloneart) | Returns the standalone texture behind [`ArtRegion.Standalone`](ArtRegion.md#m-standalone). |
+| [`TryGetTile(string, int, int, float, out ArtRegion)`](#m-trygettile-string-int-int-float-artregion) | Looks up a vector tile at an exact pixel size, falling back to its natural size times `scale` when the exact size is refused. |
 
 ### <a id="m-addimage-string-readonlymemory-byte-nineslice"></a>AddImage(string, ReadOnlyMemory&lt;byte&gt;, NineSlice)
 
@@ -330,3 +397,21 @@ Returns the standalone texture behind [`ArtRegion.Standalone`](ArtRegion.md#m-st
 - `art` ([`StandaloneArt`](StandaloneArt.md)): The texture's pixels and size.
 
 **Returns:** `bool` — False when the handle is unknown or was released.
+
+### <a id="m-trygettile-string-int-int-float-artregion"></a>TryGetTile(string, int, int, float, out ArtRegion)
+
+```csharp
+public AtlasStatus TryGetTile(string id, int width, int height, float scale, out ArtRegion region);
+```
+
+Looks up a vector tile at an exact pixel size, falling back to its natural size times `scale` when the exact size is refused.
+
+**Parameters**
+
+- `id` (`string`): The resource id.
+- `width` (`int`): Tile width in pixels.
+- `height` (`int`): Tile height in pixels.
+- `scale` (`float`): The display list's UI scale.
+- `region` ([`ArtRegion`](ArtRegion.md)): The entry when the result is [`AtlasStatus.Ok`](AtlasStatus.md#m-ok).
+
+**Returns:** [`AtlasStatus`](AtlasStatus.md) — The status.

@@ -108,7 +108,7 @@ primitives for HUDs and tools: `Fill` (solid or `Gradient.Linear/Radial`), `Bord
   (overlapping children do not show through each other). Opacity ≥ 0.999 costs nothing; opacity ≤ 0 skips the group's commands.
 - **Atlases.** Pages are looked up through `GlyphAtlas`/`ArtAtlas`/`TextQuadBuilder` (`atlas.md`) and uploaded in `Draw` after the frame's
   lookups. The GPU layer writes whole mip levels, so a page that changed goes up whole (the dirty rectangle only tells the renderer
-  *whether*). A missing image draws as a magenta box and counts in `Ui.MissingArt`.
+  *whether*). A missing image draws as a magenta box and counts in `Ui.MissingArt`; a refused one (`atlas.md`, "Refusals are loud") also counts in `ArtAtlas.Refusals`.
 - **Not in the display list yet:** gradients (draw them through `Ui.Fill(rect, gradient)`).
 
 ## Stats
