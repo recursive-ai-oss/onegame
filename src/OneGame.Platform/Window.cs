@@ -54,6 +54,19 @@ public abstract class Window : IDisposable
     /// <summary>The window title as last set by <see cref="SetTitle"/>.</summary>
     public string Title { get; private protected set; } = "";
 
+    /// <summary>
+    /// Whether presenting now could park the calling thread because the window system has stopped drawing this window (covered, minimized
+    /// or on another desktop). A host that gets true skips drawing for that frame and keeps simulating; it asks again next frame. Always
+    /// false where the system never withholds frames. With <paramref name="strict"/> any frame still unanswered counts (vsync presents
+    /// wait for the previous one); otherwise only one that has been unanswered for a while does.
+    /// </summary>
+    public virtual bool PresentWouldBlock(bool strict) => false;
+
+    /// <summary>Called right before a frame is presented, so a window system that reports when frames were shown can be asked about this one.</summary>
+    public virtual void OnPresenting()
+    {
+    }
+
     /// <summary>Handles for creating a graphics surface.</summary>
     public abstract NativeWindowHandle NativeHandle { get; }
 
