@@ -60,7 +60,7 @@ public static class SavesDocSnippets
 
     public static void LoadScreen(GameInstance game)
     {
-        foreach (var slot in game.Storage.Slots.List())      // newest first; damaged slot files are left out
+        foreach (var slot in game.Storage.Slots.List())      // newest first; damaged slot files, truncated or garbled ones included, are left out
         {
             Console.WriteLine($"{slot.Slot}: {slot.Label} ({slot.Kind}, {slot.SavedAt:g}, game {slot.GameVersion}, tick {slot.Tick})");
         }
