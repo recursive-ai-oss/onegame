@@ -2,7 +2,9 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
-## [Unreleased]
+## [1.18.0] - 2026-11-09
+
+Cluster scenarios reach every followed scope, servers report per-connection view hashes, damaged save slots read as missing, and 3D views gain portals, runtime emissive and opacity, frame timing in the overlay and camera/pick on hand-filled scenes. `RecursiveAI.OneGame.Physics` ships as 1.18.0-preview.1.
 
 ### Added
 
