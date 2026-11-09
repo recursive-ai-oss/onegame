@@ -2,7 +2,9 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
-## [Unreleased]
+## [1.20.0] - 2026-11-09
+
+3D scenes get distance fog and a crossfade between two environment maps for day and night cycles, and steady frames on fast GPUs allocate nothing. `RecursiveAI.OneGame.Physics` ships as 1.20.0-preview.1.
 
 ### Added
 
