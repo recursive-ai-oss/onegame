@@ -2,6 +2,18 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
+## [Unreleased]
+
+### Added
+
+- Distance fog in the 3D renderer. `Scene3D.Fog` (`FogSettings`: `Enabled`, `Color`, `Start`, `End`, `MaxDensity`) fades every surface (PBR, toon, flat, unlit, outlines, masked and blended materials, instanced draws, dynamic meshes, billboards) towards a colour with its distance from the camera. It is a per-frame constant: changing it uploads nothing and rebuilds nothing, and steady frames still allocate nothing. Off by default; frames with fog off are unchanged.
+- Environment crossfade. `Environment3D.NextMap` and `Blend` mix the backdrop, the diffuse light and the specular light of two environment maps, so a day cycle can step through keyframes without a pop: at `Blend` 1, making the next map the first and the following one the next at `Blend` 0 draws the same picture. Changing `Blend` refilters nothing.
+- Live control `environment` operation: read and set the fog, the blend weight, the environment intensity and its yaw.
+
+### Fixed
+
+- The Vulkan backend no longer allocates managed memory on a random frame of a steady run. Command encoders are created up front, and upload staging pools are sized from what a submission uses and then kept fixed (a miss waits for the GPU instead of growing the pool). On a fast GPU the pools used to grow whenever the GPU first lagged further behind, which showed up as sporadic small allocations in frames that should allocate nothing.
+
 ## [1.19.0] - 2026-11-09
 
 Meshes a game builds can be added, replaced and freed while it runs, windows remember where they were and how they were shown, Windows games open without a console window, and captures of windowed games show all their art. `RecursiveAI.OneGame.Physics` ships as 1.19.0-preview.1.

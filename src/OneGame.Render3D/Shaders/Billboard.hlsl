@@ -26,6 +26,7 @@ struct BillOut
     [[vk::location(0)]] float2 Uv : TEXCOORD0;
     [[vk::location(1)]] float4 Color : TEXCOORD1;
     [[vk::location(2)]] float Add : TEXCOORD2;
+    [[vk::location(3)]] float Fog : TEXCOORD3;
 };
 
 [shader("vertex")]
@@ -49,6 +50,7 @@ BillOut VSBillboard(BillIn i)
     o.Uv = i.Uv.xy + i.Uv.zw * c;
     o.Color = i.Color;
     o.Add = i.SizeAdd.z;
+    o.Fog = FogAmount(world);
     return o;
 }
 
@@ -56,5 +58,7 @@ BillOut VSBillboard(BillIn i)
 float4 PSBillboard(BillOut i) : SV_Target
 {
     float4 c = Tex.Sample(Samp, i.Uv) * i.Color;
-    return float4(c.rgb, c.a * (1.0 - i.Add));
+    float a = c.a * (1.0 - i.Add);
+    // Premultiplied colour: fog replaces the share of the quad's coverage and fades added light out.
+    return float4(ApplyFog(c.rgb, i.Fog, a), a);
 }

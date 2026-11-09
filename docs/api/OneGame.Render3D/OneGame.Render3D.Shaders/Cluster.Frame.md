@@ -21,6 +21,9 @@ public struct Cluster.Frame
 | [`Counts_Y`](#m-counts-y) |  |
 | [`Counts_Z`](#m-counts-z) |  |
 | [`EnvA`](#m-enva) |  |
+| [`EnvB`](#m-envb) |  |
+| [`FogColor`](#m-fogcolor) |  |
+| [`FogRange`](#m-fogrange) |  |
 | [`Grid`](#m-grid) |  |
 | [`InvProj`](#m-invproj) |  |
 | [`InvViewProj`](#m-invviewproj) |  |
@@ -89,6 +92,30 @@ public Vector4 EnvA;
 
 **Type:** [`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)
 
+### <a id="m-envb"></a>EnvB
+
+```csharp
+public Vector4 EnvB;
+```
+
+**Type:** [`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)
+
+### <a id="m-fogcolor"></a>FogColor
+
+```csharp
+public Vector4 FogColor;
+```
+
+**Type:** [`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)
+
+### <a id="m-fogrange"></a>FogRange
+
+```csharp
+public Vector4 FogRange;
+```
+
+**Type:** [`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)
+
 ### <a id="m-grid"></a>Grid
 
 ```csharp
@@ -132,7 +159,7 @@ public Vector4 ShadowInfo;
 ### <a id="m-size"></a>Size
 
 ```csharp
-public const uint Size = 464;
+public const uint Size = 512;
 ```
 
 **Type:** `uint`

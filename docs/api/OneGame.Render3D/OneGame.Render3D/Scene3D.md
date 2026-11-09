@@ -32,6 +32,7 @@ public Scene3D();
 | [`Camera`](#m-camera) | The camera. |
 | [`Debug`](#m-debug) | Immediate debug geometry; clear and refill each frame. |
 | [`Environment`](#m-environment) | Image-based lighting and backdrop. |
+| [`Fog`](#m-fog) | Distance fog; off until [`FogSettings.Enabled`](FogSettings.md#m-enabled) is set. |
 | [`Lights`](#m-lights) | Punctual lights. |
 | [`Models`](#m-models) | Models to draw. |
 | [`Post`](#m-post) | Bloom, exposure and tone mapping. |
@@ -89,6 +90,16 @@ public Environment3D Environment { get; }
 Image-based lighting and backdrop.
 
 **Type:** [`Environment3D`](Environment3D.md)
+
+### <a id="m-fog"></a>Fog
+
+```csharp
+public FogSettings Fog { get; }
+```
+
+Distance fog; off until [`FogSettings.Enabled`](FogSettings.md#m-enabled) is set.
+
+**Type:** [`FogSettings`](FogSettings.md)
 
 ### <a id="m-lights"></a>Lights
 

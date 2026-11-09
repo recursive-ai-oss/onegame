@@ -25,6 +25,7 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`DynamicMesh3D`](OneGame.Render3D/DynamicMesh3D.md) | class | A triangle mesh a game builds and changes while running, such as a streamed voxel chunk. |
 | [`Environment3D`](OneGame.Render3D/Environment3D.md) | class | Image-based lighting and backdrop of a scene. |
 | [`EnvironmentMap`](OneGame.Render3D/EnvironmentMap.md) | class | An environment prepared for lighting: a GGX-prefiltered specular cube (roughness grows with the mip level, mip 0 is the sharp environment) and a cosine-convolved diffuse cube. |
+| [`FogSettings`](OneGame.Render3D/FogSettings.md) | class | Distance fog: surfaces fade towards a colour with their distance from the camera. |
 | [`FrameStats3D`](OneGame.Render3D/FrameStats3D.md) | struct | What one frame of 3D drew. |
 | [`HdrException`](OneGame.Render3D/HdrException.md) | class | The file is not a valid Radiance (.hdr) image, or exceeds a limit. |
 | [`HdrImage`](OneGame.Render3D/HdrImage.md) | class | A floating-point panorama in linear RGB, rows from the top. |
@@ -122,6 +123,7 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`Pbr.Bindings.EnvSampler`](OneGame.Render3D.Shaders/Pbr.Bindings.EnvSampler.md) | static class |  |
 | [`Pbr.Bindings.Frame`](OneGame.Render3D.Shaders/Pbr.Bindings.Frame.md) | static class |  |
 | [`Pbr.Bindings.Irradiance`](OneGame.Render3D.Shaders/Pbr.Bindings.Irradiance.md) | static class |  |
+| [`Pbr.Bindings.IrradianceB`](OneGame.Render3D.Shaders/Pbr.Bindings.IrradianceB.md) | static class |  |
 | [`Pbr.Bindings.Joints`](OneGame.Render3D.Shaders/Pbr.Bindings.Joints.md) | static class |  |
 | [`Pbr.Bindings.Lights`](OneGame.Render3D.Shaders/Pbr.Bindings.Lights.md) | static class |  |
 | [`Pbr.Bindings.Material`](OneGame.Render3D.Shaders/Pbr.Bindings.Material.md) | static class |  |
@@ -136,6 +138,7 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`Pbr.Bindings.ShadowSamp`](OneGame.Render3D.Shaders/Pbr.Bindings.ShadowSamp.md) | static class |  |
 | [`Pbr.Bindings.Shadows`](OneGame.Render3D.Shaders/Pbr.Bindings.Shadows.md) | static class |  |
 | [`Pbr.Bindings.Specular`](OneGame.Render3D.Shaders/Pbr.Bindings.Specular.md) | static class |  |
+| [`Pbr.Bindings.SpecularB`](OneGame.Render3D.Shaders/Pbr.Bindings.SpecularB.md) | static class |  |
 | [`Pbr.Frame`](OneGame.Render3D.Shaders/Pbr.Frame.md) | struct |  |
 | [`Pbr.LightData`](OneGame.Render3D.Shaders/Pbr.LightData.md) | struct |  |
 | [`Pbr.Material`](OneGame.Render3D.Shaders/Pbr.Material.md) | struct |  |

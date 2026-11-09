@@ -24,6 +24,7 @@ public static class Pbr.Bindings
 | [`Pbr.Bindings.EnvSampler`](Pbr.Bindings.EnvSampler.md) |  |
 | [`Pbr.Bindings.Frame`](Pbr.Bindings.Frame.md) |  |
 | [`Pbr.Bindings.Irradiance`](Pbr.Bindings.Irradiance.md) |  |
+| [`Pbr.Bindings.IrradianceB`](Pbr.Bindings.IrradianceB.md) |  |
 | [`Pbr.Bindings.Joints`](Pbr.Bindings.Joints.md) |  |
 | [`Pbr.Bindings.Lights`](Pbr.Bindings.Lights.md) |  |
 | [`Pbr.Bindings.Material`](Pbr.Bindings.Material.md) |  |
@@ -38,6 +39,7 @@ public static class Pbr.Bindings
 | [`Pbr.Bindings.ShadowSamp`](Pbr.Bindings.ShadowSamp.md) |  |
 | [`Pbr.Bindings.Shadows`](Pbr.Bindings.Shadows.md) |  |
 | [`Pbr.Bindings.Specular`](Pbr.Bindings.Specular.md) |  |
+| [`Pbr.Bindings.SpecularB`](Pbr.Bindings.SpecularB.md) |  |
 
 ## Properties
 

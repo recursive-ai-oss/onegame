@@ -36,6 +36,20 @@ public sealed class Environment3D
     /// <summary>Scale on the light the environment contributes; 0 turns image-based lighting off.</summary>
     public float Intensity { get; set; } = 1f;
 
+    /// <summary>
+    /// The environment to fade towards, or null for none. The picture is <see cref="Map"/> at <see cref="Blend"/> 0 and this map at 1, in
+    /// between a linear mix of both, in the backdrop and in the diffuse and specular image-based light. Changing <see cref="Blend"/> costs
+    /// one more cube sample per pixel and refilters nothing. To step through a series of keyframes, when the blend reaches 1 set
+    /// <see cref="Map"/> to this map, this to the following one and <see cref="Blend"/> to 0: the picture does not change. The yaw, intensity
+    /// and background blur are shared by both maps.
+    /// </summary>
+    public EnvironmentMap? NextMap { get; set; }
+
+    private float _blend;
+
+    /// <summary>How far the scene has moved from <see cref="Map"/> to <see cref="NextMap"/>, 0 to 1 (clamped). Ignored while <see cref="NextMap"/> is null.</summary>
+    public float Blend { get => _blend; set => _blend = float.IsNaN(value) ? 0f : Math.Clamp(value, 0f, 1f); }
+
     /// <summary>Turns the environment about the +Y axis, in radians.</summary>
     public float Yaw { get; set; }
 
@@ -47,6 +61,31 @@ public sealed class Environment3D
 
     /// <summary>How blurred the environment backdrop is, 0 (sharp) to 1 (fully blurred).</summary>
     public float BackgroundBlur { get; set; } = 0.3f;
+}
+
+/// <summary>
+/// Distance fog: surfaces fade towards a colour with their distance from the camera. It is a per-frame constant, so changing it never
+/// touches meshes or pipelines. The amount rises linearly from 0 at <see cref="Start"/> to <see cref="MaxDensity"/> at <see cref="End"/>
+/// and stays there. It applies to every surface style (PBR, toon, flat, unlit), outlines, instanced draws, dynamic meshes and billboards
+/// (added light fades out instead of turning into fog). The backdrop and debug geometry are left alone: set <see cref="Color"/> to the
+/// sky's horizon colour so far surfaces meet it. The colour is linear light and is tone mapped with the rest of the frame.
+/// </summary>
+public sealed class FogSettings
+{
+    /// <summary>Whether fog is applied. Off by default.</summary>
+    public bool Enabled { get; set; }
+
+    /// <summary>Linear fog colour (may exceed 1 for a bright sky).</summary>
+    public Vector3 Color { get; set; } = new(0.6f, 0.7f, 0.8f);
+
+    /// <summary>Distance from the camera in world units where fog begins. Orthographic cameras measure view depth.</summary>
+    public float Start { get; set; } = 20f;
+
+    /// <summary>Distance where fog reaches <see cref="MaxDensity"/>.</summary>
+    public float End { get; set; } = 200f;
+
+    /// <summary>Largest share of the fog colour a surface shows, 0 to 1. Below 1 the far end never fully disappears.</summary>
+    public float MaxDensity { get; set; } = 1f;
 }
 
 /// <summary>Bloom, exposure and tone mapping.</summary>
@@ -262,6 +301,9 @@ public sealed class Scene3D
 
     /// <summary>Bloom, exposure and tone mapping.</summary>
     public PostSettings Post { get; } = new();
+
+    /// <summary>Distance fog; off until <see cref="FogSettings.Enabled"/> is set.</summary>
+    public FogSettings Fog { get; } = new();
 
     /// <summary>Copies of models drawn in bulk (see <see cref="AddInstanced"/>).</summary>
     public List<InstanceBatch3D> Batches { get; } = [];

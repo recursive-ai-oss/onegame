@@ -33,6 +33,9 @@ internal struct FrameConstants
     public Vector4 Sky;
     public Vector4 ShadowInfo;
     public Vector4 AoInfo;
+    public Vector4 FogColor;
+    public Vector4 FogRange;
+    public Vector4 EnvB;
 }
 
 [StructLayout(LayoutKind.Sequential)]

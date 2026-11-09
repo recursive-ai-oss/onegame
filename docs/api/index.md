@@ -11,7 +11,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Atlas](OneGame.Atlas/index.md) | 1 | 14 | 119 | Atlas pages and the SVG and image atlas for the 2D renderer. |
 | [RecursiveAI.OneGame.Audio](OneGame.Audio/index.md) | 1 | 58 | 449 | Audio device output and the audio service that drives a mixer. |
 | [RecursiveAI.OneGame.Cli](OneGame.Cli/index.md) | 0 | 0 | 0 | The onegame command: create, build, run, test, capture and replay games. |
-| [RecursiveAI.OneGame.Control](OneGame.Control/index.md) | 1 | 59 | 517 | The control layer shared by the command line, the test API and live control. |
+| [RecursiveAI.OneGame.Control](OneGame.Control/index.md) | 1 | 60 | 528 | The control layer shared by the command line, the test API and live control. |
 | [RecursiveAI.OneGame.Core](OneGame.Core/index.md) | 2 | 66 | 547 | Entity runtime: fixed-point numbers, random streams and the attributes that declare entities. |
 | [RecursiveAI.OneGame.Gltf](OneGame.Gltf/index.md) | 1 | 62 | 371 | glTF 2.0 import: scenes, meshes, materials, skins and animations, safe on untrusted input. |
 | [RecursiveAI.OneGame.Gpu](OneGame.Gpu/index.md) | 2 | 93 | 583 | Graphics API abstraction and render graph. |
@@ -29,7 +29,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Platform](OneGame.Platform/index.md) | 1 | 52 | 566 | Windows, input, controllers and the app lifecycle per operating system. |
 | [RecursiveAI.OneGame.Purchases](OneGame.Purchases/index.md) | 1 | 21 | 159 | In-app purchases: one store-neutral API over StoreKit, Google Play Billing and a scriptable fake store. |
 | [RecursiveAI.OneGame.Render2D](OneGame.Render2D/index.md) | 2 | 65 | 400 | Sprite, tilemap and text renderer. |
-| [RecursiveAI.OneGame.Render3D](OneGame.Render3D/index.md) | 2 | 155 | 1003 | Physically based 3D renderer: glTF materials, clustered forward lighting, image-based lighting, bloom and tone mapping on the render graph. |
+| [RecursiveAI.OneGame.Render3D](OneGame.Render3D/index.md) | 2 | 158 | 1034 | Physically based 3D renderer: glTF materials, clustered forward lighting, image-based lighting, bloom and tone mapping on the render graph. |
 | [RecursiveAI.OneGame.Server](OneGame.Server/index.md) | 1 | 33 | 204 | The headless server host: fixed-step scopes, YAML configuration, logging, and the plugin API. |
 | [RecursiveAI.OneGame.Server.Live](OneGame.Server.Live/index.md) | 1 | 10 | 89 | Live control of a running game server over the same MCP surface as a development game: plugin and scope operations. |
 | [RecursiveAI.OneGame.Server.Plugins](OneGame.Server.Plugins/index.md) | 1 | 1 | 2 | Loads server plugins into collectible load contexts. CoreCLR only: it uses reflection and assembly loading, so NativeAOT hosts leave it out. |

@@ -60,11 +60,11 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
     internal bool SurfaceKhr, XlibKhr, WaylandKhr, Win32Khr, AndroidKhr;
 
     ulong _serial;
-    readonly List<(ulong Serial, IRetirable Item)> _retired = [];
-    readonly List<(ulong Serial, VulkanEncoder Encoder)> _inflight = [];
-    readonly Stack<VulkanEncoder> _freeEncoders = new();
-    readonly List<(ulong Serial, Staging Item)> _stagingBusy = [];
-    readonly List<Staging> _stagingPending = [];
+    readonly List<(ulong Serial, IRetirable Item)> _retired = new(64);
+    readonly List<(ulong Serial, VulkanEncoder Encoder)> _inflight = new(2 * EncoderPoolSize);
+    readonly Stack<VulkanEncoder> _freeEncoders = new(EncoderPoolSize);
+    readonly List<(ulong Serial, Staging Item)> _stagingBusy = new(64);
+    readonly List<Staging> _stagingPending = new(64);
     readonly Stack<Staging>[] _stagingFree = new Stack<Staging>[2 * 48];
     readonly List<VulkanSwapchain> _acquired = [];
     readonly List<VulkanSwapchain> _swapchains = [];
@@ -104,6 +104,7 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
         try
         {
             dev.CreateLogicalDevice(info);
+            dev.PrewarmEncoders();
         }
         catch
         {
@@ -115,6 +116,19 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
     }
 
     VulkanInstance? _owner;
+
+    // A frame records into an upload encoder and a main one, and MaxFramesInFlight frames may still be running, so a steady program needs
+    // at most 2 * MaxFramesInFlight + 2 encoders. Creating them now keeps the pool from growing (and allocating) on whichever frame the
+    // GPU first falls that far behind, which on a fast GPU is a random frame well into a run.
+    const int EncoderPoolSize = (2 * MaxFramesInFlight) + 4;
+
+    void PrewarmEncoders()
+    {
+        for (var i = 0; i < EncoderPoolSize; i++)
+        {
+            _freeEncoders.Push(new VulkanEncoder(this));
+        }
+    }
 
     void AdoptInstance(VulkanInstance inst)
     {
@@ -454,6 +468,7 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
         }
 
         _stagingPending.Clear();
+        GrowStagingPools();
     }
 
     // ---- staging memory for uploads and readback ----
@@ -470,13 +485,77 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
     {
         var bits = 64 - (int)ulong.LeadingZeroCount(Math.Max(size, 65536) - 1);
         var bucket = bits + (readback ? 48 : 0);
-        var stack = _stagingFree[bucket] ??= new Stack<Staging>();
+        var stack = _stagingFree[bucket] ??= new Stack<Staging>(16);
         if (stack.Count > 0)
         {
             return stack.Pop();
         }
 
         var cap = 1UL << bits;
+        if (!readback)
+        {
+            _stagingTouched[bucket]++;
+
+            // At the planned pool size, a miss means the GPU still holds every buffer: wait for the oldest submission using this size
+            // instead of growing the pool, which keeps the pool (and the managed memory behind it) fixed once a frame has shown what it needs.
+            if (cap <= StagingPrewarmLimit && _stagingTotal[bucket] >= _stagingPeak[bucket] * (MaxFramesInFlight + 2) && _stagingPeak[bucket] > 0)
+            {
+                foreach (var (serial, busy) in _stagingBusy)
+                {
+                    if (busy.Bucket == bucket)
+                    {
+                        WaitSerial(serial);
+                        break;
+                    }
+                }
+
+                if (stack.Count > 0)
+                {
+                    return stack.Pop();
+                }
+            }
+        }
+
+        return CreateStaging(cap, bucket, readback);
+    }
+
+    // Upload staging buffers are released only when the GPU has finished the submission that used them, so a pool needs one set per
+    // submission that can be running (the throttle lets one more start before it waits) plus the one being recorded. How many a set holds is what a submission uses, which is the same
+    // every frame; sizing the pool from that at each submit makes it complete after the first frame, instead of growing (and allocating)
+    // on whichever later frame the GPU happens to lag by the most. Buffers above 4 MiB are left to demand: they are rare.
+    const ulong StagingPrewarmLimit = 1UL << 22;
+    readonly int[] _stagingTouched = new int[2 * 48];
+    readonly int[] _stagingPeak = new int[2 * 48];
+    readonly int[] _stagingTotal = new int[2 * 48];
+
+    void GrowStagingPools()
+    {
+        for (var bucket = 0; bucket < 48; bucket++)
+        {
+            var used = _stagingTouched[bucket];
+            if (used == 0)
+            {
+                continue;
+            }
+
+            _stagingTouched[bucket] = 0;
+            _stagingPeak[bucket] = Math.Max(_stagingPeak[bucket], used);
+            var cap = 1UL << bucket;
+            if (cap > StagingPrewarmLimit)
+            {
+                continue;
+            }
+
+            var stack = _stagingFree[bucket] ??= new Stack<Staging>(16);
+            while (_stagingTotal[bucket] < _stagingPeak[bucket] * (MaxFramesInFlight + 2))
+            {
+                stack.Push(CreateStaging(cap, bucket, false));
+            }
+        }
+    }
+
+    Staging CreateStaging(ulong cap, int bucket, bool readback)
+    {
         var bci = new VkBufferCreateInfo
         {
             size = cap,
@@ -489,10 +568,11 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
         _deviceFns.vkGetBufferMemoryRequirements(_device, buf, &req);
         var alloc = _memory.Allocate(req, readback ? MemoryKind.Readback : MemoryKind.Upload);
         Check(_deviceFns.vkBindBufferMemory(_device, buf, alloc.Memory, alloc.Offset), "vkBindBufferMemory");
+        _stagingTotal[bucket]++;
         return new Staging { Buffer = buf, Alloc = alloc, Size = cap, Bucket = bucket };
     }
 
-    void ReleaseStaging(Staging s) => (_stagingFree[s.Bucket] ??= new Stack<Staging>()).Push(s);
+    void ReleaseStaging(Staging s) => (_stagingFree[s.Bucket] ??= new Stack<Staging>(16)).Push(s);
 
     public override void WriteBuffer(GpuBuffer buffer, ulong offset, ReadOnlySpan<byte> data)
     {
