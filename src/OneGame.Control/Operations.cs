@@ -76,10 +76,13 @@ public sealed record ControlResult(string Json, byte[]? Png = null);
 /// <param name="Backend">The platform backend, such as <c>headless</c>, <c>x11</c> or <c>wayland</c> (the platform backend's name in lower case).</param>
 /// <param name="Presented">Frames presented to the window so far.</param>
 /// <param name="ScaleOverride">The UI scale set by <c>ui_scale</c>, or null when the scale follows the window.</param>
-/// <param name="Atlas">The art atlas: pages, entries, standalone textures and how many images were refused.</param>
 public sealed record InfoResult(
     string Game, long Tick, long Frame, string Hash, int Width, int Height, float Scale, bool Headless, string? Screen,
-    int Entities, string[] Screens, string[] Fixtures, string Stage, string? Adapter, int Drift, string Backend, long Presented, float? ScaleOverride = null, AtlasInfo? Atlas = null);
+    int Entities, string[] Screens, string[] Fixtures, string Stage, string? Adapter, int Drift, string Backend, long Presented, float? ScaleOverride = null)
+{
+    /// <summary>Gets the art atlas: pages, entries, standalone textures and how many images were refused. Null when the sender predates it.</summary>
+    public AtlasInfo? Atlas { get; init; }
+}
 
 /// <summary>The art atlas (SVG and image pages) as reported by <c>info</c>.</summary>
 /// <param name="Pages">Pages in use.</param>
