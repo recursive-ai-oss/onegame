@@ -2,7 +2,9 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
-## [Unreleased]
+## [1.17.0] - 2026-11-09
+
+Screens with more art than the atlas pages hold draw correctly, and an image that truly cannot be drawn fails loudly instead of showing as magenta. `RecursiveAI.OneGame.Physics` ships as 1.17.0-preview.1.
 
 ### Fixed
 
