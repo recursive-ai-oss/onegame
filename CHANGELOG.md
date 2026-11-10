@@ -2,6 +2,16 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
+## [Unreleased]
+
+### Fixed
+
+- Creating thousands of meshes (or any burst of buffer and texture uploads) in one frame no longer leaves gigabytes of driver memory mapped. The Vulkan backend stages uploads through a few fixed 4 MiB chunks, at most `GpuDevice.StagingBudgetBytes` (32 MiB) in all: when they are all in use, the writing call waits for the GPU to finish the oldest copies instead of making more buffers. Idle chunks and empty device-memory blocks are returned after a while. A burst of 2,500 chunk-sized meshes used to hold about 1.5 GB of staging for the life of the device; it now peaks at 32 MiB and settles at 16 MiB.
+
+### Added
+
+- `GpuMemoryStats.StagingBytes` and `GpuDevice.StagingBudgetBytes`.
+
 ## [1.20.0] - 2026-11-09
 
 3D scenes get distance fog and a crossfade between two environment maps for day and night cycles, and steady frames on fast GPUs allocate nothing. `RecursiveAI.OneGame.Physics` ships as 1.20.0-preview.1.

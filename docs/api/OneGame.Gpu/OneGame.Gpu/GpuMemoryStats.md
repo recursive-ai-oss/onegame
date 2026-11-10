@@ -16,12 +16,12 @@ A backend's tally of device memory, from [`GpuDevice.MemoryStats`](GpuDevice.md#
 
 | Member | Description |
 | --- | --- |
-| [`GpuMemoryStats(ulong, ulong, int)`](#m-ctor-ulong-ulong-int) | A backend's tally of device memory, from [`GpuDevice.MemoryStats`](GpuDevice.md#m-memorystats). |
+| [`GpuMemoryStats(ulong, ulong, int, ulong)`](#m-ctor-ulong-ulong-int-ulong) | A backend's tally of device memory, from [`GpuDevice.MemoryStats`](GpuDevice.md#m-memorystats). |
 
-### <a id="m-ctor-ulong-ulong-int"></a>GpuMemoryStats(ulong, ulong, int)
+### <a id="m-ctor-ulong-ulong-int-ulong"></a>GpuMemoryStats(ulong, ulong, int, ulong)
 
 ```csharp
-public GpuMemoryStats(ulong ReservedBytes, ulong UsedBytes, int Allocations);
+public GpuMemoryStats(ulong ReservedBytes, ulong UsedBytes, int Allocations, ulong StagingBytes = 0);
 ```
 
 A backend's tally of device memory, from [`GpuDevice.MemoryStats`](GpuDevice.md#m-memorystats).
@@ -31,6 +31,7 @@ A backend's tally of device memory, from [`GpuDevice.MemoryStats`](GpuDevice.md#
 - `ReservedBytes` (`ulong`): Bytes held from the driver (blocks that resources are carved from).
 - `UsedBytes` (`ulong`): Bytes occupied by live resources, with alignment padding.
 - `Allocations` (`int`): Number of live resource allocations.
+- `StagingBytes` (`ulong`): Bytes of host-visible upload staging memory the backend holds right now (a subset of `ReservedBytes`); bounded by [`GpuDevice.StagingBudgetBytes`](GpuDevice.md#m-stagingbudgetbytes) apart from single uploads larger than the budget.
 
 ## Properties
 
@@ -38,6 +39,7 @@ A backend's tally of device memory, from [`GpuDevice.MemoryStats`](GpuDevice.md#
 | --- | --- |
 | [`Allocations`](#m-allocations) | Number of live resource allocations. |
 | [`ReservedBytes`](#m-reservedbytes) | Bytes held from the driver (blocks that resources are carved from). |
+| [`StagingBytes`](#m-stagingbytes) | Bytes of host-visible upload staging memory the backend holds right now (a subset of `ReservedBytes`); bounded by [`GpuDevice.StagingBudgetBytes`](GpuDevice.md#m-stagingbudgetbytes) apart from single uploads larger than the budget. |
 | [`UsedBytes`](#m-usedbytes) | Bytes occupied by live resources, with alignment padding. |
 
 ### <a id="m-allocations"></a>Allocations
@@ -57,6 +59,16 @@ public ulong ReservedBytes { get; init; }
 ```
 
 Bytes held from the driver (blocks that resources are carved from).
+
+**Type:** `ulong`
+
+### <a id="m-stagingbytes"></a>StagingBytes
+
+```csharp
+public ulong StagingBytes { get; init; }
+```
+
+Bytes of host-visible upload staging memory the backend holds right now (a subset of `ReservedBytes`); bounded by [`GpuDevice.StagingBudgetBytes`](GpuDevice.md#m-stagingbudgetbytes) apart from single uploads larger than the budget.
 
 **Type:** `ulong`
 
