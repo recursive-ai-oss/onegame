@@ -41,6 +41,7 @@ internal sealed unsafe class MemoryAllocator
         public byte* Mapped;
         public List<(ulong Offset, ulong Size)> Free = [];
         public bool InUse;
+        public int EmptyChecks;
     }
 
     readonly VulkanDevice _device;
@@ -242,6 +243,46 @@ internal sealed unsafe class MemoryAllocator
             ReservedBytes -= blk.Size;
             blk.InUse = false;
             blk.Free.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Returns shared blocks that have been completely free across two calls to the driver, keeping one block per memory type. A burst of
+    /// uploads or a level unload empties blocks; without this they would stay reserved for the life of the device.
+    /// </summary>
+    public void TrimEmptyBlocks()
+    {
+        foreach (var pool in _pools)
+        {
+            var live = 0;
+            foreach (var b in pool)
+            {
+                live += b.InUse ? 1 : 0;
+            }
+
+            foreach (var b in pool)
+            {
+                if (!b.InUse || b.Size != BlockSize)
+                {
+                    continue;
+                }
+
+                var empty = b.Free.Count == 1 && b.Free[0].Size == b.Size;
+                if (!empty || live <= 1)
+                {
+                    b.EmptyChecks = 0;
+                    continue;
+                }
+
+                if (++b.EmptyChecks >= 2)
+                {
+                    _device.Fns.vkFreeMemory(_device.Handle, b.Memory, null);
+                    ReservedBytes -= b.Size;
+                    b.InUse = false;
+                    b.Free.Clear();
+                    live--;
+                }
+            }
         }
     }
 

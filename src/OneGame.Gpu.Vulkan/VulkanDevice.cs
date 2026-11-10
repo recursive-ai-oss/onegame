@@ -66,6 +66,7 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
     readonly List<(ulong Serial, Staging Item)> _stagingBusy = new(64);
     readonly List<Staging> _stagingPending = new(64);
     readonly Stack<Staging>[] _stagingFree = new Stack<Staging>[2 * 48];
+    ulong _submitCount;
     readonly List<VulkanSwapchain> _acquired = [];
     readonly List<VulkanSwapchain> _swapchains = [];
     VulkanEncoder? _upload;
@@ -81,7 +82,7 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
     internal VkQueue Queue => _queue;
     internal MemoryAllocator Memory => _memory;
 
-    public override GpuMemoryStats MemoryStats => new(_memory.ReservedBytes, _memory.UsedBytes, _memory.Allocations);
+    public override GpuMemoryStats MemoryStats => new(_memory.ReservedBytes, _memory.UsedBytes, _memory.Allocations, _stagingBytes);
     internal ulong CompletedSerial { get; private set; }
 
     public override GpuAdapterInfo Adapter => _adapter;
@@ -338,6 +339,16 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
         }
 
         _stagingBusy.RemoveRange(0, n);
+
+        n = 0;
+        while (n < _chunksBusy.Count && _chunksBusy[n].Serial <= v)
+        {
+            _chunksBusy[n].Chunk.IdleSince = _submitCount;
+            _chunksFree.Add(_chunksBusy[n].Chunk);
+            n++;
+        }
+
+        _chunksBusy.RemoveRange(0, n);
     }
 
     internal void WaitSerial(ulong serial)
@@ -468,7 +479,26 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
         }
 
         _stagingPending.Clear();
-        GrowStagingPools();
+
+        // Chunks the GPU may still read from wait for this submission; the chunk being filled stays current for the next one.
+        foreach (var c in _chunksActive)
+        {
+            if (!ReferenceEquals(c, _chunkCur))
+            {
+                _chunksBusy.Add((serial, c));
+            }
+        }
+
+        _chunksActive.Clear();
+        if (_chunkCur is not null)
+        {
+            _chunksActive.Add(_chunkCur);
+        }
+
+        if (++_submitCount % StagingTrimInterval == 0)
+        {
+            TrimStaging();
+        }
     }
 
     // ---- staging memory for uploads and readback ----
@@ -479,79 +509,151 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
         public MemoryAllocation Alloc;
         public ulong Size;
         public int Bucket;
+        public ulong Offset;
+        public ulong IdleSince;
+    }
+
+    // Uploads (WriteBuffer, WriteTexture) are sub-allocated from a few fixed-size chunks, so the memory staging holds is bounded by
+    // StagingBudgetBytes however much a burst writes: when every chunk is held by copies the GPU has not finished, the writing call waits
+    // for the oldest of them (after handing the pending copies to the GPU, if they are all still unsubmitted) instead of growing. Chunks
+    // that sit idle are given back (TrimStaging). A single write larger than a chunk, and every readback, gets a buffer of its own from a
+    // size-bucketed pool.
+    const ulong StagingChunkBytes = 4UL << 20;
+    const int StagingKeepFree = MaxFramesInFlight + 1;
+    const int StagingChunkLimit = (int)(StagingBudgetBytes / StagingChunkBytes);
+    const ulong StagingAlignment = 256;
+    const ulong StagingTrimInterval = 32;
+    const ulong StagingIdleSubmits = 64;
+
+    Staging? _chunkCur;
+    readonly List<Staging> _chunksActive = new(StagingChunkLimit);
+    readonly List<(ulong Serial, Staging Chunk)> _chunksBusy = new(StagingChunkLimit);
+    readonly List<Staging> _chunksFree = new(StagingChunkLimit);
+    int _chunkCount;
+    ulong _stagingBytes;
+    readonly List<Staging> _trimScratch = new(16);
+
+    /// <summary>Finds room for <paramref name="size"/> bytes of upload data and returns the buffer it lives in and where.</summary>
+    void AcquireUpload(ulong size, out VkBuffer buffer, out ulong offset, out byte* mapped)
+    {
+        if (size > StagingChunkBytes)
+        {
+            var big = AcquireStaging(size, false);
+            _stagingPending.Add(big);
+            buffer = big.Buffer;
+            offset = 0;
+            mapped = big.Alloc.Mapped;
+            return;
+        }
+
+        var cur = _chunkCur;
+        if (cur is null || cur.Offset + size > cur.Size)
+        {
+            cur = NextChunk();
+        }
+
+        offset = cur.Offset;
+        cur.Offset = (offset + size + StagingAlignment - 1) / StagingAlignment * StagingAlignment;
+        buffer = cur.Buffer;
+        mapped = cur.Alloc.Mapped + offset;
+    }
+
+    Staging NextChunk()
+    {
+        // The full chunk stays in the active list and goes to the busy list with the next submission.
+        _chunkCur = null;
+        if (_chunksFree.Count == 0)
+        {
+            Poll();
+        }
+
+        while (_chunksFree.Count == 0)
+        {
+            if (_chunkCount < StagingChunkLimit)
+            {
+                // The first chunk comes with the rest of a steady program's rotation, so no later frame has to make one.
+                var target = Math.Min(StagingChunkLimit, Math.Max(_chunkCount + 1, 1 + StagingKeepFree));
+                while (_chunkCount < target)
+                {
+                    _chunkCount++;
+                    var made = CreateStaging(StagingChunkBytes, -1, false);
+                    made.IdleSince = _submitCount;
+                    _chunksFree.Add(made);
+                }
+
+                break;
+            }
+
+            // At the budget. Chunks used by copies nobody has submitted yet cannot drain: submit them now.
+            if (_chunksBusy.Count == 0)
+            {
+                Submit(BeginCommands());
+            }
+
+            WaitSerial(_chunksBusy[0].Serial);
+        }
+
+        var chunk = _chunksFree[^1];
+        _chunksFree.RemoveAt(_chunksFree.Count - 1);
+        chunk.Offset = 0;
+        _chunkCur = chunk;
+        _chunksActive.Add(chunk);
+        return chunk;
+    }
+
+    // Gives back chunks and pooled buffers that nothing has used for a while, keeping enough free chunks for one per submission the GPU may still be running: a steady program rotates through the chunk being filled and those the GPU is still reading, and must not create one now and then.
+    void TrimStaging()
+    {
+        for (var i = 0; i < _chunksFree.Count && _chunksFree.Count > StagingKeepFree;)
+        {
+            if (_submitCount - _chunksFree[i].IdleSince > StagingIdleSubmits)
+            {
+                DestroyStaging(_chunksFree[i]);
+                _chunksFree.RemoveAt(i);
+                _chunkCount--;
+            }
+            else
+            {
+                i++;
+            }
+        }
+
+        foreach (var stack in _stagingFree)
+        {
+            if (stack is null || stack.Count == 0)
+            {
+                continue;
+            }
+
+            _trimScratch.Clear();
+            while (stack.Count > 0)
+            {
+                var st = stack.Pop();
+                if (_submitCount - st.IdleSince > StagingIdleSubmits)
+                {
+                    DestroyStaging(st);
+                }
+                else
+                {
+                    _trimScratch.Add(st);
+                }
+            }
+
+            for (var i = _trimScratch.Count - 1; i >= 0; i--)
+            {
+                stack.Push(_trimScratch[i]);
+            }
+        }
+
+        _memory.TrimEmptyBlocks();
     }
 
     Staging AcquireStaging(ulong size, bool readback)
     {
         var bits = 64 - (int)ulong.LeadingZeroCount(Math.Max(size, 65536) - 1);
         var bucket = bits + (readback ? 48 : 0);
-        var stack = _stagingFree[bucket] ??= new Stack<Staging>(16);
-        if (stack.Count > 0)
-        {
-            return stack.Pop();
-        }
-
-        var cap = 1UL << bits;
-        if (!readback)
-        {
-            _stagingTouched[bucket]++;
-
-            // At the planned pool size, a miss means the GPU still holds every buffer: wait for the oldest submission using this size
-            // instead of growing the pool, which keeps the pool (and the managed memory behind it) fixed once a frame has shown what it needs.
-            if (cap <= StagingPrewarmLimit && _stagingTotal[bucket] >= _stagingPeak[bucket] * (MaxFramesInFlight + 2) && _stagingPeak[bucket] > 0)
-            {
-                foreach (var (serial, busy) in _stagingBusy)
-                {
-                    if (busy.Bucket == bucket)
-                    {
-                        WaitSerial(serial);
-                        break;
-                    }
-                }
-
-                if (stack.Count > 0)
-                {
-                    return stack.Pop();
-                }
-            }
-        }
-
-        return CreateStaging(cap, bucket, readback);
-    }
-
-    // Upload staging buffers are released only when the GPU has finished the submission that used them, so a pool needs one set per
-    // submission that can be running (the throttle lets one more start before it waits) plus the one being recorded. How many a set holds is what a submission uses, which is the same
-    // every frame; sizing the pool from that at each submit makes it complete after the first frame, instead of growing (and allocating)
-    // on whichever later frame the GPU happens to lag by the most. Buffers above 4 MiB are left to demand: they are rare.
-    const ulong StagingPrewarmLimit = 1UL << 22;
-    readonly int[] _stagingTouched = new int[2 * 48];
-    readonly int[] _stagingPeak = new int[2 * 48];
-    readonly int[] _stagingTotal = new int[2 * 48];
-
-    void GrowStagingPools()
-    {
-        for (var bucket = 0; bucket < 48; bucket++)
-        {
-            var used = _stagingTouched[bucket];
-            if (used == 0)
-            {
-                continue;
-            }
-
-            _stagingTouched[bucket] = 0;
-            _stagingPeak[bucket] = Math.Max(_stagingPeak[bucket], used);
-            var cap = 1UL << bucket;
-            if (cap > StagingPrewarmLimit)
-            {
-                continue;
-            }
-
-            var stack = _stagingFree[bucket] ??= new Stack<Staging>(16);
-            while (_stagingTotal[bucket] < _stagingPeak[bucket] * (MaxFramesInFlight + 2))
-            {
-                stack.Push(CreateStaging(cap, bucket, false));
-            }
-        }
+        var stack = _stagingFree[bucket] ??= new Stack<Staging>(4);
+        return stack.Count > 0 ? stack.Pop() : CreateStaging(1UL << bits, bucket, readback);
     }
 
     Staging CreateStaging(ulong cap, int bucket, bool readback)
@@ -568,11 +670,15 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
         _deviceFns.vkGetBufferMemoryRequirements(_device, buf, &req);
         var alloc = _memory.Allocate(req, readback ? MemoryKind.Readback : MemoryKind.Upload);
         Check(_deviceFns.vkBindBufferMemory(_device, buf, alloc.Memory, alloc.Offset), "vkBindBufferMemory");
-        _stagingTotal[bucket]++;
+        _stagingBytes += cap;
         return new Staging { Buffer = buf, Alloc = alloc, Size = cap, Bucket = bucket };
     }
 
-    void ReleaseStaging(Staging s) => (_stagingFree[s.Bucket] ??= new Stack<Staging>(16)).Push(s);
+    void ReleaseStaging(Staging s)
+    {
+        s.IdleSince = _submitCount;
+        (_stagingFree[s.Bucket] ??= new Stack<Staging>(4)).Push(s);
+    }
 
     public override void WriteBuffer(GpuBuffer buffer, ulong offset, ReadOnlySpan<byte> data)
     {
@@ -592,10 +698,9 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
             return;
         }
 
-        var st = AcquireStaging((ulong)data.Length, false);
-        data.CopyTo(new Span<byte>(st.Alloc.Mapped, data.Length));
-        _stagingPending.Add(st);
-        UploadEncoder.CopyRawToBuffer(st.Buffer, b, offset, (ulong)data.Length);
+        AcquireUpload((ulong)data.Length, out var staging, out var at, out var mapped);
+        data.CopyTo(new Span<byte>(mapped, data.Length));
+        UploadEncoder.CopyRawToBuffer(staging, at, b, offset, (ulong)data.Length);
     }
 
     public override void WriteTexture(GpuTexture texture, uint mipLevel, uint layer, ReadOnlySpan<byte> data)
@@ -635,10 +740,9 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
             throw new ArgumentException($"expected {expected} bytes of tightly packed texel rows for a {region.Width}x{region.Height}x{region.Depth} region, got {data.Length}", nameof(data));
         }
 
-        var st = AcquireStaging(expected, false);
-        data.CopyTo(new Span<byte>(st.Alloc.Mapped, data.Length));
-        _stagingPending.Add(st);
-        UploadEncoder.CopyRawToTexture(st.Buffer, t, region);
+        AcquireUpload(expected, out var staging, out var at, out var mapped);
+        data.CopyTo(new Span<byte>(mapped, data.Length));
+        UploadEncoder.CopyRawToTexture(staging, at, t, region);
     }
 
     static void ValidateSubresource(VulkanTexture t, uint mip, uint layer)
@@ -774,6 +878,21 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
             DestroyStaging(s);
         }
 
+        foreach (var c in _chunksFree)
+        {
+            DestroyStaging(c);
+        }
+
+        foreach (var (_, c) in _chunksBusy)
+        {
+            DestroyStaging(c);
+        }
+
+        foreach (var c in _chunksActive)
+        {
+            DestroyStaging(c);
+        }
+
         foreach (var s in _stagingPending)
         {
             DestroyStaging(s);
@@ -803,6 +922,7 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
 
     void DestroyStaging(Staging s)
     {
+        _stagingBytes -= s.Size;
         _deviceFns.vkDestroyBuffer(_device, s.Buffer, null);
         _memory.Free(s.Alloc);
     }

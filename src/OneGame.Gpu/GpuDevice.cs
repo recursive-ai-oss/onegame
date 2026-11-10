@@ -41,6 +41,12 @@ public abstract class GpuDevice : IDisposable
     /// <summary>Most bytes of push constants a pipeline layout may declare. 128 is guaranteed on every backend.</summary>
     public const uint MaxPushConstantBytes = 128;
 
+    /// <summary>
+    /// Most bytes of host-visible staging memory a backend keeps for uploads (<see cref="WriteBuffer"/>, <see cref="WriteTexture(GpuTexture, uint, uint, ReadOnlySpan{byte})"/>).
+    /// A burst of uploads larger than this makes the writing call wait for the GPU to drain earlier copies instead of growing the pool.
+    /// </summary>
+    public const ulong StagingBudgetBytes = 32UL << 20;
+
     /// <summary>Optional features and limits of this device.</summary>
     public abstract GpuCapabilities Capabilities { get; }
 

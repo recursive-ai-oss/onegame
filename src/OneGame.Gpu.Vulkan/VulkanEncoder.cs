@@ -334,10 +334,10 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
         _dev.Fns.vkCmdCopyBuffer(Current, s.Handle, d.Handle, 1, &region);
     }
 
-    internal void CopyRawToBuffer(VkBuffer staging, VulkanBuffer dst, ulong dstOffset, ulong size)
+    internal void CopyRawToBuffer(VkBuffer staging, ulong srcOffset, VulkanBuffer dst, ulong dstOffset, ulong size)
     {
         Barrier(dst, Use.CopyDestination);
-        var region = new VkBufferCopy { srcOffset = 0, dstOffset = dstOffset, size = size };
+        var region = new VkBufferCopy { srcOffset = srcOffset, dstOffset = dstOffset, size = size };
         _dev.Fns.vkCmdCopyBuffer(Current, staging, dst.Handle, 1, &region);
     }
 
@@ -348,12 +348,12 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
         _dev.Fns.vkCmdCopyBuffer(Current, src.Handle, staging, 1, &region);
     }
 
-    internal void CopyRawToTexture(VkBuffer staging, VulkanTexture dst, in TextureRegion r)
+    internal void CopyRawToTexture(VkBuffer staging, ulong srcOffset, VulkanTexture dst, in TextureRegion r)
     {
         Barrier(dst, Use.CopyDestination);
         var region = new VkBufferImageCopy
         {
-            bufferOffset = 0,
+            bufferOffset = srcOffset,
             imageSubresource = Layers(dst, r.MipLevel, r.Layer),
             imageOffset = new VkOffset3D { x = (int)r.X, y = (int)r.Y, z = (int)r.Z },
             imageExtent = new VkExtent3D { width = r.Width, height = r.Height, depth = r.Depth },

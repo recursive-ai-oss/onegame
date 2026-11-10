@@ -49,6 +49,7 @@ protected GpuDevice();
 | [`DynamicOffsetAlignment`](#m-dynamicoffsetalignment) | Dynamic buffer offsets must be multiples of this many bytes. |
 | [`MaxFramesInFlight`](#m-maxframesinflight) | Number of submissions allowed in flight before [`GpuDevice.Submit()`](GpuDevice.md#m-submit-gpucommandencoder) waits. |
 | [`MaxPushConstantBytes`](#m-maxpushconstantbytes) | Most bytes of push constants a pipeline layout may declare. |
+| [`StagingBudgetBytes`](#m-stagingbudgetbytes) | Most bytes of host-visible staging memory a backend keeps for uploads ([`GpuDevice.WriteBuffer()`](GpuDevice.md#m-writebuffer-gpubuffer-ulong-readonlyspan-byte), [`GpuDevice.WriteTexture()`](GpuDevice.md#m-writetexture-gputexture-uint-uint-readonlyspan-byte)). |
 
 ### <a id="m-dynamicoffsetalignment"></a>DynamicOffsetAlignment
 
@@ -79,6 +80,16 @@ public const uint MaxPushConstantBytes = 128;
 Most bytes of push constants a pipeline layout may declare. 128 is guaranteed on every backend.
 
 **Type:** `uint`
+
+### <a id="m-stagingbudgetbytes"></a>StagingBudgetBytes
+
+```csharp
+public const ulong StagingBudgetBytes = 33554432;
+```
+
+Most bytes of host-visible staging memory a backend keeps for uploads ([`GpuDevice.WriteBuffer()`](GpuDevice.md#m-writebuffer-gpubuffer-ulong-readonlyspan-byte), [`GpuDevice.WriteTexture()`](GpuDevice.md#m-writetexture-gputexture-uint-uint-readonlyspan-byte)). A burst of uploads larger than this makes the writing call wait for the GPU to drain earlier copies instead of growing the pool.
+
+**Type:** `ulong`
 
 ## Properties
 

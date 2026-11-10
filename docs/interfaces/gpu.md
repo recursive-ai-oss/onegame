@@ -61,7 +61,7 @@ A pipeline is immutable. Replacing a shader means making a new pipeline and rele
 
 ## Uploading and reading back
 
-- `WriteBuffer` / `WriteTexture` copy through a pooled staging buffer and run before the next submitted commands. The destination needs `CopyDestination`.
+- `WriteBuffer` / `WriteTexture` copy through staging memory and run before the next submitted commands. The destination needs `CopyDestination`. On Vulkan the staging is a few 4 MiB chunks, sub-allocated in order, and never more than `GpuDevice.StagingBudgetBytes` (32 MiB) however much a burst writes: when every chunk is still being read by the GPU, the writing call hands the pending copies over and waits for the oldest to finish, so a burst of uploads costs time, not memory, and everything written is on the GPU by the next frame. A single write larger than a chunk (and each readback) gets a buffer of its own, outside that bound, which is freed after it has sat idle. Chunks idle for a while are given back down to a steady rotation (about 16 MiB), and device-memory blocks that have been empty for a while are returned too (one block per memory type is kept). `MemoryStats.StagingBytes` is the tally. Metal and WebGPU have their own staging and are unchanged.
 - `ReadBuffer` / `ReadTexture` wait for the GPU and copy out. The source needs `CopySource`. This is the capture path: render into a `RenderTarget | CopySource` texture, then `ReadTexture`.
 - `WriteTexture(texture, new TextureRegion(mip, layer, x, y, z, w, h, depth), data)` writes a box (a sub-rectangle for atlas updates, slices of a volume). `WriteTexture(texture, mip, layer, data)` is the whole-level shorthand (all slices of a volume).
 - `encoder.GenerateMips(texture)` fills levels 1.. from level 0 (linear blit; 2D, array, cube and 3D). `encoder.CopyTexture(source, destination)` copies every mip and layer between textures of the same shape.
@@ -88,7 +88,7 @@ A pipeline is immutable. Replacing a shader means making a new pipeline and rele
 
 ## Timing and capabilities
 
-`device.MemoryStats` is the backend's own tally of device memory (`ReservedBytes` held from the driver, `UsedBytes` in live resources, `Allocations`); Vulkan fills it, other backends report zeros. Disposed resources count until the GPU has finished with them.
+`device.MemoryStats` is the backend's own tally of device memory (`ReservedBytes` held from the driver, `UsedBytes` in live resources, `Allocations`, `StagingBytes` of upload staging held); Vulkan fills it, other backends report zeros. Disposed resources count until the GPU has finished with them.
 
 `device.Capabilities` (`GpuCapabilities`) lists what is optional: `Timestamps`, `MultiDrawIndirect`, `IndirectFirstInstance`, `DepthClamp`, `DepthBiasClamp`, `NonUniformArrayIndexing`, `MaxSampleCount`, `MaxTextureSize`, `MaxTextureSize3D`, `MaxArrayLayers`, `MaxResourceArrayCount`.
 
