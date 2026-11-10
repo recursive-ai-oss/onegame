@@ -75,8 +75,24 @@ What the peer may do and who it is. May be changed at any time, between ticks: t
 
 | Member | Description |
 | --- | --- |
+| [`SetInterest(ScopeId, ReadOnlySpan<uint>)`](#m-setinterest-scopeid-readonlyspan-uint) | Sets which interest cells this connection receives in a scope of its node; see [`AuthorityScope.SetInterest()`](AuthorityScope.md#m-setinterest-connection-readonlyspan-uint). |
 | [`SubmitCommand(ScopeId, ReadOnlySpan<byte>)`](#m-submitcommand-scopeid-readonlyspan-byte) | Submits a command in its wire form (entity id, command id, arguments), as read from a script or a log. |
 | [`SubmitCommand(ScopeId, EntityId, uint, ReadOnlySpan<byte>)`](#m-submitcommand-scopeid-entityid-uint-readonlyspan-byte) | Submits a command as this connection, exactly as if it had arrived over the channel: the trust record is checked, a refusal is filed and sent back, and an accepted command runs at the start of the scope's next tick. |
+
+### <a id="m-setinterest-scopeid-readonlyspan-uint"></a>SetInterest(ScopeId, ReadOnlySpan&lt;uint&gt;)
+
+```csharp
+public bool SetInterest(ScopeId scope, ReadOnlySpan<uint> keys);
+```
+
+Sets which interest cells this connection receives in a scope of its node; see [`AuthorityScope.SetInterest()`](AuthorityScope.md#m-setinterest-connection-readonlyspan-uint). Works the same for clients and peer nodes.
+
+**Parameters**
+
+- `scope` ([`ScopeId`](ScopeId.md)): The scope id.
+- `keys` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<uint>`): The cells to receive.
+
+**Returns:** `bool` — True when the set changed; false if unchanged or the node has no such scope.
 
 ### <a id="m-submitcommand-scopeid-readonlyspan-byte"></a>SubmitCommand(ScopeId, ReadOnlySpan&lt;byte&gt;)
 

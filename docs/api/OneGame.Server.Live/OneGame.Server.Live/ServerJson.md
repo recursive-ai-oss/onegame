@@ -67,12 +67,15 @@ Creates a new instance.
 | [`ScopeHashAtArray`](#m-scopehashatarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ScopeInfo`](#m-scopeinfo) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ScopeInfoArray`](#m-scopeinfoarray) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`ScopeTraffic`](#m-scopetraffic) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ServerInfoResult`](#m-serverinforesult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ServerSendResult`](#m-serversendresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ServerStateResult`](#m-serverstateresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ShutdownResult`](#m-shutdownresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`String`](#m-string) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`StringArray`](#m-stringarray) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`TypeBytes`](#m-typebytes) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`TypeBytesArray`](#m-typebytesarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`UInt32`](#m-uint32) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`UInt32Array`](#m-uint32array) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`UInt64`](#m-uint64) | Defines the source generated JSON serialization contract metadata for a given type. |
@@ -308,6 +311,16 @@ Defines the source generated JSON serialization contract metadata for a given ty
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`ScopeInfo`](../../OneGame.Server/OneGame.Server/ScopeInfo.md)\[\]&gt;
 
+### <a id="m-scopetraffic"></a>ScopeTraffic
+
+```csharp
+public JsonTypeInfo<ScopeTraffic> ScopeTraffic { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`ScopeTraffic`](../../OneGame.Server/OneGame.Server/ScopeTraffic.md)&gt;
+
 ### <a id="m-serverinforesult"></a>ServerInfoResult
 
 ```csharp
@@ -367,6 +380,26 @@ public JsonTypeInfo<string[]> StringArray { get; }
 Defines the source generated JSON serialization contract metadata for a given type.
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)`<string[]>`
+
+### <a id="m-typebytes"></a>TypeBytes
+
+```csharp
+public JsonTypeInfo<TypeBytes> TypeBytes { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`TypeBytes`](../../OneGame.Server/OneGame.Server/TypeBytes.md)&gt;
+
+### <a id="m-typebytesarray"></a>TypeBytesArray
+
+```csharp
+public JsonTypeInfo<TypeBytes[]> TypeBytesArray { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`TypeBytes`](../../OneGame.Server/OneGame.Server/TypeBytes.md)\[\]&gt;
 
 ### <a id="m-uint32"></a>UInt32
 

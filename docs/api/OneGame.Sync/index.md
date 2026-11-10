@@ -103,3 +103,4 @@ dotnet add package RecursiveAI.OneGame.Sync
 | [`TransferOffer`](OneGame.Sync/TransferOffer.md) | record | An offer another node made to hand entities to a scope on this node; [`AuthorityScope.TransferGate`](OneGame.Sync/AuthorityScope.md#m-transfergate) may veto it. |
 | [`TransferState`](OneGame.Sync/TransferState.md) | enum | Where an authority transfer stands. |
 | [`Trust`](OneGame.Sync/Trust.md) | struct | What a connection may do and who it is. |
+| [`TypeTraffic`](OneGame.Sync/TypeTraffic.md) | class | What one entity type has cost on the wire in a scope: bytes of state in additions (a whole entity entering a view) and in deltas, counted once per connection they were sent to. |

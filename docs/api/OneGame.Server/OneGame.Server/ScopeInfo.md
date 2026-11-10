@@ -43,6 +43,8 @@ A snapshot of one scope.
 | [`Id`](#m-id) | The scope id. |
 | [`Subscribers`](#m-subscribers) | How many connections are subscribed. |
 | [`Tick`](#m-tick) | The scope's world tick. |
+| [`Totals`](#m-totals) | Bytes of frames and snapshots sent so far and entities sent and removed, for judging what a scope costs per client. |
+| [`Traffic`](#m-traffic) | Bytes sent so far per entity type, largest first. |
 
 ### <a id="m-entities"></a>Entities
 
@@ -93,3 +95,23 @@ public long Tick { get; init; }
 The scope's world tick.
 
 **Type:** `long`
+
+### <a id="m-totals"></a>Totals
+
+```csharp
+public ScopeTraffic? Totals { get; init; }
+```
+
+Bytes of frames and snapshots sent so far and entities sent and removed, for judging what a scope costs per client. Only `server_info` fills it.
+
+**Type:** [`ScopeTraffic`](ScopeTraffic.md)?
+
+### <a id="m-traffic"></a>Traffic
+
+```csharp
+public TypeBytes[]? Traffic { get; init; }
+```
+
+Bytes sent so far per entity type, largest first. Only `server_info` fills it.
+
+**Type:** [`TypeBytes`](TypeBytes.md)\[\]?

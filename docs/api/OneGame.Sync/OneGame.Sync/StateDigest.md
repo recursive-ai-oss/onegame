@@ -77,7 +77,7 @@ The whole-world hash at that tick ([`World.ComputeHash()`](../../OneGame.Core/On
 | Member | Description |
 | --- | --- |
 | [`Capture(World, StateDigest, SyncWriter, int)`](#m-capture-world-statedigest-syncwriter-int) | Captures `world` into `into`, replacing its content. |
-| [`CaptureView(World, StateDigest, SyncWriter, int, Audience?, bool)`](#m-captureview-world-statedigest-syncwriter-int-audience-bool) | Captures what a subscriber holds of `world`, hashed the way [`World.ComputeViewHash()`](../../OneGame.Core/OneGame.Core/World.md#m-computeviewhash) and [`World.ComputeAudienceHash()`](../../OneGame.Core/OneGame.Core/World.md#m-computeaudiencehash-audience-bool) do: hidden tables and invisible entities are left out, filtered entities hash by their visible properties, and the random streams are listed only when `includeRandom`. |
+| [`CaptureView(World, StateDigest, SyncWriter, int, Audience?, bool, InterestSet?)`](#m-captureview-world-statedigest-syncwriter-int-audience-bool-interestset) | Captures what a subscriber holds of `world`, hashed the way [`World.ComputeViewHash()`](../../OneGame.Core/OneGame.Core/World.md#m-computeviewhash) and [`World.ComputeAudienceHash()`](../../OneGame.Core/OneGame.Core/World.md#m-computeaudiencehash-audience-bool-interestset) do: hidden tables and invisible entities are left out, filtered entities hash by their visible properties, and the random streams are listed only when `includeRandom`. |
 | [`CopyFrom(StateDigest)`](#m-copyfrom-statedigest) | Copies another digest into this one. |
 | [`Diff(StateDigest, StateDigest, World?, World?, List<StateDifference>)`](#m-diff-statedigest-statedigest-world-world-list-statedifference) | Lists what differs between two digests. |
 | [`Read(ref SyncReader)`](#m-read-syncreader) | Reads a digest from untrusted bytes. |
@@ -98,13 +98,13 @@ Captures `world` into `into`, replacing its content.
 - `scratch` ([`SyncWriter`](../../OneGame.Core/OneGame.Core/SyncWriter.md)): A writer to use for serializing parts.
 - `entityLimit` (`int`): Entities beyond this count are not listed.
 
-### <a id="m-captureview-world-statedigest-syncwriter-int-audience-bool"></a>CaptureView(World, StateDigest, SyncWriter, int, Audience?, bool)
+### <a id="m-captureview-world-statedigest-syncwriter-int-audience-bool-interestset"></a>CaptureView(World, StateDigest, SyncWriter, int, Audience?, bool, InterestSet?)
 
 ```csharp
-public static void CaptureView(World world, StateDigest into, SyncWriter scratch, int entityLimit, Audience? audience, bool includeRandom);
+public static void CaptureView(World world, StateDigest into, SyncWriter scratch, int entityLimit, Audience? audience, bool includeRandom, InterestSet? interest = null);
 ```
 
-Captures what a subscriber holds of `world`, hashed the way [`World.ComputeViewHash()`](../../OneGame.Core/OneGame.Core/World.md#m-computeviewhash) and [`World.ComputeAudienceHash()`](../../OneGame.Core/OneGame.Core/World.md#m-computeaudiencehash-audience-bool) do: hidden tables and invisible entities are left out, filtered entities hash by their visible properties, and the random streams are listed only when `includeRandom`.
+Captures what a subscriber holds of `world`, hashed the way [`World.ComputeViewHash()`](../../OneGame.Core/OneGame.Core/World.md#m-computeviewhash) and [`World.ComputeAudienceHash()`](../../OneGame.Core/OneGame.Core/World.md#m-computeaudiencehash-audience-bool-interestset) do: hidden tables and invisible entities are left out, filtered entities hash by their visible properties, and the random streams are listed only when `includeRandom`.
 
 **Parameters**
 
@@ -114,6 +114,7 @@ Captures what a subscriber holds of `world`, hashed the way [`World.ComputeViewH
 - `entityLimit` (`int`): Entities beyond this count are not listed.
 - `audience` ([`Audience`](../../OneGame.Core/OneGame.Core/Audience.md)?): The audience whose view of an authority world to capture; null captures the world as it is held.
 - `includeRandom` (`bool`): Whether the random streams are part of the view.
+- `interest` ([`InterestSet`](../../OneGame.Core/OneGame.Core/InterestSet.md)?): The connection's interest set when capturing its view of an authority world; null for no restriction.
 
 ### <a id="m-copyfrom-statedigest"></a>CopyFrom(StateDigest)
 

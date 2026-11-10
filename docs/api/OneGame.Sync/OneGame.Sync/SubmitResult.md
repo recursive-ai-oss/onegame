@@ -19,3 +19,4 @@ What `Connection.SubmitCommand` did with a command.
 | <a id="m-nottrusted"></a>`NotTrusted` | `1` | The connection's trust does not allow commanding the scope; a [`CommandRefusal`](CommandRefusal.md) was filed. |
 | <a id="m-unknownscope"></a>`UnknownScope` | `2` | The node has no authority scope with that id. |
 | <a id="m-malformed"></a>`Malformed` | `3` | The bytes were too large to be a command. |
+| <a id="m-outsideinterest"></a>`OutsideInterest` | `4` | The target entity is outside the connection's interest. The sender was answered as for an unknown entity and nothing was queued. |
