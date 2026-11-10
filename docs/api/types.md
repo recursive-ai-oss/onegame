@@ -438,6 +438,7 @@ Every public type in every package, in alphabetical order.
 | [`IblPrefilter.Bindings.Source`](OneGame.Render3D/OneGame.Render3D.Shaders/IblPrefilter.Bindings.Source.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
 | [`IblPrefilter.CSMain`](OneGame.Render3D/OneGame.Render3D.Shaders/IblPrefilter.CSMain.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
 | [`IblPrefilter.Params`](OneGame.Render3D/OneGame.Render3D.Shaders/IblPrefilter.Params.md) | struct | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
+| [`IBoundedSendChannel`](OneGame.Sync/OneGame.Sync/IBoundedSendChannel.md) | interface | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | A channel whose transport keeps a bounded send queue and can say how full it is. |
 | [`IByteStore`](OneGame.Core/OneGame.Storage/IByteStore.md) | interface | `OneGame.Storage` | [OneGame.Core](OneGame.Core/index.md) | A flat folder of named byte blobs: the low level under save slots and settings. |
 | [`IClipboard`](OneGame.UI.Kit/OneGame.UI.Kit/IClipboard.md) | interface | `OneGame.UI.Kit` | [OneGame.UI.Kit](OneGame.UI.Kit/index.md) | Where copied text goes. |
 | [`ICloudSaves`](OneGame.Steam/OneGame.Stores/ICloudSaves.md) | interface | `OneGame.Stores` | [OneGame.Steam](OneGame.Steam/index.md) | Cloud-synced save files. |

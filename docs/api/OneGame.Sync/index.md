@@ -64,6 +64,7 @@ dotnet add package RecursiveAI.OneGame.Sync
 | [`FixedStepDriver`](OneGame.Sync/FixedStepDriver.md) | class | Turns variable frame times into a fixed number of simulation ticks. |
 | [`FollowTarget`](OneGame.Sync/FollowTarget.md) | record | Where a node should subscribe to follow entities that moved to another scope: a link to the node that holds it and an empty replica world. |
 | [`IAuthenticatedChannel`](OneGame.Sync/IAuthenticatedChannel.md) | interface | A channel whose far end proved who it is during the transport handshake. |
+| [`IBoundedSendChannel`](OneGame.Sync/IBoundedSendChannel.md) | interface | A channel whose transport keeps a bounded send queue and can say how full it is. |
 | [`IEscrowHandler`](OneGame.Sync/IEscrowHandler.md) | interface | The game's side of an escrow: how value leaves and enters its holdings. |
 | [`IMessageChannel`](OneGame.Sync/IMessageChannel.md) | interface | One end of a message pipe between two nodes. |
 | [`Link`](OneGame.Sync/Link.md) | class | The client end of a connection to another node: where a node sends subscriptions and commands, and receives snapshots and frames. |

@@ -4,10 +4,10 @@
 
 **Namespace:** `OneGame.Net`  
 **Package:** [`RecursiveAI.OneGame.Net`](../index.md)  
-**Implements:** [`INetConnection`](INetConnection.md), [`IAuthenticatedChannel`](../../OneGame.Sync/OneGame.Sync/IAuthenticatedChannel.md), [`IMessageChannel`](../../OneGame.Sync/OneGame.Sync/IMessageChannel.md)
+**Implements:** [`INetConnection`](INetConnection.md), [`IAuthenticatedChannel`](../../OneGame.Sync/OneGame.Sync/IAuthenticatedChannel.md), [`IMessageChannel`](../../OneGame.Sync/OneGame.Sync/IMessageChannel.md), [`IBoundedSendChannel`](../../OneGame.Sync/OneGame.Sync/IBoundedSendChannel.md)
 
 ```csharp
-public sealed class UdpConnection : INetConnection, IAuthenticatedChannel, IMessageChannel
+public sealed class UdpConnection : INetConnection, IAuthenticatedChannel, IMessageChannel, IBoundedSendChannel
 ```
 
 One reliable-UDP connection, either the client end made by [`UdpTransport.Connect()`](UdpTransport.md#m-connect-ipendpoint-udpoptions-netclock) or a server end handed out by a [`UdpListener`](UdpListener.md). Messages are whole, ordered and reliable; unreliable messages are available beside them.
