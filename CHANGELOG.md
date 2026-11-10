@@ -10,6 +10,7 @@ Drift checks get cheap for large scopes: a drift-check tick with 5,000 entities 
 
 ### Added
 
+- `driftCheckInterval:` in the server configuration (`ServerConfig.DriftCheckInterval`, default 30, 1 to 10,000 ticks), `ServerHost.DriftCheckInterval` (code wins over the file; set before `Start`), `Node.DriftCheckInterval`, and `driftCheckInterval` in `server_info`. A longer interval costs the server and every client less per tick and finds drift later. It cannot be 0 on a server; out-of-range values are errors. `hashHistory`, `hash_at` and cluster hash comparisons do not depend on it.
 - `Entity.StateVersion` and `SyncList.Version`: counters that change whenever an entity's synced state (or a list) changes, so caches can be keyed on them.
 
 ### Changed

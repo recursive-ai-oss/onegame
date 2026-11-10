@@ -30,11 +30,11 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Purchases](OneGame.Purchases/index.md) | 1 | 21 | 159 | In-app purchases: one store-neutral API over StoreKit, Google Play Billing and a scriptable fake store. |
 | [RecursiveAI.OneGame.Render2D](OneGame.Render2D/index.md) | 2 | 65 | 400 | Sprite, tilemap and text renderer. |
 | [RecursiveAI.OneGame.Render3D](OneGame.Render3D/index.md) | 2 | 158 | 1034 | Physically based 3D renderer: glTF materials, clustered forward lighting, image-based lighting, bloom and tone mapping on the render graph. |
-| [RecursiveAI.OneGame.Server](OneGame.Server/index.md) | 1 | 35 | 220 | The headless server host: fixed-step scopes, YAML configuration, logging, and the plugin API. |
-| [RecursiveAI.OneGame.Server.Live](OneGame.Server.Live/index.md) | 1 | 10 | 95 | Live control of a running game server over the same MCP surface as a development game: plugin and scope operations. |
+| [RecursiveAI.OneGame.Server](OneGame.Server/index.md) | 1 | 35 | 223 | The headless server host: fixed-step scopes, YAML configuration, logging, and the plugin API. |
+| [RecursiveAI.OneGame.Server.Live](OneGame.Server.Live/index.md) | 1 | 10 | 96 | Live control of a running game server over the same MCP surface as a development game: plugin and scope operations. |
 | [RecursiveAI.OneGame.Server.Plugins](OneGame.Server.Plugins/index.md) | 1 | 1 | 2 | Loads server plugins into collectible load contexts. CoreCLR only: it uses reflection and assembly loading, so NativeAOT hosts leave it out. |
 | [RecursiveAI.OneGame.Steam](OneGame.Steam/index.md) | 4 | 52 | 283 | Steamworks binding and the store-neutral services (achievements, stats, cloud saves, presence, overlay, ownership) that sit in front of it. |
-| [RecursiveAI.OneGame.Sync](OneGame.Sync/index.md) | 3 | 81 | 590 | Nodes, scopes, loopback transport, saves, command log, replay and drift hashes. |
+| [RecursiveAI.OneGame.Sync](OneGame.Sync/index.md) | 3 | 81 | 591 | Nodes, scopes, loopback transport, saves, command log, replay and drift hashes. |
 | [RecursiveAI.OneGame.Testing](OneGame.Testing/index.md) | 1 | 43 | 409 | The C\# test API: in-process clusters, scenarios, recordings and captures. |
 | [RecursiveAI.OneGame.Text](OneGame.Text/index.md) | 1 | 11 | 66 | Text for the UI: font library, shaping, measurement and the glyph atlas. |
 | [RecursiveAI.OneGame.UI](OneGame.UI/index.md) | 2 | 57 | 597 | Retained UI tree with CSS-model styling and flex layout. |
