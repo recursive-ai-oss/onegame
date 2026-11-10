@@ -6,6 +6,7 @@ using OneGame.Server.Plugins;
 namespace OneGame.Server.Tests;
 
 /// <summary>The server host listening on a real socket: clients connect, are trusted as configured, and stay in sync across plugin reloads.</summary>
+[Collection(nameof(ProcessEnvironment))]
 public class NetworkTests : IDisposable
 {
     private readonly List<string> _folders = [];
@@ -403,3 +404,7 @@ public class NetworkTests : IDisposable
         Assert.Throws<ServerConfigException>(() => ServerConfig.Parse("listen:\n  - { transport: udp, port: 70000 }\n"));
     }
 }
+
+/// <summary>Tests that change process-wide environment variables (ONEGAME_DEV) run one at a time, never beside each other.</summary>
+[CollectionDefinition(nameof(ProcessEnvironment))]
+public sealed class ProcessEnvironment;

@@ -83,6 +83,7 @@ internal static class InterestWorld
 /// 16 clients over real UDP in one scope: bytes per client with and without interest sets, how that scales with far-away entities, join
 /// size, and that nothing outside a client's interest reaches its bytes.
 /// </summary>
+[Collection(nameof(ProcessEnvironment))]
 public class InterestNetworkTests
 {
     private const int Players = 16;
