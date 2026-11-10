@@ -4,6 +4,18 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-11-10
+
+Drift checks get cheap for large scopes: a drift-check tick with 5,000 entities and 16 audiences went from about a second to a few milliseconds on the server. Hashes are unchanged. `RecursiveAI.OneGame.Physics` ships as 1.23.0-preview.1.
+
+### Added
+
+- `Entity.StateVersion` and `SyncList.Version`: counters that change whenever an entity's synced state (or a list) changes, so caches can be keyed on them.
+
+### Changed
+
+- Drift-check ticks no longer re-serialize and re-hash every entity for every audience: each entity caches its full and per-visibility-mask hashes, invalidated by any change (`Entity.StateVersion`, `SyncList.Version`), and the digest folds the world hash in the same pass. Hashes, recordings and the wire are unchanged. A check tick with 5,000 idle 4.8 KB entities and 16 audiences went from about 1,000 ms to about 3 ms on the authority and from about 33 ms to about 0.5 ms on a replica.
+
 ## [1.22.0] - 2026-11-10
 
 Per-connection spatial interest: a connection receives only the part of a scope it is looking at, so a scope with many players no longer costs every client the whole world. `RecursiveAI.OneGame.Physics` ships as 1.22.0-preview.1.

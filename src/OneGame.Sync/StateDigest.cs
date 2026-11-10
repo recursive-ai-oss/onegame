@@ -148,18 +148,22 @@ public sealed class StateDigest
     {
         into._entries.Clear();
         into.Tick = world.Tick;
-        into.WorldHash = audience is { } who ? world.ComputeAudienceHash(who, includeRandom, interest) : world.ComputeViewHash();
         into.Truncated = world.Entities.Count > entityLimit;
         if (into.Truncated)
         {
+            into.WorldHash = audience is { } who ? world.ComputeAudienceHash(who, includeRandom, interest) : world.ComputeViewHash();
             return;
         }
 
+        // One pass: the world hash folds the same parts, in the same order, as World.ComputeViewHash / ComputeAudienceHash.
+        var worldHash = StateHash.Combine(0, (ulong)world.Tick);
         if (includeRandom)
         {
             scratch.Reset();
             world.Rng.Write(scratch);
-            into._entries.Add(new DigestEntry(DigestKind.Rng, 0, null, StateHash.Of(scratch.Written)));
+            var rngHash = StateHash.Of(scratch.Written);
+            worldHash = StateHash.Combine(worldHash, rngHash);
+            into._entries.Add(new DigestEntry(DigestKind.Rng, 0, null, rngHash));
         }
 
         var tables = world.Tables;
@@ -173,22 +177,35 @@ public sealed class StateDigest
 
             scratch.Reset();
             table.Write(scratch);
-            into._entries.Add(new DigestEntry(DigestKind.Table, 0, table.Name, StateHash.Combine(StateHash.Of(table.Name), StateHash.Of(scratch.Written))));
+            var nameHash = StateHash.Of(table.Name);
+            var bodyHash = StateHash.Of(scratch.Written);
+            worldHash = StateHash.Combine(StateHash.Combine(worldHash, nameHash), bodyHash);
+            into._entries.Add(new DigestEntry(DigestKind.Table, 0, table.Name, StateHash.Combine(nameHash, bodyHash)));
         }
 
         var entities = world.Entities;
         for (var n = 0; n < entities.Count; n++)
         {
             var e = entities[n];
+            ulong eh;
             if (audience is null)
             {
-                into._entries.Add(new DigestEntry(DigestKind.Entity, e.Id.Value, null, e.ComputeViewHash()));
+                eh = e.ComputeViewHash();
             }
             else if (e.TryGetAudienceMask(audience.Value, interest, out var mask))
             {
-                into._entries.Add(new DigestEntry(DigestKind.Entity, e.Id.Value, null, e.ComputeViewHash(mask)));
+                eh = e.ComputeViewHash(mask);
             }
+            else
+            {
+                continue;
+            }
+
+            worldHash = StateHash.Combine(worldHash, eh);
+            into._entries.Add(new DigestEntry(DigestKind.Entity, e.Id.Value, null, eh));
         }
+
+        into.WorldHash = worldHash;
     }
 
     /// <summary>Lists what differs between two digests. Entity type names are looked up in <paramref name="expectedWorld"/> then <paramref name="actualWorld"/>.</summary>

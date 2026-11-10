@@ -44,6 +44,7 @@ public EscrowDesk();
 | [`PropertyCount`](#m-propertycount) | The number of [`SyncedAttribute`](../../OneGame.Core/OneGame.Core/SyncedAttribute.md) properties, which is also the width of the bit masks used by [`Entity.DirtyMask`](../../OneGame.Core/OneGame.Core/Entity.md#m-dirtymask) and visibility. |
 | [`SchemaVersion`](#m-schemaversion) | The schema version of the state this build writes. |
 | [`Send`](#m-send) | Sends commands to this entity; views and tests use this instead of calling the handlers. |
+| [`StateVersion`](#m-stateversion) | A number that changes whenever any synced state changes and never goes back, so equal values mean unchanged state. |
 | [`TypeId`](#m-typeid) | The stable id of this entity type, used in snapshots. |
 | [`TypeName`](#m-typename) | The entity type's name as written in code, used in harness output, scenarios and snapshots' JSON dump. |
 
@@ -126,6 +127,16 @@ public EscrowDesk.Commands Send { get; }
 Sends commands to this entity; views and tests use this instead of calling the handlers.
 
 **Type:** `EscrowDesk.`[`Commands`](EscrowDesk.Commands.md)
+
+### <a id="m-stateversion"></a>StateVersion
+
+```csharp
+public override ulong StateVersion { get; }
+```
+
+A number that changes whenever any synced state changes and never goes back, so equal values mean unchanged state. Generated for entities; [`UInt64.MaxValue`](https://learn.microsoft.com/dotnet/api/system.uint64) (the default) turns hash caching off.
+
+**Type:** `ulong`
 
 ### <a id="m-typeid"></a>TypeId
 

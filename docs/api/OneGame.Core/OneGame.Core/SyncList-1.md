@@ -34,6 +34,7 @@ public SyncList();
 | --- | --- |
 | [`Count`](#m-count) |  |
 | [`IsDirty`](#m-isdirty) | True when the list changed since the last [`SyncList<T>.ClearDirty()`](SyncList-1.md#m-cleardirty). |
+| [`Version`](#m-version) | Counts every change and is never reset, so equal values mean an unchanged list. |
 | [`this[int]`](#m-item-int) | Gets or sets an element. |
 
 ### <a id="m-count"></a>Count
@@ -55,6 +56,16 @@ public bool IsDirty { get; }
 True when the list changed since the last [`SyncList<T>.ClearDirty()`](SyncList-1.md#m-cleardirty).
 
 **Type:** `bool`
+
+### <a id="m-version"></a>Version
+
+```csharp
+public ulong Version { get; }
+```
+
+Counts every change and is never reset, so equal values mean an unchanged list. Cached hashes key on it.
+
+**Type:** `ulong`
 
 ### <a id="m-item-int"></a>this\[int\]
 

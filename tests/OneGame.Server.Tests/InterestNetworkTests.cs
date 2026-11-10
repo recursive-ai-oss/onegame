@@ -209,6 +209,8 @@ public class InterestNetworkTests
             Client? client = null;
             while (Environment.TickCount64 < deadline)
             {
+                // Loopback delivery takes a moment; without the pause a fast server steps a varying number of ticks per handshake and the run is not repeatable.
+                Thread.Sleep(1);
                 host.PumpNetwork();
                 host.StepOnce();
                 session.Pump();
