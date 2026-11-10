@@ -4,7 +4,9 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
-Per-connection spatial interest: a connection receives only the part of a scope it is looking at, so a scope with many players no longer costs every client the whole world.
+## [1.22.0] - 2026-11-10
+
+Per-connection spatial interest: a connection receives only the part of a scope it is looking at, so a scope with many players no longer costs every client the whole world. `RecursiveAI.OneGame.Physics` ships as 1.22.0-preview.1.
 
 ### Added
 
@@ -16,11 +18,14 @@ Per-connection spatial interest: a connection receives only the part of a scope 
 - A `listen:` entry takes `maxSendQueueBytes`; `ListenConfig.MaxSendQueueBytes` is its code form.
 - `ServerHost.ClientJoined`: raised when a client is admitted, before its first message, so a game can set its interest before the first snapshot.
 - `IBoundedSendChannel`: transports with a bounded send queue report how full it is.
+- `InterestRequiredException` and `World.HiddenTablesOnly`: once a scope requires interest, making its random streams visible or adding a visible table later is refused.
 
 ### Changed
 
 - A node paces what it sends over a bounded transport: a snapshot (or any burst) larger than the send queue is fed in as acknowledgements free room instead of overflowing at once. What waits is capped, and overflow still closes the link.
 - A server logs a send-queue overflow with the setting to raise instead of a bare "left".
+- A `ClientJoined` handler that throws refuses that one client instead of stopping the server.
+- A transfer's `Moved` notice names only the entities each watcher could see, and commands from such a watcher to an entity in transit are held or forwarded as before.
 
 ## [1.21.0] - 2026-11-10
 
