@@ -38,6 +38,7 @@ protected Entity();
 | [`OwnerKey`](#m-ownerkey) | The value of the [`OwnerKeyAttribute`](OwnerKeyAttribute.md) property, or 0. |
 | [`PropertyCount`](#m-propertycount) | The number of [`SyncedAttribute`](SyncedAttribute.md) properties, which is also the width of the bit masks used by [`Entity.DirtyMask`](Entity.md#m-dirtymask) and visibility. |
 | [`SchemaVersion`](#m-schemaversion) | The schema version of the state this build writes. |
+| [`StateVersion`](#m-stateversion) | A number that changes whenever any synced state changes and never goes back, so equal values mean unchanged state. |
 | [`TeamKey`](#m-teamkey) | The value of the [`TeamKeyAttribute`](TeamKeyAttribute.md) property, or 0. |
 | [`TypeId`](#m-typeid) | The stable id of this entity type, used in snapshots. |
 | [`TypeName`](#m-typename) | The entity type's name as written in code, used in harness output, scenarios and snapshots' JSON dump. |
@@ -132,6 +133,16 @@ public abstract uint SchemaVersion { get; }
 The schema version of the state this build writes.
 
 **Type:** `uint`
+
+### <a id="m-stateversion"></a>StateVersion
+
+```csharp
+public virtual ulong StateVersion { get; }
+```
+
+A number that changes whenever any synced state changes and never goes back, so equal values mean unchanged state. Generated for entities; [`UInt64.MaxValue`](https://learn.microsoft.com/dotnet/api/system.uint64) (the default) turns hash caching off.
+
+**Type:** `ulong`
 
 ### <a id="m-teamkey"></a>TeamKey
 

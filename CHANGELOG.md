@@ -21,6 +21,7 @@ Per-connection spatial interest: a connection receives only the part of a scope 
 
 - A node paces what it sends over a bounded transport: a snapshot (or any burst) larger than the send queue is fed in as acknowledgements free room instead of overflowing at once. What waits is capped, and overflow still closes the link.
 - A server logs a send-queue overflow with the setting to raise instead of a bare "left".
+- Drift-check ticks no longer re-serialize and re-hash every entity for every audience: each entity caches its full and per-visibility-mask hashes, invalidated by any change (`Entity.StateVersion`, `SyncList.Version`), and the digest folds the world hash in the same pass. Hashes, recordings and the wire are unchanged. A check tick with 5,000 idle 4.8 KB entities and 16 audiences went from about 1,000 ms to about 3 ms on the authority and from about 33 ms to about 0.5 ms on a replica.
 
 ## [1.21.0] - 2026-11-10
 

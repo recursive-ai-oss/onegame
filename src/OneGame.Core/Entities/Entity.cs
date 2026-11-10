@@ -197,14 +197,49 @@ public abstract class Entity
 
     internal CommandStatus RunCommand(uint commandId, ref SyncReader arguments) => ExecuteCommand(commandId, ref arguments);
 
+    /// <summary>
+    /// A number that changes whenever any synced state changes and never goes back, so equal values mean unchanged state. Generated for
+    /// entities; <see cref="ulong.MaxValue"/> (the default) turns hash caching off.
+    /// </summary>
+    public virtual ulong StateVersion => ulong.MaxValue;
+
+    // Hash cache, keyed on StateVersion and the entity id (the id is part of the hash). Masked views keep a few slots, one per distinct mask.
+    private ulong _fullHash;
+    private ulong _fullStamp;
+    private ulong _fullId;
+    private bool _fullValid;
+    private MaskedHash[]? _masked;
+    private int _maskedNext;
+
+    private struct MaskedHash
+    {
+        public ulong Mask;
+        public ulong Stamp;
+        public ulong Id;
+        public ulong Hash;
+        public bool Valid;
+    }
+
     /// <summary>Hash of this entity's type, id and full state, for drift detection.</summary>
     public ulong ComputeHash()
     {
+        var stamp = StateVersion;
+        var id = Id.Value;
+        if (_fullValid && _fullStamp == stamp && _fullId == id && stamp != ulong.MaxValue)
+        {
+            return _fullHash;
+        }
+
         var scratch = World?.Scratch ?? new SyncWriter();
         scratch.Reset();
         WriteState(scratch);
-        var h = StateHash.Combine(TypeId, Id.Value);
-        return StateHash.Combine(h, StateHash.Of(scratch.Written));
+        var h = StateHash.Combine(TypeId, id);
+        h = StateHash.Combine(h, StateHash.Of(scratch.Written));
+        _fullHash = h;
+        _fullStamp = stamp;
+        _fullId = id;
+        _fullValid = true;
+        return h;
     }
 
     /// <summary>
@@ -220,11 +255,49 @@ public abstract class Entity
             return ComputeHash();
         }
 
+        var stamp = StateVersion;
+        var id = Id.Value;
+        var cacheable = stamp != ulong.MaxValue;
+        if (cacheable && _masked is { } slots)
+        {
+            for (var i = 0; i < slots.Length; i++)
+            {
+                ref var slot = ref slots[i];
+                if (slot.Valid && slot.Mask == mask && slot.Stamp == stamp && slot.Id == id)
+                {
+                    return slot.Hash;
+                }
+            }
+        }
+
         var scratch = World?.Scratch ?? new SyncWriter();
         scratch.Reset();
         WriteMaskedDelta(scratch, mask);
-        var h = StateHash.Combine(TypeId, Id.Value);
-        return StateHash.Combine(h, StateHash.Of(scratch.Written));
+        var h = StateHash.Combine(TypeId, id);
+        h = StateHash.Combine(h, StateHash.Of(scratch.Written));
+        if (cacheable)
+        {
+            _masked ??= new MaskedHash[4];
+            var target = -1;
+            for (var i = 0; i < _masked.Length; i++)
+            {
+                if (_masked[i].Valid && _masked[i].Mask == mask)
+                {
+                    target = i;
+                    break;
+                }
+            }
+
+            if (target < 0)
+            {
+                target = _maskedNext;
+                _maskedNext = (_maskedNext + 1) % _masked.Length;
+            }
+
+            _masked[target] = new MaskedHash { Mask = mask, Stamp = stamp, Id = id, Hash = h, Valid = true };
+        }
+
+        return h;
     }
 
     /// <summary>The hash of what this copy holds: <see cref="ComputeHash"/> for a complete entity, the filtered form for a replica of a filtered one.</summary>

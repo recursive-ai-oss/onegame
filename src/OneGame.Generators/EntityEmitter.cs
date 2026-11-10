@@ -621,6 +621,7 @@ internal static class EntityEmitter
         var all = allProps.Where(p => !p.Serialized && !p.IsList).Concat(serialized).ToList();
 
         s.Line("private ulong __dirty;");
+        s.Line("private ulong __ver;");
 
         // Property implementations (and backing fields).
         foreach (var p in serialized.Concat(unserialized))
@@ -649,6 +650,7 @@ internal static class EntityEmitter
             if (p.Serialized)
             {
                 s.Line($"__dirty |= {p.Bit};");
+                s.Line("__ver++;");
             }
 
             s.Close();
@@ -685,6 +687,14 @@ internal static class EntityEmitter
 
         s.Line("/// <inheritdoc />");
         s.Line($"public override ulong DirtyMask => {dirtyExpr};");
+        var versionExpr = new StringBuilder("__ver");
+        foreach (var p in serialized.Where(p => p.IsList))
+        {
+            versionExpr.Append($" + {p.Name}.Version");
+        }
+
+        s.Line("/// <inheritdoc />");
+        s.Line($"public override ulong StateVersion => {versionExpr};");
         s.Line("/// <inheritdoc />");
         s.Open("public override void ClearDirty()");
         s.Line("__dirty = 0;");
@@ -703,6 +713,8 @@ internal static class EntityEmitter
         {
             s.Line(p.IsList ? $"{p.Name}.CopyFrom(o.{p.Name});" : $"{p.Field} = o.{p.Field};");
         }
+
+        s.Line("__ver++;");
 
         s.Close();
 
@@ -744,6 +756,7 @@ internal static class EntityEmitter
             s.Line(p.IsList ? $"{p.Name}.ReplaceWith(v{p.Index.ToString(CultureInfo.InvariantCulture)});" : $"{p.Field} = v{p.Index.ToString(CultureInfo.InvariantCulture)};");
         }
 
+        s.Line("__ver++;");
         s.Line("ClearDirty();");
         s.Close();
 
@@ -764,6 +777,7 @@ internal static class EntityEmitter
             s.Open("finally");
             s.Line("EndRestore();");
             s.Close();
+            s.Line("__ver++;");
             s.Line("ClearDirty();");
             s.Line("return;");
             s.Close();
@@ -824,6 +838,7 @@ internal static class EntityEmitter
             s.Open($"if ((mask & {p.Bit}) != 0)");
             s.Line(p.IsList ? $"{p.Name}.ReplaceWith(v{idx});" : $"{p.Field} = v{idx};");
             s.Line($"__dirty |= {p.Bit};");
+            s.Line("__ver++;");
             s.Close();
         }
 

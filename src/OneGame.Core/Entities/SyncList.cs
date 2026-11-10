@@ -15,6 +15,15 @@ public sealed class SyncList<T> : IReadOnlyList<T>
     /// <summary>True when the list changed since the last <see cref="ClearDirty"/>.</summary>
     public bool IsDirty { get; private set; }
 
+    /// <summary>Counts every change and is never reset, so equal values mean an unchanged list. Cached hashes key on it.</summary>
+    public ulong Version { get; private set; }
+
+    private void Touch()
+    {
+        IsDirty = true;
+        Version++;
+    }
+
     /// <inheritdoc />
     public int Count => _items.Count;
 
@@ -26,7 +35,7 @@ public sealed class SyncList<T> : IReadOnlyList<T>
         set
         {
             _items[index] = value;
-            IsDirty = true;
+            Touch();
         }
     }
 
@@ -36,7 +45,7 @@ public sealed class SyncList<T> : IReadOnlyList<T>
     public void Add(T item)
     {
         _items.Add(item);
-        IsDirty = true;
+        Touch();
     }
 
     /// <summary>Inserts an element.</summary>
@@ -46,7 +55,7 @@ public sealed class SyncList<T> : IReadOnlyList<T>
     public void Insert(int index, T item)
     {
         _items.Insert(index, item);
-        IsDirty = true;
+        Touch();
     }
 
     /// <summary>Removes the element at <paramref name="index"/>.</summary>
@@ -54,7 +63,7 @@ public sealed class SyncList<T> : IReadOnlyList<T>
     public void RemoveAt(int index)
     {
         _items.RemoveAt(index);
-        IsDirty = true;
+        Touch();
     }
 
     /// <summary>Removes the first element equal to <paramref name="item"/>.</summary>
@@ -63,7 +72,7 @@ public sealed class SyncList<T> : IReadOnlyList<T>
     public bool Remove(T item)
     {
         var removed = _items.Remove(item);
-        IsDirty |= removed;
+        if (removed) { Touch(); }
         return removed;
     }
 
@@ -74,7 +83,7 @@ public sealed class SyncList<T> : IReadOnlyList<T>
         if (_items.Count > 0)
         {
             _items.Clear();
-            IsDirty = true;
+            Touch();
         }
     }
 
@@ -85,7 +94,7 @@ public sealed class SyncList<T> : IReadOnlyList<T>
     {
         _items.Clear();
         _items.AddRange(items);
-        IsDirty = true;
+        Touch();
     }
 
     /// <summary>Makes this list hold the elements of <paramref name="other"/>, reusing its storage. Prediction uses it to copy confirmed state.</summary>
@@ -94,6 +103,7 @@ public sealed class SyncList<T> : IReadOnlyList<T>
     {
         _items.Clear();
         _items.AddRange(other._items);
+        Version++;
     }
 
     /// <summary>True if the list contains <paramref name="item"/>.</summary>

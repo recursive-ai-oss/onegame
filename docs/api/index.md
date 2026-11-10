@@ -12,7 +12,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Audio](OneGame.Audio/index.md) | 1 | 58 | 449 | Audio device output and the audio service that drives a mixer. |
 | [RecursiveAI.OneGame.Cli](OneGame.Cli/index.md) | 0 | 0 | 0 | The onegame command: create, build, run, test, capture and replay games. |
 | [RecursiveAI.OneGame.Control](OneGame.Control/index.md) | 1 | 60 | 528 | The control layer shared by the command line, the test API and live control. |
-| [RecursiveAI.OneGame.Core](OneGame.Core/index.md) | 2 | 70 | 570 | Entity runtime: fixed-point numbers, random streams and the attributes that declare entities. |
+| [RecursiveAI.OneGame.Core](OneGame.Core/index.md) | 2 | 70 | 572 | Entity runtime: fixed-point numbers, random streams and the attributes that declare entities. |
 | [RecursiveAI.OneGame.Gltf](OneGame.Gltf/index.md) | 1 | 62 | 371 | glTF 2.0 import: scenes, meshes, materials, skins and animations, safe on untrusted input. |
 | [RecursiveAI.OneGame.Gpu](OneGame.Gpu/index.md) | 2 | 93 | 585 | Graphics API abstraction and render graph. |
 | [RecursiveAI.OneGame.Gpu.Backends](OneGame.Gpu.Backends/index.md) | 1 | 1 | 6 | Picks the graphics backend for the machine: Metal on Apple platforms, WebGPU in a browser, Vulkan elsewhere. |
@@ -34,7 +34,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Server.Live](OneGame.Server.Live/index.md) | 1 | 10 | 95 | Live control of a running game server over the same MCP surface as a development game: plugin and scope operations. |
 | [RecursiveAI.OneGame.Server.Plugins](OneGame.Server.Plugins/index.md) | 1 | 1 | 2 | Loads server plugins into collectible load contexts. CoreCLR only: it uses reflection and assembly loading, so NativeAOT hosts leave it out. |
 | [RecursiveAI.OneGame.Steam](OneGame.Steam/index.md) | 4 | 52 | 283 | Steamworks binding and the store-neutral services (achievements, stats, cloud saves, presence, overlay, ownership) that sit in front of it. |
-| [RecursiveAI.OneGame.Sync](OneGame.Sync/index.md) | 3 | 81 | 589 | Nodes, scopes, loopback transport, saves, command log, replay and drift hashes. |
+| [RecursiveAI.OneGame.Sync](OneGame.Sync/index.md) | 3 | 81 | 590 | Nodes, scopes, loopback transport, saves, command log, replay and drift hashes. |
 | [RecursiveAI.OneGame.Testing](OneGame.Testing/index.md) | 1 | 43 | 409 | The C\# test API: in-process clusters, scenarios, recordings and captures. |
 | [RecursiveAI.OneGame.Text](OneGame.Text/index.md) | 1 | 11 | 66 | Text for the UI: font library, shaping, measurement and the glyph atlas. |
 | [RecursiveAI.OneGame.UI](OneGame.UI/index.md) | 2 | 57 | 597 | Retained UI tree with CSS-model styling and flex layout. |

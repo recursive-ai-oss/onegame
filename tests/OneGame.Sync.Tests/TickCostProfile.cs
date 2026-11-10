@@ -124,7 +124,7 @@ public class TickCostProfile
         var rng = new Random(1);
         var alloc0 = GC.GetAllocatedBytesForCurrentThread();
         var gc0 = GC.CollectionCount(0);
-        var warm = Math.Min(20, ticks / 4);
+        var warm = Math.Max(Math.Min(20, ticks / 4), hash > 0 ? hash + 1 : 0); // include one hash tick, so caches are warm
         for (var t = 0; t < ticks + warm; t++)
         {
             var measure = t >= warm;
