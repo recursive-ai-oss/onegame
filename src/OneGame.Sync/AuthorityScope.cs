@@ -315,7 +315,7 @@ public sealed partial class AuthorityScope
             w.WriteByte(Msg.Revoked);
             w.WriteVarUInt(Id.Value);
             w.WriteByte((byte)RefusalReason.ReadRevoked);
-            connection.Channel.Send(w.Written);
+            connection.Sender.Send(w.Written);
             Node.FileRefusal(new CommandRefusal(Id, connection.Id, EntityId.None, 0, RefusalReason.ReadRevoked));
             return;
         }
@@ -657,11 +657,11 @@ public sealed partial class AuthorityScope
         // "Dropped" says the command was not applied, which is true whatever was saved, so it never waits.
         if (verdict == CommandVerdict.Dropped)
         {
-            to.From.Channel.Send(w.Written);
+            to.From.Sender.Send(w.Written);
         }
         else
         {
-            SendDurable(to.From.Channel, w.Written);
+            SendDurable(to.From.Sender, w.Written);
         }
     }
 
@@ -811,7 +811,7 @@ public sealed partial class AuthorityScope
             EntitiesRemoved += removedCount * (long)view.Members.Count;
             foreach (var c in view.Members)
             {
-                Node.SendMessage(c.Channel, _frame.Written);
+                Node.SendMessage(c.Sender, _frame.Written);
             }
         }
 
@@ -968,7 +968,7 @@ public sealed partial class AuthorityScope
         w.WriteVarInt(World.Tick);
         World.WriteViewSnapshot(w, view.Who, RandomVisible, view.Interest);
         SnapshotBytes += w.Written.Length;
-        Node.SendMessage(to.Channel, w.Written);
+        Node.SendMessage(to.Sender, w.Written);
     }
 
     internal void SendDigest(Connection to, long tick)
@@ -992,7 +992,7 @@ public sealed partial class AuthorityScope
 
         w.WriteBool(found is not null);
         found?.Write(w);
-        to.Channel.Send(w.Written);
+        to.Sender.Send(w.Written);
     }
 
     /// <summary>The subscribers that share one audience, and what that audience has been told.</summary>

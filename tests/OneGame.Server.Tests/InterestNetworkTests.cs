@@ -392,6 +392,78 @@ public class InterestNetworkTests
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AJoinSnapshotAboveThePartSizeArrivesWithDefaultQueues(bool interest)
+    {
+        // About 430 KB: above the 256 KiB piece size, far below the queue limit.
+        var host = StartHost(interest, 0, 0, chunks: 90, $"security:\n  key: {ServerKey.File}\n  game: net/1\n", sendQueue: 0);
+        try
+        {
+            var session = JoinOnce(host, reconnect: false);
+            var expected = host.Node.FindAuthority(new ScopeId(1))!.World.Entities.Count;
+            if (interest)
+            {
+                // Its own player's cells: some entities arrive, not the whole world.
+                Assert.True(RunUntil(host, session, () => session.Replica.State == ReplicaState.Live && session.Replica.World.Entities.Count > 0, 20_000), "the filtered snapshot never arrived");
+                Assert.InRange(session.Replica.World.Entities.Count, 1, expected - 1);
+            }
+            else
+            {
+                Assert.True(RunUntil(host, session, () => session.Replica.State == ReplicaState.Live && session.Replica.World.Entities.Count == expected, 20_000), $"{session.Replica.World.Entities.Count} of {expected} entities arrived");
+            }
+        }
+        finally
+        {
+            host.Stop();
+        }
+    }
+
+    [Theory]
+    [InlineData("udp")]
+    [InlineData("ws")]
+    public void AnAcceptedConnectionsChannelIsTheTransportItself(string transport)
+    {
+        // Games read the client's proven key from the channel and close it through the channel; a wrapper there made both fail silently.
+        var setup = new ServerSetup { RegisterEntities = InterestWorld.Register, SeedWorld = (world, _) => Seed(world, 0, 0, 40) };
+        var config = ServerConfig.Parse($"name: net\ntickRate: {TickRate}\nscopes: [{{ id: 1, seed: 7 }}]\nlisten:\n  - {{ transport: {transport}, port: 0, address: 127.0.0.1 }}\nsecurity:\n  key: {ServerKey.File}\n  game: net/1\n");
+        var host = new ServerHost(config, setup) { Authenticate = _ => Trust.None };
+        var seen = new List<(bool Net, PeerKey? Key)>();
+        var denied = 0;
+        host.ClientJoined += connection =>
+        {
+            seen.Add((connection.Channel is INetConnection, (connection.Channel as IAuthenticatedChannel)?.RemoteKey));
+            if (connection.Channel is IAuthenticatedChannel { RemoteKey: { } key } && key.ToString().Length > 0 && connection.Channel is INetConnection net && seen.Count == 1)
+            {
+                // The game's own identity check: grant by key, refuse the first client by closing it through the channel.
+                denied++;
+                net.Disconnect();
+            }
+            else
+            {
+                connection.Trust = Trust.Player(new ScopeId(1));
+            }
+        };
+        host.Start();
+        try
+        {
+            var port = host.Endpoints.First(e => e.Transport == transport).Port;
+            RemoteSession Open() => new(new ConnectOptions { Address = $"{transport}://127.0.0.1:{port}", Name = "k", Security = NetSecurity.ForClient([ServerKey.Public], "net/1") }, host.CreateReplicaWorld(new ScopeId(1)));
+            var first = Open();
+            RunUntil(host, first, () => first.Replica.State != ReplicaState.Subscribing && first.Connection.State == ConnectionState.Closed, 5_000);
+            Assert.Equal(1, denied);
+            var second = Open();
+            var expected = host.Node.FindAuthority(new ScopeId(1))!.World.Entities.Count;
+            Assert.True(RunUntil(host, second, () => second.Replica.State == ReplicaState.Live && second.Replica.World.Entities.Count == expected, 20_000), $"{second.Replica.World.Entities.Count} of {expected} entities arrived");
+            Assert.All(seen, x => { Assert.True(x.Net); Assert.NotNull(x.Key); });
+        }
+        finally
+        {
+            host.Stop();
+        }
+    }
+
     [Fact]
     public void ASnapshotLargerThanTheSendQueueIsPacedThroughItInsteadOfOverflowing()
     {
