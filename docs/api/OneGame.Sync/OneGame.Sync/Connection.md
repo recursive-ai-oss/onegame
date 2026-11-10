@@ -15,7 +15,7 @@ The authority's end of a connection: what the peer is trusted to do, and the ent
 
 | Member | Description |
 | --- | --- |
-| [`Channel`](#m-channel) | The channel to the peer. |
+| [`Channel`](#m-channel) | The channel the connection was accepted on: the transport itself, so a game can ask it who the peer is ([`IAuthenticatedChannel`](IAuthenticatedChannel.md)) or close it. |
 | [`Id`](#m-id) | Id unique within the node. |
 | [`Name`](#m-name) | Name for reports. |
 | [`Node`](#m-node) | The node this end belongs to (the one that holds the authority scopes). |
@@ -27,7 +27,7 @@ The authority's end of a connection: what the peer is trusted to do, and the ent
 public IMessageChannel Channel { get; }
 ```
 
-The channel to the peer. Tests may send raw bytes through it to play a misbehaving authority.
+The channel the connection was accepted on: the transport itself, so a game can ask it who the peer is ([`IAuthenticatedChannel`](IAuthenticatedChannel.md)) or close it. Sending through it directly skips the node's send-queue pacing.
 
 **Type:** [`IMessageChannel`](IMessageChannel.md)
 

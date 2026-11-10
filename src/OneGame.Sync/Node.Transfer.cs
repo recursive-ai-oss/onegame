@@ -151,7 +151,7 @@ public sealed partial class Node
                     Out.WriteByte(Msg.XferStaged);
                     Out.WriteVarUInt(scope.Value);
                     Out.WriteVarUInt(id);
-                    from.Channel.Send(Out.Written);
+                    from.Sender.Send(Out.Written);
                     return;
                 }
 
@@ -199,7 +199,7 @@ public sealed partial class Node
                     Out.WriteByte((byte)CommandVerdict.Refused);
                     Out.WriteByte((byte)reason);
                     Out.WriteString(string.Empty);
-                    from.Channel.Send(Out.Written);
+                    from.Sender.Send(Out.Written);
                     return;
                 }
 
@@ -217,7 +217,7 @@ public sealed partial class Node
         Out.WriteVarUInt(scope.Value);
         Out.WriteVarUInt(id);
         Out.WriteByte((byte)reason);
-        to.Channel.Send(Out.Written);
+        to.Sender.Send(Out.Written);
     }
 
     private void ReplyDone(AuthorityScope authority, Connection to, ScopeId scope, ulong id, ulong[] newIds)
@@ -233,7 +233,7 @@ public sealed partial class Node
         }
 
         // The installed entities must be on disk before the sender is allowed to forget them.
-        authority.SendDurable(to.Channel, Out.Written);
+        authority.SendDurable(to.Sender, Out.Written);
     }
 
     // ---- the node handing entities over, and subscribers following -----------------------------------------------------------

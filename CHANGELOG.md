@@ -17,6 +17,10 @@ Drift checks get cheap for large scopes: a drift-check tick with 5,000 entities 
 
 - Drift-check ticks no longer re-serialize and re-hash every entity for every audience: each entity caches its full and per-visibility-mask hashes, invalidated by any change (`Entity.StateVersion`, `SyncList.Version`), and the digest folds the world hash in the same pass. Hashes, recordings and the wire are unchanged. A check tick with 5,000 idle 4.8 KB entities and 16 audiences went from about 1,000 ms to about 3 ms on the authority and from about 33 ms to about 0.5 ms on a replica.
 
+### Fixed
+
+- 1.22.0: `Connection.Channel` returned an internal send-pacing wrapper instead of the transport for UDP connections, so code that read the client's proven key through `connection.Channel is IAuthenticatedChannel` or closed the client through `connection.Channel is INetConnection` silently failed: such a server trusted no one, and clients joined but never received entities. `Connection.Channel` is the transport again, as before 1.22; pacing is kept internally.
+
 ## [1.22.0] - 2026-11-10
 
 Per-connection spatial interest: a connection receives only the part of a scope it is looking at, so a scope with many players no longer costs every client the whole world. `RecursiveAI.OneGame.Physics` ships as 1.22.0-preview.1.

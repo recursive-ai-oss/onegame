@@ -82,7 +82,11 @@ public sealed class Connection
         Name = name;
         _trust = trust;
         Channel = channel;
+        Sender = channel is IBoundedSendChannel bounded ? new PacedChannel(bounded) : channel;
     }
+
+    /// <summary>What the node sends through: the transport itself, or a pacing queue in front of a bounded one. Never exposed, so <see cref="Channel"/> stays the transport.</summary>
+    internal IMessageChannel Sender { get; }
 
     /// <summary>The node this end belongs to (the one that holds the authority scopes).</summary>
     public Node Node { get; }
@@ -116,7 +120,7 @@ public sealed class Connection
     public bool SetInterest(ScopeId scope, ReadOnlySpan<uint> keys)
         => Node.FindAuthority(scope) is { } authority && authority.SetInterest(this, keys);
 
-    /// <summary>The channel to the peer. Tests may send raw bytes through it to play a misbehaving authority.</summary>
+    /// <summary>The channel the connection was accepted on: the transport itself, so a game can ask it who the peer is (<see cref="IAuthenticatedChannel"/>) or close it. Sending through it directly skips the node's send-queue pacing.</summary>
     public IMessageChannel Channel { get; }
 
     /// <summary>The highest forwarded-command number accepted on this connection; lower or equal numbers are repeats.</summary>
@@ -327,7 +331,7 @@ public sealed partial class Node
     /// <param name="name">Name for reports.</param>
     public Connection Accept(IMessageChannel channel, Trust trust, string? name = null)
     {
-        var connection = new Connection(this, _nextConnection++, name ?? "peer" + _nextConnection.ToString(CultureInfo.InvariantCulture), trust, channel is IBoundedSendChannel bounded ? new PacedChannel(bounded) : channel);
+        var connection = new Connection(this, _nextConnection++, name ?? "peer" + _nextConnection.ToString(CultureInfo.InvariantCulture), trust, channel);
         _connections.Add(connection);
         return connection;
     }
@@ -490,7 +494,7 @@ public sealed partial class Node
         for (var i = 0; i < _connections.Count; i++)
         {
             var c = _connections[i];
-            (c.Channel as PacedChannel)?.Drain();
+            (c.Sender as PacedChannel)?.Drain();
             while (c.Channel.TryReceive(out var message))
             {
                 any = true;
@@ -618,7 +622,7 @@ public sealed partial class Node
         w.WriteVarUInt(refusal.Entity.Value);
         w.WriteVarUInt(refusal.CommandId);
         w.WriteByte((byte)refusal.Reason);
-        to.Channel.Send(w.Written);
+        to.Sender.Send(w.Written);
     }
 
     private void HandleServerMessage(Connection from, ReadOnlySpan<byte> message)
@@ -645,7 +649,7 @@ public sealed partial class Node
                     Out.WriteByte(Msg.SubscribeRefused);
                     Out.WriteVarUInt(scope.Value);
                     Out.WriteByte((byte)reason);
-                    from.Channel.Send(Out.Written);
+                    from.Sender.Send(Out.Written);
                     return;
                 }
 

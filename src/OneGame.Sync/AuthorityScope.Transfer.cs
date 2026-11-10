@@ -551,7 +551,7 @@ public sealed partial class AuthorityScope
                     }
                 }
 
-                t.Watchers[k].Channel.Send(w.Written);
+                t.Watchers[k].Sender.Send(w.Written);
             }
         }
 
