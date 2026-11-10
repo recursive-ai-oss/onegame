@@ -2,7 +2,9 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
-## [Unreleased]
+## [1.21.0] - 2026-11-10
+
+Creating thousands of meshes at once no longer leaves the GPU driver holding gigabytes of upload memory. `RecursiveAI.OneGame.Physics` ships as 1.21.0-preview.1.
 
 ### Fixed
 
