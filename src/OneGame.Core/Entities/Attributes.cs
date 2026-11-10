@@ -65,6 +65,17 @@ public sealed class TeamKeyAttribute : Attribute
 {
 }
 
+/// <summary>
+/// Marks the synced <see cref="uint"/> or <see cref="int"/> property that says which interest cell the entity is in (for example a grid
+/// cell from <c>InterestGrid2D</c>). A connection that has been given an interest set (<c>AuthorityScope.SetInterest</c>) receives the
+/// entity only while the set holds its key. Zero means global: always sent. The property must be <see cref="Visibility.Everyone"/>.
+/// At most one per entity.
+/// </summary>
+[AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
+public sealed class InterestKeyAttribute : Attribute
+{
+}
+
 /// <summary>Who may receive an entity or one of its synced properties. The authority enforces it when it builds snapshots and deltas for a subscriber; a value that is not sent never reaches the subscriber's bytes at all. Every level is on top of the scope's read trust.</summary>
 public enum Visibility
 {

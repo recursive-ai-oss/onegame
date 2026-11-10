@@ -75,10 +75,16 @@ internal sealed class ServerNetwork
     /// <summary>Called for a client whose connection closed, after its pending messages were handled and before the node forgets it.</summary>
     public Action<Connection>? Left { get; set; }
 
+    /// <summary>Called for a client right after it was admitted, before any message from it is handled.</summary>
+    public Action<Connection>? Joined { get; set; }
+
     public int Count => _remotes.Count;
 
     /// <summary>The security every listener uses; <see cref="Listen"/> throws <see cref="SecurityNotConfiguredException"/> while it is null.</summary>
     public NetSecurity? Security { get; set; }
+
+    /// <summary>Most message bytes queued per client connection before it is closed with <c>SendQueueFull</c>; 0 keeps the transport default (8 MiB).</summary>
+    public int MaxSendQueueBytes { get; set; }
 
     public void Listen(ListenConfig config)
     {
@@ -89,8 +95,8 @@ internal sealed class ServerNetwork
 
         var bind = new IPEndPoint(address, config.Port);
         INetListener listener = config.Transport == "udp"
-            ? UdpTransport.Listen(bind, new UdpOptions { Security = Security })
-            : WebSocketTransport.Listen(bind, new WebSocketOptions { Security = Security });
+            ? UdpTransport.Listen(bind, MaxSendQueueBytes > 0 ? new UdpOptions { Security = Security, MaxSendQueueBytes = MaxSendQueueBytes } : new UdpOptions { Security = Security })
+            : WebSocketTransport.Listen(bind, MaxSendQueueBytes > 0 ? new WebSocketOptions { Security = Security, MaxSendQueueBytes = MaxSendQueueBytes } : new WebSocketOptions { Security = Security });
         _listeners.Add(listener);
         _transports.Add(config.Transport);
         var port = listener.LocalEndPoint is IPEndPoint bound ? bound.Port : config.Port;
@@ -185,6 +191,7 @@ internal sealed class ServerNetwork
         var accepted = _server.Accept(connection, trust.Value, request.Name);
         _remotes.Add(new Remote(request.Name, transport, connection, accepted));
         _log($"client {request.Name} connected");
+        Joined?.Invoke(accepted);
     }
 
     private void Drop(int index)

@@ -70,3 +70,14 @@ public partial class Locker : Entity
 
     protected override void OnTick() => Alarm++;
 }
+
+/// <summary>An entity in an interest cell, to exercise interest filtering under NativeAOT.</summary>
+[Entity]
+public partial class Pin : Entity
+{
+    [Synced, InterestKey] public partial uint Cell { get; set; }
+
+    [Synced] public partial int Count { get; set; }
+
+    protected override void OnTick() => Count++;
+}

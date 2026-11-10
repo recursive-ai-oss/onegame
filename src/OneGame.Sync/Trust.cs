@@ -175,6 +175,9 @@ public enum SubmitResult
 
     /// <summary>The bytes were too large to be a command.</summary>
     Malformed,
+
+    /// <summary>The target entity is outside the connection's interest. The sender was answered as for an unknown entity and nothing was queued.</summary>
+    OutsideInterest,
 }
 
 /// <summary>A command or subscription that an authority refused, or that this node was told was refused.</summary>

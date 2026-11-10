@@ -15,6 +15,12 @@ public class VisibilityRuleTests
         { "team key is a long", Harness.Entity("[Synced, TeamKey] public partial long Side { get; set; }"), "OG0017" },
         { "owner key is a list", Harness.Entity("[Synced, OwnerKey] public SyncList<int> Who { get; } = new();"), "OG0017" },
 
+        { "two interest keys", Harness.Entity("[Synced, InterestKey] public partial uint A { get; set; }\n[Synced, InterestKey] public partial uint B { get; set; }"), "OG0017" },
+        { "interest key not synced", Harness.Entity("[InterestKey] public uint Cell { get; set; }"), "OG0017" },
+        { "interest key is a string", Harness.Entity("[Synced, InterestKey] public partial string Cell { get; set; }"), "OG0017" },
+        { "interest key is hidden", Harness.Entity("[Synced(Visibility = Visibility.Hidden), InterestKey] public partial uint Cell { get; set; }"), "OG0017" },
+        { "interest key is owner-only", Harness.Entity(Owner + "[Synced(Visibility = Visibility.Owner), InterestKey] public partial uint Cell { get; set; }"), "OG0017" },
+
         // OG0018: visibility that has nothing to match against
         { "owner member without owner key", Harness.Entity("[Synced(Visibility = Visibility.Owner)] public partial int Gold { get; set; }"), "OG0018" },
         { "team member without team key", Harness.Entity(Owner + "[Synced(Visibility = Visibility.Team)] public partial int Stamina { get; set; }"), "OG0018" },
@@ -43,6 +49,7 @@ public class VisibilityRuleTests
             + "[Synced(Visibility = Visibility.Owner)] public partial int Gold { get; set; }\n"
             + "[Synced(Visibility = Visibility.Team)] public SyncList<int> Plans { get; } = new();\n"
             + "[Synced(Visibility = Visibility.Hidden)] public partial int Secret { get; set; }") },
+        { "interest key", Harness.Entity("[Synced, InterestKey] public partial uint Cell { get; set; }\n[Synced] public partial int Hp { get; set; }") },
         { "int keys", Harness.Entity("[Synced, OwnerKey] public partial int Who { get; set; }\n[Synced(Visibility = Visibility.Owner)] public partial int Gold { get; set; }") },
         { "view reads an owner member", Harness.Entity(Owner + "[Synced(Visibility = Visibility.Owner)] public partial int Gold { get; set; }\n[View] public int Shown => Gold;") },
         { "sim reads a hidden member", Harness.Entity("[Synced(Visibility = Visibility.Hidden)] public partial int Secret { get; set; }\nprotected override void OnTick() { Secret++; N = Secret; }") },

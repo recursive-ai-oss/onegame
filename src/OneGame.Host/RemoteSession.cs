@@ -41,6 +41,9 @@ public sealed record ConnectOptions
 
     /// <summary>How long to keep trying after the connection was lost before the session counts as closed for good. Attempts back off from 250 ms to 2 s.</summary>
     public int ReconnectWindowMs { get; init; } = 60_000;
+
+    /// <summary>Most message bytes this client queues for sending before the link closes with <c>SendQueueFull</c>; 0 keeps the transport default (8 MiB).</summary>
+    public int MaxSendQueueBytes { get; init; }
 }
 
 /// <summary>One drift report: a replica whose state differed from the server's at the same tick.</summary>
@@ -119,7 +122,7 @@ public sealed class RemoteSession
         {
             (Transport, var endpoint) = Parse(options.Address);
             _endpoint = endpoint;
-            Connection = Open(Transport, endpoint, options.Conditions, _security);
+            Connection = Open(Transport, endpoint, options.Conditions, _security, options.MaxSendQueueBytes);
         }
 
         Connection.Connected += OnConnected;
@@ -242,7 +245,7 @@ public sealed class RemoteSession
         {
             if (now >= _nextAttempt)
             {
-                _candidate = OperatingSystem.IsBrowser() ? OpenInBrowser(Options.Address, _security) : Open(Transport, _endpoint, Options.Conditions, _security);
+                _candidate = OperatingSystem.IsBrowser() ? OpenInBrowser(Options.Address, _security) : Open(Transport, _endpoint, Options.Conditions, _security, Options.MaxSendQueueBytes);
             }
 
             return;
@@ -402,10 +405,10 @@ public sealed class RemoteSession
         return WebSocketTransport.Secure(() => new BrowserWebSocketConnection(address), security);
     }
 
-    private static INetConnection Open(string transport, IPEndPoint endpoint, NetworkConditions? conditions, NetSecurity? security)
+    private static INetConnection Open(string transport, IPEndPoint endpoint, NetworkConditions? conditions, NetSecurity? security, int maxSendQueueBytes)
     {
         var clock = NetClock.System;
-        var udpOptions = new UdpOptions { Security = security };
+        var udpOptions = maxSendQueueBytes > 0 ? new UdpOptions { Security = security, MaxSendQueueBytes = maxSendQueueBytes } : new UdpOptions { Security = security };
         if (transport == "udp")
         {
             if (conditions is null)
@@ -417,7 +420,7 @@ public sealed class RemoteSession
             return UdpTransport.Connect(new ConditionedDatagramSocket(new SystemDatagramSocket(bind), conditions, clock), endpoint.Serialize(), udpOptions, clock);
         }
 
-        var ws = WebSocketTransport.Connect(endpoint, new WebSocketOptions { Security = security }, clock);
+        var ws = WebSocketTransport.Connect(endpoint, maxSendQueueBytes > 0 ? new WebSocketOptions { Security = security, MaxSendQueueBytes = maxSendQueueBytes } : new WebSocketOptions { Security = security }, clock);
         return conditions is null ? ws : new ConditionedConnection(ws, conditions, clock);
     }
 

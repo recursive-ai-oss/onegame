@@ -109,6 +109,13 @@ public sealed class Connection
         }
     }
 
+    /// <summary>Sets which interest cells this connection receives in a scope of its node; see <see cref="AuthorityScope.SetInterest"/>. Works the same for clients and peer nodes.</summary>
+    /// <param name="scope">The scope id.</param>
+    /// <param name="keys">The cells to receive.</param>
+    /// <returns>True when the set changed; false if unchanged or the node has no such scope.</returns>
+    public bool SetInterest(ScopeId scope, ReadOnlySpan<uint> keys)
+        => Node.FindAuthority(scope) is { } authority && authority.SetInterest(this, keys);
+
     /// <summary>The channel to the peer. Tests may send raw bytes through it to play a misbehaving authority.</summary>
     public IMessageChannel Channel { get; }
 
@@ -551,6 +558,13 @@ public sealed partial class Node
         {
             Refuse(from, new CommandRefusal(scope, from.Id, entity, commandId, RefusalReason.NotTrustedToCommand), sequence);
             return SubmitResult.NotTrusted;
+        }
+
+        // A connection that holds only part of the scope cannot tell a missing entity from one outside its interest.
+        if (authority.OutsideInterest(from, entity))
+        {
+            authority.AnswerUnknownEntity(from, sequence, entity, commandId);
+            return SubmitResult.OutsideInterest;
         }
 
         // Owner-only commands need the right to own in this scope, and to be the entity's owner. The check reads the authority's state as

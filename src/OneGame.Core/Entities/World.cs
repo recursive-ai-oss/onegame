@@ -491,9 +491,10 @@ public sealed class World
     /// </summary>
     /// <param name="audience">The subscriber's player and team.</param>
     /// <param name="includeRandom">Whether the subscriber receives the random streams.</param>
-    public ulong ComputeAudienceHash(in Audience audience, bool includeRandom = true) => ViewHash(audience, includeRandom);
+    /// <param name="interest">The connection's interest set, or null when it receives every entity.</param>
+    public ulong ComputeAudienceHash(in Audience audience, bool includeRandom = true, InterestSet? interest = null) => ViewHash(audience, includeRandom, interest);
 
-    private ulong ViewHash(Audience? audience, bool includeRandom)
+    private ulong ViewHash(Audience? audience, bool includeRandom, InterestSet? interest = null)
     {
         var h = StateHash.Combine(0, (ulong)Tick);
         if (includeRandom)
@@ -522,7 +523,7 @@ public sealed class World
             {
                 h = StateHash.Combine(h, e.ComputeViewHash());
             }
-            else if (e.TryGetAudienceMask(audience.Value, out var mask))
+            else if (e.TryGetAudienceMask(audience.Value, interest, out var mask))
             {
                 h = StateHash.Combine(h, e.ComputeViewHash(mask));
             }
@@ -563,9 +564,9 @@ public sealed class World
 
     /// <summary>
     /// Writes the snapshot an audience is allowed to hold: only the entities it may see, each with only the properties it may see,
-    /// without hidden tables, and without the random streams unless <paramref name="includeRandom"/>. <see cref="ReadSnapshot"/> reads it.
+    /// without hidden tables, and without the random streams unless <paramref name="includeRandom"/>. When <paramref name="interest"/> is given, entities with an interest key outside it are left out too. <see cref="ReadSnapshot"/> reads it.
     /// </summary>
-    public void WriteViewSnapshot(SyncWriter w, in Audience audience, bool includeRandom)
+    public void WriteViewSnapshot(SyncWriter w, in Audience audience, bool includeRandom, InterestSet? interest = null)
     {
         w.WriteFixed32(SnapshotMagic);
         w.WriteVarUInt(ViewSnapshotFormat);
@@ -580,7 +581,7 @@ public sealed class World
         ulong visible = 0;
         foreach (var e in _entities)
         {
-            if (e.TryGetAudienceMask(audience, out _))
+            if (e.TryGetAudienceMask(audience, interest, out _))
             {
                 visible++;
             }
@@ -589,7 +590,7 @@ public sealed class World
         w.WriteVarUInt(visible);
         foreach (var e in _entities)
         {
-            if (!e.TryGetAudienceMask(audience, out var mask))
+            if (!e.TryGetAudienceMask(audience, interest, out var mask))
             {
                 continue;
             }

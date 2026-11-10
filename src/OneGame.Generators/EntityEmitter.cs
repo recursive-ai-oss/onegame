@@ -226,6 +226,8 @@ internal static class EntityEmitter
 
         public bool IsTeamKey { get; set; }
 
+        public bool IsInterestKey { get; set; }
+
         public string Name => Symbol.Name;
 
         public string Field => "__p_" + Symbol.Name;
@@ -357,6 +359,7 @@ internal static class EntityEmitter
                 Visibility = VisibilityOf(p),
                 IsOwnerKey = Codecs.HasAttribute(p, "OwnerKeyAttribute"),
                 IsTeamKey = Codecs.HasAttribute(p, "TeamKeyAttribute"),
+                IsInterestKey = Codecs.HasAttribute(p, "InterestKeyAttribute"),
             });
         }
 
@@ -371,6 +374,7 @@ internal static class EntityEmitter
                 Visibility = serialized[i].Visibility,
                 IsOwnerKey = serialized[i].IsOwnerKey,
                 IsTeamKey = serialized[i].IsTeamKey,
+                IsInterestKey = serialized[i].IsInterestKey,
             };
         }
 
@@ -524,9 +528,9 @@ internal static class EntityEmitter
     /// <summary>[OwnerKey] and [TeamKey]: one of each at most, on a synced uint or int property.</summary>
     private static void CheckKeys(INamedTypeSymbol type, List<Prop> props, List<DiagData> diags)
     {
-        foreach (var key in new[] { "OwnerKeyAttribute", "TeamKeyAttribute" })
+        foreach (var key in new[] { "OwnerKeyAttribute", "TeamKeyAttribute", "InterestKeyAttribute" })
         {
-            var label = key == "OwnerKeyAttribute" ? "OwnerKey" : "TeamKey";
+            var label = key == "OwnerKeyAttribute" ? "OwnerKey" : key == "TeamKeyAttribute" ? "TeamKey" : "InterestKey";
             var marked = type.GetMembers().OfType<IPropertySymbol>().Where(p => Codecs.HasAttribute(p, key)).ToList();
             marked.Sort(EmitUtil.SourceOrder);
             for (var i = 0; i < marked.Count; i++)
@@ -542,6 +546,11 @@ internal static class EntityEmitter
                 {
                     diags.Add(DiagData.Create(Rules.KeyShape, location,
                         $"[{label}] property '{p.Name}' must be a [Synced] uint or int: it holds the id that connections are matched against."));
+                }
+                else if (key == "InterestKeyAttribute" && VisibilityOf(p) != 0)
+                {
+                    diags.Add(DiagData.Create(Rules.KeyShape, location,
+                        $"[InterestKey] property '{p.Name}' must be Visibility.Everyone: a replica or relay needs the key to filter what it passes on, and a cell id of something a connection may see reveals nothing."));
                 }
             }
         }
@@ -833,6 +842,13 @@ internal static class EntityEmitter
         {
             s.Line("/// <inheritdoc />");
             s.Line($"public override ulong TeamKey => unchecked((ulong)(uint){teamKey.Field});");
+        }
+
+        var interestKey = allProps.FirstOrDefault(p => p.IsInterestKey);
+        if (interestKey is not null)
+        {
+            s.Line("/// <inheritdoc />");
+            s.Line($"public override uint InterestKey => unchecked((uint){interestKey.Field});");
         }
 
         if (entityVisibility != 0 || serialized.Any(p => p.Visibility != 0))

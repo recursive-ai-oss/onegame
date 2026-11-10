@@ -59,7 +59,7 @@ internal static class Rules
     public static readonly DiagnosticDescriptor Culture = Error("OG0016", "Culture-sensitive text in sim code",
         "{0} follows the machine's culture, so it gives different results on different machines. Pass CultureInfo.InvariantCulture, or compare with StringComparison.Ordinal.");
 
-    public static readonly DiagnosticDescriptor KeyShape = Error("OG0017", "Owner or team key is declared wrongly",
+    public static readonly DiagnosticDescriptor KeyShape = Error("OG0017", "Owner, team or interest key is declared wrongly",
         "{0}");
 
     public static readonly DiagnosticDescriptor VisibilityShape = Error("OG0018", "Visibility has nothing to match against",

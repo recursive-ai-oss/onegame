@@ -143,11 +143,12 @@ public sealed class StateDigest
     /// <param name="entityLimit">Entities beyond this count are not listed.</param>
     /// <param name="audience">The audience whose view of an authority world to capture; null captures the world as it is held.</param>
     /// <param name="includeRandom">Whether the random streams are part of the view.</param>
-    public static void CaptureView(World world, StateDigest into, SyncWriter scratch, int entityLimit, Audience? audience, bool includeRandom)
+    /// <param name="interest">The connection's interest set when capturing its view of an authority world; null for no restriction.</param>
+    public static void CaptureView(World world, StateDigest into, SyncWriter scratch, int entityLimit, Audience? audience, bool includeRandom, InterestSet? interest = null)
     {
         into._entries.Clear();
         into.Tick = world.Tick;
-        into.WorldHash = audience is { } who ? world.ComputeAudienceHash(who, includeRandom) : world.ComputeViewHash();
+        into.WorldHash = audience is { } who ? world.ComputeAudienceHash(who, includeRandom, interest) : world.ComputeViewHash();
         into.Truncated = world.Entities.Count > entityLimit;
         if (into.Truncated)
         {
@@ -183,7 +184,7 @@ public sealed class StateDigest
             {
                 into._entries.Add(new DigestEntry(DigestKind.Entity, e.Id.Value, null, e.ComputeViewHash()));
             }
-            else if (e.TryGetAudienceMask(audience.Value, out var mask))
+            else if (e.TryGetAudienceMask(audience.Value, interest, out var mask))
             {
                 into._entries.Add(new DigestEntry(DigestKind.Entity, e.Id.Value, null, e.ComputeViewHash(mask)));
             }

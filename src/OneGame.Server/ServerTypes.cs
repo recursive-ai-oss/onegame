@@ -74,7 +74,29 @@ public sealed record UnloadResult(string Name, int EntitiesRemoved, bool Collect
 /// <param name="Hash">The world hash, as 16 hex digits.</param>
 /// <param name="Entities">The entity count.</param>
 /// <param name="Subscribers">How many connections are subscribed.</param>
-public sealed record ScopeInfo(uint Id, long Tick, string Hash, int Entities, int Subscribers);
+public sealed record ScopeInfo(uint Id, long Tick, string Hash, int Entities, int Subscribers)
+{
+    /// <summary>Bytes sent so far per entity type, largest first. Only <c>server_info</c> fills it.</summary>
+    public TypeBytes[]? Traffic { get; init; }
+
+    /// <summary>Bytes of frames and snapshots sent so far and entities sent and removed, for judging what a scope costs per client. Only <c>server_info</c> fills it.</summary>
+    public ScopeTraffic? Totals { get; init; }
+}
+
+/// <summary>Bytes one entity type has cost on the wire in a scope (counted per connection it was sent to).</summary>
+/// <param name="Type">The entity type's name.</param>
+/// <param name="Additions">Whole entities sent.</param>
+/// <param name="AddedBytes">Bytes of those.</param>
+/// <param name="Deltas">Deltas sent.</param>
+/// <param name="DeltaBytes">Bytes of those.</param>
+public sealed record TypeBytes(string Type, long Additions, long AddedBytes, long Deltas, long DeltaBytes);
+
+/// <summary>A scope's outgoing totals.</summary>
+/// <param name="FrameBytes">Bytes of frame messages, every connection's copy counted.</param>
+/// <param name="SnapshotBytes">Bytes of snapshot messages.</param>
+/// <param name="EntitiesSent">Entities sent whole.</param>
+/// <param name="EntitiesRemoved">Entity removals sent.</param>
+public sealed record ScopeTraffic(long FrameBytes, long SnapshotBytes, long EntitiesSent, long EntitiesRemoved);
 
 /// <summary>What a game adds to a server that has no plugins, or in addition to them.</summary>
 public sealed class ServerSetup

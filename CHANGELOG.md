@@ -2,6 +2,18 @@
 
 All notable changes to onegame are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/) from 1.0.0.
 
+## [Unreleased]
+
+Per-connection spatial interest: a connection receives only the part of a scope it is looking at, so a scope with many players no longer costs every client the whole world.
+
+### Added
+
+- `[InterestKey]` on a synced `uint`/`int` property (0 = global), `AuthorityScope.SetInterest`/`ClearInterest`/`InterestOf`, `Connection.SetInterest`, `AuthorityScope.RequireInterest`, `InterestSet` and `InterestGrid2D` (cells with enter/leave radii, sticky entity keys). Entities entering and leaving a connection's interest are sent as additions and removals; joins carry only in-interest entities. Works for clients, peer nodes and relays, needs no wire change (1.21 clients and servers interoperate), and keeps view hashes and drift checks exact. Hot tables and random streams are not filtered (see `docs/interfaces/sync.md`).
+- `SubmitResult.OutsideInterest`; a command to an entity outside the connection's view is answered as an unknown entity.
+- `AuthorityScope.Traffic` (bytes per entity type), `EntitiesSent`, `EntitiesRemoved`, `FrameBytes`, `SnapshotBytes`, listed per scope by the server's `server_info`.
+- `ServerHost.MaxSendQueueBytes` and `ConnectOptions.MaxSendQueueBytes`; the default (8 MiB) and how to raise it are documented in `transport.md`.
+- OG0017 also covers `[InterestKey]` declarations.
+
 ## [1.21.0] - 2026-11-10
 
 Creating thousands of meshes at once no longer leaves the GPU driver holding gigabytes of upload memory. `RecursiveAI.OneGame.Physics` ships as 1.21.0-preview.1.

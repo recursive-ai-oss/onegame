@@ -53,6 +53,7 @@ public sealed class ServerHost
         Node = new Node(config.Name);
         _network = new ServerNetwork(Node, request => Authenticate is { } hook ? hook(request) : DefaultTrust(), m => Log.Info(m));
         _network.Left = c => ClientLeft?.Invoke(c);
+        _network.Joined = c => ClientJoined?.Invoke(c);
     }
 
     /// <summary>
@@ -60,6 +61,12 @@ public sealed class ServerHost
     /// <see cref="Connection.Trust"/> still says who it was, so a game can remove that player's entities.
     /// </summary>
     public event Action<Connection>? ClientLeft;
+
+    /// <summary>
+    /// Raised when a network client was admitted, before the first message it sends is handled, so its first snapshot can already be shaped:
+    /// call <see cref="AuthorityScope.SetInterest"/> here to give it the cells around where it spawns. <see cref="Connection.Trust"/> says who it is.
+    /// </summary>
+    public event Action<Connection>? ClientJoined;
 
     /// <summary>
     /// Decides what a newly connected network client may do, or refuses it by returning null. The default gives every client the configured
@@ -74,6 +81,13 @@ public sealed class ServerHost
     /// nor the configuration names a key or says <c>insecure</c>.
     /// </summary>
     public NetSecurity? Security { get; set; }
+
+    /// <summary>
+    /// Most message bytes the server queues for one client connection (unacknowledged data included) before it closes that connection with
+    /// <c>SendQueueFull</c>. 0 (the default) keeps the transport's 8 MiB. Raise it for clients that join a large scope over a slow link; it must be at least the message cap.
+    /// Set it before <see cref="Start"/>.
+    /// </summary>
+    public int MaxSendQueueBytes { get; set; }
 
     /// <summary>The addresses the server listens on, with the ports the system picked for configured port 0. Filled by <see cref="Start"/>.</summary>
     public IReadOnlyList<ListenEndpoint> Endpoints => _network.Endpoints;
@@ -278,6 +292,7 @@ public sealed class ServerHost
         {
             Security ??= BuildSecurity(Config.Security);
             _network.Security = Security;
+            _network.MaxSendQueueBytes = MaxSendQueueBytes;
             if (_network.Security.Mode == SecurityMode.Insecure)
             {
                 Log.Warn("client links are NOT encrypted or authenticated (insecure mode). Use this for tests and local tools only.");
@@ -412,12 +427,16 @@ public sealed class ServerHost
     }
 
     /// <summary>A summary of every hosted scope: tick, state hash, entity count and subscribers. Cheap enough to poll.</summary>
-    public IReadOnlyList<ScopeInfo> ScopeInfos()
+    public IReadOnlyList<ScopeInfo> ScopeInfos(bool withTraffic = false)
     {
         var list = new List<ScopeInfo>(_scopes.Count);
         foreach (var s in _scopes)
         {
-            list.Add(new ScopeInfo(s.Id.Value, s.World.Tick, s.World.ComputeHash().ToString("x16", CultureInfo.InvariantCulture), s.World.Entities.Count, s.Authority.Subscribers.Count));
+            list.Add(new ScopeInfo(s.Id.Value, s.World.Tick, s.World.ComputeHash().ToString("x16", CultureInfo.InvariantCulture), s.World.Entities.Count, s.Authority.Subscribers.Count)
+            {
+                Traffic = withTraffic ? [.. s.Authority.Traffic.OrderByDescending(t => t.Bytes).Select(t => new TypeBytes(t.TypeName, t.Additions, t.AddedBytes, t.Deltas, t.DeltaBytes))] : null,
+                Totals = withTraffic ? new ScopeTraffic(s.Authority.FrameBytes, s.Authority.SnapshotBytes, s.Authority.EntitiesSent, s.Authority.EntitiesRemoved) : null,
+            });
         }
 
         return list;

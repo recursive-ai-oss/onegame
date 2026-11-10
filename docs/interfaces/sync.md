@@ -45,6 +45,55 @@ The generator knows who may see what (`entity-sync.md`: `Visibility`, `[OwnerKey
 - **Hashes and drift.** `ComputeHash()` is the full hash on the authority (everything, including hidden data). A filtered replica cannot match it, so the contract is: the **view hash**. `AuthorityScope.ViewHashFor(connection)` hashes the world as that connection's audience sees it: tick, the random streams when sent, the tables that are not hidden, and each visible entity with only its visible properties (an entity with every property visible hashes as `Entity.ComputeHash()`). `ReplicaScope.ViewHash` (= `World.ComputeViewHash()`) computes the same value from what the replica holds. They are equal at equal ticks when nothing drifted. The hash a frame carries, the per-entity digest a drift report diffs, and `Cluster.CheckReplicas` all use view hashes. Without any restricted data the view hash equals `ComputeHash()`, so the authority and replica hashes compare directly as before. Recording and replay use the full hash on the authority only. Tooling reports it per scope: `net_status` lists every scope a client's node follows with its view hash (and the full hash, so a filtered replica is visible as one), and the server's `hash_at` gives the view hash for a named connection.
 - **Trust changes at runtime.** Setting `Connection.Trust` (between ticks) re-evaluates the connection in every scope it follows. If it may no longer read a scope, it is removed, receives `Revoked`, its replica's entities and tables are emptied (`ReplicaState.Revoked`, a `ReadRevoked` refusal is filed on both nodes), and it gets nothing more; `Node.Resubscribe` asks again. If its `Who` changed, it moves to the view of its new audience and gets a fresh snapshot of it: data it may now see appears, data it may no longer see is gone, and the replica stays hash-equal. Changing only `Command` or `Own` takes effect on the next command.
 
+## Interest: spatial filtering inside a scope
+
+Visibility says who may see an entity; **interest** says which part of the scope a connection is looking at. Without it every subscriber gets every entity it may see, so a big world costs every client the same. With it a connection gets only the entities in the cells it was given, and nothing about the rest is on its wire.
+
+```csharp
+[Entity]
+public partial class Body : Entity
+{
+    [Synced, InterestKey] public partial uint Cell { get; set; }     // 0 = global (always sent)
+    [Synced] public partial int X { get; set; }
+    // the sim keeps the key current: Cell = Grid.Sticky(Cell, X, Y, margin);
+}
+
+var grid = new InterestGrid2D(cellSize: 128, enterCells: 2, leaveCells: 3);   // flat plane, 16+16 bit cells
+var follower = grid.Follow();                                // one per connection
+scope.RequireInterest = true;                                // before the first subscriber
+// every tick, from the player's position (between ticks):
+if (follower.Update(player.X, player.Y)) scope.SetInterest(connection, follower.Keys);
+```
+
+- **`[InterestKey]`** marks one synced `uint`/`int` property per entity (OG0017 if it is not synced, not a 32-bit integer, repeated, or not `Visibility.Everyone`; replicas and relays need the key to filter onward). Key 0, and entities without the attribute, are global.
+- **`AuthorityScope.SetInterest(connection, keys)`** (also `Connection.SetInterest(scope, keys)`) sets the cells a connection receives. The server decides; a client cannot ask for more. It works the same for a player's connection, a peer node's and a relay's. Call it between ticks; it takes effect in that tick's publish. The same keys again allocate nothing. It may be called before the connection subscribes (for instance in `Authenticate`'s caller) and is then used for the first snapshot. `ClearInterest` gives back everything (one fresh snapshot); `InterestOf(connection)` reads the set the last frame used.
+- **Enter and leave are additions and removals** in the next frame: no new message and no resnapshot. A joining connection's snapshot holds only in-interest entities, so its size follows the interest radius, not the world. The first `SetInterest` on a connection that had none (and no `RequireInterest`) moves it to a view of its own with one fresh snapshot.
+- **`RequireInterest`**: a connection that has no set receives only global entities until it gets one, so a join cannot pull the whole world. Turning it on throws if subscribers exist or the world has a hot table that is not `Hidden`, and forces `RandomStreams = Hidden`.
+- **Views and hashes.** A connection with a set has a view of its own (connections without one still share a view per audience). `ViewHashFor(connection)`, the hash a frame carries, and the drift digest all use the same rule: visibility first, then the interest set that the frame was built with; interest only narrows. A replica's `ViewHash` equals them at equal ticks. Changing the set mid-tick never changes a hash already taken, because the set is applied at the start of a publish.
+- **Commands** to an entity outside the connection's view are answered as an unknown entity (`SubmitResult.OutsideInterest` from `SubmitCommand`, `CommandVerdict.UnknownEntity` to a replica), exactly as for an id that does not exist, so ids cannot be probed. The check comes before the owner-only check for the same reason.
+- **Grid helpers.** `InterestGrid2D(cellSize, enterCells, leaveCells)`: `Key(x, y)` packs 16-bit column and row (never 0; covers 65,534 cells a side, so +-100,000 blocks even at 3-block cells; no wrap). `Follower.Update` adds the cells within `enterCells` (Chebyshev) of the player's cell and drops a cell only past `leaveCells`, so standing on a boundary changes nothing after the first crossing. `Sticky(key, x, y, margin)` keeps an entity's old key until it strays `margin` past the cell edge. With 128-block cells and enter 2, everything within 256 blocks of the player is in interest from anywhere in its cell (a 224-block terrain stream fits); creatures that matter within 100 blocks fit in the same cells.
+- **Counters.** `AuthorityScope.Traffic` (bytes of additions and deltas per entity type, once per connection they were sent to), `EntitiesSent`, `EntitiesRemoved`, `FrameBytes`, `SnapshotBytes`. A server's `server_info` lists them per scope.
+
+### What interest does not filter (the leak table)
+
+Everything below is closed by the same rule unless noted. A game must know the open rows.
+
+| Path | Filtered? |
+|---|---|
+| Snapshots (join, resync, `Load`, trust change) | Yes: `World.WriteViewSnapshot` takes the set |
+| Frame removals, additions, deltas | Yes: one predicate; deltas only for entities the view already holds |
+| View hash, frame hash, drift digests and their entity lists | Yes: computed with the set the frame used |
+| Command answers and refusals | Only the sender's own ids are echoed; out-of-interest targets are `UnknownEntity` |
+| `Moved` hints after a transfer | Only to connections whose view held the entity |
+| Transfer bundles, escrow messages | Authority to authority; never sent to a client or limited by interest |
+| Relays | A relay holds only what its own set let through and cannot widen it; its clients get their own sets. The relay's world needs the key (it is `Everyone`) |
+| Long messages (`Part`) | Carry the already filtered message |
+| **Hot tables** | **No.** Sent whole to everyone unless `Hidden`. `RequireInterest` refuses a world with a visible table. Keep per-location rows as entities |
+| **Random streams** | **No.** Sent to everyone unless `RandomStreams = Hidden` (forced by `RequireInterest`); a stream advanced by events a connection cannot see would reveal them |
+| **Global entities (key 0)** | Sent to all by definition |
+| **Values that name hidden things** | A property of an in-interest entity that holds another entity's id, or the next entity id handed out (the snapshot carries the id counter), tells a client something exists |
+| Server-side tools (`state_query`, `hash_at`, recordings) | Operator-side; they see the whole scope |
+
 ## Prediction
 
 A replica's own world (`ReplicaScope.World`) is always exactly the authority's state, `Timed<T>` aside, so a command's effect shows only after a round trip. Prediction adds a second, writable world beside it that views draw instead.

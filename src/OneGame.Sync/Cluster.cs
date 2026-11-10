@@ -194,7 +194,7 @@ public sealed class Cluster
                 var a = new StateDigest();
                 var b = new StateDigest();
                 var includeRandom = authority.RandomStreams == Visibility.Everyone;
-                StateDigest.CaptureView(authority.World, a, scratch, int.MaxValue, replica.Link.Connection.Trust.Who, includeRandom);
+                StateDigest.CaptureView(authority.World, a, scratch, int.MaxValue, replica.Link.Connection.Trust.Who, includeRandom, authority.EffectiveInterest(replica.Link.Connection));
                 StateDigest.CaptureView(replica.World, b, scratch, int.MaxValue, null, replica.World.RandomIncluded);
                 var differences = new List<StateDifference>();
                 StateDigest.Diff(a, b, authority.World, replica.World, differences);

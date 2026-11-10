@@ -12,6 +12,8 @@
     <!-- The plugin test builds edited versions of the sample plugin source with the real generator, like a rebuild would. -->
     <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <!-- The interest tests declare entities that run through the generator like a game's would. -->
+    <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <EmbeddedResource Include="../OneGame.Server.SamplePlugin/CounterPlugin.cs" LogicalName="CounterPlugin.cs" />
   </ItemGroup>
 
