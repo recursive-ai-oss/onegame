@@ -69,7 +69,15 @@ internal static class SyncSmoke
     /// <summary>A replica holds only the cells it was given; moving the set streams entities in and out, and view hashes stay equal.</summary>
     private static string? RunInterest()
     {
-        var authority = NewWorld(WorldRole.Authority);
+        // No hot table: a table that everyone receives cannot be filtered, and RequireInterest refuses such a world.
+        World Plain(WorldRole role)
+        {
+            var registry = new EntityRegistry();
+            OneGame.Generated.OneGame_AotSmoke.EntityTypes.Register(registry);
+            return new World(11, registry, role);
+        }
+
+        var authority = Plain(WorldRole.Authority);
         var grid = new InterestGrid2D(128, 1, 2);
         for (var i = 0; i < 20; i++)
         {
@@ -80,7 +88,7 @@ internal static class SyncSmoke
         var host = cluster.AddNode("host");
         var scope = cluster.AddScope(host, new ScopeId(1), authority);
         scope.RequireInterest = true;
-        var view = cluster.AddLocalReplica(scope, NewWorld(WorldRole.Replica), Trust.Player(scope.Id));
+        var view = cluster.AddLocalReplica(scope, Plain(WorldRole.Replica), Trust.Player(scope.Id));
         var follower = grid.Follow();
         cluster.Settle();
         for (var step = 0; step < 6; step++)
