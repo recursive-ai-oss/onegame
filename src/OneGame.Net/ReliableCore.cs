@@ -59,6 +59,9 @@ internal sealed class ReliableCore
     private uint _baseSeq;
     private uint _nextSeq;
     private int _queuedBytes;
+
+    /// <summary>Message bytes queued and not yet acknowledged.</summary>
+    internal int QueuedBytes => _queuedBytes;
     private int _inFlight;
     private double _cwnd;
     private double _ssthresh = 1 << 30;

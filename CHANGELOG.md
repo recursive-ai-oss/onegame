@@ -13,6 +13,14 @@ Per-connection spatial interest: a connection receives only the part of a scope 
 - `AuthorityScope.Traffic` (bytes per entity type), `EntitiesSent`, `EntitiesRemoved`, `FrameBytes`, `SnapshotBytes`, listed per scope by the server's `server_info`.
 - `ServerHost.MaxSendQueueBytes` and `ConnectOptions.MaxSendQueueBytes`; the default (8 MiB) and how to raise it are documented in `transport.md`.
 - OG0017 also covers `[InterestKey]` declarations.
+- A `listen:` entry takes `maxSendQueueBytes`; `ListenConfig.MaxSendQueueBytes` is its code form.
+- `ServerHost.ClientJoined`: raised when a client is admitted, before its first message, so a game can set its interest before the first snapshot.
+- `IBoundedSendChannel`: transports with a bounded send queue report how full it is.
+
+### Changed
+
+- A node paces what it sends over a bounded transport: a snapshot (or any burst) larger than the send queue is fed in as acknowledgements free room instead of overflowing at once. What waits is capped, and overflow still closes the link.
+- A server logs a send-queue overflow with the setting to raise instead of a bare "left".
 
 ## [1.21.0] - 2026-11-10
 

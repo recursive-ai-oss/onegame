@@ -126,6 +126,32 @@ public class WebSocketTests
     }
 
     [Fact]
+    public void ASendQueueOverflowAtTheServerEndIsTypedAtBothEnds()
+    {
+        var (server, client, accepted) = Connected(new WebSocketOptions { MaxMessageBytes = 1 << 20, MaxSendQueueBytes = 2 << 20 }, new WebSocketOptions { MaxMessageBytes = 1 << 20 });
+        using var srv = server;
+        DisconnectInfo? atServer = null;
+        DisconnectInfo? atClient = null;
+        accepted.Disconnected += (_, i) => atServer = i;
+        client.Disconnected += (_, i) => atClient = i;
+        for (var i = 0; i < 5; i++)
+        {
+            accepted.Send(new byte[1 << 20]);
+        }
+
+        Until(() =>
+        {
+            server.Pump();
+            client.Pump();
+            return atClient is not null && atServer is not null;
+        }, 5000);
+        Assert.Equal(DisconnectReason.SendQueueFull, atServer!.Value.Reason);
+        Assert.False(atServer.Value.ByRemote);
+        Assert.Equal(DisconnectReason.SendQueueFull, atClient!.Value.Reason);
+        Assert.True(atClient.Value.ByRemote);
+    }
+
+    [Fact]
     public void AClientThatVanishesWithoutClosingIsReportedAbnormal()
     {
         var (server, client, accepted) = Connected();

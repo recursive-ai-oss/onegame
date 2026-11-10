@@ -315,7 +315,7 @@ public sealed partial class Node
     /// <param name="name">Name for reports.</param>
     public Connection Accept(IMessageChannel channel, Trust trust, string? name = null)
     {
-        var connection = new Connection(this, _nextConnection++, name ?? "peer" + _nextConnection.ToString(CultureInfo.InvariantCulture), trust, channel);
+        var connection = new Connection(this, _nextConnection++, name ?? "peer" + _nextConnection.ToString(CultureInfo.InvariantCulture), trust, channel is IBoundedSendChannel bounded ? new PacedChannel(bounded) : channel);
         _connections.Add(connection);
         return connection;
     }
@@ -478,6 +478,7 @@ public sealed partial class Node
         for (var i = 0; i < _connections.Count; i++)
         {
             var c = _connections[i];
+            (c.Channel as PacedChannel)?.Drain();
             while (c.Channel.TryReceive(out var message))
             {
                 any = true;

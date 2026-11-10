@@ -335,6 +335,82 @@ public class InterestNetworkTests
         Assert.True(with.Seen < with.Entities / 4);
     }
 
+    // ---- send queue: pacing and typed overflow ------------------------------------------------------------------------
+
+    private static RemoteSession JoinOnce(ServerHost host, bool reconnect)
+    {
+        var port = host.Endpoints.First(e => e.Transport == "udp").Port;
+        var world = host.CreateReplicaWorld(new ScopeId(1));
+        return new RemoteSession(new ConnectOptions { Address = $"udp://127.0.0.1:{port}", Name = "big", Security = NetSecurity.ForClient([ServerKey.Public], "net/1"), Reconnect = reconnect }, world);
+    }
+
+    private static bool RunUntil(ServerHost host, RemoteSession session, Func<bool> done, int ms = 120_000)
+    {
+        var deadline = Environment.TickCount64 + ms;
+        while (Environment.TickCount64 < deadline)
+        {
+            host.PumpNetwork();
+            host.StepOnce();
+            session.Pump();
+            if (done())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    [Fact]
+    public void ASnapshotLargerThanTheSendQueueIsPacedThroughItInsteadOfOverflowing()
+    {
+        // About 4.8 MB of chunks against a 4 MiB queue: queued all at once this would close the link; paced, it arrives.
+        var host = StartHost(false, 0, 0, chunks: 1000, $"security:\n  key: {ServerKey.File}\n  game: net/1\n", sendQueue: 4 << 20);
+        try
+        {
+            var session = JoinOnce(host, reconnect: false);
+            Assert.True(RunUntil(host, session, () => session.Replica.State == ReplicaState.Live && session.Replica.World.Entities.Count == 1016), "the snapshot never completed");
+            Assert.Null(session.Status().CloseReason);
+            Assert.DoesNotContain(host.Log.Tail(200), l => l.Message.Contains("SendQueueFull", StringComparison.Ordinal));
+        }
+        finally
+        {
+            host.Stop();
+        }
+    }
+
+    [Fact]
+    public void AClientThatCannotTakeWhatIsQueuedIsClosedWithATypedReasonBothEndsShow()
+    {
+        // 14 MB against a 4 MiB queue is more than pacing may hold: the link ends with SendQueueFull, said to the client and logged.
+        var host = StartHost(false, 0, 0, chunks: 3000, $"security:\n  key: {ServerKey.File}\n  game: net/1\n", sendQueue: 4 << 20);
+        try
+        {
+            var session = JoinOnce(host, reconnect: false);
+            Assert.True(RunUntil(host, session, () => session.Status().CloseReason is not null), "the connection was never closed");
+            Assert.Equal("SendQueueFull", session.Status().CloseReason);
+            for (var i = 0; i < 10; i++)
+            {
+                host.PumpNetwork();
+                host.StepOnce();
+            }
+
+            Assert.Contains(host.Log.Tail(200), l => l.Message.Contains("SendQueueFull", StringComparison.Ordinal) && l.Message.Contains("maxSendQueueBytes", StringComparison.Ordinal));
+        }
+        finally
+        {
+            host.Stop();
+        }
+    }
+
+    [Fact]
+    public void AListenerTakesItsOwnSendQueueSizeFromTheConfiguration()
+    {
+        var yaml = "listen:\n  - { transport: udp, port: 0, address: 127.0.0.1, maxSendQueueBytes: 33554432 }\nsecurity: { insecure: true }\n";
+        Assert.Equal(33554432, ServerConfig.Parse(yaml).Listen[0].MaxSendQueueBytes);
+        Assert.Throws<ServerConfigException>(() => ServerConfig.Parse(yaml.Replace("33554432", "1000", StringComparison.Ordinal)));
+    }
+
     // ---- nothing outside the interest reaches a connection's bytes ---------------------------------------------------
 
     /// <summary>Keeps every datagram and message a client receives.</summary>

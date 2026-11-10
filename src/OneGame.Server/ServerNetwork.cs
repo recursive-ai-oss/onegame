@@ -94,9 +94,10 @@ internal sealed class ServerNetwork
         }
 
         var bind = new IPEndPoint(address, config.Port);
+        var queue = config.MaxSendQueueBytes > 0 ? config.MaxSendQueueBytes : MaxSendQueueBytes;
         INetListener listener = config.Transport == "udp"
-            ? UdpTransport.Listen(bind, MaxSendQueueBytes > 0 ? new UdpOptions { Security = Security, MaxSendQueueBytes = MaxSendQueueBytes } : new UdpOptions { Security = Security })
-            : WebSocketTransport.Listen(bind, MaxSendQueueBytes > 0 ? new WebSocketOptions { Security = Security, MaxSendQueueBytes = MaxSendQueueBytes } : new WebSocketOptions { Security = Security });
+            ? UdpTransport.Listen(bind, queue > 0 ? new UdpOptions { Security = Security, MaxSendQueueBytes = queue } : new UdpOptions { Security = Security })
+            : WebSocketTransport.Listen(bind, queue > 0 ? new WebSocketOptions { Security = Security, MaxSendQueueBytes = queue } : new WebSocketOptions { Security = Security });
         _listeners.Add(listener);
         _transports.Add(config.Transport);
         var port = listener.LocalEndPoint is IPEndPoint bound ? bound.Port : config.Port;
@@ -199,7 +200,9 @@ internal sealed class ServerNetwork
         var r = _remotes[index];
         _remotes.RemoveAt(index);
         var info = r.Connection.CloseInfo;
-        _log($"client {r.Name} left ({info.Reason}{(info.ByRemote ? ", by the client" : "")})");
+        _log(info.Reason == DisconnectReason.SendQueueFull
+            ? $"client {r.Name} dropped: its send queue overflowed (SendQueueFull). Raise maxSendQueueBytes on the listener or ServerHost.MaxSendQueueBytes, or send less (interest sets)"
+            : $"client {r.Name} left ({info.Reason}{(info.ByRemote ? ", by the client" : "")})");
 
         // Messages that arrived before the close are handled first, then the node stops publishing to the dead connection and forgets it.
         _server.Pump();
