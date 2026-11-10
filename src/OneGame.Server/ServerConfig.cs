@@ -55,6 +55,7 @@ public sealed class ServerConfigException : Exception
 /// <code>
 /// name: arena
 /// tickRate: 60
+/// driftCheckInterval: 30   # ticks between replica hash checks (1 to 10000); longer = cheaper, finds drift later
 /// scopes:
 ///   - { id: 1, seed: 42 }
 /// plugins:
@@ -66,7 +67,7 @@ public sealed class ServerConfigException : Exception
 /// </summary>
 public sealed class ServerConfig
 {
-    private static readonly string[] TopKeys = ["name", "tickRate", "maxCatchUp", "scopes", "plugins", "live", "listen", "trust", "hashHistory", "security"];
+    private static readonly string[] TopKeys = ["name", "tickRate", "maxCatchUp", "scopes", "plugins", "live", "listen", "trust", "hashHistory", "driftCheckInterval", "security"];
     private static readonly string[] SecurityKeys = ["key", "game", "insecure"];
     private static readonly string[] ListenKeys = ["transport", "port", "address", "maxSendQueueBytes"];
     private static readonly string[] TrustKeys = ["read", "command"];
@@ -102,6 +103,18 @@ public sealed class ServerConfig
 
     /// <summary>How many recent ticks of per-scope state hashes to keep so another node's hash can be compared at the same tick; 0 turns it off.</summary>
     public int HashHistory { get; init; }
+
+    /// <summary>Most ticks <see cref="DriftCheckInterval"/> may ask for.</summary>
+    public const int MaxDriftCheckInterval = 10_000;
+
+    /// <summary>
+    /// Ticks between the hash checks the server puts in its frames (default 30, 1 to 10,000). Every subscriber compares its replica with the server's view
+    /// hash on those ticks, so a longer interval costs the server and every client less per tick but finds drift later. Between checks nothing is hashed.
+    /// There is no off switch on a server: drift expectations in cluster scenarios and the drift counts of clients would then pass without checking.
+    /// <see cref="HashHistory"/>, <c>hash_at</c> and the cluster's hash comparisons do not depend on it: they hash on demand at any recorded tick.
+    /// A code setting, <see cref="ServerHost.DriftCheckInterval"/>, wins over this value.
+    /// </summary>
+    public int DriftCheckInterval { get; init; } = 30;
 
     /// <summary>Free-form <c>key=value</c> settings for the game's own server code (the command line's <c>--option key=value</c>), for example the addresses of other servers to connect to.</summary>
     public IReadOnlyList<KeyValuePair<string, string>> Options { get; init; } = [];
@@ -308,6 +321,12 @@ public sealed class ServerConfig
                 throw r.Error(root["hashHistory"], "hashHistory must be at most 100000");
             }
 
+            var drift = (int?)r.UInt(root, "driftCheckInterval") ?? 30;
+            if (drift is < 1 or > MaxDriftCheckInterval)
+            {
+                throw r.Error(root["driftCheckInterval"], $"driftCheckInterval must be between 1 and {MaxDriftCheckInterval} ticks (it cannot be turned off on a server)");
+            }
+
             var tickRate = (int?)r.UInt(root, "tickRate") ?? 60;
             if (tickRate is < 1 or > 1000)
             {
@@ -331,6 +350,7 @@ public sealed class ServerConfig
                 Listen = listen,
                 ClientTrust = clientTrust,
                 HashHistory = history,
+                DriftCheckInterval = drift,
                 Security = security,
             };
         }

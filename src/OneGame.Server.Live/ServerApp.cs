@@ -154,6 +154,7 @@ public static class ServerApp
                 Listen = listen.Count > 0 ? listen : baseConfig.Listen,
                 ClientTrust = baseConfig.ClientTrust,
                 HashHistory = history ?? baseConfig.HashHistory,
+                DriftCheckInterval = baseConfig.DriftCheckInterval,
                 Options = options.Count > 0 ? options : baseConfig.Options,
                 Security = new SecurityConfig(keyFiles.Count > 0 ? keyFiles : baseConfig.Security.KeyFiles, gameId ?? baseConfig.Security.GameId, insecure || baseConfig.Security.Insecure),
             };

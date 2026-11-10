@@ -14,6 +14,7 @@ The server configuration. Unknown keys are errors, so a misspelled setting never
 ```csharp
 name: arena
 tickRate: 60
+driftCheckInterval: 30   # ticks between replica hash checks (1 to 10000); longer = cheaper, finds drift later
 scopes:
   - { id: 1, seed: 42 }
 plugins:
@@ -39,7 +40,18 @@ public ServerConfig();
 
 | Member | Description |
 | --- | --- |
+| [`MaxDriftCheckInterval`](#m-maxdriftcheckinterval) | Most ticks [`ServerConfig.DriftCheckInterval`](ServerConfig.md#m-driftcheckinterval) may ask for. |
 | [`MaxEntries`](#m-maxentries) | The most scopes or plugins a file may declare; a bound so a hostile file cannot ask for millions. |
+
+### <a id="m-maxdriftcheckinterval"></a>MaxDriftCheckInterval
+
+```csharp
+public const int MaxDriftCheckInterval = 10000;
+```
+
+Most ticks [`ServerConfig.DriftCheckInterval`](ServerConfig.md#m-driftcheckinterval) may ask for.
+
+**Type:** `int`
 
 ### <a id="m-maxentries"></a>MaxEntries
 
@@ -56,6 +68,7 @@ The most scopes or plugins a file may declare; a bound so a hostile file cannot 
 | Member | Description |
 | --- | --- |
 | [`ClientTrust`](#m-clienttrust) | What every accepted client may do, unless [`ServerHost.Authenticate`](ServerHost.md#m-authenticate) decides otherwise. |
+| [`DriftCheckInterval`](#m-driftcheckinterval) | Ticks between the hash checks the server puts in its frames (default 30, 1 to 10,000). |
 | [`HashHistory`](#m-hashhistory) | How many recent ticks of per-scope state hashes to keep so another node's hash can be compared at the same tick; 0 turns it off. |
 | [`Listen`](#m-listen) | The addresses to listen on for clients; none means a server that only ticks. |
 | [`Live`](#m-live) | A socket path for live control, or null for none (the runner may supply its own). |
@@ -76,6 +89,16 @@ public ClientTrustConfig ClientTrust { get; init; }
 What every accepted client may do, unless [`ServerHost.Authenticate`](ServerHost.md#m-authenticate) decides otherwise.
 
 **Type:** [`ClientTrustConfig`](ClientTrustConfig.md)
+
+### <a id="m-driftcheckinterval"></a>DriftCheckInterval
+
+```csharp
+public int DriftCheckInterval { get; init; }
+```
+
+Ticks between the hash checks the server puts in its frames (default 30, 1 to 10,000). Every subscriber compares its replica with the server's view hash on those ticks, so a longer interval costs the server and every client less per tick but finds drift later. Between checks nothing is hashed. There is no off switch on a server: drift expectations in cluster scenarios and the drift counts of clients would then pass without checking. [`ServerConfig.HashHistory`](ServerConfig.md#m-hashhistory), `hash_at` and the cluster's hash comparisons do not depend on it: they hash on demand at any recorded tick. A code setting, [`ServerHost.DriftCheckInterval`](ServerHost.md#m-driftcheckinterval), wins over this value.
+
+**Type:** `int`
 
 ### <a id="m-hashhistory"></a>HashHistory
 

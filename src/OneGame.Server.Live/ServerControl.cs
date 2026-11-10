@@ -5,7 +5,7 @@ namespace OneGame.Server.Live;
 
 /// <summary>Result of <c>server_info</c>.</summary>
 /// <remarks><c>Listen</c> is where the server accepts clients (ports resolved) and <c>Clients</c> how many are connected.</remarks>
-public sealed record ServerInfoResult(string Name, string State, long Tick, int TickRate, ScopeInfo[] Scopes, PluginInfo[] Plugins, PluginLoadFailure[] LoadFailures, ListenEndpoint[] Listen, int Clients);
+public sealed record ServerInfoResult(string Name, string State, long Tick, int TickRate, ScopeInfo[] Scopes, PluginInfo[] Plugins, PluginLoadFailure[] LoadFailures, ListenEndpoint[] Listen, int Clients, int DriftCheckInterval);
 
 /// <summary>Result of <c>hash</c> and <c>step</c>: the server tick and each scope's tick and state hash. Compare the hashes with a client's view to check for drift.</summary>
 /// <param name="Tick">The server's tick count.</param>
@@ -163,7 +163,7 @@ public sealed class ServerControl : IControlEndpoint
 
     private static string Serialize<T>(T value, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> info) => JsonSerializer.Serialize(value, info);
 
-    private ServerInfoResult Info() => new(_host.Config.Name, _host.State.ToString().ToLowerInvariant(), _host.Tick, _host.Config.TickRate, [.. _host.ScopeInfos(withTraffic: true)], [.. _host.Plugins()], [.. _host.LoadFailures], [.. _host.Endpoints], _host.Clients().Length);
+    private ServerInfoResult Info() => new(_host.Config.Name, _host.State.ToString().ToLowerInvariant(), _host.Tick, _host.Config.TickRate, [.. _host.ScopeInfos(withTraffic: true)], [.. _host.Plugins()], [.. _host.LoadFailures], [.. _host.Endpoints], _host.Clients().Length, _host.DriftCheckInterval);
 
     private ServerStateResult State() => new(_host.Tick, [.. _host.ScopeInfos()]);
 

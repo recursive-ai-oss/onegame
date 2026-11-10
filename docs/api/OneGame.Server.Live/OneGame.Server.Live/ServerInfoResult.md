@@ -18,12 +18,12 @@ Result of `server_info`.
 
 | Member | Description |
 | --- | --- |
-| [`ServerInfoResult(string, string, long, int, ScopeInfo[], PluginInfo[], PluginLoadFailure[], ListenEndpoint[], int)`](#m-ctor-string-string-long-int-scopeinfo-plugininfo-pluginloadfailure-listenendpoint-int) | Result of `server_info`. |
+| [`ServerInfoResult(string, string, long, int, ScopeInfo[], PluginInfo[], PluginLoadFailure[], ListenEndpoint[], int, int)`](#m-ctor-string-string-long-int-scopeinfo-plugininfo-pluginloadfailure-listenendpoint-int-int) | Result of `server_info`. |
 
-### <a id="m-ctor-string-string-long-int-scopeinfo-plugininfo-pluginloadfailure-listenendpoint-int"></a>ServerInfoResult(string, string, long, int, ScopeInfo\[\], PluginInfo\[\], PluginLoadFailure\[\], ListenEndpoint\[\], int)
+### <a id="m-ctor-string-string-long-int-scopeinfo-plugininfo-pluginloadfailure-listenendpoint-int-int"></a>ServerInfoResult(string, string, long, int, ScopeInfo\[\], PluginInfo\[\], PluginLoadFailure\[\], ListenEndpoint\[\], int, int)
 
 ```csharp
-public ServerInfoResult(string Name, string State, long Tick, int TickRate, ScopeInfo[] Scopes, PluginInfo[] Plugins, PluginLoadFailure[] LoadFailures, ListenEndpoint[] Listen, int Clients);
+public ServerInfoResult(string Name, string State, long Tick, int TickRate, ScopeInfo[] Scopes, PluginInfo[] Plugins, PluginLoadFailure[] LoadFailures, ListenEndpoint[] Listen, int Clients, int DriftCheckInterval);
 ```
 
 Result of `server_info`.
@@ -41,12 +41,14 @@ Result of `server_info`.
 - `LoadFailures` ([`PluginLoadFailure`](../../OneGame.Server/OneGame.Server/PluginLoadFailure.md)\[\])
 - `Listen` ([`ListenEndpoint`](../../OneGame.Server/OneGame.Server/ListenEndpoint.md)\[\])
 - `Clients` (`int`)
+- `DriftCheckInterval` (`int`)
 
 ## Properties
 
 | Member | Description |
 | --- | --- |
 | [`Clients`](#m-clients) |  |
+| [`DriftCheckInterval`](#m-driftcheckinterval) |  |
 | [`Listen`](#m-listen) |  |
 | [`LoadFailures`](#m-loadfailures) |  |
 | [`Name`](#m-name) |  |
@@ -60,6 +62,14 @@ Result of `server_info`.
 
 ```csharp
 public int Clients { get; init; }
+```
+
+**Type:** `int`
+
+### <a id="m-driftcheckinterval"></a>DriftCheckInterval
+
+```csharp
+public int DriftCheckInterval { get; init; }
 ```
 
 **Type:** `int`

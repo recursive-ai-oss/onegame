@@ -17,6 +17,7 @@ listen:                       # port 0 picks a free port; the bound ports are pr
 trust:                        # what every client may do; default: read and command every scope
   read: [1]
   command: [1]
+driftCheckInterval: 30        # ticks between the hash checks in server frames (1-10000): longer = cheaper per tick, drift found later; hashHistory and hash_at do not depend on it
 hashHistory: 256              # ticks of hashes kept (the scope, and what each client holds) for cross-node comparison; default 0 = off, the cluster harness turns it on
 ```
 

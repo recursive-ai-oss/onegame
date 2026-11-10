@@ -743,7 +743,7 @@ public sealed partial class AuthorityScope
         }
 
         var tick = World.Tick;
-        var interval = Node.Options.DriftCheckInterval;
+        var interval = Node.DriftCheckInterval;
         var hashed = interval > 0 && tick % interval == 0;
 
         // Random streams and hot tables are sent whole when their bytes changed. Row-level deltas are a later refinement.

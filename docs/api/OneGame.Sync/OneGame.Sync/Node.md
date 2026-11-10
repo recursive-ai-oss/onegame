@@ -36,6 +36,7 @@ Creates a node.
 | --- | --- |
 | [`AuthorityScopes`](#m-authorityscopes) | Scopes this node is authority for. |
 | [`Connections`](#m-connections) | Connections other nodes made to this one. |
+| [`DriftCheckInterval`](#m-driftcheckinterval) | Ticks between the hash checks this node's authority scopes put in their frames (0 = none); starts as [`ClusterOptions.DriftCheckInterval`](ClusterOptions.md#m-driftcheckinterval). |
 | [`DriftCount`](#m-driftcount) | Total drift reports ever filed (the list keeps only the latest 256). |
 | [`DriftReports`](#m-driftreports) | Drift found by this node's replicas. |
 | [`FollowResolver`](#m-followresolver) | Called when a scope this node follows reports that entities moved to another scope: return where to subscribe to it, or null to stay out. |
@@ -65,6 +66,16 @@ public IReadOnlyList<Connection> Connections { get; }
 Connections other nodes made to this one.
 
 **Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`Connection`](Connection.md)&gt;
+
+### <a id="m-driftcheckinterval"></a>DriftCheckInterval
+
+```csharp
+public int DriftCheckInterval { get; set; }
+```
+
+Ticks between the hash checks this node's authority scopes put in their frames (0 = none); starts as [`ClusterOptions.DriftCheckInterval`](ClusterOptions.md#m-driftcheckinterval). Replicas check on the frames that carry a hash, so the authority's value decides how often every subscriber checks. Change it between ticks.
+
+**Type:** `int`
 
 ### <a id="m-driftcount"></a>DriftCount
 

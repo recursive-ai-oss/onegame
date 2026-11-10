@@ -89,6 +89,35 @@ public sealed class ServerHost
     /// </summary>
     public int MaxSendQueueBytes { get; set; }
 
+    /// <summary>
+    /// Ticks between the hash checks in the server's frames; 0 (the default) uses <see cref="ServerConfig.DriftCheckInterval"/> (30 unless the file says otherwise).
+    /// A non-zero value set here wins over the file. Every subscriber compares its replica with the server's view hash on those ticks: a longer interval costs
+    /// less per tick, on the server and on every client, but finds drift later. <c>hashHistory</c>, <c>hash_at</c> and the cluster's hash comparisons are unaffected.
+    /// Set it before <see cref="Start"/>.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative or above <see cref="ServerConfig.MaxDriftCheckInterval"/>. A server cannot turn the checks off.</exception>
+    /// <exception cref="InvalidOperationException">The server was already started.</exception>
+    public int DriftCheckInterval
+    {
+        get => _driftCheckInterval != 0 ? _driftCheckInterval : Config.DriftCheckInterval;
+        set
+        {
+            if (State != ServerState.Created)
+            {
+                throw new InvalidOperationException($"The server is {State}; set DriftCheckInterval before Start.");
+            }
+
+            if (value is < 0 or > ServerConfig.MaxDriftCheckInterval)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, $"DriftCheckInterval must be between 1 and {ServerConfig.MaxDriftCheckInterval} ticks, or 0 to use the configuration.");
+            }
+
+            _driftCheckInterval = value;
+        }
+    }
+
+    private int _driftCheckInterval;
+
     /// <summary>The addresses the server listens on, with the ports the system picked for configured port 0. Filled by <see cref="Start"/>.</summary>
     public IReadOnlyList<ListenEndpoint> Endpoints => _network.Endpoints;
 
@@ -275,6 +304,12 @@ public sealed class ServerHost
             throw new InvalidOperationException($"The server is {State}; it can only be started once.");
         }
 
+        if (DriftCheckInterval is < 1 or > ServerConfig.MaxDriftCheckInterval)
+        {
+            throw new ServerConfigException($"driftCheckInterval must be between 1 and {ServerConfig.MaxDriftCheckInterval} ticks (it cannot be turned off on a server)", null, 0);
+        }
+
+        Node.DriftCheckInterval = DriftCheckInterval;
         foreach (var sc in Config.Scopes)
         {
             var registry = new EntityRegistry();

@@ -180,6 +180,18 @@ public sealed partial class Node
     /// <summary>The options this node follows.</summary>
     public ClusterOptions Options { get; }
 
+    /// <summary>
+    /// Ticks between the hash checks this node's authority scopes put in their frames (0 = none); starts as <see cref="ClusterOptions.DriftCheckInterval"/>.
+    /// Replicas check on the frames that carry a hash, so the authority's value decides how often every subscriber checks. Change it between ticks.
+    /// </summary>
+    public int DriftCheckInterval
+    {
+        get => _driftCheckInterval ?? Options.DriftCheckInterval;
+        set => _driftCheckInterval = value;
+    }
+
+    private int? _driftCheckInterval;
+
     /// <summary>Scopes this node is authority for.</summary>
     public IReadOnlyList<AuthorityScope> AuthorityScopes => _authority;
 

@@ -52,6 +52,7 @@ Creates a server. Nothing runs until [`ServerHost.Start()`](ServerHost.md#m-star
 | [`Authenticate`](#m-authenticate) | Decides what a newly connected network client may do, or refuses it by returning null. |
 | [`Config`](#m-config) | The configuration. |
 | [`DeliverLocalMessages`](#m-deliverlocalmessages) | Delivers pending messages to clients that live in this process (tests). |
+| [`DriftCheckInterval`](#m-driftcheckinterval) | Ticks between the hash checks in the server's frames; 0 (the default) uses [`ServerConfig.DriftCheckInterval`](ServerConfig.md#m-driftcheckinterval) (30 unless the file says otherwise). |
 | [`Driver`](#m-driver) | The fixed-step driver that turns elapsed time into ticks. |
 | [`Endpoints`](#m-endpoints) | The addresses the server listens on, with the ports the system picked for configured port 0. |
 | [`LoadFailures`](#m-loadfailures) | Plugins that were configured but failed to load. |
@@ -93,6 +94,21 @@ public Action? DeliverLocalMessages { get; set; }
 Delivers pending messages to clients that live in this process (tests). A plugin's load context cannot be collected while a local replica still holds one of its entities, so reload and unload call this before they wait for the collector. Remote clients need nothing.
 
 **Type:** [`Action`](https://learn.microsoft.com/dotnet/api/system.action)?
+
+### <a id="m-driftcheckinterval"></a>DriftCheckInterval
+
+```csharp
+public int DriftCheckInterval { get; set; }
+```
+
+Ticks between the hash checks in the server's frames; 0 (the default) uses [`ServerConfig.DriftCheckInterval`](ServerConfig.md#m-driftcheckinterval) (30 unless the file says otherwise). A non-zero value set here wins over the file. Every subscriber compares its replica with the server's view hash on those ticks: a longer interval costs less per tick, on the server and on every client, but finds drift later. `hashHistory`, `hash_at` and the cluster's hash comparisons are unaffected. Set it before [`ServerHost.Start()`](ServerHost.md#m-start).
+
+**Type:** `int`
+
+**Exceptions**
+
+- [`ArgumentOutOfRangeException`](https://learn.microsoft.com/dotnet/api/system.argumentoutofrangeexception): The value is negative or above [`ServerConfig.MaxDriftCheckInterval`](ServerConfig.md#m-maxdriftcheckinterval). A server cannot turn the checks off.
+- [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): The server was already started.
 
 ### <a id="m-driver"></a>Driver
 
