@@ -258,7 +258,7 @@ public class InterestTests
         world.AddTable(new LoudRowTable());
         var cluster = new Cluster();
         var scope = cluster.AddScope(cluster.AddNode("n"), new ScopeId(2), world);
-        Assert.Throws<InvalidOperationException>(() => scope.RequireInterest = true);
+        Assert.Throws<InterestRequiredException>(() => scope.RequireInterest = true);
     }
 
     [Fact]
@@ -499,5 +499,123 @@ public class InterestTests
         });
         Console.WriteLine($"3 clients, 100 ticks: {baseline} bytes without interest, {withInterest} bytes with interest and SetInterest every tick");
         Assert.True(withInterest <= baseline, $"{withInterest} > {baseline}");
+    }
+
+    private static List<(ulong Old, ulong New)> MovedPairs(Player p)
+    {
+        var pairs = new List<(ulong, ulong)>();
+        foreach (var m in p.Tap.Received)
+        {
+            if (m[0] != Msg.Moved)
+            {
+                continue;
+            }
+
+            var r = new SyncReader(m.AsSpan(1));
+            r.ReadVarUInt(); // scope
+            r.ReadVarUInt(); // destination
+            var count = (int)r.ReadVarUInt();
+            for (var i = 0; i < count; i++)
+            {
+                pairs.Add((r.ReadVarUInt(), r.ReadVarUInt()));
+            }
+        }
+
+        return pairs;
+    }
+
+    private static (Rigged Rig, Node Dest, AuthorityScope DestScope, Link Link, Marker A, Marker B) TransferRig()
+    {
+        var rig = new Rigged();
+        TransferLog.AddTo(rig.Scope.World);
+        var dest = rig.Cluster.AddNode("dest");
+        var destWorld = new World(3, Registry(), WorldRole.Authority);
+        TransferLog.AddTo(destWorld);
+        var destScope = rig.Cluster.AddScope(dest, new ScopeId(2), destWorld);
+        var link = rig.Cluster.Connect(rig.Host, dest, Trust.Owner(new ScopeId(2)));
+        var a = rig.Scope.World.Entities.OfType<Marker>().First(m => m.Cell == 1);
+        var b = rig.Scope.World.Entities.OfType<Marker>().First(m => m.Cell == 2);
+        return (rig, dest, destScope, link, a, b);
+    }
+
+    [Fact]
+    public void MovedNamesOnlyTheEntitiesTheWatcherHeld()
+    {
+        var (rig, _, _, link, a, b) = TransferRig();
+        var narrow = rig.Join("narrow", 1);
+        var wide = rig.Join("wide", 1, 2);
+        var plain = rig.Join("plain");
+        rig.Step(3, narrow, wide, plain);
+        var transfer = rig.Scope.BeginTransfer(link, new ScopeId(2), [a.Id, b.Id]);
+        rig.Cluster.Step(60);
+
+        Assert.Equal(TransferState.Complete, transfer.State);
+        Assert.Equal([a.Id.Value], MovedPairs(narrow).Select(x => x.Old).ToArray());
+        Assert.Equal(2, MovedPairs(wide).Count);
+        Assert.Equal(2, MovedPairs(plain).Count);
+        Assert.False(narrow.Tap.Contains(TagOf(2, 0)));
+    }
+
+    [Fact]
+    public void AWatcherCommandToAMovedEntityIsForwardedButAStrangersIsOutsideInterest()
+    {
+        var (rig, _, destScope, link, a, _) = TransferRig();
+        var watcher = rig.Join("watcher", 1);
+        var stranger = rig.Join("stranger", 5);
+        rig.Step(3, watcher, stranger);
+        var transfer = rig.Scope.BeginTransfer(link, new ScopeId(2), [a.Id]);
+        rig.Cluster.Step(60);
+        Assert.Equal(TransferState.Complete, transfer.State);
+
+        // The watcher's view dropped the entity, yet its late command still follows the entity. The stranger gets what it gets for any unknown id.
+        Assert.Equal(SubmitResult.Queued, watcher.Connection.SubmitCommand(rig.Scope.Id, a.Id, PingId, default));
+        Assert.Equal(SubmitResult.OutsideInterest, stranger.Connection.SubmitCommand(rig.Scope.Id, a.Id, PingId, default));
+        rig.Cluster.Step(20);
+        Assert.Equal(1, destScope.World.Entities.OfType<Marker>().Single(m => m.Id == transfer.NewIds[0]).Pings);
+    }
+
+    [Fact]
+    public void RequireInterestKeepsHoldingAfterItIsSet()
+    {
+        var rig = new Rigged(require: true);
+        Assert.Throws<InterestRequiredException>(() => rig.Scope.RandomStreams = Visibility.Everyone);
+        Assert.Throws<InterestRequiredException>(() => rig.Scope.World.AddTable(new LoudRowTable()));
+        Assert.Equal(Visibility.Hidden, rig.Scope.RandomStreams);
+        rig.Scope.RequireInterest = false;
+        rig.Scope.RandomStreams = Visibility.Everyone;
+        rig.Scope.World.AddTable(new LoudRowTable());
+    }
+
+    [Fact]
+    public void ManyIdleConnectionsDoNotStopALaterOneFromJoining()
+    {
+        var rig = new Rigged(require: true);
+        var node = rig.Cluster.AddNode("idle");
+        for (var i = 0; i < 1500; i++)
+        {
+            var (a, b) = Loopback.CreatePair();
+            var link = node.ConnectTo(rig.Host, Trust.Player(rig.Scope.Id), a, b, "idle" + i);
+            link.Connection.SetInterest(rig.Scope.Id, [1u]);
+        }
+
+        var ada = rig.Join("ada", 3);
+        rig.Step(3, ada);
+        Assert.True(SawAny(ada, 3));
+        Assert.False(SawAny(ada, 1));
+    }
+
+    [Fact]
+    public void TheSnapshotCounterDoesNotRevealEntitiesCreatedElsewhere()
+    {
+        var rig = new Rigged();
+        for (var i = 0; i < 500; i++)
+        {
+            rig.Scope.World.Add(new Marker { Cell = 9, Tag = "far" });
+        }
+
+        var ada = rig.Join("ada", 1);
+        rig.Step(2, ada);
+        var big = ada.Replica.World.Entities.Max(e => e.Id.Value);
+        Assert.True(big < 200, $"the highest id the client holds is {big}");
     }
 }

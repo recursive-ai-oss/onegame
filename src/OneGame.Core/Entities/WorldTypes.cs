@@ -64,6 +64,20 @@ public sealed class NotInWorldException : InvalidOperationException
     }
 }
 
+/// <summary>
+/// A change would let data past a scope's <c>RequireInterest</c> guarantee: a random stream or hot table sent to everyone cannot be filtered by
+/// interest. Hide it (<c>Visibility.Hidden</c>), or keep its data in entities with an <c>[InterestKey]</c>.
+/// </summary>
+public sealed class InterestRequiredException : InvalidOperationException
+{
+    /// <summary>Creates the exception.</summary>
+    /// <param name="message">What was refused and the fix.</param>
+    public InterestRequiredException(string message)
+        : base(message)
+    {
+    }
+}
+
 /// <summary>Thrown when an entity type is registered twice or two types share an id.</summary>
 public sealed class DuplicateTypeException : InvalidOperationException
 {

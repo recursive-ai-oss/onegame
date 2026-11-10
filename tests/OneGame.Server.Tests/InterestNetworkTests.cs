@@ -362,6 +362,34 @@ public class InterestNetworkTests
     }
 
     [Fact]
+    public void AJoinHookThatThrowsRefusesThatClientAndNotTheServer()
+    {
+        var host = StartHost(false, 0, 0, chunks: 0, $"security:\n  key: {ServerKey.File}\n  game: net/1\n");
+        try
+        {
+            var calls = 0;
+            host.ClientJoined += _ =>
+            {
+                if (calls++ == 0)
+                {
+                    throw new InvalidOperationException("the game's hook failed for this one client");
+                }
+            };
+            var first = JoinOnce(host, reconnect: false);
+            RunUntil(host, first, () => first.Replica.State == ReplicaState.Live, ms: 5_000);
+            Assert.NotEqual(ReplicaState.Live, first.Replica.State);
+
+            var second = JoinOnce(host, reconnect: false);
+            Assert.True(RunUntil(host, second, () => second.Replica.State == ReplicaState.Live && second.Replica.World.Entities.Count == Players), "the next client could not join");
+            Assert.Contains(host.Log.Tail(200), l => l.Message.Contains("join hook failed", StringComparison.Ordinal));
+        }
+        finally
+        {
+            host.Stop();
+        }
+    }
+
+    [Fact]
     public void ASnapshotLargerThanTheSendQueueIsPacedThroughItInsteadOfOverflowing()
     {
         // About 4.8 MB of chunks against a 4 MiB queue: queued all at once this would close the link; paced, it arrives.
