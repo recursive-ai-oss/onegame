@@ -20,14 +20,20 @@ A scope whose authority is this node: it owns the simulating [`AuthorityScope.Wo
 | [`CommandsHeld`](#m-commandsheld) | Commands held while their entity was in transit, over the scope's life. |
 | [`CommandsRun`](#m-commandsrun) | Total commands the world has run for this scope, counting every outcome. |
 | [`Durability`](#m-durability) | When command answers and transfer confirmations may leave this scope. |
+| [`EntitiesRemoved`](#m-entitiesremoved) | Entity removals sent to subscribers so far (entities deleted, hidden, or leaving a connection's interest). |
+| [`EntitiesSent`](#m-entitiessent) | Entity additions sent to subscribers so far (an entity entering a connection's view counts once per connection). |
+| [`FrameBytes`](#m-framebytes) | Bytes of frame messages sent to subscribers so far (each connection's copy counts). |
 | [`Hash`](#m-hash) | The scope's current hash (everything, including what no subscriber may see). |
 | [`Id`](#m-id) | The scope id. |
 | [`IsRelay`](#m-isrelay) | True when this scope serves a replica onward instead of simulating (see [`Node.Relay()`](Node.md#m-relay-replicascope)). |
 | [`Node`](#m-node) | The node that holds the authority. |
 | [`Outcomes`](#m-outcomes) | The most recent command outcomes (up to 256), oldest first. |
 | [`RandomStreams`](#m-randomstreams) | Whether subscribers receive the random streams. |
+| [`RequireInterest`](#m-requireinterest) | When true, a connection receives only global entities (interest key 0 or no key) until the game gives it a set with [`AuthorityScope.SetInterest()`](AuthorityScope.md#m-setinterest-connection-readonlyspan-uint); without it a new subscriber gets the whole scope. |
 | [`SavedTick`](#m-savedtick) | The world tick of the last [`AuthorityScope.Save()`](AuthorityScope.md#m-save) or [`AuthorityScope.Load()`](AuthorityScope.md#m-load-readonlyspan-byte); -1 before either. |
+| [`SnapshotBytes`](#m-snapshotbytes) | Bytes of snapshot messages sent to subscribers so far. |
 | [`Subscribers`](#m-subscribers) | The connections currently subscribed. |
+| [`Traffic`](#m-traffic) | Bytes of entity state sent to subscribers so far, by entity type: what each type costs on the wire (every connection that was sent it counts). |
 | [`TransferGate`](#m-transfergate) | Called on the receiving scope for each offer; return false to refuse. |
 | [`TransferLinks`](#m-transferlinks) | Finds the link to a destination scope's node for transfers left unfinished by a restart. |
 | [`TransferOfferTicks`](#m-transferofferticks) | Ticks an offer may go unanswered before the transfer is aborted and the entities come back. |
@@ -85,6 +91,36 @@ public Durability Durability { get; set; }
 When command answers and transfer confirmations may leave this scope. [`Durability.Immediate`](Durability.md#m-immediate) (default) sends them as they happen; [`Durability.AfterSave`](Durability.md#m-aftersave) holds them until [`AuthorityScope.Save()`](AuthorityScope.md#m-save) has captured the state they describe, so a node restored from its last save never contradicts something it already told a peer.
 
 **Type:** [`Durability`](Durability.md)
+
+### <a id="m-entitiesremoved"></a>EntitiesRemoved
+
+```csharp
+public long EntitiesRemoved { get; }
+```
+
+Entity removals sent to subscribers so far (entities deleted, hidden, or leaving a connection's interest).
+
+**Type:** `long`
+
+### <a id="m-entitiessent"></a>EntitiesSent
+
+```csharp
+public long EntitiesSent { get; }
+```
+
+Entity additions sent to subscribers so far (an entity entering a connection's view counts once per connection).
+
+**Type:** `long`
+
+### <a id="m-framebytes"></a>FrameBytes
+
+```csharp
+public long FrameBytes { get; }
+```
+
+Bytes of frame messages sent to subscribers so far (each connection's copy counts).
+
+**Type:** `long`
 
 ### <a id="m-hash"></a>Hash
 
@@ -149,6 +185,22 @@ Whether subscribers receive the random streams. [`Visibility.Everyone`](../../On
 **Exceptions**
 
 - [`ArgumentException`](https://learn.microsoft.com/dotnet/api/system.argumentexception): The value is neither Everyone nor Hidden.
+- [`InterestRequiredException`](../../OneGame.Core/OneGame.Core/InterestRequiredException.md): The value is Everyone while [`AuthorityScope.RequireInterest`](AuthorityScope.md#m-requireinterest) is on.
+
+### <a id="m-requireinterest"></a>RequireInterest
+
+```csharp
+public bool RequireInterest { get; set; }
+```
+
+When true, a connection receives only global entities (interest key 0 or no key) until the game gives it a set with [`AuthorityScope.SetInterest()`](AuthorityScope.md#m-setinterest-connection-readonlyspan-uint); without it a new subscriber gets the whole scope. Turning it on forces [`AuthorityScope.RandomStreams`](AuthorityScope.md#m-randomstreams) to [`Visibility.Hidden`](../../OneGame.Core/OneGame.Core/Visibility.md#m-hidden) (a random stream advanced by events outside a connection's interest would reveal them), and it refuses a world that has a hot table which is not hidden, because tables are sent whole to everyone. Set it before the first subscriber.
+
+**Type:** `bool`
+
+**Exceptions**
+
+- [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): Subscribers already exist.
+- [`InterestRequiredException`](../../OneGame.Core/OneGame.Core/InterestRequiredException.md): The world has a table that is not [`Visibility.Hidden`](../../OneGame.Core/OneGame.Core/Visibility.md#m-hidden). While it is on, a later [`AuthorityScope.RandomStreams`](AuthorityScope.md#m-randomstreams) = Everyone or [`World.AddTable()`](../../OneGame.Core/OneGame.Core/World.md#m-addtable-t-t) of a visible table throws the same.
 
 ### <a id="m-savedtick"></a>SavedTick
 
@@ -157,6 +209,16 @@ public long SavedTick { get; }
 ```
 
 The world tick of the last [`AuthorityScope.Save()`](AuthorityScope.md#m-save) or [`AuthorityScope.Load()`](AuthorityScope.md#m-load-readonlyspan-byte); -1 before either.
+
+**Type:** `long`
+
+### <a id="m-snapshotbytes"></a>SnapshotBytes
+
+```csharp
+public long SnapshotBytes { get; }
+```
+
+Bytes of snapshot messages sent to subscribers so far.
 
 **Type:** `long`
 
@@ -169,6 +231,16 @@ public IReadOnlyList<Connection> Subscribers { get; }
 The connections currently subscribed.
 
 **Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`Connection`](Connection.md)&gt;
+
+### <a id="m-traffic"></a>Traffic
+
+```csharp
+public IReadOnlyCollection<TypeTraffic> Traffic { get; }
+```
+
+Bytes of entity state sent to subscribers so far, by entity type: what each type costs on the wire (every connection that was sent it counts).
+
+**Type:** [`IReadOnlyCollection`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlycollection-1)&lt;[`TypeTraffic`](TypeTraffic.md)&gt;
 
 ### <a id="m-transfergate"></a>TransferGate
 
@@ -283,8 +355,11 @@ Raised on the receiving scope when a transfer was installed, with the transfer i
 | Member | Description |
 | --- | --- |
 | [`BeginTransfer(Link, ScopeId, IEnumerable<EntityId>)`](#m-begintransfer-link-scopeid-ienumerable-entityid) | Starts moving entities to a scope on another node. |
+| [`ClearInterest(Connection)`](#m-clearinterest-connection) | Gives the connection back everything it may see. |
+| [`InterestOf(Connection)`](#m-interestof-connection) | The interest keys the connection is set to receive (the ones the last frame was built with), or null when it receives every entity. |
 | [`Load(ReadOnlySpan<byte>)`](#m-load-readonlyspan-byte) | Replaces the scope's state with a save. |
 | [`Save()`](#m-save) | Writes a save file of the scope's current state. |
+| [`SetInterest(Connection, ReadOnlySpan<uint>)`](#m-setinterest-connection-readonlyspan-uint) | Sets which interest cells `connection` receives in this scope (also for a peer node's connection or a relay's). |
 | [`StartRecording(RecordingOptions?)`](#m-startrecording-recordingoptions) | Starts recording: takes the start snapshot now, then logs every command and the hash checkpoints. |
 | [`StepAndPublish()`](#m-stepandpublish) | Runs one tick and publishes the resulting frame. |
 | [`ViewHashFor(Connection)`](#m-viewhashfor-connection) | The hash of the view this connection holds of the scope: what its replica's [`ReplicaScope.ViewHash`](ReplicaScope.md#m-viewhash) must equal at the same tick. |
@@ -309,6 +384,32 @@ Starts moving entities to a scope on another node. Call it between ticks from ho
 
 - [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): This scope is a relay, or its world has no [`TransferLog`](TransferLog.md).
 - [`ArgumentException`](https://learn.microsoft.com/dotnet/api/system.argumentexception): The list is empty or too long, an entity does not exist or is already moving, or the link belongs to another node.
+
+### <a id="m-clearinterest-connection"></a>ClearInterest(Connection)
+
+```csharp
+public void ClearInterest(Connection connection);
+```
+
+Gives the connection back everything it may see. It receives one fresh snapshot.
+
+**Parameters**
+
+- `connection` ([`Connection`](Connection.md)): A connection of this scope's node.
+
+### <a id="m-interestof-connection"></a>InterestOf(Connection)
+
+```csharp
+public IReadOnlyCollection<uint>? InterestOf(Connection connection);
+```
+
+The interest keys the connection is set to receive (the ones the last frame was built with), or null when it receives every entity.
+
+**Parameters**
+
+- `connection` ([`Connection`](Connection.md)): A connection of this scope's node.
+
+**Returns:** [`IReadOnlyCollection`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlycollection-1)`<uint>?`
 
 ### <a id="m-load-readonlyspan-byte"></a>Load(ReadOnlySpan&lt;byte&gt;)
 
@@ -337,6 +438,21 @@ public byte[] Save();
 Writes a save file of the scope's current state.
 
 **Returns:** `byte[]`
+
+### <a id="m-setinterest-connection-readonlyspan-uint"></a>SetInterest(Connection, ReadOnlySpan&lt;uint&gt;)
+
+```csharp
+public bool SetInterest(Connection connection, ReadOnlySpan<uint> keys);
+```
+
+Sets which interest cells `connection` receives in this scope (also for a peer node's connection or a relay's). Entities with a non-zero [`InterestKeyAttribute`](../../OneGame.Core/OneGame.Core/InterestKeyAttribute.md) value outside the set are not sent; entities that enter or leave it are added to and removed from the connection's replica by the next frame, with no new snapshot. Call it between ticks; it takes effect in the next publish. Setting the same keys again does nothing and allocates nothing. The first call on a connection that had no interest set (and no [`AuthorityScope.RequireInterest`](AuthorityScope.md#m-requireinterest)) sends it one fresh snapshot, because it moves to a view of its own. May be called before the connection subscribes; the set is then used for its first snapshot.
+
+**Parameters**
+
+- `connection` ([`Connection`](Connection.md)): A connection of this scope's node.
+- `keys` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<uint>`): The cells to receive; duplicates and 0 are ignored.
+
+**Returns:** `bool` — True when the set changed.
 
 ### <a id="m-startrecording-recordingoptions"></a>StartRecording(RecordingOptions?)
 

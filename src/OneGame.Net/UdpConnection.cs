@@ -10,7 +10,7 @@ namespace OneGame.Net;
 /// or a server end handed out by a <see cref="UdpListener"/>. Messages are whole, ordered and reliable; unreliable messages are
 /// available beside them.
 /// </summary>
-public sealed class UdpConnection : INetConnection
+public sealed class UdpConnection : INetConnection, OneGame.Sync.IBoundedSendChannel
 {
     private const int SendBurst = 512;
 
@@ -162,6 +162,12 @@ public sealed class UdpConnection : INetConnection
     internal uint ConnectionId => _connectionId;
 
     internal ulong Nonce => _nonce;
+
+    long OneGame.Sync.IBoundedSendChannel.QueuedBytes => _core.QueuedBytes;
+
+    long OneGame.Sync.IBoundedSendChannel.QueueLimitBytes => _o.MaxSendQueueBytes;
+
+    void OneGame.Sync.IBoundedSendChannel.FailSendQueue() => Close(DisconnectReason.SendQueueFull, byRemote: false, 0, notify: true);
 
     /// <inheritdoc />
     /// <exception cref="MessageTooLargeException">The message exceeds <see cref="UdpOptions.MaxMessageBytes"/>.</exception>

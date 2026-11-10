@@ -11,7 +11,7 @@ namespace OneGame.Net;
 /// go out as continuation frames so a ping or close can overtake them. There are no threads: <see cref="Pump"/> reads and writes
 /// what the socket allows.
 /// </summary>
-public sealed class WebSocketConnection : INetConnection
+public sealed class WebSocketConnection : INetConnection, OneGame.Sync.IBoundedSendChannel
 {
     private readonly Socket _sock;
     private readonly bool _client;
@@ -144,6 +144,12 @@ public sealed class WebSocketConnection : INetConnection
         socket.NoDelay = true;
         return new WebSocketConnection(socket, false, null, options, clock);
     }
+
+    long OneGame.Sync.IBoundedSendChannel.QueuedBytes => _outQueued;
+
+    long OneGame.Sync.IBoundedSendChannel.QueueLimitBytes => _o.MaxSendQueueBytes;
+
+    void OneGame.Sync.IBoundedSendChannel.FailSendQueue() => Disconnect(DisconnectReason.SendQueueFull);
 
     /// <inheritdoc />
     /// <exception cref="MessageTooLargeException">The message exceeds <see cref="WebSocketOptions.MaxMessageBytes"/>.</exception>

@@ -18,7 +18,8 @@ public sealed record PluginConfig(string Name, string Path, uint[] Scopes, KeyVa
 /// <param name="Transport"><c>udp</c> (reliable UDP) or <c>ws</c> (WebSocket).</param>
 /// <param name="Port">The port; 0 lets the system pick one (the bound port is reported by the host).</param>
 /// <param name="Address">The local address to bind; <c>0.0.0.0</c> by default.</param>
-public sealed record ListenConfig(string Transport, int Port, string Address);
+/// <param name="MaxSendQueueBytes">Most message bytes queued per client on this listener (unacknowledged data included) before the client is closed with <c>SendQueueFull</c>; 0 uses <see cref="ServerHost.MaxSendQueueBytes"/>, and that the transport default (8 MiB). A relayed or first snapshot travels in 256 KiB parts but all of it is queued at once, so a scope whose snapshot approaches this needs it raised.</param>
+public sealed record ListenConfig(string Transport, int Port, string Address, int MaxSendQueueBytes = 0);
 
 /// <summary>What clients may do on this server. A null list means every scope the server hosts.</summary>
 /// <param name="Read">Scopes clients may subscribe to.</param>
@@ -67,7 +68,7 @@ public sealed class ServerConfig
 {
     private static readonly string[] TopKeys = ["name", "tickRate", "maxCatchUp", "scopes", "plugins", "live", "listen", "trust", "hashHistory", "security"];
     private static readonly string[] SecurityKeys = ["key", "game", "insecure"];
-    private static readonly string[] ListenKeys = ["transport", "port", "address"];
+    private static readonly string[] ListenKeys = ["transport", "port", "address", "maxSendQueueBytes"];
     private static readonly string[] TrustKeys = ["read", "command"];
     private static readonly string[] ScopeKeys = ["id", "seed"];
     private static readonly string[] PluginKeys = ["name", "path", "scopes", "settings"];
@@ -253,7 +254,13 @@ public sealed class ServerConfig
                         throw r.Error(item["port"], "port must be between 0 and 65535");
                     }
 
-                    listen.Add(new ListenConfig(transport, (int)port, r.Text(item, "address") ?? "0.0.0.0"));
+                    var queue = r.UInt(item, "maxSendQueueBytes") ?? 0;
+                    if (queue != 0 && (queue < (1 << 20) || queue > (1 << 30)))
+                    {
+                        throw r.Error(item["maxSendQueueBytes"], "maxSendQueueBytes must be between 1048576 (the message cap) and 1073741824, or 0 for the default");
+                    }
+
+                    listen.Add(new ListenConfig(transport, (int)port, r.Text(item, "address") ?? "0.0.0.0", (int)queue));
                     r.Bound(listen.Count, item, "listen");
                 }
             }

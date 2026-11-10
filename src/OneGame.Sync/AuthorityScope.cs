@@ -19,6 +19,12 @@ public sealed partial class AuthorityScope
     private int _outcomeCount;
     private long _nextTicket;
     private Visibility _randomVisibility = Visibility.Everyone;
+    private bool _requireInterest;
+    private int _viewMembers = 1;
+    private readonly Dictionary<uint, TypeTraffic> _traffic = [];
+    // Interest given before a connection subscribed. An entry lives until it subscribes or the node detaches the connection, so the
+    // transport's connection limit bounds it; there is no separate cap that idle connections could exhaust.
+    private readonly Dictionary<Connection, InterestSet> _pendingInterest = [];
 
     // Frame building. Random streams and tables are the same for every audience, so they are compared once per tick.
     private readonly List<Blob> _tableBlobs = [];
@@ -94,6 +100,21 @@ public sealed partial class AuthorityScope
     /// <summary>The scope id.</summary>
     public ScopeId Id { get; }
 
+    /// <summary>Bytes of entity state sent to subscribers so far, by entity type: what each type costs on the wire (every connection that was sent it counts).</summary>
+    public IReadOnlyCollection<TypeTraffic> Traffic => _traffic.Values;
+
+    /// <summary>Entity additions sent to subscribers so far (an entity entering a connection's view counts once per connection).</summary>
+    public long EntitiesSent { get; private set; }
+
+    /// <summary>Entity removals sent to subscribers so far (entities deleted, hidden, or leaving a connection's interest).</summary>
+    public long EntitiesRemoved { get; private set; }
+
+    /// <summary>Bytes of frame messages sent to subscribers so far (each connection's copy counts).</summary>
+    public long FrameBytes { get; private set; }
+
+    /// <summary>Bytes of snapshot messages sent to subscribers so far.</summary>
+    public long SnapshotBytes { get; private set; }
+
     /// <summary>The node that holds the authority.</summary>
     public Node Node { get; }
 
@@ -112,6 +133,7 @@ public sealed partial class AuthorityScope
     /// shuffle must stay secret. Changing it gives every subscriber a fresh snapshot.
     /// </summary>
     /// <exception cref="ArgumentException">The value is neither Everyone nor Hidden.</exception>
+    /// <exception cref="InterestRequiredException">The value is Everyone while <see cref="RequireInterest"/> is on.</exception>
     public Visibility RandomStreams
     {
         get => _randomVisibility;
@@ -125,6 +147,11 @@ public sealed partial class AuthorityScope
             if (value == _randomVisibility)
             {
                 return;
+            }
+
+            if (_requireInterest && value != Visibility.Hidden)
+            {
+                throw new InterestRequiredException("The random streams cannot be sent to everyone while RequireInterest is on: a stream advanced by events outside a connection's interest would reveal them.");
             }
 
             _randomVisibility = value;
@@ -155,7 +182,8 @@ public sealed partial class AuthorityScope
     /// The hash of the view this connection holds of the scope: what its replica's <see cref="ReplicaScope.ViewHash"/> must equal at the same
     /// tick. For a connection that sees everything it equals <see cref="Hash"/>.
     /// </summary>
-    public ulong ViewHashFor(Connection connection) => World.ComputeAudienceHash(connection.Trust.Who, RandomVisible);
+    public ulong ViewHashFor(Connection connection)
+        => World.ComputeAudienceHash(connection.Trust.Who, RandomVisible, ViewOf(connection)?.Interest);
 
     /// <summary>Runs one tick and publishes the resulting frame.</summary>
     public void StepAndPublish()
@@ -239,19 +267,37 @@ public sealed partial class AuthorityScope
 
     internal void Subscribe(Connection connection)
     {
+        // A connection keeps the interest it had (or was given before subscribing). Under RequireInterest a new one starts empty: it
+        // receives only global entities until the game says where it is.
+        var existing = ViewOf(connection);
+        InterestSet? wanted = null;
+        if (!_pendingInterest.Remove(connection, out wanted))
+        {
+            wanted = existing?.Wanted;
+        }
+
+        if (wanted is null && _requireInterest)
+        {
+            wanted = new InterestSet();
+        }
+
         Detach(connection);
         if (_views.Count == 0)
         {
             RebaselineShared();
         }
 
-        var view = FindView(connection.Trust.Who) ?? NewView(connection.Trust.Who);
+        var view = wanted is null ? FindView(connection.Trust.Who) ?? NewView(connection.Trust.Who) : NewView(connection.Trust.Who, wanted);
         view.Members.Add(connection);
         _subscribers.Add(connection);
         SendSnapshot(connection, view);
     }
 
-    internal void Unsubscribe(Connection connection) => Detach(connection);
+    internal void Unsubscribe(Connection connection)
+    {
+        _pendingInterest.Remove(connection);
+        Detach(connection);
+    }
 
     /// <summary>The connection's trust was replaced: stop sending if it may no longer read, and move it to the view its new audience gets.</summary>
     internal void TrustChanged(Connection connection)
@@ -297,7 +343,7 @@ public sealed partial class AuthorityScope
     {
         foreach (var v in _views)
         {
-            if (v.Who == who)
+            if (v.Who == who && v.Wanted is null)
             {
                 return v;
             }
@@ -306,9 +352,17 @@ public sealed partial class AuthorityScope
         return null;
     }
 
-    private View NewView(Audience who)
+    private View NewView(Audience who, InterestSet? wanted = null)
     {
         var view = new View(who);
+        if (wanted is not null)
+        {
+            view.Wanted = wanted;
+            view.Interest = new InterestSet();
+            view.InterestDirty = true;
+            ApplyInterest(view);
+        }
+
         BuildKnown(view);
         _views.Add(view);
         return view;
@@ -341,11 +395,171 @@ public sealed partial class AuthorityScope
         RebaselineShared();
         foreach (var v in _views)
         {
+            ApplyInterest(v);
             BuildKnown(v);
             foreach (var c in v.Members)
             {
                 SendSnapshot(c, v);
             }
+        }
+    }
+
+    // ---- interest -------------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// When true, a connection receives only global entities (interest key 0 or no key) until the game gives it a set with
+    /// <see cref="SetInterest"/>; without it a new subscriber gets the whole scope. Turning it on forces <see cref="RandomStreams"/> to
+    /// <see cref="Visibility.Hidden"/> (a random stream advanced by events outside a connection's interest would reveal them), and it
+    /// refuses a world that has a hot table which is not hidden, because tables are sent whole to everyone. Set it before the first subscriber.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Subscribers already exist.</exception>
+    /// <exception cref="InterestRequiredException">The world has a table that is not <see cref="Visibility.Hidden"/>. While it is on, a later <see cref="RandomStreams"/> = Everyone or <see cref="World.AddTable{T}"/> of a visible table throws the same.</exception>
+    public bool RequireInterest
+    {
+        get => _requireInterest;
+        set
+        {
+            if (value == _requireInterest)
+            {
+                return;
+            }
+
+            if (value)
+            {
+                if (_subscribers.Count != 0)
+                {
+                    throw new InvalidOperationException("RequireInterest must be set before the first subscriber.");
+                }
+
+                foreach (var t in World.Tables)
+                {
+                    if (t.Visibility != Visibility.Hidden)
+                    {
+                        throw new InterestRequiredException($"Hot table '{t.Name}' is sent whole to every subscriber and cannot be filtered by interest. Mark it Hidden, or keep its rows as entities with an [InterestKey].");
+                    }
+                }
+
+                RandomStreams = Visibility.Hidden;
+            }
+
+            _requireInterest = value;
+            World.HiddenTablesOnly = value;
+        }
+    }
+
+    /// <summary>
+    /// Sets which interest cells <paramref name="connection"/> receives in this scope (also for a peer node's connection or a relay's).
+    /// Entities with a non-zero <see cref="InterestKeyAttribute"/> value outside the set are not sent; entities that enter or leave it are
+    /// added to and removed from the connection's replica by the next frame, with no new snapshot. Call it between ticks; it takes effect
+    /// in the next publish. Setting the same keys again does nothing and allocates nothing. The first call on a connection that had no
+    /// interest set (and no <see cref="RequireInterest"/>) sends it one fresh snapshot, because it moves to a view of its own.
+    /// May be called before the connection subscribes; the set is then used for its first snapshot.
+    /// </summary>
+    /// <param name="connection">A connection of this scope's node.</param>
+    /// <param name="keys">The cells to receive; duplicates and 0 are ignored.</param>
+    /// <returns>True when the set changed.</returns>
+    public bool SetInterest(Connection connection, ReadOnlySpan<uint> keys)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        var view = ViewOf(connection);
+        if (view?.Wanted is { } wanted)
+        {
+            var changed = wanted.Replace(keys);
+            view.InterestDirty |= changed;
+            return changed;
+        }
+
+        if (!_pendingInterest.TryGetValue(connection, out var pending))
+        {
+            pending = new InterestSet();
+            _pendingInterest[connection] = pending;
+        }
+
+        pending.Replace(keys);
+        if (view is not null)
+        {
+            Subscribe(connection); // moves to a view of its own and sends the filtered snapshot
+        }
+
+        return true;
+    }
+
+    /// <summary>Gives the connection back everything it may see. It receives one fresh snapshot.</summary>
+    /// <param name="connection">A connection of this scope's node.</param>
+    public void ClearInterest(Connection connection)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        _pendingInterest.Remove(connection);
+        if (ViewOf(connection) is { Wanted: not null } && !_requireInterest)
+        {
+            var who = connection.Trust.Who;
+            Detach(connection);
+            if (_views.Count == 0)
+            {
+                RebaselineShared();
+            }
+
+            var view = FindView(who) ?? NewView(who);
+            view.Members.Add(connection);
+            _subscribers.Add(connection);
+            SendSnapshot(connection, view);
+        }
+    }
+
+    /// <summary>The interest keys the connection is set to receive (the ones the last frame was built with), or null when it receives every entity.</summary>
+    /// <param name="connection">A connection of this scope's node.</param>
+    public IReadOnlyCollection<uint>? InterestOf(Connection connection)
+        => ViewOf(connection)?.Interest is { } set ? [.. set.Keys] : null;
+
+    internal InterestSet? EffectiveInterest(Connection connection) => ViewOf(connection)?.Interest;
+
+    private static void ApplyInterest(View view)
+    {
+        if (view.Wanted is not null && view.InterestDirty)
+        {
+            view.Interest!.CopyFrom(view.Wanted);
+            view.InterestDirty = false;
+        }
+    }
+
+    /// <summary>True when the connection has a restricted view that does not hold the entity. Such a command is answered as an unknown entity, so ids cannot be probed.</summary>
+    internal bool OutsideInterest(Connection from, EntityId entity)
+    {
+        if (ViewOf(from) is not { Interest: not null } view || view.KnownIds.BinarySearch(entity.Value) >= 0)
+        {
+            return false;
+        }
+
+        // An entity in transit or just moved has left the world, so the view dropped it. A connection that was told about it (its view held
+        // it when the transfer began) is still answered as without interest: held, or forwarded. Everyone else gets the same answer as
+        // for an id that never existed, so this reveals nothing the connection did not already know.
+        return !WasWatching(from, entity);
+    }
+
+    private bool WasWatching(Connection from, EntityId entity)
+    {
+        var t = _inTransit.GetValueOrDefault(entity.Value) ?? (_moved.TryGetValue(entity.Value, out var m) ? m.Transfer : null);
+        if (t is null)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < t.Entities.Count; i++)
+        {
+            if (t.Entities[i] == entity)
+            {
+                return t.Saw(from, i);
+            }
+        }
+
+        return false;
+    }
+
+    internal void AnswerUnknownEntity(Connection from, uint sequence, EntityId entity, uint commandId)
+    {
+        if (sequence != 0)
+        {
+            SendResult(new Origin(from, sequence, entity, commandId, false), CommandVerdict.UnknownEntity, RefusalReason.Malformed, entity, commandId, null);
         }
     }
 
@@ -513,7 +727,7 @@ public sealed partial class AuthorityScope
         view.KnownMasks.Clear();
         foreach (var e in World.Entities)
         {
-            if (e.TryGetAudienceMask(view.Who, out var mask))
+            if (e.TryGetAudienceMask(view.Who, view.Interest, out var mask))
             {
                 view.KnownIds.Add(e.Id.Value);
                 view.KnownMasks.Add(e.NormalizeMask(mask));
@@ -563,6 +777,8 @@ public sealed partial class AuthorityScope
 
         foreach (var view in _views)
         {
+            ApplyInterest(view);
+            _viewMembers = view.Members.Count;
             BuildEntityChanges(view, out var removedCount, out var addedCount, out var deltaCount);
             _frame.Reset();
             _frame.WriteByte(Msg.Frame);
@@ -586,10 +802,13 @@ public sealed partial class AuthorityScope
             if (hashed)
             {
                 var digest = view.Digests[view.DigestNext++ % DigestRing];
-                StateDigest.CaptureView(World, digest, _scratch, Node.Options.DigestEntityLimit, view.Who, randomVisible);
+                StateDigest.CaptureView(World, digest, _scratch, Node.Options.DigestEntityLimit, view.Who, randomVisible, view.Interest);
                 _frame.WriteFixed64(digest.WorldHash);
             }
 
+            FrameBytes += (long)_frame.Written.Length * view.Members.Count;
+            EntitiesSent += addedCount * (long)view.Members.Count;
+            EntitiesRemoved += removedCount * (long)view.Members.Count;
             foreach (var c in view.Members)
             {
                 Node.SendMessage(c.Channel, _frame.Written);
@@ -637,7 +856,7 @@ public sealed partial class AuthorityScope
             }
 
             var e = entities[i];
-            var visible = e.TryGetAudienceMask(view.Who, out var rawMask);
+            var visible = e.TryGetAudienceMask(view.Who, view.Interest, out var rawMask);
             var mask = e.NormalizeMask(rawMask);
             if (entityId < knownId)
             {
@@ -684,6 +903,7 @@ public sealed partial class AuthorityScope
                     _deltas.WriteVarUInt(entityId);
                     _deltas.WriteBytes(_entity.Written);
                     deltaCount++;
+                    Count(e, _entity.Written.Length, delta: true);
                 }
 
                 view.NextIds.Add(entityId);
@@ -715,6 +935,28 @@ public sealed partial class AuthorityScope
         _added.WriteVarUInt(e.SchemaVersion);
         _added.WriteByte(mask == ulong.MaxValue ? World.EntityFormFull : World.EntityFormMasked);
         _added.WriteBytes(_entity.Written);
+        Count(e, _entity.Written.Length + 8, delta: false);
+    }
+
+    private void Count(Entity e, int bytes, bool delta)
+    {
+        if (!_traffic.TryGetValue(e.TypeId, out var t))
+        {
+            t = new TypeTraffic(e.TypeId, e.TypeName);
+            _traffic[e.TypeId] = t;
+        }
+
+        var total = (long)bytes * _viewMembers;
+        if (delta)
+        {
+            t.DeltaBytes += total;
+            t.Deltas += _viewMembers;
+        }
+        else
+        {
+            t.AddedBytes += total;
+            t.Additions += _viewMembers;
+        }
     }
 
     private void SendSnapshot(Connection to, View view)
@@ -724,7 +966,8 @@ public sealed partial class AuthorityScope
         w.WriteByte(Msg.Snapshot);
         w.WriteVarUInt(Id.Value);
         w.WriteVarInt(World.Tick);
-        World.WriteViewSnapshot(w, view.Who, RandomVisible);
+        World.WriteViewSnapshot(w, view.Who, RandomVisible, view.Interest);
+        SnapshotBytes += w.Written.Length;
         Node.SendMessage(to.Channel, w.Written);
     }
 
@@ -765,6 +1008,14 @@ public sealed partial class AuthorityScope
         }
 
         public Audience Who { get; }
+
+        /// <summary>What the game last asked this connection to receive; null for a view shared by an audience (no interest restriction).</summary>
+        public InterestSet? Wanted { get; set; }
+
+        /// <summary>The set the last frame and snapshot of this view were built with. It follows <see cref="Wanted"/> at the start of each publish, so a view hash always matches the bytes the replica holds.</summary>
+        public InterestSet? Interest { get; set; }
+
+        public bool InterestDirty { get; set; }
 
         public List<Connection> Members { get; } = [];
 

@@ -221,15 +221,24 @@ public sealed class World
     [MutatesState]
     public void AddSystem(ISimSystem system) => _systems.Add(system);
 
+    /// <summary>When true, <see cref="AddTable{T}"/> refuses a table that is not <see cref="Visibility.Hidden"/>. A scope sets it with <c>RequireInterest</c>, because tables are sent whole to everyone.</summary>
+    public bool HiddenTablesOnly { get; set; }
+
     /// <summary>Adds a hot table. Tables are snapshotted and hashed in the order added.</summary>
     /// <typeparam name="T">The generated hot table type.</typeparam>
     /// <param name="table">The table to add.</param>
     /// <returns>The table, for chaining.</returns>
     /// <exception cref="DuplicateTypeException">A table with this name exists.</exception>
+    /// <exception cref="InterestRequiredException"><see cref="HiddenTablesOnly"/> is set and the table is not hidden.</exception>
     [MutatesState]
     public T AddTable<T>(T table)
         where T : IHotTable
     {
+        if (HiddenTablesOnly && table.Visibility != Visibility.Hidden)
+        {
+            throw new InterestRequiredException($"Hot table '{table.Name}' is sent whole to every subscriber, and this world's scope requires interest filtering. Mark the table Hidden, or keep its rows as entities with an [InterestKey].");
+        }
+
         foreach (var t in _tables)
         {
             if (t.Name == table.Name)
@@ -491,9 +500,10 @@ public sealed class World
     /// </summary>
     /// <param name="audience">The subscriber's player and team.</param>
     /// <param name="includeRandom">Whether the subscriber receives the random streams.</param>
-    public ulong ComputeAudienceHash(in Audience audience, bool includeRandom = true) => ViewHash(audience, includeRandom);
+    /// <param name="interest">The connection's interest set, or null when it receives every entity.</param>
+    public ulong ComputeAudienceHash(in Audience audience, bool includeRandom = true, InterestSet? interest = null) => ViewHash(audience, includeRandom, interest);
 
-    private ulong ViewHash(Audience? audience, bool includeRandom)
+    private ulong ViewHash(Audience? audience, bool includeRandom, InterestSet? interest = null)
     {
         var h = StateHash.Combine(0, (ulong)Tick);
         if (includeRandom)
@@ -522,7 +532,7 @@ public sealed class World
             {
                 h = StateHash.Combine(h, e.ComputeViewHash());
             }
-            else if (e.TryGetAudienceMask(audience.Value, out var mask))
+            else if (e.TryGetAudienceMask(audience.Value, interest, out var mask))
             {
                 h = StateHash.Combine(h, e.ComputeViewHash(mask));
             }
@@ -563,14 +573,30 @@ public sealed class World
 
     /// <summary>
     /// Writes the snapshot an audience is allowed to hold: only the entities it may see, each with only the properties it may see,
-    /// without hidden tables, and without the random streams unless <paramref name="includeRandom"/>. <see cref="ReadSnapshot"/> reads it.
+    /// without hidden tables, and without the random streams unless <paramref name="includeRandom"/>. When <paramref name="interest"/> is given, entities with an interest key outside it are left out too. <see cref="ReadSnapshot"/> reads it.
     /// </summary>
-    public void WriteViewSnapshot(SyncWriter w, in Audience audience, bool includeRandom)
+    public void WriteViewSnapshot(SyncWriter w, in Audience audience, bool includeRandom, InterestSet? interest = null)
     {
         w.WriteFixed32(SnapshotMagic);
         w.WriteVarUInt(ViewSnapshotFormat);
         w.WriteVarInt(Tick);
-        w.WriteVarUInt(_nextId);
+
+        // With an interest set the counter would tell the client how many entities were ever created elsewhere; give it the next id past
+        // what it holds. A replica never allocates ids, so nothing depends on the real counter.
+        var nextId = _nextId;
+        if (interest is not null)
+        {
+            nextId = 1;
+            foreach (var e in _entities)
+            {
+                if (e.Id.Value >= nextId && e.TryGetAudienceMask(audience, interest, out _))
+                {
+                    nextId = e.Id.Value + 1;
+                }
+            }
+        }
+
+        w.WriteVarUInt(nextId);
         w.WriteVarUInt(includeRandom ? 1UL : 0UL);
         if (includeRandom)
         {
@@ -580,7 +606,7 @@ public sealed class World
         ulong visible = 0;
         foreach (var e in _entities)
         {
-            if (e.TryGetAudienceMask(audience, out _))
+            if (e.TryGetAudienceMask(audience, interest, out _))
             {
                 visible++;
             }
@@ -589,7 +615,7 @@ public sealed class World
         w.WriteVarUInt(visible);
         foreach (var e in _entities)
         {
-            if (!e.TryGetAudienceMask(audience, out var mask))
+            if (!e.TryGetAudienceMask(audience, interest, out var mask))
             {
                 continue;
             }

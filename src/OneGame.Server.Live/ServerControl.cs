@@ -52,7 +52,7 @@ public sealed class ServerControl : IControlEndpoint
 
     private static readonly IReadOnlyList<ControlOp> All =
     [
-        new("server_info", "Describe the running server: state, tick, tick rate, every scope (tick, state hash, entity count, subscribers), every plugin and the plugins that failed to load.", NoArgs, false),
+        new("server_info", "Describe the running server: state, tick, tick rate, every scope (tick, state hash, entity count, subscribers, bytes sent per entity type), every plugin and the plugins that failed to load.", NoArgs, false),
         new("hash", "The tick and state hash of every scope.", NoArgs, false),
         new("step", "Run N server ticks now (default 1).", """{"type":"object","properties":{"ticks":{"type":"integer","minimum":1,"maximum":1000000}}}""", true),
         new("plugin_list", "List the loaded plugins: build, state (loaded or faulted), scopes, entity types, systems, reload count and the last fault.", NoArgs, false),
@@ -163,7 +163,7 @@ public sealed class ServerControl : IControlEndpoint
 
     private static string Serialize<T>(T value, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> info) => JsonSerializer.Serialize(value, info);
 
-    private ServerInfoResult Info() => new(_host.Config.Name, _host.State.ToString().ToLowerInvariant(), _host.Tick, _host.Config.TickRate, [.. _host.ScopeInfos()], [.. _host.Plugins()], [.. _host.LoadFailures], [.. _host.Endpoints], _host.Clients().Length);
+    private ServerInfoResult Info() => new(_host.Config.Name, _host.State.ToString().ToLowerInvariant(), _host.Tick, _host.Config.TickRate, [.. _host.ScopeInfos(withTraffic: true)], [.. _host.Plugins()], [.. _host.LoadFailures], [.. _host.Endpoints], _host.Clients().Length);
 
     private ServerStateResult State() => new(_host.Tick, [.. _host.ScopeInfos()]);
 

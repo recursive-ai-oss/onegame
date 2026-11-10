@@ -33,6 +33,7 @@ protected Entity();
 | [`DirtyMask`](#m-dirtymask) | Bit i is set when synced property i changed since [`Entity.ClearDirty()`](Entity.md#m-cleardirty). |
 | [`FullMask`](#m-fullmask) | The mask with a bit for every synced property. |
 | [`Id`](#m-id) | The entity's id, or [`EntityId.None`](EntityId.md#m-none) before it is added to a world. |
+| [`InterestKey`](#m-interestkey) | The value of the [`InterestKeyAttribute`](InterestKeyAttribute.md) property, or 0 (global). |
 | [`IsRemoved`](#m-isremoved) | True once the entity has been removed from its world. |
 | [`OwnerKey`](#m-ownerkey) | The value of the [`OwnerKeyAttribute`](OwnerKeyAttribute.md) property, or 0. |
 | [`PropertyCount`](#m-propertycount) | The number of [`SyncedAttribute`](SyncedAttribute.md) properties, which is also the width of the bit masks used by [`Entity.DirtyMask`](Entity.md#m-dirtymask) and visibility. |
@@ -81,6 +82,16 @@ public EntityId Id { get; }
 The entity's id, or [`EntityId.None`](EntityId.md#m-none) before it is added to a world.
 
 **Type:** [`EntityId`](EntityId.md)
+
+### <a id="m-interestkey"></a>InterestKey
+
+```csharp
+public virtual uint InterestKey { get; }
+```
+
+The value of the [`InterestKeyAttribute`](InterestKeyAttribute.md) property, or 0 (global).
+
+**Type:** `uint`
 
 ### <a id="m-isremoved"></a>IsRemoved
 

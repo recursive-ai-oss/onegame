@@ -75,10 +75,16 @@ internal sealed class ServerNetwork
     /// <summary>Called for a client whose connection closed, after its pending messages were handled and before the node forgets it.</summary>
     public Action<Connection>? Left { get; set; }
 
+    /// <summary>Called for a client right after it was admitted, before any message from it is handled.</summary>
+    public Action<Connection>? Joined { get; set; }
+
     public int Count => _remotes.Count;
 
     /// <summary>The security every listener uses; <see cref="Listen"/> throws <see cref="SecurityNotConfiguredException"/> while it is null.</summary>
     public NetSecurity? Security { get; set; }
+
+    /// <summary>Most message bytes queued per client connection before it is closed with <c>SendQueueFull</c>; 0 keeps the transport default (8 MiB).</summary>
+    public int MaxSendQueueBytes { get; set; }
 
     public void Listen(ListenConfig config)
     {
@@ -88,9 +94,10 @@ internal sealed class ServerNetwork
         }
 
         var bind = new IPEndPoint(address, config.Port);
+        var queue = config.MaxSendQueueBytes > 0 ? config.MaxSendQueueBytes : MaxSendQueueBytes;
         INetListener listener = config.Transport == "udp"
-            ? UdpTransport.Listen(bind, new UdpOptions { Security = Security })
-            : WebSocketTransport.Listen(bind, new WebSocketOptions { Security = Security });
+            ? UdpTransport.Listen(bind, queue > 0 ? new UdpOptions { Security = Security, MaxSendQueueBytes = queue } : new UdpOptions { Security = Security })
+            : WebSocketTransport.Listen(bind, queue > 0 ? new WebSocketOptions { Security = Security, MaxSendQueueBytes = queue } : new WebSocketOptions { Security = Security });
         _listeners.Add(listener);
         _transports.Add(config.Transport);
         var port = listener.LocalEndPoint is IPEndPoint bound ? bound.Port : config.Port;
@@ -185,6 +192,16 @@ internal sealed class ServerNetwork
         var accepted = _server.Accept(connection, trust.Value, request.Name);
         _remotes.Add(new Remote(request.Name, transport, connection, accepted));
         _log($"client {request.Name} connected");
+        try
+        {
+            Joined?.Invoke(accepted);
+        }
+        catch (Exception e)
+        {
+            // A game hook that fails for one client (for example SetInterest on a bad argument) refuses that client only.
+            _log($"client {request.Name} refused: the join hook failed ({e.GetType().Name}: {e.Message})");
+            connection.Disconnect(DisconnectReason.Rejected);
+        }
     }
 
     private void Drop(int index)
@@ -192,7 +209,9 @@ internal sealed class ServerNetwork
         var r = _remotes[index];
         _remotes.RemoveAt(index);
         var info = r.Connection.CloseInfo;
-        _log($"client {r.Name} left ({info.Reason}{(info.ByRemote ? ", by the client" : "")})");
+        _log(info.Reason == DisconnectReason.SendQueueFull
+            ? $"client {r.Name} dropped: its send queue overflowed (SendQueueFull). Raise maxSendQueueBytes on the listener or ServerHost.MaxSendQueueBytes, or send less (interest sets)"
+            : $"client {r.Name} left ({info.Reason}{(info.ByRemote ? ", by the client" : "")})");
 
         // Messages that arrived before the close are handled first, then the node stops publishing to the dead connection and forgets it.
         _server.Pump();

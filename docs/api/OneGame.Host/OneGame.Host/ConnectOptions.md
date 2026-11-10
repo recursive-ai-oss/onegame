@@ -33,6 +33,7 @@ public ConnectOptions();
 | [`Address`](#m-address) | `udp://host:port` (reliable UDP) or `ws://host:port` (WebSocket). |
 | [`AlsoScopes`](#m-alsoscopes) | More scopes to follow over the same connection, for a server that serves several (its own, and others it relays). |
 | [`Conditions`](#m-conditions) | Network conditions to apply to this client's traffic (latency, loss, ...), or null for the real network as it is. |
+| [`MaxSendQueueBytes`](#m-maxsendqueuebytes) | Most message bytes this client queues for sending before the link closes with `SendQueueFull`; 0 keeps the transport default (8 MiB). |
 | [`Name`](#m-name) | The name this client has in reports. |
 | [`Reconnect`](#m-reconnect) | When the connection closes (the server died, restarted or timed out), keep trying to connect again and resubscribe to every followed scope; the replicas are rebuilt from fresh snapshots. |
 | [`ReconnectWindowMs`](#m-reconnectwindowms) | How long to keep trying after the connection was lost before the session counts as closed for good. |
@@ -68,6 +69,16 @@ public NetworkConditions? Conditions { get; init; }
 Network conditions to apply to this client's traffic (latency, loss, ...), or null for the real network as it is.
 
 **Type:** [`NetworkConditions`](../../OneGame.Net/OneGame.Net/NetworkConditions.md)?
+
+### <a id="m-maxsendqueuebytes"></a>MaxSendQueueBytes
+
+```csharp
+public int MaxSendQueueBytes { get; init; }
+```
+
+Most message bytes this client queues for sending before the link closes with `SendQueueFull`; 0 keeps the transport default (8 MiB).
+
+**Type:** `int`
 
 ### <a id="m-name"></a>Name
 

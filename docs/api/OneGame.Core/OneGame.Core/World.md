@@ -36,6 +36,7 @@ Creates an empty world. Build the same way (registry, systems, tables) on every 
 | Member | Description |
 | --- | --- |
 | [`Entities`](#m-entities) | The live entities in id order. |
+| [`HiddenTablesOnly`](#m-hiddentablesonly) | When true, [`World.AddTable()`](World.md#m-addtable-t-t) refuses a table that is not [`Visibility.Hidden`](Visibility.md#m-hidden). |
 | [`Observer`](#m-observer) | Called for every command this world executes, queues-then-runs on an authority or forwards on a replica. |
 | [`PendingCommandCount`](#m-pendingcommandcount) | Commands accepted and waiting for the next tick. |
 | [`Rng`](#m-rng) | The named random streams. |
@@ -53,6 +54,16 @@ public IReadOnlyList<Entity> Entities { get; }
 The live entities in id order. An entity removed during a tick is no longer listed, even though it is only detached when the tick ends, so a loop that removes an entity never sees it again in the same tick.
 
 **Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`Entity`](Entity.md)&gt;
+
+### <a id="m-hiddentablesonly"></a>HiddenTablesOnly
+
+```csharp
+public bool HiddenTablesOnly { get; set; }
+```
+
+When true, [`World.AddTable()`](World.md#m-addtable-t-t) refuses a table that is not [`Visibility.Hidden`](Visibility.md#m-hidden). A scope sets it with `RequireInterest`, because tables are sent whole to everyone.
+
+**Type:** `bool`
 
 ### <a id="m-observer"></a>Observer
 
@@ -132,7 +143,7 @@ The number of completed ticks. Replicas take it from the snapshots they apply.
 | [`AddSystem(ISimSystem)`](#m-addsystem-isimsystem) | Adds a system. |
 | [`AddTable<T>(T)`](#m-addtable-t-t) | Adds a hot table. |
 | [`AddWithId(Entity, EntityId)`](#m-addwithid-entity-entityid) | Adds an entity under a given id; replicas use it to mirror the authority's ids. |
-| [`ComputeAudienceHash(in Audience, bool)`](#m-computeaudiencehash-audience-bool) | The hash of the view an audience gets from this world: tick, the random streams when `includeRandom`, the tables that are not hidden, and each entity the audience may see with only the properties it may see. |
+| [`ComputeAudienceHash(in Audience, bool, InterestSet?)`](#m-computeaudiencehash-audience-bool-interestset) | The hash of the view an audience gets from this world: tick, the random streams when `includeRandom`, the tables that are not hidden, and each entity the audience may see with only the properties it may see. |
 | [`ComputeHash()`](#m-computehash) | A 64-bit hash of everything that defines the simulation: tick, random streams, tables and every entity's state. |
 | [`ComputeViewHash()`](#m-computeviewhash) | The hash of what this world holds as a subscriber: equal to [`World.ComputeHash()`](World.md#m-computehash) on an authority and on a replica that receives everything, and the hash of the filtered view on a replica that does not. |
 | [`DumpJson()`](#m-dumpjson) | The world as a JSON document, for inspection: tick, seed, every entity and every table. |
@@ -145,7 +156,7 @@ The number of completed ticks. Replicas take it from the snapshots they apply.
 | [`SubmitEncoded(ReadOnlySpan<byte>)`](#m-submitencoded-readonlyspan-byte) | Submits a command from its wire form (entity id, command id, arguments), as read from a log or a connection. |
 | [`TryGet<T>(EntityId, out T)`](#m-tryget-t-entityid-t) | Finds an entity by id and type. |
 | [`WriteSnapshot(SyncWriter)`](#m-writesnapshot-syncwriter) | Writes the whole world: tick, id counter, random streams, entities (with their schema versions) and tables. |
-| [`WriteViewSnapshot(SyncWriter, in Audience, bool)`](#m-writeviewsnapshot-syncwriter-audience-bool) | Writes the snapshot an audience is allowed to hold: only the entities it may see, each with only the properties it may see, without hidden tables, and without the random streams unless `includeRandom`. |
+| [`WriteViewSnapshot(SyncWriter, in Audience, bool, InterestSet?)`](#m-writeviewsnapshot-syncwriter-audience-bool-interestset) | Writes the snapshot an audience is allowed to hold: only the entities it may see, each with only the properties it may see, without hidden tables, and without the random streams unless `includeRandom`. |
 
 ### <a id="m-add-t-t"></a>Add&lt;T&gt;(T)
 
@@ -202,6 +213,7 @@ Adds a hot table. Tables are snapshotted and hashed in the order added.
 **Exceptions**
 
 - [`DuplicateTypeException`](DuplicateTypeException.md): A table with this name exists.
+- [`InterestRequiredException`](InterestRequiredException.md): [`World.HiddenTablesOnly`](World.md#m-hiddentablesonly) is set and the table is not hidden.
 
 ### <a id="m-addwithid-entity-entityid"></a>AddWithId(Entity, EntityId)
 
@@ -220,10 +232,10 @@ Adds an entity under a given id; replicas use it to mirror the authority's ids.
 
 - [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): The entity is already in a world, or the id is zero or taken.
 
-### <a id="m-computeaudiencehash-audience-bool"></a>ComputeAudienceHash(in Audience, bool)
+### <a id="m-computeaudiencehash-audience-bool-interestset"></a>ComputeAudienceHash(in Audience, bool, InterestSet?)
 
 ```csharp
-public ulong ComputeAudienceHash(in Audience audience, bool includeRandom = true);
+public ulong ComputeAudienceHash(in Audience audience, bool includeRandom = true, InterestSet? interest = null);
 ```
 
 The hash of the view an audience gets from this world: tick, the random streams when `includeRandom`, the tables that are not hidden, and each entity the audience may see with only the properties it may see.
@@ -232,6 +244,7 @@ The hash of the view an audience gets from this world: tick, the random streams 
 
 - `audience` ([`Audience`](Audience.md)): The subscriber's player and team.
 - `includeRandom` (`bool`): Whether the subscriber receives the random streams.
+- `interest` ([`InterestSet`](InterestSet.md)?): The connection's interest set, or null when it receives every entity.
 
 **Returns:** `ulong`
 
@@ -251,7 +264,7 @@ A 64-bit hash of everything that defines the simulation: tick, random streams, t
 public ulong ComputeViewHash();
 ```
 
-The hash of what this world holds as a subscriber: equal to [`World.ComputeHash()`](World.md#m-computehash) on an authority and on a replica that receives everything, and the hash of the filtered view on a replica that does not. The authority computes the same number for the same subscriber with [`World.ComputeAudienceHash()`](World.md#m-computeaudiencehash-audience-bool), which is how drift is checked when subscribers see different things.
+The hash of what this world holds as a subscriber: equal to [`World.ComputeHash()`](World.md#m-computehash) on an authority and on a replica that receives everything, and the hash of the filtered view on a replica that does not. The authority computes the same number for the same subscriber with [`World.ComputeAudienceHash()`](World.md#m-computeaudiencehash-audience-bool-interestset), which is how drift is checked when subscribers see different things.
 
 **Returns:** `ulong`
 
@@ -395,16 +408,17 @@ Writes the whole world: tick, id counter, random streams, entities (with their s
 
 - `w` ([`SyncWriter`](SyncWriter.md)): Receives the bytes.
 
-### <a id="m-writeviewsnapshot-syncwriter-audience-bool"></a>WriteViewSnapshot(SyncWriter, in Audience, bool)
+### <a id="m-writeviewsnapshot-syncwriter-audience-bool-interestset"></a>WriteViewSnapshot(SyncWriter, in Audience, bool, InterestSet?)
 
 ```csharp
-public void WriteViewSnapshot(SyncWriter w, in Audience audience, bool includeRandom);
+public void WriteViewSnapshot(SyncWriter w, in Audience audience, bool includeRandom, InterestSet? interest = null);
 ```
 
-Writes the snapshot an audience is allowed to hold: only the entities it may see, each with only the properties it may see, without hidden tables, and without the random streams unless `includeRandom`. [`World.ReadSnapshot()`](World.md#m-readsnapshot-readonlyspan-byte) reads it.
+Writes the snapshot an audience is allowed to hold: only the entities it may see, each with only the properties it may see, without hidden tables, and without the random streams unless `includeRandom`. When `interest` is given, entities with an interest key outside it are left out too. [`World.ReadSnapshot()`](World.md#m-readsnapshot-readonlyspan-byte) reads it.
 
 **Parameters**
 
 - `w` ([`SyncWriter`](SyncWriter.md))
 - `audience` ([`Audience`](Audience.md))
 - `includeRandom` (`bool`)
+- `interest` ([`InterestSet`](InterestSet.md)?)

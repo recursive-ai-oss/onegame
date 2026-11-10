@@ -36,6 +36,11 @@ dotnet add package RecursiveAI.OneGame.Core
 | [`ILerp<TSelf>`](OneGame.Core/ILerp-1.md) | interface | A value that can be blended between two of its kind; [`Timed<T>`](OneGame.Core/Timed-1.md) uses it to interpolate. |
 | [`ISimSystem`](OneGame.Core/ISimSystem.md) | interface | Sim logic that is not tied to one entity. |
 | [`ISyncValue<TSelf>`](OneGame.Core/ISyncValue-1.md) | interface | A value type with a binary codec. |
+| [`InterestGrid2D`](OneGame.Core/InterestGrid2D.md) | class | A flat square grid for interest keys, and the helpers that keep them from flapping at cell edges. |
+| [`InterestGrid2D.Follower`](OneGame.Core/InterestGrid2D.Follower.md) | class | Tracks the cells one connection should receive. |
+| [`InterestKeyAttribute`](OneGame.Core/InterestKeyAttribute.md) | attribute | Marks the synced [`UInt32`](https://learn.microsoft.com/dotnet/api/system.uint32) or [`Int32`](https://learn.microsoft.com/dotnet/api/system.int32) property that says which interest cell the entity is in (for example a grid cell from `InterestGrid2D`). |
+| [`InterestRequiredException`](OneGame.Core/InterestRequiredException.md) | class | A change would let data past a scope's `RequireInterest` guarantee: a random stream or hot table sent to everyone cannot be filtered by interest. |
+| [`InterestSet`](OneGame.Core/InterestSet.md) | class | The interest keys one connection wants in one scope. |
 | [`JsonOut`](OneGame.Core/JsonOut.md) | class | A small JSON writer for state dumps. |
 | [`KeyFiles`](OneGame.Core/KeyFiles.md) | record | The files of one named key: the private key file and the one-line public key file beside it. |
 | [`KeyFormatException`](OneGame.Core/KeyFormatException.md) | class | A key or key file was malformed. |

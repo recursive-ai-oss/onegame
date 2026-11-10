@@ -36,6 +36,7 @@ dotnet add package RecursiveAI.OneGame.Server
 | [`ScopeConfig`](OneGame.Server/ScopeConfig.md) | record | One scope the server hosts. |
 | [`ScopeHashAt`](OneGame.Server/ScopeHashAt.md) | record | The recorded hash of one scope at one tick. |
 | [`ScopeInfo`](OneGame.Server/ScopeInfo.md) | record | A snapshot of one scope. |
+| [`ScopeTraffic`](OneGame.Server/ScopeTraffic.md) | record | A scope's outgoing totals. |
 | [`SecurityConfig`](OneGame.Server/SecurityConfig.md) | record | How the server secures its client links (the `security:` section). |
 | [`ServerConfig`](OneGame.Server/ServerConfig.md) | class | The server configuration. |
 | [`ServerConfigException`](OneGame.Server/ServerConfigException.md) | class | The server configuration file is not valid: the message names the file, the line and what to change. |
@@ -46,4 +47,5 @@ dotnet add package RecursiveAI.OneGame.Server
 | [`ServerScope`](OneGame.Server/ServerScope.md) | class | One hosted scope. |
 | [`ServerSetup`](OneGame.Server/ServerSetup.md) | class | What a game adds to a server that has no plugins, or in addition to them. |
 | [`ServerState`](OneGame.Server/ServerState.md) | enum | Where a server is in its life. |
+| [`TypeBytes`](OneGame.Server/TypeBytes.md) | record | Bytes one entity type has cost on the wire in a scope (counted per connection it was sent to). |
 | [`UnloadResult`](OneGame.Server/UnloadResult.md) | record | The result of an unload. |

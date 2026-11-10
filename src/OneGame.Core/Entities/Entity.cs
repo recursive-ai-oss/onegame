@@ -77,6 +77,9 @@ public abstract class Entity
     /// <summary>The value of the <see cref="TeamKeyAttribute"/> property, or 0.</summary>
     public virtual ulong TeamKey => 0;
 
+    /// <summary>The value of the <see cref="InterestKeyAttribute"/> property, or 0 (global).</summary>
+    public virtual uint InterestKey => 0;
+
     /// <summary>
     /// Which of this entity's properties (bit i = property i) an audience may receive. Returns false when the entity as a whole is
     /// hidden from it. Entities without visibility rules show everything to everyone.
@@ -94,8 +97,17 @@ public abstract class Entity
     /// The mask an audience gets of this copy: what <see cref="TryGetVisibleMask"/> allows, cut down to what this copy holds (a replica of a
     /// filtered entity cannot pass on what it never received). A relay audience is treated as the entity's owner and team.
     /// </summary>
-    internal bool TryGetAudienceMask(in Audience audience, out ulong mask)
+    internal bool TryGetAudienceMask(in Audience audience, out ulong mask) => TryGetAudienceMask(audience, null, out mask);
+
+    /// <summary>As above, and additionally false when <paramref name="interest"/> is a restricted set that lacks this entity's non-zero <see cref="InterestKey"/>.</summary>
+    internal bool TryGetAudienceMask(in Audience audience, InterestSet? interest, out ulong mask)
     {
+        if (interest is not null && !interest.Admits(InterestKey))
+        {
+            mask = 0;
+            return false;
+        }
+
         var who = audience.Relay ? new Audience((uint)OwnerKey, (uint)TeamKey) : audience;
         if (!TryGetVisibleMask(who, out mask))
         {

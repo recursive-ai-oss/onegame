@@ -63,7 +63,55 @@ internal static class SyncSmoke
             return "fixed-step driver miscounted";
         }
 
-        return RunFiltered() ?? RunPredicted();
+        return RunFiltered() ?? RunPredicted() ?? RunInterest();
+    }
+
+    /// <summary>A replica holds only the cells it was given; moving the set streams entities in and out, and view hashes stay equal.</summary>
+    private static string? RunInterest()
+    {
+        // No hot table: a table that everyone receives cannot be filtered, and RequireInterest refuses such a world.
+        World Plain(WorldRole role)
+        {
+            var registry = new EntityRegistry();
+            OneGame.Generated.OneGame_AotSmoke.EntityTypes.Register(registry);
+            return new World(11, registry, role);
+        }
+
+        var authority = Plain(WorldRole.Authority);
+        var grid = new InterestGrid2D(128, 1, 2);
+        for (var i = 0; i < 20; i++)
+        {
+            authority.Add(new Pin { Cell = grid.Key(i * 100, 0) });
+        }
+
+        var cluster = new Cluster(new ClusterOptions { DriftCheckInterval = 1, FatalDrift = true });
+        var host = cluster.AddNode("host");
+        var scope = cluster.AddScope(host, new ScopeId(1), authority);
+        scope.RequireInterest = true;
+        var view = cluster.AddLocalReplica(scope, Plain(WorldRole.Replica), Trust.Player(scope.Id));
+        var follower = grid.Follow();
+        cluster.Settle();
+        for (var step = 0; step < 6; step++)
+        {
+            if (follower.Update(step * 300, 0))
+            {
+                scope.SetInterest(view.Link.Connection, follower.Keys);
+            }
+
+            cluster.Step(3);
+            if (scope.ViewHashFor(view.Link.Connection) != view.ViewHash)
+            {
+                return "an interest view drifted";
+            }
+        }
+
+        var held = view.World.Entities.Count;
+        if (held == 0 || held >= 20)
+        {
+            return "interest did not narrow the replica: " + held;
+        }
+
+        return scope.Traffic.Count == 0 ? "no per-type traffic was counted" : null;
     }
 
     /// <summary>A replica predicts a command, rolls back and resimulates as frames arrive, and ends on the authority's state.</summary>

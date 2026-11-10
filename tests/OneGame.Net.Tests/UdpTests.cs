@@ -572,6 +572,29 @@ public class UdpTests
     }
 
     [Fact]
+    public void ASendQueueOverflowAtTheServerEndIsTypedAtBothEnds()
+    {
+        var rig = new Rig();
+        var (_, client, accepted) = rig.Connected(
+            serverOptions: new UdpOptions { Security = NetSecurity.Insecure, MaxMessageBytes = 1 << 20, MaxSendQueueBytes = 2 << 20 },
+            clientOptions: new UdpOptions { Security = NetSecurity.Insecure, MaxMessageBytes = 1 << 20 });
+        DisconnectInfo? atServer = null;
+        DisconnectInfo? atClient = null;
+        accepted.Disconnected += (_, i) => atServer = i;
+        client.Disconnected += (_, i) => atClient = i;
+        for (var i = 0; i < 5; i++)
+        {
+            accepted.Send(new byte[1 << 20]);
+        }
+
+        rig.RunUntil(() => atClient is not null, 5000);
+        Assert.Equal(DisconnectReason.SendQueueFull, atServer!.Value.Reason);
+        Assert.False(atServer.Value.ByRemote);
+        Assert.Equal(DisconnectReason.SendQueueFull, atClient!.Value.Reason);
+        Assert.True(atClient.Value.ByRemote);
+    }
+
+    [Fact]
     public void BadOptionsAreRefused()
     {
         Assert.Throws<ArgumentException>(() => UdpTransport.Listen(new Rig().Net.CreateSocket(), new UdpOptions { Security = NetSecurity.Insecure, ReceiveWindow = 100 }));

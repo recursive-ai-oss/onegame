@@ -56,6 +56,7 @@ Creates a server. Nothing runs until [`ServerHost.Start()`](ServerHost.md#m-star
 | [`Endpoints`](#m-endpoints) | The addresses the server listens on, with the ports the system picked for configured port 0. |
 | [`LoadFailures`](#m-loadfailures) | Plugins that were configured but failed to load. |
 | [`Log`](#m-log) | The log. |
+| [`MaxSendQueueBytes`](#m-maxsendqueuebytes) | Most message bytes the server queues for one client connection (unacknowledged data included) before it closes that connection with `SendQueueFull`. |
 | [`Node`](#m-node) | The node that is authority for every hosted scope. |
 | [`Scopes`](#m-scopes) | The hosted scopes in id order of declaration. |
 | [`Security`](#m-security) | How client links are secured. |
@@ -133,6 +134,16 @@ The log.
 
 **Type:** [`ServerLog`](ServerLog.md)
 
+### <a id="m-maxsendqueuebytes"></a>MaxSendQueueBytes
+
+```csharp
+public int MaxSendQueueBytes { get; set; }
+```
+
+Most message bytes the server queues for one client connection (unacknowledged data included) before it closes that connection with `SendQueueFull`. 0 (the default) keeps the transport's 8 MiB. Raise it for clients that join a large scope over a slow link; it must be at least the message cap. Set it before [`ServerHost.Start()`](ServerHost.md#m-start).
+
+**Type:** `int`
+
 ### <a id="m-node"></a>Node
 
 ```csharp
@@ -197,7 +208,18 @@ Ticks run so far, counted from [`ServerHost.Start()`](ServerHost.md#m-start). Ea
 
 | Member | Description |
 | --- | --- |
+| [`ClientJoined`](#m-clientjoined) | Raised when a network client was admitted, before the first message it sends is handled, so its first snapshot can already be shaped: call [`AuthorityScope.SetInterest()`](../../OneGame.Sync/OneGame.Sync/AuthorityScope.md#m-setinterest-connection-readonlyspan-uint) here to give it the cells around where it spawns. |
 | [`ClientLeft`](#m-clientleft) | Raised when a network client's connection closed (it left, timed out or was dropped), after the messages it sent before that were handled. |
+
+### <a id="m-clientjoined"></a>ClientJoined
+
+```csharp
+public event Action<Connection>? ClientJoined;
+```
+
+Raised when a network client was admitted, before the first message it sends is handled, so its first snapshot can already be shaped: call [`AuthorityScope.SetInterest()`](../../OneGame.Sync/OneGame.Sync/AuthorityScope.md#m-setinterest-connection-readonlyspan-uint) here to give it the cells around where it spawns. [`Connection.Trust`](../../OneGame.Sync/OneGame.Sync/Connection.md#m-trust) says who it is.
+
+**Type:** [`Action`](https://learn.microsoft.com/dotnet/api/system.action-1)&lt;[`Connection`](../../OneGame.Sync/OneGame.Sync/Connection.md)&gt;?
 
 ### <a id="m-clientleft"></a>ClientLeft
 
@@ -225,7 +247,7 @@ Raised when a network client's connection closed (it left, timed out or was drop
 | [`ReloadPlugin(string, string?)`](#m-reloadplugin-string-string) | Replaces a running plugin with a new build of it. |
 | [`RequestStop()`](#m-requeststop) | Asks [`ServerHost.Run()`](ServerHost.md#m-run-func-bool-action) to finish its current tick and stop. |
 | [`Run(Func<bool>?, Action?)`](#m-run-func-bool-action) | Runs in real time until [`ServerHost.RequestStop()`](ServerHost.md#m-requeststop) or `keepRunning` returns false. |
-| [`ScopeInfos()`](#m-scopeinfos) | A summary of every hosted scope: tick, state hash, entity count and subscribers. |
+| [`ScopeInfos(bool)`](#m-scopeinfos-bool) | A summary of every hosted scope: tick, state hash, entity count and subscribers. |
 | [`SendCommand(ScopeId, EntityId, string, string[])`](#m-sendcommand-scopeid-entityid-string-string) | Sends a command to an entity from the host, as trusted input: it is queued for the next tick. |
 | [`Start()`](#m-start) | Builds the scopes and loads the configured plugins. |
 | [`Step(int)`](#m-step-int) | Runs `ticks` ticks back to back, as fast as possible with no clock. |
@@ -398,13 +420,17 @@ Runs in real time until [`ServerHost.RequestStop()`](ServerHost.md#m-requeststop
 - `keepRunning` ([`Func`](https://learn.microsoft.com/dotnet/api/system.func-1)`<bool>?`): Checked every loop; null runs until a stop is requested.
 - `between` ([`Action`](https://learn.microsoft.com/dotnet/api/system.action)?): Called between ticks, or null to sleep a millisecond.
 
-### <a id="m-scopeinfos"></a>ScopeInfos()
+### <a id="m-scopeinfos-bool"></a>ScopeInfos(bool)
 
 ```csharp
-public IReadOnlyList<ScopeInfo> ScopeInfos();
+public IReadOnlyList<ScopeInfo> ScopeInfos(bool withTraffic = false);
 ```
 
 A summary of every hosted scope: tick, state hash, entity count and subscribers. Cheap enough to poll.
+
+**Parameters**
+
+- `withTraffic` (`bool`)
 
 **Returns:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`ScopeInfo`](ScopeInfo.md)&gt;
 

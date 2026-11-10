@@ -53,9 +53,12 @@ Creates a new instance.
 | [`ListenEndpointArray`](#m-listenendpointarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ScopeInfo`](#m-scopeinfo) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ScopeInfoArray`](#m-scopeinfoarray) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`ScopeTraffic`](#m-scopetraffic) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ServerReadyLine`](#m-serverreadyline) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ServerStoppedLine`](#m-serverstoppedline) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`String`](#m-string) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`TypeBytes`](#m-typebytes) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`TypeBytesArray`](#m-typebytesarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`UInt32`](#m-uint32) | Defines the source generated JSON serialization contract metadata for a given type. |
 
 ### <a id="m-boolean"></a>Boolean
@@ -148,6 +151,16 @@ Defines the source generated JSON serialization contract metadata for a given ty
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`ScopeInfo`](../../OneGame.Server/OneGame.Server/ScopeInfo.md)\[\]&gt;
 
+### <a id="m-scopetraffic"></a>ScopeTraffic
+
+```csharp
+public JsonTypeInfo<ScopeTraffic> ScopeTraffic { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`ScopeTraffic`](../../OneGame.Server/OneGame.Server/ScopeTraffic.md)&gt;
+
 ### <a id="m-serverreadyline"></a>ServerReadyLine
 
 ```csharp
@@ -177,6 +190,26 @@ public JsonTypeInfo<string> String { get; }
 Defines the source generated JSON serialization contract metadata for a given type.
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)`<string>`
+
+### <a id="m-typebytes"></a>TypeBytes
+
+```csharp
+public JsonTypeInfo<TypeBytes> TypeBytes { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`TypeBytes`](../../OneGame.Server/OneGame.Server/TypeBytes.md)&gt;
+
+### <a id="m-typebytesarray"></a>TypeBytesArray
+
+```csharp
+public JsonTypeInfo<TypeBytes[]> TypeBytesArray { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`TypeBytes`](../../OneGame.Server/OneGame.Server/TypeBytes.md)\[\]&gt;
 
 ### <a id="m-uint32"></a>UInt32
 
