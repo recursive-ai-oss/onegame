@@ -10,7 +10,6 @@ public sealed partial class AuthorityScope
     private const int OutcomeHistory = 256;
     private const int DigestRing = 4;
     private const int MaxReasonChars = 200;
-    private const int MaxPendingInterest = 1024;
 
     private readonly List<Connection> _subscribers = [];
     private readonly List<View> _views = [];
@@ -23,6 +22,8 @@ public sealed partial class AuthorityScope
     private bool _requireInterest;
     private int _viewMembers = 1;
     private readonly Dictionary<uint, TypeTraffic> _traffic = [];
+    // Interest given before a connection subscribed. An entry lives until it subscribes or the node detaches the connection, so the
+    // transport's connection limit bounds it; there is no separate cap that idle connections could exhaust.
     private readonly Dictionary<Connection, InterestSet> _pendingInterest = [];
 
     // Frame building. Random streams and tables are the same for every audience, so they are compared once per tick.
@@ -132,6 +133,7 @@ public sealed partial class AuthorityScope
     /// shuffle must stay secret. Changing it gives every subscriber a fresh snapshot.
     /// </summary>
     /// <exception cref="ArgumentException">The value is neither Everyone nor Hidden.</exception>
+    /// <exception cref="InterestRequiredException">The value is Everyone while <see cref="RequireInterest"/> is on.</exception>
     public Visibility RandomStreams
     {
         get => _randomVisibility;
@@ -145,6 +147,11 @@ public sealed partial class AuthorityScope
             if (value == _randomVisibility)
             {
                 return;
+            }
+
+            if (_requireInterest && value != Visibility.Hidden)
+            {
+                throw new InterestRequiredException("The random streams cannot be sent to everyone while RequireInterest is on: a stream advanced by events outside a connection's interest would reveal them.");
             }
 
             _randomVisibility = value;
@@ -405,7 +412,8 @@ public sealed partial class AuthorityScope
     /// <see cref="Visibility.Hidden"/> (a random stream advanced by events outside a connection's interest would reveal them), and it
     /// refuses a world that has a hot table which is not hidden, because tables are sent whole to everyone. Set it before the first subscriber.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Subscribers already exist, or the world has a table that is not <see cref="Visibility.Hidden"/>.</exception>
+    /// <exception cref="InvalidOperationException">Subscribers already exist.</exception>
+    /// <exception cref="InterestRequiredException">The world has a table that is not <see cref="Visibility.Hidden"/>. While it is on, a later <see cref="RandomStreams"/> = Everyone or <see cref="World.AddTable{T}"/> of a visible table throws the same.</exception>
     public bool RequireInterest
     {
         get => _requireInterest;
@@ -427,7 +435,7 @@ public sealed partial class AuthorityScope
                 {
                     if (t.Visibility != Visibility.Hidden)
                     {
-                        throw new InvalidOperationException($"Hot table '{t.Name}' is sent whole to every subscriber and cannot be filtered by interest. Mark it Hidden, or keep its rows as entities with an [InterestKey].");
+                        throw new InterestRequiredException($"Hot table '{t.Name}' is sent whole to every subscriber and cannot be filtered by interest. Mark it Hidden, or keep its rows as entities with an [InterestKey].");
                     }
                 }
 
@@ -435,6 +443,7 @@ public sealed partial class AuthorityScope
             }
 
             _requireInterest = value;
+            World.HiddenTablesOnly = value;
         }
     }
 
@@ -462,11 +471,6 @@ public sealed partial class AuthorityScope
 
         if (!_pendingInterest.TryGetValue(connection, out var pending))
         {
-            if (_pendingInterest.Count >= MaxPendingInterest)
-            {
-                throw new InvalidOperationException("Too many connections were given an interest before they subscribed.");
-            }
-
             pending = new InterestSet();
             _pendingInterest[connection] = pending;
         }
@@ -520,7 +524,36 @@ public sealed partial class AuthorityScope
 
     /// <summary>True when the connection has a restricted view that does not hold the entity. Such a command is answered as an unknown entity, so ids cannot be probed.</summary>
     internal bool OutsideInterest(Connection from, EntityId entity)
-        => ViewOf(from) is { Interest: not null } view && view.KnownIds.BinarySearch(entity.Value) < 0;
+    {
+        if (ViewOf(from) is not { Interest: not null } view || view.KnownIds.BinarySearch(entity.Value) >= 0)
+        {
+            return false;
+        }
+
+        // An entity in transit or just moved has left the world, so the view dropped it. A connection that was told about it (its view held
+        // it when the transfer began) is still answered as without interest: held, or forwarded. Everyone else gets the same answer as
+        // for an id that never existed, so this reveals nothing the connection did not already know.
+        return !WasWatching(from, entity);
+    }
+
+    private bool WasWatching(Connection from, EntityId entity)
+    {
+        var t = _inTransit.GetValueOrDefault(entity.Value) ?? (_moved.TryGetValue(entity.Value, out var m) ? m.Transfer : null);
+        if (t is null)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < t.Entities.Count; i++)
+        {
+            if (t.Entities[i] == entity)
+            {
+                return t.Saw(from, i);
+            }
+        }
+
+        return false;
+    }
 
     internal void AnswerUnknownEntity(Connection from, uint sequence, EntityId entity, uint commandId)
     {

@@ -185,6 +185,7 @@ Whether subscribers receive the random streams. [`Visibility.Everyone`](../../On
 **Exceptions**
 
 - [`ArgumentException`](https://learn.microsoft.com/dotnet/api/system.argumentexception): The value is neither Everyone nor Hidden.
+- [`InterestRequiredException`](../../OneGame.Core/OneGame.Core/InterestRequiredException.md): The value is Everyone while [`AuthorityScope.RequireInterest`](AuthorityScope.md#m-requireinterest) is on.
 
 ### <a id="m-requireinterest"></a>RequireInterest
 
@@ -198,7 +199,8 @@ When true, a connection receives only global entities (interest key 0 or no key)
 
 **Exceptions**
 
-- [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): Subscribers already exist, or the world has a table that is not [`Visibility.Hidden`](../../OneGame.Core/OneGame.Core/Visibility.md#m-hidden).
+- [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): Subscribers already exist.
+- [`InterestRequiredException`](../../OneGame.Core/OneGame.Core/InterestRequiredException.md): The world has a table that is not [`Visibility.Hidden`](../../OneGame.Core/OneGame.Core/Visibility.md#m-hidden). While it is on, a later [`AuthorityScope.RandomStreams`](AuthorityScope.md#m-randomstreams) = Everyone or [`World.AddTable()`](../../OneGame.Core/OneGame.Core/World.md#m-addtable-t-t) of a visible table throws the same.
 
 ### <a id="m-savedtick"></a>SavedTick
 

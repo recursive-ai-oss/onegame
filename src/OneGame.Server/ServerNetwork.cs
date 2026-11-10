@@ -192,7 +192,16 @@ internal sealed class ServerNetwork
         var accepted = _server.Accept(connection, trust.Value, request.Name);
         _remotes.Add(new Remote(request.Name, transport, connection, accepted));
         _log($"client {request.Name} connected");
-        Joined?.Invoke(accepted);
+        try
+        {
+            Joined?.Invoke(accepted);
+        }
+        catch (Exception e)
+        {
+            // A game hook that fails for one client (for example SetInterest on a bad argument) refuses that client only.
+            _log($"client {request.Name} refused: the join hook failed ({e.GetType().Name}: {e.Message})");
+            connection.Disconnect(DisconnectReason.Rejected);
+        }
     }
 
     private void Drop(int index)

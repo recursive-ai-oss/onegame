@@ -70,6 +70,16 @@ public sealed class Transfer
 
     internal List<Connection> Watchers { get; } = [];
 
+    /// <summary>Parallel to <see cref="Watchers"/>: which entities (by index in <see cref="Entities"/>) that watcher's view held; null means all of them.</summary>
+    internal List<bool[]?> WatcherSees { get; } = [];
+
+    /// <summary>True when <paramref name="connection"/> was told about the entity at <paramref name="index"/>, because its view held it.</summary>
+    internal bool Saw(Connection connection, int index)
+    {
+        var w = Watchers.IndexOf(connection);
+        return w >= 0 && (WatcherSees[w] is not { } see || see[index]);
+    }
+
     internal Dictionary<ulong, Entity> Departed { get; } = [];
 }
 
@@ -315,21 +325,30 @@ public sealed partial class AuthorityScope
         }
 
         // Remember who has seen these entities so that only they are told where they went.
+        // A watcher is told only about the entities its own view held, so a set that spans the edge of its interest does not reveal the rest.
         foreach (var view in _views)
         {
-            foreach (var id in ids)
+            var sees = new bool[ids.Count];
+            var any = false;
+            var all = true;
+            for (var i = 0; i < ids.Count; i++)
             {
-                if (view.KnownIds.BinarySearch(id) >= 0)
-                {
-                    foreach (var c in view.Members)
-                    {
-                        if (!t.Watchers.Contains(c))
-                        {
-                            t.Watchers.Add(c);
-                        }
-                    }
+                sees[i] = view.KnownIds.BinarySearch(ids[i]) >= 0;
+                any |= sees[i];
+                all &= sees[i];
+            }
 
-                    break;
+            if (!any)
+            {
+                continue;
+            }
+
+            foreach (var c in view.Members)
+            {
+                if (!t.Watchers.Contains(c))
+                {
+                    t.Watchers.Add(c);
+                    t.WatcherSees.Add(all ? null : sees);
                 }
             }
         }
@@ -505,20 +524,34 @@ public sealed partial class AuthorityScope
         if (t.Watchers.Count > 0)
         {
             var w = Node.Scratch;
-            w.Reset();
-            w.WriteByte(Msg.Moved);
-            w.WriteVarUInt(Id.Value);
-            w.WriteVarUInt(t.Destination.Value);
-            w.WriteVarUInt((ulong)newIds.Length);
-            for (var i = 0; i < newIds.Length; i++)
+            for (var k = 0; k < t.Watchers.Count; k++)
             {
-                w.WriteVarUInt(t.Entities[i].Value);
-                w.WriteVarUInt(newIds[i]);
-            }
+                var sees = t.WatcherSees[k];
+                var count = newIds.Length;
+                if (sees is not null)
+                {
+                    count = 0;
+                    foreach (var s in sees)
+                    {
+                        count += s ? 1 : 0;
+                    }
+                }
 
-            foreach (var c in t.Watchers)
-            {
-                c.Channel.Send(w.Written);
+                w.Reset();
+                w.WriteByte(Msg.Moved);
+                w.WriteVarUInt(Id.Value);
+                w.WriteVarUInt(t.Destination.Value);
+                w.WriteVarUInt((ulong)count);
+                for (var i = 0; i < newIds.Length; i++)
+                {
+                    if (sees is null || sees[i])
+                    {
+                        w.WriteVarUInt(t.Entities[i].Value);
+                        w.WriteVarUInt(newIds[i]);
+                    }
+                }
+
+                t.Watchers[k].Channel.Send(w.Written);
             }
         }
 

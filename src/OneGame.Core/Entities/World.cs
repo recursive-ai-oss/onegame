@@ -221,15 +221,24 @@ public sealed class World
     [MutatesState]
     public void AddSystem(ISimSystem system) => _systems.Add(system);
 
+    /// <summary>When true, <see cref="AddTable{T}"/> refuses a table that is not <see cref="Visibility.Hidden"/>. A scope sets it with <c>RequireInterest</c>, because tables are sent whole to everyone.</summary>
+    public bool HiddenTablesOnly { get; set; }
+
     /// <summary>Adds a hot table. Tables are snapshotted and hashed in the order added.</summary>
     /// <typeparam name="T">The generated hot table type.</typeparam>
     /// <param name="table">The table to add.</param>
     /// <returns>The table, for chaining.</returns>
     /// <exception cref="DuplicateTypeException">A table with this name exists.</exception>
+    /// <exception cref="InterestRequiredException"><see cref="HiddenTablesOnly"/> is set and the table is not hidden.</exception>
     [MutatesState]
     public T AddTable<T>(T table)
         where T : IHotTable
     {
+        if (HiddenTablesOnly && table.Visibility != Visibility.Hidden)
+        {
+            throw new InterestRequiredException($"Hot table '{table.Name}' is sent whole to every subscriber, and this world's scope requires interest filtering. Mark the table Hidden, or keep its rows as entities with an [InterestKey].");
+        }
+
         foreach (var t in _tables)
         {
             if (t.Name == table.Name)
@@ -571,7 +580,23 @@ public sealed class World
         w.WriteFixed32(SnapshotMagic);
         w.WriteVarUInt(ViewSnapshotFormat);
         w.WriteVarInt(Tick);
-        w.WriteVarUInt(_nextId);
+
+        // With an interest set the counter would tell the client how many entities were ever created elsewhere; give it the next id past
+        // what it holds. A replica never allocates ids, so nothing depends on the real counter.
+        var nextId = _nextId;
+        if (interest is not null)
+        {
+            nextId = 1;
+            foreach (var e in _entities)
+            {
+                if (e.Id.Value >= nextId && e.TryGetAudienceMask(audience, interest, out _))
+                {
+                    nextId = e.Id.Value + 1;
+                }
+            }
+        }
+
+        w.WriteVarUInt(nextId);
         w.WriteVarUInt(includeRandom ? 1UL : 0UL);
         if (includeRandom)
         {
