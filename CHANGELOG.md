@@ -4,14 +4,21 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-11-11
+
+Physics is stable and comes to 3D: `RecursiveAI.OneGame.Physics` is built on OnePhysics 1.0.0 and ships at the engine version, so every onegame package is now stable.
+
 ### Added
 
-- 3D physics spaces saved and stepped with the world: rigid bodies, characters, vehicles, queries, prediction forks, origin rebasing and render-graph debug geometry. `examples/physics/3d` demonstrates a falling pile, a walking character and a driven car.
+- 3D physics spaces saved, stepped and hashed with the world: rigid bodies, characters, vehicles, queries, prediction forks, explicit origin rebasing and debug geometry through the 3D debug renderer. `examples/physics/3d` shows a falling pile, a walking character and a driven car.
 
 ### Changed
 
-- `OneGame.Physics` is stable on OnePhysics 1.0.0 and ships at the engine version, without a preview suffix. All 32 package IDs are stable.
-- 3D physics hashes move from the early 3D implementation: world hashing uses the standard full-table snapshot contract. The existing 2D probe values and capture references remain unchanged on OnePhysics 1.0.0. Re-record physics replays from development builds when upgrading. Core/Sync wire formats and recordings of worlds without physics are unchanged.
+- `RecursiveAI.OneGame.Physics` is stable on OnePhysics 1.0.0 and ships at the engine version, without a preview suffix. 2D physics results and hashes are unchanged from 1.23.0.
+
+### Fixed
+
+- Vulkan: a submission that does not draw into the acquired swapchain image (such as an upload at startup) no longer consumes that image's acquire and render-done semaphores, which could make the first presented frame wait on the wrong work.
 
 ## [1.23.0] - 2026-11-10
 
