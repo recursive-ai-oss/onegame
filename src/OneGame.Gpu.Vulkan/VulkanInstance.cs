@@ -8,7 +8,7 @@ namespace OneGame.Gpu.Vulkan;
 /// <summary>A Vulkan instance with the adapters it exposes; shared by the devices created from it.</summary>
 internal sealed unsafe class VulkanInstance
 {
-    internal sealed record AdapterEntry(VkPhysicalDevice Physical, GpuAdapterInfo Info, uint QueueFamily, bool HasSwapchain);
+    internal sealed record AdapterEntry(VkPhysicalDevice Physical, GpuAdapterInfo Info, uint QueueFamily, bool HasSwapchain, string Uuid = "");
 
     const string ValidationLayer = "VK_LAYER_KHRONOS_validation";
 
@@ -333,24 +333,75 @@ internal sealed unsafe class VulkanInstance
             };
             var v = props.apiVersion;
             var info = new GpuAdapterInfo(Name(props.deviceName), kind, props.vendorID, props.deviceID, $"{v >> 22}.{(v >> 12) & 0x3ff}.{v & 0xfff}");
-            Adapters.Add(new AdapterEntry(pd, info, (uint)family, swapchain));
+            var uuid = Convert.ToHexString(MemoryMarshal.CreateReadOnlySpan(ref props.pipelineCacheUUID.Element0, 16));
+            Adapters.Add(new AdapterEntry(pd, info, (uint)family, swapchain, uuid));
         }
+
+        // The loader lists devices in ICD discovery order, which differs between runs and machines.
+        // Sorting here makes every index, every list and every first match below the same each time.
+        Adapters.Sort(Compare);
     }
 
-    /// <summary>Chooses an adapter: by name or kind text when given, otherwise discrete, integrated, virtual, then software.</summary>
+    static int KindRank(AdapterKind k) => k switch
+    {
+        AdapterKind.Discrete => 0,
+        AdapterKind.Integrated => 1,
+        AdapterKind.Virtual => 2,
+        AdapterKind.Software => 3,
+        _ => 4,
+    };
+
+    /// <summary>
+    /// The total order adapters are kept in: kind (discrete, integrated, virtual, software, other), then vendor id,
+    /// device id, name, API version (newest first) and the driver's pipeline-cache UUID, so two identical cards
+    /// still order the same way.
+    /// </summary>
+    internal static int Compare(AdapterEntry a, AdapterEntry b)
+    {
+        var c = KindRank(a.Info.Kind).CompareTo(KindRank(b.Info.Kind));
+        if (c == 0)
+        {
+            c = a.Info.VendorId.CompareTo(b.Info.VendorId);
+        }
+
+        if (c == 0)
+        {
+            c = a.Info.DeviceId.CompareTo(b.Info.DeviceId);
+        }
+
+        if (c == 0)
+        {
+            c = string.CompareOrdinal(a.Info.Name, b.Info.Name);
+        }
+
+        if (c == 0)
+        {
+            c = string.CompareOrdinal(b.Info.ApiVersion, a.Info.ApiVersion);
+        }
+
+        return c != 0 ? c : string.CompareOrdinal(a.Uuid, b.Uuid);
+    }
+
+    /// <summary>Chooses an adapter: by name or kind text when given (first match in the sorted order), otherwise the first in the sorted order.</summary>
     public int Pick(string? spec)
     {
         spec = Environment.GetEnvironmentVariable("ONEGAME_GPU_ADAPTER") is { Length: > 0 } env ? env : spec;
-        if (Adapters.Count == 0)
+        return PickFrom(Adapters, spec);
+    }
+
+    /// <summary>The pick over a list already in <see cref="Compare"/> order.</summary>
+    internal static int PickFrom(IReadOnlyList<AdapterEntry> adapters, string? spec)
+    {
+        if (adapters.Count == 0)
         {
             throw new GpuUnsupportedException("no Vulkan 1.3 adapter with graphics and compute queues was found");
         }
 
         if (!string.IsNullOrEmpty(spec))
         {
-            for (var i = 0; i < Adapters.Count; i++)
+            for (var i = 0; i < adapters.Count; i++)
             {
-                var a = Adapters[i].Info;
+                var a = adapters[i].Info;
                 if (a.Name.Contains(spec, StringComparison.OrdinalIgnoreCase) || string.Equals(a.Kind.ToString(), spec, StringComparison.OrdinalIgnoreCase))
                 {
                     return i;
@@ -358,18 +409,6 @@ internal sealed unsafe class VulkanInstance
             }
 
             throw new GpuUnsupportedException($"no adapter matches '{spec}'");
-        }
-
-        AdapterKind[] order = [AdapterKind.Discrete, AdapterKind.Integrated, AdapterKind.Virtual, AdapterKind.Software, AdapterKind.Other];
-        foreach (var k in order)
-        {
-            for (var i = 0; i < Adapters.Count; i++)
-            {
-                if (Adapters[i].Info.Kind == k)
-                {
-                    return i;
-                }
-            }
         }
 
         return 0;

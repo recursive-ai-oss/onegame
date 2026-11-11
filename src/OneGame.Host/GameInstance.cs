@@ -145,6 +145,7 @@ public sealed partial class GameInstance : IDisposable
     private readonly StickNavigator _stick = new();
     private bool _grabNext;
     private Task<CapturedFrame>? _grab;
+    private PresentedCaptureFailure _presentSkip;
     private bool _disposed;
     private Cluster? _cluster;
     private AuthorityScope? _scope;
@@ -1089,8 +1090,16 @@ public sealed partial class GameInstance : IDisposable
     {
         EnsureDevice();
         var list = Ui.Frame();
-        if (!Options.PresentFrames || _device is null || Window.NativeHandle.Kind == NativeWindowKind.None || Window.IsMinimized)
+        _presentSkip = PresentedCaptureFailure.None;
+        if (!Options.PresentFrames || _device is null || Window.NativeHandle.Kind == NativeWindowKind.None)
         {
+            _presentSkip = PresentedCaptureFailure.NoWindow;
+            return;
+        }
+
+        if (Window.IsMinimized)
+        {
+            _presentSkip = PresentedCaptureFailure.Minimized;
             return;
         }
 
@@ -1107,6 +1116,7 @@ public sealed partial class GameInstance : IDisposable
         if (_realtime && Window.PresentWouldBlock(Options.PresentMode == PresentMode.Vsync))
         {
             PresentThrottled = true;
+            _presentSkip = PresentedCaptureFailure.WindowNotDrawn;
             return;
         }
 
@@ -1140,9 +1150,14 @@ public sealed partial class GameInstance : IDisposable
                 swapchain.Present();
                 PresentedFrames++;
             }
+            else
+            {
+                _presentSkip = PresentedCaptureFailure.NoBackbuffer;
+            }
         }
         catch (GpuSurfaceLostException)
         {
+            _presentSkip = PresentedCaptureFailure.SurfaceLost;
             // The system took the surface before the platform's event reached us; the event follows and a new surface gets a new swapchain.
             DropSwapchain();
         }
@@ -1167,11 +1182,13 @@ public sealed partial class GameInstance : IDisposable
 
     /// <summary>
     /// Draws the current state to the window once more and returns what was presented: the swapchain image itself, at the window's size and
-    /// scale. Returns null for a headless instance, without a graphics device, or while the window is minimized.
+    /// scale. Returns null for a headless instance or one without a graphics device or window, where there is nothing to present.
     /// </summary>
+    /// <exception cref="PresentedCaptureException">The game has a window and a device but no frame could be presented (see <see cref="PresentedCaptureException.Reason"/>).</exception>
     public CapturedFrame? CapturePresented() => CapturePresentedAsync().AsTask().GetAwaiter().GetResult();
 
     /// <summary>Like <see cref="CapturePresented"/>, for platforms that cannot wait for the graphics device (a browser page).</summary>
+    /// <exception cref="PresentedCaptureException">The game has a window and a device but no frame could be presented.</exception>
     public async ValueTask<CapturedFrame?> CapturePresentedAsync()
     {
         if (Options.Headless)
@@ -1180,11 +1197,31 @@ public sealed partial class GameInstance : IDisposable
         }
 
         DrainInput();
-        _grab = null;
-        _grabNext = true;
-        Present();
-        _grabNext = false;
-        return _grab is null ? null : await _grab;
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            // A realtime run that missed an acquire stops waiting for the next ones; a capture is worth a full wait.
+            _acquireMissed = false;
+            _grab = null;
+            _grabNext = true;
+            Present();
+            _grabNext = false;
+            if (_grab is not null)
+            {
+                return await _grab;
+            }
+
+            if (_presentSkip == PresentedCaptureFailure.NoWindow)
+            {
+                return null;
+            }
+
+            if (_presentSkip is PresentedCaptureFailure.Minimized or PresentedCaptureFailure.WindowNotDrawn)
+            {
+                break;
+            }
+        }
+
+        throw new PresentedCaptureException(_presentSkip);
     }
 
     /// <summary>

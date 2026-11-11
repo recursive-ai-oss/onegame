@@ -66,6 +66,8 @@ dotnet add package RecursiveAI.OneGame.Host
 | [`PickRay`](OneGame.Host/PickRay.md) | struct | A ray in world space. |
 | [`PlatformEventFilter`](OneGame.Host/PlatformEventFilter.md) | delegate | A look at a platform event before the game handles it. |
 | [`Png`](OneGame.Host/Png.md) | static class | PNG reading and writing for captures, through OneImage. |
+| [`PresentedCaptureException`](OneGame.Host/PresentedCaptureException.md) | class | A presented capture was asked for from a game that has a window and a graphics device, but no frame could be drawn and read back. |
+| [`PresentedCaptureFailure`](OneGame.Host/PresentedCaptureFailure.md) | enum | Why a presented frame could not be captured. |
 | [`RecordingFile`](OneGame.Host/RecordingFile.md) | static class | Reads and writes recording files. |
 | [`RemoteSession`](OneGame.Host/RemoteSession.md) | class | A game's connection to a server: a node holding one replica scope, reached through a transport connection ([`Node.ConnectVia()`](../OneGame.Sync/OneGame.Sync/Node.md#m-connectvia-imessagechannel-string)). |
 | [`Render2DStage`](OneGame.Host/Render2DStage.md) | class | The default render stage: the 2D renderer draws the UI display list into the host's target. |

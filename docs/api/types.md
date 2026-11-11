@@ -793,6 +793,8 @@ Every public type in every package, in alphabetical order.
 | [`PostSettings`](OneGame.Render3D/OneGame.Render3D/PostSettings.md) | class | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | Bloom, exposure and tone mapping. |
 | [`Prediction`](OneGame.Sync/OneGame.Sync/Prediction.md) | class | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | Client-side prediction for one replica. |
 | [`PredictionOptions`](OneGame.Sync/OneGame.Sync/PredictionOptions.md) | class | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | Settings for a replica's prediction ([`ReplicaScope.EnablePrediction()`](OneGame.Sync/OneGame.Sync/ReplicaScope.md#m-enableprediction-world-predictionoptions)). |
+| [`PresentedCaptureException`](OneGame.Host/OneGame.Host/PresentedCaptureException.md) | class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | A presented capture was asked for from a game that has a window and a graphics device, but no frame could be drawn and read back. |
+| [`PresentedCaptureFailure`](OneGame.Host/OneGame.Host/PresentedCaptureFailure.md) | enum | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | Why a presented frame could not be captured. |
 | [`PresentMode`](OneGame.Gpu/OneGame.Gpu/PresentMode.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | How a swapchain paces presentation. |
 | [`Primitive3D`](OneGame.Render3D/OneGame.Render3D/Primitive3D.md) | class | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | A drawable triangle list of a mesh, with its GPU buffers and material. |
 | [`PrimitiveTopology`](OneGame.Gpu/OneGame.Gpu/PrimitiveTopology.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | How vertices are assembled into primitives. |
