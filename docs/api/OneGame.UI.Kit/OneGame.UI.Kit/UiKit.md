@@ -53,7 +53,7 @@ The class every focusable component carries; the theme draws the focus ring on `
 
 | Member | Description |
 | --- | --- |
-| [`DefaultClipboard`](#m-defaultclipboard) | The clipboard text fields use unless they are given one. |
+| [`DefaultClipboard`](#m-defaultclipboard) | The fallback clipboard for fields without an explicit clipboard or a hosted tree clipboard. |
 
 ### <a id="m-defaultclipboard"></a>DefaultClipboard
 
@@ -61,7 +61,7 @@ The class every focusable component carries; the theme draws the focus ring on `
 public static IClipboard DefaultClipboard { get; set; }
 ```
 
-The clipboard text fields use unless they are given one. It keeps text inside the process until a windowed game instance replaces it with the system clipboard; a game can set its own.
+The fallback clipboard for fields without an explicit clipboard or a hosted tree clipboard. Defaults to in-process memory; a game can set its own.
 
 **Type:** [`IClipboard`](IClipboard.md)
 
@@ -408,7 +408,7 @@ A single-line text field. See [`TextInputView`](TextInputView.md).
 - `maxLength` (`int`): The most grapheme clusters the field takes; longer input is cut.
 - `validate` ([`Func`](https://learn.microsoft.com/dotnet/api/system.func-2)`<string, bool>?`): Called with the text an edit would produce; return false to reject the edit (digits only, for example).
 - `onSubmit` ([`Action`](https://learn.microsoft.com/dotnet/api/system.action-1)`<string>?`): Called with the text when Enter is pressed.
-- `clipboard` ([`IClipboard`](IClipboard.md)?): Where copy and paste go; the default is [`UiKit.DefaultClipboard`](UiKit.md#m-defaultclipboard).
+- `clipboard` ([`IClipboard`](IClipboard.md)?): An explicit clipboard override. Otherwise uses the hosted tree's clipboard, falling back to [`UiKit.DefaultClipboard`](UiKit.md#m-defaultclipboard).
 - `id` (`string?`): The id, or null.
 
 **Returns:** [`TextInputView`](TextInputView.md)

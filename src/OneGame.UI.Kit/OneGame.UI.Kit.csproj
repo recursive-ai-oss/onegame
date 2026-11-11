@@ -18,6 +18,7 @@
     <Using Include="System" />
     <Using Include="System.Collections.Generic" />
     <InternalsVisibleTo Include="OneGame.UI.Kit.Tests" />
+    <InternalsVisibleTo Include="OneGame.Host" />
   </ItemGroup>
 
 </Project>

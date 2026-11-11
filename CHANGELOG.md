@@ -10,6 +10,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Changed
 
+- Text fields use the clipboard of their own UI tree, so concurrent windows and rebuilt screens cannot take another game's clipboard connection.
 - `OneGame.Physics` is stable on OnePhysics 1.0.0 and ships at the engine version, without a preview suffix. All 32 package IDs are stable.
 - 3D physics hashes move from the early 3D implementation: world hashing uses the standard full-table snapshot contract. The existing 2D probe values and capture references remain unchanged on OnePhysics 1.0.0. Re-record physics replays from development builds when upgrading. Core/Sync wire formats and recordings of worlds without physics are unchanged.
 

@@ -189,7 +189,7 @@ public sealed partial class GameInstance : IDisposable
         if (!options.Headless && Platform.Clipboard.IsAvailable)
         {
             // The kit's text fields copy and paste through the window system's clipboard.
-            OneGame.UI.Kit.UiKit.DefaultClipboard = new SystemClipboard(Platform.Clipboard);
+            OneGame.UI.Kit.UiKit.SetTreeClipboard(Ui, new SystemClipboard(Platform.Clipboard));
         }
 
         Seed = options.Seed ?? definition.Seed;

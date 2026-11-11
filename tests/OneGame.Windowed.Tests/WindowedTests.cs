@@ -414,6 +414,25 @@ public sealed class X11WindowedTests : WindowedTests, IClassFixture<XvfbFixture>
     }
 
     [Fact]
+    public void RebuildingAScreenKeepsTheClipboardOfItsOwnWindow()
+    {
+        using var first = Start();
+        Assert.True(first.Game.Clipboard.SetText("first window"));
+        using var secondDisplay = new XvfbFixture();
+        Assert.SkipUnless(secondDisplay.Available, "Xvfb is not installed");
+        using var second = new Session(PlatformBackendKind.X11, secondDisplay.Display!);
+        Assert.True(second.Game.Clipboard.SetText("second window"));
+
+        first.Game.OpenScreen("main");
+        first.Game.Step();
+        first.Click("name");
+        first.Call("input_key", """{"key":"v","modifiers":["Control"]}""");
+        Assert.Equal("first window", first.Field.FieldText);
+        Assert.Empty(first.Validation());
+        Assert.Empty(second.Validation());
+    }
+
+    [Fact]
     public void TextCopiedInAnotherProgramPastesIntoTheField()
     {
         using var s = Start();
