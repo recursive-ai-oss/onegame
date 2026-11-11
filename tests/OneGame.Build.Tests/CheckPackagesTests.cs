@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 
 namespace OneGame.Build.Tests;
 
-/// <summary>The release package check allows one preview package (Physics) and refuses every other prerelease.</summary>
+/// <summary>The release package check: every package is stable, at the engine version, and depends on no prerelease.</summary>
 public class CheckPackagesTests
 {
     private static string Script([CallerFilePath] string path = "") =>
@@ -39,24 +39,24 @@ public class CheckPackagesTests
     }
 
     [Fact]
-    public void StablePackagesPlusThePhysicsPreviewPass()
+    public void StablePackagesAtTheEngineVersionPass()
     {
-        var (code, output) = Run("1.15.0", ("RecursiveAI.OneGame.Core", "1.15.0", null), ("RecursiveAI.OneGame.Physics", "1.15.0-preview.1", "0.1.0-preview.5"));
+        var (code, output) = Run("1.15.0", ("RecursiveAI.OneGame.Core", "1.15.0", null), ("RecursiveAI.OneGame.Physics", "1.15.0", "1.0.0"));
         Assert.True(code == 0, output);
     }
 
     [Fact]
-    public void AnyOtherPrereleaseIsRefused()
+    public void AnyPrereleaseIsRefused()
     {
         Assert.NotEqual(0, Run("1.15.0", ("RecursiveAI.OneGame.Core", "1.15.0-preview.1", null)).Code);
-        Assert.NotEqual(0, Run("1.15.0", ("RecursiveAI.OneGame.Navigation", "1.15.0-preview.1", null)).Code);
+        Assert.NotEqual(0, Run("1.15.0", ("RecursiveAI.OneGame.Physics", "1.15.0-preview.1", null)).Code);
         Assert.NotEqual(0, Run("1.15.0", ("RecursiveAI.OneGame.Core", "1.15.0", "1.0.0-rc.1")).Code);
+        Assert.NotEqual(0, Run("1.15.0-preview.1", ("RecursiveAI.OneGame.Core", "1.15.0-preview.1", null)).Code);
     }
 
     [Fact]
-    public void PhysicsMustBeAPreviewOfTheEngineVersion()
+    public void EveryPackageMustBeAtTheEngineVersion()
     {
-        Assert.NotEqual(0, Run("1.15.0", ("RecursiveAI.OneGame.Physics", "1.15.0", null)).Code);
-        Assert.NotEqual(0, Run("1.15.0", ("RecursiveAI.OneGame.Physics", "1.14.0-preview.1", null)).Code);
+        Assert.NotEqual(0, Run("1.15.0", ("RecursiveAI.OneGame.Core", "1.15.0", null), ("RecursiveAI.OneGame.Physics", "1.14.0", null)).Code);
     }
 }
