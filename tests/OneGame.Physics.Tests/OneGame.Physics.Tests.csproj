@@ -5,6 +5,7 @@
     <ProjectReference Include="../../src/OneGame.Sync/OneGame.Sync.csproj" />
     <!-- The physics example is the game the determinism tests run, headless, through the same harness as a scenario. -->
     <ProjectReference Include="../../examples/physics/PhysicsExample.csproj" />
+    <ProjectReference Include="../../examples/physics/3d/Physics3DExample.csproj" />
     <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
     <ProjectReference Include="../../src/OneGame.Live/OneGame.Live.csproj" />
   </ItemGroup>

@@ -4,6 +4,15 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- 3D physics spaces saved and stepped with the world: rigid bodies, characters, vehicles, queries, prediction forks, origin rebasing and render-graph debug geometry. `examples/physics/3d` demonstrates a falling pile, a walking character and a driven car.
+
+### Changed
+
+- `OneGame.Physics` is stable on OnePhysics 1.0.0 and ships at the engine version, without a preview suffix. All 32 package IDs are stable.
+- 3D physics hashes move from the early 3D implementation: world hashing uses the standard full-table snapshot contract. The existing 2D probe values and capture references remain unchanged on OnePhysics 1.0.0. Re-record physics replays from development builds when upgrading. Core/Sync wire formats and recordings of worlds without physics are unchanged.
+
 ## [1.23.0] - 2026-11-10
 
 Drift checks get cheap for large scopes: a drift-check tick with 5,000 entities and 16 audiences went from about a second to a few milliseconds on the server. Hashes are unchanged. `RecursiveAI.OneGame.Physics` ships as 1.23.0-preview.1.

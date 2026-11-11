@@ -8,6 +8,8 @@ internal static class PhysicsSmoke
 {
     public static string? Run()
     {
+        var three = Run3D();
+        if (three is not null) return three;
         var registry = new EntityRegistry();
         var world = new World(1, registry);
         var space = PhysicsSpace2D.AddTo(world);
@@ -63,4 +65,38 @@ internal static class PhysicsSmoke
 
         return space.Position(box).Y < Fixed.FromInt(-1) ? "the box fell through the ground" : null;
     }
+    private static string? Run3D()
+    {
+        var world = new World(1, new EntityRegistry());
+        var space = PhysicsSpace3D.AddTo(world);
+        space.AddBox(new FVec3(40, 1, 40), new FVec3(0, -1, 0), new BodyOptions3D { Kind = BodyKind.Static });
+        var box = space.AddSphere(Fixed.One, new FVec3(0, 8, 0));
+        var character = space.AddCharacter(new FVec3(-5, 1, 0));
+        var chassis = space.AddBox(new FVec3(2, Fixed.FromRatio(1, 2), 4), new FVec3(6, 1, 0), new BodyOptions3D { Density = 100 });
+        var vehicle = space.AddVehicle(chassis);
+        for (var i = 0; i < 30; i++) world.Step();
+        var snapshot = new SyncWriter(); world.WriteSnapshot(snapshot);
+        var other = new World(1, new EntityRegistry()); var copy = PhysicsSpace3D.AddTo(other);
+        if (other.ReadSnapshot(snapshot.Written) != SyncError.None) return "3D snapshot refused";
+        for (var i = 0; i < 120; i++)
+        {
+            var move = new FVec3(Fixed.FromRatio(1, 100), Fixed.FromRatio(-1, 10), 0);
+            space.Move(character, move); copy.Move(character, move);
+            space.Drive(vehicle, Fixed.One); copy.Drive(vehicle, Fixed.One);
+            world.Step(); other.Step();
+            if (world.ComputeHash() != other.ComputeHash()) return "3D restored state drifted";
+        }
+        var fork = space.Fork(); fork.Step(resimulating: true); space.Step();
+        if (fork.Hash != space.Hash) return "3D fork drifted";
+        if (!space.Grounded(character) || space.Position(box).Y < Fixed.FromInt(-1)) return "3D objects missed ground";
+        if (space.Wheel(vehicle, 0).Radius <= Fixed.Zero) return "3D wheel missing";
+        var drawing = new OneGame.Render3D.DebugDraw3D(); var debug = new PhysicsDebug3D();
+        var hash = space.Hash;
+        debug.Draw(space, drawing, false);
+        if (drawing.Count != 0) return "3D debug switch ignored";
+        debug.Draw(space, drawing, true);
+        if (drawing.Count < 100 || space.Hash != hash) return "3D debug geometry missing or changed state";
+        return null;
+    }
+
 }

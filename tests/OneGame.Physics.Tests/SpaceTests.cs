@@ -499,4 +499,19 @@ public class SpaceTests
         Assert.True(worstStep == 0, $"{allocatingSteps} steps allocated, worst {worstStep} B");
         Assert.Equal(0, hashGrowths);
     }
+    [Fact]
+    public async Task PhysicsHashesMatchAcrossThreads()
+    {
+        static ulong[] Run()
+        {
+            var world = Scene(out var space, out var hero, out _);
+            var hashes = new ulong[180];
+            for (var i = 0; i < hashes.Length; i++) { Tick(world, space, hero); hashes[i] = world.ComputeHash(); }
+            return hashes;
+        }
+        var expected = Run();
+        Assert.Equal(expected, Run());
+        Assert.Equal(expected, await Task.Run(Run));
+    }
+
 }

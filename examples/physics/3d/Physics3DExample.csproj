@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Physics3DExample</AssemblyName>
+    <RootNamespace>Physics3DExample</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(OneGameRoot)src/OneGame.Physics/OneGame.Physics.csproj" />
+  </ItemGroup>
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+</Project>

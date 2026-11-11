@@ -1,8 +1,8 @@
 # Physics
 
-**Preview.** `OneGame.Physics` is a prerelease package built on a prerelease of OnePhysics, and its API may change before it is stable. Add it with `dotnet add package RecursiveAI.OneGame.Physics --prerelease`.
+`OneGame.Physics` is stable on OnePhysics 1.0.0. Add it with `dotnet add package RecursiveAI.OneGame.Physics`.
 
-`OneGame.Physics` gives a game 2D rigid bodies, characters, triggers and ray casts that behave the same on every node. Positions are `Fixed` numbers, the physics world is part of the game world's state (it is stepped by the tick, saved with the world, restored with it, and covered by the state hash), and events reach sim code in a fixed order. It wraps [OnePhysics](https://www.nuget.org/packages/RecursiveAI.OnePhysics), which does the simulation. Reference it from a game with `RecursiveAI.OneGame.Physics` (in a checkout: a project reference to `src/OneGame.Physics`). It is not part of the default game template or `Game.targets`. It is published as a prerelease (`<engine version>-preview.N`) because OnePhysics is one; the other engine packages stay stable and never depend on it. `examples/physics` shows all of it in one file: a character that walks, jumps between platforms and pushes crates, a goal zone, and the debug overlay.
+`OneGame.Physics` gives a game 2D and 3D rigid bodies, characters, vehicles, triggers and queries that behave the same on every node. Positions are `Fixed` numbers, the physics world is part of the game world's state (it is stepped by the tick, saved with the world, restored with it, and covered by the state hash), and events reach sim code in a fixed order. It wraps [OnePhysics](https://www.nuget.org/packages/RecursiveAI.OnePhysics), which does the simulation. Reference it from a game with `RecursiveAI.OneGame.Physics` (in a checkout: a project reference to `src/OneGame.Physics`). It is not part of the default game template or `Game.targets`. It ships at the same stable version as the other engine packages. `examples/physics` shows all of it in one file: a character that walks, jumps between platforms and pushes crates, a goal zone, and the debug overlay.
 
 ```csharp
 using OneGame.Physics;
@@ -74,7 +74,7 @@ There is one source of truth for each thing:
 - **The hash.** The state hash covers the whole physics snapshot like any other table, written into a reused buffer, so a steady-state tick allocates nothing. The table is hidden: replicas never receive it, and drift detection on a replica compares the view hash, which leaves it out, so the mirrored properties are what a replica is checked on.
 - **Prediction.** A predicted command (`[Command(Predicted = true)]`) runs on a replica's predicted world, which has no physics space. Do not predict commands that read or change physics.
 
-**Versions.** Each OnePhysics preview moves results: the same inputs end in different positions and hashes, and a physics snapshot from one preview is not read by another. So physics saves, replays and pinned hashes do not carry across OnePhysics versions. A game that pins one onegame version gets exactly one OnePhysics (this package pins it), so nothing moves until you upgrade onegame; re-record replays and re-pin hashes when you do. The table writes a one-byte format version, the tick rate and then the OnePhysics snapshot. A save whose table format version differs is refused as `SyncError.UnsupportedVersion`, one whose OnePhysics snapshot the library rejects (damaged bytes, another format) as `SyncError.InvalidValue`, and one made at another `TicksPerSecond` as a mismatch; all come out of the world's `ReadSnapshot` (and as `RestoreFailed` from `GameInstance.LoadSnapshot`), and nothing is loaded half-way.
+**Versions.** The 3D world hash changes from the early 3D implementation because it now uses standard full-table serialization. The existing 2D probe values and capture references remain unchanged on OnePhysics 1.0.0. Physics saves and replays from previews are not promised to carry over; re-record them when upgrading. Pinning one engine version pins its physics dependency. The table writes a one-byte format version, the tick rate and then the OnePhysics snapshot. A save whose table format version differs is refused as `SyncError.UnsupportedVersion`, one whose OnePhysics snapshot the library rejects (damaged bytes, another format) as `SyncError.InvalidValue`, and one made at another `TicksPerSecond` as a mismatch; all come out of the world's `ReadSnapshot` (and as `RestoreFailed` from `GameInstance.LoadSnapshot`), and nothing is loaded half-way.
 
 ## Range, rounding and determinism
 
@@ -89,3 +89,70 @@ Stepping, the wrapper's calls (`Move`, reads, event walking, ray casts) and the 
 ## Seeing it
 
 While the debug overlay is on (F3, or `overlay: on` in a scenario) `Draw2D.DebugVisible` is true, and a view can collect `PhysicsDebugShapes` with `space.AddDebugShapes(shapes)`: outlines of every shape (static, kinematic, awake, asleep and trigger shapes in different colours) and contact points with normals, as lines in world units (the example draws them in a few lines). Release builds never set the flag. `state_query` with `table: physics` shows the step count, the hash and every body's position, velocity and sleep state (`property: "bodies[9].awake"`).
+
+## 3D spaces
+
+`PhysicsSpace3D` is the 3D counterpart, using `FVec3`, `FQuat` and `Transform3`:
+
+```csharp
+var space = PhysicsSpace3D.AddTo(world);
+space.AddBox(new FVec3(40, 1, 40), new FVec3(0, -1, 0),
+    new BodyOptions3D { Kind = BodyKind.Static });
+BodyRef ball = space.AddSphere(Fixed.One, new FVec3(0, 6, 0));
+CharacterRef hero = space.AddCharacter(new FVec3(-4, 1, 0));
+BodyRef chassis = space.AddBox(new FVec3(2, Fixed.FromRatio(1, 2), 4),
+    new FVec3(6, 1, 0), new BodyOptions3D { Density = 100 });
+VehicleRef car = space.AddVehicle(chassis); // standard four-wheel car, forward +Z
+// In sim code, before the tick system steps:
+space.Move(hero, new FVec3(space.StepSeconds, Fixed.FromRatio(-1, 10), 0));
+space.Drive(car, Fixed.One);
+Transform3 transform = space.Transform(ball);
+```
+
+The table is Hidden, named `physics3d`, and steps after entities. Mirror view state
+into synced properties just as in 2D. Characters use displacement, not an implicit
+gravity rule. `Wheel(car, index)` provides wheel centre, radius, ground contact,
+suspension length, spin and steering angles. `Raycast`, `SphereCast` and
+`OverlapSphere` filter by layer masks and return `RayHit3D`. `Events` polls
+contacts, triggers, sleep/wake and joint breaks in deterministic delivery order.
+
+3D local positions use OneMath's `FixedBridge`, with explicit handling for the
+exact inclusive endpoints ±2^21 supported by OnePhysics. Before local positions approach that limit, the authority calls
+`ShiftOrigin` with an offset on the physics 2^-31 grid (even `Fixed.Raw`). It shifts every local body and records
+the accumulated origin in the saved and hashed physics state. The accumulated
+origin must fit signed 32-bit world units. Rebasing is a deterministic simulation
+decision, never driven by a view or camera. `Origin + Position(body)` gives the
+global position. Two spaces with different origins deliberately have different
+hashes even if their global body positions look identical.
+
+`Fork` makes an independent structural prediction copy. Restore confirmed state
+and call `Step(resimulating: true)` while replaying local inputs; callbacks are
+suppressed and polled events are retained. The game owns this fork: hidden tables
+are not automatically copied to subscribed replicas. Snapshot deltas, compressed
+snapshots, region archives and named differences are available directly on the
+space; see [the integration interface](interfaces/physics.md) for their contracts
+and the region broadphase limitation. `FindDifferences` and `DescribeDifferences` provide named physics snapshot
+diagnostics without changing Core, Sync or the recording format.
+
+Run `onegame test --project examples/physics/3d --no-unit --json` for a small 3D
+pile, walking capsule and driven car. The 2D example and API remain separate.
+
+### Drawing the 3D physics overlay
+
+Reuse one `PhysicsDebug3D` in the view/render stage and, after the scene view has
+built the frame, call:
+
+```csharp
+protected override void UpdateScene(Scene3D scene, in FrameInfo frame)
+{
+    if (PhysicsSpace3D.Of(frame.World) is { } space)
+        debug.Draw(space, scene.Debug, View!.DebugVisible);
+}
+```
+
+`overlay`/F3 controls the view's debug switch. Off means no collection or drawing.
+The adapter adds shape wireframes, wheels, suspension, joint anchors, contact
+points and normal arrows using the renderer's depth-tested primitives; pass
+`DebugDepth3D.AlwaysOnTop` to inspect occluded geometry. It never changes sim state.
+The example's `drive` scenario captures the pile, character and car through this
+same switch.
