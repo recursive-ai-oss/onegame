@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.25.1] - 2026-11-11
+
+A fix for games that add or remove entities during a tick and then index `World.Entities`.
+
 ### Fixed
 
 - `World.Entities[i]` and `Count` were O(n) per access after an entity was added or removed during a tick (the view scanned past removed entities on every call), so an indexed loop over thousands of entities took tens of milliseconds. They now read a compacted copy built once per change. Which entities are listed, and their order, are unchanged.
