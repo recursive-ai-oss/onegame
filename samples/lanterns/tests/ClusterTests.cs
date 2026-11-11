@@ -164,9 +164,28 @@ public class ClusterTests
             cluster.Start("islandB");
             cluster.Restart("bot2");
 
-            // The leave pass runs every few ticks and gives up long after that; look well past it, then check the player is still there.
-            var from = cluster.TickOf("islandB");
+            // The restarted bot is a new process: how long it takes to start and connect depends on the machine (slow on a loaded Windows runner),
+            // so wait until it reports a live replica instead of counting island ticks. Then look well past the leave pass, which gives up
+            // after a few hundred ticks, and check the player is still there.
             var clock = System.Diagnostics.Stopwatch.StartNew();
+            var live = false;
+            while (!live && clock.ElapsedMilliseconds < 180_000)
+            {
+                Thread.Sleep(200);
+                try
+                {
+                    using var status = JsonDocument.Parse(cluster.Call("bot2", "net_status"));
+                    live = status.RootElement.GetProperty("replica").GetString() == "live";
+                }
+                catch (Exception e) when (e is ClusterException or ControlException)
+                {
+                    // The process is still starting.
+                }
+            }
+
+            Assert.True(live, $"round {round}: the restarted bot never reached a live replica");
+            var from = cluster.TickOf("islandB");
+            clock.Restart();
             while (cluster.TickOf("islandB") < from + 600 && clock.ElapsedMilliseconds < 300_000)
             {
                 Thread.Sleep(200);
