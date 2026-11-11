@@ -362,6 +362,12 @@ public sealed class X11WindowedTests : WindowedTests, IClassFixture<XvfbFixture>
         Xlib.Flush(other);
         s.StepUntil(() => s.Game.Window.IsMinimized);
         Assert.True(s.Game.Window.IsMinimized);
+
+        // A presented capture with nothing on screen says why instead of returning nothing.
+        var refused = Assert.Throws<PresentedCaptureException>(() => s.Game.CapturePresented());
+        Assert.Equal(PresentedCaptureFailure.Minimized, refused.Reason);
+        var viaControl = Assert.Throws<ControlException>(() => s.Control.Call("capture_frame", "{\"presented\":true}"));
+        Assert.Contains("minimized", viaControl.Message, StringComparison.Ordinal);
         var presented = s.Game.PresentedFrames;
         var tickBefore = s.Game.World.Tick;
         s.Game.Step(10);

@@ -1148,7 +1148,15 @@ public sealed partial class ControlSurface : IControlEndpoint
         float scale;
         if (a.Bool("presented", false))
         {
-            frame = await Game.CapturePresentedAsync() ?? throw new ControlException("rejected", "There is no presented frame: the game is headless or has no graphics device. Capture without 'presented' to render offscreen.");
+            try
+            {
+                frame = await Game.CapturePresentedAsync() ?? throw new ControlException("rejected", "There is no presented frame: the game is headless or has no graphics device. Capture without 'presented' to render offscreen.");
+            }
+            catch (PresentedCaptureException e)
+            {
+                throw new ControlException("rejected", e.Message);
+            }
+
             (w, h, scale) = (frame.Width, frame.Height, Game.UiScale);
         }
         else

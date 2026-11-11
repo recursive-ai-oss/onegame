@@ -4,6 +4,11 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Fixed
+
+- Vulkan adapter choice is deterministic: adapters are kept in one total order (kind, vendor id, device id, name, API version, UUID) instead of the driver enumeration order, so a multi-GPU machine picks the same adapter every time and `ONEGAME_GPU_ADAPTER` / `GpuDeviceOptions.Adapter` match the same one. The rule is in `docs/interfaces/gpu.md`.
+- A presented capture (`capture_frame` with `presented`, `GameInstance.CapturePresented`) no longer returns nothing when the window could not be drawn: it throws `PresentedCaptureException` with a `Reason` (minimized, window not drawn, no backbuffer in time, surface lost), which the control op reports in its message. Games with no window or device still return null.
+
 ## [1.24.0] - 2026-11-11
 
 Physics is stable and comes to 3D: `RecursiveAI.OneGame.Physics` is built on OnePhysics 1.0.0 and ships at the engine version, so every onegame package is now stable.

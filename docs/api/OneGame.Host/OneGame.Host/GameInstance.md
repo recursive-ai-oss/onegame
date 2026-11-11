@@ -637,9 +637,13 @@ Like [`GameInstance.Capture()`](GameInstance.md#m-capture-int-int-float-world), 
 public CapturedFrame? CapturePresented();
 ```
 
-Draws the current state to the window once more and returns what was presented: the swapchain image itself, at the window's size and scale. Returns null for a headless instance, without a graphics device, or while the window is minimized.
+Draws the current state to the window once more and returns what was presented: the swapchain image itself, at the window's size and scale. Returns null for a headless instance or one without a graphics device or window, where there is nothing to present.
 
 **Returns:** [`CapturedFrame`](CapturedFrame.md)?
+
+**Exceptions**
+
+- [`PresentedCaptureException`](PresentedCaptureException.md): The game has a window and a device but no frame could be presented (see [`PresentedCaptureException.Reason`](PresentedCaptureException.md#m-reason)).
 
 ### <a id="m-capturepresentedasync"></a>CapturePresentedAsync()
 
@@ -650,6 +654,10 @@ public ValueTask<CapturedFrame?> CapturePresentedAsync();
 Like [`GameInstance.CapturePresented()`](GameInstance.md#m-capturepresented), for platforms that cannot wait for the graphics device (a browser page).
 
 **Returns:** [`ValueTask`](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask-1)&lt;[`CapturedFrame`](CapturedFrame.md)?&gt;
+
+**Exceptions**
+
+- [`PresentedCaptureException`](PresentedCaptureException.md): The game has a window and a device but no frame could be presented.
 
 ### <a id="m-create-gamedefinition-gameoptions"></a>Create(GameDefinition, GameOptions?)
 
