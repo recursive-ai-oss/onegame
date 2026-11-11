@@ -126,6 +126,7 @@ public sealed class World
         entity.World = this;
         entity.Id = id;
         _entities.Insert(~IndexOf(id), entity);
+        _live.Invalidate();
         if (id.Value >= _nextId)
         {
             _nextId = id.Value + 1;
@@ -146,6 +147,7 @@ public sealed class World
 
         var entity = _entities[index];
         entity.IsRemoved = true;
+        _live.Invalidate();
         if (_ticking)
         {
             _removedDuringTick.Add(entity);
@@ -162,6 +164,7 @@ public sealed class World
     {
         var entity = _entities[index];
         _entities.RemoveAt(index);
+        _live.Invalidate();
         entity.World = null;
         entity.IsRemoved = true;
     }
@@ -300,6 +303,7 @@ public sealed class World
             }
 
             _removedDuringTick.Clear();
+            _live.Invalidate();
         }
 
         Tick++;
@@ -452,6 +456,7 @@ public sealed class World
             created.Id = from.Id;
             created.CopyStateFrom(from);
             _entities.Insert(j, created);
+            _live.Invalidate();
             j++;
         }
 
@@ -678,6 +683,7 @@ public sealed class World
         }
 
         _entities.Clear();
+        _live.Invalidate();
         foreach (var t in _tables)
         {
             t.Clear();
@@ -851,6 +857,7 @@ public sealed class World
         }
 
         _entities.Clear();
+        _live.Invalidate();
         foreach (var e in fresh)
         {
             e.World = this;
