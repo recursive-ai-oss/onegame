@@ -70,7 +70,7 @@ The choice: a library keyed by name (rather than a free-standing handle in the w
 
 ## Not built
 
-Animated or skinned picking; physics; per-entity visibility culling (every model of the world is submitted).
+Animated or skinned picking; per-entity visibility culling (every model of the world is submitted).
 
 ### Debug drawing
 

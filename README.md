@@ -89,6 +89,7 @@ One feature each, a few dozen lines, copy what you need. Every example has scena
 - `examples/pathing` and `examples/crowd`: grid paths, and a crowd with avoidance, kept in the world.
 - `examples/physics`: a character, crates and a goal zone on 2D physics; `examples/physics/3d` adds a pile, a character and a driven car.
 - `examples/character`: a skinned 3D figure with blended animation and baked root motion.
+- `examples/stage`: a custom render stage with its own overlay and a 3D view drawn into a texture shown in 2D and UI.
 - `examples/networked-counter`: one server and two clients over UDP and WebSocket, with zero drift.
 
 ## Build and test the engine

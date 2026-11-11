@@ -1,5 +1,7 @@
 # Physics table integration
 
+`OneGame.Physics` puts OnePhysics worlds into the engine's world as Hidden hot tables, 2D (`PhysicsSpace2D`) and 3D (`PhysicsSpace3D`), stepped by a post-entity tick system and saved, restored and hashed through the ordinary table contract. The user guide is `docs/physics.md`; this file records the 3D integration choices.
+
 ## 3D
 
 `PhysicsSpace3D.AddTo(world, options)` registers a Hidden table named `physics3d`

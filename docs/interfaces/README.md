@@ -6,7 +6,7 @@ To make a game, start with [first-game.md](../first-game.md) and [driving-a-game
 
 ## Index
 
-**Entities, sync and networking:** [entity-sync](entity-sync.md) (the entity model and generated sync surface), [sync](sync.md) (nodes, scopes, saves, replay, drift), [transport](transport.md) (reliable UDP and WebSocket), [transport-security](transport-security.md), [cluster](cluster.md) (dedicated servers and process clusters), [server-host](server-host.md) (server host and plugins).
+**Entities, sync and networking:** [entity-sync](entity-sync.md) (the entity model and generated sync surface), [sync](sync.md) (nodes, scopes, saves, replay, drift), [transport](transport.md) (reliable UDP and WebSocket), [transport-security](transport-security.md), [cluster](cluster.md) (dedicated servers and process clusters), [server-host](server-host.md) (server host and plugins), [physics](physics.md) (physics spaces as world tables).
 
 **Graphics:** [gpu](gpu.md) (device API and the Vulkan, Metal and WebGPU backends), [render-graph](render-graph.md), [render2d](render2d.md), [render3d](render3d.md), [scene3d](scene3d.md) (entities in 3D), [gltf](gltf.md) (importer), [particles](particles.md), [atlas](atlas.md) (glyph, SVG and image atlases).
 
