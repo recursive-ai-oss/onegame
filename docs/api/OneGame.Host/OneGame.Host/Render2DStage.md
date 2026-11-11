@@ -42,7 +42,8 @@ Creates the stage over the game's fonts, art and shaders.
 | [`Graph`](#m-graph) | The render graph the stage draws with, once it has drawn a frame; null for stages that do not use one. |
 | [`HotShaders`](#m-hotshaders) | Where this stage registers materials whose shader files may be edited while the game runs. |
 | [`Name`](#m-name) | A short name shown in harness output. |
-| [`Overlay`](#m-overlay) | Drawn over everything else in each frame, captures included; null for none. |
+| [`Overlay`](#m-overlay) | The slot of the development panel (`DebugOverlay`), drawn last, over everything including [`Render2DStage.Overlays`](Render2DStage.md#m-overlays); null for none. |
+| [`Overlays`](#m-overlays) | The game's own overlays, in the order they draw (first at the bottom). |
 | [`PageStats`](#m-pagestats) | What the page renderer drew in the last frame (the first format's renderer). |
 | [`Pages`](#m-pages) | The page screens to draw (`OneGame.Pages`): host-scope layer [`PageScopes.Under`](../../OneGame.Pages/OneGame.Pages/PageScopes.md#m-under) before the 2D pass and the UI, everything else after them. |
 | [`RequiresSrgb`](#m-requiressrgb) | True when the stage draws into sRGB targets (the host then makes its swapchain and capture textures sRGB). |
@@ -93,9 +94,19 @@ A short name shown in harness output.
 public IFrameOverlay? Overlay { get; set; }
 ```
 
-Drawn over everything else in each frame, captures included; null for none. Development builds set it; a release build never does.
+The slot of the development panel (`DebugOverlay`), drawn last, over everything including [`Render2DStage.Overlays`](Render2DStage.md#m-overlays); null for none. Development builds set it; a release build never does. A game that wants its own overlay uses [`Render2DStage.AddOverlay()`](Render2DStage.md#m-addoverlay-iframeoverlay) instead, so the two never replace each other.
 
 **Type:** [`IFrameOverlay`](IFrameOverlay.md)?
+
+### <a id="m-overlays"></a>Overlays
+
+```csharp
+public IReadOnlyList<IFrameOverlay> Overlays { get; }
+```
+
+The game's own overlays, in the order they draw (first at the bottom).
+
+**Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`IFrameOverlay`](IFrameOverlay.md)&gt;
 
 ### <a id="m-pagestats"></a>PageStats
 
@@ -131,14 +142,28 @@ True when the stage draws into sRGB targets (the host then makes its swapchain a
 
 | Member | Description |
 | --- | --- |
+| [`AddOverlay(IFrameOverlay)`](#m-addoverlay-iframeoverlay) | Adds an overlay: [`IFrameOverlay.Draw()`](IFrameOverlay.md#m-draw-overlaycanvas) runs every frame after the UI and [`Render2DStage.DrawOverUi()`](Render2DStage.md#m-drawoverui-renderer2d-frameinfo), in the same batch as the UI, so it adds no pass, and its text uses the game's fonts and the shared glyph atlas. |
 | [`AddScenePasses(GpuDevice, RenderGraph, GraphTexture, GpuTexture, in FrameInfo)`](#m-addscenepasses-gpudevice-rendergraph-graphtexture-gputexture-frameinfo) | Adds passes that draw into the target before the 2D renderer and the UI, for a stage that draws a 3D scene. |
 | [`Dispose()`](#m-dispose) |  |
 | [`DrawOverUi(Renderer2D, in FrameInfo)`](#m-drawoverui-renderer2d-frameinfo) | Called every frame after the UI is drawn, to add the game's own sprites and tiles. |
 | [`PaintOver(Span<byte>, in FrameInfo)`](#m-paintover-span-byte-frameinfo) | Runs on the RGBA8 pixels read back from a captured GPU frame, after [`IRenderStage.Render()`](IRenderStage.md#m-render-gpudevice-gputexture-frameinfo). |
 | [`ReleaseTargets(GpuTexture?)`](#m-releasetargets-gputexture) | The host is about to destroy a target (a capture texture, or all swapchain images on resize). |
+| [`RemoveOverlay(IFrameOverlay)`](#m-removeoverlay-iframeoverlay) | Removes an overlay added with [`Render2DStage.AddOverlay()`](Render2DStage.md#m-addoverlay-iframeoverlay). |
 | [`Render(GpuDevice, GpuTexture, in FrameInfo)`](#m-render-gpudevice-gputexture-frameinfo) | Records and submits the draw for one frame into `target` (a swapchain image or an offscreen texture). |
 | [`RenderToPixels(Span<byte>, in FrameInfo)`](#m-rendertopixels-span-byte-frameinfo) | Produces the whole frame on the CPU as RGBA8, row-major, top row first. |
 | [`RendererCreated(Renderer2D)`](#m-renderercreated-renderer2d) | Called once for each renderer the stage creates (one per target format). |
+
+### <a id="m-addoverlay-iframeoverlay"></a>AddOverlay(IFrameOverlay)
+
+```csharp
+public void AddOverlay(IFrameOverlay overlay);
+```
+
+Adds an overlay: [`IFrameOverlay.Draw()`](IFrameOverlay.md#m-draw-overlaycanvas) runs every frame after the UI and [`Render2DStage.DrawOverUi()`](Render2DStage.md#m-drawoverui-renderer2d-frameinfo), in the same batch as the UI, so it adds no pass, and its text uses the game's fonts and the shared glyph atlas. It shows in captures. Overlays draw under [`Render2DStage.Overlay`](Render2DStage.md#m-overlay), the debug panel.
+
+**Parameters**
+
+- `overlay` ([`IFrameOverlay`](IFrameOverlay.md)): What to draw. It may draw only through the canvas it is handed.
 
 ### <a id="m-addscenepasses-gpudevice-rendergraph-graphtexture-gputexture-frameinfo"></a>AddScenePasses(GpuDevice, RenderGraph, GraphTexture, GpuTexture, in FrameInfo)
 
@@ -203,6 +228,20 @@ The host is about to destroy a target (a capture texture, or all swapchain image
 **Parameters**
 
 - `only` ([`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)?)
+
+### <a id="m-removeoverlay-iframeoverlay"></a>RemoveOverlay(IFrameOverlay)
+
+```csharp
+public bool RemoveOverlay(IFrameOverlay overlay);
+```
+
+Removes an overlay added with [`Render2DStage.AddOverlay()`](Render2DStage.md#m-addoverlay-iframeoverlay).
+
+**Parameters**
+
+- `overlay` ([`IFrameOverlay`](IFrameOverlay.md)): The overlay.
+
+**Returns:** `bool` — True when it was there.
 
 ### <a id="m-render-gpudevice-gputexture-frameinfo"></a>Render(GpuDevice, GpuTexture, in FrameInfo)
 

@@ -124,8 +124,9 @@ public enum TextureFilter
 /// <summary>An image on the GPU that sprites, tilesets and materials draw from. Created by <see cref="Renderer2D.CreateTexture(int, int, ReadOnlySpan{byte}, TextureFilter)"/>.</summary>
 public sealed class Texture2D : IDisposable
 {
-    internal Texture2D(GpuTexture texture, GpuSampler sampler, GpuFormat format)
+    internal Texture2D(GpuTexture texture, GpuSampler sampler, GpuFormat format, bool owned = true)
     {
+        Owned = owned;
         Texture = texture;
         Sampler = sampler;
         Width = (int)texture.Width;
@@ -139,7 +140,10 @@ public sealed class Texture2D : IDisposable
     /// <summary>Height in pixels.</summary>
     public int Height { get; private set; }
 
-    internal GpuFormat Format { get; }
+    internal GpuFormat Format { get; private set; }
+
+    /// <summary>False for a texture made by <see cref="Renderer2D.WrapTexture"/>: the GPU image belongs to someone else.</summary>
+    internal bool Owned { get; }
 
     internal GpuTexture Texture { get; private set; }
 
@@ -154,18 +158,26 @@ public sealed class Texture2D : IDisposable
         Group = null;
         Width = (int)texture.Width;
         Height = (int)texture.Height;
+        Format = texture.Format;
         return old;
     }
 
     /// <summary>The set 1 bind group, made the first time the texture is drawn.</summary>
     internal GpuBindGroup? Group { get; set; }
 
-    /// <summary>Releases the GPU memory. Do not draw the texture afterwards.</summary>
+    /// <summary>
+    /// Releases the GPU memory. Do not draw the texture afterwards. A texture made by <see cref="Renderer2D.WrapTexture"/> releases only
+    /// its sampler and bind group; the wrapped GPU image stays with its owner.
+    /// </summary>
     public void Dispose()
     {
         Group?.Dispose();
         Group = null;
-        Texture.Dispose();
+        if (Owned)
+        {
+            Texture.Dispose();
+        }
+
         Sampler.Dispose();
     }
 }

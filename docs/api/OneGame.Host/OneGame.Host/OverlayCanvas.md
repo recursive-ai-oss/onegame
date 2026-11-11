@@ -54,7 +54,9 @@ Width of the target in pixels.
 | Member | Description |
 | --- | --- |
 | [`Fill(float, float, float, float, Color)`](#m-fill-float-float-float-float-color) | Fills a rectangle. |
+| [`Image(float, float, float, float, Texture2D, Color)`](#m-image-float-float-float-float-texture2d-color) | Draws a texture, such as a wrapped 3D target ([`Renderer2D.WrapTexture()`](../../OneGame.Render2D/OneGame.Render2D/Renderer2D.md#m-wraptexture-gputexture-texturefilter)), into a rectangle. |
 | [`Measure(string, float)`](#m-measure-string-float) | The width of a line of text when drawn by [`OverlayCanvas.Text()`](OverlayCanvas.md#m-text-string-float-float-float-color). |
+| [`Outline(float, float, float, float, float, Color)`](#m-outline-float-float-float-float-float-color) | Draws the outline of a rectangle, inside its edges. |
 | [`Text(string, float, float, float, Color)`](#m-text-string-float-float-float-color) | Draws one line of text in the game's first font. |
 
 ### <a id="m-fill-float-float-float-float-color"></a>Fill(float, float, float, float, Color)
@@ -73,6 +75,23 @@ Fills a rectangle.
 - `height` (`float`): Height in pixels.
 - `color` ([`Color`](../../OneGame.UI/OneGame.UI/Color.md)): Fill colour, straight alpha.
 
+### <a id="m-image-float-float-float-float-texture2d-color"></a>Image(float, float, float, float, Texture2D, Color)
+
+```csharp
+public void Image(float x, float y, float width, float height, Texture2D texture, Color tint);
+```
+
+Draws a texture, such as a wrapped 3D target ([`Renderer2D.WrapTexture()`](../../OneGame.Render2D/OneGame.Render2D/Renderer2D.md#m-wraptexture-gputexture-texturefilter)), into a rectangle.
+
+**Parameters**
+
+- `x` (`float`): Left edge in pixels.
+- `y` (`float`): Top edge in pixels.
+- `width` (`float`): Width in pixels.
+- `height` (`float`): Height in pixels.
+- `texture` ([`Texture2D`](../../OneGame.Render2D/OneGame.Render2D/Texture2D.md)): The image.
+- `tint` ([`Color`](../../OneGame.UI/OneGame.UI/Color.md)): Colour multiplied in; white for none.
+
 ### <a id="m-measure-string-float"></a>Measure(string, float)
 
 ```csharp
@@ -87,6 +106,23 @@ The width of a line of text when drawn by [`OverlayCanvas.Text()`](OverlayCanvas
 - `size` (`float`): Font size in pixels.
 
 **Returns:** `float` — Pixels.
+
+### <a id="m-outline-float-float-float-float-float-color"></a>Outline(float, float, float, float, float, Color)
+
+```csharp
+public void Outline(float x, float y, float width, float height, float thickness, Color color);
+```
+
+Draws the outline of a rectangle, inside its edges.
+
+**Parameters**
+
+- `x` (`float`): Left edge in pixels.
+- `y` (`float`): Top edge in pixels.
+- `width` (`float`): Width in pixels.
+- `height` (`float`): Height in pixels.
+- `thickness` (`float`): Line width in pixels.
+- `color` ([`Color`](../../OneGame.UI/OneGame.UI/Color.md)): Line colour, straight alpha.
 
 ### <a id="m-text-string-float-float-float-color"></a>Text(string, float, float, float, Color)
 

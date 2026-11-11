@@ -51,4 +51,4 @@ Width in pixels.
 public void Dispose();
 ```
 
-Releases the GPU memory. Do not draw the texture afterwards.
+Releases the GPU memory. Do not draw the texture afterwards. A texture made by [`Renderer2D.WrapTexture()`](Renderer2D.md#m-wraptexture-gputexture-texturefilter) releases only its sampler and bind group; the wrapped GPU image stays with its owner.

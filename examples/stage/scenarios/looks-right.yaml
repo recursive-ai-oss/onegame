@@ -1,0 +1,9 @@
+name: looks-right
+description: A custom stage draws a banner above the UI and the debug panel, and a 3D view as a sprite and as a UI image.
+window: 320x180
+steps:
+  - step: 20
+  - overlay: on
+  - step: 2
+expect:
+  - capture: { reference: refs/stage.png, tolerance: 48, max-diff: 0.01 }

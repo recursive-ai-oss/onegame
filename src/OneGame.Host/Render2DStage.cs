@@ -50,6 +50,7 @@ public class Render2DStage : IRenderStage, IDisposable
     private readonly Draw2D _draw = new();
     private readonly OverlayCanvas _overlayCanvas = new();
     private RenderGraph? _graph;
+    private IFrameOverlay[] _overlays = [];
 
     /// <summary>Creates the stage over the game's fonts, art and shaders.</summary>
     /// <exception cref="ArgumentException">The resources have no fonts or no shaders.</exception>
@@ -81,8 +82,45 @@ public class Render2DStage : IRenderStage, IDisposable
     /// <summary>What the page renderer drew in the last frame (the first format's renderer).</summary>
     public PageStats PageStats => _pageRenderers.Values.FirstOrDefault()?.Stats ?? default;
 
-    /// <summary>Drawn over everything else in each frame, captures included; null for none. Development builds set it; a release build never does.</summary>
+    /// <summary>
+    /// The slot of the development panel (<c>DebugOverlay</c>), drawn last, over everything including <see cref="Overlays"/>; null for none.
+    /// Development builds set it; a release build never does. A game that wants its own overlay uses <see cref="AddOverlay"/> instead, so the
+    /// two never replace each other.
+    /// </summary>
     public IFrameOverlay? Overlay { get; set; }
+
+    /// <summary>The game's own overlays, in the order they draw (first at the bottom).</summary>
+    public IReadOnlyList<IFrameOverlay> Overlays => _overlays;
+
+    /// <summary>
+    /// Adds an overlay: <see cref="IFrameOverlay.Draw"/> runs every frame after the UI and <see cref="DrawOverUi"/>, in the same batch as the
+    /// UI, so it adds no pass, and its text uses the game's fonts and the shared glyph atlas. It shows in captures. Overlays draw under
+    /// <see cref="Overlay"/>, the debug panel.
+    /// </summary>
+    /// <param name="overlay">What to draw. It may draw only through the canvas it is handed.</param>
+    public void AddOverlay(IFrameOverlay overlay)
+    {
+        ArgumentNullException.ThrowIfNull(overlay);
+        if (Array.IndexOf(_overlays, overlay) < 0)
+        {
+            _overlays = [.. _overlays, overlay];
+        }
+    }
+
+    /// <summary>Removes an overlay added with <see cref="AddOverlay"/>.</summary>
+    /// <param name="overlay">The overlay.</param>
+    /// <returns>True when it was there.</returns>
+    public bool RemoveOverlay(IFrameOverlay overlay)
+    {
+        var i = Array.IndexOf(_overlays, overlay);
+        if (i < 0)
+        {
+            return false;
+        }
+
+        _overlays = [.. _overlays[..i], .. _overlays[(i + 1)..]];
+        return true;
+    }
 
     /// <summary>Where this stage registers materials whose shader files may be edited while the game runs.</summary>
     protected HotShaders HotShaders => _resources.HotShaders;
@@ -166,10 +204,16 @@ public class Render2DStage : IRenderStage, IDisposable
         _draw.Draw(renderer, frame, _text, _resources.Measurer!, _glyphs);
         renderer.Ui.Draw(frame.List, _text, _glyphs, _resources.Art);
         DrawOverUi(renderer, frame);
-        if (Overlay is { } overlay)
+        var chain = _overlays;
+        if (chain.Length > 0 || Overlay is not null)
         {
             _overlayCanvas.Begin(renderer, _text, _glyphs, _resources.Measurer!, frame);
-            overlay.Draw(_overlayCanvas);
+            foreach (var o in chain)
+            {
+                o.Draw(_overlayCanvas);
+            }
+
+            Overlay?.Draw(_overlayCanvas);
             _overlayCanvas.End();
         }
 

@@ -6,8 +6,8 @@ using OneGame.UI;
 namespace OneGame.Host;
 
 /// <summary>
-/// Something drawn on top of the finished frame, after the game's UI and sprites: the development overlay is the one user. It sees the
-/// frame only through an <see cref="OverlayCanvas"/>, so it can draw text and rectangles and nothing else.
+/// Something drawn on top of the finished frame, after the game's UI and sprites: the development panel and a game's own overlays (<see cref="Render2DStage.AddOverlay"/>). It sees the
+/// frame only through an <see cref="OverlayCanvas"/>, so it can draw text, rectangles and images and nothing else.
 /// </summary>
 public interface IFrameOverlay
 {
@@ -58,6 +58,33 @@ public sealed class OverlayCanvas
     /// <param name="color">Fill colour, straight alpha.</param>
     public void Fill(float x, float y, float width, float height, Color color) =>
         Renderer().Ui.Fill(new Rect(x, y, width, height), color);
+
+    /// <summary>Draws the outline of a rectangle, inside its edges.</summary>
+    /// <param name="x">Left edge in pixels.</param>
+    /// <param name="y">Top edge in pixels.</param>
+    /// <param name="width">Width in pixels.</param>
+    /// <param name="height">Height in pixels.</param>
+    /// <param name="thickness">Line width in pixels.</param>
+    /// <param name="color">Line colour, straight alpha.</param>
+    public void Outline(float x, float y, float width, float height, float thickness, Color color)
+    {
+        var t = MathF.Min(thickness, MathF.Min(width, height) / 2f);
+        var ui = Renderer().Ui;
+        ui.Fill(new Rect(x, y, width, t), color);
+        ui.Fill(new Rect(x, y + height - t, width, t), color);
+        ui.Fill(new Rect(x, y + t, t, height - (2 * t)), color);
+        ui.Fill(new Rect(x + width - t, y + t, t, height - (2 * t)), color);
+    }
+
+    /// <summary>Draws a texture, such as a wrapped 3D target (<see cref="Renderer2D.WrapTexture"/>), into a rectangle.</summary>
+    /// <param name="x">Left edge in pixels.</param>
+    /// <param name="y">Top edge in pixels.</param>
+    /// <param name="width">Width in pixels.</param>
+    /// <param name="height">Height in pixels.</param>
+    /// <param name="texture">The image.</param>
+    /// <param name="tint">Colour multiplied in; white for none.</param>
+    public void Image(float x, float y, float width, float height, Texture2D texture, Color tint) =>
+        Renderer().Ui.Image(new Rect(x, y, width, height), texture, tint);
 
     /// <summary>Draws one line of text in the game's first font.</summary>
     /// <param name="line">The text; newlines are not broken.</param>

@@ -9,7 +9,7 @@
 public interface IFrameOverlay
 ```
 
-Something drawn on top of the finished frame, after the game's UI and sprites: the development overlay is the one user. It sees the frame only through an [`OverlayCanvas`](OverlayCanvas.md), so it can draw text and rectangles and nothing else.
+Something drawn on top of the finished frame, after the game's UI and sprites: the development panel and a game's own overlays ([`Render2DStage.AddOverlay()`](Render2DStage.md#m-addoverlay-iframeoverlay)). It sees the frame only through an [`OverlayCanvas`](OverlayCanvas.md), so it can draw text, rectangles and images and nothing else.
 
 ## Methods
 
