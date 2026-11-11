@@ -14,6 +14,7 @@ Each folder is a complete game of a few dozen lines that shows one feature on th
 | [physics](physics) | A character walks, jumps between platforms and pushes crates; boxes and balls fall and sleep; a goal zone counts what enters it; the physics world is saved, restored and hashed with the game world; outlines and contacts drawn by the debug overlay ([docs/physics.md](../docs/physics.md)) | 262 lines |
 | [physics/3d](physics/3d) | A box pile falls and settles, a character walks and a car drives on 3D physics; the space is saved, restored and hashed with the world, with collision geometry drawn by the debug overlay ([docs/physics.md](../docs/physics.md)) | 105 lines |
 | [character](character) | A skinned 3D figure that walks and runs by a speed blend, jumps from a trigger, and moves by baked fixed-point root motion; animation stays in the view, the sim stays deterministic; a capture checked against references ([docs/animation.md](../docs/animation.md)) | 221 lines |
+| [stage](stage) | A custom render stage: its own overlay (text and rectangles above the UI and the debug panel) and a 3D view drawn into a texture that a sprite and a UI image show without a readback ([render2d interface](../docs/interfaces/render2d.md)) | 111 lines |
 | [networked-counter](networked-counter) | One shared `Sim.cs`, a server and two clients on real sockets, replicas equal to the server ([docs/driving-a-game.md](../docs/driving-a-game.md), section 7) | 23 + 14 + 12 lines |
 
 ## Run one

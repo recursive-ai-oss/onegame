@@ -53,7 +53,7 @@ Without `--headless` the game opens a window (Wayland when `WAYLAND_DISPLAY` is 
 | Steam Input | `steam_input` (enabled or why not, action sets and their screens, active set, controllers, latest action values, on-screen keyboard; with the stand-in controller also connect, disconnect, press, release, analog; see `steam.md`) |
 | Lifecycle | `quit` |
 
-`tools/list` over MCP returns exactly this table (name, description, JSON schema). Entity addressing everywhere: numeric id, `Type` (first of that type) or `Type#n`.
+This table lists the core operations. `tools/list` over MCP is the complete, current list (name, description, JSON schema for each), including operations added by engine packages and by the game. Entity addressing everywhere: numeric id, `Type` (first of that type) or `Type#n`.
 
 Commands go through the entities' generated `SendFromText(name, args[])` (arguments typed by `CommandSignatures`: int, bool, string, enum, `Fixed`, `EntityId`). A command is queued and runs at the start of the next tick.
 

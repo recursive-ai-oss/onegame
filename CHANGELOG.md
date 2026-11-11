@@ -4,6 +4,15 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-11-11
+
+Custom render stages can draw above the UI next to the debug panel, and a 3D view rendered offscreen can be drawn as a 2D texture without copying it back to the CPU.
+
+### Added
+
+- Custom render stages can draw text and rectangles above the UI: `Render2DStage.AddOverlay`/`RemoveOverlay` take an `IFrameOverlay`, and `OverlayCanvas` gains `Outline` and `Image`. Overlays share the stage's 2D batch and glyph atlas, and draw under the development panel (`Render2DStage.Overlay`), which keeps its own slot, so the two no longer replace each other.
+- `Renderer2D.WrapTexture` and `RebindTexture`: a `Texture2D` over a GPU image the caller owns, such as a sampled `Offscreen3D` target, drawn by sprites, `Ui.Image` and overlays with no readback. `examples/stage` shows both.
+
 ### Fixed
 
 - Vulkan adapter choice is deterministic: adapters are kept in one total order (kind, vendor id, device id, name, API version, UUID) instead of the driver enumeration order, so a multi-GPU machine picks the same adapter every time and `ONEGAME_GPU_ADAPTER` / `GpuDeviceOptions.Adapter` match the same one. The rule is in `docs/interfaces/gpu.md`.

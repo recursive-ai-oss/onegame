@@ -282,6 +282,70 @@ public sealed partial class Renderer2D : IDisposable
         old.Sampler.Dispose();
     }
 
+    /// <summary>
+    /// Makes a texture that draws a GPU image someone else owns, such as the sampled target of an <c>Offscreen3D</c>, with no copy and no
+    /// readback: sprites, tiles, <see cref="UiCanvas.Image(Rect, Texture2D, Color, CornerRadii)"/> and the overlay canvas draw it like any other texture.
+    /// <list type="bullet">
+    /// <item><b>Ownership.</b> <see cref="Texture2D.Dispose"/> releases the sampler and bind group only; the GPU image is disposed by its owner,
+    /// after the wrapper and after the last frame that drew it.</item>
+    /// <item><b>Resizing.</b> When the owner makes a new image (another size, say), call <see cref="RebindTexture"/>; everything holding the
+    /// <see cref="Texture2D"/> draws the new image from the next frame.</item>
+    /// <item><b>Colour.</b> The shaders sample in linear light and treat the texels as premultiplied. A <c>*Srgb</c> image (the default for
+    /// <c>Offscreen3D</c>) is decoded by the hardware; <c>Rgba8Unorm</c> and <c>Rgba16Float</c> are taken as already linear. An opaque image
+    /// needs nothing more; one with partial alpha must already be premultiplied. The format need not match the target's.</item>
+    /// <item><b>Order.</b> Render into the image before the frame that draws it (a submitted <c>Offscreen3D.Render</c>, or a graph pass that
+    /// ran earlier); the backend moves the image between render-target and sampled use.</item>
+    /// </list>
+    /// </summary>
+    /// <param name="texture">A colour 2D image created with <see cref="TextureUsage.Sampled"/>.</param>
+    /// <param name="filter">How the image is filtered when scaled.</param>
+    /// <returns>The texture.</returns>
+    /// <exception cref="ArgumentException">The image cannot be sampled, is an array, cube, 3D or multisampled image, or is a depth format.</exception>
+    public Texture2D WrapTexture(GpuTexture texture, TextureFilter filter = TextureFilter.Linear)
+    {
+        ArgumentNullException.ThrowIfNull(texture);
+        CheckWrappable(texture);
+        var f = filter == TextureFilter.Linear ? FilterMode.Linear : FilterMode.Nearest;
+        var sampler = _device.CreateSampler(new SamplerDesc { MagFilter = f, MinFilter = f, MipFilter = FilterMode.Nearest, AddressU = AddressMode.ClampToEdge, AddressV = AddressMode.ClampToEdge, MaxAnisotropy = 1 });
+        return new Texture2D(texture, sampler, texture.Format, owned: false);
+    }
+
+    /// <summary>
+    /// Points a texture made by <see cref="WrapTexture"/> at a new GPU image (after its owner recreated it, perhaps at another size). The
+    /// <see cref="Texture2D"/> object stays, so sprites and sheets holding it need no change. Waits for the device, so it is for resizes, not every frame.
+    /// </summary>
+    /// <param name="texture">A texture made by <see cref="WrapTexture"/>.</param>
+    /// <param name="image">The new image, same rules as <see cref="WrapTexture"/>.</param>
+    /// <exception cref="ArgumentException">The texture is not a wrapper, or the image cannot be wrapped.</exception>
+    public void RebindTexture(Texture2D texture, GpuTexture image)
+    {
+        ArgumentNullException.ThrowIfNull(texture);
+        ArgumentNullException.ThrowIfNull(image);
+        if (texture.Owned)
+        {
+            throw new ArgumentException("only a texture made by WrapTexture can be rebound; use ReplaceTexture for pixels", nameof(texture));
+        }
+
+        CheckWrappable(image);
+        var f = texture.Sampler;
+        var old = texture.Swap(image, f);
+        _device.WaitIdle();
+        old.Group?.Dispose();
+    }
+
+    private static void CheckWrappable(GpuTexture t)
+    {
+        if ((t.Usage & TextureUsage.Sampled) == 0)
+        {
+            throw new ArgumentException("the image was not created with TextureUsage.Sampled (for an Offscreen3D, pass sampled: true)", nameof(t));
+        }
+
+        if (t.Dimension != TextureDimension.D2 || t.ArrayLayers != 1 || t.SampleCount > 1 || t.Format is GpuFormat.Depth32Float or GpuFormat.Depth32FloatStencil8 or GpuFormat.Depth16Unorm)
+        {
+            throw new ArgumentException($"only a single-sample colour 2D image can be drawn; got {t.Dimension} {t.Format} x{t.ArrayLayers}, {t.SampleCount} samples", nameof(t));
+        }
+    }
+
     internal Texture2D CreateRaw(int width, int height, GpuFormat format, TextureFilter filter)
     {
         var gpu = _device.CreateTexture(new TextureDesc((uint)width, (uint)height, format, TextureUsage.Sampled | TextureUsage.CopyDestination));

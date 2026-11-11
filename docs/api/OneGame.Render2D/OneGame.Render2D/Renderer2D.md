@@ -97,8 +97,10 @@ The UI drawing surface for the current frame.
 | [`DrawScene(Scene2D, in Camera2D, PostChain?)`](#m-drawscene-scene2d-camera2d-postchain) | Draws a scene's layers back to front through `camera`. |
 | [`EndFrame(GpuCommandEncoder)`](#m-endframe-gpucommandencoder) | Uploads everything the frame drew and records its passes into `encoder`. |
 | [`ForgetTarget(GpuTexture)`](#m-forgettarget-gputexture) | Forgets what the renderer keeps for a target texture (its constants and bind group). |
+| [`RebindTexture(Texture2D, GpuTexture)`](#m-rebindtexture-texture2d-gputexture) | Points a texture made by [`Renderer2D.WrapTexture()`](Renderer2D.md#m-wraptexture-gputexture-texturefilter) at a new GPU image (after its owner recreated it, perhaps at another size). |
 | [`ReplaceMaterialShader(Material, ShaderCode)`](#m-replacematerialshader-material-shadercode) | Replaces the pixel shader of a material made by [`Renderer2D.CreateMaterial()`](Renderer2D.md#m-creatematerial-shadercode-string) without touching its parameters, so a shader edited while the game runs shows from the next frame on. |
 | [`ReplaceTexture(Texture2D, int, int, ReadOnlySpan<byte>, TextureFilter)`](#m-replacetexture-texture2d-int-int-readonlyspan-byte-texturefilter) | Replaces the pixels of a texture made by [`Renderer2D.CreateTexture()`](Renderer2D.md#m-createtexture-int-int-readonlyspan-byte-texturefilter), keeping the same [`Texture2D`](Texture2D.md) object so everything that holds it draws the new image from the next frame on. |
+| [`WrapTexture(GpuTexture, TextureFilter)`](#m-wraptexture-gputexture-texturefilter) | Makes a texture that draws a GPU image someone else owns, such as the sampled target of an `Offscreen3D`, with no copy and no readback: sprites, tiles, [`UiCanvas.Image()`](UiCanvas.md#m-image-rect-texture2d-color-cornerradii) and the overlay canvas draw it like any other texture. |
 
 ### <a id="m-beginframe-gputexture-frameoptions"></a>BeginFrame(GpuTexture, in FrameOptions)
 
@@ -238,6 +240,23 @@ Forgets what the renderer keeps for a target texture (its constants and bind gro
 
 - `texture` ([`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)): The target.
 
+### <a id="m-rebindtexture-texture2d-gputexture"></a>RebindTexture(Texture2D, GpuTexture)
+
+```csharp
+public void RebindTexture(Texture2D texture, GpuTexture image);
+```
+
+Points a texture made by [`Renderer2D.WrapTexture()`](Renderer2D.md#m-wraptexture-gputexture-texturefilter) at a new GPU image (after its owner recreated it, perhaps at another size). The [`Texture2D`](Texture2D.md) object stays, so sprites and sheets holding it need no change. Waits for the device, so it is for resizes, not every frame.
+
+**Parameters**
+
+- `texture` ([`Texture2D`](Texture2D.md)): A texture made by [`Renderer2D.WrapTexture()`](Renderer2D.md#m-wraptexture-gputexture-texturefilter).
+- `image` ([`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)): The new image, same rules as [`Renderer2D.WrapTexture()`](Renderer2D.md#m-wraptexture-gputexture-texturefilter).
+
+**Exceptions**
+
+- [`ArgumentException`](https://learn.microsoft.com/dotnet/api/system.argumentexception): The texture is not a wrapper, or the image cannot be wrapped.
+
 ### <a id="m-replacematerialshader-material-shadercode"></a>ReplaceMaterialShader(Material, ShaderCode)
 
 ```csharp
@@ -270,3 +289,27 @@ Replaces the pixels of a texture made by [`Renderer2D.CreateTexture()`](Renderer
 - `height` (`int`): New height in pixels.
 - `rgba` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`): Exactly `width * height * 4` straight-alpha sRGB bytes.
 - `filter` ([`TextureFilter`](TextureFilter.md)): How the texture is filtered when scaled.
+
+### <a id="m-wraptexture-gputexture-texturefilter"></a>WrapTexture(GpuTexture, TextureFilter)
+
+```csharp
+public Texture2D WrapTexture(GpuTexture texture, TextureFilter filter = 1);
+```
+
+Makes a texture that draws a GPU image someone else owns, such as the sampled target of an `Offscreen3D`, with no copy and no readback: sprites, tiles, [`UiCanvas.Image()`](UiCanvas.md#m-image-rect-texture2d-color-cornerradii) and the overlay canvas draw it like any other texture.
+
+- **Ownership.**[`Texture2D.Dispose()`](Texture2D.md#m-dispose) releases the sampler and bind group only; the GPU image is disposed by its owner, after the wrapper and after the last frame that drew it.
+- **Resizing.** When the owner makes a new image (another size, say), call [`Renderer2D.RebindTexture()`](Renderer2D.md#m-rebindtexture-texture2d-gputexture); everything holding the [`Texture2D`](Texture2D.md) draws the new image from the next frame.
+- **Colour.** The shaders sample in linear light and treat the texels as premultiplied. A `*Srgb` image (the default for `Offscreen3D`) is decoded by the hardware; `Rgba8Unorm` and `Rgba16Float` are taken as already linear. An opaque image needs nothing more; one with partial alpha must already be premultiplied. The format need not match the target's.
+- **Order.** Render into the image before the frame that draws it (a submitted `Offscreen3D.Render`, or a graph pass that ran earlier); the backend moves the image between render-target and sampled use.
+
+**Parameters**
+
+- `texture` ([`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)): A colour 2D image created with [`TextureUsage.Sampled`](../../OneGame.Gpu/OneGame.Gpu/TextureUsage.md#m-sampled).
+- `filter` ([`TextureFilter`](TextureFilter.md)): How the image is filtered when scaled.
+
+**Returns:** [`Texture2D`](Texture2D.md) — The texture.
+
+**Exceptions**
+
+- [`ArgumentException`](https://learn.microsoft.com/dotnet/api/system.argumentexception): The image cannot be sampled, is an array, cube, 3D or multisampled image, or is a depth format.

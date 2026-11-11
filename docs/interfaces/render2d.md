@@ -206,3 +206,23 @@ The host's render stage hands a stage the device, a target and the frame's displ
 atlases and the `TextQuadBuilder`, and in `Render` does `BeginFrame(target)`, `Ui.Draw(frame.List, …)`, `EndFrame(encoder)`, `Submit`. The
 host's targets and swapchain must be `Rgba8UnormSrgb`/`Bgra8UnormSrgb` (`SwapchainDesc.Srgb = true`). Call `ForgetTarget(texture)` for a target
 that is destroyed (swapchain resize). The CPU-only `RenderToPixels` path is not provided by this renderer.
+
+### Drawing above the UI from a custom stage
+
+A stage that subclasses `Render2DStage` has two ways to draw over the UI, both inside the stage's one 2D batch (no extra pass, nothing allocated per frame):
+
+- `DrawOverUi(renderer, frame)` for sprites, tiles and shapes through the `Renderer2D` (`renderer.DrawScene`, `renderer.Ui.Fill/Image`).
+- **Overlays** for text and rectangles through the shared fonts and glyph atlas: implement `IFrameOverlay` and call `stage.AddOverlay(overlay)` (`RemoveOverlay` undoes it). `Draw(OverlayCanvas)` gets `Fill`, `Outline`, `Image`, `Text` and `Measure` in framebuffer pixels (`Width`, `Height`, `Scale` say how big the frame is) and nothing else, so an overlay stays view code. Overlays draw in the order added, after the UI and `DrawOverUi`, and show in captures.
+
+`Render2DStage.Overlay` is a separate slot held by the development panel (`DebugOverlay`, installed by the control layer); it draws last, over every overlay in the chain. A game's overlays and the panel therefore never replace each other, and the panel stays on top. Setting `Overlay` yourself replaces the panel; use `AddOverlay`.
+
+### GPU images as textures
+
+`renderer.WrapTexture(gpuTexture)` makes a `Texture2D` over an image someone else owns (for example `Offscreen3D.Target`, made with `sampled: true`), with no copy and no readback. Sprites, tile sets, `Ui.Image` and `OverlayCanvas.Image` draw it like any texture.
+
+- **Ownership.** `Texture2D.Dispose` frees the sampler and bind group only. The owner disposes the image after the wrapper and after the last frame that drew it.
+- **Resize or recreate.** `renderer.RebindTexture(texture, newImage)` points the same `Texture2D` at the new image (any size or format that `WrapTexture` accepts); sprites holding it draw it from the next frame. It waits for the device, so it is for resizes, not per frame. `Texture2D.Width/Height` follow.
+- **Colour.** Shaders sample linear light and treat texels as premultiplied. A `*Srgb` image (`Offscreen3D`'s default) is decoded by the hardware; `Rgba8Unorm` and `Rgba16Float` are taken as linear. The image's format does not need to match the target's, so a windowed capture in the swapchain's format draws it the same way. An opaque image needs nothing more; an image with partial alpha must be premultiplied already.
+- **Order.** Render into the image before the frame that samples it (a submitted `Offscreen3D.Render`, or an earlier graph pass). The backend's whole-resource tracker moves it between render-target and sampled use; the 2D pass does not declare the read, so rendering and sampling the same image inside one graph pass is not supported.
+- **Refused** with `ArgumentException`: images without `TextureUsage.Sampled`, array, cube, 3D, multisampled and depth images.
+- **Backends.** The code uses only sampled-texture binding in the GPU layer, so it is not Vulkan-specific; it compiles for Metal and WebGPU, and its behaviour there is unchecked (the pixel-equality tests ran on Vulkan).

@@ -19,7 +19,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Gpu.Metal](OneGame.Gpu.Metal/index.md) | 1 | 1 | 3 | Metal backend of the graphics layer. |
 | [RecursiveAI.OneGame.Gpu.Vulkan](OneGame.Gpu.Vulkan/index.md) | 1 | 2 | 4 | Vulkan backend of the graphics layer. |
 | [RecursiveAI.OneGame.Gpu.WebGpu](OneGame.Gpu.WebGpu/index.md) | 1 | 1 | 3 | WebGPU backend of the graphics layer, for the browser. |
-| [RecursiveAI.OneGame.Host](OneGame.Host/index.md) | 1 | 70 | 577 | The game host: window, input, fixed-step simulation, UI and render stage for one game, windowed or headless. |
+| [RecursiveAI.OneGame.Host](OneGame.Host/index.md) | 1 | 70 | 582 | The game host: window, input, fixed-step simulation, UI and render stage for one game, windowed or headless. |
 | [RecursiveAI.OneGame.Live](OneGame.Live/index.md) | 1 | 3 | 12 | Development-build tools of a running game: live control over MCP, scenario runs, captures and replays. Release builds do not reference this project. |
 | [RecursiveAI.OneGame.Navigation](OneGame.Navigation/index.md) | 1 | 21 | 164 | Pathfinding for deterministic simulations: grid searches on fixed-point positions, budgeted over several ticks, and crowds with avoidance, with state that is saved, restored and hashed with the world. |
 | [RecursiveAI.OneGame.Net](OneGame.Net/index.md) | 1 | 28 | 227 | Network transports behind the message-channel seam: reliable UDP, WebSocket, and a network conditioner for tests. |
@@ -28,7 +28,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Physics](OneGame.Physics/index.md) | 1 | 31 | 307 | 2D and 3D rigid bodies, characters, vehicles, triggers and queries for deterministic simulations on fixed-point positions, stepped by the sim tick, with state that is saved, restored and hashed with the world. |
 | [RecursiveAI.OneGame.Platform](OneGame.Platform/index.md) | 1 | 52 | 566 | Windows, input, controllers and the app lifecycle per operating system. |
 | [RecursiveAI.OneGame.Purchases](OneGame.Purchases/index.md) | 1 | 21 | 159 | In-app purchases: one store-neutral API over StoreKit, Google Play Billing and a scriptable fake store. |
-| [RecursiveAI.OneGame.Render2D](OneGame.Render2D/index.md) | 2 | 65 | 400 | Sprite, tilemap and text renderer. |
+| [RecursiveAI.OneGame.Render2D](OneGame.Render2D/index.md) | 2 | 65 | 402 | Sprite, tilemap and text renderer. |
 | [RecursiveAI.OneGame.Render3D](OneGame.Render3D/index.md) | 2 | 158 | 1034 | Physically based 3D renderer: glTF materials, clustered forward lighting, image-based lighting, bloom and tone mapping on the render graph. |
 | [RecursiveAI.OneGame.Server](OneGame.Server/index.md) | 1 | 35 | 223 | The headless server host: fixed-step scopes, YAML configuration, logging, and the plugin API. |
 | [RecursiveAI.OneGame.Server.Live](OneGame.Server.Live/index.md) | 1 | 10 | 96 | Live control of a running game server over the same MCP surface as a development game: plugin and scope operations. |

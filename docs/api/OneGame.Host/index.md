@@ -49,7 +49,7 @@ dotnet add package RecursiveAI.OneGame.Host
 | [`HotShaders`](OneGame.Host/HotShaders.md) | class | The shaders of a running game that may be recompiled when their files change. |
 | [`IAssetSource`](OneGame.Host/IAssetSource.md) | interface | Where an [`Assets`](OneGame.Host/Assets.md) service reads content from. |
 | [`IDevTools`](OneGame.Host/IDevTools.md) | interface | The hook through which development builds add their tools (live control, scenarios, capture, replay). |
-| [`IFrameOverlay`](OneGame.Host/IFrameOverlay.md) | interface | Something drawn on top of the finished frame, after the game's UI and sprites: the development overlay is the one user. |
+| [`IFrameOverlay`](OneGame.Host/IFrameOverlay.md) | interface | Something drawn on top of the finished frame, after the game's UI and sprites: the development panel and a game's own overlays ([`Render2DStage.AddOverlay()`](OneGame.Host/Render2DStage.md#m-addoverlay-iframeoverlay)). |
 | [`IRenderStage`](OneGame.Host/IRenderStage.md) | interface | Draws one frame. |
 | [`IScene3DProbe`](OneGame.Host/IScene3DProbe.md) | interface | What the `camera`, `pick` and `project` operations ask of a 3D scene: the camera in use, a view-only override of it, a world point's place on screen and the model under a pixel. |
 | [`IScene3DStage`](OneGame.Host/IScene3DStage.md) | interface | What a render stage that draws a 3D scene shows, for tools that ask about it (the `camera` and `pick` operations). |
