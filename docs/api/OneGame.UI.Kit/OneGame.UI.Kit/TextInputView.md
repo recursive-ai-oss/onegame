@@ -63,7 +63,7 @@ The horizontal position of the caret in pixels from the start of the text, as of
 public IClipboard Clipboard { get; set; }
 ```
 
-Where cut and copied text goes, and where pasted text comes from. Defaults to [`UiKit.DefaultClipboard`](UiKit.md#m-defaultclipboard).
+Where cut and copied text goes, and where pasted text comes from. Uses the hosted tree's clipboard when attached, otherwise [`UiKit.DefaultClipboard`](UiKit.md#m-defaultclipboard). Assigning a clipboard explicitly overrides both defaults.
 
 **Type:** [`IClipboard`](IClipboard.md)
 

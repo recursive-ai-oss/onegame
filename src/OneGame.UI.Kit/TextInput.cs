@@ -33,6 +33,8 @@ public sealed class MemoryClipboard : IClipboard
 public sealed class TextInputView : Element
 {
     private readonly TextEditor _editor;
+    private IClipboard _clipboard;
+    private bool _usesDefaultClipboard;
     private readonly Func<string>? _get;
     private readonly Action<string>? _set;
     private readonly Action<string>? _onSubmit;
@@ -62,7 +64,8 @@ public sealed class TextInputView : Element
         _get = get;
         _set = set;
         _onSubmit = onSubmit;
-        Clipboard = clipboard ?? UiKit.DefaultClipboard;
+        _clipboard = clipboard ?? UiKit.DefaultClipboard;
+        _usesDefaultClipboard = clipboard is null;
         _editor = new TextEditor(GraphemeWidth)
         {
             Password = password,
@@ -128,8 +131,16 @@ public sealed class TextInputView : Element
         OnUpdate(_ => Sync());
     }
 
-    /// <summary>Where cut and copied text goes, and where pasted text comes from. Defaults to <see cref="UiKit.DefaultClipboard"/>.</summary>
-    public IClipboard Clipboard { get; set; }
+    /// <summary>Where cut and copied text goes, and where pasted text comes from. Uses the hosted tree's clipboard when attached, otherwise <see cref="UiKit.DefaultClipboard"/>. Assigning a clipboard explicitly overrides both defaults.</summary>
+    public IClipboard Clipboard
+    {
+        get => _usesDefaultClipboard ? UiKit.TreeClipboard(Tree) ?? _clipboard : _clipboard;
+        set
+        {
+            _clipboard = value ?? throw new ArgumentNullException(nameof(value));
+            _usesDefaultClipboard = false;
+        }
+    }
 
     /// <summary>The text in the field.</summary>
     public string FieldText => _editor.Text;
@@ -422,8 +433,15 @@ public sealed class TextInputView : Element
 
 public static partial class UiKit
 {
-    /// <summary>The clipboard text fields use unless they are given one. It keeps text inside the process until a windowed game instance replaces it with the system clipboard; a game can set its own.</summary>
+    /// <summary>The fallback clipboard for fields without an explicit clipboard or a hosted tree clipboard. Defaults to in-process memory; a game can set its own.</summary>
     public static IClipboard DefaultClipboard { get; set; } = new MemoryClipboard();
+
+    // A field can be built after another game starts, or moved between trees. Resolve the host clipboard from its current owner, not process-wide construction order.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<UiTree, IClipboard> TreeClipboards = new();
+
+    internal static void SetTreeClipboard(UiTree tree, IClipboard clipboard) => TreeClipboards.Add(tree, clipboard);
+
+    internal static IClipboard? TreeClipboard(UiTree? tree) => tree is not null && TreeClipboards.TryGetValue(tree, out var clipboard) ? clipboard : null;
 
     /// <summary>A single-line text field. See <see cref="TextInputView"/>.</summary>
     /// <param name="get">Reads the text, every frame. Null makes the field keep its own text (read it from <see cref="TextInputView.FieldText"/>).</param>
@@ -433,7 +451,7 @@ public static partial class UiKit
     /// <param name="maxLength">The most grapheme clusters the field takes; longer input is cut.</param>
     /// <param name="validate">Called with the text an edit would produce; return false to reject the edit (digits only, for example).</param>
     /// <param name="onSubmit">Called with the text when Enter is pressed.</param>
-    /// <param name="clipboard">Where copy and paste go; the default is <see cref="DefaultClipboard"/>.</param>
+    /// <param name="clipboard">An explicit clipboard override. Otherwise uses the hosted tree's clipboard, falling back to <see cref="DefaultClipboard"/>.</param>
     /// <param name="id">The id, or null.</param>
     public static TextInputView TextInput(
         Func<string>? get = null,

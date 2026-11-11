@@ -16,6 +16,33 @@ public class TextInputTests
     }
 
     [Fact]
+    public void DefaultClipboardFollowsTheTreeAndExplicitOverridesWin()
+    {
+        var first = new UiTree();
+        var second = new UiTree();
+        var a = new MemoryClipboard();
+        var b = new MemoryClipboard();
+        var explicitClipboard = new MemoryClipboard();
+        UiKit.SetTreeClipboard(first, a);
+        UiKit.SetTreeClipboard(second, b);
+        var field = UiKit.TextInput();
+        first.Root.Add(field);
+        Assert.Same(a, field.Clipboard);
+        field.RemoveFromParent();
+        second.Root.Add(field);
+        Assert.Same(b, field.Clipboard);
+        field.Clipboard = explicitClipboard;
+        Assert.Same(explicitClipboard, field.Clipboard);
+        field.RemoveFromParent();
+        first.Root.Add(field);
+        Assert.Same(explicitClipboard, field.Clipboard);
+
+        var explicitField = UiKit.TextInput(clipboard: explicitClipboard);
+        second.Root.Add(explicitField);
+        Assert.Same(explicitClipboard, explicitField.Clipboard);
+    }
+
+    [Fact]
     public void TypingInsertsAtTheCaretAndBackspaceAndDeleteRemove()
     {
         var (s, input, text) = Make("ac");

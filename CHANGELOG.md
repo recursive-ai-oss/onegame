@@ -18,6 +18,7 @@ Physics is stable and comes to 3D: `RecursiveAI.OneGame.Physics` is built on One
 
 ### Fixed
 
+- Two games in one process (or a game whose screen was rebuilt after another game started) no longer paste from the other game's clipboard: each text field uses the clipboard of its own window.
 - Vulkan: a submission that does not draw into the acquired swapchain image (such as an upload at startup) no longer consumes that image's acquire and render-done semaphores, which could make the first presented frame wait on the wrong work.
 
 ## [1.23.0] - 2026-11-10
