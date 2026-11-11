@@ -158,8 +158,10 @@ public class WorldTests
         Assert.Equal(Level.Map.CellCenter(new NavCell(9, 1)), walker.Position);
     }
 
-    [Fact]
-    public void IdleWalkingAndSearchingTicksAllocateNothing()
+    // The runtime sometimes charges a thread a few hundred bytes it did not allocate (seen in a loop that does no allocation at all,
+    // under load and with frequent collections). A real per-tick allocation shows in every attempt; noise shows in one. So the
+    // scenario runs on a fresh world up to three times and the cleanest attempt counts.
+    private static (long Search, long Walk, long Idle, int SearchTicks, int WalkTicks) MeasureIdleWalkingAndSearching()
     {
         UseLevel(20);
         var world = Populated();
@@ -183,8 +185,6 @@ public class WorldTests
 
         // A tick that stays in the search allocates nothing (the sliced search reuses its buffers). The tick that finishes copies the path out, once per search.
         TestContext.Current.SendDiagnosticMessage($"searching: {perTick.Count} ticks, in-search ticks {string.Join("/", perTick.Take(perTick.Count - 1).Distinct())} B, finishing tick {perTick[^1]} B");
-        Assert.True(perTick.Count > 15);
-        Assert.All(perTick.Take(perTick.Count - 1), b => Assert.Equal(0, b));
 
         // Walking: the unit moves, its state is re-assigned, nothing is allocated.
         world.Step();
@@ -200,8 +200,6 @@ public class WorldTests
 
         var walkBytes = GC.GetAllocatedBytesForCurrentThread() - walkBefore;
         TestContext.Current.SendDiagnosticMessage($"walking: {walked} ticks, {walkBytes} B");
-        Assert.True(walked > 100);
-        Assert.Equal(0, walkBytes);
 
         // Idle: arrived, nothing to do.
         var idleBefore = GC.GetAllocatedBytesForCurrentThread();
@@ -211,6 +209,27 @@ public class WorldTests
             world.ComputeHash();
         }
 
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - idleBefore);
+        var idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleBefore;
+        return (perTick.Take(perTick.Count - 1).Max(), walkBytes, idleBytes, perTick.Count, walked);
+    }
+
+    [Fact]
+    public void IdleWalkingAndSearchingTicksAllocateNothing()
+    {
+        var best = MeasureIdleWalkingAndSearching();
+        for (var attempt = 1; attempt < 3 && best.Search + best.Walk + best.Idle != 0; attempt++)
+        {
+            var next = MeasureIdleWalkingAndSearching();
+            if (next.Search + next.Walk + next.Idle < best.Search + best.Walk + best.Idle)
+            {
+                best = next;
+            }
+        }
+
+        Assert.True(best.SearchTicks > 15);
+        Assert.True(best.WalkTicks > 100);
+        Assert.Equal(0, best.Search);
+        Assert.Equal(0, best.Walk);
+        Assert.Equal(0, best.Idle);
     }
 }
