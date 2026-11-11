@@ -18,35 +18,40 @@ internal sealed class EntityList : IReadOnlyList<Entity>
         _pendingRemoval = pendingRemoval;
     }
 
+    // While entities are waiting for removal, positions are served from a compacted copy built once per change, so an indexed loop
+    // after a mid-tick Add or Remove costs O(n) in total rather than O(n) per access. The world calls Invalidate when the list changes.
+    private readonly List<Entity> _compact = [];
+    private bool _compactValid;
+
+    /// <summary>Drops the compacted copy; the world calls this whenever it adds, removes or detaches an entity.</summary>
+    internal void Invalidate() => _compactValid = false;
+
+    private List<Entity> Compact()
+    {
+        if (!_compactValid)
+        {
+            _compact.Clear();
+            for (var i = 0; i < _all.Count; i++)
+            {
+                if (!_all[i].IsRemoved)
+                {
+                    _compact.Add(_all[i]);
+                }
+            }
+
+            _compactValid = true;
+        }
+
+        return _compact;
+    }
+
     /// <summary>The number of live entities.</summary>
-    public int Count => _pendingRemoval.Count == 0 ? _all.Count : _all.Count - CountRemoved();
+    public int Count => _pendingRemoval.Count == 0 ? _all.Count : Compact().Count;
 
     /// <summary>The live entity at a position in id order.</summary>
     /// <param name="index">A position from 0 to <see cref="Count"/> - 1.</param>
     /// <exception cref="ArgumentOutOfRangeException">The position is outside the list.</exception>
-    public Entity this[int index]
-    {
-        get
-        {
-            if (_pendingRemoval.Count == 0)
-            {
-                return _all[index];
-            }
-
-            if (index >= 0)
-            {
-                for (var i = 0; i < _all.Count; i++)
-                {
-                    if (!_all[i].IsRemoved && index-- == 0)
-                    {
-                        return _all[i];
-                    }
-                }
-            }
-
-            throw new ArgumentOutOfRangeException(nameof(index));
-        }
-    }
+    public Entity this[int index] => _pendingRemoval.Count == 0 ? _all[index] : Compact()[index];
 
     /// <summary>Walks the live entities.</summary>
     public Enumerator GetEnumerator() => new(_all);
@@ -54,20 +59,6 @@ internal sealed class EntityList : IReadOnlyList<Entity>
     IEnumerator<Entity> IEnumerable<Entity>.GetEnumerator() => GetEnumerator();
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-    private int CountRemoved()
-    {
-        var n = 0;
-        for (var i = 0; i < _all.Count; i++)
-        {
-            if (_all[i].IsRemoved)
-            {
-                n++;
-            }
-        }
-
-        return n;
-    }
 
     /// <summary>Walks live entities; entities added while walking are visited too, removed ones are skipped.</summary>
     internal struct Enumerator : IEnumerator<Entity>

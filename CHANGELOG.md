@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Fixed
+
+- `World.Entities[i]` and `Count` were O(n) per access after an entity was added or removed during a tick (the view scanned past removed entities on every call), so an indexed loop over thousands of entities took tens of milliseconds. They now read a compacted copy built once per change. Which entities are listed, and their order, are unchanged.
+
 ## [1.25.0] - 2026-11-11
 
 Custom render stages can draw above the UI next to the debug panel, and a 3D view rendered offscreen can be drawn as a 2D texture without copying it back to the CPU.

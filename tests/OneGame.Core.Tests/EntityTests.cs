@@ -337,6 +337,61 @@ public class EntityTests
         }
     }
 
+    private sealed class ChurnThenLook(Action<World> look) : ISimSystem
+    {
+        public void Tick(World world)
+        {
+            for (var i = 0; i < 5000; i += 7)
+            {
+                world.Remove(new EntityId((ulong)i + 1));
+            }
+
+            world.Add(new Shop());
+            look(world);
+        }
+    }
+
+    [Fact]
+    public void IndexingTheEntitiesAfterAMidTickChangeIsLinearAndMatchesForeach()
+    {
+        var world = NewWorld();
+        for (var i = 0; i < 5000; i++)
+        {
+            MakeShop(world);
+        }
+
+        var indexed = new List<ulong>();
+        var walked = new List<ulong>();
+        var best = TimeSpan.MaxValue;
+        world.AddSystem(new ChurnThenLook(w =>
+        {
+            for (var round = 0; round < 3; round++)
+            {
+                var start = System.Diagnostics.Stopwatch.GetTimestamp();
+                indexed.Clear();
+                for (var i = 0; i < w.Entities.Count; i++)
+                {
+                    indexed.Add(w.Entities[i].Id.Value);
+                }
+
+                var took = System.Diagnostics.Stopwatch.GetElapsedTime(start);
+                best = took < best ? took : best;
+            }
+
+            foreach (var e in w.Entities)
+            {
+                walked.Add(e.Id.Value);
+            }
+        }));
+        world.Step();
+
+        Assert.Equal(walked, indexed);
+        Assert.Equal(5000 - 715 + 1, indexed.Count);
+        Assert.Equal(indexed.Order(), indexed);
+        // Scanning on every access took about 80 ms here; a linear pass takes well under 1 ms. The bound is far from both.
+        Assert.True(best.TotalMilliseconds < 15, $"indexed pass took {best.TotalMilliseconds} ms");
+    }
+
     [Fact]
     public void AnEntityRemovedDuringATickIsNotListedForTheRestOfTheTick()
     {
