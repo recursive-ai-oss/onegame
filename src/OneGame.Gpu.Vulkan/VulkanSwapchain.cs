@@ -329,6 +329,8 @@ internal sealed unsafe class VulkanSwapchain : GpuSwapchain, IRetirable
         _renderDone = [];
     }
 
+    internal VulkanTexture AcquiredImage => _images[_imageIndex];
+
     internal VkSemaphore AcquireSemaphore => _acquire[_acquireIndex];
 
     internal VkSemaphore RenderDoneSemaphore => _renderDone[_imageIndex];

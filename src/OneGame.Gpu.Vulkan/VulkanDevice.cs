@@ -442,8 +442,15 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
         var nw = 0;
         var ns = 0;
         signals[ns++] = new VkSemaphoreSubmitInfo { semaphore = _timeline, value = serial, stageMask = VkPipelineStageFlagBits2.AllCommands };
-        foreach (var sc in _acquired)
+        for (var i = 0; i < _acquired.Count;)
         {
+            var sc = _acquired[i];
+            // Startup uploads can submit after acquire but before drawing. Only the submission using the image may consume its semaphores.
+            if (!enc.Touches(sc.AcquiredImage) && !(upload?.Touches(sc.AcquiredImage) ?? false))
+            {
+                i++;
+                continue;
+            }
             if (nw == MaxSwap)
             {
                 break;
@@ -452,9 +459,8 @@ internal sealed unsafe partial class VulkanDevice : GpuDevice
             waits[nw++] = new VkSemaphoreSubmitInfo { semaphore = sc.AcquireSemaphore, stageMask = VkPipelineStageFlagBits2.AllCommands };
             signals[ns++] = new VkSemaphoreSubmitInfo { semaphore = sc.RenderDoneSemaphore, stageMask = VkPipelineStageFlagBits2.AllCommands };
             sc.MarkSubmitted();
+            _acquired.RemoveAt(i);
         }
-
-        _acquired.Clear();
 
         var submit = new VkSubmitInfo2
         {

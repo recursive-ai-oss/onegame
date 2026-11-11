@@ -65,9 +65,14 @@ public sealed class SwapchainTests
             using var disposeSwapchain = swapchain;
             Assert.Equal((200u, 120u), (swapchain.Width, swapchain.Height));
 
+            using var unrelated = d.CreateTexture(new TextureDesc(8, 8, GpuFormat.Rgba8Unorm, TextureUsage.RenderTarget));
             void Frame(float r, float g, float b)
             {
                 Assert.Equal(AcquireStatus.Ready, swapchain.TryAcquire(out var back));
+                var startup = d.BeginCommands();
+                startup.BeginRenderPass(ColorAttachment.Clear(unrelated, 0, 0, 0, 1)).EndPass();
+                d.Submit(startup);
+                Assert.Throws<InvalidOperationException>(swapchain.Present);
                 var enc = d.BeginCommands();
                 var pass = enc.BeginRenderPass(ColorAttachment.Clear(back, r, g, b, 1));
                 pass.EndPass();

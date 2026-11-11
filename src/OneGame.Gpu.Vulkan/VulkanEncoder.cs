@@ -32,6 +32,8 @@ internal sealed unsafe class VulkanEncoder : GpuCommandEncoder
 
     internal VulkanDevice Device => _dev;
 
+    internal bool Touches(VulkanTexture image) => _swapTouched.Contains(image);
+
     public VulkanEncoder(VulkanDevice dev)
     {
         _dev = dev;
