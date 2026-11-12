@@ -55,6 +55,85 @@ public class RecoveryTests
     }
 
     [Fact]
+    public void AClientAdmittedWhileItsPlayersRemovalIsQueuedStillEndsUpWithAPlayer()
+    {
+        // The restarted island lists the players it restored as leaving and asks for their removal on a pass every few ticks. A removal queued on
+        // one pass lands on the next tick, and a client who connects in between is told it is back (the entity is still there) and then loses the
+        // entity to that removal. This forces the order: pass, then admission, then the tick that runs the removal.
+        var data = Path.Combine(Path.GetTempPath(), "lanterns-queued-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            using var r = new Realms(data);
+            var game = r.Client("p1", Rules.IslandA);
+            var s = Session.For(game);
+            r.RunUntil(() => s.Me is not null, 20_000, "the player to appear");
+            r.Run(60);
+            var before = s.Me!.Owner;
+
+            r.Kill(Rules.IslandA);
+            r.RunUntil(() => game.Remote!.IsReconnecting, 20_000, "the client to notice");
+            r.Start(Rules.IslandA);
+
+            // Tick the island alone until a pass has queued the removal; the client is not run, so it cannot connect yet.
+            var island = r.A;
+            do
+            {
+                island.PumpNetwork();
+                island.StepOnce();
+            }
+            while (island.Tick % 10 != 0);
+
+            Assert.Equal(before, Assert.Single(island.Scopes[0].World.Entities.OfType<Player>()).Owner); // still there, removal queued
+
+            // Let the client connect without a tick in between.
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (island.Clients().Length == 0)
+            {
+                Assert.True(clock.ElapsedMilliseconds < 30_000, "the client never connected");
+                game.Step();
+                island.PumpNetwork();
+                Thread.Sleep(1);
+            }
+
+            r.RunUntil(() => s.Me is not null && game.Replica.State == ReplicaState.Live, 30_000, "the client to be back");
+            r.Run(120);
+            Assert.Equal(before, Assert.Single(r.Players()).Owner);
+            Assert.Equal(before, s.Me!.Owner);
+        }
+        finally
+        {
+            if (Directory.Exists(data))
+            {
+                Directory.Delete(data, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void ARejoinedPlayerWhoseOldEntityArrivesLaterIsKeptOnce()
+    {
+        // An entity in transit from the other island is in neither world, so a rejoin can make a second one before it lands. Forced here by
+        // installing the late arrival by hand next to the player the island made, carrying lanterns.
+        using var r = new Realms();
+        var game = r.Client("p1", Rules.IslandA);
+        var s = Session.For(game);
+        r.RunUntil(() => s.Me is not null, 20_000, "the player to appear");
+        var owner = s.Me!.Owner;
+        r.Run(30);
+
+        var world = r.A.Scopes[0].World;
+        var arrived = new Player { Owner = owner, Name = "Player", Island = Rules.IslandA, X = 10, Y = 10 };
+        world.Add(arrived);
+        arrived.Change(0, 3);
+        var held = r.Held();
+
+        r.Run(60);
+        var mine = r.Players().Where(p => p.Owner == owner).ToList();
+        Assert.Single(mine);
+        Assert.Equal(held, r.Held()); // lanterns conserved: the removed one counted as departed
+    }
+
+    [Fact]
     public void APlayerWhoLeavesIsRemovedFromTheIslandAndTheirLanternsAreCounted()
     {
         using var r = new Realms();

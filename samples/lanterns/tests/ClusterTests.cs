@@ -145,7 +145,7 @@ public class ClusterTests
                 balanced = quiet && held == collected;
             }
 
-            Assert.True(balanced, "lanterns held by players never matched lanterns collected: " + last);
+            Assert.True(balanced, "lanterns held by players never matched lanterns collected: " + last + " (node logs: " + cluster.Dir + ")" + (balanced ? string.Empty : Ledger(cluster)));
             pids = [.. pids, .. cluster.Pids]; // the first processes (killed) and the ones that replaced them
         }
 
@@ -191,15 +191,86 @@ public class ClusterTests
                 Thread.Sleep(200);
             }
 
+            // The bots keep walking across the bridge, and a player on the way is in neither island's world: it sits in the sending island's
+            // transfer log until the other island has it. The islands are asked one after the other, so a player who crosses in between is
+            // missed by both. Absent is only a failure when no transfer is open on either island (asked again until the islands are still).
             var owners = new List<long>();
-            foreach (var (node, scope) in new[] { ("islandA", 1), ("islandB", 2) })
+            for (var look = 0; ; look++)
             {
-                using var doc = JsonDocument.Parse(cluster.Call(node, "state_query", "{\"scope\":" + scope + "}"));
-                owners.AddRange(doc.RootElement.GetProperty("entities").EnumerateArray().Where(e => e.GetProperty("type").GetString() == "Player").Select(e => e.GetProperty("Owner").GetInt64()));
+                owners.Clear();
+                var crossing = false;
+                foreach (var (node, scope) in new[] { ("islandA", 1), ("islandB", 2) })
+                {
+                    using var doc = JsonDocument.Parse(cluster.Call(node, "state_query", "{\"scope\":" + scope + "}"));
+                    owners.AddRange(doc.RootElement.GetProperty("entities").EnumerateArray().Where(e => e.GetProperty("type").GetString() == "Player").Select(e => e.GetProperty("Owner").GetInt64()));
+                    crossing |= doc.RootElement.GetProperty("tables").GetProperty("og.transfers").GetProperty("open").GetArrayLength() != 0;
+                }
+
+                if (owners.Contains(200001) || !crossing || look >= 200)
+                {
+                    break;
+                }
+
+                Thread.Sleep(50);
             }
 
-            Assert.True(owners.Contains(200001), $"round {round}: the restarted bot has no player on either island; players: {string.Join(", ", owners)}");
+            Assert.True(owners.Contains(200001), $"round {round}: the restarted bot has no player on either island; players: {string.Join(", ", owners)}" + (owners.Contains(200001) ? string.Empty : Evidence(cluster)));
         }
+    }
+
+    // The lantern ledger of every node, for a failed conservation check: each player's Total, Pending and Dest, the islands' collected and
+    // departed counters, the master's accounts, and every table the nodes expose (open transfers, each trade's state, the receipt count).
+    private static string Ledger(ProcessCluster cluster)
+    {
+        var text = new System.Text.StringBuilder("\n--- lantern ledger");
+        foreach (var (node, scope) in new[] { ("islandA", 1), ("islandB", 2), ("master", 3) })
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(cluster.Call(node, "state_query", "{\"scope\":" + scope + "}"));
+                text.Append('\n').Append(node).Append(" tick ").Append(doc.RootElement.GetProperty("tick").GetRawText());
+                foreach (var e in doc.RootElement.GetProperty("entities").EnumerateArray())
+                {
+                    if (e.GetProperty("type").GetString() is "Player" or "Island" or "Account" or "Market")
+                    {
+                        text.Append("\n  ").Append(e.GetRawText());
+                    }
+                }
+
+                text.Append("\n  tables ").Append(doc.RootElement.GetProperty("tables").GetRawText());
+            }
+            catch (Exception e) when (e is ClusterException or ControlException or KeyNotFoundException or InvalidOperationException)
+            {
+                text.Append('\n').Append(node).Append(" unavailable: ").Append(e.Message);
+            }
+        }
+
+        foreach (var node in new[] { "master", "islandA", "islandB" })
+        {
+            text.Append("\n--- ").Append(node).Append(" log\n").Append(cluster.LogTail(node, 60));
+        }
+
+        return text.ToString();
+    }
+
+    // What a failed check needs to be read from the report alone: both islands' recent log lines and what each holds and has in flight.
+    private static string Evidence(ProcessCluster cluster)
+    {
+        var text = new System.Text.StringBuilder();
+        foreach (var (node, scope) in new[] { ("islandA", 1), ("islandB", 2) })
+        {
+            text.Append("\n--- ").Append(node).Append(" log\n").Append(cluster.LogTail(node, 40));
+            try
+            {
+                text.Append("\n--- ").Append(node).Append(" state\n").Append(cluster.Call(node, "state_query", "{\"scope\":" + scope + "}"));
+            }
+            catch (Exception e) when (e is ClusterException or ControlException)
+            {
+                text.Append("\n--- ").Append(node).Append(" state unavailable: ").Append(e.Message);
+            }
+        }
+
+        return text.ToString();
     }
 
     [Fact]

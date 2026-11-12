@@ -26,6 +26,9 @@ public sealed class Realm
     private const int ActivateAfterTicks = 600;
     private const int GiveUpTicks = 240;
 
+    // How long a removal that was asked for can take to land, here or on the other island.
+    private const int RemovalGraceTicks = 20;
+
     // Anyone can make keys, so the island remembers only as many players as it has room for.
     private const int MaxKnownPlayers = 10_000;
 
@@ -47,6 +50,8 @@ public sealed class Realm
     private readonly HashSet<PeerKey> _peerKeys = [];
     private readonly Dictionary<uint, PeerKey> _peerKeyOf = [];
     private readonly List<Leaver> _leaving = [];
+    private readonly Dictionary<uint, long> _asked = [];
+    private readonly Dictionary<uint, long> _returned = [];
 
     /// <summary>The setup a server program (or a test) passes to the server host. Each call makes an independent server.</summary>
     public static ServerSetup Setup() => new Realm().Create();
@@ -228,6 +233,11 @@ public sealed class Realm
         // connections are gone); a player who is back before the island removed them must come off that list, or the pending removal would
         // take the entity from the client that just connected.
         _leaving.RemoveAll(l => l.Player == player);
+        if (_asked.TryGetValue(player, out var askedAt) && _host.Tick - askedAt < RemovalGraceTicks)
+        {
+            _returned[player] = _host.Tick;
+        }
+
         if (IsPresent(player))
         {
             // Back before the island removed them: the same player carries on, wherever their entity is now.
@@ -321,9 +331,11 @@ public sealed class Realm
         else
         {
             HandOver();
+            CheckReturned();
             if (host.Tick % LeaveEveryTicks == 0)
             {
                 RemoveLeavers();
+                RemoveDuplicates();
                 ActivateSettled();
             }
         }
@@ -389,7 +401,8 @@ public sealed class Realm
 
     private void OnClientLeft(Connection connection)
     {
-        if (connection.Trust.Who.Player is var player and not 0)
+        // A connection that ends after the same player already connected again (a dead link noticed late) leaves nobody behind.
+        if (connection.Trust.Who.Player is var player and not 0 && !IsConnected(player, connection))
         {
             _leaving.Add(new Leaver(player, _host.Tick));
         }
@@ -402,6 +415,13 @@ public sealed class Realm
         for (var i = _leaving.Count - 1; i >= 0; i--)
         {
             var leaver = _leaving[i];
+            if (IsConnected(leaver.Player, null))
+            {
+                // Whoever connected as this player after they were listed is playing; the entry is stale.
+                _leaving.RemoveAt(i);
+                continue;
+            }
+
             var found = false;
             if (FindPlayer(_scope.World, leaver.Player) is not null)
             {
@@ -409,16 +429,18 @@ public sealed class Realm
                 if (Island.Of(_scope.World) is { } island)
                 {
                     _host.SendCommand(_scope.Id, island.Id, "Leave", leaver.Player.ToString(CultureInfo.InvariantCulture));
+                    _asked[leaver.Player] = _host.Tick;
                 }
             }
             else
             {
-                foreach (var peer in _peers.Values)
+                foreach (var (peerScope, peer) in _peers)
                 {
                     if (peer.Replica.State == ReplicaState.Live && FindPlayer(peer.Replica.World, leaver.Player) is not null && Island.Of(peer.Replica.World) is { } there)
                     {
                         found = true;
                         there.Send.Leave((int)leaver.Player);
+                        _asked[leaver.Player] = _host.Tick;
                     }
                 }
             }
@@ -430,6 +452,81 @@ public sealed class Realm
             else if (_host.Tick - leaver.LastSeen > GiveUpTicks)
             {
                 _leaving.RemoveAt(i);
+            }
+        }
+    }
+
+    private bool IsConnected(uint player, Connection? except)
+    {
+        foreach (var c in _host.Node.Connections)
+        {
+            if (c != except && c.Trust.Who.Player == player)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // A removal asked for just before a client is admitted can still be on its way (a Leave queued for the next tick, or sent to the other island,
+    // cannot be recalled), and it takes the entity of a player who is now connected. Admission cannot tell, so it notes the player and
+    // CheckReturned looks again once the removal has had time to land: if the entity is gone, the player is put on the island again
+    // (whatever they carried was counted as departed); if it is still there, nothing is done.
+    private void CheckReturned()
+    {
+        if (_asked.Count > 0)
+        {
+            foreach (var (player, at) in _asked.ToArray())
+            {
+                if (_host.Tick - at >= RemovalGraceTicks)
+                {
+                    _ = _asked.Remove(player);
+                }
+            }
+        }
+
+        if (_returned.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var (player, since) in _returned.ToArray())
+        {
+            if (!IsConnected(player, null))
+            {
+                _ = _returned.Remove(player);
+            }
+            else if (_host.Tick - since >= RemovalGraceTicks)
+            {
+                _ = _returned.Remove(player);
+                if (!IsPresent(player) && !_scope.Transfers.Any(t => t.State is TransferState.Pending or TransferState.Offered or TransferState.Committed) && Island.Of(_scope.World) is { } island)
+                {
+                    _host.SendCommand(_scope.Id, island.Id, "Join", player.ToString(CultureInfo.InvariantCulture), "Player " + (player % 100_000).ToString(CultureInfo.InvariantCulture));
+                    _host.Log.Info($"player {player} was removed as they came back; joined again");
+                }
+            }
+        }
+    }
+
+    // CheckReturned puts a player back on this island when their entity is nowhere in sight, but an entity that is mid-transfer from the other
+    // island is in neither world (the other island's transfer log is hidden), and it lands here later. Two entities of one player must not
+    // stay: the older one, the one made by the rejoin, is removed through Leave (which counts what it holds as departed, so lanterns are
+    // conserved) and the one that arrived with the player's lanterns stays.
+    private void RemoveDuplicates()
+    {
+        if (Island.Of(_scope.World) is not { } island)
+        {
+            return;
+        }
+
+        HashSet<uint>? seen = null;
+        foreach (var e in _scope.World.Entities)
+        {
+            if (e is Player p && !(seen ??= []).Add(p.Owner))
+            {
+                _host.SendCommand(_scope.Id, island.Id, "Leave", p.Owner.ToString(CultureInfo.InvariantCulture));
+                _host.Log.Info($"player {p.Owner} was on this island twice; removed the older one");
             }
         }
     }

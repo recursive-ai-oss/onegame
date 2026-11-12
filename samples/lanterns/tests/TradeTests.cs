@@ -93,6 +93,60 @@ public class TradeTests
         return accounts.Count >= 2 && inSwap.Count > 0 && inSwap.All(a => a.Status is SwapStatus.Done or SwapStatus.Failed);
     }
 
+    [Fact]
+    public void ASwapNumberIsNeverIssuedAgainWhenTheMasterIsRestoredAfterTheIslandsRecordedReceipts()
+    {
+        // The master hands out swap numbers from its own saved state and sends a step to an island only after the save that holds the trade.
+        // So when the islands already hold receipts for a number, a master restored from its file must know that trade and issue the next
+        // number after it; otherwise the new trade would find the old one's receipts, skip its own withdraw and be credited without a debit.
+        // The master is killed at the first tick on which an island holds a receipt, the earliest the islands can know a number.
+        var dir = Path.Combine(Path.GetTempPath(), "lanterns-txid-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            using var t = new Pair(dir);
+            t.Offer();
+            int Receipts() => new[] { Rules.IslandA, Rules.IslandB }.Sum(s => EscrowBook.Of(t.Realms.Host(s).Scopes[0].World)!.ReceiptCount(EscrowStep.Withdraw));
+            t.Realms.RunUntil(() => Receipts() > 0, 20_000, "an island to hold a receipt");
+            Assert.Single(EscrowBook.Of(t.Realms.M.Scopes[0].World)!.Trades);
+            t.Realms.Kill(Rules.Master);
+            t.Realms.Run(10);
+            t.Realms.Start(Rules.Master);
+
+            var book = EscrowBook.Of(t.Realms.M.Scopes[0].World)!;
+            var market = t.Realms.M.Scopes[0].World.Entities.OfType<Market>().Single();
+            var known = book.Trades.Select(x => x.Tx).ToList();
+            Assert.Equal(new ulong[] { 1 }, known); // the master knows the trade whose receipts the islands hold
+            Assert.Equal(1, market.NextTx); // and will not issue number 1 again
+
+            var accounts = () => t.Realms.M.Scopes[0].World.Entities.OfType<Account>().ToList();
+            t.Realms.RunUntil(() => t.Realms.Held() == t.Total && t.Realms.InFlight() == 0 && SwapAccountsFinal(accounts()), 90_000, "the first swap to finish");
+
+            // Players follow the master through their island's relay; wait until they see the first swap settled.
+            t.Realms.RunUntil(() => t.S1.MyAccount?.Status is SwapStatus.Done && t.S2.MyAccount?.Status is SwapStatus.Done, 60_000, "the players to see the first swap settled", why: () => $"p1 {t.S1.MyAccount?.Status} p2 {t.S2.MyAccount?.Status}");
+            t.Realms.Run(60);
+
+            // A second swap after the restore gets a new number and moves its own lanterns.
+            t.S1.SwapTarget = t.P2.Owner;
+            t.S1.SwapGive = 1;
+            t.S1.SwapWant = 0;
+            t.S1.SendSwap();
+            t.Realms.RunUntil(() => t.S2.MyAccount?.Status == SwapStatus.Incoming, 20_000, "the second offer", why: () => $"p1 {t.S1.MyAccount?.Status} p2 {t.S2.MyAccount?.Status} notice {t.S1.Notice}");
+            t.S2.Accept();
+            t.Realms.RunUntil(() => book.Trades.Count == 2 && book.Trades.All(x => x.State == EscrowState.Settled), 60_000, "the second swap to settle", why: () => string.Join(",", book.Trades.Select(x => x.Tx + ":" + x.State)));
+            Assert.Equal(new ulong[] { 1, 2 }, book.Trades.Select(x => x.Tx).ToArray());
+            Assert.Equal(t.Total, t.Realms.Held());
+            Assert.Equal(0, t.Realms.InFlight());
+            Assert.Equal(4, Receipts()); // two legs per trade: nothing was skipped because a number was found already used
+        }
+        finally
+        {
+            if (Directory.Exists(dir))
+            {
+                Directory.Delete(dir, true);
+            }
+        }
+    }
+
     [Theory]
     [InlineData(Rules.IslandB)]
     [InlineData(Rules.Master)]
