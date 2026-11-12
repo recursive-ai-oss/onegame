@@ -191,15 +191,51 @@ public class ClusterTests
                 Thread.Sleep(200);
             }
 
+            // The bots keep walking across the bridge, and a player on the way is in neither island's world: it sits in the sending island's
+            // transfer log until the other island has it. The islands are asked one after the other, so a player who crosses in between is
+            // missed by both. Absent is only a failure when no transfer is open on either island (asked again until the islands are still).
             var owners = new List<long>();
-            foreach (var (node, scope) in new[] { ("islandA", 1), ("islandB", 2) })
+            for (var look = 0; ; look++)
             {
-                using var doc = JsonDocument.Parse(cluster.Call(node, "state_query", "{\"scope\":" + scope + "}"));
-                owners.AddRange(doc.RootElement.GetProperty("entities").EnumerateArray().Where(e => e.GetProperty("type").GetString() == "Player").Select(e => e.GetProperty("Owner").GetInt64()));
+                owners.Clear();
+                var crossing = false;
+                foreach (var (node, scope) in new[] { ("islandA", 1), ("islandB", 2) })
+                {
+                    using var doc = JsonDocument.Parse(cluster.Call(node, "state_query", "{\"scope\":" + scope + "}"));
+                    owners.AddRange(doc.RootElement.GetProperty("entities").EnumerateArray().Where(e => e.GetProperty("type").GetString() == "Player").Select(e => e.GetProperty("Owner").GetInt64()));
+                    crossing |= doc.RootElement.GetProperty("tables").GetProperty("og.transfers").GetProperty("open").GetArrayLength() != 0;
+                }
+
+                if (owners.Contains(200001) || !crossing || look >= 200)
+                {
+                    break;
+                }
+
+                Thread.Sleep(50);
             }
 
-            Assert.True(owners.Contains(200001), $"round {round}: the restarted bot has no player on either island; players: {string.Join(", ", owners)}");
+            Assert.True(owners.Contains(200001), $"round {round}: the restarted bot has no player on either island; players: {string.Join(", ", owners)}" + (owners.Contains(200001) ? string.Empty : Evidence(cluster)));
         }
+    }
+
+    // What a failed check needs to be read from the report alone: both islands' recent log lines and what each holds and has in flight.
+    private static string Evidence(ProcessCluster cluster)
+    {
+        var text = new System.Text.StringBuilder();
+        foreach (var (node, scope) in new[] { ("islandA", 1), ("islandB", 2) })
+        {
+            text.Append("\n--- ").Append(node).Append(" log\n").Append(cluster.LogTail(node, 40));
+            try
+            {
+                text.Append("\n--- ").Append(node).Append(" state\n").Append(cluster.Call(node, "state_query", "{\"scope\":" + scope + "}"));
+            }
+            catch (Exception e) when (e is ClusterException or ControlException)
+            {
+                text.Append("\n--- ").Append(node).Append(" state unavailable: ").Append(e.Message);
+            }
+        }
+
+        return text.ToString();
     }
 
     [Fact]
