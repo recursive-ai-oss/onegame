@@ -17,7 +17,8 @@ public sealed class WaterWindowedTests : IClassFixture<XvfbFixture>
     {
         Assert.SkipUnless(_xvfb.Available, "Xvfb is not installed");
         using var s = new Session(PlatformBackendKind.X11, _xvfb.Display!, game: new WaterGame());
-        s.StepUntil(() => s.Game.PresentedFrames >= 40);
+        // Both the presented count and the simulation tick must be well past the start: the buoy and the mirror need a settled scene.
+        s.StepUntil(() => s.Game.PresentedFrames >= 40 && s.Call("info").GetProperty("tick").GetInt64() >= 40, 600);
         var shot = s.Game.Capture(s.Game.Window.Width, s.Game.Window.Height, s.Game.UiScale);
         var shown = s.Game.CapturePresented()!;
         Session.Save("water-capture", shot);
@@ -36,7 +37,7 @@ public sealed class WaterWindowedTests : IClassFixture<XvfbFixture>
                 }
             }
 
-            Assert.True(red > 300, $"only {red} reddish pixels below the horizon");
+            Assert.True(red > 300, $"only {red} reddish pixels below the horizon (presented {s.Game.PresentedFrames}, info {s.Call("info")})");
         }
 
         var worst = 0;

@@ -27,7 +27,6 @@ public enum QualityLevel
 /// <param name="MaxSamples">Most multisampling samples (1, 4 or 8; 2 is not used because many formats lack it); the device may allow fewer.</param>
 /// <param name="Bloom">Whether bloom may run.</param>
 /// <param name="EnvironmentSize">Face size of the specular cube of environments created without an explicit size.</param>
-/// <param name="ReflectionScale">Size of the planar reflection image relative to the frame (0 turns planar reflection off: reflective materials fall back to the environment).</param>
 public readonly record struct QualitySettings(
     QualityLevel Level,
     int ShadowTileSize,
@@ -38,17 +37,22 @@ public readonly record struct QualitySettings(
     bool SsaoHalfResolution,
     int MaxSamples,
     bool Bloom,
-    int EnvironmentSize,
-    float ReflectionScale)
+    int EnvironmentSize)
 {
+    /// <summary>
+    /// Size of the planar reflection image relative to the frame. 0 turns planar reflection off (materials that opt in fall back to the
+    /// environment), so a <see cref="QualitySettings"/> built by hand without it has no reflection; <see cref="For"/> sets it per level.
+    /// </summary>
+    public float ReflectionScale { get; init; }
+
     /// <summary>The settings of a level.</summary>
     /// <param name="level">The level.</param>
     public static QualitySettings For(QualityLevel level) => level switch
     {
-        QualityLevel.Low => new(level, 512, 2, 0, false, 0, true, 1, false, 64, 0f),
-        QualityLevel.Medium => new(level, 1024, 3, 0, true, 8, true, 4, true, 128, 0.5f),
-        QualityLevel.Ultra => new(level, 4096, 4, 2, true, 24, false, 8, true, 512, 1f),
-        _ => new(QualityLevel.High, 2048, 4, 1, true, 14, false, 4, true, 256, 0.75f),
+        QualityLevel.Low => new(level, 512, 2, 0, false, 0, true, 1, false, 64),
+        QualityLevel.Medium => new(level, 1024, 3, 0, true, 8, true, 4, true, 128) { ReflectionScale = 0.5f },
+        QualityLevel.Ultra => new(level, 4096, 4, 2, true, 24, false, 8, true, 512) { ReflectionScale = 1f },
+        _ => new(QualityLevel.High, 2048, 4, 1, true, 14, false, 4, true, 256) { ReflectionScale = 0.75f },
     };
 
     /// <summary>Parses a level name (case-insensitive); false for an unknown name.</summary>
