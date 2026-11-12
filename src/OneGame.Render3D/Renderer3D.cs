@@ -37,6 +37,24 @@ public readonly record struct FrameStats3D(int Objects, int DrawCalls, long Tria
 
     /// <summary>Whether the planar reflection pass ran (a material opted in and the quality level and camera allowed it).</summary>
     public bool PlanarReflection { get; init; }
+
+    /// <summary>
+    /// CPU time of the frame in milliseconds: the <see cref="Renderer3D.Render"/> call (scene preparation, uploads, declaring passes) plus the
+    /// <see cref="RenderGraph.Execute"/> that follows it (recording every pass and submitting). Until the graph has executed it is the build part
+    /// alone. The graph is shared, so passes other stages added (2D, UI) count in the execute part.
+    /// </summary>
+    public double CpuFrameMs { get; init; }
+
+    /// <summary>
+    /// GPU time in milliseconds of the newest finished frame of the graph (first timed pass's start to last timed pass's end, 2D and UI passes
+    /// of the same graph included), or null when unavailable: the device has no timestamp queries (Metal and WebGPU today), the graph's timing is
+    /// off, or no frame has finished yet. Reading never waits, so this is the frame <see cref="GpuFrameIndex"/>, normally one or two frames behind
+    /// the one just rendered, not the frame <see cref="Objects"/> and the other counts describe.
+    /// </summary>
+    public double? GpuFrameMs { get; init; }
+
+    /// <summary>The <see cref="RenderGraph.Frame"/> number <see cref="GpuFrameMs"/> was measured on; 0 when it is null.</summary>
+    public int GpuFrameIndex { get; init; }
 }
 
 /// <summary>
@@ -153,7 +171,52 @@ public sealed partial class Renderer3D : IDisposable
     public GpuDevice Device { get; }
 
     /// <summary>What the last <see cref="Render"/> call prepared.</summary>
-    public FrameStats3D LastStats { get; private set; }
+    /// <remarks>
+    /// The counts are those of the last <see cref="Render"/>. The timing fields are read when the property is: CPU time of that frame, and the
+    /// GPU time of the newest finished frame (see <see cref="FrameStats3D.GpuFrameMs"/>). Reading does no allocation and never waits for the GPU.
+    /// </remarks>
+    public FrameStats3D LastStats
+    {
+        get
+        {
+            var s = _stats;
+            if (_statsGraph is not { } g)
+            {
+                return s;
+            }
+
+            var cpu = _buildMs + (g.Frame == _statsFrame ? g.ExecuteCpuMicroseconds / 1000.0 : 0);
+            if (g.TryReadFrameTime(out var us, out var frame))
+            {
+                return s with { CpuFrameMs = cpu, GpuFrameMs = us / 1000.0, GpuFrameIndex = frame };
+            }
+
+            return s with { CpuFrameMs = cpu };
+        }
+    }
+
+    /// <summary>
+    /// Copies the GPU time of each pass of the newest finished frame of the last graph rendered with (for example <c>planar_reflection</c>,
+    /// <c>forward</c>, <c>bloom</c>) into <paramref name="into"/>, in execution order. The list is cleared first; reuse it to avoid allocation.
+    /// </summary>
+    /// <param name="into">Receives the passes.</param>
+    /// <returns>The graph frame the times belong to (as <see cref="FrameStats3D.GpuFrameIndex"/>), or 0 when unavailable.</returns>
+    public int ReadGpuPassTimes(List<PassTime> into)
+    {
+        ArgumentNullException.ThrowIfNull(into);
+        if (_statsGraph is null)
+        {
+            into.Clear();
+            return 0;
+        }
+
+        return _statsGraph.ReadPassTimes(into);
+    }
+
+    private FrameStats3D _stats;
+    private RenderGraph? _statsGraph;
+    private int _statsFrame;
+    private double _buildMs;
 
     private T Own<T>(T resource)
         where T : IDisposable

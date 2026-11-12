@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using OneGame.Gltf;
 using OneGame.Gpu;
@@ -127,6 +128,7 @@ public sealed partial class Renderer3D
     /// <param name="targetFormat">Format of the target texture.</param>
     public void Render(RenderGraph graph, Scene3D scene, GraphTexture target, int width, int height, GpuFormat targetFormat)
     {
+        var cpuStart = Stopwatch.GetTimestamp();
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentOutOfRangeException.ThrowIfLessThan(width, 1);
@@ -212,7 +214,7 @@ public sealed partial class Renderer3D
         graph.AddPass(_forward);
 
         AddPostPasses(graph, scene.Post, q.Bloom, hdr, target, width, height, targetFormat);
-        LastStats = new FrameStats3D(_objectCount, _opaqueCount + _blendCount + BatchDrawCalls, _drawnTriangles, _lightCount, _gridX * _gridY * DepthSlices)
+        _stats = new FrameStats3D(_objectCount, _opaqueCount + _blendCount + BatchDrawCalls, _drawnTriangles, _lightCount, _gridX * _gridY * DepthSlices)
         {
             ShadowTiles = _tileCount,
             ShadowLights = _shadowCount,
@@ -223,6 +225,9 @@ public sealed partial class Renderer3D
             Ssao = _ssaoActive,
             PlanarReflection = _reflActive,
         };
+        _statsGraph = graph;
+        _statsFrame = graph.Frame;
+        _buildMs = (Stopwatch.GetTimestamp() - cpuStart) * 1000.0 / Stopwatch.Frequency;
     }
 
     private void PrepareFrame(Scene3D scene, int width, int height, int samples, EnvironmentMap env, EnvironmentMap? envB, in QualitySettings q)

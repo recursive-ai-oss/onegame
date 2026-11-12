@@ -79,6 +79,11 @@ internal static class Render3DSmoke
 
         var stats = renderer.LastStats;
         device.WaitIdle();
+        if (!(stats.CpuFrameMs > 0) || renderer.LastStats.GpuFrameMs is <= 0 || renderer.ReadGpuPassTimes([]) < 0)
+        {
+            return $"frame time stats are wrong: {stats.CpuFrameMs} ms CPU, {renderer.LastStats.GpuFrameMs} ms GPU";
+        }
+
         if (stats.Instances != 25 || stats.InstancesDrawn == 0 || stats.ShadowTiles < 5 || !stats.Ssao)
         {
             return $"instancing or shadows did not run: {stats}";
