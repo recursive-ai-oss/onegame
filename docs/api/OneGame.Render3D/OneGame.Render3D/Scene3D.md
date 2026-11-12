@@ -37,9 +37,11 @@ public Scene3D();
 | [`Models`](#m-models) | Models to draw. |
 | [`Post`](#m-post) | Bloom, exposure and tone mapping. |
 | [`Quality`](#m-quality) | The quality level: bounds shadow map size, cascades, ambient occlusion, multisampling, bloom and environment size. |
+| [`Reflection`](#m-reflection) | The mirror plane for materials with [`Material3D.PlanarReflection`](Material3D.md#m-planarreflection). |
 | [`Samples`](#m-samples) | Multisampling: 1 (off), 4 or 8 (a request for 2 uses 4), limited by the device and by [`Scene3D.Quality`](Scene3D.md#m-quality). |
 | [`Shadows`](#m-shadows) | Shadow controls; a light casts shadows when its [`Light3D.CastShadows`](Light3D.md#m-castshadows) is set. |
 | [`Ssao`](#m-ssao) | Screen-space ambient occlusion. |
+| [`Time`](#m-time) | The scene clock in seconds, for animation done in shaders: a material's [`Material3D.UvScroll`](Material3D.md#m-uvscroll) offsets its textures by velocity times this. |
 
 ### <a id="m-batches"></a>Batches
 
@@ -141,6 +143,16 @@ The quality level: bounds shadow map size, cascades, ambient occlusion, multisam
 
 **Type:** [`QualityLevel`](QualityLevel.md)
 
+### <a id="m-reflection"></a>Reflection
+
+```csharp
+public ReflectionSettings Reflection { get; }
+```
+
+The mirror plane for materials with [`Material3D.PlanarReflection`](Material3D.md#m-planarreflection).
+
+**Type:** [`ReflectionSettings`](ReflectionSettings.md)
+
 ### <a id="m-samples"></a>Samples
 
 ```csharp
@@ -170,6 +182,16 @@ public SsaoSettings Ssao { get; }
 Screen-space ambient occlusion.
 
 **Type:** [`SsaoSettings`](SsaoSettings.md)
+
+### <a id="m-time"></a>Time
+
+```csharp
+public double Time { get; set; }
+```
+
+The scene clock in seconds, for animation done in shaders: a material's [`Material3D.UvScroll`](Material3D.md#m-uvscroll) offsets its textures by velocity times this. The renderer keeps no clock of its own, so a game sets it from its own time (a tick count divided by the tick rate keeps replays and captures exact). Float precision of the offset falls with large values; wrap it for sessions of many hours.
+
+**Type:** `double`
 
 ## Methods
 

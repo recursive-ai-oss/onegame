@@ -46,6 +46,7 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`Primitive3D`](OneGame.Render3D/Primitive3D.md) | class | A drawable triangle list of a mesh, with its GPU buffers and material. |
 | [`QualityLevel`](OneGame.Render3D/QualityLevel.md) | enum | A named rung of the quality ladder. |
 | [`QualitySettings`](OneGame.Render3D/QualitySettings.md) | struct | What a [`QualityLevel`](OneGame.Render3D/QualityLevel.md) means in resources and work. |
+| [`ReflectionSettings`](OneGame.Render3D/ReflectionSettings.md) | class | One horizontal mirror plane for materials that opt in with [`Material3D.PlanarReflection`](OneGame.Render3D/Material3D.md#m-planarreflection) (water, polished floors). |
 | [`Render3DModule`](OneGame.Render3D/Render3DModule.md) | static class | Identifies the Render3D assembly. |
 | [`Renderer3D`](OneGame.Render3D/Renderer3D.md) | class | The physically based 3D renderer. |
 | [`Scene3D`](OneGame.Render3D/Scene3D.md) | class | Everything one frame draws: camera, models, lights, environment and post-processing. |
@@ -134,6 +135,7 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`Pbr.Bindings.Object`](OneGame.Render3D.Shaders/Pbr.Bindings.Object.md) | static class |  |
 | [`Pbr.Bindings.OccSamp`](OneGame.Render3D.Shaders/Pbr.Bindings.OccSamp.md) | static class |  |
 | [`Pbr.Bindings.OccTex`](OneGame.Render3D.Shaders/Pbr.Bindings.OccTex.md) | static class |  |
+| [`Pbr.Bindings.ReflTex`](OneGame.Render3D.Shaders/Pbr.Bindings.ReflTex.md) | static class |  |
 | [`Pbr.Bindings.ShadowAtlas`](OneGame.Render3D.Shaders/Pbr.Bindings.ShadowAtlas.md) | static class |  |
 | [`Pbr.Bindings.ShadowSamp`](OneGame.Render3D.Shaders/Pbr.Bindings.ShadowSamp.md) | static class |  |
 | [`Pbr.Bindings.Shadows`](OneGame.Render3D.Shaders/Pbr.Bindings.Shadows.md) | static class |  |

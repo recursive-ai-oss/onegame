@@ -87,9 +87,9 @@ The entry point name in the WGSL source (differs from [`Debug3D.VSDebug.EntryPoi
 | --- | --- |
 | [`Inputs`](#m-inputs) |  |
 | [`Layout`](#m-layout) | The resources, push-constant block and vertex input of this entry point as plain data; combine entry points with `PipelineLayout`. |
-| [`Msl`](#m-msl) | UTF-8 Metal Shading Language source. |
+| [`Msl`](#m-msl) |  |
 | [`SpirV`](#m-spirv) |  |
-| [`Wgsl`](#m-wgsl) | UTF-8 WGSL source. |
+| [`Wgsl`](#m-wgsl) |  |
 
 ### <a id="m-inputs"></a>Inputs
 
@@ -115,8 +115,6 @@ The resources, push-constant block and vertex input of this entry point as plain
 public static ReadOnlySpan<byte> Msl { get; }
 ```
 
-UTF-8 Metal Shading Language source.
-
 **Type:** [`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`
 
 ### <a id="m-spirv"></a>SpirV
@@ -132,7 +130,5 @@ public static ReadOnlySpan<byte> SpirV { get; }
 ```csharp
 public static ReadOnlySpan<byte> Wgsl { get; }
 ```
-
-UTF-8 WGSL source.
 
 **Type:** [`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)`<byte>`

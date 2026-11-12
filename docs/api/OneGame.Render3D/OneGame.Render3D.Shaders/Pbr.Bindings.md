@@ -35,6 +35,7 @@ public static class Pbr.Bindings
 | [`Pbr.Bindings.Object`](Pbr.Bindings.Object.md) |  |
 | [`Pbr.Bindings.OccSamp`](Pbr.Bindings.OccSamp.md) |  |
 | [`Pbr.Bindings.OccTex`](Pbr.Bindings.OccTex.md) |  |
+| [`Pbr.Bindings.ReflTex`](Pbr.Bindings.ReflTex.md) |  |
 | [`Pbr.Bindings.ShadowAtlas`](Pbr.Bindings.ShadowAtlas.md) |  |
 | [`Pbr.Bindings.ShadowSamp`](Pbr.Bindings.ShadowSamp.md) |  |
 | [`Pbr.Bindings.Shadows`](Pbr.Bindings.Shadows.md) |  |

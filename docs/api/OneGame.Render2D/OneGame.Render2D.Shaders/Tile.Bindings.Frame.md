@@ -17,7 +17,7 @@ public static class Tile.Bindings.Frame
 | [`Binding`](#m-binding) |  |
 | [`Count`](#m-count) |  |
 | [`Kind`](#m-kind) |  |
-| [`MslIndex`](#m-mslindex) | Metal argument index, counted within the resource's class (buffer, texture or sampler). |
+| [`MslIndex`](#m-mslindex) | Metal argument index, counted within the resource's class (buffer, texture or sampler); an unbounded array or heap is one buffer index. |
 | [`Set`](#m-set) |  |
 
 ### <a id="m-binding"></a>Binding
@@ -50,7 +50,7 @@ public const ResourceKind Kind = 0;
 public const uint MslIndex = 0;
 ```
 
-Metal argument index, counted within the resource's class (buffer, texture or sampler).
+Metal argument index, counted within the resource's class (buffer, texture or sampler); an unbounded array or heap is one buffer index.
 
 **Type:** `uint`
 

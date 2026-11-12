@@ -698,6 +698,7 @@ Every public type in every package, in alphabetical order.
 | [`Pbr.Bindings.Object`](OneGame.Render3D/OneGame.Render3D.Shaders/Pbr.Bindings.Object.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
 | [`Pbr.Bindings.OccSamp`](OneGame.Render3D/OneGame.Render3D.Shaders/Pbr.Bindings.OccSamp.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
 | [`Pbr.Bindings.OccTex`](OneGame.Render3D/OneGame.Render3D.Shaders/Pbr.Bindings.OccTex.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
+| [`Pbr.Bindings.ReflTex`](OneGame.Render3D/OneGame.Render3D.Shaders/Pbr.Bindings.ReflTex.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
 | [`Pbr.Bindings.ShadowAtlas`](OneGame.Render3D/OneGame.Render3D.Shaders/Pbr.Bindings.ShadowAtlas.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
 | [`Pbr.Bindings.Shadows`](OneGame.Render3D/OneGame.Render3D.Shaders/Pbr.Bindings.Shadows.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
 | [`Pbr.Bindings.ShadowSamp`](OneGame.Render3D/OneGame.Render3D.Shaders/Pbr.Bindings.ShadowSamp.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
@@ -834,6 +835,7 @@ Every public type in every package, in alphabetical order.
 | [`RecordingFile`](OneGame.Host/OneGame.Host/RecordingFile.md) | static class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | Reads and writes recording files. |
 | [`RecordingOptions`](OneGame.Sync/OneGame.Sync/RecordingOptions.md) | class | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | How a recording samples the run. |
 | [`Rect`](OneGame.UI/OneGame.UI/Rect.md) | struct | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | An axis-aligned rectangle in pixels. |
+| [`ReflectionSettings`](OneGame.Render3D/OneGame.Render3D/ReflectionSettings.md) | class | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | One horizontal mirror plane for materials that opt in with [`Material3D.PlanarReflection`](OneGame.Render3D/OneGame.Render3D/Material3D.md#m-planarreflection) (water, polished floors). |
 | [`RefusalReason`](OneGame.Sync/OneGame.Sync/RefusalReason.md) | enum | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | Why a command or subscription was refused. |
 | [`ReloadResult`](OneGame.Server/OneGame.Server/ReloadResult.md) | record | `OneGame.Server` | [OneGame.Server](OneGame.Server/index.md) | The result of a hot reload. |
 | [`RemoteSession`](OneGame.Host/OneGame.Host/RemoteSession.md) | class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | A game's connection to a server: a node holding one replica scope, reached through a transport connection ([`Node.ConnectVia()`](OneGame.Sync/OneGame.Sync/Node.md#m-connectvia-imessagechannel-string)). |

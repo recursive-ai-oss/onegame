@@ -66,6 +66,7 @@ Number of triangles drawn per frame at rest.
 | Member | Description |
 | --- | --- |
 | [`Dispose()`](#m-dispose) |  |
+| [`FindMaterial(string)`](#m-findmaterial-string) | The first material with this name (the glTF material name), or null. |
 | [`SetStyle(MaterialStyle3D)`](#m-setstyle-materialstyle3d) | Sets the style of every material of the model. |
 
 ### <a id="m-dispose"></a>Dispose()
@@ -75,6 +76,20 @@ public void Dispose();
 ```
 
 Implements [`IDisposable.Dispose()`](https://learn.microsoft.com/dotnet/api/system.idisposable.dispose).
+
+### <a id="m-findmaterial-string"></a>FindMaterial(string)
+
+```csharp
+public Material3D? FindMaterial(string name);
+```
+
+The first material with this name (the glTF material name), or null. Use it to opt a loaded file's materials in to [`Material3D.PlanarReflection`](Material3D.md#m-planarreflection) or [`Material3D.UvScroll`](Material3D.md#m-uvscroll).
+
+**Parameters**
+
+- `name` (`string`): The material name, compared exactly.
+
+**Returns:** [`Material3D`](Material3D.md)?
 
 ### <a id="m-setstyle-materialstyle3d"></a>SetStyle(MaterialStyle3D)
 

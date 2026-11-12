@@ -48,6 +48,7 @@ What a [`QualityLevel`](QualityLevel.md) means in resources and work. Features s
 | [`Level`](#m-level) | The level these settings belong to. |
 | [`MaxCascades`](#m-maxcascades) | Most cascades a directional light splits into. |
 | [`MaxSamples`](#m-maxsamples) | Most multisampling samples (1, 4 or 8; 2 is not used because many formats lack it); the device may allow fewer. |
+| [`ReflectionScale`](#m-reflectionscale) | Size of the planar reflection image relative to the frame. |
 | [`ShadowFilterRadius`](#m-shadowfilterradius) | Percentage-closer filter radius in texels: 0 is one hardware-filtered tap, 1 is 3x3 taps, 2 is 5x5. |
 | [`ShadowTileSize`](#m-shadowtilesize) | Edge of one shadow map tile in texels (one cascade, one spot light, one face of a point light). |
 | [`Ssao`](#m-ssao) | Whether ambient occlusion may run. |
@@ -103,6 +104,16 @@ public int MaxSamples { get; init; }
 Most multisampling samples (1, 4 or 8; 2 is not used because many formats lack it); the device may allow fewer.
 
 **Type:** `int`
+
+### <a id="m-reflectionscale"></a>ReflectionScale
+
+```csharp
+public float ReflectionScale { get; init; }
+```
+
+Size of the planar reflection image relative to the frame. 0 turns planar reflection off (materials that opt in fall back to the environment), so a [`QualitySettings`](QualitySettings.md) built by hand without it has no reflection; [`QualitySettings.For()`](QualitySettings.md#m-for-qualitylevel) sets it per level.
+
+**Type:** `float`
 
 ### <a id="m-shadowfilterradius"></a>ShadowFilterRadius
 

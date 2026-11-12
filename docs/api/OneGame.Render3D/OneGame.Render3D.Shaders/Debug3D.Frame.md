@@ -27,7 +27,10 @@ public struct Debug3D.Frame
 | [`Grid`](#m-grid) |  |
 | [`InvProj`](#m-invproj) |  |
 | [`InvViewProj`](#m-invviewproj) |  |
+| [`MainZ`](#m-mainz) |  |
 | [`Proj`](#m-proj) |  |
+| [`Refl`](#m-refl) |  |
+| [`ReflViewProj`](#m-reflviewproj) |  |
 | [`ShadowInfo`](#m-shadowinfo) |  |
 | [`Size`](#m-size) |  |
 | [`Sky`](#m-sky) |  |
@@ -140,10 +143,34 @@ public Matrix4x4 InvViewProj;
 
 **Type:** [`Matrix4x4`](https://learn.microsoft.com/dotnet/api/system.numerics.matrix4x4)
 
+### <a id="m-mainz"></a>MainZ
+
+```csharp
+public Vector4 MainZ;
+```
+
+**Type:** [`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)
+
 ### <a id="m-proj"></a>Proj
 
 ```csharp
 public Matrix4x4 Proj;
+```
+
+**Type:** [`Matrix4x4`](https://learn.microsoft.com/dotnet/api/system.numerics.matrix4x4)
+
+### <a id="m-refl"></a>Refl
+
+```csharp
+public Vector4 Refl;
+```
+
+**Type:** [`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)
+
+### <a id="m-reflviewproj"></a>ReflViewProj
+
+```csharp
+public Matrix4x4 ReflViewProj;
 ```
 
 **Type:** [`Matrix4x4`](https://learn.microsoft.com/dotnet/api/system.numerics.matrix4x4)
@@ -159,7 +186,7 @@ public Vector4 ShadowInfo;
 ### <a id="m-size"></a>Size
 
 ```csharp
-public const uint Size = 512;
+public const uint Size = 608;
 ```
 
 **Type:** `uint`

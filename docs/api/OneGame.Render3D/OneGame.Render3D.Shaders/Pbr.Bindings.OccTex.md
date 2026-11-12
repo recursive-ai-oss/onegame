@@ -17,7 +17,7 @@ public static class Pbr.Bindings.OccTex
 | [`Binding`](#m-binding) |  |
 | [`Count`](#m-count) |  |
 | [`Kind`](#m-kind) |  |
-| [`MslIndex`](#m-mslindex) | Metal argument index, counted within the resource's class (buffer, texture or sampler). |
+| [`MslIndex`](#m-mslindex) | Metal argument index, counted within the resource's class (buffer, texture or sampler); an unbounded array or heap is one buffer index. |
 | [`Set`](#m-set) |  |
 
 ### <a id="m-binding"></a>Binding
@@ -47,10 +47,10 @@ public const ResourceKind Kind = 1;
 ### <a id="m-mslindex"></a>MslIndex
 
 ```csharp
-public const uint MslIndex = 10;
+public const uint MslIndex = 11;
 ```
 
-Metal argument index, counted within the resource's class (buffer, texture or sampler).
+Metal argument index, counted within the resource's class (buffer, texture or sampler); an unbounded array or heap is one buffer index.
 
 **Type:** `uint`
 

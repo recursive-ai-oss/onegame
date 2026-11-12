@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.26.0] - 2026-11-12
+
+Water that mirrors the world: planar reflection and scrolling textures for 3D materials, on OneShader 1.6.1.
+
 ### Added
 
 - Planar reflection for water and polished floors in `OneGame.Render3D`. A material opts in with `Material3D.PlanarReflection` (and `ReflectionStrength`), and the game sets the one horizontal mirror plane with `Scene3D.Reflection.Height`. While an opted-in material is drawn, a `planar_reflection` pass renders the scene mirrored about the plane at a size set by the quality level (off at Low, then 0.5x, 0.75x, 1x), and the material's specular light comes from it, weighted by smoothness; a frame with no opted-in material adds no pass, image or binding work. Materials of a loaded glTF file are reached by name with `Model3D.FindMaterial`. `FrameStats3D.PlanarReflection` reports whether the pass ran, and `QualitySettings` gains `ReflectionScale`.
@@ -11,6 +15,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Changed
 
+- The generated frame-constant bindings of the built-in 3D shaders (`OneGame.Render3D.Shaders.*.Frame`) gain the reflection fields, and their `Size` grows from 512 to 1024 bytes.
 - OneShader and OneShader.Build 1.3.0 to 1.6.1. Shader bytes can differ (the Metal output no longer drops a guarded `continue`; WGSL writes the largest float exactly), renders do not.
 
 ## [1.25.1] - 2026-11-11

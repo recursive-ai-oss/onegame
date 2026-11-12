@@ -21,10 +21,13 @@ A material on the GPU: constants and textures bound as one group. Its [`Material
 | [`Opacity`](#m-opacity) | 1 (default) draws the material as the file says; below 1 it multiplies the alpha and moves the material to the blended pass, which sorts far to near and writes no depth, as for a glTF BLEND material. |
 | [`OutlineColor`](#m-outlinecolor) | Outline colour, linear RGB. |
 | [`OutlineWidth`](#m-outlinewidth) | Outline thickness in pixels of the render target (0 draws none). |
+| [`PlanarReflection`](#m-planarreflection) | Opts the material in to planar reflection: its specular light comes from the scene mirrored about [`Scene3D.Reflection`](Scene3D.md#m-reflection)'s plane (one horizontal plane per frame) instead of the environment alone, where the mirror image has something to show. |
+| [`ReflectionStrength`](#m-reflectionstrength) | How much of the mirror image replaces the environment's specular light, 0 to 1 (default 1). |
 | [`Style`](#m-style) | The lighting model. |
 | [`ToonBands`](#m-toonbands) | Toon: number of light steps (2 to 8). |
 | [`ToonHighlight`](#m-toonhighlight) | Toon: strength of the hard specular highlight (0 none). |
 | [`ToonSoftness`](#m-toonsoftness) | Toon: width of the transition between two steps, as a fraction of one step (0 is a hard edge). |
+| [`UvScroll`](#m-uvscroll) | A constant texture-space velocity, in texture units per second, added to every texture's coordinates of this material after its own transform: the water drifts when [`Scene3D.Time`](Scene3D.md#m-time) advances. |
 
 ### <a id="m-emissive"></a>Emissive
 
@@ -86,6 +89,26 @@ Outline thickness in pixels of the render target (0 draws none). Works with ever
 
 **Type:** `float`
 
+### <a id="m-planarreflection"></a>PlanarReflection
+
+```csharp
+public bool PlanarReflection { get; set; }
+```
+
+Opts the material in to planar reflection: its specular light comes from the scene mirrored about [`Scene3D.Reflection`](Scene3D.md#m-reflection)'s plane (one horizontal plane per frame) instead of the environment alone, where the mirror image has something to show. The material itself is left out of the mirror image. Meant for flat, horizontal, usually blended surfaces such as water; it affects PBR style only. Costs one extra scene pass, only while a material that opts in is drawn.
+
+**Type:** `bool`
+
+### <a id="m-reflectionstrength"></a>ReflectionStrength
+
+```csharp
+public float ReflectionStrength { get; set; }
+```
+
+How much of the mirror image replaces the environment's specular light, 0 to 1 (default 1). The share also falls with roughness (it is strength times one minus roughness), so rough surfaces keep the blurred environment. The Fresnel term is the usual one: grazing views reflect more.
+
+**Type:** `float`
+
 ### <a id="m-style"></a>Style
 
 ```csharp
@@ -125,6 +148,16 @@ public float ToonSoftness { get; set; }
 Toon: width of the transition between two steps, as a fraction of one step (0 is a hard edge).
 
 **Type:** `float`
+
+### <a id="m-uvscroll"></a>UvScroll
+
+```csharp
+public Vector2 UvScroll { get; set; }
+```
+
+A constant texture-space velocity, in texture units per second, added to every texture's coordinates of this material after its own transform: the water drifts when [`Scene3D.Time`](Scene3D.md#m-time) advances. (0, 0) by default, which changes nothing. Textures need a repeating sampler (the glTF default) to scroll without a seam.
+
+**Type:** [`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2)
 
 ## Methods
 

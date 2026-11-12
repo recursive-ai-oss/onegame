@@ -45,6 +45,7 @@ What one frame of 3D drew.
 | [`InstancesDrawn`](#m-instancesdrawn) | Copies of batches that survived culling against the camera. |
 | [`Lights`](#m-lights) | Punctual lights used. |
 | [`Objects`](#m-objects) | Mesh nodes drawn. |
+| [`PlanarReflection`](#m-planarreflection) | Whether the planar reflection pass ran (a material opted in and the quality level and camera allowed it). |
 | [`Quality`](#m-quality) | The quality level the frame was drawn at. |
 | [`ShadowLights`](#m-shadowlights) | Lights that cast shadows. |
 | [`ShadowTiles`](#m-shadowtiles) | Shadow map tiles rendered (cascades, spot maps, point faces). |
@@ -120,6 +121,16 @@ public int Objects { get; init; }
 Mesh nodes drawn.
 
 **Type:** `int`
+
+### <a id="m-planarreflection"></a>PlanarReflection
+
+```csharp
+public bool PlanarReflection { get; init; }
+```
+
+Whether the planar reflection pass ran (a material opted in and the quality level and camera allowed it).
+
+**Type:** `bool`
 
 ### <a id="m-quality"></a>Quality
 
