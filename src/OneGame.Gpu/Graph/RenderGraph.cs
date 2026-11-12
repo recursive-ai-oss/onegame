@@ -1,3 +1,4 @@
+using System.Diagnostics;
 namespace OneGame.Gpu.Graph;
 
 /// <summary>Tuning for a <see cref="RenderGraph"/>.</summary>
@@ -179,6 +180,7 @@ public sealed class RenderGraph : IDisposable
         public uint[] Pairs = new uint[16];
         public ulong[] Raw = new ulong[2 * (int)CustomPassTimingPairs];
         public ulong[] Nanos = new ulong[16];
+        public ulong SpanNanos;
         public bool Resolved;
     }
 
@@ -200,6 +202,7 @@ public sealed class RenderGraph : IDisposable
     int _frame;
     bool _building;
     bool _executed;
+    long _executeTicks;
     GraphStats _stats;
     int _latestResolved = -1;
     bool _disposed;
@@ -249,6 +252,7 @@ public sealed class RenderGraph : IDisposable
         _frame++;
         _building = true;
         _executed = false;
+        _executeTicks = 0;
         _passCount = 0;
         _resourceCount = 0;
         _order.Clear();
@@ -782,6 +786,7 @@ public sealed class RenderGraph : IDisposable
     /// <exception cref="RenderGraphException">A pass reads something no earlier pass wrote, or uses a resource twice.</exception>
     public void Execute()
     {
+        var cpuStart = Stopwatch.GetTimestamp();
         EnsureBuilding();
         _building = false;
         Validate();
@@ -868,6 +873,7 @@ public sealed class RenderGraph : IDisposable
         _device.Submit(enc);
         timing.Pending = timing.PassCount > 0;
         _executed = true;
+        _executeTicks = Stopwatch.GetTimestamp() - cpuStart;
     }
 
     void Run(PassInfo p)
@@ -940,6 +946,9 @@ public sealed class RenderGraph : IDisposable
             }
 
             var all = true;
+            ulong spanStart = 0;
+            ulong spanEnd = 0;
+            var seen = false;
             for (var k = 0; k < t.PassCount && all; k++)
             {
                 var pairs = t.Pairs[k];
@@ -956,6 +965,13 @@ public sealed class RenderGraph : IDisposable
                     break;
                 }
 
+                if (!seen)
+                {
+                    spanStart = raw[0];
+                    seen = true;
+                }
+
+                spanEnd = raw[(int)pairs * 2 - 1];
                 ulong sum = 0;
                 for (var q = 0; q < pairs; q++)
                 {
@@ -967,6 +983,7 @@ public sealed class RenderGraph : IDisposable
 
             if (all)
             {
+                t.SpanNanos = seen && spanEnd > spanStart ? spanEnd - spanStart : 0;
                 t.Pending = false;
                 t.Resolved = true;
                 if (t.Frame > _latestResolved)
@@ -1005,6 +1022,42 @@ public sealed class RenderGraph : IDisposable
         }
 
         return false;
+    }
+
+    /// <summary>CPU time of the last <see cref="Execute"/> of the current frame (validation, culling, recording every pass and submitting), in microseconds; 0 until the frame has executed.</summary>
+    public double ExecuteCpuMicroseconds => _executed ? _executeTicks * 1_000_000.0 / Stopwatch.Frequency : 0;
+
+    /// <summary>
+    /// Reads the GPU time of the newest finished frame as the span from its first timed pass's start to its last timed pass's end, so the
+    /// gaps between passes (barriers, layout changes) count. Never waits: a frame still running is skipped for an older finished one, so the
+    /// answer is usually one or two frames old.
+    /// </summary>
+    /// <param name="microseconds">The frame's GPU time.</param>
+    /// <param name="frame">The <see cref="Frame"/> number it belongs to.</param>
+    /// <returns>False when nothing is available: timing is off, the device has no timestamps, or no frame has finished yet.</returns>
+    public bool TryReadFrameTime(out double microseconds, out int frame)
+    {
+        ThrowIfDisposed();
+        microseconds = 0;
+        frame = 0;
+        ResolveTimings();
+        FrameTiming? best = null;
+        foreach (var t in _timings)
+        {
+            if (t.Resolved && t.SpanNanos > 0 && (best is null || t.Frame > best.Frame))
+            {
+                best = t;
+            }
+        }
+
+        if (best is null)
+        {
+            return false;
+        }
+
+        microseconds = best.SpanNanos / 1000.0;
+        frame = best.Frame;
+        return true;
     }
 
     /// <summary>

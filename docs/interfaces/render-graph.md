@@ -45,7 +45,7 @@ The pass's kind follows from that: with targets it is **raster** (the graph begi
 
 ## Time
 
-With `Capabilities.Timestamps` every raster and compute pass gets a timestamp pair; a custom pass gets up to 8 (one per pass it opens). Results are read back two or three frames later without waiting; `Describe()` reports the newest finished frame's times by pass name (`timingFrame` says which frame). `RenderGraphOptions.Timing = false` turns it off.
+With `Capabilities.Timestamps` every raster and compute pass gets a timestamp pair; a custom pass gets up to 8 (one per pass it opens). Results are read back two or three frames later without waiting; `Describe()` reports the newest finished frame's times by pass name (`timingFrame` says which frame). `graph.TryReadFrameTime` gives the whole frame (first timed pass start to last end) and `graph.ExecuteCpuMicroseconds` the CPU cost of `Execute`; `Renderer3D.LastStats` surfaces both (`render3d.md`, Frame time). `RenderGraphOptions.Timing = false` turns it off.
 
 ## Inspecting
 
