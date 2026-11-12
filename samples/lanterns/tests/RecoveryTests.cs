@@ -110,6 +110,30 @@ public class RecoveryTests
     }
 
     [Fact]
+    public void ARejoinedPlayerWhoseOldEntityArrivesLaterIsKeptOnce()
+    {
+        // An entity in transit from the other island is in neither world, so a rejoin can make a second one before it lands. Forced here by
+        // installing the late arrival by hand next to the player the island made, carrying lanterns.
+        using var r = new Realms();
+        var game = r.Client("p1", Rules.IslandA);
+        var s = Session.For(game);
+        r.RunUntil(() => s.Me is not null, 20_000, "the player to appear");
+        var owner = s.Me!.Owner;
+        r.Run(30);
+
+        var world = r.A.Scopes[0].World;
+        var arrived = new Player { Owner = owner, Name = "Player", Island = Rules.IslandA, X = 10, Y = 10 };
+        world.Add(arrived);
+        arrived.Change(0, 3);
+        var held = r.Held();
+
+        r.Run(60);
+        var mine = r.Players().Where(p => p.Owner == owner).ToList();
+        Assert.Single(mine);
+        Assert.Equal(held, r.Held()); // lanterns conserved: the removed one counted as departed
+    }
+
+    [Fact]
     public void APlayerWhoLeavesIsRemovedFromTheIslandAndTheirLanternsAreCounted()
     {
         using var r = new Realms();

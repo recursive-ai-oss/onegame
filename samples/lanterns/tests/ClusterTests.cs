@@ -145,7 +145,7 @@ public class ClusterTests
                 balanced = quiet && held == collected;
             }
 
-            Assert.True(balanced, "lanterns held by players never matched lanterns collected: " + last);
+            Assert.True(balanced, "lanterns held by players never matched lanterns collected: " + last + " (node logs: " + cluster.Dir + ")");
             pids = [.. pids, .. cluster.Pids]; // the first processes (killed) and the ones that replaced them
         }
 

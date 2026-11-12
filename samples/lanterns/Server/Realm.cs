@@ -335,6 +335,7 @@ public sealed class Realm
             if (host.Tick % LeaveEveryTicks == 0)
             {
                 RemoveLeavers();
+                RemoveDuplicates();
                 ActivateSettled();
             }
         }
@@ -504,6 +505,28 @@ public sealed class Realm
                     _host.SendCommand(_scope.Id, island.Id, "Join", player.ToString(CultureInfo.InvariantCulture), "Player " + (player % 100_000).ToString(CultureInfo.InvariantCulture));
                     _host.Log.Info($"player {player} was removed as they came back; joined again");
                 }
+            }
+        }
+    }
+
+    // CheckReturned puts a player back on this island when their entity is nowhere in sight, but an entity that is mid-transfer from the other
+    // island is in neither world (the other island's transfer log is hidden), and it lands here later. Two entities of one player must not
+    // stay: the older one, the one made by the rejoin, is removed through Leave (which counts what it holds as departed, so lanterns are
+    // conserved) and the one that arrived with the player's lanterns stays.
+    private void RemoveDuplicates()
+    {
+        if (Island.Of(_scope.World) is not { } island)
+        {
+            return;
+        }
+
+        HashSet<uint>? seen = null;
+        foreach (var e in _scope.World.Entities)
+        {
+            if (e is Player p && !(seen ??= []).Add(p.Owner))
+            {
+                _host.SendCommand(_scope.Id, island.Id, "Leave", p.Owner.ToString(CultureInfo.InvariantCulture));
+                _host.Log.Info($"player {p.Owner} was on this island twice; removed the older one");
             }
         }
     }
