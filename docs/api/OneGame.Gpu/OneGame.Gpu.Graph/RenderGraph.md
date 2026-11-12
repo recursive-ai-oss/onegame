@@ -44,6 +44,7 @@ Creates a graph that records on `device`.
 | Member | Description |
 | --- | --- |
 | [`Device`](#m-device) | The device the graph records on. |
+| [`ExecuteCpuMicroseconds`](#m-executecpumicroseconds) | CPU time of the last [`RenderGraph.Execute()`](RenderGraph.md#m-execute) of the current frame (validation, culling, recording every pass and submitting), in microseconds; 0 until the frame has executed. |
 | [`Frame`](#m-frame) | Number of the current (or last) frame, counting from 1. |
 | [`Stats`](#m-stats) | Counts from the last executed frame. |
 | [`TimingEnabled`](#m-timingenabled) | Whether per-pass GPU time is being measured. |
@@ -57,6 +58,16 @@ public GpuDevice Device { get; }
 The device the graph records on.
 
 **Type:** [`GpuDevice`](../OneGame.Gpu/GpuDevice.md)
+
+### <a id="m-executecpumicroseconds"></a>ExecuteCpuMicroseconds
+
+```csharp
+public double ExecuteCpuMicroseconds { get; }
+```
+
+CPU time of the last [`RenderGraph.Execute()`](RenderGraph.md#m-execute) of the current frame (validation, culling, recording every pass and submitting), in microseconds; 0 until the frame has executed.
+
+**Type:** `double`
 
 ### <a id="m-frame"></a>Frame
 
@@ -105,6 +116,7 @@ Whether per-pass GPU time is being measured.
 | [`ImportTexture(string, GpuTexture)`](#m-importtexture-string-gputexture) | Brings a texture the graph does not own into this frame: a swapchain image, a capture target, a persistent shadow atlas. |
 | [`ReadPassTimes(List<PassTime>)`](#m-readpasstimes-list-passtime) | Copies the GPU time of every timed pass of the newest finished frame into `into` (cleared first), in execution order. |
 | [`ResolveTimings()`](#m-resolvetimings) | Collects the GPU times of frames whose work has finished. |
+| [`TryReadFrameTime(out double, out int)`](#m-tryreadframetime-double-int) | Reads the GPU time of the newest finished frame as the span from its first timed pass's start to its last timed pass's end, so the gaps between passes (barriers, layout changes) count. |
 
 ### <a id="m-addpass-igraphpass"></a>AddPass(IGraphPass)
 
@@ -259,3 +271,18 @@ public void ResolveTimings();
 ```
 
 Collects the GPU times of frames whose work has finished. Called by [`RenderGraph.Execute()`](RenderGraph.md#m-execute) and by reports; cheap when nothing is pending.
+
+### <a id="m-tryreadframetime-double-int"></a>TryReadFrameTime(out double, out int)
+
+```csharp
+public bool TryReadFrameTime(out double microseconds, out int frame);
+```
+
+Reads the GPU time of the newest finished frame as the span from its first timed pass's start to its last timed pass's end, so the gaps between passes (barriers, layout changes) count. Never waits: a frame still running is skipped for an older finished one, so the answer is usually one or two frames old.
+
+**Parameters**
+
+- `microseconds` (`double`): The frame's GPU time.
+- `frame` (`int`): The [`RenderGraph.Frame`](RenderGraph.md#m-frame) number it belongs to.
+
+**Returns:** `bool` — False when nothing is available: timing is off, the device has no timestamps, or no frame has finished yet.

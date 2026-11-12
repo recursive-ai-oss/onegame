@@ -190,6 +190,8 @@ public FrameStats3D LastStats { get; }
 
 What the last [`Renderer3D.Render()`](Renderer3D.md#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat) call prepared.
 
+The counts are those of the last [`Renderer3D.Render()`](Renderer3D.md#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat). The timing fields are read when the property is: CPU time of that frame, and the GPU time of the newest finished frame (see [`FrameStats3D.GpuFrameMs`](FrameStats3D.md#m-gpuframems)). Reading does no allocation and never waits for the GPU.
+
 **Type:** [`FrameStats3D`](FrameStats3D.md)
 
 ### <a id="m-softspot"></a>SoftSpot
@@ -212,6 +214,7 @@ A round white spot that fades smoothly to nothing at its edge: what billboards s
 | [`CreateMesh(Material3D, ReadOnlySpan<MeshVertex3D>, ReadOnlySpan<uint>, string)`](#m-createmesh-material3d-readonlyspan-meshvertex3d-readonlyspan-uint-string) | Creates a mesh. |
 | [`Dispose()`](#m-dispose) | Releases everything the renderer created. |
 | [`PrepareEnvironment(EnvironmentMap)`](#m-prepareenvironment-environmentmap) | Runs the filtering of an environment now, on its own graph, and waits for it. |
+| [`ReadGpuPassTimes(List<PassTime>)`](#m-readgpupasstimes-list-passtime) | Copies the GPU time of each pass of the newest finished frame of the last graph rendered with (for example `planar_reflection`, `forward`, `bloom`) into `into`, in execution order. |
 | [`Render(RenderGraph, Scene3D, GraphTexture, int, int, GpuFormat)`](#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat) | Adds this frame's passes to a render graph that has begun a frame: shadow maps, the depth prepass and ambient occlusion when the scene asks for them, light clustering, the forward pass, bloom and tone mapping into `target`. |
 | [`Upload(GltfModel, int)`](#m-upload-gltfmodel-int) | Uploads a glTF model: vertex and index buffers, materials, and textures with generated mip levels (colour textures as sRGB). |
 
@@ -309,6 +312,20 @@ Runs the filtering of an environment now, on its own graph, and waits for it. Fr
 **Parameters**
 
 - `environment` ([`EnvironmentMap`](EnvironmentMap.md)): The environment to filter.
+
+### <a id="m-readgpupasstimes-list-passtime"></a>ReadGpuPassTimes(List&lt;PassTime&gt;)
+
+```csharp
+public int ReadGpuPassTimes(List<PassTime> into);
+```
+
+Copies the GPU time of each pass of the newest finished frame of the last graph rendered with (for example `planar_reflection`, `forward`, `bloom`) into `into`, in execution order. The list is cleared first; reuse it to avoid allocation.
+
+**Parameters**
+
+- `into` ([`List`](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)&lt;[`PassTime`](../../OneGame.Gpu/OneGame.Gpu.Graph/PassTime.md)&gt;): Receives the passes.
+
+**Returns:** `int` — The graph frame the times belong to (as [`FrameStats3D.GpuFrameIndex`](FrameStats3D.md#m-gpuframeindex)), or 0 when unavailable.
 
 ### <a id="m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat"></a>Render(RenderGraph, Scene3D, GraphTexture, int, int, GpuFormat)
 

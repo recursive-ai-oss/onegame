@@ -40,7 +40,10 @@ What one frame of 3D drew.
 | --- | --- |
 | [`Billboards`](#m-billboards) | Billboard quads drawn (see [`BillboardBatch3D`](BillboardBatch3D.md)). |
 | [`Clusters`](#m-clusters) | Light clusters in the grid. |
+| [`CpuFrameMs`](#m-cpuframems) | CPU time of the frame in milliseconds: the [`Renderer3D.Render()`](Renderer3D.md#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat) call (scene preparation, uploads, declaring passes) plus the [`RenderGraph.Execute()`](../../OneGame.Gpu/OneGame.Gpu.Graph/RenderGraph.md#m-execute) that follows it (recording every pass and submitting). |
 | [`DrawCalls`](#m-drawcalls) | Indexed draws recorded (sky and post excluded). |
+| [`GpuFrameIndex`](#m-gpuframeindex) | The [`RenderGraph.Frame`](../../OneGame.Gpu/OneGame.Gpu.Graph/RenderGraph.md#m-frame) number [`FrameStats3D.GpuFrameMs`](FrameStats3D.md#m-gpuframems) was measured on; 0 when it is null. |
+| [`GpuFrameMs`](#m-gpuframems) | GPU time in milliseconds of the newest finished frame of the graph (first timed pass's start to last timed pass's end, 2D and UI passes of the same graph included), or null when unavailable: the device has no timestamp queries (Metal and WebGPU today), the graph's timing is off, or no frame has finished yet. |
 | [`Instances`](#m-instances) | Copies in all instance batches. |
 | [`InstancesDrawn`](#m-instancesdrawn) | Copies of batches that survived culling against the camera. |
 | [`Lights`](#m-lights) | Punctual lights used. |
@@ -72,6 +75,16 @@ Light clusters in the grid.
 
 **Type:** `int`
 
+### <a id="m-cpuframems"></a>CpuFrameMs
+
+```csharp
+public double CpuFrameMs { get; init; }
+```
+
+CPU time of the frame in milliseconds: the [`Renderer3D.Render()`](Renderer3D.md#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat) call (scene preparation, uploads, declaring passes) plus the [`RenderGraph.Execute()`](../../OneGame.Gpu/OneGame.Gpu.Graph/RenderGraph.md#m-execute) that follows it (recording every pass and submitting). Until the graph has executed it is the build part alone. The graph is shared, so passes other stages added (2D, UI) count in the execute part.
+
+**Type:** `double`
+
 ### <a id="m-drawcalls"></a>DrawCalls
 
 ```csharp
@@ -81,6 +94,26 @@ public int DrawCalls { get; init; }
 Indexed draws recorded (sky and post excluded).
 
 **Type:** `int`
+
+### <a id="m-gpuframeindex"></a>GpuFrameIndex
+
+```csharp
+public int GpuFrameIndex { get; init; }
+```
+
+The [`RenderGraph.Frame`](../../OneGame.Gpu/OneGame.Gpu.Graph/RenderGraph.md#m-frame) number [`FrameStats3D.GpuFrameMs`](FrameStats3D.md#m-gpuframems) was measured on; 0 when it is null.
+
+**Type:** `int`
+
+### <a id="m-gpuframems"></a>GpuFrameMs
+
+```csharp
+public double? GpuFrameMs { get; init; }
+```
+
+GPU time in milliseconds of the newest finished frame of the graph (first timed pass's start to last timed pass's end, 2D and UI passes of the same graph included), or null when unavailable: the device has no timestamp queries (Metal and WebGPU today), the graph's timing is off, or no frame has finished yet. Reading never waits, so this is the frame [`FrameStats3D.GpuFrameIndex`](FrameStats3D.md#m-gpuframeindex), normally one or two frames behind the one just rendered, not the frame [`FrameStats3D.Objects`](FrameStats3D.md#m-objects) and the other counts describe.
+
+**Type:** `double?`
 
 ### <a id="m-instances"></a>Instances
 

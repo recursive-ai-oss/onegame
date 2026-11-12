@@ -4,9 +4,17 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-11-12
+
+Render cost you can read: CPU and GPU frame time in the 3D frame statistics, measured without stalling the frame.
+
 ### Added
 
 - CPU and GPU frame time in `FrameStats3D`: `CpuFrameMs` (build, record and submit), `GpuFrameMs` (from GPU timestamp queries, `null` where the device has none or timing is off) and `GpuFrameIndex`, the graph frame the GPU time belongs to. GPU results are read without waiting and are one or two frames late. `Renderer3D.ReadGpuPassTimes` gives the per-pass breakdown of the same frame. `RenderGraph.TryReadFrameTime` and `RenderGraph.ExecuteCpuMicroseconds` are the underlying calls.
+
+### Fixed
+
+- Lanterns sample: a player who reconnects while their leave is still being applied, or while their character is crossing the bridge to the other island, keeps their character; a character that arrives late after such a rejoin is not duplicated.
 
 ## [1.26.0] - 2026-11-12
 
