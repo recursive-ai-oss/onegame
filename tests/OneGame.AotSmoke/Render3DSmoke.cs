@@ -161,7 +161,19 @@ internal static class Render3DSmoke
             redPixels += fogged[i] > 200 && fogged[i + 1] < 60 ? 1 : 0;
         }
 
+        if (redPixels < 100) { return $"fog turned {redPixels} pixels red"; }
+
+        // Planar reflection and texture scrolling on a material, with the mirror plane and the scene clock set on the scene.
+        meshScene.Fog.Enabled = false;
+        lime.PlanarReflection = true;
+        lime.ReflectionStrength = 0.8f;
+        lime.UvScroll = new Vector2(0.05f, 0.02f);
+        meshScene.Reflection.Height = -0.5f;
+        meshScene.Time = 2.5;
+        target.Capture(meshScene);
+        var mirrored = renderer.LastStats.PlanarReflection;
+        lime.PlanarReflection = false;
         device.WaitIdle();
-        return redPixels < 100 ? $"fog turned {redPixels} pixels red" : null;
+        return mirrored ? null : "the planar reflection pass did not run";
     }
 }

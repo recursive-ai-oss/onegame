@@ -88,6 +88,24 @@ public sealed class FogSettings
     public float MaxDensity { get; set; } = 1f;
 }
 
+/// <summary>
+/// One horizontal mirror plane for materials that opt in with <see cref="Material3D.PlanarReflection"/> (water, polished floors). When such a
+/// material is drawn, the scene is rendered once more as seen in the mirror, into an image sized by the quality level, and the material's
+/// specular light comes from it instead of from the environment. There is only one plane per frame, and it is always horizontal (normal +Y).
+/// With no opted-in material in the frame, nothing extra is drawn or bound. The mirror image holds the sky, opaque and blended surfaces,
+/// instanced batches, directional and spot light shadows, fog, and shading from the mirrored camera. It leaves out the opted-in surfaces
+/// themselves, everything below the plane, outlines, billboards and debug geometry, and clustered point and spot lights do not light it
+/// (directional lights do). A camera at or below the plane sees no reflection (the environment is used instead), as does the Low quality level.
+/// </summary>
+public sealed class ReflectionSettings
+{
+    /// <summary>Whether planar reflection runs at all (on by default; it still needs an opted-in material in view).</summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>World height (y) of the mirror plane.</summary>
+    public float Height { get; set; }
+}
+
 /// <summary>Bloom, exposure and tone mapping.</summary>
 public sealed class PostSettings
 {
@@ -316,6 +334,18 @@ public sealed class Scene3D
 
     /// <summary>The quality level: bounds shadow map size, cascades, ambient occlusion, multisampling, bloom and environment size. Change it any time.</summary>
     public QualityLevel Quality { get; set; } = QualityLevel.High;
+
+    /// <summary>The mirror plane for materials with <see cref="Material3D.PlanarReflection"/>.</summary>
+    public ReflectionSettings Reflection { get; } = new();
+
+    private double _time;
+
+    /// <summary>
+    /// The scene clock in seconds, for animation done in shaders: a material's <see cref="Material3D.UvScroll"/> offsets its textures by
+    /// velocity times this. The renderer keeps no clock of its own, so a game sets it from its own time (a tick count divided by the tick
+    /// rate keeps replays and captures exact). Float precision of the offset falls with large values; wrap it for sessions of many hours.
+    /// </summary>
+    public double Time { get => _time; set => _time = double.IsFinite(value) ? value : 0; }
 
     /// <summary>Shadow controls; a light casts shadows when its <see cref="Light3D.CastShadows"/> is set.</summary>
     public ShadowSettings Shadows { get; } = new();

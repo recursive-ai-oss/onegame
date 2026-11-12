@@ -31,6 +31,7 @@ struct ShadowData
 [[vk::binding(11, 0)]] SamplerComparisonState ShadowSamp;
 [[vk::binding(12, 0)]] TextureCube<float4> IrradianceB;      // second environment, blended in by EnvB.y (the first one when no blend is set)
 [[vk::binding(13, 0)]] TextureCube<float4> SpecularB;
+[[vk::binding(14, 0)]] Texture2D<float4> ReflTex;            // the scene mirrored about the reflection plane (a 1x1 placeholder while unused)
 
 [[vk::binding(0, 1)]] cbuffer Object
 {
@@ -50,6 +51,7 @@ struct ShadowData
     float4 StyleA;         // x style (0 pbr, 1 toon, 2 flat), y toon bands, z toon softness, w toon highlight
     float4 StyleB;         // x outline width in pixels
     float4 OutlineColor;
+    float4 WaterA;         // x planar reflection strength (0 = off), yz uv scroll in texture units per second
 };
 
 [[vk::binding(1, 2)]] Texture2D<float4> BaseTex;
@@ -202,7 +204,7 @@ float2 TexUv(uint slot, VOut i)
     float4 r1 = Xf[slot * 2u + 1u];
     float2 uv = r0.w > 0.5 ? i.Uv1 : i.Uv0;
     float3 h = float3(uv, 1.0);
-    return float2(dot(h, r0.xyz), dot(h, r1.xyz));
+    return float2(dot(h, r0.xyz), dot(h, r1.xyz)) + WaterA.yz * Refl.w;
 }
 
 // ---- BRDF pieces (glTF 2.0 Appendix B) ----
@@ -472,7 +474,8 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
     float3 emis = Emissive.rgb * EmisTex.Sample(EmisSamp, TexUv(4u, i)).rgb;
     float2 nuv = TexUv(2u, i);
 
-    if (AlphaMasked(base))
+    // While the reflection is drawn, what lies below its plane is cut away: it is under the water and must not show in the mirror.
+    if (AlphaMasked(base) || (Refl.x > 0.5 && i.WorldPos.y < Refl.y))
     {
         discard;
     }
@@ -519,6 +522,7 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
 
     // Clustered punctual lights: the slice comes from view depth, the tile from the pixel position.
     float viewZ = max(-mul(float4(i.WorldPos, 1.0), View).z, 1e-4);
+    float shadowZ = Refl.x > 0.5 ? max(-dot(float4(i.WorldPos, 1.0), MainZ), 1e-4) : viewZ;
     uint tile = (uint)Grid.w;
     uint2 t2 = uint2(i.Pos.xy) / tile;
     float sl = floor(log2(viewZ) * Slice.x + Slice.y);
@@ -536,12 +540,12 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
         float3 toon = 0.0;
         for (uint d = 0u; d < Counts.x; d++)
         {
-            toon += ToonLight(Lights[d], i.WorldPos, n, v, base.rgb, viewZ);
+            toon += ToonLight(Lights[d], i.WorldPos, n, v, base.rgb, shadowZ);
         }
 
         for (uint k = 0u; k < count; k++)
         {
-            toon += ToonLight(Lights[Clusters[at + 1u + k]], i.WorldPos, n, v, base.rgb, viewZ);
+            toon += ToonLight(Lights[Clusters[at + 1u + k]], i.WorldPos, n, v, base.rgb, shadowZ);
         }
 
         float3 ambient = SampleDiffuseEnv(n) * base.rgb * (EnvA.y * aoScreen);
@@ -559,12 +563,12 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
     float3 color = 0.0;
     for (uint d = 0u; d < Counts.x; d++)
     {
-        color += Shade(Lights[d], i.WorldPos, n, v, ndotv, diffuseColor, f0, f0d, a2, viewZ);
+        color += Shade(Lights[d], i.WorldPos, n, v, ndotv, diffuseColor, f0, f0d, a2, shadowZ);
     }
 
     for (uint k = 0u; k < count; k++)
     {
-        color += Shade(Lights[Clusters[at + 1u + k]], i.WorldPos, n, v, ndotv, diffuseColor, f0, f0d, a2, viewZ);
+        color += Shade(Lights[Clusters[at + 1u + k]], i.WorldPos, n, v, ndotv, diffuseColor, f0, f0d, a2, shadowZ);
     }
 
     // Image-based lighting: split-sum specular and cosine-convolved diffuse. Occlusion only dims indirect light.
@@ -575,7 +579,28 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
     float3 diff = SampleDiffuseEnv(n);
     // Fresnel with a roughness-limited grazing term (Lagarde and de Rousiers, "Moving Frostbite to PBR") decides how much light the diffuse layer keeps.
     float fdIbl = f0d + (max(1.0 - roughness, f0d) - f0d) * pow(1.0 - ndotv, 5.0);
-    float3 ibl = (diff * diffuseColor * (1.0 - fdIbl) + spec * (f0 * ab.x + ab.y)) * (EnvA.y * ao);
+    float3 ibl;
+    float4 rc = mul(float4(i.WorldPos, 1.0), ReflViewProj);
+    if (WaterA.x > 0.0 && Refl.z > 0.5 && rc.w > 1e-4)
+    {
+        // Planar reflection: the mirrored scene replaces the environment's specular light, weighted by strength and smoothness (the
+        // image is sharp, so a rough surface keeps the blurred environment instead). The split-sum term still carries Fresnel. The image
+        // holds finished light, so the environment intensity and occlusion do not apply to it. A normal map shifts the lookup a little,
+        // and the weight fades out towards the image edge, where the mirror has nothing to show.
+        float2 ruv = float2(rc.x / rc.w * 0.5 + 0.5, 0.5 - rc.y / rc.w * 0.5);
+        float3 ng = normalize(i.Normal) * s;
+        ruv += (n.xz - ng.xz) * 0.05;
+        float edge = saturate(min(min(ruv.x, 1.0 - ruv.x), min(ruv.y, 1.0 - ruv.y)) * 16.0);
+        float w = saturate(WaterA.x) * (1.0 - roughness) * edge;
+        float3 mirror = ReflTex.SampleLevel(EnvSampler, saturate(ruv), 0).rgb;
+        float3 specLight = lerp(spec * (EnvA.y * ao), mirror, w);
+        ibl = diff * diffuseColor * (1.0 - fdIbl) * (EnvA.y * ao) + specLight * (f0 * ab.x + ab.y);
+    }
+    else
+    {
+        ibl = (diff * diffuseColor * (1.0 - fdIbl) + spec * (f0 * ab.x + ab.y)) * (EnvA.y * ao);
+    }
+
     color += ibl;
     color += emis;
     return float4(ApplyFog(color, FogAmount(i.WorldPos), 1.0), alpha);

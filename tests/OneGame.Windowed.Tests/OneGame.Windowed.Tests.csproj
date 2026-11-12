@@ -7,6 +7,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/OneGame.Live/OneGame.Live.csproj" />
+    <!-- The water example is the game the planar reflection window test runs. -->
+    <ProjectReference Include="../../examples/water/WaterExample.csproj" />
     <!-- The sample game's entity runs through the generator and analyzers like a game's would. -->
     <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>

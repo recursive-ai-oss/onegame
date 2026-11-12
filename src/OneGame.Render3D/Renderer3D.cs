@@ -34,6 +34,9 @@ public readonly record struct FrameStats3D(int Objects, int DrawCalls, long Tria
 
     /// <summary>Whether ambient occlusion ran.</summary>
     public bool Ssao { get; init; }
+
+    /// <summary>Whether the planar reflection pass ran (a material opted in and the quality level and camera allowed it).</summary>
+    public bool PlanarReflection { get; init; }
 }
 
 /// <summary>

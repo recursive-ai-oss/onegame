@@ -15,9 +15,11 @@ public sealed partial class Renderer3D
     public const int MaxShadowTiles = 16;
 
     /// <summary>Bytes between two frame-constant slots: the main view and each shadow tile have one.</summary>
-    internal const int FrameStride = 512;
+    internal const int FrameStride = 1024;
 
-    private const int MaxViews = 1 + MaxShadowTiles;
+    // Views: the camera, the shadow tiles, then the planar reflection.
+    private const int ReflSlot = 1 + MaxShadowTiles;
+    private const int MaxViews = 2 + MaxShadowTiles;
 
     private struct DrawItem
     {
@@ -34,6 +36,10 @@ public sealed partial class Renderer3D
     private readonly LightRecord[] _lightRecords = new LightRecord[MaxLights];
     private readonly ForwardPass _forward = new();
     private readonly ClusterPass _clusterPass = new();
+    private readonly ReflectionPass _reflPass = new();
+    private bool _reflActive;
+    private int _reflectiveDraws;
+    private Matrix4x4 _reflViewProj;
     private readonly FrameSlot[] _frameSlots = new FrameSlot[MaxViews];
     private GpuBuffer _frameBuffer = null!;
     private GpuBuffer _lightBuffer = null!;
@@ -71,7 +77,7 @@ public sealed partial class Renderer3D
     private long _drawnTriangles;
     private readonly Dictionary<Set0Key, GpuBindGroup> _set0Cache = [];
 
-    private readonly record struct Set0Key(int Slot, GpuTexture Specular, GpuTexture SpecularB, GpuTexture IrradianceB, GpuTexture Atlas, GpuTexture Ao, GpuBuffer Cluster, GpuBuffer Joints, GpuBuffer Shadows);
+    private readonly record struct Set0Key(int Slot, GpuTexture Specular, GpuTexture SpecularB, GpuTexture IrradianceB, GpuTexture Atlas, GpuTexture Ao, GpuTexture Refl, GpuBuffer Cluster, GpuBuffer Joints, GpuBuffer Shadows);
 
     private void InitFrame()
     {
@@ -175,6 +181,23 @@ public sealed partial class Renderer3D
         }
 
         var environment = scene.Environment;
+        GraphTexture reflection = default;
+        if (_reflActive)
+        {
+            // The mirror image is drawn at a fraction of the frame; the forward pass reads it by projecting the water's world position.
+            var rw = Math.Max(1, (int)(width * q.ReflectionScale));
+            var rh = Math.Max(1, (int)(height * q.ReflectionScale));
+            reflection = graph.CreateTexture("reflection_hdr", new TextureDesc((uint)rw, (uint)rh, HdrFormat, TextureUsage.None));
+            _reflPass.Owner = this;
+            _reflPass.Color = reflection;
+            _reflPass.Depth = graph.CreateTexture("reflection_depth", new TextureDesc((uint)rw, (uint)rh, DepthFormat, TextureUsage.None));
+            _reflPass.Atlas = atlas;
+            _reflPass.Sky = environment.Background == BackgroundMode.Environment;
+            _reflPass.Clear = environment.Background == BackgroundMode.Environment ? Vector3.Zero : environment.BackgroundColor;
+            graph.AddPass(_reflPass);
+        }
+
+        _forward.Reflection = reflection;
         _forward.Owner = this;
         _forward.Color = color;
         _forward.Resolve = samples > 1 ? hdr : default;
@@ -198,6 +221,7 @@ public sealed partial class Renderer3D
             Billboards = _bbCount,
             Quality = _quality,
             Ssao = _ssaoActive,
+            PlanarReflection = _reflActive,
         };
     }
 
@@ -225,6 +249,26 @@ public sealed partial class Renderer3D
         _frameEnvironment = env;
         _frameEnvironmentB = envB ?? env;
         CollectDraws(scene, view, samples);
+
+        // Planar reflection needs a material that asks for it, a level that allows it, and a camera above the plane (from below there is
+        // nothing to mirror). Otherwise no pass is added and the placeholder texture is bound.
+        var mirrorPlane = scene.Reflection;
+        _reflActive = _reflectiveDraws > 0 && mirrorPlane.Enabled && q.ReflectionScale > 0f && float.IsFinite(mirrorPlane.Height) && camera.Position.Y > mirrorPlane.Height;
+        var reflView = view;
+        var reflProj = viewProj;
+        var reflInvViewProj = invViewProj;
+        var reflCamera = camera.Position;
+        if (_reflActive)
+        {
+            // The scene seen through a camera mirrored about y = height: p' = (x, 2h - y, z), applied before the camera's own view.
+            var h2 = 2f * mirrorPlane.Height;
+            var mirror = new Matrix4x4(1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, h2, 0, 1);
+            reflView = mirror * view;
+            reflProj = reflView * proj;
+            Matrix4x4.Invert(reflProj, out reflInvViewProj);
+            reflCamera = new Vector3(reflCamera.X, h2 - reflCamera.Y, reflCamera.Z);
+            _reflViewProj = reflProj;
+        }
 
         // Lights: directional ones first (always applied), then the clustered punctual ones. Lights that cast shadows get tiles of the atlas.
         BeginShadows(scene, q, width, height, aspect, near, far);
@@ -287,7 +331,30 @@ public sealed partial class Renderer3D
             FogColor = new Vector4(fog.Color, Math.Clamp(fog.MaxDensity, 0f, 1f)),
             FogRange = new Vector4(fog.Start, 1f / fogSpan, fogOn ? 1f : 0f, 0),
             EnvB = new Vector4(maxMipB, envB is null ? 0f : env0.Blend, env0.BackgroundBlur * maxMipB, 0),
+            ReflViewProj = reflProj,
+            Refl = new Vector4(0f, mirrorPlane.Height, _reflActive ? 1f : 0f, (float)scene.Time),
+            MainZ = new Vector4(view.M13, view.M23, view.M33, view.M43),
         };
+        if (_reflActive)
+        {
+            // The mirror image's own constants: the mirrored camera, its smaller viewport, no clustered lights (their grid belongs to the
+            // main view), no screen-space occlusion, and the flag that makes the shader clip everything under the plane.
+            var scale = QualitySettings.For(_quality).ReflectionScale;
+            var rw = Math.Max(1, (int)(width * scale));
+            var rh = Math.Max(1, (int)(height * scale));
+            var rf = _frame;
+            rf.View = reflView;
+            rf.ViewProj = reflProj;
+            rf.InvViewProj = reflInvViewProj;
+            rf.CameraPos = new Vector4(reflCamera, camera.Orthographic ? 1f : 0f);
+            rf.ViewportInfo = new Vector4(rw, rh, 1f / rw, 1f / rh);
+            rf.Counts.Y = rf.Counts.X;
+            rf.AoInfo.X = 0f;
+            rf.Refl = new Vector4(1f, mirrorPlane.Height, 0f, (float)scene.Time);
+            _frameSlots[ReflSlot].Frame = rf;
+            Device.WriteBuffer(_frameBuffer, (ulong)ReflSlot * FrameStride, MemoryMarshal.AsBytes(new ReadOnlySpan<FrameSlot>(_frameSlots, ReflSlot, 1)));
+        }
+
 
         // Slot 0 is the camera; the shadow tiles follow with their own view and projection and everything else the same.
         _frameSlots[0].Frame = _frame;
@@ -367,6 +434,7 @@ public sealed partial class Renderer3D
         _opaqueCount = 0;
         _blendCount = 0;
         _objectCount = 0;
+        _reflectiveDraws = 0;
         _drawnTriangles = 0;
         _sceneMin = new Vector3(float.MaxValue);
         _sceneMax = new Vector3(float.MinValue);
@@ -462,6 +530,11 @@ public sealed partial class Renderer3D
                         Pipeline = ScenePipeline(PipeKind.Main, p.Material.Blend || instanceBlend, p.Material.DoubleSided, flipped, false, false, samples),
                     };
                     _drawnTriangles += p.IndexCount / 3;
+                    if (p.Material.Reflective)
+                    {
+                        _reflectiveDraws++;
+                    }
+
                     if (p.Material.Blend || instanceBlend)
                     {
                         if (_blendCount == _blend.Length)
@@ -564,11 +637,11 @@ public sealed partial class Renderer3D
 
     // Set 0 for one view (slot 0 the camera, 1.. the shadow tiles) with the shadow atlas and occlusion texture to read. Groups are cached
     // by what they point at; the graph hands out the same pooled textures every frame, so a steady scene creates none.
-    private GpuBindGroup Set0(int slot, GpuTexture atlas, GpuTexture ao)
+    private GpuBindGroup Set0(int slot, GpuTexture atlas, GpuTexture ao, GpuTexture reflection)
     {
         var env = _frameEnvironment!;
         var envB = _frameEnvironmentB!;
-        var key = new Set0Key(slot, env.Specular, envB.Specular, envB.Irradiance, atlas, ao, _clusterBuffer, _jointBuffer, _shadowBuffer);
+        var key = new Set0Key(slot, env.Specular, envB.Specular, envB.Irradiance, atlas, ao, reflection, _clusterBuffer, _jointBuffer, _shadowBuffer);
         if (_set0Cache.TryGetValue(key, out var group))
         {
             return group;
@@ -600,6 +673,7 @@ public sealed partial class Renderer3D
             BindGroupEntry.ForSampler(11, _shadowSampler),
             BindGroupEntry.ForTexture(12, envB.Irradiance),
             BindGroupEntry.ForTexture(13, envB.Specular),
+            BindGroupEntry.ForTexture(14, reflection),
         ]);
         _set0Cache[key] = group;
         return group;
@@ -640,6 +714,7 @@ public sealed partial class Renderer3D
         public GraphBuffer Clusters;
         public GraphTexture Atlas;
         public GraphTexture Ao;
+        public GraphTexture Reflection;
         public int Samples;
         public bool Sky;
         public Vector3 Clear;
@@ -665,13 +740,18 @@ public sealed partial class Renderer3D
             {
                 builder.Read(Ao);
             }
+
+            if (Reflection.IsValid)
+            {
+                builder.Read(Reflection);
+            }
         }
 
         public void Execute(PassContext context)
         {
             var r = Owner!;
             var pass = context.Render;
-            pass.SetBindGroup(0, r.Set0(0, Atlas.IsValid ? context.Texture(Atlas) : r._shadowDummy, Ao.IsValid ? context.Texture(Ao) : r._white));
+            pass.SetBindGroup(0, r.Set0(0, Atlas.IsValid ? context.Texture(Atlas) : r._shadowDummy, Ao.IsValid ? context.Texture(Ao) : r._white, Reflection.IsValid ? context.Texture(Reflection) : r._white));
             r.DrawRegular(pass, r._opaque, r._opaqueCount, PipeKind.Main, Samples, -1);
             r.DrawBatches(pass, PipeKind.Main, Samples, 0, blend: false);
             r.DrawOutlines(pass, Samples);
@@ -685,6 +765,82 @@ public sealed partial class Renderer3D
             r.DrawBatches(pass, PipeKind.Main, Samples, 0, blend: true);
             r.DrawBillboards(pass, Samples);
             r.DrawDebug(pass, Samples);
+        }
+    }
+
+    // The scene as seen in the mirror: sky, opaque and blended surfaces and instanced batches, minus the surfaces that show the reflection.
+    // Blended surfaces keep the order of the main view's sort, which is only approximately right from the mirrored camera.
+    private sealed class ReflectionPass : IGraphPass
+    {
+        public Renderer3D? Owner;
+        public GraphTexture Color;
+        public GraphTexture Depth;
+        public GraphTexture Atlas;
+        public bool Sky;
+        public Vector3 Clear;
+
+        public string Name => "planar_reflection";
+
+        public void Setup(PassBuilder builder)
+        {
+            builder.ColorTarget(Color, LoadOp.Clear, Clear.X, Clear.Y, Clear.Z, 1f, StoreOp.Store);
+            builder.DepthTarget(Depth, LoadOp.Clear, 1f, StoreOp.Discard);
+            if (Atlas.IsValid)
+            {
+                builder.Read(Atlas);
+            }
+        }
+
+        public void Execute(PassContext context)
+        {
+            var r = Owner!;
+            var pass = context.Render;
+            pass.SetBindGroup(0, r.Set0(ReflSlot, Atlas.IsValid ? context.Texture(Atlas) : r._shadowDummy, r._white, r._white));
+            r.DrawMirrored(pass, r._opaque, r._opaqueCount, blend: false);
+            r.DrawBatches(pass, PipeKind.Main, 1, ReflSlot, blend: false, mirror: true);
+            if (Sky)
+            {
+                pass.SetPipeline(r.SkyPipeline(1));
+                pass.Draw(3);
+            }
+
+            r.DrawMirrored(pass, r._blend, r._blendCount, blend: true);
+            r.DrawBatches(pass, PipeKind.Main, 1, ReflSlot, blend: true, mirror: true);
+        }
+    }
+
+    private void DrawMirrored(GpuRenderPass pass, DrawItem[] items, int count, bool blend)
+    {
+        GpuGraphicsPipeline? pipeline = null;
+        Material3D? material = null;
+        Span<uint> offset = stackalloc uint[1];
+        for (var i = 0; i < count; i++)
+        {
+            ref var d = ref items[i];
+            var p = d.Primitive;
+            if (p.Material.Reflective)
+            {
+                continue;
+            }
+
+            var wanted = ScenePipeline(PipeKind.Main, blend, p.Material.DoubleSided, !d.Flipped, false, false, 1);
+            if (!ReferenceEquals(wanted, pipeline))
+            {
+                pipeline = wanted;
+                pass.SetPipeline(pipeline);
+            }
+
+            offset[0] = (uint)d.Slot * GpuDevice.DynamicOffsetAlignment;
+            pass.SetBindGroup(1, _set1!, offset);
+            if (!ReferenceEquals(p.Material, material))
+            {
+                material = p.Material;
+                pass.SetBindGroup(2, material.Group);
+            }
+
+            pass.SetVertexBuffer(0, d.Vertices);
+            pass.SetIndexBuffer(p.Indices, p.IndexFormat);
+            pass.DrawIndexed(p.IndexCount);
         }
     }
 

@@ -107,6 +107,9 @@ public sealed class Material3D
     private Vector3 _emissive;
     private float _emissiveStrength = 1f;
     private float _opacity = 1f;
+    private bool _reflect;
+    private float _reflectStrength = 1f;
+    private Vector2 _scroll;
 
     internal Material3D(Renderer3D renderer, Model3D owner, string name, in MaterialConstants constants, GpuBuffer buffer, GpuBindGroup group, BindGroupEntry[] entries, bool blend, bool doubleSided, bool mask)
     {
@@ -135,6 +138,9 @@ public sealed class Material3D
     internal bool Blend => _blendAtLoad || _opacity < 1f;
 
     internal bool DoubleSided { get; }
+
+    /// <summary>Whether the material shows the planar reflection (strength above zero).</summary>
+    internal bool Reflective => _reflect && _reflectStrength > 0f;
 
     /// <summary>Alpha-tested: the shadow and depth passes need the base colour texture to cut holes.</summary>
     internal bool Mask { get; }
@@ -168,6 +174,28 @@ public sealed class Material3D
     /// far to near and writes no depth, as for a glTF BLEND material. Translucent materials cast no shadows and have no outline.
     /// </summary>
     public float Opacity { get => _opacity; set => Set(ref _opacity, Math.Clamp(value, 0f, 1f)); }
+
+    /// <summary>
+    /// Opts the material in to planar reflection: its specular light comes from the scene mirrored about <see cref="Scene3D.Reflection"/>'s
+    /// plane (one horizontal plane per frame) instead of the environment alone, where the mirror image has something to show. The material
+    /// itself is left out of the mirror image. Meant for flat, horizontal, usually blended surfaces such as water; it affects PBR style only.
+    /// Costs one extra scene pass, only while a material that opts in is drawn.
+    /// </summary>
+    public bool PlanarReflection { get => _reflect; set => Set(ref _reflect, value); }
+
+    /// <summary>
+    /// How much of the mirror image replaces the environment's specular light, 0 to 1 (default 1). The share also falls with roughness
+    /// (it is strength times one minus roughness), so rough surfaces keep the blurred environment. The Fresnel term is the usual one: grazing views
+    /// reflect more.
+    /// </summary>
+    public float ReflectionStrength { get => _reflectStrength; set => Set(ref _reflectStrength, float.IsNaN(value) ? 1f : Math.Clamp(value, 0f, 1f)); }
+
+    /// <summary>
+    /// A constant texture-space velocity, in texture units per second, added to every texture's coordinates of this material after its own
+    /// transform: the water drifts when <see cref="Scene3D.Time"/> advances. (0, 0) by default, which changes nothing. Textures need a
+    /// repeating sampler (the glTF default) to scroll without a seam.
+    /// </summary>
+    public Vector2 UvScroll { get => _scroll; set => Set(ref _scroll, value); }
 
     /// <summary>
     /// Replaces one texture of this material, for example with the target of an <see cref="Offscreen3D"/> built with <c>sampled: true</c>, so a
@@ -230,6 +258,7 @@ public sealed class Material3D
         c.StyleB = new Vector4(_outlineWidth, 0, 0, 0);
         c.OutlineColor = new Vector4(_outlineColor, 1f);
         c.Emissive = new Vector4(_emissive * _emissiveStrength, 1f - _opacity);
+        c.WaterA = new Vector4(_reflect ? _reflectStrength : 0f, _scroll.X, _scroll.Y, 0f);
         _device.WriteBuffer(Constants, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(new ReadOnlySpan<MaterialConstants>(in c)));
     }
 }
@@ -253,6 +282,22 @@ public sealed class Model3D : IDisposable
 
     /// <summary>The materials of the model, in glTF order (the last one is the default material primitives without a material use).</summary>
     public IReadOnlyList<Material3D> Materials { get; internal set; } = [];
+
+    /// <summary>The first material with this name (the glTF material name), or null. Use it to opt a loaded file's materials in to <see cref="Material3D.PlanarReflection"/> or <see cref="Material3D.UvScroll"/>.</summary>
+    /// <param name="name">The material name, compared exactly.</param>
+    public Material3D? FindMaterial(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        foreach (var m in Materials)
+        {
+            if (m.Name == name)
+            {
+                return m;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>Sets the style of every material of the model.</summary>
     /// <param name="style">The lighting model.</param>

@@ -43,6 +43,7 @@
     <Project Path="examples/physics/PhysicsExample.csproj" />
     <Project Path="examples/crowd/CrowdExample.csproj" />
     <Project Path="examples/stage/StageExample.csproj" />
+    <Project Path="examples/water/WaterExample.csproj" />
     <Project Path="examples/networked-counter/server/NetworkedCounterExampleServer.csproj" />
     <Project Path="examples/particles/ParticlesExample.csproj" />
     <Project Path="examples/saves/SavesExample.csproj" />
