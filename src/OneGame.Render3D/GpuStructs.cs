@@ -36,6 +36,9 @@ internal struct FrameConstants
     public Vector4 FogColor;
     public Vector4 FogRange;
     public Vector4 EnvB;
+    public Matrix4x4 ReflViewProj;
+    public Vector4 Refl;
+    public Vector4 MainZ;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -74,6 +77,7 @@ internal struct MaterialConstants
     public Vector4 StyleA;
     public Vector4 StyleB;
     public Vector4 OutlineColor;
+    public Vector4 WaterA;
 }
 
 [StructLayout(LayoutKind.Sequential, Size = (int)GpuDevice.DynamicOffsetAlignment)]

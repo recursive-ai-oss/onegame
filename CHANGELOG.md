@@ -4,6 +4,11 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- Planar reflection for water and polished floors in `OneGame.Render3D`. A material opts in with `Material3D.PlanarReflection` (and `ReflectionStrength`), and the game sets the one horizontal mirror plane with `Scene3D.Reflection.Height`. While an opted-in material is drawn, a `planar_reflection` pass renders the scene mirrored about the plane at a size set by the quality level (off at Low, then 0.5x, 0.75x, 1x), and the material's specular light comes from it, weighted by smoothness; a frame with no opted-in material adds no pass, image or binding work. Materials of a loaded glTF file are reached by name with `Model3D.FindMaterial`. `FrameStats3D.PlanarReflection` reports whether the pass ran, and `QualitySettings` gains `ReflectionScale`.
+- `Material3D.UvScroll`: a constant texture-space velocity added to the material's texture coordinates, driven by the new `Scene3D.Time` clock (the renderer keeps no clock of its own).
+
 ## [1.25.1] - 2026-11-11
 
 A fix for games that add or remove entities during a tick and then index `World.Entities`.

@@ -84,6 +84,10 @@ public sealed partial class Renderer3D
                     }
 
                     _batchItems[_batchItemCount++] = new BatchItem { Batch = bi, Primitive = p, Slot = slot, Flipped = flipped };
+                    if (p.Material.Reflective)
+                    {
+                        _reflectiveDraws++;
+                    }
                 }
             }
         }
@@ -102,14 +106,27 @@ public sealed partial class Renderer3D
         InstanceVisible = 0;
         BatchDrawCalls = 0;
         var views = 1 + _tileCount;
+        if (_reflActive)
+        {
+            ExtractPlanes(_reflViewProj, _planes.AsSpan(ReflSlot * 6, 6));
+        }
+
         for (var bi = 0; bi < _activeBatches.Count; bi++)
         {
             var b = _activeBatches[bi];
             var raw = b.Raw;
             var n = b.Count;
-            for (var v = 0; v < views; v++)
+
+            // The views are the camera, the shadow tiles, and last the mirror image when it is drawn.
+            for (var vi = 0; vi <= views; vi++)
             {
-                if (v > 0 && !b.CastShadows)
+                var v = vi < views ? vi : ReflSlot;
+                if (vi == views && !_reflActive)
+                {
+                    break;
+                }
+
+                if (v > 0 && v != ReflSlot && !b.CastShadows)
                 {
                     _batchRanges[(bi * MaxViews) + v] = (0, 0);
                     continue;
@@ -173,7 +190,7 @@ public sealed partial class Renderer3D
         }
     }
 
-    private void DrawBatches(GpuRenderPass pass, PipeKind kind, int samples, int view, bool blend)
+    private void DrawBatches(GpuRenderPass pass, PipeKind kind, int samples, int view, bool blend, bool mirror = false)
     {
         GpuGraphicsPipeline? pipeline = null;
         Material3D? material = null;
@@ -188,12 +205,13 @@ public sealed partial class Renderer3D
             }
 
             var range = _batchRanges[(it.Batch * MaxViews) + view];
-            if (range.Count == 0)
+            if (range.Count == 0 || (mirror && p.Material.Reflective))
             {
                 continue;
             }
 
-            var wanted = ScenePipeline(kind, p.Material.Blend, p.Material.DoubleSided, it.Flipped, true, p.Material.Mask, samples);
+            // A mirrored view turns every triangle inside out on screen, so the winding is read the other way round.
+            var wanted = ScenePipeline(kind, p.Material.Blend, p.Material.DoubleSided, it.Flipped ^ mirror, true, p.Material.Mask, samples);
             if (!ReferenceEquals(wanted, pipeline))
             {
                 pipeline = wanted;

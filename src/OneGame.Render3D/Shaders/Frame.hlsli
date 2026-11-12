@@ -30,6 +30,9 @@ struct LightData
     float4 FogColor;    // rgb linear fog colour, w maximum density
     float4 FogRange;    // x start distance, y 1 / (end - start), z 1 when fog is on
     float4 EnvB;        // x highest specular mip of the second environment, y blend weight towards it, z backdrop mip of the second environment
+    row_major float4x4 ReflViewProj;   // the main view mirrored about the reflection plane (planar reflection lookup)
+    float4 Refl;        // x 1 while drawing the reflection itself (clip below the plane), y plane height, z 1 when a reflection image is bound, w scene time in seconds
+    float4 MainZ;       // the third column of the main view, so shadow cascades pick by the main camera's depth in the reflection too
 };
 
 // Distance fog: linear in the distance from the camera (view depth for an orthographic camera) between start and end, scaled by the maximum density.

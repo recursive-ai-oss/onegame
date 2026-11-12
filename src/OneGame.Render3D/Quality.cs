@@ -3,10 +3,10 @@ namespace OneGame.Render3D;
 /// <summary>A named rung of the quality ladder. Switch it at runtime with <see cref="Scene3D.Quality"/>.</summary>
 public enum QualityLevel
 {
-    /// <summary>Small shadow maps with two cascades and no filtering, no ambient occlusion, no multisampling and no bloom.</summary>
+    /// <summary>Small shadow maps with two cascades and no filtering, no ambient occlusion, no multisampling, no bloom and no planar reflection.</summary>
     Low = 0,
 
-    /// <summary>1024 texel shadow maps, three cascades, half-resolution ambient occlusion, 4x multisampling.</summary>
+    /// <summary>1024 texel shadow maps, three cascades, half-resolution ambient occlusion, 4x multisampling, a half-size planar reflection.</summary>
     Medium = 1,
 
     /// <summary>2048 texel shadow maps, four cascades with 3x3 filtering, full-resolution ambient occlusion, 4x multisampling. The default.</summary>
@@ -27,6 +27,7 @@ public enum QualityLevel
 /// <param name="MaxSamples">Most multisampling samples (1, 4 or 8; 2 is not used because many formats lack it); the device may allow fewer.</param>
 /// <param name="Bloom">Whether bloom may run.</param>
 /// <param name="EnvironmentSize">Face size of the specular cube of environments created without an explicit size.</param>
+/// <param name="ReflectionScale">Size of the planar reflection image relative to the frame (0 turns planar reflection off: reflective materials fall back to the environment).</param>
 public readonly record struct QualitySettings(
     QualityLevel Level,
     int ShadowTileSize,
@@ -37,16 +38,17 @@ public readonly record struct QualitySettings(
     bool SsaoHalfResolution,
     int MaxSamples,
     bool Bloom,
-    int EnvironmentSize)
+    int EnvironmentSize,
+    float ReflectionScale)
 {
     /// <summary>The settings of a level.</summary>
     /// <param name="level">The level.</param>
     public static QualitySettings For(QualityLevel level) => level switch
     {
-        QualityLevel.Low => new(level, 512, 2, 0, false, 0, true, 1, false, 64),
-        QualityLevel.Medium => new(level, 1024, 3, 0, true, 8, true, 4, true, 128),
-        QualityLevel.Ultra => new(level, 4096, 4, 2, true, 24, false, 8, true, 512),
-        _ => new(QualityLevel.High, 2048, 4, 1, true, 14, false, 4, true, 256),
+        QualityLevel.Low => new(level, 512, 2, 0, false, 0, true, 1, false, 64, 0f),
+        QualityLevel.Medium => new(level, 1024, 3, 0, true, 8, true, 4, true, 128, 0.5f),
+        QualityLevel.Ultra => new(level, 4096, 4, 2, true, 24, false, 8, true, 512, 1f),
+        _ => new(QualityLevel.High, 2048, 4, 1, true, 14, false, 4, true, 256, 0.75f),
     };
 
     /// <summary>Parses a level name (case-insensitive); false for an unknown name.</summary>

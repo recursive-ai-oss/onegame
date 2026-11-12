@@ -145,7 +145,7 @@ public sealed partial class Renderer3D
         {
             var r = Owner!;
             var pass = context.Render;
-            pass.SetBindGroup(0, r.Set0(0, r._shadowDummy, r._white));
+            pass.SetBindGroup(0, r.Set0(0, r._shadowDummy, r._white, r._white));
             r.DrawRegular(pass, r._opaque, r._opaqueCount, PipeKind.Prepass, 1, -1);
             r.DrawBatches(pass, PipeKind.Prepass, 1, 0, blend: false);
         }

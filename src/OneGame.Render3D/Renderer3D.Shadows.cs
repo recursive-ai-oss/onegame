@@ -341,7 +341,7 @@ public sealed partial class Renderer3D
             var y = (t / _atlasCols) * _tileSize;
             pass.SetViewport(x, y, _tileSize, _tileSize);
             pass.SetScissor(x, y, (uint)_tileSize, (uint)_tileSize);
-            pass.SetBindGroup(0, Set0(1 + t, _shadowDummy, _white));
+            pass.SetBindGroup(0, Set0(1 + t, _shadowDummy, _white, _white));
             DrawRegular(pass, _opaque, _opaqueCount, PipeKind.Shadow, 1, t);
             DrawBatches(pass, PipeKind.Shadow, 1, 1 + t, blend: false);
         }

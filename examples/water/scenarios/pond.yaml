@@ -1,0 +1,12 @@
+name: pond
+description: A red buoy drifts over a pond. The water material is opted in to planar reflection by name, so the buoy, the tower and the banks show in it; the buoy's image moves with it.
+window: 640x360
+steps:
+  - step: 30
+  - expect:
+      state: { entity: Pond, property: Ticks, equals: 30 }
+  - expect:
+      capture: { reference: refs/start.png, tolerance: 6, max-diff: 0.002 }
+  - step: 150
+  - expect:
+      capture: { reference: refs/drifted.png, tolerance: 6, max-diff: 0.002 }

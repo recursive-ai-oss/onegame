@@ -19,19 +19,19 @@ Offscreen capture: `new Offscreen3D(renderer, w, h).Capture(scene)` returns RGBA
 
 ## Passes (names as `render_graph` shows them)
 
-`brdf_lut` and `env_*` (once, compute) → `shadows` (only with shadow-casting lights) → `depth_normal_prepass`, `ssao`, `ssao_blur` (only with SSAO on) → `cluster_lights` (compute, only with punctual lights) → `forward` (opaque and masked sorted near to far, instanced opaque, outlines, backdrop, then blended surfaces far to near; MSAA with resolve) → `bloom_down_i` / `bloom_up_i` → `tonemap` (writes the whole target).
+`brdf_lut` and `env_*` (once, compute) → `shadows` (only with shadow-casting lights) → `depth_normal_prepass`, `ssao`, `ssao_blur` (only with SSAO on) → `cluster_lights` (compute, only with punctual lights) → `planar_reflection` (only while a material opts in, see Planar reflection) → `forward` (opaque and masked sorted near to far, instanced opaque, outlines, backdrop, then blended surfaces far to near; MSAA with resolve) → `bloom_down_i` / `bloom_up_i` → `tonemap` (writes the whole target).
 A later 2D pass must declare `ReadWrite` on the target; `Render3DStage` (Host) does this.
 
 ## Quality
 
 `Scene3D.Quality` (low, medium, high (default), ultra) is a **cap**; features stay opt-in. `Samples` 0 takes the level's count. `QualitySettings.For(level)`:
 
-| Level | Shadow tile | Cascades | PCF | SSAO | MSAA | Bloom | Env cube |
-|---|---|---|---|---|---|---|---|
-| low | 512 | 2 | 1 tap | off | 1 | off | 64 |
-| medium | 1024 | 3 | 1 tap | 8 samples, half res | 4 | on | 128 |
-| high | 2048 | 4 | 3x3 | 14 samples | 4 | on | 256 |
-| ultra | 4096 | 4 | 5x5 | 24 samples | 8 | on | 512 |
+| Level | Shadow tile | Cascades | PCF | SSAO | MSAA | Bloom | Env cube | Reflection image |
+|---|---|---|---|---|---|---|---|---|
+| low | 512 | 2 | 1 tap | off | 1 | off | 64 | off |
+| medium | 1024 | 3 | 1 tap | 8 samples, half res | 4 | on | 128 | 0.5x |
+| high | 2048 | 4 | 3x3 | 14 samples | 4 | on | 256 | 0.75x |
+| ultra | 4096 | 4 | 5x5 | 24 samples | 8 | on | 512 | 1x |
 
 MSAA is 1, 4 or 8 (a request for 2 uses 4: many formats lack it). `CreateEnvironment` with size 0 follows the level and is rebuilt when the level changes.
 Harness: control op `environment` (`fog`, `fogColor`, `fogStart`, `fogEnd`, `fogMaxDensity`, `blend`, `intensity`, `yaw`; reads and sets them, returns the values; the game may overwrite them next frame if it sets them itself); control op `quality` (`level`, `ssao`, `ssaoRadius`; returns the settings, last-frame stats and live pass names); `onegame view --quality L --shadows --ssao --ssao-radius R --style pbr|toon|flat --outline PX`.
@@ -39,6 +39,17 @@ Harness: control op `environment` (`fog`, `fogColor`, `fogStart`, `fogEnd`, `fog
 ## Fog
 
 `Scene3D.Fog` (`FogSettings`): `Enabled` (off by default, and then the output is identical to a build without fog), `Color` (linear), `Start`, `End`, `MaxDensity` (0..1). The amount is linear in the distance from the camera (view depth with an orthographic camera): 0 at `Start`, `MaxDensity` at `End`, constant beyond; a surface is `colour * (1 - amount) + Color * amount`, in HDR before tone mapping. It is a per-frame constant (in the frame constants, `Frame.hlsli`: `FogAmount`, `ApplyFog`), so changing it never touches meshes, pipelines or the GPU memory, and steady frames still allocate nothing. Every surface shader applies it: PBR, toon, flat and unlit, outlines, masked and blended surfaces (blended ones fade by their own alpha), instanced draws and dynamic meshes (they share the shader); billboards fade by coverage and additive quads fade out instead of turning into fog. Left alone: the backdrop (an environment or flat colour) and debug geometry. To make far terrain meet the sky, set `Color` to the sky colour at the horizon, and `MaxDensity` below 1 when the horizon should stay faintly visible. Not built: exponential or height fog, and tinting by view direction.
+
+## Planar reflection and UV scroll
+
+For water and polished floors. `Material3D.PlanarReflection = true` opts a material in; `Scene3D.Reflection.Height` is the world height (y) of the one mirror plane (always horizontal; `Reflection.Enabled` switches the feature off for the scene). Load a file, then opt its materials in by glTF name: `model.FindMaterial("Water")!.PlanarReflection = true` (the importer does not read glTF `extras`, so there is no authoring-side switch). `ReflectionStrength` (0..1, default 1) scales the effect per material.
+
+- **What is drawn.** While a visible material (regular or instanced draw) opts in, the graph gets a `planar_reflection` pass before `forward`: the scene seen from the camera mirrored about the plane, into `reflection_hdr` (single-sampled, sized by the quality level: off at low, 0.5x, 0.75x and 1x of the frame at medium, high and ultra). It holds the backdrop, opaque and blended surfaces, instanced batches, directional and spot shadows, fog and the mirrored camera's view-dependent shading. It leaves out the opted-in surfaces themselves (no water in the water), everything below the plane (cut in the pixel shader with a world-height test), outlines, billboards and debug geometry. Clustered point and spot lights do not light it (their grid belongs to the main view); directional lights do. Blended surfaces keep the main view's far-to-near order, which is only approximate from the mirror. A camera at or below the plane gets no pass, and neither does a frame with no opted-in material in view.
+- **Zero cost when unused.** No pass, no image, no extra binding work: set 0 always carries a binding for the image, and a 1x1 placeholder fills it, so the shader path is one uniform branch. Frames without an opt-in are unchanged (the renderer's reference images are byte-identical).
+- **Shading.** In the forward pass the opted-in PBR surface projects its world position through the mirrored view-projection, reads the image there, and replaces the environment's specular light with it by `ReflectionStrength * (1 - roughness)`, faded out over the last 1/16 of the image edge (where the mirror has nothing). The split-sum Fresnel term (`f0 * A + B`) still scales it, so grazing angles reflect more, and the environment's intensity and occlusion do not apply to the already lit image. A normal map shifts the lookup by 0.05 of its horizontal tilt, so ripples distort the picture. Roughness does not blur the image, it fades to the blurred environment. Toon, flat and unlit surfaces ignore it.
+- **Cost and limits.** One more scene draw at the image size (the camera's instances are culled again for the mirror frustum). One plane per frame, horizontal only.
+
+`Material3D.UvScroll` (texture units per second, default zero) is added to every texture coordinate of the material after its own `KHR_texture_transform`: `uv + UvScroll * Scene3D.Time`. The renderer keeps no clock of its own, so the game sets `Scene3D.Time` (seconds, a double; a tick count over the tick rate keeps captures and replays exact). Nothing else changes per frame; a zero velocity changes no output. The 32-bit offset loses precision after many hours of `Time`; wrap it (a texture with the glTF default repeat sampler is seamless at any whole-unit wrap). `FrameStats3D.PlanarReflection` tells whether the pass ran. Tests: `WaterReflectionTests` (analytic projection of the mirrored box within 3 px, instanced batches with shadows and fog, plane height, pass gating by material, level, switch and camera side, quality sizes, scroll offsets, 0 B steady frames, `pond_reflection` reference).
 
 ## Environment crossfade
 
