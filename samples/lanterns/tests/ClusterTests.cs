@@ -145,7 +145,7 @@ public class ClusterTests
                 balanced = quiet && held == collected;
             }
 
-            Assert.True(balanced, "lanterns held by players never matched lanterns collected: " + last + " (node logs: " + cluster.Dir + ")");
+            Assert.True(balanced, "lanterns held by players never matched lanterns collected: " + last + " (node logs: " + cluster.Dir + ")" + (balanced ? string.Empty : Ledger(cluster)));
             pids = [.. pids, .. cluster.Pids]; // the first processes (killed) and the ones that replaced them
         }
 
@@ -216,6 +216,41 @@ public class ClusterTests
 
             Assert.True(owners.Contains(200001), $"round {round}: the restarted bot has no player on either island; players: {string.Join(", ", owners)}" + (owners.Contains(200001) ? string.Empty : Evidence(cluster)));
         }
+    }
+
+    // The lantern ledger of every node, for a failed conservation check: each player's Total, Pending and Dest, the islands' collected and
+    // departed counters, the master's accounts, and every table the nodes expose (open transfers, each trade's state, the receipt count).
+    private static string Ledger(ProcessCluster cluster)
+    {
+        var text = new System.Text.StringBuilder("\n--- lantern ledger");
+        foreach (var (node, scope) in new[] { ("islandA", 1), ("islandB", 2), ("master", 3) })
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(cluster.Call(node, "state_query", "{\"scope\":" + scope + "}"));
+                text.Append('\n').Append(node).Append(" tick ").Append(doc.RootElement.GetProperty("tick").GetRawText());
+                foreach (var e in doc.RootElement.GetProperty("entities").EnumerateArray())
+                {
+                    if (e.GetProperty("type").GetString() is "Player" or "Island" or "Account" or "Market")
+                    {
+                        text.Append("\n  ").Append(e.GetRawText());
+                    }
+                }
+
+                text.Append("\n  tables ").Append(doc.RootElement.GetProperty("tables").GetRawText());
+            }
+            catch (Exception e) when (e is ClusterException or ControlException or KeyNotFoundException or InvalidOperationException)
+            {
+                text.Append('\n').Append(node).Append(" unavailable: ").Append(e.Message);
+            }
+        }
+
+        foreach (var node in new[] { "master", "islandA", "islandB" })
+        {
+            text.Append("\n--- ").Append(node).Append(" log\n").Append(cluster.LogTail(node, 60));
+        }
+
+        return text.ToString();
     }
 
     // What a failed check needs to be read from the report alone: both islands' recent log lines and what each holds and has in flight.
