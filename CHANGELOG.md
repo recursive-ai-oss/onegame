@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Changed
+
+- OneShader and OneShader.Build 1.3.0 to 1.6.1. Shader bytes can differ (the Metal output no longer drops a guarded `continue`; WGSL writes the largest float exactly), renders do not.
+
 ## [1.25.1] - 2026-11-11
 
 A fix for games that add or remove entities during a tick and then index `World.Entities`.
