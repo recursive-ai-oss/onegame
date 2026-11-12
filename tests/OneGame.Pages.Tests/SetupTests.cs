@@ -162,8 +162,10 @@ public class SetupTests
             Sweep();
         }
 
-        Console.WriteLine($"BYTES-PER-MOVE {(GC.GetAllocatedBytesForCurrentThread() - before) / 1000}");
-        Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < 1000, "1,000 moves allocated more than noise");
+        // Read the counter once: printing the result allocates, and that must not count against the moves.
+        var moved = GC.GetAllocatedBytesForCurrentThread() - before;
+        Console.WriteLine($"BYTES-FOR-1000-MOVES {moved}");
+        Assert.True(moved < 1000, $"1,000 moves allocated {moved} B, more than noise");
     }
 
     private static string Focused(PageScreen page)
