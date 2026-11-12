@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- CPU and GPU frame time in `FrameStats3D`: `CpuFrameMs` (build, record and submit), `GpuFrameMs` (from GPU timestamp queries, `null` where the device has none or timing is off) and `GpuFrameIndex`, the graph frame the GPU time belongs to. GPU results are read without waiting and are one or two frames late. `Renderer3D.ReadGpuPassTimes` gives the per-pass breakdown of the same frame. `RenderGraph.TryReadFrameTime` and `RenderGraph.ExecuteCpuMicroseconds` are the underlying calls.
+
 ## [1.26.0] - 2026-11-12
 
 Water that mirrors the world: planar reflection and scrolling textures for 3D materials, on OneShader 1.7.0.

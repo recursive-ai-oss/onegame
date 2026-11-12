@@ -368,9 +368,9 @@ public class WaterReflectionTests
     // ---- a picture to look at ----
 
     /// <summary>A pond between two banks with a white tower and a red box, a low camera and a sky: a dielectric water sheet that mirrors them at grazing angles.</summary>
-    internal static (Rig Rig, Scene3D Scene) Pond()
+    internal static (Rig Rig, Scene3D Scene) Pond(int width = 320, int height = 180)
     {
-        var rig = new Rig(320, 180);
+        var rig = new Rig(width, height);
         const string pond = """{"name":"Water","alphaMode":"BLEND","pbrMetallicRoughness":{"baseColorFactor":[0.02,0.12,0.2,0.75],"metallicFactor":0,"roughnessFactor":0.03}}""";
         var shapes = new Shapes()
             .Ground(0f, 14f, pond)
