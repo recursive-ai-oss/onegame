@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- `onegame export --target linux-x64|win-x64|osx --dev`: a desktop export with the development tools (live control, `--live`), as the Android and iOS exports have. The folder gets a `-dev` suffix and the result says `devTools: true`. Release exports are unchanged.
+
 ## [1.27.0] - 2026-11-12
 
 Render cost you can read: CPU and GPU frame time in the 3D frame statistics, measured without stalling the frame.

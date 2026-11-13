@@ -171,6 +171,14 @@ jobs:
         if: ${{ !cancelled() }}
         run: bash tools/ci/export-run.sh "$RUNNER_TEMP/cli/onegame" ${{ matrix.rid }} "$OUT/hashes"
 
+      # The development export (--dev): the same NativeAOT program with live control, driven over its port; the release export must refuse --live.
+      - name: Export solitaire with the development tools and drive it live
+        if: ${{ !cancelled() }}
+        timeout-minutes: 20
+        env:
+          ONEGAME_GPU_ADAPTER: software
+        run: bash tools/ci/export-dev-live.sh "$RUNNER_TEMP/cli/onegame" ${{ matrix.rid }} "$OUT/devexport"
+
       - name: Export with the Steam library
         if: ${{ !cancelled() }}
         run: bash tools/ci/steam-pack.sh "$RUNNER_TEMP/cli/onegame" ${{ matrix.rid }} "$OUT/steam"

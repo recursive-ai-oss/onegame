@@ -8,7 +8,7 @@ onegame export --target win --steam --json        # ./export/<game>-<version>-wi
 onegame export --target osx --json                   # ./export/<game>-<version>-osx-arm64/<Game>.app and .tar.gz (on an Apple-silicon Mac)
 ```
 
-Options: `--target linux|win|osx` (default: the host's; `linux-x64` and `win-x64` also work), `--steam`, `--steam-redist <dir>`, `--out <dir>` (default `<project>/export`), `--project <dir|csproj>`, `--no-archive`, `--no-aot`. The version in the names is the project's `<Version>` (1.0.0 when unset). The JSON result is in `docs/interfaces/control.md`; read its `warnings`.
+Options: `--target linux|win|osx` (default: the host's; `linux-x64` and `win-x64` also work), `--steam`, `--steam-redist <dir>`, `--out <dir>` (default `<project>/export`), `--project <dir|csproj>`, `--no-archive`, `--no-aot`, `--dev` (see below). The version in the names is the project's `<Version>` (1.0.0 when unset). The JSON result is in `docs/interfaces/control.md`; read its `warnings`.
 
 Every export works for a game created with `onegame new` from the installed tool, with no engine checkout: the `RecursiveAI.OneGame.Sdk` package carries the export targets and the Android and iOS entry files, and the tool carries the web page and script files, the Play Billing wrapper and the plugin-capable server host. A game created with `--engine <checkout>` builds the same exports from the checkout instead.
 
@@ -20,7 +20,9 @@ iOS (on a Mac with Xcode): `onegame export --target ios-simulator [--dev]` makes
 
 ## What the build is
 
-Always the Release configuration, with the development tools left out of the program: no live-control listener, no scenario parser, no capture or replay options (`--live` exits 5 with `no_dev_tools`). The export fails with `dev_tools_present` if the program mentions the live-control assembly anyway, and `devTools` in the result is `false`.
+Release configuration, with the development tools left out of the program: no live-control listener, no scenario parser, no capture or replay options (`--live` exits 5 with `no_dev_tools`). The export fails with `dev_tools_present` if the program mentions the live-control assembly anyway, and `devTools` in the result is `false`.
+
+**Development build (`--dev`, linux-x64, win-x64, osx).** `onegame export --target linux-x64 --dev` builds the same Release/NativeAOT program with the development tools in, the way the Android and iOS `--dev` exports do (the switch is the `OneGameDev` property, not the configuration). The folder and archive get a `-dev` suffix, `devTools` in the result is `true` and a `dev_build` warning is listed. Run it with `--live` (a socket path or `tcp:127.0.0.1:PORT`) to drive it with `onegame live` or MCP: actions, `camera`, `state_query`, `ui_click`, `capture_frame` and the rest of [control](interfaces/control.md), and profile it as shipped, without a debug runtime. The live port is unauthenticated: use it for local testing only and never ship a `--dev` export. A release export is unchanged and still exits 5 `no_dev_tools` on `--live`. On Windows a dev build keeps its console window.
 
 | Target | Host | Result |
 |---|---|---|
