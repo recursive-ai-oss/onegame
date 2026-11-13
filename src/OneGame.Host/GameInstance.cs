@@ -835,6 +835,9 @@ public sealed partial class GameInstance : IDisposable
                 SyncViewport();
                 return;
             case PlatformEventKind.WindowCloseRequested:
+                // The surface goes before the window it was made on; nothing presents to a closed window afterwards.
+                _device?.WaitIdle();
+                DropSwapchain();
                 Window.Close();
                 return;
             case PlatformEventKind.SurfaceLost:
@@ -1091,7 +1094,7 @@ public sealed partial class GameInstance : IDisposable
         EnsureDevice();
         var list = Ui.Frame();
         _presentSkip = PresentedCaptureFailure.None;
-        if (!Options.PresentFrames || _device is null || Window.NativeHandle.Kind == NativeWindowKind.None)
+        if (!Options.PresentFrames || _device is null || Window.IsClosed || Window.NativeHandle.Kind == NativeWindowKind.None)
         {
             _presentSkip = PresentedCaptureFailure.NoWindow;
             return;
@@ -1331,11 +1334,12 @@ public sealed partial class GameInstance : IDisposable
         _swapchain?.Dispose();
         (_stage as IDisposable)?.Dispose();
         Assets.Dispose();
+        // The window system connection closes while the graphics driver is still loaded: the driver hooks display close on the
+        // connection, and destroying the device's instance can unload it (the surface already went with the swapchain above).
+        Platform.Dispose();
         if (Options.Device is null)
         {
             _device?.Dispose();
         }
-
-        Platform.Dispose();
     }
 }
