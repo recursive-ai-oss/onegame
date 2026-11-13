@@ -119,7 +119,7 @@ public class AssetTests
             var png = Path.Combine(dir, "art", "ship.png");
             Write(png, Png8(8, 255, 0, 0), 0);
             Write(Path.Combine(dir, "data", "palette.yaml"), "name: night\ngold: 5\n", 0);
-            Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
+            Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
             using var cluster = TestCluster.Start(new AssetsGame(), new TestOptions { Width = 160, Height = 120, Gpu = GpuMode.Required });
             var c = cluster.Client;
             c.Step(3);

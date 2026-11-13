@@ -1,6 +1,6 @@
 using OneGame.Core;
-using OneGame.Gpu;
-using OneGame.Gpu.Vulkan;
+using RecursiveAI.OneGpu;
+using RecursiveAI.OneGpu.Vulkan;
 using OneGame.Render3D;
 using Scene = OneGame.Render3D.Scene3D;
 

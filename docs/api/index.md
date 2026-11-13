@@ -14,11 +14,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Control](OneGame.Control/index.md) | 1 | 60 | 528 | The control layer shared by the command line, the test API and live control. |
 | [RecursiveAI.OneGame.Core](OneGame.Core/index.md) | 2 | 71 | 574 | Entity runtime: fixed-point numbers, random streams and the attributes that declare entities. |
 | [RecursiveAI.OneGame.Gltf](OneGame.Gltf/index.md) | 1 | 62 | 371 | glTF 2.0 import: scenes, meshes, materials, skins and animations, safe on untrusted input. |
-| [RecursiveAI.OneGame.Gpu](OneGame.Gpu/index.md) | 2 | 93 | 587 | Graphics API abstraction and render graph. |
-| [RecursiveAI.OneGame.Gpu.Backends](OneGame.Gpu.Backends/index.md) | 1 | 1 | 6 | Picks the graphics backend for the machine: Metal on Apple platforms, WebGPU in a browser, Vulkan elsewhere. |
-| [RecursiveAI.OneGame.Gpu.Metal](OneGame.Gpu.Metal/index.md) | 1 | 1 | 3 | Metal backend of the graphics layer. |
-| [RecursiveAI.OneGame.Gpu.Vulkan](OneGame.Gpu.Vulkan/index.md) | 1 | 2 | 4 | Vulkan backend of the graphics layer. |
-| [RecursiveAI.OneGame.Gpu.WebGpu](OneGame.Gpu.WebGpu/index.md) | 1 | 1 | 3 | WebGPU backend of the graphics layer, for the browser. |
+| [RecursiveAI.OneGame.Gpu](OneGame.Gpu/index.md) | 1 | 16 | 117 | Render graph over the GPU layer (RecursiveAI.OneGpu). |
 | [RecursiveAI.OneGame.Host](OneGame.Host/index.md) | 1 | 70 | 582 | The game host: window, input, fixed-step simulation, UI and render stage for one game, windowed or headless. |
 | [RecursiveAI.OneGame.Live](OneGame.Live/index.md) | 1 | 3 | 12 | Development-build tools of a running game: live control over MCP, scenario runs, captures and replays. Release builds do not reference this project. |
 | [RecursiveAI.OneGame.Navigation](OneGame.Navigation/index.md) | 1 | 21 | 164 | Pathfinding for deterministic simulations: grid searches on fixed-point positions, budgeted over several ticks, and crowds with avoidance, with state that is saved, restored and hashed with the world. |

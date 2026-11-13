@@ -1,6 +1,6 @@
 using System.Numerics;
 using OneGame.Core;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Host;
 using OneGame.Platform;
 using OneGame.Platform.Tests;

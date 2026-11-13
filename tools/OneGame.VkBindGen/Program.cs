@@ -1,4 +1,4 @@
-// Generates the blittable Vulkan bindings used by OneGame.Gpu.Vulkan from the Khronos registry (vk.xml).
+// Generates the blittable Vulkan bindings used by RecursiveAI.OneGpu.Vulkan from the Khronos registry (vk.xml).
 //
 // Usage: VkBindGen <vk.xml> <api-list.txt> <output.cs>
 //
@@ -466,7 +466,7 @@ sealed class Generator
         sb.AppendLine("#pragma warning disable");
         sb.AppendLine("using System.Runtime.CompilerServices;");
         sb.AppendLine("using System.Runtime.InteropServices;");
-        sb.AppendLine("namespace OneGame.Gpu.Vulkan.Interop;");
+        sb.AppendLine("namespace RecursiveAI.OneGpu.Vulkan.Interop;");
         sb.AppendLine();
 
         foreach (var h in _reqHandles.Order(StringComparer.Ordinal))

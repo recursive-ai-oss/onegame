@@ -1,7 +1,7 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using OneGame.Control;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Host;
 using OneGame.Render2D.Tests.Shaders;
 using OneGame.UI;
@@ -41,13 +41,13 @@ public class HotReloadTests
 
             using var rig = new Rig(64, 64);
             var tex = rig.Own(rig.Renderer.CreateTexture(16, 16, Pixels.Solid(16, 16, new Color(200, 200, 200, 255)), TextureFilter.Linear));
-            var material = rig.Own(rig.Renderer.CreateMaterial(new ShaderCode(OneGame.Gpu.ShaderStage.Pixel, Ripple.PSMain.EntryPoint, Ripple.PSMain.SpirV.ToArray(), Ripple.PSMain.Msl.ToArray(), Ripple.PSMain.MslFunctionName, Ripple.PSMain.Layout), "ripple"));
+            var material = rig.Own(rig.Renderer.CreateMaterial(new ShaderCode(RecursiveAI.OneGpu.ShaderStage.Pixel, Ripple.PSMain.EntryPoint, Ripple.PSMain.SpirV.ToArray(), Ripple.PSMain.Msl.ToArray(), Ripple.PSMain.MslFunctionName, Ripple.PSMain.Layout), "ripple"));
             material.SetParameter(0, new Vector4(0, 1, 0, 0));
             material.SetParameter(1, new Vector4(0, 0, 0, 0));
 
             var registry = new HotShaders();
             registry.Register(new HotShader("ripple", path, "PSMain", Ripple.Reflection, spirv =>
-                rig.Renderer.ReplaceMaterialShader(material, new ShaderCode(OneGame.Gpu.ShaderStage.Pixel, "PSMain", spirv))));
+                rig.Renderer.ReplaceMaterialShader(material, new ShaderCode(RecursiveAI.OneGpu.ShaderStage.Pixel, "PSMain", spirv))));
             var log = new StringWriter();
             var reloader = new ShaderReloader(registry, log);
 

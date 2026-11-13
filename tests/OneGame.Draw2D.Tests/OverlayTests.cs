@@ -2,7 +2,7 @@ using Draw2DGame;
 using OneGame.Atlas;
 using OneGame.Control;
 using OneGame.Core;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Host;
 using OneGame.Render2D;
 using OneGame.Text;

@@ -84,7 +84,7 @@ public static partial class Runner
     public static async Task<string> Run(string filter)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        var device = await WebGpu.WebGpu.CreateDeviceAsync();
+        var device = await RecursiveAI.OneGpu.WebGpu.WebGpu.CreateDeviceAsync();
         GpuFixture.Shared = device;
         var buffer = new MemoryStream();
         using (var w = new Utf8JsonWriter(buffer))
@@ -123,7 +123,7 @@ public static partial class Runner
                             await task.ConfigureAwait(true);
                         }
 
-                        await WebGpu.WebGpu.SettleAsync(device).ConfigureAwait(true);
+                        await RecursiveAI.OneGpu.WebGpu.WebGpu.SettleAsync(device).ConfigureAwait(true);
                         var late = device.TakeValidationMessages();
                         if (late.Length > 0)
                         {

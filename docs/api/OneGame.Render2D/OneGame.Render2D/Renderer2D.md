@@ -41,7 +41,7 @@ public GpuDevice Device { get; }
 
 The GPU device.
 
-**Type:** [`GpuDevice`](../../OneGame.Gpu/OneGame.Gpu/GpuDevice.md)
+**Type:** `GpuDevice`
 
 ### <a id="m-framenumber"></a>FrameNumber
 
@@ -71,7 +71,7 @@ public GpuFormat TargetFormat { get; }
 
 The format of the targets this renderer draws into.
 
-**Type:** [`GpuFormat`](../../OneGame.Gpu/OneGame.Gpu/GpuFormat.md)
+**Type:** `GpuFormat`
 
 ### <a id="m-ui"></a>Ui
 
@@ -112,7 +112,7 @@ Starts a frame that draws into `target`. The target needs `RenderTarget` usage a
 
 **Parameters**
 
-- `target` ([`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)): The texture to draw into: an offscreen texture or a swapchain image.
+- `target` (`GpuTexture`): The texture to draw into: an offscreen texture or a swapchain image.
 - `options` ([`FrameOptions`](FrameOptions.md)): Per-frame settings.
 
 ### <a id="m-create-gpudevice-gpuformat-ishadersource"></a>Create(GpuDevice, GpuFormat, IShaderSource)
@@ -125,8 +125,8 @@ Makes a renderer that draws into targets of `targetFormat`.
 
 **Parameters**
 
-- `device` ([`GpuDevice`](../../OneGame.Gpu/OneGame.Gpu/GpuDevice.md)): The GPU device. It must outlive the renderer.
-- `targetFormat` ([`GpuFormat`](../../OneGame.Gpu/OneGame.Gpu/GpuFormat.md)): An sRGB colour format (`Rgba8UnormSrgb` or `Bgra8UnormSrgb`) or `Rgba16Float`: the shaders output linear light and rely on the target to encode it.
+- `device` (`GpuDevice`): The GPU device. It must outlive the renderer.
+- `targetFormat` (`GpuFormat`): An sRGB colour format (`Rgba8UnormSrgb` or `Bgra8UnormSrgb`) or `Rgba16Float`: the shaders output linear light and rely on the target to encode it.
 - `shaders` ([`IShaderSource`](IShaderSource.md)): The compiled built-in shaders.
 
 **Returns:** [`Renderer2D`](Renderer2D.md) — The renderer.
@@ -224,7 +224,7 @@ Uploads everything the frame drew and records its passes into `encoder`. Submit 
 
 **Parameters**
 
-- `encoder` ([`GpuCommandEncoder`](../../OneGame.Gpu/OneGame.Gpu/GpuCommandEncoder.md)): The command encoder to record into.
+- `encoder` (`GpuCommandEncoder`): The command encoder to record into.
 
 **Returns:** [`FrameStats`](FrameStats.md) — What the frame cost.
 
@@ -238,7 +238,7 @@ Forgets what the renderer keeps for a target texture (its constants and bind gro
 
 **Parameters**
 
-- `texture` ([`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)): The target.
+- `texture` (`GpuTexture`): The target.
 
 ### <a id="m-rebindtexture-texture2d-gputexture"></a>RebindTexture(Texture2D, GpuTexture)
 
@@ -251,7 +251,7 @@ Points a texture made by [`Renderer2D.WrapTexture()`](Renderer2D.md#m-wraptextur
 **Parameters**
 
 - `texture` ([`Texture2D`](Texture2D.md)): A texture made by [`Renderer2D.WrapTexture()`](Renderer2D.md#m-wraptexture-gputexture-texturefilter).
-- `image` ([`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)): The new image, same rules as [`Renderer2D.WrapTexture()`](Renderer2D.md#m-wraptexture-gputexture-texturefilter).
+- `image` (`GpuTexture`): The new image, same rules as [`Renderer2D.WrapTexture()`](Renderer2D.md#m-wraptexture-gputexture-texturefilter).
 
 **Exceptions**
 
@@ -305,7 +305,7 @@ Makes a texture that draws a GPU image someone else owns, such as the sampled ta
 
 **Parameters**
 
-- `texture` ([`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)): A colour 2D image created with [`TextureUsage.Sampled`](../../OneGame.Gpu/OneGame.Gpu/TextureUsage.md#m-sampled).
+- `texture` (`GpuTexture`): A colour 2D image created with `TextureUsage.Sampled`.
 - `filter` ([`TextureFilter`](TextureFilter.md)): How the image is filtered when scaled.
 
 **Returns:** [`Texture2D`](Texture2D.md) — The texture.

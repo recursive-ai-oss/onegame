@@ -1,5 +1,5 @@
 using System.Numerics;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneRender.Painting;
 
 namespace OneGame.Pages;

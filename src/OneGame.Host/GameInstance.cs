@@ -1,10 +1,10 @@
 using System.Threading.Tasks;
 using System.Diagnostics;
 using OneGame.Core;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Gpu.Graph;
 using OneGame.Atlas;
-using OneGame.Gpu.Vulkan;
+using RecursiveAI.OneGpu.Vulkan;
 using OneGame.Render2D;
 using OneGame.Text;
 using OneGame.Platform;
@@ -1005,6 +1005,7 @@ public sealed partial class GameInstance : IDisposable
         }
         try
         {
+            LegacyGpuEnvironment.Apply();
             if (!GpuBackends.IsAvailable)
             {
                 throw new GpuUnsupportedException(GpuBackends.UnavailableReason);
@@ -1012,7 +1013,7 @@ public sealed partial class GameInstance : IDisposable
 
             _device = GpuBackends.CreateDevice(new GpuDeviceOptions
             {
-                Validation = Environment.GetEnvironmentVariable("ONEGAME_GPU_VALIDATION") == "1",
+                Validation = Environment.GetEnvironmentVariable("ONEGPU_VALIDATION") == "1",
                 ApplicationName = Definition.Name,
             });
         }

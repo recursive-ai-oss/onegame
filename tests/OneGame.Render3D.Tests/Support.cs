@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using OneGame.Gltf;
-using OneGame.Gpu;
-using OneGame.Gpu.Vulkan;
+using RecursiveAI.OneGpu;
+using RecursiveAI.OneGpu.Vulkan;
 
 // Each test makes its own GPU device; real drivers are not happy with several being created and destroyed at once.
 [assembly: CollectionBehavior(CollectionBehavior.CollectionPerAssembly)]

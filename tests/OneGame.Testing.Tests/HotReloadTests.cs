@@ -31,11 +31,11 @@ public sealed class GlowGame : ShopGame
             var pixels = new byte[8 * 8 * 4];
             Array.Fill(pixels, (byte)255);
             _texture = renderer.CreateTexture(8, 8, pixels);
-            _material = renderer.CreateMaterial(new ShaderCode(OneGame.Gpu.ShaderStage.Pixel, Glow.PSMain.EntryPoint, Glow.PSMain.SpirV.ToArray(), Glow.PSMain.Msl.ToArray(), Glow.PSMain.MslFunctionName, Glow.PSMain.Layout), "glow");
+            _material = renderer.CreateMaterial(new ShaderCode(RecursiveAI.OneGpu.ShaderStage.Pixel, Glow.PSMain.EntryPoint, Glow.PSMain.SpirV.ToArray(), Glow.PSMain.Msl.ToArray(), Glow.PSMain.MslFunctionName, Glow.PSMain.Layout), "glow");
             _material.SetParameter(0, new Vector4(1, 0, 0, 1));
             var material = _material;
             HotShaders.Register(new HotShader("glow", ShaderPath, Glow.PSMain.EntryPoint, Glow.Reflection, spirv =>
-                renderer.ReplaceMaterialShader(material, new ShaderCode(OneGame.Gpu.ShaderStage.Pixel, Glow.PSMain.EntryPoint, spirv))));
+                renderer.ReplaceMaterialShader(material, new ShaderCode(RecursiveAI.OneGpu.ShaderStage.Pixel, Glow.PSMain.EntryPoint, spirv))));
         }
 
         protected override void DrawOverUi(Renderer2D renderer, in FrameInfo frame)
@@ -84,7 +84,7 @@ public class HotReloadTests
             var original = GlowSource();
             Write(path, original, 0);
             GlowGame.ShaderPath = path;
-            Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
+            Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
             using var cluster = TestCluster.Start(new GlowGame(), new TestOptions { Width = 160, Height = 120, Gpu = GpuMode.Required });
             var c = cluster.Client;
             c.Step(3);

@@ -9,7 +9,7 @@ step() { printf '\n== %s\n' "$*"; }
 
 pack_feed() {
   local repo=$1 work=$2 project wrong
-  version=$(sed -n 's|.*<Version>\(1\.[^<]*\)</Version>.*|\1|p' "$repo/Directory.Build.props" | head -1)
+  version=$(sed -n 's|.*<Version>\([1-9][0-9]*\.[^<]*\)</Version>.*|\1|p' "$repo/Directory.Build.props" | head -1)
   [ -n "$version" ] || { echo "cannot read the engine version from Directory.Build.props"; return 1; }
   step "pack every packable project under src/ (version $version)"
   (cd "$repo" && for project in src/*/*.csproj; do

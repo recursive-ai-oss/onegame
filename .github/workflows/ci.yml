@@ -37,7 +37,7 @@ jobs:
     timeout-minutes: 90
     env:
       # Software Vulkan (lavapipe) is deterministic and needs no GPU; the validation layer reports misuse.
-      ONEGAME_GPU_VALIDATION: '1'
+      ONEGPU_VALIDATION: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -112,7 +112,7 @@ jobs:
       - name: Run AOT smoke app
         if: ${{ !cancelled() }}
         env:
-          ONEGAME_GPU_ADAPTER: software
+          ONEGPU_ADAPTER: software
         run: '"$RUNNER_TEMP/smoke/OneGame.AotSmoke"'
 
       - name: Publish the onegame command (warnings are errors)
@@ -125,26 +125,26 @@ jobs:
       - name: Solitaire scenarios
         if: ${{ !cancelled() }}
         env:
-          ONEGAME_GPU_ADAPTER: software
+          ONEGPU_ADAPTER: software
         run: bash tools/ci/scenarios.sh "$RUNNER_TEMP/cli/onegame" samples/solitaire "$OUT/hashes" --no-unit
 
       - name: Lanterns scenarios
         if: ${{ !cancelled() }}
         env:
-          ONEGAME_GPU_ADAPTER: software
+          ONEGPU_ADAPTER: software
         run: bash tools/ci/scenarios.sh "$RUNNER_TEMP/cli/onegame" samples/lanterns "$OUT/hashes" --no-unit
 
       - name: Lanterns process cluster
         if: ${{ !cancelled() }}
         env:
-          ONEGAME_GPU_ADAPTER: software
+          ONEGPU_ADAPTER: software
         run: bash tools/ci/lanterns-cluster.sh "$RUNNER_TEMP/cli/onegame" "$OUT/cluster"
 
       # The examples gallery: every example's scenarios, and the networked one on a cluster of three processes.
       - name: Examples
         if: ${{ !cancelled() }}
         env:
-          ONEGAME_GPU_ADAPTER: software
+          ONEGPU_ADAPTER: software
         run: bash tools/ci/examples.sh "$RUNNER_TEMP/cli/onegame" "$OUT/examples"
 
       # Baked root motion is fixed-point data made from floats at load time: the numbers must not depend on the CPU or runtime.
@@ -163,7 +163,7 @@ jobs:
         if: ${{ !cancelled() }}
         timeout-minutes: 20
         env:
-          ONEGAME_GPU_ADAPTER: software
+          ONEGPU_ADAPTER: software
         run: python tools/hot-reload/check.py --onegame "$RUNNER_TEMP/cli/onegame" --engine "$GITHUB_WORKSPACE" --work "$RUNNER_TEMP/hot"
 
       # The shipped program: NativeAOT, no development tools, started headless; its world hash is compared across systems below.
@@ -176,7 +176,7 @@ jobs:
         if: ${{ !cancelled() }}
         timeout-minutes: 20
         env:
-          ONEGAME_GPU_ADAPTER: software
+          ONEGPU_ADAPTER: software
         run: bash tools/ci/export-dev-live.sh "$RUNNER_TEMP/cli/onegame" ${{ matrix.rid }} "$OUT/devexport"
 
       - name: Export with the Steam library

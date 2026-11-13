@@ -38,17 +38,17 @@ Declares what one pass touches. Only valid inside [`IGraphPass.Setup()`](IGraphP
 public void ColorTarget(GraphTexture target, LoadOp load = 1, float r = 0f, float g = 0f, float b = 0f, float a = 1f, StoreOp store = 0, uint mip = 0, uint layer = 0, GraphTexture resolve = default);
 ```
 
-Renders into a color target (slot order is declaration order, up to 8). With [`LoadOp.Load`](../OneGame.Gpu/LoadOp.md#m-load) the pass also reads the target, so an earlier pass must have written it.
+Renders into a color target (slot order is declaration order, up to 8). With `LoadOp.Load` the pass also reads the target, so an earlier pass must have written it.
 
 **Parameters**
 
 - `target` ([`GraphTexture`](GraphTexture.md)): The texture.
-- `load` ([`LoadOp`](../OneGame.Gpu/LoadOp.md)): What happens to its contents when the pass starts.
+- `load` (`LoadOp`): What happens to its contents when the pass starts.
 - `r` (`float`): Clear red.
 - `g` (`float`): Clear green.
 - `b` (`float`): Clear blue.
 - `a` (`float`): Clear alpha.
-- `store` ([`StoreOp`](../OneGame.Gpu/StoreOp.md)): Whether the result is kept; [`StoreOp.Discard`](../OneGame.Gpu/StoreOp.md#m-discard) is for multisampled targets that are only resolved.
+- `store` (`StoreOp`): Whether the result is kept; `StoreOp.Discard` is for multisampled targets that are only resolved.
 - `mip` (`uint`): Mip level rendered into.
 - `layer` (`uint`): Array layer or cube face rendered into.
 - `resolve` ([`GraphTexture`](GraphTexture.md)): A single-sample texture that receives the resolved image of a multisampled `target`.
@@ -103,14 +103,14 @@ The pass copies from the texture.
 public void DepthTarget(GraphTexture target, LoadOp load = 1, float clearDepth = 1f, StoreOp store = 0, uint mip = 0, uint layer = 0);
 ```
 
-Renders with a depth target (one per pass). With [`LoadOp.Load`](../OneGame.Gpu/LoadOp.md#m-load) the pass also reads it.
+Renders with a depth target (one per pass). With `LoadOp.Load` the pass also reads it.
 
 **Parameters**
 
 - `target` ([`GraphTexture`](GraphTexture.md)): A depth texture.
-- `load` ([`LoadOp`](../OneGame.Gpu/LoadOp.md)): What happens to its contents when the pass starts.
+- `load` (`LoadOp`): What happens to its contents when the pass starts.
 - `clearDepth` (`float`): Depth to clear to.
-- `store` ([`StoreOp`](../OneGame.Gpu/StoreOp.md)): Whether the result is kept (shadow maps keep it; a scene's depth buffer may discard it).
+- `store` (`StoreOp`): Whether the result is kept (shadow maps keep it; a scene's depth buffer may discard it).
 - `mip` (`uint`): Mip level rendered into.
 - `layer` (`uint`): Array layer rendered into (a shadow cascade).
 

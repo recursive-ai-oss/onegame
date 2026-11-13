@@ -159,7 +159,7 @@ public class HarnessTests
     [Fact]
     public void TheScenarioStepsAndCapturesAtFixedPointsPass()
     {
-        Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
+        Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
         using var cluster = Start(gpu: GpuMode.Required);
         var update = Environment.GetEnvironmentVariable("ONEGAME_UPDATE_REFERENCES") == "1";
         var result = cluster.Run(Path.Combine(Scenarios, "01-toggle.yaml"), new ScenarioRunOptions { BaseDirectory = Scenarios, ArtifactsDirectory = Path.Combine(cluster.OutputDirectory, "art"), UpdateReferences = update });

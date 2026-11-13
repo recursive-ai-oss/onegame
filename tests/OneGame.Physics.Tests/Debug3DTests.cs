@@ -1,6 +1,6 @@
 using OneGame.Control;
 using OneGame.Core;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Host;
 using OneGame.Render3D;
 using Physics3DExample;

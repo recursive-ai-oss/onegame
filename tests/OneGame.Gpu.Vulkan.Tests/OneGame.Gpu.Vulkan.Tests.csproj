@@ -15,7 +15,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/OneGame.Gpu.Backends/OneGame.Gpu.Backends.csproj" />
+    <ProjectReference Include="../../src/OneGame.Gpu/OneGame.Gpu.csproj" />
+    <PackageReference Include="RecursiveAI.OneGpu.Backends" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- These tests are in the OneGame.Gpu.Vulkan namespace, which used to contain the GPU types. -->
+    <Using Include="RecursiveAI.OneGpu" />
   </ItemGroup>
 
 </Project>

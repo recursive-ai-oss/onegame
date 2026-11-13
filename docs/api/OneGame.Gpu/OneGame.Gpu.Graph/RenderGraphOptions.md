@@ -28,7 +28,7 @@ public RenderGraphOptions();
 | Member | Description |
 | --- | --- |
 | [`KeepUnusedFrames`](#m-keepunusedframes) | How many frames a pooled texture or buffer may sit unused before it is released. |
-| [`Timing`](#m-timing) | Measure GPU time per pass when the device can ([`GpuCapabilities.Timestamps`](../OneGame.Gpu/GpuCapabilities.md#m-timestamps)). |
+| [`Timing`](#m-timing) | Measure GPU time per pass when the device can (`GpuCapabilities.Timestamps`). |
 
 ### <a id="m-keepunusedframes"></a>KeepUnusedFrames
 
@@ -46,6 +46,6 @@ How many frames a pooled texture or buffer may sit unused before it is released.
 public bool Timing { get; init; }
 ```
 
-Measure GPU time per pass when the device can ([`GpuCapabilities.Timestamps`](../OneGame.Gpu/GpuCapabilities.md#m-timestamps)). On by default.
+Measure GPU time per pass when the device can (`GpuCapabilities.Timestamps`). On by default.
 
 **Type:** `bool`

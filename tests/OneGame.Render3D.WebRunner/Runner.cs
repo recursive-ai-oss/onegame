@@ -3,8 +3,8 @@ using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
 using OneGame.Gltf;
-using OneGame.Gpu;
-using OneGame.Gpu.WebGpu;
+using RecursiveAI.OneGpu;
+using RecursiveAI.OneGpu.WebGpu;
 
 namespace OneGame.Render3D.Tests;
 

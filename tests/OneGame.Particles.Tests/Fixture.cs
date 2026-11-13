@@ -17,7 +17,7 @@ internal static class Fixture
     public static TestCluster Start(bool threeD)
     {
         // The Vulkan validation layer must stay silent through every frame these tests draw.
-        Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
+        Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
         return TestCluster.Start(new ParticleGameDefinition(threeD), new TestOptions { Width = 480, Height = 270, Gpu = GpuMode.Required });
     }
 

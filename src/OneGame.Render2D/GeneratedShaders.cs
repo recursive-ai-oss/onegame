@@ -1,4 +1,4 @@
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Render2D.Shaders;
 
 namespace OneGame.Render2D;
@@ -31,10 +31,10 @@ public sealed class GeneratedShaders : IShaderSource
     private static ShaderCode Code(OneShader.ShaderStage stage, string entry, ReadOnlySpan<byte> spirv, ReadOnlySpan<byte> msl, string mslName, OneShader.Layouts.EntryLayout layout, ReadOnlySpan<byte> wgsl, string wgslName) =>
         new(Map(stage), entry, spirv.ToArray(), msl.ToArray(), mslName, layout, wgsl.ToArray(), wgslName);
 
-    private static OneGame.Gpu.ShaderStage Map(OneShader.ShaderStage stage) => stage switch
+    private static RecursiveAI.OneGpu.ShaderStage Map(OneShader.ShaderStage stage) => stage switch
     {
-        OneShader.ShaderStage.Vertex => OneGame.Gpu.ShaderStage.Vertex,
-        OneShader.ShaderStage.Pixel => OneGame.Gpu.ShaderStage.Pixel,
-        _ => OneGame.Gpu.ShaderStage.Compute,
+        OneShader.ShaderStage.Vertex => RecursiveAI.OneGpu.ShaderStage.Vertex,
+        OneShader.ShaderStage.Pixel => RecursiveAI.OneGpu.ShaderStage.Pixel,
+        _ => RecursiveAI.OneGpu.ShaderStage.Compute,
     };
 }

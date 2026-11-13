@@ -114,10 +114,10 @@ Adds passes that draw into the target before the 2D renderer and the UI, for a s
 
 **Parameters**
 
-- `device` ([`GpuDevice`](../../OneGame.Gpu/OneGame.Gpu/GpuDevice.md)): The graphics device.
+- `device` (`GpuDevice`): The graphics device.
 - `graph` ([`RenderGraph`](../../OneGame.Gpu/OneGame.Gpu.Graph/RenderGraph.md)): The frame's render graph, already begun.
 - `target` ([`GraphTexture`](../../OneGame.Gpu/OneGame.Gpu.Graph/GraphTexture.md)): The target as a graph resource.
-- `targetTexture` ([`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)): The target texture.
+- `targetTexture` (`GpuTexture`): The target texture.
 - `frame` ([`FrameInfo`](FrameInfo.md)): The frame being drawn.
 
 **Returns:** `bool`

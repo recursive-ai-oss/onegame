@@ -29,16 +29,16 @@
     <Compile Include="$(Shared)FeatureTests.cs;$(Shared)RenderTests.cs;$(Shared)GraphTests.cs;$(Shared)Png.cs;$(Shared)ReadHelpers.cs" />
     <OneShader Include="$(Shared)Shaders/*.hlsl" Exclude="$(Shared)Shaders/TextureArray.hlsl" Targets="SpirV;Msl;Wgsl" />
     <EmbeddedResource Include="../../testdata/gpu/*.png" LogicalName="golden/%(Filename)%(Extension)" />
-    <Content Include="../../src/OneGame.Gpu.WebGpu/js/onegame-gpu.js" Link="wwwroot/onegame-gpu.js" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="RecursiveAI.OneShader.Build" />
     <Using Include="Xunit" />
+    <Using Include="RecursiveAI.OneGpu" />
     <PackageReference Include="xunit.v3.assert" />
     <PackageReference Include="xunit.v3.extensibility.core" />
     <ProjectReference Include="../../src/OneGame.Gpu/OneGame.Gpu.csproj" />
-    <ProjectReference Include="../../src/OneGame.Gpu.WebGpu/OneGame.Gpu.WebGpu.csproj" />
+    <PackageReference Include="RecursiveAI.OneGpu.WebGpu" />
   </ItemGroup>
 
 </Project>

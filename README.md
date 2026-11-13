@@ -53,6 +53,8 @@ onegame export --target linux                      # or win, osx: a NativeAOT bu
 
 `onegame new` writes a project on the `RecursiveAI.OneGame.Sdk` MSBuild SDK, which brings the engine libraries, the analyzers, the development tools of Debug builds and the export targets from nuget.org, at the same version as the tool. Add `--server` for a dedicated-server project beside the game, with a server plugin project. Web, Android (including Play Billing), iOS and plugin-server exports work from packages too.
 
+**Coming from 1.x:** version 2.0 moved the GPU device layer to the `RecursiveAI.OneGpu` packages. Games that use the engine's own APIs need no change; code that names GPU types changes a `using`. See [docs/migrating-to-2.0.md](docs/migrating-to-2.0.md).
+
 **Working on the engine:** clone this repository, `dotnet build OneGame.slnx`, and create games against it with `dotnet run --project src/OneGame.Cli -- new mygame --dir ../mygame --engine .` (or set `ONEGAME_ROOT` to the checkout). Such a game references the engine's projects instead of packages.
 
 Then read, in order:

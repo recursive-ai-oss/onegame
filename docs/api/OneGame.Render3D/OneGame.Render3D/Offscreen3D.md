@@ -32,7 +32,7 @@ Creates a target of `width` x `height` pixels.
 - `renderer` ([`Renderer3D`](Renderer3D.md)): The renderer to draw with.
 - `width` (`int`): Width in pixels.
 - `height` (`int`): Height in pixels.
-- `format` ([`GpuFormat`](../../OneGame.Gpu/OneGame.Gpu/GpuFormat.md)): `Rgba8UnormSrgb` (default), `Rgba8Unorm` or `Rgba16Float`.
+- `format` (`GpuFormat`): `Rgba8UnormSrgb` (default), `Rgba8Unorm` or `Rgba16Float`.
 
 ### <a id="m-ctor-renderer3d-int-int-gpuformat-bool"></a>Offscreen3D(Renderer3D, int, int, GpuFormat, bool)
 
@@ -47,7 +47,7 @@ Creates a target that materials can sample: the way to show one view inside anot
 - `renderer` ([`Renderer3D`](Renderer3D.md)): The renderer to draw with (the same one that draws the main scene).
 - `width` (`int`): Width in pixels.
 - `height` (`int`): Height in pixels.
-- `format` ([`GpuFormat`](../../OneGame.Gpu/OneGame.Gpu/GpuFormat.md)): `Rgba8UnormSrgb` (so sampling returns linear light), `Rgba8Unorm` or `Rgba16Float`.
+- `format` (`GpuFormat`): `Rgba8UnormSrgb` (so sampling returns linear light), `Rgba8Unorm` or `Rgba16Float`.
 - `sampled` (`bool`): True to allow shaders to sample [`Offscreen3D.Target`](Offscreen3D.md#m-target).
 
 ## Properties
@@ -68,7 +68,7 @@ public GpuFormat Format { get; }
 
 Format of [`Offscreen3D.Target`](Offscreen3D.md#m-target).
 
-**Type:** [`GpuFormat`](../../OneGame.Gpu/OneGame.Gpu/GpuFormat.md)
+**Type:** `GpuFormat`
 
 ### <a id="m-graph"></a>Graph
 
@@ -98,7 +98,7 @@ public GpuTexture Target { get; }
 
 The image that was drawn.
 
-**Type:** [`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)
+**Type:** `GpuTexture`
 
 ### <a id="m-width"></a>Width
 

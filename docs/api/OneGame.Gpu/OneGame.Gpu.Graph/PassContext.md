@@ -30,7 +30,7 @@ public GpuComputePass Compute { get; }
 
 The compute pass the graph opened for a pass that called [`PassBuilder.Compute()`](PassBuilder.md#m-compute). Do not end it.
 
-**Type:** [`GpuComputePass`](../OneGame.Gpu/GpuComputePass.md)
+**Type:** `GpuComputePass`
 
 ### <a id="m-device"></a>Device
 
@@ -40,7 +40,7 @@ public GpuDevice Device { get; }
 
 The device.
 
-**Type:** [`GpuDevice`](../OneGame.Gpu/GpuDevice.md)
+**Type:** `GpuDevice`
 
 ### <a id="m-encoder"></a>Encoder
 
@@ -50,7 +50,7 @@ public GpuCommandEncoder Encoder { get; }
 
 The encoder everything records into. Use it directly in a custom pass (copies, mip generation, or a renderer that opens its own render passes). In a raster or compute pass the graph has a pass open already; use [`PassContext.Render`](PassContext.md#m-render) or [`PassContext.Compute`](PassContext.md#m-compute).
 
-**Type:** [`GpuCommandEncoder`](../OneGame.Gpu/GpuCommandEncoder.md)
+**Type:** `GpuCommandEncoder`
 
 ### <a id="m-frame"></a>Frame
 
@@ -80,7 +80,7 @@ public GpuRenderPass Render { get; }
 
 The render pass the graph opened for a pass that declared targets. Do not end it; the graph does.
 
-**Type:** [`GpuRenderPass`](../OneGame.Gpu/GpuRenderPass.md)
+**Type:** `GpuRenderPass`
 
 ## Methods
 
@@ -101,7 +101,7 @@ The buffer behind a handle. The pass must have declared it.
 
 - `handle` ([`GraphBuffer`](GraphBuffer.md))
 
-**Returns:** [`GpuBuffer`](../OneGame.Gpu/GpuBuffer.md)
+**Returns:** `GpuBuffer`
 
 **Exceptions**
 
@@ -119,7 +119,7 @@ The texture behind a handle. The pass must have declared it.
 
 - `handle` ([`GraphTexture`](GraphTexture.md))
 
-**Returns:** [`GpuTexture`](../OneGame.Gpu/GpuTexture.md)
+**Returns:** `GpuTexture`
 
 **Exceptions**
 

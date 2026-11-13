@@ -28,7 +28,7 @@ One compiled shader stage: SPIR-V (and, for Metal, Metal Shading Language) and t
 
 **Parameters**
 
-- `Stage` ([`ShaderStage`](../../OneGame.Gpu/OneGame.Gpu/ShaderStage.md)): The pipeline stage.
+- `Stage` (`ShaderStage`): The pipeline stage.
 - `EntryPoint` (`string`): The entry point function name in the SPIR-V module.
 - `SpirV` ([`ReadOnlyMemory`](https://learn.microsoft.com/dotnet/api/system.readonlymemory-1)`<byte>`): The SPIR-V words as bytes. The renderer reads it while creating pipelines and does not keep it.
 - `Msl` ([`ReadOnlyMemory`](https://learn.microsoft.com/dotnet/api/system.readonlymemory-1)`<byte>`): UTF-8 Metal Shading Language source, needed on Metal. Empty for shaders that only run on Vulkan.
@@ -108,7 +108,7 @@ public ShaderStage Stage { get; init; }
 
 The pipeline stage.
 
-**Type:** [`ShaderStage`](../../OneGame.Gpu/OneGame.Gpu/ShaderStage.md)
+**Type:** `ShaderStage`
 
 ### <a id="m-wgsl"></a>Wgsl
 
@@ -144,4 +144,4 @@ public ShaderSource ToSource();
 
 The form the graphics layer takes to create a shader on any backend.
 
-**Returns:** [`ShaderSource`](../../OneGame.Gpu/OneGame.Gpu/ShaderSource.md)
+**Returns:** `ShaderSource`

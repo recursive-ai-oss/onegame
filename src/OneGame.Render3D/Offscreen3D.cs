@@ -1,5 +1,5 @@
 using System.Threading.Tasks;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Gpu.Graph;
 
 namespace OneGame.Render3D;

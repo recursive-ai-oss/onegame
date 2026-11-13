@@ -4,6 +4,20 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+The GPU device layer moves to the standalone `RecursiveAI.OneGpu` 1.0.0 packages. This is a major release; [docs/migrating-to-2.0.md](docs/migrating-to-2.0.md) lists what a 1.x game changes.
+
+### Changed (breaking)
+
+- The device layer (`GpuDevice`, buffers, textures, pipelines, encoders, `ShaderSource`, `GpuBackends` and the Vulkan, Metal and WebGPU backends) is in `RecursiveAI.OneGpu`, `RecursiveAI.OneGpu.Backends`, `.Vulkan`, `.Metal` and `.WebGpu`; namespaces are `RecursiveAI.OneGpu` and `RecursiveAI.OneGpu.Vulkan` and so on. Type names are unchanged. `RecursiveAI.OneGame.Gpu` keeps only the render graph (`OneGame.Gpu.Graph`).
+- The packages `RecursiveAI.OneGame.Gpu.Backends`, `.Vulkan`, `.Metal` and `.WebGpu` are no longer produced (32 packages become 28).
+- `GpuModule.Name` and `VulkanModule.Name` are removed; `GpuDeviceOptions.ApplicationName` defaults to `"onegpu"`.
+- Web: the WebGPU script is `onegpu.js` (module `onegpu`), published by the `RecursiveAI.OneGpu.WebGpu` package at `_content/RecursiveAI.OneGpu.WebGpu/onegpu.js` instead of being copied by the export. Custom pages register it as `onegpu`.
+
+### Changed
+
+- GPU environment variables are `ONEGPU_VALIDATION`, `ONEGPU_ADAPTER`, `ONEGPU_BACKEND`, `ONEGPU_VALIDATION_OPTIONAL` and `ONEGPU_VULKAN_LIBRARY`. The old `ONEGAME_*` names are still honoured by games and `onegame view`: they are copied to the new names before the first device is created.
+- Vulkan devices share one instance per process, and validation messages are collected per device.
+
 ### Added
 
 - `onegame export --target linux-x64|win-x64|osx --dev`: a desktop export with the development tools (live control, `--live`), as the Android and iOS exports have. The folder gets a `-dev` suffix and the result says `devTools: true`. Release exports are unchanged.

@@ -2,7 +2,7 @@ using System.Numerics;
 using System.Text.Json;
 using OneGame.Control;
 using OneGame.Core;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Host;
 using OneGame.Render3D;
 using OneGame.UI;

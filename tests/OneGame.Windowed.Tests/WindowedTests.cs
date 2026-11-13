@@ -12,20 +12,20 @@ namespace OneGame.Windowed.Tests;
 /// <summary>A windowed game on a real display server, driven through the control layer like an agent would.</summary>
 internal sealed class Session : IDisposable
 {
-    public Session(PlatformBackendKind backend, string display, OneGame.Gpu.PresentMode presentMode = OneGame.Gpu.PresentMode.Vsync, GameDefinition? game = null)
+    public Session(PlatformBackendKind backend, string display, RecursiveAI.OneGpu.PresentMode presentMode = RecursiveAI.OneGpu.PresentMode.Vsync, GameDefinition? game = null)
     {
         // The software rasterizer is deterministic and needs no display hardware; the validation layer reports anything the game does wrong.
         // A machine that has only a real GPU (a laptop) names its adapter in ONEGAME_WINDOWED_ADAPTER instead.
         if (Environment.GetEnvironmentVariable("ONEGAME_WINDOWED_ADAPTER") is { Length: > 0 } chosen)
         {
-            Environment.SetEnvironmentVariable("ONEGAME_GPU_ADAPTER", chosen);
+            Environment.SetEnvironmentVariable("ONEGPU_ADAPTER", chosen);
         }
         else if (backend != PlatformBackendKind.Cocoa)
         {
-            Environment.SetEnvironmentVariable("ONEGAME_GPU_ADAPTER", "software");
+            Environment.SetEnvironmentVariable("ONEGPU_ADAPTER", "software");
         }
 
-        Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
+        Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
         OutputDirectory = Path.Combine(Path.GetTempPath(), "onegame-windowed-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(OutputDirectory);
         Game = GameInstance.Create(
@@ -478,7 +478,7 @@ public sealed class WestonWindowedTests : WindowedTests, IClassFixture<WestonFix
         Assert.SkipUnless(_weston.Available, "weston is not installed");
 
         // Low-latency presentation does not wait for frame callbacks, so a stalled compositor shows up where the swapchain waits for a free image.
-        using var s = new Session(PlatformBackendKind.Wayland, _weston.SocketPath!, OneGame.Gpu.PresentMode.LowLatency);
+        using var s = new Session(PlatformBackendKind.Wayland, _weston.SocketPath!, RecursiveAI.OneGpu.PresentMode.LowLatency);
         s.StepUntil(() => s.Game.PresentedFrames >= 5);
         var thawed = false;
         _weston.Freeze(true);
@@ -523,7 +523,7 @@ public sealed class WestonHiddenWindowTests
         using var weston = new WestonFixture();
         Assert.SkipUnless(weston.Available, "weston is not installed");
 
-        using var s = new Session(PlatformBackendKind.Wayland, weston.SocketPath!, OneGame.Gpu.PresentMode.Vsync);
+        using var s = new Session(PlatformBackendKind.Wayland, weston.SocketPath!, RecursiveAI.OneGpu.PresentMode.Vsync);
         var frozen = false;
         var thawed = false;
         using var watchdog = new Timer(_ =>
@@ -570,7 +570,7 @@ public sealed class WestonHiddenWindowTests
         using var weston = new WestonFixture();
         Assert.SkipUnless(weston.Available, "weston is not installed");
 
-        using var s = new Session(PlatformBackendKind.Wayland, weston.SocketPath!, OneGame.Gpu.PresentMode.Vsync);
+        using var s = new Session(PlatformBackendKind.Wayland, weston.SocketPath!, RecursiveAI.OneGpu.PresentMode.Vsync);
         var clock = System.Diagnostics.Stopwatch.StartNew();
         var start = s.Game.World.Tick;
         var presented = s.Game.PresentedFrames;

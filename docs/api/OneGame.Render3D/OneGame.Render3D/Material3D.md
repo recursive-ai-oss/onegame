@@ -189,4 +189,4 @@ Replaces one texture of this material, for example with the target of an [`Offsc
 **Parameters**
 
 - `slot` ([`MaterialSlot3D`](MaterialSlot3D.md)): Which texture to replace.
-- `texture` ([`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)): A texture with [`TextureUsage.Sampled`](../../OneGame.Gpu/OneGame.Gpu/TextureUsage.md#m-sampled).
+- `texture` (`GpuTexture`): A texture with `TextureUsage.Sampled`.

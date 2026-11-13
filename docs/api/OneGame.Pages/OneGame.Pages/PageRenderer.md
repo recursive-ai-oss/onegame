@@ -62,8 +62,8 @@ Creates a renderer for targets of one format.
 
 **Parameters**
 
-- `device` ([`GpuDevice`](../../OneGame.Gpu/OneGame.Gpu/GpuDevice.md)): The device.
-- `targetFormat` ([`GpuFormat`](../../OneGame.Gpu/OneGame.Gpu/GpuFormat.md)): The format of the targets pages are drawn onto; an sRGB format.
+- `device` (`GpuDevice`): The device.
+- `targetFormat` (`GpuFormat`): The format of the targets pages are drawn onto; an sRGB format.
 - `glyphs` ([`GlyphAtlas`](../../OneGame.Text/OneGame.Text/GlyphAtlas.md)): The game's glyph atlas; the renderer registers OneRender's font faces in it.
 - `art` ([`ArtAtlas`](../../OneGame.Atlas/OneGame.Atlas/ArtAtlas.md)): The game's art atlas, which holds page images and SVG.
 
