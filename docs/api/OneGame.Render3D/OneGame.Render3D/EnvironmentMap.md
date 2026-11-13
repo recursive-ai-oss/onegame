@@ -41,7 +41,7 @@ public GpuTexture Irradiance { get; }
 
 The diffuse cube: mean radiance over the cosine-weighted hemisphere, that is irradiance divided by pi (`Rgba16Float`).
 
-**Type:** [`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)
+**Type:** `GpuTexture`
 
 ### <a id="m-isbuilt"></a>IsBuilt
 
@@ -71,7 +71,7 @@ public GpuTexture Specular { get; }
 
 The prefiltered specular cube (`Rgba16Float`, six faces, full mip chain).
 
-**Type:** [`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)
+**Type:** `GpuTexture`
 
 ### <a id="m-specularmipcount"></a>SpecularMipCount
 

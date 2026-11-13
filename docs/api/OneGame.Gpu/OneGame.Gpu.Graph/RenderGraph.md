@@ -36,7 +36,7 @@ Creates a graph that records on `device`.
 
 **Parameters**
 
-- `device` ([`GpuDevice`](../OneGame.Gpu/GpuDevice.md))
+- `device` (`GpuDevice`)
 - `options` ([`RenderGraphOptions`](RenderGraphOptions.md)?)
 
 ## Properties
@@ -57,7 +57,7 @@ public GpuDevice Device { get; }
 
 The device the graph records on.
 
-**Type:** [`GpuDevice`](../OneGame.Gpu/GpuDevice.md)
+**Type:** `GpuDevice`
 
 ### <a id="m-executecpumicroseconds"></a>ExecuteCpuMicroseconds
 
@@ -186,7 +186,7 @@ Declares a texture the graph allocates for this frame. It may share memory with 
 **Parameters**
 
 - `name` (`string`)
-- `desc` ([`TextureDesc`](../OneGame.Gpu/TextureDesc.md))
+- `desc` (`TextureDesc`)
 
 **Returns:** [`GraphTexture`](GraphTexture.md)
 
@@ -231,7 +231,7 @@ Brings a buffer the graph does not own into this frame.
 **Parameters**
 
 - `name` (`string`)
-- `buffer` ([`GpuBuffer`](../OneGame.Gpu/GpuBuffer.md))
+- `buffer` (`GpuBuffer`)
 
 **Returns:** [`GraphBuffer`](GraphBuffer.md)
 
@@ -246,7 +246,7 @@ Brings a texture the graph does not own into this frame: a swapchain image, a ca
 **Parameters**
 
 - `name` (`string`)
-- `texture` ([`GpuTexture`](../OneGame.Gpu/GpuTexture.md))
+- `texture` (`GpuTexture`)
 
 **Returns:** [`GraphTexture`](GraphTexture.md)
 

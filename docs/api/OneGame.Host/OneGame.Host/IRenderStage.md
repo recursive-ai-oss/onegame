@@ -81,7 +81,7 @@ The host is about to destroy a target (a capture texture, or all swapchain image
 
 **Parameters**
 
-- `only` ([`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)?)
+- `only` (`GpuTexture?`)
 
 ### <a id="m-render-gpudevice-gputexture-frameinfo"></a>Render(GpuDevice, GpuTexture, in FrameInfo)
 
@@ -93,8 +93,8 @@ Records and submits the draw for one frame into `target` (a swapchain image or a
 
 **Parameters**
 
-- `device` ([`GpuDevice`](../../OneGame.Gpu/OneGame.Gpu/GpuDevice.md))
-- `target` ([`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md))
+- `device` (`GpuDevice`)
+- `target` (`GpuTexture`)
 - `frame` ([`FrameInfo`](FrameInfo.md))
 
 ### <a id="m-rendertopixels-span-byte-frameinfo"></a>RenderToPixels(Span&lt;byte&gt;, in FrameInfo)

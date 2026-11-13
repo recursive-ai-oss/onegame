@@ -47,7 +47,7 @@ Creates a renderer on a device.
 
 **Parameters**
 
-- `device` ([`GpuDevice`](../../OneGame.Gpu/OneGame.Gpu/GpuDevice.md)): The graphics device. It must outlive the renderer.
+- `device` (`GpuDevice`): The graphics device. It must outlive the renderer.
 
 ## Fields
 
@@ -70,7 +70,7 @@ public const GpuFormat DepthFormat = 13;
 
 Format of the depth buffer.
 
-**Type:** [`GpuFormat`](../../OneGame.Gpu/OneGame.Gpu/GpuFormat.md)
+**Type:** `GpuFormat`
 
 ### <a id="m-depthslices"></a>DepthSlices
 
@@ -90,7 +90,7 @@ public const GpuFormat HdrFormat = 8;
 
 Format of the HDR image the scene is lit into.
 
-**Type:** [`GpuFormat`](../../OneGame.Gpu/OneGame.Gpu/GpuFormat.md)
+**Type:** `GpuFormat`
 
 ### <a id="m-maxlights"></a>MaxLights
 
@@ -160,7 +160,7 @@ public GpuTexture BrdfLut { get; }
 
 The split-sum environment BRDF table (`Rgba16Float`, the first two channels; n.v across, roughness down); filled on first use.
 
-**Type:** [`GpuTexture`](../../OneGame.Gpu/OneGame.Gpu/GpuTexture.md)
+**Type:** `GpuTexture`
 
 ### <a id="m-debugdrawcalls"></a>DebugDrawCalls
 
@@ -180,7 +180,7 @@ public GpuDevice Device { get; }
 
 The device this renderer draws with.
 
-**Type:** [`GpuDevice`](../../OneGame.Gpu/OneGame.Gpu/GpuDevice.md)
+**Type:** `GpuDevice`
 
 ### <a id="m-laststats"></a>LastStats
 
@@ -342,7 +342,7 @@ Adds this frame's passes to a render graph that has begun a frame: shadow maps, 
 - `target` ([`GraphTexture`](../../OneGame.Gpu/OneGame.Gpu.Graph/GraphTexture.md)): The image to draw into: an sRGB 8-bit, 8-bit UNorm or 16-bit float colour target of the given size.
 - `width` (`int`): Target width in pixels.
 - `height` (`int`): Target height in pixels.
-- `targetFormat` ([`GpuFormat`](../../OneGame.Gpu/OneGame.Gpu/GpuFormat.md)): Format of the target texture.
+- `targetFormat` (`GpuFormat`): Format of the target texture.
 
 ### <a id="m-upload-gltfmodel-int"></a>Upload(GltfModel, int)
 

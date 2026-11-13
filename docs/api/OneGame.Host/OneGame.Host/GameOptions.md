@@ -94,7 +94,7 @@ public GpuDevice? Device { get; init; }
 
 A graphics device the host already made. A browser creates its device asynchronously, before the game starts, and hands it in here; the instance then uses it and leaves its disposal to the host.
 
-**Type:** [`GpuDevice`](../../OneGame.Gpu/OneGame.Gpu/GpuDevice.md)?
+**Type:** `GpuDevice?`
 
 ### <a id="m-displayname"></a>DisplayName
 
@@ -162,9 +162,9 @@ False runs frames (simulation, input, layout) without drawing them to the window
 public PresentMode PresentMode { get; init; }
 ```
 
-How the swapchain paces presentation. [`PresentMode.Vsync`](../../OneGame.Gpu/OneGame.Gpu/PresentMode.md#m-vsync) (the default) is always available; the other two fall back to it where the system lacks them.
+How the swapchain paces presentation. `PresentMode.Vsync` (the default) is always available; the other two fall back to it where the system lacks them.
 
-**Type:** [`PresentMode`](../../OneGame.Gpu/OneGame.Gpu/PresentMode.md)
+**Type:** `PresentMode`
 
 ### <a id="m-scale"></a>Scale
 

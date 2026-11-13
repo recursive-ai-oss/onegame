@@ -8,7 +8,6 @@ Every public type in every package, in alphabetical order.
 | --- | --- | --- | --- | --- |
 | [`AAudioBackend`](OneGame.Audio/OneGame.Audio/AAudioBackend.md) | class | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | Android output through AAudio (Android 8.0 and later), provided by the device package: shared low-latency float streams driven by the system's data callback, with the device clock, xrun counts and reopening on a route change reported by the package. |
 | [`AccessReport`](OneGame.Gpu/OneGame.Gpu.Graph/AccessReport.md) | record | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | One thing a pass touches, as shown in a report. |
-| [`AcquireStatus`](OneGame.Gpu/OneGame.Gpu/AcquireStatus.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Result of acquiring the next swapchain image. |
 | [`ActionBinding`](OneGame.Platform/OneGame.Platform/ActionBinding.md) | struct | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | What one slot of an action listens to: a single source or a composite (two keys making an axis, WASD making a vector, a stick). |
 | [`ActionContext`](OneGame.Platform/OneGame.Platform/ActionContext.md) | class | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | Declares the actions of one context. |
 | [`ActionKind`](OneGame.Platform/OneGame.Platform/ActionKind.md) | enum | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | What shape of value an action produces. |
@@ -16,8 +15,6 @@ Every public type in every package, in alphabetical order.
 | [`ActionSource`](OneGame.Platform/OneGame.Platform/ActionSource.md) | class | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | Another producer of action values next to the devices: Steam Input, the harness, a replay. |
 | [`ActionUi`](OneGame.Host/OneGame.Host/ActionUi.md) | static class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | Ties the action layer to the UI kit: glyph tables that follow the current bindings, and a ready-made rebinding list. |
 | [`ActionVector`](OneGame.Platform/OneGame.Platform/ActionVector.md) | struct | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | A 2D action value. |
-| [`AdapterKind`](OneGame.Gpu/OneGame.Gpu/AdapterKind.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Kind of graphics adapter. |
-| [`AddressMode`](OneGame.Gpu/OneGame.Gpu/AddressMode.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Texture coordinate handling outside 0..1. |
 | [`Align`](OneGame.UI/OneGame.UI/Align.md) | enum | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | Values for `justify-content`, `align-items`, `align-self` and `align-content`. |
 | [`AlsaBackend`](OneGame.Audio/OneGame.Audio/AlsaBackend.md) | class | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | Linux output through ALSA, provided by the device package. |
 | [`AnchorPoint`](OneGame.UI/OneGame.UI/AnchorPoint.md) | enum | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | Where [`StyleBuilder.Anchor()`](OneGame.UI/OneGame.UI/StyleBuilder.md#m-anchor-anchorpoint-length-length-bool) pins an element. |
@@ -95,17 +92,12 @@ Every public type in every package, in alphabetical order.
 | [`BillboardBatch3D`](OneGame.Render3D/OneGame.Render3D/BillboardBatch3D.md) | class | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | Quads that always face the camera, drawn after the opaque and blended surfaces: particles, glows, lens spots, markers. |
 | [`BillboardTexture3D`](OneGame.Render3D/OneGame.Render3D/BillboardTexture3D.md) | class | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | An image for billboards, uploaded with its colours premultiplied by alpha in linear light. |
 | [`Bind`](OneGame.Platform/OneGame.Platform/Bind.md) | static class | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | Short ways to write bindings: `Bind.Key(Key.Space)`, `Bind.Wasd`, `Bind.LeftStick`. |
-| [`BindGroupEntry`](OneGame.Gpu/OneGame.Gpu/BindGroupEntry.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | One resource bound at a binding index of a bind group. |
 | [`BindingShape`](OneGame.Platform/OneGame.Platform/BindingShape.md) | enum | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | The arrangement of an [`ActionBinding`](OneGame.Platform/OneGame.Platform/ActionBinding.md). |
 | [`BindingsLoadResult`](OneGame.Platform/OneGame.Platform/BindingsLoadResult.md) | record | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | What [`ActionMap.LoadText()`](OneGame.Platform/OneGame.Platform/ActionMap.md#m-loadtext-string) did. |
-| [`BlendComponent`](OneGame.Gpu/OneGame.Gpu/BlendComponent.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Blend settings for one of color or alpha. |
-| [`BlendFactor`](OneGame.Gpu/OneGame.Gpu/BlendFactor.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Factor applied to a blend operand. |
-| [`BlendOperation`](OneGame.Gpu/OneGame.Gpu/BlendOperation.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Operation combining the blended source and destination. |
 | [`BlendSpace1D`](OneGame.Gltf/OneGame.Gltf/BlendSpace1D.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | A line of poses along one value, for example speed: idle at 0, walk at 1, run at 2. |
 | [`BlendSpace1DMotion`](OneGame.Gltf/OneGame.Gltf/BlendSpace1DMotion.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Clips blended along one input, for example speed. |
 | [`BlendSpace2D`](OneGame.Gltf/OneGame.Gltf/BlendSpace2D.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | A plane of poses, for example direction by speed. |
 | [`BlendSpace2DMotion`](OneGame.Gltf/OneGame.Gltf/BlendSpace2DMotion.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Clips blended over a plane, for example direction by speed. |
-| [`BlendState`](OneGame.Gpu/OneGame.Gpu/BlendState.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Blending of one color target. |
 | [`BodyKind`](OneGame.Physics/OneGame.Physics/BodyKind.md) | enum | `OneGame.Physics` | [OneGame.Physics](OneGame.Physics/index.md) | How a body takes part in the simulation. |
 | [`BodyOptions`](OneGame.Physics/OneGame.Physics/BodyOptions.md) | class | `OneGame.Physics` | [OneGame.Physics](OneGame.Physics/index.md) | What a new body is made of and how it behaves. |
 | [`BodyOptions3D`](OneGame.Physics/OneGame.Physics/BodyOptions3D.md) | class | `OneGame.Physics` | [OneGame.Physics](OneGame.Physics/index.md) | What a new body is made of and how it behaves. |
@@ -116,9 +108,7 @@ Every public type in every package, in alphabetical order.
 | [`BrowserPage`](OneGame.Platform/OneGame.Platform/BrowserPage.md) | static class | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | The page-level services a browser host needs around the platform backend: the animation-frame loop. |
 | [`BrowserWebSocket`](OneGame.Platform/OneGame.Platform/BrowserWebSocket.md) | class | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | A binary WebSocket made with the browser's own `WebSocket`. |
 | [`BrowserWebSocketConnection`](OneGame.Host/OneGame.Host/BrowserWebSocketConnection.md) | class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | A client connection over the browser's WebSocket, behind the same interface as the native transports, so a web build subscribes to a server's scopes exactly like a desktop client does. |
-| [`BufferDesc`](OneGame.Gpu/OneGame.Gpu/BufferDesc.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Describes a buffer to create. |
 | [`BufferRead`](OneGame.Gpu/OneGame.Gpu.Graph/BufferRead.md) | enum | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | How a pass reads a buffer. |
-| [`BufferUsage`](OneGame.Gpu/OneGame.Gpu/BufferUsage.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | How a buffer may be used. |
 | [`BusLoudnessStatus`](OneGame.Control/OneGame.Control/BusLoudnessStatus.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | One metered bus in [`AudioCaptureResult`](OneGame.Control/OneGame.Control/AudioCaptureResult.md). |
 | [`BusMeterResult`](OneGame.Audio/OneGame.Audio/BusMeterResult.md) | enum | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | What asking for a bus meter came to. |
 | [`BusStatus`](OneGame.Audio/OneGame.Audio/BusStatus.md) | record | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | One bus as the service set it up. |
@@ -164,9 +154,6 @@ Every public type in every package, in alphabetical order.
 | [`ClusterState`](OneGame.Testing/OneGame.Testing/ClusterState.md) | record | `OneGame.Testing` | [OneGame.Testing](OneGame.Testing/index.md) | A running cluster as `cluster.json` records it, enough for another process to find every node. |
 | [`ClusterStatus`](OneGame.Testing/OneGame.Testing/ClusterStatus.md) | record | `OneGame.Testing` | [OneGame.Testing](OneGame.Testing/index.md) | The state of a cluster, node by node. |
 | [`Color`](OneGame.UI/OneGame.UI/Color.md) | struct | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | An 8-bit-per-channel RGBA color (not premultiplied). |
-| [`ColorAttachment`](OneGame.Gpu/OneGame.Gpu/ColorAttachment.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | A color attachment of a render pass. |
-| [`ColorTargetState`](OneGame.Gpu/OneGame.Gpu/ColorTargetState.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | A color target of a graphics pipeline. |
-| [`ColorWriteMask`](OneGame.Gpu/OneGame.Gpu/ColorWriteMask.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Color channels a pipeline writes. |
 | [`ColumnWidth`](OneGame.UI.Kit/OneGame.UI.Kit/ColumnWidth.md) | struct | `OneGame.UI.Kit` | [OneGame.UI.Kit](OneGame.UI.Kit/index.md) | How wide a table column is: a fixed length, or a share of the space the fixed columns leave. |
 | [`CommandAttribute`](OneGame.Core/OneGame.Core/CommandAttribute.md) | attribute | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Marks an entity method as a command: a request that a view or test sends and the authority validates and runs. |
 | [`CommandObserver`](OneGame.Core/OneGame.Core/CommandObserver.md) | delegate | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Receives every command a world executes, in order, for logging and replay. |
@@ -178,9 +165,7 @@ Every public type in every package, in alphabetical order.
 | [`CommandStatus`](OneGame.Core/OneGame.Core/CommandStatus.md) | enum | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | What happened to a command when it was sent. |
 | [`CommandVerdict`](OneGame.Sync/OneGame.Sync/CommandVerdict.md) | enum | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | How a command sent from a replica ended. |
 | [`Compare`](OneGame.Gltf/OneGame.Gltf/Compare.md) | enum | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | How a float parameter is compared in a transition condition. |
-| [`CompareFunction`](OneGame.Gpu/OneGame.Gpu/CompareFunction.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Comparison used by depth tests. |
 | [`ComputedStyle`](OneGame.UI/OneGame.UI/ComputedStyle.md) | class | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | The resolved value of every style property of one element, after the cascade, inheritance and theme tokens. |
-| [`ComputePipelineDesc`](OneGame.Gpu/OneGame.Gpu/ComputePipelineDesc.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Describes a compute pipeline. |
 | [`ConditionedConnection`](OneGame.Net/OneGame.Net/ConditionedConnection.md) | class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | Wraps any [`INetConnection`](OneGame.Net/OneGame.Net/INetConnection.md) and applies [`NetworkConditions`](OneGame.Net/OneGame.Net/NetworkConditions.md) to what it sends, for transports that are already reliable (WebSocket over TCP). |
 | [`ConditionedDatagramSocket`](OneGame.Net/OneGame.Net/ConditionedDatagramSocket.md) | class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | Wraps a datagram socket and applies [`NetworkConditions`](OneGame.Net/OneGame.Net/NetworkConditions.md) to what it sends. |
 | [`ConditionedListener`](OneGame.Net/OneGame.Net/ConditionedListener.md) | class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | Wraps a listener so every connection it accepts is a [`ConditionedConnection`](OneGame.Net/OneGame.Net/ConditionedConnection.md). |
@@ -199,7 +184,6 @@ Every public type in every package, in alphabetical order.
 | [`CoreModule`](OneGame.Core/OneGame.Core/CoreModule.md) | static class | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Identifies the Core assembly; a placeholder until its first feature lands. |
 | [`CornerRadii`](OneGame.UI/OneGame.UI/CornerRadii.md) | struct | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | Four corner radii in pixels. |
 | [`Crossfade`](OneGame.Gltf/OneGame.Gltf/Crossfade.md) | struct | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | A crossfade clock: how much of the new pose shows, over a duration. |
-| [`CullMode`](OneGame.Gpu/OneGame.Gpu/CullMode.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Which triangle faces are discarded. |
 | [`CursorShape`](OneGame.UI/OneGame.UI/CursorShape.md) | enum | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | The `cursor` property: a hint for the platform layer. |
 | [`Debug3D`](OneGame.Render3D/OneGame.Render3D.Shaders/Debug3D.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
 | [`Debug3D.Bindings`](OneGame.Render3D/OneGame.Render3D.Shaders/Debug3D.Bindings.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
@@ -212,8 +196,6 @@ Every public type in every package, in alphabetical order.
 | [`DebugDraw3D`](OneGame.Render3D/OneGame.Render3D/DebugDraw3D.md) | class | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | Reusable immediate-mode debug primitives. |
 | [`DebugOverlay`](OneGame.Control/OneGame.Control/DebugOverlay.md) | class | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | The on-screen debug panel of development builds: frame time, entity count, network figures when the game is connected, and the audio device's counters. |
 | [`DebugSize3D`](OneGame.Render3D/OneGame.Render3D/DebugSize3D.md) | enum | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | How debug primitive widths and point sizes are measured. |
-| [`DepthAttachment`](OneGame.Gpu/OneGame.Gpu/DepthAttachment.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | The depth attachment of a render pass. |
-| [`DepthStencilState`](OneGame.Gpu/OneGame.Gpu/DepthStencilState.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Depth testing of a graphics pipeline. |
 | [`Determinism`](OneGame.Testing/OneGame.Testing/Determinism.md) | static class | `OneGame.Testing` | [OneGame.Testing](OneGame.Testing/index.md) | Checks that a scripted run is reproducible: twice from scratch, through a snapshot, and through a recording. |
 | [`Determinism.Drive`](OneGame.Testing/OneGame.Testing/Determinism.Drive.md) | delegate | `OneGame.Testing` | [OneGame.Testing](OneGame.Testing/index.md) | Does something to the game before frame number `frame` runs: send a command, click, press a key. |
 | [`DeterminismException`](OneGame.Testing/OneGame.Testing/DeterminismException.md) | class | `OneGame.Testing` | [OneGame.Testing](OneGame.Testing/index.md) | A determinism check found two runs that should be identical and are not. |
@@ -225,7 +207,6 @@ Every public type in every package, in alphabetical order.
 | [`DigestKind`](OneGame.Sync/OneGame.Sync/DigestKind.md) | enum | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | What a digest entry describes. |
 | [`DisconnectInfo`](OneGame.Net/OneGame.Net/DisconnectInfo.md) | struct | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | How and why a connection closed. |
 | [`DisconnectReason`](OneGame.Net/OneGame.Net/DisconnectReason.md) | enum | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | Why a connection ended. |
-| [`DispatchIndirectArgs`](OneGame.Gpu/OneGame.Gpu/DispatchIndirectArgs.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Arguments of one indirect dispatch, as stored in a buffer. |
 | [`DisplayList`](OneGame.UI/OneGame.UI/DisplayList.md) | class | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | What the UI hands the renderer each frame: draw commands in paint order, plus the text they refer to. |
 | [`DisplayListRaster`](OneGame.Host/OneGame.Host/DisplayListRaster.md) | static class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | A small CPU rasterizer for display lists: flat rectangles, borders and one bar per text line, with clips and group opacity. |
 | [`DisplayMode`](OneGame.UI/OneGame.UI/DisplayMode.md) | enum | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | The `display` property. |
@@ -235,8 +216,6 @@ Every public type in every package, in alphabetical order.
 | [`Draw2D`](OneGame.Host/OneGame.Host/Draw2D.md) | class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | Immediate-mode 2D drawing for view code: call it every frame to say what to show, and the stage batches it onto the same [`Scene2D`](OneGame.Render2D/OneGame.Render2D/Scene2D.md) and [`Renderer2D`](OneGame.Render2D/OneGame.Render2D/Renderer2D.md) a hand-built stage would use. |
 | [`Draw2DReport`](OneGame.Control/OneGame.Control/Draw2DReport.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | Result of `draw2d`: what the 2D happy path drew in the last frame and where its camera looks. |
 | [`DrawCommand`](OneGame.UI/OneGame.UI/DrawCommand.md) | struct | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | One drawing instruction. |
-| [`DrawIndexedIndirectArgs`](OneGame.Gpu/OneGame.Gpu/DrawIndexedIndirectArgs.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Arguments of one indirect indexed draw, as stored in a buffer. |
-| [`DrawIndirectArgs`](OneGame.Gpu/OneGame.Gpu/DrawIndirectArgs.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Arguments of one indirect non-indexed draw, as stored in a buffer. |
 | [`DrawKind`](OneGame.UI/OneGame.UI/DrawKind.md) | enum | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | The kind of a [`DrawCommand`](OneGame.UI/OneGame.UI/DrawCommand.md). |
 | [`DriftEntry`](OneGame.Testing/OneGame.Testing/DriftEntry.md) | record | `OneGame.Testing` | [OneGame.Testing](OneGame.Testing/index.md) | A drift report filed by a client's replica. |
 | [`DriftException`](OneGame.Sync/OneGame.Sync/DriftException.md) | class | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | Thrown by [`Cluster.Step()`](OneGame.Sync/OneGame.Sync/Cluster.md#m-step-int) when [`ClusterOptions.FatalDrift`](OneGame.Sync/OneGame.Sync/ClusterOptions.md#m-fataldrift) is on and a replica drifted. |
@@ -288,7 +267,6 @@ Every public type in every package, in alphabetical order.
 | [`FakeOutcome`](OneGame.Purchases/OneGame.Purchases/FakeOutcome.md) | enum | `OneGame.Purchases` | [OneGame.Purchases](OneGame.Purchases/index.md) | What the fake store does with the next purchase of a product. |
 | [`FakeStore`](OneGame.Purchases/OneGame.Purchases/FakeStore.md) | class | `OneGame.Purchases` | [OneGame.Purchases](OneGame.Purchases/index.md) | A deterministic, scriptable store that runs in-process on every platform, so a game and its scenarios can test purchase flows with no store account. |
 | [`FileAssetSource`](OneGame.Host/OneGame.Host/FileAssetSource.md) | class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | Reads content from folders. |
-| [`FilterMode`](OneGame.Gpu/OneGame.Gpu/FilterMode.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Texture filtering. |
 | [`FilterStatus`](OneGame.Audio/OneGame.Audio/FilterStatus.md) | record | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | A bus filter's setting. |
 | [`Fixed`](OneGame.Core/OneGame.Core/Fixed.md) | struct | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Deterministic fixed-point number: a signed 64-bit integer holding the value times 2^32 (31 integer bits and 32 fractional bits). |
 | [`FixedStepDriver`](OneGame.Sync/OneGame.Sync/FixedStepDriver.md) | class | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | Turns variable frame times into a fixed number of simulation ticks. |
@@ -312,7 +290,6 @@ Every public type in every package, in alphabetical order.
 | [`FrameStats3D`](OneGame.Render3D/OneGame.Render3D/FrameStats3D.md) | struct | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | What one frame of 3D drew. |
 | [`FrameTiming`](OneGame.Host/OneGame.Host/FrameTiming.md) | struct | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | How long one frame took on the CPU. |
 | [`FrameTimings`](OneGame.Host/OneGame.Host/FrameTimings.md) | class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | A short history of CPU frame times, filled by [`GameInstance`](OneGame.Host/OneGame.Host/GameInstance.md) only while [`FrameTimings.Enabled`](OneGame.Host/OneGame.Host/FrameTimings.md#m-enabled) is set; the debug panel sets it while it is shown. |
-| [`FrontFace`](OneGame.Gpu/OneGame.Gpu/FrontFace.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Winding order that makes a triangle front-facing, as seen with clip-space +Y up. |
 | [`FVec2`](OneGame.Core/OneGame.Core/FVec2.md) | struct | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | A two-dimensional point or vector in [`Fixed`](OneGame.Core/OneGame.Core/Fixed.md) numbers. |
 | [`FVec3`](OneGame.Core/OneGame.Core/FVec3.md) | struct | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | A three-dimensional point or vector in [`Fixed`](OneGame.Core/OneGame.Core/Fixed.md) numbers. +X is right, +Y is up and -Z is forward, as in the 3D renderer. |
 | [`GameApp`](OneGame.Host/OneGame.Host/GameApp.md) | static class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | The entry point of a game: parse the command line, create the instance, run it. |
@@ -359,41 +336,12 @@ Every public type in every package, in alphabetical order.
 | [`GlyphInfo`](OneGame.Text/OneGame.Text/GlyphInfo.md) | struct | `OneGame.Text` | [OneGame.Text](OneGame.Text/index.md) | Where one rasterized glyph sits in the atlas, and how to place it. |
 | [`GlyphLimits`](OneGame.Text/OneGame.Text/GlyphLimits.md) | class | `OneGame.Text` | [OneGame.Text](OneGame.Text/index.md) | Budgets for glyph rasterization. |
 | [`GlyphQuad`](OneGame.Text/OneGame.Text/GlyphQuad.md) | struct | `OneGame.Text` | [OneGame.Text](OneGame.Text/index.md) | One textured rectangle of a glyph, in screen pixels, ready for the renderer. |
-| [`GpuAdapterInfo`](OneGame.Gpu/OneGame.Gpu/GpuAdapterInfo.md) | record | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Information about a graphics adapter. |
-| [`GpuBackend`](OneGame.Gpu/OneGame.Gpu/GpuBackend.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | The graphics API a [`GpuDevice`](OneGame.Gpu/OneGame.Gpu/GpuDevice.md) runs on. |
-| [`GpuBackends`](OneGame.Gpu.Backends/OneGame.Gpu/GpuBackends.md) | static class | `OneGame.Gpu` | [OneGame.Gpu.Backends](OneGame.Gpu.Backends/index.md) | Chooses and creates a graphics device. |
-| [`GpuBindGroup`](OneGame.Gpu/OneGame.Gpu/GpuBindGroup.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | A set of resources bound together to a pipeline. |
-| [`GpuBuffer`](OneGame.Gpu/OneGame.Gpu/GpuBuffer.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | A block of GPU memory. |
-| [`GpuCapabilities`](OneGame.Gpu/OneGame.Gpu/GpuCapabilities.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Optional features and limits of a device. |
-| [`GpuCommandEncoder`](OneGame.Gpu/OneGame.Gpu/GpuCommandEncoder.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Records a sequence of copy, render and compute work, then is handed to [`GpuDevice.Submit()`](OneGame.Gpu/OneGame.Gpu/GpuDevice.md#m-submit-gpucommandencoder). |
-| [`GpuComputePass`](OneGame.Gpu/OneGame.Gpu/GpuComputePass.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Records compute dispatches. |
-| [`GpuComputePipeline`](OneGame.Gpu/OneGame.Gpu/GpuComputePipeline.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | A compiled compute pipeline. |
-| [`GpuDevice`](OneGame.Gpu/OneGame.Gpu/GpuDevice.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | A graphics device: creates resources, records and submits work. |
-| [`GpuDeviceLostException`](OneGame.Gpu/OneGame.Gpu/GpuDeviceLostException.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | The device was lost (driver reset, GPU removed). |
-| [`GpuDeviceOptions`](OneGame.Gpu/OneGame.Gpu/GpuDeviceOptions.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Options for creating a device. |
-| [`GpuException`](OneGame.Gpu/OneGame.Gpu/GpuException.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | An error from the graphics layer. |
-| [`GpuFormat`](OneGame.Gpu/OneGame.Gpu/GpuFormat.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Pixel formats of textures and render targets. |
-| [`GpuGraphicsPipeline`](OneGame.Gpu/OneGame.Gpu/GpuGraphicsPipeline.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | A compiled graphics pipeline. |
-| [`GpuMemoryStats`](OneGame.Gpu/OneGame.Gpu/GpuMemoryStats.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | A backend's tally of device memory, from [`GpuDevice.MemoryStats`](OneGame.Gpu/OneGame.Gpu/GpuDevice.md#m-memorystats). |
 | [`GpuMode`](OneGame.Host/OneGame.Host/GpuMode.md) | enum | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | How the host picks a graphics device. |
-| [`GpuModule`](OneGame.Gpu/OneGame.Gpu/GpuModule.md) | static class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Identifies the Gpu assembly; a placeholder until its first feature lands. |
-| [`GpuObject`](OneGame.Gpu/OneGame.Gpu/GpuObject.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Base class of every GPU object. |
-| [`GpuOutOfMemoryException`](OneGame.Gpu/OneGame.Gpu/GpuOutOfMemoryException.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | The device ran out of memory. |
 | [`GpuPassReport`](OneGame.Control/OneGame.Control/GpuPassReport.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | One pass of the render graph and its GPU time. |
 | [`GpuPassTime`](OneGame.Host/OneGame.Host/GpuPassTime.md) | struct | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | One pass of the render graph and how long the GPU spent on it. |
-| [`GpuPipelineLayout`](OneGame.Gpu/OneGame.Gpu/GpuPipelineLayout.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | The resource interface shared by pipelines and bind groups. |
-| [`GpuRenderPass`](OneGame.Gpu/OneGame.Gpu/GpuRenderPass.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Records draws inside a render pass. |
-| [`GpuSampler`](OneGame.Gpu/OneGame.Gpu/GpuSampler.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Sampler state. |
-| [`GpuShader`](OneGame.Gpu/OneGame.Gpu/GpuShader.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | A compiled shader entry point. |
-| [`GpuSurfaceLostException`](OneGame.Gpu/OneGame.Gpu/GpuSurfaceLostException.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | The window's drawing surface is gone, as when an app is sent to the background or the system rebuilds its window. |
-| [`GpuSwapchain`](OneGame.Gpu/OneGame.Gpu/GpuSwapchain.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Presents rendered images to a window. |
-| [`GpuTexture`](OneGame.Gpu/OneGame.Gpu/GpuTexture.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | A 2D image, 2D array, cube map, cube array or 3D volume. |
-| [`GpuTimestampSet`](OneGame.Gpu/OneGame.Gpu/GpuTimestampSet.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | A set of GPU timestamp queries. |
 | [`GpuTimingStatus`](OneGame.Host/OneGame.Host/GpuTimingStatus.md) | enum | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | Whether GPU pass times can be read. |
-| [`GpuUnsupportedException`](OneGame.Gpu/OneGame.Gpu/GpuUnsupportedException.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | The system has no usable graphics API, adapter or required feature. |
 | [`Gradient`](OneGame.Render2D/OneGame.Render2D/Gradient.md) | struct | `OneGame.Render2D` | [OneGame.Render2D](OneGame.Render2D/index.md) | A colour ramp for a filled shape. |
 | [`GraphBuffer`](OneGame.Gpu/OneGame.Gpu.Graph/GraphBuffer.md) | struct | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | A buffer inside one frame of a [`RenderGraph`](OneGame.Gpu/OneGame.Gpu.Graph/RenderGraph.md). |
-| [`GraphicsPipelineDesc`](OneGame.Gpu/OneGame.Gpu/GraphicsPipelineDesc.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Describes a graphics pipeline. |
 | [`GraphStats`](OneGame.Gpu/OneGame.Gpu.Graph/GraphStats.md) | struct | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | Counts and sizes from one executed frame of a [`RenderGraph`](OneGame.Gpu/OneGame.Gpu.Graph/RenderGraph.md). |
 | [`GraphTexture`](OneGame.Gpu/OneGame.Gpu.Graph/GraphTexture.md) | struct | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | A texture inside one frame of a [`RenderGraph`](OneGame.Gpu/OneGame.Gpu.Graph/RenderGraph.md): either created by the graph (transient) or imported. |
 | [`HashCheck`](OneGame.Testing/OneGame.Testing/HashCheck.md) | record | `OneGame.Testing` | [OneGame.Testing](OneGame.Testing/index.md) | A client replica compared with its server's recorded hash at the replica's tick. |
@@ -459,7 +407,6 @@ Every public type in every package, in alphabetical order.
 | [`ImageDiff`](OneGame.Testing/OneGame.Testing/ImageDiff.md) | struct | `OneGame.Testing` | [OneGame.Testing](OneGame.Testing/index.md) | How two images differ. |
 | [`ImageStatus`](OneGame.Gltf/OneGame.Gltf/ImageStatus.md) | enum | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | The outcome of reading an image. |
 | [`IMessageChannel`](OneGame.Sync/OneGame.Sync/IMessageChannel.md) | interface | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | One end of a message pipe between two nodes. |
-| [`IndexFormat`](OneGame.Gpu/OneGame.Gpu/IndexFormat.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Size of index values. |
 | [`IndexWidth`](OneGame.Gltf/OneGame.Gltf/IndexWidth.md) | enum | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | The index width chosen by [`GltfPrimitive.PackIndices()`](OneGame.Gltf/OneGame.Gltf/GltfPrimitive.md#m-packindices-indexwidth). |
 | [`INetConnection`](OneGame.Net/OneGame.Net/INetConnection.md) | interface | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | One live connection to a peer. |
 | [`INetListener`](OneGame.Net/OneGame.Net/INetListener.md) | interface | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | A server endpoint that turns incoming handshakes into [`INetConnection`](OneGame.Net/OneGame.Net/INetConnection.md)s. |
@@ -535,7 +482,6 @@ Every public type in every package, in alphabetical order.
 | [`LiveClient`](OneGame.Testing/OneGame.Testing/LiveClient.md) | class | `OneGame.Testing` | [OneGame.Testing](OneGame.Testing/index.md) | A client of a running process's live control socket: one connection that sends operations as MCP tool calls and returns their JSON results. |
 | [`LiveServer`](OneGame.Live/OneGame.Live/LiveServer.md) | class | `OneGame.Live` | [OneGame.Live](OneGame.Live/index.md) | The listener of a development build: a local socket that speaks MCP (newline-delimited JSON-RPC, the protocol's stdio framing) to one agent at a time or several in turn. |
 | [`LoadedFont`](OneGame.Host/OneGame.Host/LoadedFont.md) | record | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | A font added to a library by [`Assets.LoadFont()`](OneGame.Host/OneGame.Host/Assets.md#m-loadfont-string-fontlibrary). |
-| [`LoadOp`](OneGame.Gpu/OneGame.Gpu/LoadOp.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | What happens to an attachment's contents when a pass begins. |
 | [`LoadResult`](OneGame.Sync/OneGame.Sync/LoadResult.md) | record | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | What [`SaveFile.Load()`](OneGame.Sync/OneGame.Sync/SaveFile.md#m-load-readonlyspan-byte-world) found and did. |
 | [`LogEntry`](OneGame.Server/OneGame.Server/LogEntry.md) | record | `OneGame.Server` | [OneGame.Server](OneGame.Server/index.md) | One line of the server log. |
 | [`LoggedCommand`](OneGame.Sync/OneGame.Sync/LoggedCommand.md) | record | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | A command that entered an authority from outside its tick. |
@@ -555,7 +501,6 @@ Every public type in every package, in alphabetical order.
 | [`MemoryDatagramNetwork`](OneGame.Net/OneGame.Net/MemoryDatagramNetwork.md) | class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | An in-process datagram network: sockets that deliver to each other by address, with no operating system involved. |
 | [`MeshVertex3D`](OneGame.Render3D/OneGame.Render3D/MeshVertex3D.md) | struct | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | One vertex of a [`DynamicMesh3D`](OneGame.Render3D/OneGame.Render3D/DynamicMesh3D.md). |
 | [`MessageTooLargeException`](OneGame.Net/OneGame.Net/MessageTooLargeException.md) | class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | A message was larger than the configured maximum, so it was refused before anything was queued. |
-| [`MetalGpu`](OneGame.Gpu.Metal/OneGame.Gpu.Metal/MetalGpu.md) | static class | `OneGame.Gpu.Metal` | [OneGame.Gpu.Metal](OneGame.Gpu.Metal/index.md) | Entry point of the Metal backend. |
 | [`MigrateAttribute`](OneGame.Core/OneGame.Core/MigrateAttribute.md) | attribute | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Marks a static method on an entity that loads state saved at an older schema version into the current layout: `static void Name(ref SyncReader old, MyEntity entity)`. |
 | [`Model3D`](OneGame.Render3D/OneGame.Render3D/Model3D.md) | class | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | A glTF model uploaded to the GPU: meshes, materials and textures. |
 | [`ModelInstance3D`](OneGame.Render3D/OneGame.Render3D/ModelInstance3D.md) | class | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | One placed copy of a [`Model3D`](OneGame.Render3D/OneGame.Render3D/Model3D.md), with its own pose. |
@@ -672,7 +617,6 @@ Every public type in every package, in alphabetical order.
 | [`PassContext`](OneGame.Gpu/OneGame.Gpu.Graph/PassContext.md) | class | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | What a pass may do while it records: get the physical textures and buffers it declared, and the render or compute pass the graph opened for it. |
 | [`PassReport`](OneGame.Gpu/OneGame.Gpu.Graph/PassReport.md) | record | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | One pass of the last frame. |
 | [`PassTime`](OneGame.Gpu/OneGame.Gpu.Graph/PassTime.md) | struct | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | The GPU time of one pass, from [`RenderGraph.ReadPassTimes()`](OneGame.Gpu/OneGame.Gpu.Graph/RenderGraph.md#m-readpasstimes-list-passtime). |
-| [`PassTiming`](OneGame.Gpu/OneGame.Gpu/PassTiming.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Where a group of passes writes its GPU start and end times: pass `k` of the group uses queries `First + 2k` and `First + 2k + 1`. |
 | [`PassType`](OneGame.Gpu/OneGame.Gpu.Graph/PassType.md) | enum | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | What kind of work a pass records, which decides how the graph runs it. |
 | [`PatchResult`](OneGame.Control/OneGame.Control/PatchResult.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | Result of `state_patch`: a synced property written directly, bypassing commands (for building a situation in a test). |
 | [`Pbr`](OneGame.Render3D/OneGame.Render3D.Shaders/Pbr.md) | static class | `OneGame.Render3D.Shaders` | [OneGame.Render3D](OneGame.Render3D/index.md) |  |
@@ -796,9 +740,7 @@ Every public type in every package, in alphabetical order.
 | [`PredictionOptions`](OneGame.Sync/OneGame.Sync/PredictionOptions.md) | class | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | Settings for a replica's prediction ([`ReplicaScope.EnablePrediction()`](OneGame.Sync/OneGame.Sync/ReplicaScope.md#m-enableprediction-world-predictionoptions)). |
 | [`PresentedCaptureException`](OneGame.Host/OneGame.Host/PresentedCaptureException.md) | class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | A presented capture was asked for from a game that has a window and a graphics device, but no frame could be drawn and read back. |
 | [`PresentedCaptureFailure`](OneGame.Host/OneGame.Host/PresentedCaptureFailure.md) | enum | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | Why a presented frame could not be captured. |
-| [`PresentMode`](OneGame.Gpu/OneGame.Gpu/PresentMode.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | How a swapchain paces presentation. |
 | [`Primitive3D`](OneGame.Render3D/OneGame.Render3D/Primitive3D.md) | class | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | A drawable triangle list of a mesh, with its GPU buffers and material. |
-| [`PrimitiveTopology`](OneGame.Gpu/OneGame.Gpu/PrimitiveTopology.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | How vertices are assembled into primitives. |
 | [`ProcessCluster`](OneGame.Testing/OneGame.Testing/ProcessCluster.md) | class | `OneGame.Testing` | [OneGame.Testing](OneGame.Testing/index.md) | A cluster of real processes on this machine: each node of a [`ClusterSpec`](OneGame.Testing/OneGame.Testing/ClusterSpec.md) is its own OS process (a dedicated server or a headless game connected to one) talking over the real transport, each with its live-control socket. |
 | [`ProductDefinition`](OneGame.Purchases/OneGame.Purchases/ProductDefinition.md) | struct | `OneGame.Purchases` | [OneGame.Purchases](OneGame.Purchases/index.md) | A product the game sells, declared by the game and looked up in the store by [`ProductDefinition.Id`](OneGame.Purchases/OneGame.Purchases/ProductDefinition.md#m-id). |
 | [`ProductKind`](OneGame.Purchases/OneGame.Purchases/ProductKind.md) | enum | `OneGame.Purchases` | [OneGame.Purchases](OneGame.Purchases/index.md) | What a product is. |
@@ -808,7 +750,6 @@ Every public type in every package, in alphabetical order.
 | [`PurchaseService`](OneGame.Purchases/OneGame.Purchases/PurchaseService.md) | class | `OneGame.Purchases` | [OneGame.Purchases](OneGame.Purchases/index.md) | In-app purchases for a game: one API over the platform's store. |
 | [`PurchaseStatus`](OneGame.Purchases/OneGame.Purchases/PurchaseStatus.md) | record | `OneGame.Purchases` | [OneGame.Purchases](OneGame.Purchases/index.md) | A snapshot of the service for logs and the harness. |
 | [`PurchaseTransaction`](OneGame.Purchases/OneGame.Purchases/PurchaseTransaction.md) | record | `OneGame.Purchases` | [OneGame.Purchases](OneGame.Purchases/index.md) | One purchase as the store reports it. |
-| [`PushConstantRange`](OneGame.Gpu/OneGame.Gpu/PushConstantRange.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Small constant data written straight into the command stream with `SetPushConstants`. |
 | [`Quad`](OneGame.Render2D/OneGame.Render2D.Shaders/Quad.md) | static class | `OneGame.Render2D.Shaders` | [OneGame.Render2D](OneGame.Render2D/index.md) |  |
 | [`Quad.Bindings`](OneGame.Render2D/OneGame.Render2D.Shaders/Quad.Bindings.md) | static class | `OneGame.Render2D.Shaders` | [OneGame.Render2D](OneGame.Render2D/index.md) |  |
 | [`Quad.Bindings.Frame`](OneGame.Render2D/OneGame.Render2D.Shaders/Quad.Bindings.Frame.md) | static class | `OneGame.Render2D.Shaders` | [OneGame.Render2D](OneGame.Render2D/index.md) |  |
@@ -856,8 +797,6 @@ Every public type in every package, in alphabetical order.
 | [`ReplicaState`](OneGame.Sync/OneGame.Sync/ReplicaState.md) | enum | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | Where a replica is in its life. |
 | [`ReplicaWriteException`](OneGame.Core/OneGame.Core/ReplicaWriteException.md) | class | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Thrown when code changes state on a replica. |
 | [`Resolution`](OneGame.Host/OneGame.Host/Resolution.md) | static class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | Named capture sizes. |
-| [`ResourceBinding`](OneGame.Gpu/OneGame.Gpu/ResourceBinding.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Describes one shader resource binding. |
-| [`ResourceKind`](OneGame.Gpu/OneGame.Gpu/ResourceKind.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Kind of a shader resource binding. |
 | [`ResourceReport`](OneGame.Gpu/OneGame.Gpu.Graph/ResourceReport.md) | record | `OneGame.Gpu.Graph` | [OneGame.Gpu](OneGame.Gpu/index.md) | One texture or buffer of the last frame. |
 | [`ReverbOptions`](OneGame.Audio/OneGame.Audio/ReverbOptions.md) | struct | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | A reverb insert on a bus: the bus signal becomes `Dry * signal + Wet * reverb`. |
 | [`Rig`](OneGame.Gltf/OneGame.Gltf/Rig.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | A model's skeleton for animation: its rest pose, node lookup by name and clip lookup by name. |
@@ -866,7 +805,6 @@ Every public type in every package, in alphabetical order.
 | [`RootMotion`](OneGame.Gltf/OneGame.Gltf/RootMotion.md) | static class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Turns a clip's root bone movement into numbers the sim can use. |
 | [`RootMotionTrack`](OneGame.Core/OneGame.Core/RootMotionTrack.md) | class | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | The movement of an animation's root bone, one fixed-point step per simulation tick. |
 | [`RunningOn`](OneGame.Platform/OneGame.Platform/RunningOn.md) | static class | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | Which kind of system the game is running on. |
-| [`SamplerDesc`](OneGame.Gpu/OneGame.Gpu/SamplerDesc.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Describes a sampler to create. |
 | [`SaveFile`](OneGame.Sync/OneGame.Sync/SaveFile.md) | static class | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | Save files: a header (format, seed, tick, hashes, schema versions) followed by a world snapshot. |
 | [`SaveHeader`](OneGame.Sync/OneGame.Sync/SaveHeader.md) | record | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | The fixed part of a save file. |
 | [`SaveSlotOptions`](OneGame.Sync/OneGame.Storage/SaveSlotOptions.md) | class | `OneGame.Storage` | [OneGame.Sync](OneGame.Sync/index.md) | Options for [`SaveSlots`](OneGame.Sync/OneGame.Storage/SaveSlots.md). |
@@ -936,13 +874,10 @@ Every public type in every package, in alphabetical order.
 | [`SettingsSchema<T>`](OneGame.Core/OneGame.Storage/SettingsSchema-1.md) | class | `OneGame.Storage` | [OneGame.Core](OneGame.Core/index.md) | Describes a settings class: which properties are saved, under which keys, and the range each one may take. |
 | [`SettingsStatus`](OneGame.Core/OneGame.Storage/SettingsStatus.md) | enum | `OneGame.Storage` | [OneGame.Core](OneGame.Core/index.md) | How a settings load went. |
 | [`ShaderCode`](OneGame.Render2D/OneGame.Render2D/ShaderCode.md) | struct | `OneGame.Render2D` | [OneGame.Render2D](OneGame.Render2D/index.md) | One compiled shader stage: SPIR-V (and, for Metal, Metal Shading Language) and the name of its entry point. |
-| [`ShaderLayouts`](OneGame.Gpu/OneGame.Gpu/ShaderLayouts.md) | static class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Turns the layouts the shader build generates (`Shader.Entry.Layout`) into this layer's own binding, push-constant and vertex types, so a pipeline layout is declared once, in the HLSL, and cannot disagree with the shaders that use it. |
 | [`ShaderNames`](OneGame.Render2D/OneGame.Render2D/ShaderNames.md) | static class | `OneGame.Render2D` | [OneGame.Render2D](OneGame.Render2D/index.md) | The programs and entry points the renderer asks an [`IShaderSource`](OneGame.Render2D/OneGame.Render2D/IShaderSource.md) for. |
 | [`ShaderProblem`](OneGame.Control/OneGame.Control/ShaderProblem.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | One diagnostic of a failed shader compile. |
 | [`ShaderReloader`](OneGame.Control/OneGame.Control/ShaderReloader.md) | class | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | Development-build shader hot reload. |
-| [`ShaderSource`](OneGame.Gpu/OneGame.Gpu/ShaderSource.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | One compiled shader entry point in every form a backend may need. |
 | [`ShadersResult`](OneGame.Control/OneGame.Control/ShadersResult.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | Result of the `shaders` operation. |
-| [`ShaderStage`](OneGame.Gpu/OneGame.Gpu/ShaderStage.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Shader stage of a module or a resource's visibility. |
 | [`ShaderStatus`](OneGame.Control/OneGame.Control/ShaderStatus.md) | record | `OneGame.Control` | [OneGame.Control](OneGame.Control/index.md) | The state of one hot-reloadable shader. |
 | [`ShadowSettings`](OneGame.Render3D/OneGame.Render3D/ShadowSettings.md) | class | `OneGame.Render3D` | [OneGame.Render3D](OneGame.Render3D/index.md) | Scene-wide shadow controls. |
 | [`SheenInfo`](OneGame.Gltf/OneGame.Gltf/SheenInfo.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | KHR\_materials\_sheen. |
@@ -1021,7 +956,6 @@ Every public type in every package, in alphabetical order.
 | [`StoreKitBackend`](OneGame.Purchases/OneGame.Purchases/StoreKitBackend.md) | class | `OneGame.Purchases` | [OneGame.Purchases](OneGame.Purchases/index.md) | The App Store on iOS and macOS through StoreKit's Objective-C API (the original, transaction-queue StoreKit), reached with the Objective-C runtime like the rest of the Apple platform code. |
 | [`StoreLimits`](OneGame.Purchases/OneGame.Purchases/StoreLimits.md) | static class | `OneGame.Purchases` | [OneGame.Purchases](OneGame.Purchases/index.md) | Limits on everything read from a store, so a hostile or broken store cannot make the game allocate without bound. |
 | [`StoreNames`](OneGame.Core/OneGame.Storage/StoreNames.md) | static class | `OneGame.Storage` | [OneGame.Core](OneGame.Core/index.md) | The rules for file names in an [`IByteStore`](OneGame.Core/OneGame.Storage/IByteStore.md): ASCII letters, digits, `.`, `_` and `-`, up to 96 characters. |
-| [`StoreOp`](OneGame.Gpu/OneGame.Gpu/StoreOp.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | What happens to an attachment's contents when a pass ends. |
 | [`StoreProduct`](OneGame.Purchases/OneGame.Purchases/StoreProduct.md) | record | `OneGame.Purchases` | [OneGame.Purchases](OneGame.Purchases/index.md) | A product as the store describes it to this player: localized text and a price already formatted for their country. |
 | [`StoreResult`](OneGame.Steam/OneGame.Stores/StoreResult.md) | enum | `OneGame.Stores` | [OneGame.Steam](OneGame.Steam/index.md) | Outcome of a store operation that changes something. |
 | [`StreamPosition`](OneGame.Audio/OneGame.Audio/StreamPosition.md) | struct | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | Where a streamed track is. |
@@ -1030,9 +964,6 @@ Every public type in every package, in alphabetical order.
 | [`StyleSheet`](OneGame.UI/OneGame.UI/StyleSheet.md) | class | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | An ordered list of style rules. |
 | [`StyleValue`](OneGame.UI/OneGame.UI/StyleValue.md) | struct | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | A value for a style property or a theme token: a length, a number, a color, a keyword or a string. |
 | [`SubmitResult`](OneGame.Sync/OneGame.Sync/SubmitResult.md) | enum | `OneGame.Sync` | [OneGame.Sync](OneGame.Sync/index.md) | What `Connection.SubmitCommand` did with a command. |
-| [`SurfaceKind`](OneGame.Gpu/OneGame.Gpu/SurfaceKind.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Native window system a [`SurfaceSource`](OneGame.Gpu/OneGame.Gpu/SurfaceSource.md) belongs to. |
-| [`SurfaceSource`](OneGame.Gpu/OneGame.Gpu/SurfaceSource.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Where a swapchain draws: the native handles of a window the platform layer created. |
-| [`SwapchainDesc`](OneGame.Gpu/OneGame.Gpu/SwapchainDesc.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Describes a swapchain to create. |
 | [`SyncedAttribute`](OneGame.Core/OneGame.Core/SyncedAttribute.md) | attribute | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Marks a partial property as synced state. |
 | [`SyncedStructAttribute`](OneGame.Core/OneGame.Core/SyncedStructAttribute.md) | attribute | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Marks a partial struct whose public fields and properties form a synced value. |
 | [`SyncError`](OneGame.Core/OneGame.Core/SyncError.md) | enum | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Why decoding untrusted bytes failed. |
@@ -1064,15 +995,9 @@ Every public type in every package, in alphabetical order.
 | [`TextSize`](OneGame.UI/OneGame.UI/TextSize.md) | struct | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | The size of laid-out text. |
 | [`TextStyle`](OneGame.UI/OneGame.UI/TextStyle.md) | struct | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | The resolved font properties that decide how a piece of text is measured and wrapped. |
 | [`Texture2D`](OneGame.Render2D/OneGame.Render2D/Texture2D.md) | class | `OneGame.Render2D` | [OneGame.Render2D](OneGame.Render2D/index.md) | An image on the GPU that sprites, tilesets and materials draw from. |
-| [`TextureDesc`](OneGame.Gpu/OneGame.Gpu/TextureDesc.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Describes a texture to create: 2D, 2D array, cube, cube array or 3D. |
-| [`TextureDimension`](OneGame.Gpu/OneGame.Gpu/TextureDimension.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | The shape of a texture as shaders see it. |
 | [`TextureFilter`](OneGame.Render2D/OneGame.Render2D/TextureFilter.md) | enum | `OneGame.Render2D` | [OneGame.Render2D](OneGame.Render2D/index.md) | How a texture is filtered when it is drawn at a size other than its own. |
 | [`TextureRef`](OneGame.Gltf/OneGame.Gltf/TextureRef.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | A reference from a material slot to a texture. |
-| [`TextureRegion`](OneGame.Gpu/OneGame.Gpu/TextureRegion.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Where a texture region is: a mip level, a layer, a box inside it. |
 | [`TextureTransform`](OneGame.Gltf/OneGame.Gltf/TextureTransform.md) | struct | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | A KHR\_texture\_transform: offset, rotation and scale of the texture coordinates. |
-| [`TextureUsage`](OneGame.Gpu/OneGame.Gpu/TextureUsage.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | How a texture may be used. |
-| [`TextureViewDesc`](OneGame.Gpu/OneGame.Gpu/TextureViewDesc.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Selects part of a texture for a shader to see: some mip levels, some layers, and how they are presented. |
-| [`TextureViewKind`](OneGame.Gpu/OneGame.Gpu/TextureViewKind.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | How a view of a texture presents it to a shader. |
 | [`ThemeLint`](OneGame.UI.Kit/OneGame.UI.Kit/ThemeLint.md) | static class | `OneGame.UI.Kit` | [OneGame.UI.Kit](OneGame.UI.Kit/index.md) | Checks that a theme's colors stay legible. |
 | [`ThemeLintReport`](OneGame.UI.Kit/OneGame.UI.Kit/ThemeLintReport.md) | record | `OneGame.UI.Kit` | [OneGame.UI.Kit](OneGame.UI.Kit/index.md) | The outcome of [`ThemeLint`](OneGame.UI.Kit/OneGame.UI.Kit/ThemeLint.md). |
 | [`Tile`](OneGame.Render2D/OneGame.Render2D.Shaders/Tile.md) | static class | `OneGame.Render2D.Shaders` | [OneGame.Render2D](OneGame.Render2D/index.md) |  |
@@ -1147,10 +1072,6 @@ Every public type in every package, in alphabetical order.
 | [`UserStatsReceived`](OneGame.Steam/OneGame.Steam/UserStatsReceived.md) | struct | `OneGame.Steam` | [OneGame.Steam](OneGame.Steam/index.md) | The latest stats and achievements of a user arrived. |
 | [`UserStatsStored`](OneGame.Steam/OneGame.Steam/UserStatsStored.md) | struct | `OneGame.Steam` | [OneGame.Steam](OneGame.Steam/index.md) | Stats were (or were not) stored on the server. |
 | [`VehicleRef`](OneGame.Physics/OneGame.Physics/VehicleRef.md) | struct | `OneGame.Physics` | [OneGame.Physics](OneGame.Physics/index.md) | Names a vehicle in a [`PhysicsSpace3D`](OneGame.Physics/OneGame.Physics/PhysicsSpace3D.md), like [`BodyRef`](OneGame.Physics/OneGame.Physics/BodyRef.md) names a body. |
-| [`VertexBufferLayout`](OneGame.Gpu/OneGame.Gpu/VertexBufferLayout.md) | class | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Layout of one vertex buffer binding. |
-| [`VertexElement`](OneGame.Gpu/OneGame.Gpu/VertexElement.md) | struct | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Describes one vertex attribute: where a shader input comes from inside a vertex. |
-| [`VertexFormat`](OneGame.Gpu/OneGame.Gpu/VertexFormat.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | Format of one vertex attribute in memory. |
-| [`VertexStepMode`](OneGame.Gpu/OneGame.Gpu/VertexStepMode.md) | enum | `OneGame.Gpu` | [OneGame.Gpu](OneGame.Gpu/index.md) | How often a vertex buffer advances. |
 | [`ViewAttribute`](OneGame.Core/OneGame.Core/ViewAttribute.md) | attribute | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Marks a member or a whole class as view code. |
 | [`ViewCamera`](OneGame.Host/OneGame.Host/ViewCamera.md) | struct | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | A camera as resolved for a frame: where it is and how it projects. |
 | [`Visibility`](OneGame.Core/OneGame.Core/Visibility.md) | enum | `OneGame.Core` | [OneGame.Core](OneGame.Core/index.md) | Who may receive an entity or one of its synced properties. |
@@ -1158,11 +1079,8 @@ Every public type in every package, in alphabetical order.
 | [`VoiceId`](OneGame.Audio/OneGame.Audio/VoiceId.md) | struct | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | Identifies one playing sound inside a core. |
 | [`VoiceRequest`](OneGame.Audio/OneGame.Audio/VoiceRequest.md) | struct | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | A request to start one voice. |
 | [`VolumeInfo`](OneGame.Gltf/OneGame.Gltf/VolumeInfo.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | KHR\_materials\_volume. |
-| [`VulkanGpu`](OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan/VulkanGpu.md) | static class | `OneGame.Gpu.Vulkan` | [OneGame.Gpu.Vulkan](OneGame.Gpu.Vulkan/index.md) | Entry point of the Vulkan backend. |
-| [`VulkanModule`](OneGame.Gpu.Vulkan/OneGame.Gpu.Vulkan/VulkanModule.md) | static class | `OneGame.Gpu.Vulkan` | [OneGame.Gpu.Vulkan](OneGame.Gpu.Vulkan/index.md) | Identifies the Gpu.Vulkan assembly; a placeholder until its first feature lands. |
 | [`WasapiBackend`](OneGame.Audio/OneGame.Audio/WasapiBackend.md) | class | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | Windows output through WASAPI, provided by the device package. |
 | [`WebAudioBackend`](OneGame.Audio/OneGame.Audio/WebAudioBackend.md) | class | `OneGame.Audio` | [OneGame.Audio](OneGame.Audio/index.md) | Output in a web page through Web Audio, behind the device package's backend seam. |
-| [`WebGpu`](OneGame.Gpu.WebGpu/OneGame.Gpu.WebGpu/WebGpu.md) | static class | `OneGame.Gpu.WebGpu` | [OneGame.Gpu.WebGpu](OneGame.Gpu.WebGpu/index.md) | Creates WebGPU devices in the browser. |
 | [`WebSocketConnection`](OneGame.Net/OneGame.Net/WebSocketConnection.md) | class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | A WebSocket connection (RFC 6455) over a non-blocking TCP socket, client or server end. |
 | [`WebSocketListener`](OneGame.Net/OneGame.Net/WebSocketListener.md) | class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | The server end of the WebSocket transport. |
 | [`WebSocketOptions`](OneGame.Net/OneGame.Net/WebSocketOptions.md) | class | `OneGame.Net` | [OneGame.Net](OneGame.Net/index.md) | Settings for the WebSocket transport (RFC 6455 over plain TCP). |
