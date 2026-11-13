@@ -13,7 +13,7 @@ internal sealed partial class ExportVerb : IVerb
 {
     public string Name => "export";
 
-    public string Summary => "Package the game: onegame export --target linux|win|osx|web [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins]; or a debug-signed APK: export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id]; or an iOS app bundle (on a Mac): export --target ios-simulator|ios [--dev] [--bundle-id id] [--orientation all|landscape|portrait].";
+    public string Summary => "Package the game: onegame export --target linux|win|osx|web [--dev] [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins]; or a debug-signed APK: export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id]; or an iOS app bundle (on a Mac): export --target ios-simulator|ios [--dev] [--bundle-id id] [--orientation all|landscape|portrait].";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
@@ -60,9 +60,9 @@ internal sealed partial class ExportVerb : IVerb
             return RunWebExport(a, dev, json, output);
         }
 
-        if (dev || a.Game.Count > 0)
+        if (a.Game.Count > 0)
         {
-            throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {(dev ? "--dev (Android and iOS only)" : a.Game[0])}. Usage: onegame export --target linux-x64|win-x64|osx [--steam] [--steam-redist <dir>] [--bundle-id <id>] [--out <dir>] [--no-archive] [--no-aot] [--host-glibc] [--sysroot <dir>].");
+            throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {a.Game[0]}. Usage: onegame export --target linux-x64|win-x64|osx [--dev] [--steam] [--steam-redist <dir>] [--bundle-id <id>] [--out <dir>] [--no-archive] [--no-aot] [--host-glibc] [--sysroot <dir>].");
         }
 
         var target = a.Get("--target") ?? (OperatingSystem.IsWindows() ? "win-x64" : OperatingSystem.IsMacOS() ? "osx-arm64" : "linux-x64");
@@ -105,7 +105,7 @@ internal sealed partial class ExportVerb : IVerb
         var props = ReadProperties(project);
         var version = props.Version;
         var exeName = props.AssemblyName + (target.StartsWith("win", StringComparison.Ordinal) ? ".exe" : "");
-        var folderName = $"{project.Name}-{version}-{target}";
+        var folderName = $"{project.Name}-{version}-{target}{(dev ? "-dev" : "")}";
         var outRoot = Path.GetFullPath(a.Get("--out") ?? Path.Combine(project.Directory, "export"));
         var folder = Path.Combine(outRoot, folderName);
 
@@ -125,7 +125,7 @@ internal sealed partial class ExportVerb : IVerb
         Directory.CreateDirectory(programDir);
         Directory.CreateDirectory(contentDir);
         var sysrootArgs = LinuxLinkArguments(target, aot, hostGlibc, a.Get("--sysroot"), json, error);
-        Publish(project, target, aot, programDir, sysrootArgs);
+        Publish(project, target, aot, dev, programDir, sysrootArgs);
 
         // Debug symbols and the XML documentation of the engine assemblies are not part of what ships.
         foreach (var f in Directory.EnumerateFiles(programDir, "*", SearchOption.AllDirectories).ToArray())
@@ -190,7 +190,7 @@ internal sealed partial class ExportVerb : IVerb
             warnings.Add(new ExportWarning("glibc_too_new", text + " Allowed by --host-glibc: it runs only on systems with at least this glibc."));
         }
 
-        if (DevToolsPresent(programDir))
+        if (!dev && DevToolsPresent(programDir))
         {
             throw new CliException(ExitCodes.RuntimeError, "dev_tools_present", "The export contains the live-control listener (OneGame.Live). Exports are Release builds; check the project for OneGameDev=true.");
         }
@@ -232,7 +232,13 @@ internal sealed partial class ExportVerb : IVerb
             archive = Pack(outRoot, folderName, target, folder, props.AssemblyName);
         }
 
-        var result = new ExportResult(true, project.Name, version, Program.GetVersion(), target, "Release", aot ? "nativeaot" : "coreclr-self-contained", steam, false,
+        if (dev)
+        {
+            warnings.Add(new ExportWarning("dev_build", "Development build: it carries the live-control listener (--live), which is unauthenticated. Use it for local testing and profiling only, never ship it."));
+        }
+
+        // A Release build either way: the development tools are chosen by OneGameDev, not by the configuration.
+        var result = new ExportResult(true, project.Name, version, Program.GetVersion(), target, "Release", aot ? "nativeaot" : "coreclr-self-contained", steam, dev,
             "2d", folder, mac ? $"{appName}/Contents/MacOS/{exeName}" : exeName, archive, files, [.. skipped], [.. warnings], Math.Round(clock.Elapsed.TotalSeconds, 1));
         if (json)
         {
@@ -290,10 +296,10 @@ internal sealed partial class ExportVerb : IVerb
         return LinuxSysroot.PublishArguments(LinuxSysroot.Ensure(line => { if (!json) { error.WriteLine(line); } }));
     }
 
-    private static void Publish(ProjectRef project, string target, bool aot, string folder, string[] extra)
+    private static void Publish(ProjectRef project, string target, bool aot, bool dev, string folder, string[] extra)
     {
         List<string> args = ["publish", project.File, "-c", "Release", "-r", target, "--self-contained", "true", "-o", folder, "--nologo", "-v", "m", "-clp:NoSummary",
-            "-p:OneGameDev=false", "-p:DebugType=none", "-p:DebugSymbols=false", "-p:GenerateFullPaths=true"];
+            $"-p:OneGameDev={(dev ? "true" : "false")}", "-p:DebugType=none", "-p:DebugSymbols=false", "-p:GenerateFullPaths=true"];
         args.AddRange(extra);
         if (aot)
         {

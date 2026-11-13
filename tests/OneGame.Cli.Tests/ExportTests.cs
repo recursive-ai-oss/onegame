@@ -181,6 +181,32 @@ public sealed class ExportTests : IDisposable
         Assert.Contains("bad_target", output.ToString(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void DevIsAcceptedForDesktopTargetsAndNoLongerAndroidOrIosOnly()
+    {
+        // --dev gets past argument checking and reaches the target check; an unknown option is still a usage error that names it.
+        var output = new StringWriter();
+        Assert.Equal(2, Program.Run(["export", "--dev", "--target", "plan9", "--json"], output, new StringWriter()));
+        Assert.Contains("bad_target", output.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("Android and iOS only", output.ToString(), StringComparison.Ordinal);
+
+        output = new StringWriter();
+        Assert.Equal(2, Program.Run(["export", "--dev", "--bogus", "--target", "linux-x64", "--json"], output, new StringWriter()));
+        Assert.Contains("--bogus", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("[--dev]", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheResultSaysWhetherTheBuildIsADevelopmentBuild()
+    {
+        foreach (var dev in new[] { true, false })
+        {
+            var result = new ExportResult(true, "G", "1.0.0", "2.0.0", "linux-x64", "Release", "nativeaot", false, dev, "2d", "/x", "G", null, [], [], [], 0);
+            using var doc = JsonDocument.Parse(JsonSerializer.Serialize(result, CliJson.Default.ExportResult));
+            Assert.Equal(dev, doc.RootElement.GetProperty("devTools").GetBoolean());
+        }
+    }
+
     // 'new' only needs a folder that looks like an engine checkout.
     private string FakeEngine()
     {
