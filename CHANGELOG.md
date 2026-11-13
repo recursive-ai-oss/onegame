@@ -4,6 +4,8 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-13
+
 The GPU device layer moves to the standalone `RecursiveAI.OneGpu` 1.0.0 packages. This is a major release; [docs/migrating-to-2.0.md](docs/migrating-to-2.0.md) lists what a 1.x game changes.
 
 ### Changed (breaking)
@@ -21,6 +23,11 @@ The GPU device layer moves to the standalone `RecursiveAI.OneGpu` 1.0.0 packages
 ### Added
 
 - `onegame export --target linux-x64|win-x64|osx --dev`: a desktop export with the development tools (live control, `--live`), as the Android and iOS exports have. The folder gets a `-dev` suffix and the result says `devTools: true`. Release exports are unchanged.
+
+### Fixed
+
+- Linux games no longer crash (exit 139) when they quit on NVIDIA drivers under X11: the X display now closes before the graphics device and its driver are released, because the driver hooks display close on the connection.
+- Closing a game's window while it runs no longer fails with a lost surface: the swapchain is released before the window, and nothing presents to a closed window.
 
 ## [1.27.0] - 2026-11-12
 
