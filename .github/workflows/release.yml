@@ -25,7 +25,7 @@ env:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       actions: read
@@ -65,7 +65,7 @@ jobs:
 
   publish:
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: nuget
     permissions:
       id-token: write       # nuget.org Trusted Publishing and the provenance attestation
@@ -151,7 +151,7 @@ jobs:
 
   release:
     needs: publish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write       # create the release
     steps:
