@@ -13,7 +13,7 @@ Source: `src/OneGame.Control` (operations), `src/OneGame.Host` (the game being d
 - `EditWorld(Func<bool>)` runs a change that bypasses commands and ticks and tells recorders; it throws `InvalidOperationException` while a recording runs and commands are queued (`state_patch` reports that as `rejected`).
 - `UiScaleOverride` (a `float?`, 0 < v <= 16) replaces the window's scale for layout, hit-testing, drawing and captures that name no scale; null follows the window again (`WindowScale` is the window's own). It is a view setting, not simulation state, and is not recorded. The `ui_scale` operation reads and sets it; `info` reports `scale` (in effect) and `scaleOverride`.
 - A `GameDefinition` declares entities, `Setup`, `RegisterSystems`, `DefineScreens`, `DefineFixtures`, `Style`, `OnInput`, `DefineFonts` (default: `fonts/*.ttf|otf`), `DefineArt`, and optionally `CreateRenderStage(HostResources)`. The default stage is `Render2DStage` (the 2D renderer, sRGB targets) when the game has fonts (the shaders are the renderer's own, compiled during the build; `GameOptions.Shaders` replaces them); otherwise `StubStage`, a GPU clear plus a CPU raster of the display list. A GPU-less capture always uses the CPU raster.
-- `GameApp.Run(definition, args)` is the whole `Main` of a game: `--headless --frames N --size WxH --scale S --seed N --gpu auto|off|required --backend wayland|x11 --display NAME --present vsync|lowlatency|immediate --json`. Any other flag needs the development tools (`Dev.Enable()`, called by a module initializer that exists only in Debug builds); without them the game exits 5 `no_dev_tools`.
+- `GameApp.Run(definition, args)` is the whole `Main` of a game: `--headless --frames N --size WxH --scale S --seed N --gpu auto|off|required --backend wayland|x11 --display NAME --present vsync|lowlatency|immediate --json`. Any other flag needs the development tools (`Dev.Enable()`, called by a module initializer that exists only in Debug builds); without them the game exits 5 `no_dev_tools`. A desktop export gets them with `onegame export --target linux-x64|win-x64|osx --dev` (the live port is unauthenticated: local use only).
 
 ## Windowed runs
 
@@ -67,7 +67,7 @@ Release builds do not reference `OneGame.Live`, `OneGame.Control`, `OneGame.Test
 
 ## `onegame export --json`
 
-`onegame export --target linux-x64|win-x64 [--steam] [--steam-redist <dir>] [--out <dir>] [--project <dir>] [--no-archive] [--no-aot] --json` prints one object (guide: `docs/exporting.md`):
+`onegame export --target linux-x64|win-x64 [--dev] [--steam] [--steam-redist <dir>] [--out <dir>] [--project <dir>] [--no-archive] [--no-aot] --json` prints one object (guide: `docs/exporting.md`):
 
 ```json
 {"ok":true,"game":"demo","gameVersion":"1.0.0","engineVersion":"1.25.1","target":"linux-x64","configuration":"Release",

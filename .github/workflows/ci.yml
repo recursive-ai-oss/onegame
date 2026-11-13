@@ -30,7 +30,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, rid: linux-x64 }
+          # Pinned: ubuntu-latest moved to 26.04, whose Mesa and distro packages differ from the ones the lavapipe capture references were made with.
+          - { os: ubuntu-24.04, rid: linux-x64 }
           - { os: windows-latest, rid: win-x64 }
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
@@ -150,12 +151,12 @@ jobs:
       # WebAssembly (the .NET interpreter under node) is checked on Linux; the linux-arm64 run is by hand under qemu.
       - name: Root motion bakes to the pinned numbers
         if: ${{ !cancelled() }}
-        run: bash tools/ci/rootmotion.sh "$RUNNER_TEMP/rootmotion" ${{ matrix.os == 'ubuntu-latest' && '--web' || '' }}
+        run: bash tools/ci/rootmotion.sh "$RUNNER_TEMP/rootmotion" ${{ matrix.os == 'ubuntu-24.04' && '--web' || '' }}
 
       # A physics scene's hashes and end positions must not depend on the CPU or runtime either (WebAssembly on Linux; arm64 by hand under qemu).
       - name: Physics scene ends in the pinned numbers
         if: ${{ !cancelled() }}
-        run: bash tools/ci/physics-probe.sh "$RUNNER_TEMP/physicsprobe" ${{ matrix.os == 'ubuntu-latest' && '--web' || '' }}
+        run: bash tools/ci/physics-probe.sh "$RUNNER_TEMP/physicsprobe" ${{ matrix.os == 'ubuntu-24.04' && '--web' || '' }}
 
       # Edits to a running game's C# (view, sim, screen, new member, compile error, rude edit) through `onegame run` and live control.
       - name: Hot reload of game code
@@ -169,6 +170,14 @@ jobs:
       - name: Export solitaire and run it
         if: ${{ !cancelled() }}
         run: bash tools/ci/export-run.sh "$RUNNER_TEMP/cli/onegame" ${{ matrix.rid }} "$OUT/hashes"
+
+      # The development export (--dev): the same NativeAOT program with live control, driven over its port; the release export must refuse --live.
+      - name: Export solitaire with the development tools and drive it live
+        if: ${{ !cancelled() }}
+        timeout-minutes: 20
+        env:
+          ONEGAME_GPU_ADAPTER: software
+        run: bash tools/ci/export-dev-live.sh "$RUNNER_TEMP/cli/onegame" ${{ matrix.rid }} "$OUT/devexport"
 
       - name: Export with the Steam library
         if: ${{ !cancelled() }}
@@ -198,7 +207,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, target: linux }
+          - { os: ubuntu-24.04, target: linux }
           - { os: windows-latest, target: win }
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -245,7 +254,7 @@ jobs:
   # exported page starts in headless Chrome and its scenarios end in the same world hashes as the desktop run.
   packages-web:
     name: packages web
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -278,7 +287,7 @@ jobs:
   # game's plugin and let an exported client connect and agree with it.
   packages-server:
     name: packages-server
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -309,7 +318,7 @@ jobs:
   # linking and packaging; the APKs are not run here (the emulator check is a manual one, see docs/devices.md).
   packages-android:
     name: packages android
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -364,7 +373,7 @@ jobs:
   # The same scenarios and the same exported game must end in the same world hash on every system.
   same-hashes:
     needs: check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -374,4 +383,4 @@ jobs:
           pattern: logs-*
           path: logs
       - name: Compare
-        run: bash tools/ci/compare-hashes.sh logs/logs-ubuntu-latest logs/logs-windows-latest
+        run: bash tools/ci/compare-hashes.sh logs/logs-ubuntu-24.04 logs/logs-windows-latest
