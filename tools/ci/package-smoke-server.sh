@@ -8,7 +8,7 @@
 set -eu
 repo="$(cd "$(dirname "$0")/../.." && pwd)"
 work=${1:-${RUNNER_TEMP:-${TMPDIR:-/tmp}}/package-smoke-server}
-version=$(sed -n 's|.*<Version>\(1\.[^<]*\)</Version>.*|\1|p' "$repo/Directory.Build.props" | head -1)
+version=$(sed -n 's|.*<Version>\([1-9][0-9]*\.[^<]*\)</Version>.*|\1|p' "$repo/Directory.Build.props" | head -1)
 [ -n "$version" ] || { echo "cannot read the engine version from Directory.Build.props"; exit 1; }
 
 unset ONEGAME_ROOT
