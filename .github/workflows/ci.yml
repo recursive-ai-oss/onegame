@@ -176,7 +176,7 @@ jobs:
         if: ${{ !cancelled() }}
         timeout-minutes: 20
         env:
-          ONEGAME_GPU_ADAPTER: software
+          ONEGPU_ADAPTER: software
         run: bash tools/ci/export-dev-live.sh "$RUNNER_TEMP/cli/onegame" ${{ matrix.rid }} "$OUT/devexport"
 
       - name: Export with the Steam library
