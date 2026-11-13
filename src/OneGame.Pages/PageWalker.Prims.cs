@@ -1,6 +1,6 @@
 using System.Numerics;
 using OneGame.Atlas;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Text;
 using OneRender.Painting;
 

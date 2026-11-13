@@ -1,8 +1,8 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using OneGame.Gltf;
-using OneGame.Gpu;
-using OneGame.Gpu.Vulkan;
+using RecursiveAI.OneGpu;
+using RecursiveAI.OneGpu.Vulkan;
 using OneGame.Render2D;
 using OneGame.Render3D;
 using OneGame.UI;

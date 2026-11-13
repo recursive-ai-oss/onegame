@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 using OneGame.Gltf;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Gpu.Graph;
 using OneGame.Render3D.Shaders;
 

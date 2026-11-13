@@ -1,5 +1,5 @@
 using OneGame.Gltf;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 
 namespace OneGame.Render3D;
 

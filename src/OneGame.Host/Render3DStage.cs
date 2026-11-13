@@ -1,4 +1,4 @@
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Gpu.Graph;
 using OneGame.Render3D;
 

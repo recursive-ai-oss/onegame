@@ -60,7 +60,6 @@
     <!-- The browser page and script modules a web export serves beside the runtime; the files next to the code that uses them are the single source. -->
     <EmbeddedResource Include="../../tools/web/page/index.html" LogicalName="web/index.html" />
     <EmbeddedResource Include="../../tools/web/page/boot.mjs" LogicalName="web/boot.mjs" />
-    <EmbeddedResource Include="../OneGame.Gpu.WebGpu/js/onegame-gpu.js" LogicalName="web/onegame-gpu.js" />
     <EmbeddedResource Include="../OneGame.Platform/js/onegame-platform.js" LogicalName="web/onegame-platform.js" />
     <EmbeddedResource Include="../OneGame.Audio/js/onegame-audio.js" LogicalName="web/onegame-audio.js" />
     <!-- The Java class that wraps Google Play Billing, compiled at export time for games that sell through Play. -->

@@ -3,8 +3,8 @@ using OneGame.Atlas;
 using OneGame.Audio;
 using OneGame.Control;
 using OneGame.Core;
-using OneGame.Gpu;
-using OneGame.Gpu.Vulkan;
+using RecursiveAI.OneGpu;
+using RecursiveAI.OneGpu.Vulkan;
 using OneGame.Net;
 using OneGame.Platform;
 using OneGame.Render2D;
@@ -22,8 +22,8 @@ string[] names =
     CoreModule.Name,
     SyncModule.Name,
     NetModule.Name,
-    GpuModule.Name,
-    VulkanModule.Name,
+    typeof(RecursiveAI.OneGpu.GpuDevice).Assembly.GetName().Name!,
+    typeof(RecursiveAI.OneGpu.Vulkan.VulkanGpu).Assembly.GetName().Name!,
     PlatformModule.Name,
     Render2DModule.Name,
     AudioModule.Name,
@@ -34,7 +34,7 @@ string[] names =
 
 foreach (var name in names)
 {
-    if (!name.StartsWith("OneGame.", StringComparison.Ordinal))
+    if (!name.StartsWith("OneGame.", StringComparison.Ordinal) && !name.StartsWith("RecursiveAI.OneGpu", StringComparison.Ordinal))
     {
         Console.Error.WriteLine($"unexpected assembly name: {name}");
         return 1;

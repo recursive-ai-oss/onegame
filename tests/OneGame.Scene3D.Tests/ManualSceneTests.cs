@@ -7,7 +7,7 @@ using OneGame.Core;
 using OneGame.Gltf;
 using OneGame.Host;
 using OneGame.Render3D;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.UI;
 
 namespace OneGame.Scene3D.Tests;

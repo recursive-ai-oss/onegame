@@ -1,4 +1,4 @@
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Render2D.Shaders;
 using EntryLayout = OneShader.Layouts.EntryLayout;
 using VertexAttributeOverride = OneShader.Layouts.VertexAttributeOverride;

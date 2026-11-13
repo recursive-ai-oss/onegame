@@ -1,5 +1,5 @@
 using OneGame.Control;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Host;
 using OneGame.Platform;
 

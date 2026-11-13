@@ -1,7 +1,7 @@
 using System.Numerics;
 using OneGame.Atlas;
 using OneGame.Core;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Host;
 using OneGame.Render2D;
 using OneGame.Text;

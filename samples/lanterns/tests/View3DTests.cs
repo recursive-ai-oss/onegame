@@ -1,8 +1,8 @@
 using System.Numerics;
 using Lanterns.Views;
 using OneGame.Core;
-using OneGame.Gpu;
-using OneGame.Gpu.Vulkan;
+using RecursiveAI.OneGpu;
+using RecursiveAI.OneGpu.Vulkan;
 using OneGame.Host;
 using OneGame.Render3D;
 using Scene = OneGame.Render3D.Scene3D;
@@ -251,7 +251,7 @@ public class View3DTests
         game.RegisterSystems(world);
         game.Setup(world);
 
-        Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
+        Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
         using var device = GpuBackends.CreateDevice(new GpuDeviceOptions { Validation = true, RequireValidation = true });
         var renderer = new Renderer3D(device);
         var target = new Offscreen3D(renderer, 320, 180);

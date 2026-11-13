@@ -17,7 +17,7 @@ internal static class Fixture
     public static TestCluster Start(int width = 640, int height = 360)
     {
         // The Vulkan validation layer must stay silent through every frame these tests draw.
-        Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
+        Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
         return TestCluster.Start(new Scene3DGameDefinition(), new TestOptions { Width = width, Height = height, Gpu = GpuMode.Required });
     }
 

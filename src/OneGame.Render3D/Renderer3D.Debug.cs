@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Render3D.Shaders;
 
 namespace OneGame.Render3D;

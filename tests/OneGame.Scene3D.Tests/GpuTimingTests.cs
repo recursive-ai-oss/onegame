@@ -11,7 +11,7 @@ public class GpuTimingTests
     [Fact]
     public void OverlayReportsGpuPassTimesWhereTheBackendHasTimestamps()
     {
-        Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
+        Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
         using var game = GameInstance.Create(new Scene3DGameDefinition(), new GameOptions { Headless = true, Gpu = GpuMode.Required });
         var surface = new ControlSurface(game, Environment.GetEnvironmentVariable("ONEGAME_CAPTURE_DIR"));
         surface.Call("overlay", """{"visible":true,"masked":false}""");

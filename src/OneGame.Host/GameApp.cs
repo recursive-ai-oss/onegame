@@ -1,7 +1,7 @@
 using System.Buffers;
 using OneGame.Core;
 using OneGame.Net;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Platform;
 
 namespace OneGame.Host;
@@ -230,7 +230,7 @@ public static class GameApp
             WriteSummary(instance, json, output);
             return ExitCodes.Ok;
         }
-        catch (Exception ex) when (ex is Platform.PlatformException or Gpu.GpuException or IOException or InvalidOperationException)
+        catch (Exception ex) when (ex is Platform.PlatformException or GpuException or IOException or InvalidOperationException)
         {
             return Fail(json, output, error, ExitCodes.RuntimeError, "runtime_error", ex.Message);
         }

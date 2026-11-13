@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.Numerics;
 using OneGame.Core;
-using OneGame.Gpu;
-using OneGame.Gpu.Vulkan;
+using RecursiveAI.OneGpu;
+using RecursiveAI.OneGpu.Vulkan;
 using OneGame.Host;
 using OneGame.Render3D;
 using Scene = OneGame.Render3D.Scene3D;

@@ -75,7 +75,7 @@ say "command: $CLIV"
 IRUN() {
   local name=$1 tmo=${2:-600} body; body=$(cat)
   { echo '@echo off'; echo "call $BASE\\env.cmd"; echo "cd /d $BASE\\src"
-    [ -n "$VALID" ] && { echo "set VK_ADD_LAYER_PATH=$BASE\\vk\\sdk\\Bin"; echo "set ONEGAME_GPU_VALIDATION=1"; echo "set ONEGAME_WINDOWED_ADAPTER=$ADAPTER"; }
+    [ -n "$VALID" ] && { echo "set VK_ADD_LAYER_PATH=$BASE\\vk\\sdk\\Bin"; echo "set ONEGPU_VALIDATION=1"; echo "set ONEGAME_WINDOWED_ADAPTER=$ADAPTER"; }
     printf '%s\n' "$body"; echo "echo done > $BASE\\jobs\\$name.done"; } | sed 's/$/\r/' > "$OUT/$name.cmd"
   printf 'CreateObject("Wscript.Shell").Run "cmd /c %s\\jobs\\%s.cmd > %s\\jobs\\%s.log 2>&1", 0, True\r\n' "$BASE" "$name" "$BASE" "$name" > "$OUT/$name.vbs"
   R "del $BASE\\jobs\\$name.done 2>nul" > /dev/null

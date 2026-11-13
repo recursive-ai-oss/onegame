@@ -1,6 +1,6 @@
 using OneGame.Atlas;
 using OneGame.Core;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Host;
 using OneGame.Pages;
 using OneGame.Render2D;

@@ -1,12 +1,12 @@
 import { dotnet } from './_framework/dotnet.js';
-import * as gpu from './onegame-gpu.js';
+import * as gpu from './_content/RecursiveAI.OneGpu.WebGpu/onegpu.js';   // the script the WebGpu package publishes; a page that imports it must also register it (below)
 
 const log = document.getElementById('log');
 const put = async (R, dst, url) => { const r = await fetch(url); if (!r.ok) throw new Error(url + ' ' + r.status); R.Put(dst, new Uint8Array(await r.arrayBuffer())); };
 try {
   const names = (new URLSearchParams(location.search).get('cases') || '').split(',').filter(Boolean);
   const runtime = await dotnet.withDiagnosticTracing(false).create();
-  runtime.setModuleImports('onegame-gpu', gpu);
+  runtime.setModuleImports('onegpu', gpu);
   const config = runtime.getConfig();
   const exports = await runtime.getAssemblyExports(config.mainAssemblyName);
   const R = exports.OneGame.Render3D.Tests.Runner;
@@ -26,7 +26,7 @@ try {
     results.push(r);
     log.textContent = results.map(x => x.name + ': ' + (x.ok ? 'ok' : 'FAIL')).join('\n');
   }
-  window.__result = JSON.stringify({ adapter: await gpu.takeMessages(), results });
+  window.__result = JSON.stringify({ adapter: gpu.takeMessages(0), results });
 } catch (e) {
   window.__result = JSON.stringify({ fatal: String(e && e.stack || e) });
   log.textContent = 'fatal: ' + e;

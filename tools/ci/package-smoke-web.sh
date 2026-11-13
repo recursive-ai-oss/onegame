@@ -36,7 +36,7 @@ step "onegame export --target web --json (release)"
 "$og" export --target web --out "$work/export" --json | tee "$work/export.json"
 grep -q '^{"ok":true' "$work/export.json" || { echo "the web export failed"; exit 1; }
 folder=$(sed -n 's|.*"folder":"\([^"]*\)".*|\1|p' "$work/export.json")
-for f in index.html boot.mjs onegame-gpu.js onegame-platform.js onegame-audio.js _framework/dotnet.js; do
+for f in index.html boot.mjs _content/RecursiveAI.OneGpu.WebGpu/onegpu.js onegame-platform.js onegame-audio.js _framework/dotnet.js; do
   [ -f "$folder/$f" ] || { echo "the export lacks $f"; exit 1; }
 done
 

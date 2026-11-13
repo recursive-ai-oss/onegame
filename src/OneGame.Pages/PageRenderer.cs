@@ -2,7 +2,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
 using OneGame.Atlas;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Gpu.Graph;
 using OneGame.Text;
 using OneRender.Painting;

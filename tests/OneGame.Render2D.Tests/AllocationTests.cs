@@ -67,7 +67,7 @@ public class AllocationTests
         Golden.Note($"{frames} frames of 1000 sprites + tilemap + post chain + UI: {allocated} bytes allocated; last frame {rig.Renderer.LastFrame}");
         // The renderer itself allocates nothing: exactly zero on the software rasterizer and the NVIDIA driver. RADV has been seen to cost the GPU
         // backend a couple of kilobytes in total at random points, so real adapters are held to a few bytes per frame instead.
-        if (rig.Device.Adapter.Kind == OneGame.Gpu.AdapterKind.Software || rig.Device.Adapter.VendorId == 0x10DE)
+        if (rig.Device.Adapter.Kind == RecursiveAI.OneGpu.AdapterKind.Software || rig.Device.Adapter.VendorId == 0x10DE)
         {
             Assert.Equal(0, allocated);
         }

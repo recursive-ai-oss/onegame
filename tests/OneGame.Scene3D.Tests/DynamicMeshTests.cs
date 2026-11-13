@@ -1,7 +1,7 @@
 using System.Numerics;
 using OneGame.Core;
-using OneGame.Gpu;
-using OneGame.Gpu.Vulkan;
+using RecursiveAI.OneGpu;
+using RecursiveAI.OneGpu.Vulkan;
 using OneGame.Host;
 using OneGame.Render3D;
 using TestPng = OneGame.Render3D.Tests.Png;

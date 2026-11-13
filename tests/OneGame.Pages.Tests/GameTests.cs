@@ -8,7 +8,7 @@ namespace OneGame.Pages.Tests;
 
 public class GameTests
 {
-    static GameTests() => Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
+    static GameTests() => Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
 
     private static TestCluster Start(bool pages = true) =>
         TestCluster.Start(new PagesGameDefinition { ShowPages = pages }, new TestOptions { Width = 320, Height = 260, Gpu = GpuMode.Auto });

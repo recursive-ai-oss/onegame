@@ -1,17 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>Graphics API abstraction and render graph.</Description>
+    <Description>Render graph over the GPU layer (RecursiveAI.OneGpu).</Description>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Support types of the shader library (resource bindings with their Metal indices). -->
-    <PackageReference Include="RecursiveAI.OneShader" />
+    <!-- Devices, buffers, textures, pipelines and encoders. The backends are chosen by the host or the test, not here. -->
+    <PackageReference Include="RecursiveAI.OneGpu" />
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="OneGame.Gpu.Tests" />
+    <!-- The graph is written against the GPU layer's types, which used to share its namespace. -->
+    <Using Include="RecursiveAI.OneGpu" />
   </ItemGroup>
 
 </Project>

@@ -1,7 +1,7 @@
 using OneGame.Atlas;
 using OneGame.Core;
-using OneGame.Gpu;
-using OneGame.Gpu.Vulkan;
+using RecursiveAI.OneGpu;
+using RecursiveAI.OneGpu.Vulkan;
 using OneGame.Host;
 using OneGame.Render2D;
 using OneGame.Render3D;

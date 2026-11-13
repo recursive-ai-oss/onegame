@@ -1,6 +1,8 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- One version for every RecursiveAI.OneGpu package. A pre-release or local build overrides it: -p:OneGpuVersion=... -->
+    <OneGpuVersion Condition="'$(OneGpuVersion)' == ''">1.0.0</OneGpuVersion>
   </PropertyGroup>
   <ItemGroup>
     <!-- Build-time only: the source generator project. Never flows to a consumer (PrivateAssets="all"). -->
@@ -20,6 +22,12 @@
     <PackageVersion Include="RecursiveAI.OneHtml" Version="1.5.1" />
     <PackageVersion Include="RecursiveAI.OnePath" Version="1.0.0" />
     <PackageVersion Include="RecursiveAI.OnePhysics" Version="1.0.0" />
+    <!-- The GPU layer: devices, buffers, pipelines and the Vulkan, Metal and WebGPU backends. -->
+    <PackageVersion Include="RecursiveAI.OneGpu" Version="$(OneGpuVersion)" />
+    <PackageVersion Include="RecursiveAI.OneGpu.Backends" Version="$(OneGpuVersion)" />
+    <PackageVersion Include="RecursiveAI.OneGpu.Vulkan" Version="$(OneGpuVersion)" />
+    <PackageVersion Include="RecursiveAI.OneGpu.Metal" Version="$(OneGpuVersion)" />
+    <PackageVersion Include="RecursiveAI.OneGpu.WebGpu" Version="$(OneGpuVersion)" />
   </ItemGroup>
   <ItemGroup>
     <!-- Test projects only. Shipping projects may depend on the one* family and nothing else. -->

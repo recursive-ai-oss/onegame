@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/OneGame.Render2D/OneGame.Render2D.csproj" />
-    <ProjectReference Include="../../src/OneGame.Gpu.Backends/OneGame.Gpu.Backends.csproj" />
+    <PackageReference Include="RecursiveAI.OneGpu.Backends" />
     <ProjectReference Include="../../src/OneGame.Control/OneGame.Control.csproj" />
   </ItemGroup>
 

@@ -37,7 +37,7 @@ public sealed class ScaffoldTests : IDisposable
     [Fact]
     public void EditingTheShipPictureWhileTheGameRunsChangesTheNextCapture()
     {
-        Assert.SkipUnless(OneGame.Gpu.GpuBackends.IsAvailable, "needs a Vulkan device (lavapipe is enough)");
+        Assert.SkipUnless(RecursiveAI.OneGpu.GpuBackends.IsAvailable, "needs a Vulkan device (lavapipe is enough)");
         var dir = Path.Combine(_root, "mygame");
         Assert.Equal(0, Program.Run(["new", "mygame", "--dir", dir, "--engine", Repo, "--json"], new StringWriter(), new StringWriter()));
         var build = Program.Run(["build", "--project", dir, "--json"], new StringWriter(), new StringWriter());

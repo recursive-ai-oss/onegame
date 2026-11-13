@@ -33,7 +33,7 @@ public class DebugSceneTests
     [Fact]
     public void EntityGeometryIsGatedAndOverlayTogglesBothDrawingPaths()
     {
-        Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
+        Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
         var definition = new DebugGame();
         using var cluster = TestCluster.Start(definition, new TestOptions { Width = 240, Height = 180, Gpu = GpuMode.Required });
         var stage = Assert.IsType<Render3DStage>(cluster.Client.Game.Stage);

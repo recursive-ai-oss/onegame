@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using OneGame.AotSmoke.Shaders;
 using OneGame.Control;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Gpu.Graph;
 
 namespace OneGame.AotSmoke;

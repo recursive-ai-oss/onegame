@@ -28,7 +28,7 @@ public class GpuCaptureTests
     [Fact]
     public void ARendererCaptureWithAUiScaleOverrideEqualsOneAtThatWindowScale()
     {
-        Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
+        Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
         using var native = TestCluster.Start(new FontedShopGame(), Options() with { Scale = 1.5f });
         using var overridden = TestCluster.Start(new FontedShopGame(), Options());
         overridden.Client.Game.UiScaleOverride = 1.5f;
@@ -46,7 +46,7 @@ public class GpuCaptureTests
     [Fact]
     public void TheUiIsDrawnByTheRenderer()
     {
-        Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
+        Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
         using var cluster = TestCluster.Start(new FontedShopGame(), Options());
         var c = cluster.Client;
         c.Click("buy").Step(2);
@@ -74,7 +74,7 @@ public class GpuCaptureTests
     [Fact]
     public void GpuCaptureCompareThroughAScenario()
     {
-        Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
+        Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
         using var cluster = TestCluster.Start(new FontedShopGame(), Options());
         var art = Path.Combine(cluster.OutputDirectory, "art");
         var scenario = ScenarioParser.Parse(

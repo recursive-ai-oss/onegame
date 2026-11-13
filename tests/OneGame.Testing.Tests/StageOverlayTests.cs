@@ -37,7 +37,7 @@ public class StageOverlayTests
     [Fact]
     public void AGameOverlayAndTheDebugPanelAreBothDrawnAndShowInCaptures()
     {
-        Environment.SetEnvironmentVariable("ONEGAME_GPU_VALIDATION", "1");
+        Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
         using var cluster = TestCluster.Start(new OverlayStageGame(), new TestOptions { Width = 320, Height = 200, Gpu = GpuMode.Required });
         var c = cluster.Client;
         var stage = Assert.IsType<Render2DStage>(c.Game.Stage);

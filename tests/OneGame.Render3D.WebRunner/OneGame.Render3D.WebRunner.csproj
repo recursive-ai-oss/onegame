@@ -23,9 +23,8 @@
   <ItemGroup>
     <Compile Include="*.cs" />
     <Compile Include="$(Shared)ReferenceCases.cs;$(Shared)Png.cs" />
-    <Content Include="../../src/OneGame.Gpu.WebGpu/js/onegame-gpu.js" Link="wwwroot/onegame-gpu.js" />
     <ProjectReference Include="../../src/OneGame.Render3D/OneGame.Render3D.csproj" />
-    <ProjectReference Include="../../src/OneGame.Gpu.WebGpu/OneGame.Gpu.WebGpu.csproj" />
+    <PackageReference Include="RecursiveAI.OneGpu.WebGpu" />
   </ItemGroup>
 
   <ItemGroup>

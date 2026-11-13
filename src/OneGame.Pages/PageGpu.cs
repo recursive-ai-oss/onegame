@@ -1,6 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Pages.Shaders;
 using EntryLayout = OneShader.Layouts.EntryLayout;
 using VertexAttributeOverride = OneShader.Layouts.VertexAttributeOverride;

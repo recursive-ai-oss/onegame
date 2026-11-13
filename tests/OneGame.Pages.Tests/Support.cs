@@ -1,8 +1,8 @@
 using System.Numerics;
 using OneGame.Atlas;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Gpu.Graph;
-using OneGame.Gpu.Vulkan;
+using RecursiveAI.OneGpu.Vulkan;
 using OneGame.Host;
 using OneGame.Text;
 using OneRender.Image;

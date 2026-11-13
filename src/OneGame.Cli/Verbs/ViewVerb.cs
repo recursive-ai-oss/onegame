@@ -2,8 +2,8 @@ using System.Globalization;
 using System.Numerics;
 using System.Security.Cryptography;
 using OneGame.Gltf;
-using OneGame.Gpu;
-using OneGame.Gpu.Vulkan;
+using RecursiveAI.OneGpu;
+using RecursiveAI.OneGpu.Vulkan;
 using OneGame.Host;
 using OneGame.Render3D;
 
@@ -100,12 +100,13 @@ internal sealed class ViewVerb : IVerb
         GpuDevice device;
         try
         {
+            LegacyGpuEnvironment.Apply();
             if (!GpuBackends.IsAvailable)
             {
                 throw new GpuUnsupportedException(GpuBackends.UnavailableReason);
             }
 
-            device = GpuBackends.CreateDevice(new GpuDeviceOptions { Validation = Environment.GetEnvironmentVariable("ONEGAME_GPU_VALIDATION") == "1", ApplicationName = "onegame view" });
+            device = GpuBackends.CreateDevice(new GpuDeviceOptions { Validation = Environment.GetEnvironmentVariable("ONEGPU_VALIDATION") == "1", ApplicationName = "onegame view" });
         }
         catch (GpuException ex)
         {

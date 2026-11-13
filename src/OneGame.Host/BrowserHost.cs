@@ -1,8 +1,8 @@
 using System.Threading.Tasks;
 using System.Runtime.Versioning;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Platform;
-using WebGpuApi = OneGame.Gpu.WebGpu.WebGpu;
+using WebGpuApi = RecursiveAI.OneGpu.WebGpu.WebGpu;
 
 namespace OneGame.Host;
 

@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
-using OneGame.Gpu;
-using OneGame.Gpu.Vulkan;
+using RecursiveAI.OneGpu;
+using RecursiveAI.OneGpu.Vulkan;
 using OneGame.UI;
 
 // Each test makes its own GPU device; real drivers are not happy with several being created and destroyed at once.

@@ -1,5 +1,5 @@
 using OneGame.Atlas;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Gpu.Graph;
 using OneGame.Pages;
 using OneGame.Render2D;

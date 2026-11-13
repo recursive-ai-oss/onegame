@@ -20,8 +20,12 @@
     <ProjectReference Include="../OneGame.Gpu/OneGame.Gpu.csproj" />
     <ProjectReference Include="../OneGame.Audio/OneGame.Audio.csproj" />
     <ProjectReference Include="../OneGame.Gltf/OneGame.Gltf.csproj" />
-    <ProjectReference Include="../OneGame.Gpu.Backends/OneGame.Gpu.Backends.csproj" />
-    <ProjectReference Include="../OneGame.Gpu.WebGpu/OneGame.Gpu.WebGpu.csproj" />
+    <PackageReference Include="RecursiveAI.OneGpu.Backends" />
+    <PackageReference Include="RecursiveAI.OneGpu.WebGpu" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OneGame.Cli" />
   </ItemGroup>
 
   <ItemGroup>

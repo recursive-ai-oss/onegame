@@ -4,7 +4,7 @@
 #   - LunarG's loader-only Vulkan runtime (vulkan-1.dll), because a machine without a GPU driver has none;
 #   - Mesa's lavapipe, a CPU Vulkan driver, from a Windows build of Mesa.
 # Optionally the SDK installer is tried for the Khronos validation layer; if it yields one, tests run with validation,
-# otherwise the tests run without it (ONEGAME_VALIDATION_OPTIONAL) and say so. Linux CI always validates.
+# otherwise the tests run without it (ONEGPU_VALIDATION_OPTIONAL) and say so. Linux CI always validates.
 # All of these are test tools; nothing here ships. The script writes the environment the later steps need to $GITHUB_ENV.
 param(
     [string] $Destination = (Join-Path $env:RUNNER_TEMP 'vulkan')
@@ -78,11 +78,11 @@ Write-Host "vulkaninfo exit code $LASTEXITCODE"
 
 if ($env:GITHUB_ENV) {
     "VK_DRIVER_FILES=$icd" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
-    "ONEGAME_VULKAN_LIBRARY=$bin\vulkan-1.dll" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+    "ONEGPU_VULKAN_LIBRARY=$bin\vulkan-1.dll" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
     if ($layerDir) {
         "VK_ADD_LAYER_PATH=$layerDir" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
     } else {
-        "ONEGAME_VALIDATION_OPTIONAL=1" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+        "ONEGPU_VALIDATION_OPTIONAL=1" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
     }
 }
 if ($env:GITHUB_PATH) {

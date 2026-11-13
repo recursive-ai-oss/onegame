@@ -1,6 +1,6 @@
 using System.Numerics;
 using OneGame.Gltf;
-using OneGame.Gpu;
+using RecursiveAI.OneGpu;
 using OneGame.Render3D;
 
 namespace OneGame.AotSmoke;
