@@ -165,13 +165,23 @@ public class ClusterTests
         // while still reporting p1's own connection. Nothing in the replica's data is wrong; it is the wrong audience's view.
         using var p1Port = JsonDocument.Parse(cluster.Call("p1", "net_status"));
         var port = p1Port.RootElement.GetProperty("localPort").GetInt32();
+        Assert.True(port > 0, "p1 reported no local port, so the check could not tell its connection from another");
+        using (var clients = JsonDocument.Parse(cluster.Call("srv", "clients")))
+        {
+            Assert.Single(clients.RootElement.EnumerateArray(), c => c.GetProperty("address").GetString()!.EndsWith(":" + port, StringComparison.Ordinal));
+        }
+
         var dir = Fixture.NewDir("liar");
         Directory.CreateDirectory(dir);
         var fakePath = Path.Combine(dir, "p1.sock");
         using var fake = new SwappedView(fakePath, cluster, "p2", port);
         var real = cluster.State.Nodes.First(n => n.Name == "p1").Socket;
         var state = Path.Combine(dir, "cluster.json");
-        File.WriteAllText(state, File.ReadAllText(cluster.StateFile).Replace(real, fakePath, StringComparison.Ordinal));
+        // cluster.json is JSON: a Windows path has its backslashes doubled there, so the path is replaced as it is written, not as the OS spells it.
+        var json = File.ReadAllText(cluster.StateFile);
+        var escapedReal = JsonEncodedText.Encode(real).ToString();
+        Assert.Contains(escapedReal, json, StringComparison.Ordinal);
+        File.WriteAllText(state, json.Replace(escapedReal, JsonEncodedText.Encode(fakePath).ToString(), StringComparison.Ordinal));
         var attached = ProcessCluster.Attach(state);
 
         var report = attached.Hashes();
