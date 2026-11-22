@@ -328,9 +328,12 @@ public sealed partial class ControlSurface : IControlEndpoint
     {
         var spec = a.Str("entity");
         var tableName = a.Str("table");
+
+        // 'scope' reads a followed scope's replica when the game is connected; a game that runs its own world has only the one.
+        var world = Game.Remote is not null && a.Has("scope") ? CommandWorld(a) : Game.World;
         if (spec is null && tableName is null)
         {
-            return Game.World.DumpJson();
+            return world.DumpJson();
         }
 
         string text;
@@ -342,7 +345,7 @@ public sealed partial class ControlSurface : IControlEndpoint
                 throw new ControlException("bad_args", "Give entity or table, not both.");
             }
 
-            var table = ResolveTable(tableName);
+            var table = ResolveTable(tableName, world);
             var j = new JsonOut();
             table.WriteJson(j);
             text = j.ToString();
@@ -355,7 +358,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         }
         else
         {
-            var e = ResolveEntity(spec);
+            var e = ResolveEntity(spec, world);
             var j = new JsonOut();
             e.WriteJson(j);
             text = j.ToString();
@@ -430,9 +433,10 @@ public sealed partial class ControlSurface : IControlEndpoint
         return cur.GetRawText();
     }
 
-    private IHotTable ResolveTable(string name)
+    private IHotTable ResolveTable(string name, World? world = null)
     {
-        foreach (var t in Game.World.Tables)
+        world ??= Game.World;
+        foreach (var t in world.Tables)
         {
             if (t.Name == name)
             {
@@ -440,7 +444,7 @@ public sealed partial class ControlSurface : IControlEndpoint
             }
         }
 
-        throw new ControlException("not_found", $"No table '{name}'. Tables: {(Game.World.Tables.Count == 0 ? "none" : string.Join(", ", Game.World.Tables.Select(t => t.Name)))}.");
+        throw new ControlException("not_found", $"No table '{name}'. Tables: {(world.Tables.Count == 0 ? "none" : string.Join(", ", world.Tables.Select(t => t.Name)))}.");
     }
 
     private static string PropertyNames(Entity e)

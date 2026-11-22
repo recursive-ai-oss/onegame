@@ -140,6 +140,47 @@ public sealed class ServerHost
     /// <param name="tick">The scope tick.</param>
     public ScopeHashAt[] HashesAt(long tick) => HashesAt(tick, null);
 
+    private readonly List<AudienceWatch> _watches = [];
+
+    /// <summary>How many audiences are being recorded now.</summary>
+    public int WatchedAudiences => _watches.Count;
+
+    /// <summary>Most audiences a host records at once; each costs one view hash per scope per tick.</summary>
+    public const int MaxWatchedAudiences = 32;
+
+    /// <summary>
+    /// Starts recording the view hash of an audience at every tick of every scope, within <c>hashHistory</c>, so <see cref="HashesAt(long, string?, AudienceSpec?)"/> can say what a
+    /// replica of that audience must hold, however it follows the scope (directly, through a relay, or under an identity none of this host's connections has).
+    /// Only hashes are kept and returned; no hidden data leaves the host. Recording starts now: earlier ticks are not recorded. Naming an audience again does nothing.
+    /// </summary>
+    /// <param name="audience">The audience.</param>
+    /// <returns>The audience's key, as <see cref="AudienceSpec.Key"/>.</returns>
+    /// <exception cref="InvalidOperationException">More than <see cref="MaxWatchedAudiences"/> audiences are watched.</exception>
+    public string WatchAudience(AudienceSpec audience)
+    {
+        ArgumentNullException.ThrowIfNull(audience);
+        var key = audience.Key;
+        if (_watches.Exists(w => w.Key == key))
+        {
+            return key;
+        }
+
+        if (_watches.Count >= MaxWatchedAudiences)
+        {
+            throw new InvalidOperationException($"This host already records {MaxWatchedAudiences} audiences. Name fewer, or restart it.");
+        }
+
+        InterestSet? set = null;
+        if (audience.Interest is not null)
+        {
+            set = new InterestSet();
+            set.Replace(audience.Interest);
+        }
+
+        _watches.Add(new AudienceWatch(key, new Audience(audience.Player, audience.Team, audience.Relay), set));
+        return key;
+    }
+
     /// <summary>
     /// As <see cref="HashesAt(long)"/>, also naming the connection of each view and, when <paramref name="client"/> is given, the view hash of that
     /// client in <see cref="ScopeHashAt.View"/>: what its replica must hold at that tick, equal to its audience's filtered view of the scope.
@@ -147,8 +188,25 @@ public sealed class ServerHost
     /// <param name="tick">The scope tick.</param>
     /// <param name="client">A connected client's name (as <see cref="Clients"/> lists it), or null.</param>
     /// <exception cref="ArgumentException">No connected client has that name.</exception>
-    public ScopeHashAt[] HashesAt(long tick, string? client)
+    public ScopeHashAt[] HashesAt(long tick, string? client) => HashesAt(tick, client, null);
+
+    /// <summary>
+    /// As <see cref="HashesAt(long, string?)"/>, and when <paramref name="audience"/> is given, <see cref="ScopeHashAt.Audience"/> holds the view hash that audience
+    /// must hold at that tick. An audience not named before is named now (see <see cref="WatchAudience"/>), so its first answer is null.
+    /// </summary>
+    /// <param name="tick">The scope tick.</param>
+    /// <param name="client">A connected client's name, or null.</param>
+    /// <param name="audience">The audience to answer for, or null.</param>
+    /// <exception cref="ArgumentException">No connected client has that name.</exception>
+    public ScopeHashAt[] HashesAt(long tick, string? client, AudienceSpec? audience)
     {
+        var watch = -1;
+        if (audience is not null)
+        {
+            var key = WatchAudience(audience);
+            watch = _watches.FindIndex(w => w.Key == key);
+        }
+
         var names = new Dictionary<int, string>();
         foreach (var c in Node.Connections)
         {
@@ -190,6 +248,7 @@ public sealed class ServerHost
             {
                 Clients = [.. ids.Select(id => names.TryGetValue(id, out var n) ? n : "(gone)")],
                 View = view,
+                Audience = watch >= 0 && _scopes[i].History.TryGetAudience(tick, watch, out var ah) ? ah.ToString("x16", CultureInfo.InvariantCulture) : null,
             };
         }
 
@@ -380,7 +439,7 @@ public sealed class ServerHost
                 Quarantine(Blame(ex)!, "tick", ex);
             }
 
-            scope.History.Add(scope.World.Tick, scope.Authority);
+            scope.History.Add(scope.World.Tick, scope.Authority, _watches);
         }
 
         Tick++;

@@ -67,6 +67,9 @@ public sealed record FollowedScope(uint Scope, string Replica, long Tick, string
 
     /// <summary>True when this replica holds a filtered view of its scope: <c>Hash</c> is then the view hash the authority computes for this connection (<c>hash_at</c> with this client's name, <c>view</c>), not the whole scope's hash.</summary>
     public bool Filtered => FullHash != Hash;
+
+    /// <summary>The node this replica follows the scope from: the name of the other end of its link (a relay, when the scope is not the link's own).</summary>
+    public string Authority { get; init; } = "";
 }
 
 /// <summary>A snapshot of a client's connection, for <c>net_status</c>.</summary>
@@ -127,23 +130,20 @@ public sealed class RemoteSession
 
         Connection.Connected += OnConnected;
         Node = new Node(options.Name);
-        var link = Node.ConnectVia(Connection);
+        var link = Node.ConnectVia(Connection, options.Address);
         Link = link;
         Replica = Node.Subscribe(link, new ScopeId(options.Scope), replicaWorld);
-        var all = new List<ReplicaScope> { Replica };
         for (var i = 0; i < options.AlsoScopes.Count; i++)
         {
-            all.Add(Node.Subscribe(link, new ScopeId(options.AlsoScopes[i]), extraWorlds![i]));
+            _ = Node.Subscribe(link, new ScopeId(options.AlsoScopes[i]), extraWorlds![i]);
         }
-
-        Replicas = all;
     }
 
     /// <summary>The link to the server, for subscribing to more scopes later.</summary>
     public Link Link { get; }
 
-    /// <summary>Every replica this session follows, the main one first.</summary>
-    public IReadOnlyList<ReplicaScope> Replicas { get; }
+    /// <summary>Every replica this session's node holds, the main one first and the rest in subscription order, including scopes the game subscribed to itself after the session was made.</summary>
+    public IReadOnlyList<ReplicaScope> Replicas => [Replica, .. Node.ReplicaScopes.Where(r => !ReferenceEquals(r, Replica))];
 
     /// <summary>The options it was created with.</summary>
     public ConnectOptions Options { get; }
@@ -332,7 +332,7 @@ public sealed class RemoteSession
             Replica.State.ToString().ToLowerInvariant(), Replica.World.Tick, Replica.ViewHash.ToString("x16", CultureInfo.InvariantCulture),
             Replica.FramesApplied, Replica.Resyncs, Node.DriftCount, Math.Round(s.RttMs, 1), s.Retransmits, Math.Round(s.InboundLoss, 4), Math.Round(s.OutboundLoss, 4),
             s.MessagesSent, s.MessagesReceived, DriftInfos(),
-            [.. Node.ReplicaScopes.Where(r => !ReferenceEquals(r, Replica)).Select(r => new FollowedScope(r.Id.Value, r.State.ToString().ToLowerInvariant(), r.World.Tick, r.ViewHash.ToString("x16", CultureInfo.InvariantCulture)) { FullHash = r.Hash.ToString("x16", CultureInfo.InvariantCulture) })],
+            [.. Node.ReplicaScopes.Where(r => !ReferenceEquals(r, Replica)).Select(r => new FollowedScope(r.Id.Value, r.State.ToString().ToLowerInvariant(), r.World.Tick, r.ViewHash.ToString("x16", CultureInfo.InvariantCulture)) { FullHash = r.Hash.ToString("x16", CultureInfo.InvariantCulture), Authority = r.Link.PeerName })],
             Reconnects, IsReconnecting);
     }
 

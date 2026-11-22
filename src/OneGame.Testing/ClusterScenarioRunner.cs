@@ -99,6 +99,9 @@ internal sealed class ClusterScenarioRunner(ProcessCluster cluster)
             case StepKind.Restart:
                 cluster.Restart(s.Node!);
                 break;
+            case StepKind.Audience:
+                cluster.Audience(s.Audience!);
+                break;
             case StepKind.Click:
                 cluster.Call(RequireNode(s), "ui_click", s.Id is not null ? obj(("id", s.Id)) : obj(("selector", s.Selector)));
                 break;
@@ -212,7 +215,7 @@ internal sealed class ClusterScenarioRunner(ProcessCluster cluster)
 
     private ExpectationResult CheckState(ScenarioExpectation e, int index, string node)
     {
-        var json = cluster.Call(node, "state_query", ScenarioRunner.Obj(("entity", e.Entity), ("table", e.Table), ("row", e.Row), ("property", e.Property), ("scope", e.Scope ?? 1)));
+        var json = cluster.Call(node, "state_query", ScenarioRunner.Obj(("entity", e.Entity), ("table", e.Table), ("row", e.Row), ("property", e.Property), ("scope", e.Scope ?? (cluster.Node(node).Role == "server" ? 1 : null))));
         using var doc = JsonDocument.Parse(json);
         var el = doc.RootElement;
         var actual = el.ValueKind == JsonValueKind.String ? el.GetString()! : el.GetRawText();
@@ -244,11 +247,14 @@ internal sealed class ClusterScenarioRunner(ProcessCluster cluster)
     {
         var report = cluster.Hashes();
         var server = cluster.Node(e.Server!);
-        var wanted = e.Nodes.Length > 0 ? e.Nodes : [.. cluster.State.Nodes.Where(n => n.Role == "client" && n.Connect == server.Name).Select(n => n.Name)];
+        var wanted = e.Nodes.Length > 0 ? e.Nodes : e.Scope is not null ? [.. (cluster.State.Audiences ?? []).Where(a => a.Server == server.Name && a.Scope == (uint)e.Scope).Select(a => a.Client)] : [.. cluster.State.Nodes.Where(n => n.Role == "client" && n.Connect == server.Name).Select(n => n.Name)];
         var list = new List<ExpectationResult>();
         foreach (var client in wanted)
         {
-            var check = report.Checks.FirstOrDefault(c => c.Client == client);
+            // With a scope the replica is compared with the audience declared for that scope; without, with the server's own connections as before.
+            var check = e.Scope is { } scope
+                ? report.Checks.FirstOrDefault(c => c.Client == client && c.Scope == (uint)scope && c.Audience is not null)
+                : report.Checks.FirstOrDefault(c => c.Client == client && c.Audience is null);
             if (check is null)
             {
                 list.Add(new ExpectationResult(index, "agree", e.Line, false, client, "a hash check", "none", $"{client}: could not be compared with {server.Name}: {string.Join("; ", report.Problems.Where(p => p.StartsWith(client + ":", StringComparison.Ordinal)))}", client));

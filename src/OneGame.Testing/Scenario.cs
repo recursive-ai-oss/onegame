@@ -124,11 +124,17 @@ public enum StepKind
 
     /// <summary>Kill a node and start it again (cluster scenarios only).</summary>
     Restart,
+
+    /// <summary>Declare who a client's replica of a followed scope is, so hash checks compare it with the authority's record of that audience (cluster scenarios only).</summary>
+    Audience,
 }
 
 /// <summary>One step of a scenario. Only the fields its <see cref="Kind"/> uses are set.</summary>
 public sealed record ScenarioStep(StepKind Kind, int Line)
 {
+    /// <summary>The audience a <see cref="StepKind.Audience"/> step declares.</summary>
+    public FollowedAudience? Audience { get; init; }
+
     /// <summary>Element id.</summary>
     public string? Id { get; init; }
 
@@ -352,7 +358,7 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
     /// <summary>Cluster state expectations: keep checking for up to this many milliseconds before failing, since a command takes real time to reach the server.</summary>
     public int WithinMs { get; init; }
 
-    /// <summary>The server whose recorded hashes <see cref="ExpectKind.Agree"/> compares against.</summary>
+    /// <summary>The server whose recorded hashes <see cref="ExpectKind.Agree"/> compares against. With a <see cref="Scope"/> it is the authority of that scope, and the replicas are compared with the audience each client declared for it.</summary>
     public string? Server { get; init; }
 
     /// <summary>The nodes <see cref="ExpectKind.Agree"/> and <see cref="ExpectKind.Drift"/> look at; empty means all that apply.</summary>
@@ -964,8 +970,21 @@ public static class ScenarioParser
                     return new ScenarioStep(StepKind.Start, line) { Node = Text(v, "start") };
                 case "restart":
                     return new ScenarioStep(StepKind.Restart, line) { Node = Text(v, "restart") };
+                case "audience":
+                    var au = Map(v, ["client", "scope", "server", "player", "team", "relay", "interest"], "audience");
+                    return new ScenarioStep(StepKind.Audience, line)
+                    {
+                        Audience = new FollowedAudience(
+                            au.TryGetValue("client", out var auc) ? Text(auc, "client") : throw Error(v, "audience needs the client whose replica it describes"),
+                            au.TryGetValue("scope", out var aus) ? (uint)Whole(aus, "scope") : throw Error(v, "audience needs a scope"),
+                            au.TryGetValue("server", out var auv) ? Text(auv, "server") : throw Error(v, "audience needs the server that is the scope's authority"),
+                            au.TryGetValue("player", out var aup) ? (uint)Whole(aup, "player") : 0,
+                            au.TryGetValue("team", out var aut) ? (uint)Whole(aut, "team") : 0,
+                            au.TryGetValue("relay", out var aur) && Bool(aur, "relay"),
+                            au.TryGetValue("interest", out var aui) ? [.. StringList(this, aui, "interest").Select(k => uint.TryParse(k, NumberStyles.None, CultureInfo.InvariantCulture, out var key) ? key : throw Error(aui, "an interest key is a whole number"))] : null),
+                    };
                 default:
-                    throw Error(entry.Key, $"unknown step '{verb}'; use click, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, camera, tweens, overlay, steam-input, wait, kill, start, restart or expect");
+                    throw Error(entry.Key, $"unknown step '{verb}'; use click, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, camera, tweens, overlay, steam-input, wait, kill, start, restart, audience or expect");
             }
         }
 
@@ -1135,9 +1154,10 @@ public static class ScenarioParser
                         Visible = six.TryGetValue("keyboard", out var sxk) ? Bool(sxk, "keyboard") : null,
                     };
                 case "agree":
-                    var ag = Map(v, ["server", "clients"], "agree");
+                    var ag = Map(v, ["server", "clients", "scope"], "agree");
                     return new ScenarioExpectation(ExpectKind.Agree, line)
                     {
+                        Scope = ag.TryGetValue("scope", out var ags) ? Whole(ags, "scope") : null,
                         Server = ag.TryGetValue("server", out var asv) ? Text(asv, "server") : throw Error(v, "agree needs a server"),
                         Nodes = ag.TryGetValue("clients", out var acl) ? StringList(this, acl, "clients") : [],
                     };

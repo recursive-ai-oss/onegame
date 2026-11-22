@@ -477,7 +477,7 @@ public sealed class ScenarioRunner
 
     private async ValueTask ExecuteAsync(ScenarioStep s, int index, Context ctx, Scenario scenario, List<ExpectationResult> inline)
     {
-        if (s.Node is not null || s.Kind == StepKind.Wait)
+        if (s.Node is not null || s.Kind is StepKind.Wait or StepKind.Audience)
         {
             throw new ControlException("bad_args", $"Line {s.Line}: this step is aimed at a cluster node ('{s.Node}'). Run it against a process cluster (onegame cluster test), not a single game.");
         }

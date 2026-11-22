@@ -9,6 +9,26 @@ public sealed class ArenaGame : GameDefinition
 {
     public override string Name => "Arena";
 
+    /// <summary>A scope to subscribe to once the main one is live, as game code does when a player moves somewhere (0: none).</summary>
+    public uint FollowLater { get; init; }
+
+    private bool _followed;
+
+    public override void OnEachFrame(GameInstance game)
+    {
+        if (FollowLater == 0 || _followed || game.Remote is not { } remote || remote.Replica.State != OneGame.Sync.ReplicaState.Live)
+        {
+            return;
+        }
+
+        _followed = true;
+        var registry = new EntityRegistry();
+        RegisterEntities(registry);
+        var world = new World(game.Seed, registry, WorldRole.Replica);
+        RegisterSystems(world);
+        _ = remote.Node.Subscribe(remote.Link, new OneGame.Sync.ScopeId(FollowLater), world);
+    }
+
     public override void RegisterEntities(EntityRegistry registry) => OneGame.Generated.ClusterGame.EntityTypes.Register(registry);
 
     public override void Setup(World world) => ArenaWorld.Seed(world);

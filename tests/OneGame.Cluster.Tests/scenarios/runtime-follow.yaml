@@ -1,0 +1,15 @@
+name: runtime-follow
+description: A client whose game subscribes to a second scope at run time commands an entity of it, and the replica is compared with the authority's record of its audience.
+steps:
+  - audience: { client: p1, scope: 2, server: srv, player: 5 }
+  - command: { entity: "Wallet#1", name: Earn, args: ["4"], scope: 2 }
+    node: p1
+  - wait: { node: p1, tick: 60 }
+expect:
+  - state: { entity: "Wallet#1", property: Purse, equals: 4, within: 5000, scope: 2 }
+    node: p1
+  - state: { entity: "Wallet#1", property: Purse, equals: 4, within: 5000, scope: 2 }
+    node: srv
+  - state: { entity: Arena, property: Hits, equals: 0, scope: 1 }
+    node: srv
+  - agree: { server: srv, scope: 2, clients: [p1] }
