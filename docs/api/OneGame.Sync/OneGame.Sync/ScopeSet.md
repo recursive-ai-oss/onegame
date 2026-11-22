@@ -17,6 +17,7 @@ A set of scopes a connection is allowed to touch: all of them, none, or a listed
 | --- | --- |
 | [`All`](#m-all) | Every scope. |
 | [`IsAll`](#m-isall) | True for the set of every scope. |
+| [`IsEmpty`](#m-isempty) | True when the set holds no scope at all. |
 | [`None`](#m-none) | No scope. |
 
 ### <a id="m-all"></a>All
@@ -36,6 +37,16 @@ public bool IsAll { get; }
 ```
 
 True for the set of every scope.
+
+**Type:** `bool`
+
+### <a id="m-isempty"></a>IsEmpty
+
+```csharp
+public bool IsEmpty { get; }
+```
+
+True when the set holds no scope at all.
 
 **Type:** `bool`
 

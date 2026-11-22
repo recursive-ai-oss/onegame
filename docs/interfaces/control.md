@@ -89,7 +89,7 @@ Release builds do not reference `OneGame.Live`, `OneGame.Control`, `OneGame.Test
 
 YAML read through OneYaml's document model; unknown keys are errors with the line. Top level: `name`, `description`, `fixture`, `snapshot`, `window` (`WxH`), `seed`, `steps`, `expect`.
 
-Steps: `click` (an id, `{selector}` or `{x, y}`), `invoke`, `press`, `type`, `nav`, `command {entity, name, args}`, `set {entity, property, value}`, `screen`, `fixture`, `snapshot`, `step: N`, `wheel`, `capture`, `camera` (3D), `store` (purchases, `store.md`), `saves` (slots and settings, `storage.md`), `expect`.
+Steps: `click` (an id, `{selector}` or `{x, y, button}`), `pointer {action: down|move|up|click, x, y, button}`, `invoke`, `press`, `type`, `nav`, `command {entity, name, args}`, `set {entity, property, value}`, `screen`, `fixture`, `snapshot`, `step: N`, `wheel`, `capture`, `camera` (3D), `store` (purchases, `store.md`), `saves` (slots and settings, `storage.md`), `expect`.
 
 Expectations: `state {entity, property, equals|min|max}`, `ui {id|selector, text|contains|count|visible|enabled|focused}`, `tick`, `hash`, `capture {reference, size, scale, tolerance, max-diff}`, `pick {x, y, size, entity}` (3D). A failing expectation reports `{kind, line, message, expected, actual}`. Capture compare allows per-channel `tolerance` and a fraction of differing pixels (`max-diff`); a mismatch writes the actual and a diff image into the artifacts folder. `ONEGAME_UPDATE_REFERENCES=1` (or `--update-references`) rewrites references. `--capture-tolerance N` and `--capture-max-diff F` on the game loosen every capture check to at least those values; they are for running references on a different GPU driver than the one that drew them (the Android emulator, for instance).
 

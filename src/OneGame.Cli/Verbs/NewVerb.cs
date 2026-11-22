@@ -57,6 +57,8 @@ internal sealed class NewVerb : IVerb
             ["Program.cs"] = Templates.Program(cls, cls),
             ["Game.cs"] = Templates.Game(cls, cls, name, withServer),
             [".gitignore"] = "bin/\nobj/\nartifacts/\ncaptures/\n",
+            // xunit.v3 test projects are Microsoft.Testing.Platform apps; the .NET 10 SDK runs them with 'dotnet test --project' only in this mode.
+            ["global.json"] = "{\n  \"test\": {\n    \"runner\": \"Microsoft.Testing.Platform\"\n  }\n}\n",
             ["README.md"] = Templates.Readme(name, withServer),
         };
         if (withServer)

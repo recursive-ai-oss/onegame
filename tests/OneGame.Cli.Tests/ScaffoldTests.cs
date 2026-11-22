@@ -35,6 +35,35 @@ public sealed class ScaffoldTests : IDisposable
     }
 
     [Fact]
+    public void ANewGameWithAnXunitProjectPassesOneGameTest()
+    {
+        var dir = Path.Combine(_root, "testedgame");
+        Assert.Equal(0, Program.Run(["new", "testedgame", "--dir", dir, "--engine", Repo, "--json"], new StringWriter(), new StringWriter()));
+        Directory.CreateDirectory(Path.Combine(dir, "tests", "Unit"));
+        File.WriteAllText(Path.Combine(dir, "tests", "Unit", "Unit.Tests.csproj"), """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <OutputType>Exe</OutputType>
+                <TargetFramework>net10.0</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="xunit.v3" Version="4.0.2" />
+              </ItemGroup>
+            </Project>
+            """);
+        File.WriteAllText(Path.Combine(dir, "tests", "Unit", "MathTests.cs"), "public class MathTests { [Xunit.Fact] public void Adds() => Xunit.Assert.Equal(4, 2 + 2); }\n");
+
+        var output = new StringWriter();
+        var code = Program.Run(["test", "--project", dir, "--json"], output, new StringWriter());
+        using var doc = JsonDocument.Parse(output.ToString().Trim().Split('\n').Last(l => l.StartsWith('{')));
+        Assert.True(doc.RootElement.GetProperty("ok").GetBoolean(), output.ToString());
+        Assert.Equal(0, code);
+        Assert.True(doc.RootElement.GetProperty("unitTests").GetProperty("passed").GetInt32() >= 1, output.ToString());
+    }
+
+    [Fact]
     public void EditingTheShipPictureWhileTheGameRunsChangesTheNextCapture()
     {
         Assert.SkipUnless(RecursiveAI.OneGpu.GpuBackends.IsAvailable, "needs a Vulkan device (lavapipe is enough)");

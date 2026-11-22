@@ -11,7 +11,7 @@ sealed class Links
     readonly Dictionary<string, TypeInfo> _typeByKey;
 
     // Sibling libraries are shown as plain names: they have their own documentation.
-    static readonly string[] SiblingPrefixes = ["OneAudio", "OneFont", "OneImage", "OneYaml", "OneShader", "OneRender", "OneHtml"];
+    static readonly string[] SiblingPrefixes = ["OneAudio", "OneFont", "OneImage", "OneYaml", "OneShader", "OneRender", "OneHtml", "RecursiveAI.OneGpu"];
 
     public SortedSet<string> Unresolved { get; } = new(StringComparer.Ordinal);
     public int ToSibling;

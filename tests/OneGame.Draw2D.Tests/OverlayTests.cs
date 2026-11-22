@@ -13,6 +13,35 @@ namespace OneGame.Draw2D.Tests;
 public class OverlayTests
 {
     [Fact]
+    public void TheDefaultFamilyDrawsBoldWhenAskedAndABoldFaceIsLoaded()
+    {
+        using var cluster = Fixture.Start();
+        var game = cluster.Client.Game;
+        game.Fonts.Add(File.ReadAllBytes(Path.Combine(Fixture.RepoRoot, "testdata", "text", "fonts", "NotoSans-Subset-Bold-kern.ttf")));
+        cluster.Client.Step(3);
+        game.Capture(480, 270);
+        var regular = game.Capture(480, 270);
+        try
+        {
+            Hero.LabelWeight = 700;
+            var bold = game.Capture(480, 270);
+            var changed = 0;
+            for (var i = 0; i < regular.Rgba.Length; i += 4)
+            {
+                changed += regular.Rgba[i] != bold.Rgba[i] || regular.Rgba[i + 1] != bold.Rgba[i + 1] ? 1 : 0;
+            }
+
+            Assert.True(changed > 20, $"only {changed} pixels differ between weight 400 and 700");
+        }
+        finally
+        {
+            Hero.LabelWeight = 400;
+        }
+
+        Assert.Empty(game.TakeGpuValidationMessages());
+    }
+
+    [Fact]
     public void ShowingThePanelDrawsIntoCapturesAndLeavesTheStateHashAlone()
     {
         using var cluster = Fixture.Start();

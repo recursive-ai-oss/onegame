@@ -11,9 +11,12 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 - `Renderer2D.CancelFrame()`: drops a frame that was begun but not ended, so a view that threw does not leave the renderer mid-frame.
 - `tests/WebGame` and `tools/web/run-web-tests.sh`: a small game and the headless-Chrome checks of the web host (pointer positions, phone canvas, safe area, titles, fingerprints, capture after a failing frame, a game's own material).
 - `AudioService.Reset()`: stops every voice and music at once and waits until the mixer has taken it. `onegame test` calls it at the start of every scenario.
+- Scenario steps `pointer: {action: down|move|up|click, x, y, button}` (`StepKind.PointerAction`) and a `button: left|right|middle` option on `click: {x, y}` (`ScenarioStep.Button`), so drags and right-clicks can be tested from a scenario. Cluster scenarios take them too.
 
 ### Changed
 
+- `onegame new` writes a `global.json` that selects the Microsoft.Testing.Platform runner, and `Game.targets` (so the SDK package too) leaves `tests/**` out of the game's own compile, so a xunit.v3 project added under `tests/` passes `onegame test` (the .NET 10 SDK refused `dotnet test --project` without it).
+- Text: the default family (an empty `font-family`, `Draw2D.Text` without `family`) now honours weight and slant: the nearest face of the first family added is used. Games that load a bold face get bold text; with only a regular face nothing changes.
 - Sync: a computed interest key (an `Entity.InterestKey` override) is read once per entity per tick during publish, not once per entity per view; with 100 views over 200 entities that is 200 reads a tick instead of about 20,000. Frames, view hashes and digests are byte-identical.
 - Sync: a `Subscribe` that arrives while the connection's trust is empty (`Trust.None`) is held until the game sets `Connection.Trust`, instead of being refused with `NotTrustedToRead` (a fresh link no longer needs a second ask). It is refused if the trust then lacks the scope, when the connection detaches, or after `ClusterOptions.HeldSubscribeTimeoutMs` (5 s). The wire format is unchanged.
 - `InputInjector.Wheel` (and the live-control `input_pointer action=wheel`) is stamped with the current pointer position, so an injected wheel scrolls the scroll view under the pointer. It used 0,0.

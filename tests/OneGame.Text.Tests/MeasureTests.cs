@@ -239,6 +239,17 @@ public class MeasureTests
     }
 
     [Fact]
+    public void TheDefaultFamilyHonoursWeight()
+    {
+        var (m, _) = New();
+        var regular = m.Measure("Silk market", new TextStyle("", 16, 400, false, 0, 0, WhiteSpace.Normal), float.PositiveInfinity).Width;
+        var bold = m.Measure("Silk market", new TextStyle("", 16, 700, false, 0, 0, WhiteSpace.Normal), float.PositiveInfinity).Width;
+        var named = m.Measure("Silk market", new TextStyle("Noto Sans", 16, 700, false, 0, 0, WhiteSpace.Normal), float.PositiveInfinity).Width;
+        Assert.NotEqual(regular, bold);
+        Assert.Equal(named, bold, 0.001);
+    }
+
+    [Fact]
     public void LimitsAndMissingFontsAreTypedErrors()
     {
         var (m, _) = New();

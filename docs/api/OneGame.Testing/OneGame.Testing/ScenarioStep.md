@@ -36,6 +36,7 @@ One step of a scenario. Only the fields its [`ScenarioStep.Kind`](ScenarioStep.m
 | Member | Description |
 | --- | --- |
 | [`Args`](#m-args) | Command arguments, or the value to set (first element). |
+| [`Button`](#m-button) | Mouse button of a pointer step or a click at a position: left (default), right or middle. |
 | [`CommandScope`](#m-commandscope) | For a `command:` in a cluster scenario: the scope whose entity is commanded (the node's main scope when absent). |
 | [`ControlArgs`](#m-controlargs) | The arguments of the `camera` operation, as JSON, for a [`StepKind.Camera`](StepKind.md#m-camera) step. |
 | [`Count`](#m-count) | Frames to run. |
@@ -72,6 +73,16 @@ public string[] Args { get; init; }
 Command arguments, or the value to set (first element).
 
 **Type:** `string[]`
+
+### <a id="m-button"></a>Button
+
+```csharp
+public string? Button { get; init; }
+```
+
+Mouse button of a pointer step or a click at a position: left (default), right or middle. Null means left.
+
+**Type:** `string?`
 
 ### <a id="m-commandscope"></a>CommandScope
 
