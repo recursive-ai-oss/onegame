@@ -112,7 +112,7 @@ public class ClusterTests
         var cluster = new Cluster();
         var host = cluster.AddNode("host");
         var scope = cluster.AddScope(host, new ScopeId(1), Scenario.NewAuthority());
-        var stranger = cluster.AddLocalReplica(scope, Scenario.NewWorld(WorldRole.Replica), Trust.None, "stranger");
+        var stranger = cluster.AddLocalReplica(scope, Scenario.NewWorld(WorldRole.Replica), Trust.Reader(new ScopeId(99)), "stranger");
         cluster.Step(3);
         Assert.Equal(ReplicaState.Refused, stranger.State);
         Assert.Equal(RefusalReason.NotTrustedToRead, Assert.Single(host.Refusals).Reason);

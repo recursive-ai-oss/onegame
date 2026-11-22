@@ -28,6 +28,9 @@ public readonly struct ScopeSet
     /// <summary>True for the set of every scope.</summary>
     public bool IsAll { get; }
 
+    /// <summary>True when the set holds no scope at all.</summary>
+    public bool IsEmpty => !IsAll && (_ids is null || _ids.Length == 0);
+
     /// <summary>Exactly the listed scopes.</summary>
     public static ScopeSet Of(params ScopeId[] ids) => new(false, (ScopeId[])ids.Clone());
 
@@ -214,6 +217,13 @@ public sealed class ClusterOptions
     /// A live authority sends a frame every tick, so silence this long means it stopped ticking, crashed or lost the link. 0 turns the check off.
     /// </summary>
     public int SilenceTimeoutMs { get; init; } = 5_000;
+
+    /// <summary>
+    /// Milliseconds the authority holds a subscribe that arrives while the connection's trust is still empty (<see cref="Trust.None"/>), waiting
+    /// for the game to set <see cref="Connection.Trust"/>. It is answered when the trust is set, refused if the trust then lacks the scope, and
+    /// refused as not trusted to read when this time runs out. 0 refuses at once. A connection holds at most 16 subscribes.
+    /// </summary>
+    public int HeldSubscribeTimeoutMs { get; init; } = 5_000;
 
     /// <summary>Messages from an authority longer than this are sent in pieces (transports cap one message at 1 MiB by default, so keep this well below).</summary>
     public int PieceBytes { get; init; } = 256 * 1024;

@@ -89,6 +89,7 @@ public class HeadlessAppTests
         var events = Drain(app);
         Assert.Equal((12.5f, 30f), (events[1].X, events[1].Y));
         Assert.Equal(2f, events[2].DeltaY);
+        Assert.Equal((12.5f, 30f), (events[2].X, events[2].Y));
         Assert.Equal((3f, -4f), (events[3].DeltaX, events[3].DeltaY));
     }
 
