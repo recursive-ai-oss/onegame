@@ -10,6 +10,7 @@ using OneGame.Live;
 
 namespace OneGame.Testing.Tests;
 
+[Collection("AudioService.Active")]
 public class HarnessTests
 {
     private static string ScenarioPath(string name) => Path.Combine(AppContext.BaseDirectory, "scenarios", name);
