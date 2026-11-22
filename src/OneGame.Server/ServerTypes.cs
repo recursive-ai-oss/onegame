@@ -151,6 +151,9 @@ public sealed class ServerScope
     internal HashRing History { get; }
 }
 
+/// <summary>An audience the host records a view hash for at every tick.</summary>
+internal sealed record AudienceWatch(string Key, Audience Who, InterestSet? Interest);
+
 /// <summary>The last few ticks' state hashes of one scope, so another node's hash can be compared at the same tick.</summary>
 internal sealed class HashRing
 {
@@ -159,10 +162,15 @@ internal sealed class HashRing
     private readonly ulong[][] _views;
     private readonly int[][] _viewConnections;
     private readonly int[] _viewCounts;
+    private readonly ulong[][] _watched;
+    private readonly int[] _watchedCounts;
     private int _next;
 
     public HashRing(int capacity)
     {
+        _watched = new ulong[capacity][];
+        _watchedCounts = new int[capacity];
+        Array.Fill(_watched, Array.Empty<ulong>());
         _ticks = new long[capacity];
         _hashes = new ulong[capacity];
         _views = new ulong[capacity][];
@@ -173,7 +181,7 @@ internal sealed class HashRing
         Array.Fill(_ticks, -1);
     }
 
-    public void Add(long tick, AuthorityScope scope)
+    public void Add(long tick, AuthorityScope scope, List<AudienceWatch> watches)
     {
         if (_ticks.Length == 0)
         {
@@ -198,6 +206,18 @@ internal sealed class HashRing
 
         var ids = _viewConnections[_next];
 
+        // The view of every named audience at this tick, so a replica that has no connection to this authority can still be compared.
+        if (_watched[_next].Length < watches.Count)
+        {
+            _watched[_next] = new ulong[watches.Count];
+        }
+
+        _watchedCounts[_next] = watches.Count;
+        for (var w = 0; w < watches.Count; w++)
+        {
+            _watched[_next][w] = scope.AudienceHash(watches[w].Who, watches[w].Interest);
+        }
+
         _viewCounts[_next] = subscribers.Count;
         for (var i = 0; i < subscribers.Count; i++)
         {
@@ -206,6 +226,22 @@ internal sealed class HashRing
         }
 
         _next = (_next + 1) % _ticks.Length;
+    }
+
+    /// <summary>The hash of the watched audience with this index at the tick; false when the tick is not recorded or the audience was named later.</summary>
+    public bool TryGetAudience(long tick, int index, out ulong hash)
+    {
+        for (var i = 0; i < _ticks.Length; i++)
+        {
+            if (_ticks[i] == tick && index < _watchedCounts[i])
+            {
+                hash = _watched[i][index];
+                return true;
+            }
+        }
+
+        hash = 0;
+        return false;
     }
 
     public bool TryGet(long tick, out ulong hash, out ulong[] views) => TryGet(tick, out hash, out views, out _);

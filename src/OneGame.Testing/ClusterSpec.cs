@@ -17,6 +17,28 @@ public enum NodeRole
 /// <param name="Seed">The seed of its random streams.</param>
 public sealed record ScopeSpec(uint Id, ulong Seed);
 
+/// <summary>
+/// Who a client's replica of a followed scope is, as the scope's authority knows it, so the cluster can compare the replica with the authority's own record of that
+/// audience (see <see cref="ProcessCluster.Audience"/>). The client may reach the scope through relays, or under an identity the authority has no connection for.
+/// </summary>
+/// <param name="Client">The client node whose replica is compared.</param>
+/// <param name="Scope">The scope the replica follows.</param>
+/// <param name="Server">The server node that is the scope's authority.</param>
+/// <param name="Player">The audience's player id.</param>
+/// <param name="Team">The audience's team id.</param>
+/// <param name="Relay">True for a relay audience.</param>
+/// <param name="Interest">The interest keys the replica holds; null when it holds the whole scope.</param>
+public sealed record FollowedAudience(string Client, uint Scope, string Server, uint Player, uint Team = 0, bool Relay = false, uint[]? Interest = null)
+{
+    /// <summary>The text that names the audience (player, team, relay and the interest keys).</summary>
+    public string Key => string.Create(CultureInfo.InvariantCulture,
+        $"p{Player}t{Team}{(Relay ? "r" : "")}{(Interest is null ? "" : "i" + string.Join(',', Interest.Where(k => k != 0).Distinct().Order()))}");
+
+    /// <summary>The audience as the JSON object the server's <c>audience_watch</c> and <c>hash_at</c> take.</summary>
+    public string ToJson() => string.Create(CultureInfo.InvariantCulture,
+        $"{{\"player\":{Player},\"team\":{Team},\"relay\":{(Relay ? "true" : "false")}{(Interest is null ? "" : ",\"interest\":[" + string.Join(',', Interest) + "]")}}}");
+}
+
 /// <summary>One process of a cluster.</summary>
 public sealed record NodeSpec
 {
@@ -61,6 +83,9 @@ public sealed record NodeSpec
     /// its result when it stops, and the cluster reads that result to compare it with its server.
     /// </summary>
     public bool Release { get; init; }
+
+    /// <summary>Clients: the audiences of the scopes this client follows, declared up front (<see cref="ProcessCluster.Audience"/> does the same later). Each one makes every hash comparison check that replica against its authority.</summary>
+    public IReadOnlyList<FollowedAudience> Audiences { get; init; } = [];
 }
 
 /// <summary>
@@ -82,7 +107,8 @@ public sealed record NodeSpec
 public sealed record ClusterSpec
 {
     private static readonly string[] TopKeys = ["name", "dir", "startupTimeout", "nodes"];
-    private static readonly string[] NodeKeys = ["name", "role", "exe", "args", "listen", "scopes", "tickRate", "manual", "connect", "transport", "scope", "net", "release"];
+    private static readonly string[] NodeKeys = ["name", "role", "exe", "args", "listen", "scopes", "tickRate", "manual", "connect", "transport", "scope", "net", "release", "audiences"];
+    private static readonly string[] AudienceKeys = ["scope", "server", "player", "team", "relay", "interest"];
     private static readonly string[] ScopeKeys = ["id", "seed"];
 
     /// <summary>The cluster's name; used in log and folder names.</summary>
@@ -176,6 +202,14 @@ public sealed record ClusterSpec
 
         foreach (var n in Nodes.Where(n => n.Role == NodeRole.Client))
         {
+            foreach (var a in n.Audiences)
+            {
+                if (!Nodes.Any(s => s.Name == a.Server && s.Role == NodeRole.Server))
+                {
+                    throw new ScenarioException($"client '{n.Name}' declares an audience on '{a.Server}', which is not a server node of this cluster", source, 0);
+                }
+            }
+
             if (n.Release && !n.Args.Contains("--until-tick"))
             {
                 throw new ScenarioException($"client '{n.Name}' is a release build with no live control; give it args: [--until-tick, N] so it stops by itself", source, 0);
@@ -243,9 +277,43 @@ public sealed record ClusterSpec
             }
         }
 
+        var audiences = new List<FollowedAudience>();
+        if (item.TryGetValue("audiences", out var audNode) && !audNode.IsNull)
+        {
+            if (audNode.Kind != YamlNodeKind.Sequence)
+            {
+                throw Error(audNode, "audiences must be a list", source);
+            }
+
+            foreach (var au in audNode.Items)
+            {
+                Check(au, AudienceKeys, "an audience", source);
+                uint[]? interest = null;
+                if (au.TryGetValue("interest", out var inNode) && !inNode.IsNull)
+                {
+                    if (inNode.Kind != YamlNodeKind.Sequence)
+                    {
+                        throw Error(inNode, "interest must be a list of whole numbers", source);
+                    }
+
+                    interest = [.. inNode.Items.Select(k => uint.TryParse(Scalar(k, "an interest key", source), NumberStyles.None, CultureInfo.InvariantCulture, out var key) ? key : throw Error(k, "an interest key is a whole number", source))];
+                }
+
+                audiences.Add(new FollowedAudience(
+                    name,
+                    (uint)(Whole(au, "scope", source) ?? throw Error(au, "an audience needs a scope", source)),
+                    Text(au, "server", source) ?? throw Error(au, "an audience needs the server that is the scope's authority", source),
+                    (uint)(Whole(au, "player", source) ?? 0),
+                    (uint)(Whole(au, "team", source) ?? 0),
+                    Text(au, "relay", source) == "true",
+                    interest));
+            }
+        }
+
         return new NodeSpec
         {
             Name = name,
+            Audiences = audiences,
             Role = role,
             Exe = System.IO.Path.IsPathRooted(exe) ? exe : System.IO.Path.GetFullPath(exe, baseDir),
             Args = args,

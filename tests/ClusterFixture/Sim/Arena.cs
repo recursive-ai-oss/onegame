@@ -47,6 +47,18 @@ public partial class Fighter : Entity
     }
 }
 
+/// <summary>A player's winnings, which only that player sees: another audience holds a different view of the scope that has wallets.</summary>
+[Entity]
+public partial class Wallet : Entity
+{
+    [Synced, OwnerKey] public partial uint Player { get; set; }
+
+    [Synced(Visibility = Visibility.Owner)] public partial int Purse { get; private set; }
+
+    [Command]
+    public void Earn(int amount) => Purse += amount;
+}
+
 /// <summary>Where the arena starts.</summary>
 public static class ArenaWorld
 {
@@ -56,5 +68,12 @@ public static class ArenaWorld
         world.Add(new Arena());
         world.Add(new Fighter());
         world.Add(new Fighter());
+    }
+
+    /// <summary>Adds a wallet for each of the first two players.</summary>
+    public static void SeedWallets(World world)
+    {
+        world.Add(new Wallet { Player = 5 });
+        world.Add(new Wallet { Player = 6 });
     }
 }

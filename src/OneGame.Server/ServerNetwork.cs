@@ -47,6 +47,27 @@ public sealed record ScopeHashAt(uint Scope, long Tick, string? Hash, string[] V
     /// recorded or that client was not subscribed to the scope then. This is the authority's <c>ViewHashFor(connection)</c>.
     /// </summary>
     public string? View { get; init; }
+
+    /// <summary>
+    /// When an audience was named in the question: the view hash that audience must hold of this scope at this tick (16 hex digits), straight from the
+    /// authority's recorded history, or null when the tick is not recorded or the audience was first named after it (see <see cref="ServerHost.WatchAudience"/>).
+    /// </summary>
+    public string? Audience { get; init; }
+}
+
+/// <summary>
+/// Who a replica holds a view for, as the authority knows it: the player and team of the trust it was given, whether it is a relay, and the interest cells it
+/// holds. A client that follows a scope through other nodes has no connection to the authority, so this is how a harness names its view.
+/// </summary>
+/// <param name="Player">The player id of the audience (0 for none).</param>
+/// <param name="Team">The team id (0 for none).</param>
+/// <param name="Relay">True for a relay audience, which sees what the entity's owner and team see.</param>
+/// <param name="Interest">The interest keys the audience holds; null when it holds the whole scope. An empty list is an audience that holds only global entities.</param>
+public sealed record AudienceSpec(uint Player, uint Team = 0, bool Relay = false, uint[]? Interest = null)
+{
+    /// <summary>The text that names this audience in the host's list (player, team, relay and the sorted interest keys).</summary>
+    public string Key => string.Create(System.Globalization.CultureInfo.InvariantCulture,
+        $"p{Player}t{Team}{(Relay ? "r" : "")}{(Interest is null ? "" : "i" + string.Join(',', Interest.Where(k => k != 0).Distinct().Order()))}");
 }
 
 /// <summary>

@@ -40,7 +40,7 @@ A plugin is a class library referencing `OneGame.Server` and the generator, with
 
 ## Control
 
-`ServerControl : IControlEndpoint` (served by `LiveServer` over MCP, JSON lines on a Unix socket): `server_info`, `hash`, `step`, `plugin_list`, `plugin_load`, `plugin_reload`, `plugin_unload`, `command_send`, `state_query`, `log_tail`, `shutdown`. Errors are `ControlException` with the plugin codes above.
+`ServerControl : IControlEndpoint` (served by `LiveServer` over MCP, JSON lines on a Unix socket): `server_info`, `hash`, `step`, `plugin_list`, `plugin_load`, `plugin_reload`, `plugin_unload`, `command_send`, `state_query`, `clients`, `hash_at` (with `client` or `audience`), `audience_watch`, `log_tail`, `shutdown`. `ServerHost.WatchAudience(AudienceSpec)` records one audience's view hash of every scope each tick, within `hashHistory` (at most 32); `HashesAt(tick, client, audience)` returns it in `ScopeHashAt.Audience` (null when not recorded). It is authority-side and hash-only: hidden data never leaves the host. See `cluster.md`. Errors are `ControlException` with the plugin codes above.
 
 - `onegame-server --config f.yaml [--live [socket]] [--ticks N] [--manual]` prints `{"live":...}` when listening and `{"stopped":true,...}` at the end; logs go to stderr.
 - `onegame server run ...` starts it; `onegame server info|hash|step N|plugins|load <name> <path>|reload <name>|unload <name>|send <entity> <command> [args]|state|log|stop [--socket p]` call the live socket and print the JSON result.

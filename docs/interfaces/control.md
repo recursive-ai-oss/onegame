@@ -83,7 +83,7 @@ Release builds do not reference `OneGame.Live`, `OneGame.Control`, `OneGame.Test
 
 ## Playing on a server
 
-`--connect udp://host:port|ws://host:port` (with `--scope`, `--name`, `--net latency=100,loss=0.02`) makes the game a client: its world is a replica, `step` pumps the connection, commands go to the server, and `net_status`, `net_wait` and `net_diverge` are added to the table. `onegame cluster`, `onegame mcp --cluster` and cluster scenarios drive many such processes at once: `cluster.md`.
+`--connect udp://host:port|ws://host:port` (with `--scope`, `--name`, `--net latency=100,loss=0.02`) makes the game a client: its world is a replica, `step` pumps the connection, commands go to the server, and `net_status` (every replica the node holds, with authority, state, tick and view hash), `net_wait` and `net_diverge` are added to the table. `command_send` and `state_query` take `scope` to address a followed scope. `onegame cluster`, `onegame mcp --cluster` and cluster scenarios drive many such processes at once: `cluster.md`.
 
 ## Scenarios
 

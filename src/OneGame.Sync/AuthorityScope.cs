@@ -190,6 +190,15 @@ public sealed partial class AuthorityScope
     public ulong ViewHashFor(Connection connection)
         => World.ComputeAudienceHash(connection.Trust.Who, RandomVisible, ViewOf(connection)?.Interest);
 
+    /// <summary>
+    /// The hash of the view an audience would hold of this scope now, as <see cref="ViewHashFor"/> gives it for a connection: what a replica of
+    /// that audience (directly, or through relays that never widen what they pass on) must equal. Only the hash leaves; hidden data does not.
+    /// </summary>
+    /// <param name="who">The audience: player, team, and whether it is a relay.</param>
+    /// <param name="interest">The interest the audience holds in this scope; null when it is not restricted.</param>
+    public ulong AudienceHash(in Audience who, InterestSet? interest = null)
+        => World.ComputeAudienceHash(who, RandomVisible, interest);
+
     /// <summary>Runs one tick and publishes the resulting frame.</summary>
     public void StepAndPublish()
     {

@@ -7,6 +7,11 @@ namespace OneGame.Server.Live;
 /// <remarks><c>Listen</c> is where the server accepts clients (ports resolved) and <c>Clients</c> how many are connected.</remarks>
 public sealed record ServerInfoResult(string Name, string State, long Tick, int TickRate, ScopeInfo[] Scopes, PluginInfo[] Plugins, PluginLoadFailure[] LoadFailures, ListenEndpoint[] Listen, int Clients, int DriftCheckInterval);
 
+/// <summary>Result of <c>audience_watch</c>.</summary>
+/// <param name="Key">The audience's key; the host records its view hash of every scope at every tick from now on.</param>
+/// <param name="Watching">How many audiences the host records.</param>
+public sealed record AudienceWatched(string Key, int Watching);
+
 /// <summary>Result of <c>hash</c> and <c>step</c>: the server tick and each scope's tick and state hash. Compare the hashes with a client's view to check for drift.</summary>
 /// <param name="Tick">The server's tick count.</param>
 /// <param name="Scopes">One entry per hosted scope.</param>
@@ -37,6 +42,7 @@ public sealed record ShutdownResult(bool Stopping, long Tick);
 [JsonSerializable(typeof(LogEntry[]))]
 [JsonSerializable(typeof(ClientInfo[]))]
 [JsonSerializable(typeof(ScopeHashAt[]))]
+[JsonSerializable(typeof(AudienceWatched))]
 public sealed partial class ServerJson : JsonSerializerContext
 {
 }
@@ -48,6 +54,8 @@ public sealed partial class ServerJson : JsonSerializerContext
 /// </summary>
 public sealed class ServerControl : IControlEndpoint
 {
+    private const string AudienceSchema = """{"type":"object","properties":{"player":{"type":"integer","minimum":0},"team":{"type":"integer","minimum":0},"relay":{"type":"boolean"},"interest":{"type":"array","items":{"type":"integer","minimum":0}}},"required":["player"]}""";
+
     private const string NoArgs = """{"type":"object","properties":{}}""";
 
     private static readonly IReadOnlyList<ControlOp> All =
@@ -67,8 +75,10 @@ public sealed class ServerControl : IControlEndpoint
         new("state_query", "Read a scope's synced state as JSON, or one entity's with 'entity' (a numeric id, a type name for the first of that type, or 'Type#n'), or one value with 'property' too.",
             """{"type":"object","properties":{"scope":{"type":"integer"},"entity":{"type":["string","integer"]},"property":{"type":"string"}}}""", false),
         new("clients", "The connected network clients: name, transport, address, state, round-trip time, loss and retransmits.", NoArgs, false),
-        new("hash_at", "The recorded state hash of every scope at one tick (null when not recorded; see hashHistory), with each connected client's view hash (views, clients in the same order). Give 'client' (a connection name) to get that client's view hash as 'view': what its replica must hold, a filtered replica's hash included.",
-            """{"type":"object","properties":{"tick":{"type":"integer","minimum":0},"client":{"type":"string"}},"required":["tick"]}""", false),
+        new("hash_at", "The recorded state hash of every scope at one tick (null when not recorded; see hashHistory), with each connected client's view hash (views, clients in the same order). Give 'client' (a connection name) to get that client's view hash as 'view': what its replica must hold, a filtered replica's hash included. Give 'audience' ({player, team?, relay?, interest?}) to get the view hash any replica of that audience must hold as 'audience', also one that follows through relays; the audience is recorded from its first mention (see audience_watch), so ask for a later tick than that.",
+            """{"type":"object","properties":{"tick":{"type":"integer","minimum":0},"client":{"type":"string"},"audience":{"type":"object","properties":{"player":{"type":"integer"},"team":{"type":"integer"},"relay":{"type":"boolean"},"interest":{"type":"array","items":{"type":"integer"}}},"required":["player"]}},"required":["tick"]}""", false),
+        new("audience_watch", "Record the view hash of an audience (player, team, relay, interest keys) of every scope at every tick from now on, within hashHistory, so hash_at can answer for a replica that has no connection to this server (it follows through a relay, or under an identity of its own). At most 32 audiences. Only hashes are kept.",
+            AudienceSchema, true),
         new("log_tail", "The last N server log lines (default 50).", """{"type":"object","properties":{"max":{"type":"integer"}}}""", false),
         new("shutdown", "Ask the server to finish its tick, run plugin unload hooks and stop.", NoArgs, true),
     ];
@@ -130,12 +140,56 @@ public sealed class ServerControl : IControlEndpoint
         }
     }
 
+    private static AudienceSpec Audience(JsonElement a)
+    {
+        if (a.ValueKind != JsonValueKind.Object)
+        {
+            throw new ControlException("bad_args", "audience must be an object: {player, team?, relay?, interest?}.");
+        }
+
+        uint[]? interest = null;
+        if (a.TryGetProperty("interest", out var list) && list.ValueKind == JsonValueKind.Array)
+        {
+            var keys = new List<uint>();
+            foreach (var item in list.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Number || !item.TryGetUInt32(out var key))
+                {
+                    throw new ControlException("bad_args", "interest keys are whole numbers from 0 to 4294967295.");
+                }
+
+                keys.Add(key);
+            }
+
+            interest = [.. keys];
+        }
+
+        return new AudienceSpec(
+            (uint)(Long(a, "player") ?? throw new ControlException("bad_args", "audience.player is required.")),
+            (uint)(Long(a, "team") ?? 0),
+            a.TryGetProperty("relay", out var r) && r.ValueKind == JsonValueKind.True,
+            interest);
+    }
+
+    private AudienceWatched Watch(JsonElement a)
+    {
+        try
+        {
+            var key = _host.WatchAudience(Audience(a));
+            return new AudienceWatched(key, _host.WatchedAudiences);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new ControlException("too_many", ex.Message);
+        }
+    }
+
     private ScopeHashAt[] HashAt(JsonElement a)
     {
         var tick = Long(a, "tick") ?? throw new ControlException("bad_args", "tick is required.");
         try
         {
-            return _host.HashesAt(tick, Str(a, "client"));
+            return _host.HashesAt(tick, Str(a, "client"), a.TryGetProperty("audience", out var au) ? Audience(au) : null);
         }
         catch (ArgumentException ex)
         {
@@ -156,6 +210,7 @@ public sealed class ServerControl : IControlEndpoint
         "state_query" => Query(a),
         "clients" => Serialize(_host.Clients(), ServerJson.Default.ClientInfoArray),
         "hash_at" => Serialize(HashAt(a), ServerJson.Default.ScopeHashAtArray),
+        "audience_watch" => Serialize(Watch(a), ServerJson.Default.AudienceWatched),
         "log_tail" => Serialize([.. _host.Log.Tail(Math.Clamp(Int(a, "max") ?? 50, 1, 512))], ServerJson.Default.LogEntryArray),
         "shutdown" => Shutdown(),
         _ => throw new ControlException("unknown_op", $"Unknown operation '{op}'. Known: {string.Join(", ", All.Select(o => o.Name))}."),

@@ -42,7 +42,11 @@ public sealed record NodeState(string Name, string Role, int Pid, string Socket,
 /// <param name="Dir">The folder with logs, sockets and this file.</param>
 /// <param name="Owner">The process that started it.</param>
 /// <param name="Nodes">The nodes in start order.</param>
-public sealed record ClusterState(string Name, string Dir, int Owner, NodeState[] Nodes);
+public sealed record ClusterState(string Name, string Dir, int Owner, NodeState[] Nodes)
+{
+    /// <summary>The audiences declared for followed scopes (see <see cref="ProcessCluster.Audience"/>), checked by every hash comparison.</summary>
+    public FollowedAudience[]? Audiences { get; init; }
+}
 
 /// <summary>What <c>cluster status</c> reports for one node.</summary>
 /// <param name="Name">The node's name.</param>
@@ -76,7 +80,11 @@ public sealed record NodeHash(string Node, string Role, uint Scope, long Tick, s
 /// <param name="ServerHash">The server's hash at that tick, or null when it was not recorded.</param>
 /// <param name="Match">True when the hashes are equal.</param>
 /// <param name="Note">Why the check could not be made or what differs.</param>
-public sealed record HashCheck(string Client, string Server, uint Scope, long Tick, string ClientHash, string? ServerHash, bool Match, string? Note);
+public sealed record HashCheck(string Client, string Server, uint Scope, long Tick, string ClientHash, string? ServerHash, bool Match, string? Note)
+{
+    /// <summary>Set when the replica was compared with the view of a declared audience (<see cref="FollowedAudience"/>) rather than with one of the server's own connections: the audience's key.</summary>
+    public string? Audience { get; init; }
+}
 
 /// <summary>A drift report filed by a client's replica.</summary>
 /// <param name="Node">The client node.</param>
@@ -104,6 +112,7 @@ public sealed record DownReport(string[] Stopped, string[] Killed, string[] Aliv
 /// <summary>Source-generated JSON for the cluster's files and reports.</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, WriteIndented = false)]
 [JsonSerializable(typeof(ClusterState))]
+[JsonSerializable(typeof(FollowedAudience))]
 [JsonSerializable(typeof(ClusterStatus))]
 [JsonSerializable(typeof(ClusterHashReport))]
 [JsonSerializable(typeof(DownReport))]
@@ -236,6 +245,11 @@ public sealed class ProcessCluster : IDisposable
             }
 
             cluster = new ProcessCluster(new ClusterState(spec.Name, dir, Environment.ProcessId, [.. started]), stateFile, true, spec.Dir is null, spec, ports, parent);
+            foreach (var a in spec.Nodes.SelectMany(n => n.Audiences))
+            {
+                cluster.Audience(a);
+            }
+
             return cluster;
         }
         catch
@@ -369,6 +383,28 @@ public sealed class ProcessCluster : IDisposable
         }
     }
 
+    /// <summary>
+    /// Sends a command from a client node, as a player would. With <paramref name="scope"/> the entity is one of that followed scope's (the client must follow it,
+    /// from its options or because its game subscribed at run time); the command goes through the client's link to that scope's authority, whose trust
+    /// checks apply unchanged. A refusal or an unknown scope throws, as <see cref="Call"/> does.
+    /// </summary>
+    /// <param name="node">The client node.</param>
+    /// <param name="entity">The entity: an id, a type name or <c>Type#n</c>.</param>
+    /// <param name="command">The command's name.</param>
+    /// <param name="args">The arguments as text, in order.</param>
+    /// <param name="scope">The scope of the entity; the client's main scope when null.</param>
+    /// <exception cref="ControlException">The node does not follow the scope, or the entity or command does not exist.</exception>
+    public string Send(string node, string entity, string command, string[]? args = null, uint? scope = null)
+        => Call(node, "command_send", ScenarioRunner.Obj(("entity", entity), ("command", command), ("args", args ?? []), ("scope", scope)));
+
+    /// <summary>Reads a synced value from a client's replica of a scope (<paramref name="scope"/>; its main scope when null), or from a server's scope (default 1), as JSON.</summary>
+    /// <param name="node">The node.</param>
+    /// <param name="entity">The entity: an id, a type name or <c>Type#n</c>.</param>
+    /// <param name="property">The property path.</param>
+    /// <param name="scope">The scope.</param>
+    public string Get(string node, string entity, string property, uint? scope = null)
+        => Call(node, "state_query", ScenarioRunner.Obj(("entity", entity), ("property", property), ("scope", scope)));
+
     /// <summary>Runs a control operation on one node (any operation <see cref="Operations"/> lists) and returns its JSON.</summary>
     /// <exception cref="ClusterException">There is no node of that name, or its process cannot be reached.</exception>
     /// <param name="node">The node's name.</param>
@@ -441,6 +477,43 @@ public sealed class ProcessCluster : IDisposable
         return false;
     }
 
+    /// <summary>
+    /// Declares who a client's replica of a followed scope is, so the cluster can compare it with the authority. The authority server starts recording the
+    /// view hash of that audience at every tick (<c>audience_watch</c>), and every <see cref="Hashes"/> afterwards compares the client's replica with it at
+    /// the replica's tick, however the client reaches the scope (directly, through a relay, under an identity the server has no connection for). The
+    /// declaration is kept in <c>cluster.json</c>, so <c>onegame cluster hashes</c> from another process checks it too. Declaring the same client and scope again replaces it.
+    /// </summary>
+    /// <param name="audience">Which client's replica, of which scope, the server that is its authority, and the audience (player, team, relay, interest) it holds.</param>
+    /// <exception cref="ClusterException">The client or server is not a node of this cluster, or the server refused the audience.</exception>
+    public void Audience(FollowedAudience audience)
+    {
+        ArgumentNullException.ThrowIfNull(audience);
+        if (Node(audience.Client).Role != "client")
+        {
+            throw new ClusterException("bad_node", $"'{audience.Client}' is not a client node.");
+        }
+
+        if (Node(audience.Server).Role != "server")
+        {
+            throw new ClusterException("bad_node", $"'{audience.Server}' is not a server node.");
+        }
+
+        try
+        {
+            _ = Call(audience.Server, "audience_watch", audience.ToJson());
+        }
+        catch (ControlException ex)
+        {
+            throw new ClusterException(ex.Code, ex.Message);
+        }
+
+        _state = _state with { Audiences = [.. (_state.Audiences ?? []).Where(a => !(a.Client == audience.Client && a.Scope == audience.Scope)), audience] };
+        if (_owner)
+        {
+            WriteState(_state, _stateFile);
+        }
+    }
+
     /// <summary>Every node's current tick and hash, every client's replica compared with its server's recorded hash at the replica's tick, and all drift reports.</summary>
     public ClusterHashReport Hashes()
     {
@@ -452,6 +525,7 @@ public sealed class ProcessCluster : IDisposable
         // Clients first: their tick is behind their server's, so the server still has it in its history.
         var clientStates = new Dictionary<string, (long Tick, string Hash, uint Scope)>(StringComparer.Ordinal);
         var followed = new List<(string Client, uint Scope, string Replica, long Tick)>();
+        var followedHashes = new Dictionary<(string, uint), string>();
         foreach (var n in _state.Nodes.Where(n => n.Role == "client"))
         {
             if (n.Release)
@@ -481,6 +555,7 @@ public sealed class ProcessCluster : IDisposable
                     foreach (var f in others.EnumerateArray())
                     {
                         followed.Add((n.Name, f.GetProperty("scope").GetUInt32(), f.GetProperty("replica").GetString() ?? "", f.GetProperty("tick").GetInt64()));
+                        followedHashes[(n.Name, f.GetProperty("scope").GetUInt32())] = f.GetProperty("hash").GetString() ?? "";
                     }
                 }
 
@@ -581,7 +656,63 @@ public sealed class ProcessCluster : IDisposable
             }
         }
 
+        // Replicas of declared audiences: the authority's recorded view of that audience at the replica's own tick.
+        foreach (var a in _state.Audiences ?? [])
+        {
+            CheckAudience(a, clientStates, followed, followedHashes, checks, problems);
+        }
+
         return new ClusterHashReport(problems.Count == 0, [.. nodes], [.. checks], [.. drift], [.. problems]);
+    }
+
+    private void CheckAudience(FollowedAudience a, Dictionary<string, (long Tick, string Hash, uint Scope)> clientStates, List<(string Client, uint Scope, string Replica, long Tick)> followed,
+        Dictionary<(string, uint), string> followedHashes, List<HashCheck> checks, List<string> problems)
+    {
+        long tick;
+        string hash;
+        if (clientStates.TryGetValue(a.Client, out var main) && main.Scope == a.Scope)
+        {
+            (tick, hash) = (main.Tick, main.Hash);
+        }
+        else if (followedHashes.TryGetValue((a.Client, a.Scope), out var h) && followed.FirstOrDefault(f => f.Client == a.Client && f.Scope == a.Scope) is { Client: not null } f)
+        {
+            (tick, hash) = (f.Tick, h);
+        }
+        else
+        {
+            problems.Add($"{a.Client}: does not follow scope {a.Scope}, so its audience {a.Key} cannot be compared with '{a.Server}'");
+            return;
+        }
+
+        string? serverHash = null;
+        string? note = null;
+        try
+        {
+            using var doc = JsonDocument.Parse(Call(a.Server, "hash_at", $"{{\"tick\":{tick.ToString(CultureInfo.InvariantCulture)},\"audience\":{a.ToJson()}}}"));
+            foreach (var s in doc.RootElement.EnumerateArray())
+            {
+                if (s.GetProperty("scope").GetUInt32() == a.Scope)
+                {
+                    serverHash = s.TryGetProperty("audience", out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+                }
+            }
+
+            if (serverHash is null)
+            {
+                note = $"server '{a.Server}' has no view hash recorded for audience {a.Key} of scope {a.Scope} at tick {tick} (the tick is older than its history or than the audience's declaration, or the server does not host the scope)";
+            }
+        }
+        catch (ControlException ex)
+        {
+            note = $"{ex.Code}: {ex.Message}";
+        }
+
+        var match = serverHash is not null && serverHash == hash;
+        checks.Add(new HashCheck(a.Client, a.Server, a.Scope, tick, hash, serverHash, match, note ?? (match ? null : "the hashes differ")) { Audience = a.Key });
+        if (!match)
+        {
+            problems.Add($"{a.Client}: scope {a.Scope} at tick {tick}: replica hash {hash}, audience {a.Key} on '{a.Server}' {serverHash ?? "(none)"}{(note is null ? "" : " — " + note)}");
+        }
     }
 
     // The last JSON line a release client printed, or null while it runs or when it printed none.

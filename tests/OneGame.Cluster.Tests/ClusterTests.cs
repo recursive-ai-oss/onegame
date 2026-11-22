@@ -55,8 +55,128 @@ public class ClusterTests
         using var status = JsonDocument.Parse(cluster.Call("p1", "net_status"));
         var followed = Assert.Single(status.RootElement.GetProperty("followed").EnumerateArray());
         Assert.Equal(2u, followed.GetProperty("scope").GetUInt32());
-        Assert.False(followed.GetProperty("filtered").GetBoolean());
+        Assert.True(followed.GetProperty("filtered").GetBoolean()); // scope 2 holds the players' wallets, which this player cannot see all of
         Assert.True(cluster.Hashes().Ok);
+    }
+
+    private static ProcessCluster LaunchFollowing(string name, params FollowedAudience[] audiences)
+    {
+        var server = Fixture.ServerNode("srv", tickRate: 120) with { Scopes = [new ScopeSpec(1, 7), new ScopeSpec(2, 9)] };
+        var client = Fixture.ClientNode("p1", "srv") with { Args = ["--follow-later=2"], Audiences = audiences };
+        var cluster = TestCluster.Launch(Spec(name, server, client));
+        try
+        {
+            // The game subscribes by itself once its main scope is live; wait until the second replica is too.
+            var deadline = Stopwatch.StartNew();
+            while (!Followed(cluster, 2, out _))
+            {
+                Assert.True(deadline.ElapsedMilliseconds < 20_000, "the client never followed scope 2");
+                Thread.Sleep(50);
+            }
+
+            return cluster;
+        }
+        catch
+        {
+            cluster.Dispose();
+            throw;
+        }
+    }
+
+    private static bool Followed(ProcessCluster cluster, uint scope, out JsonElement entry)
+    {
+        using var status = JsonDocument.Parse(cluster.Call("p1", "net_status"));
+        foreach (var f in status.RootElement.GetProperty("followed").EnumerateArray())
+        {
+            if (f.GetProperty("scope").GetUInt32() == scope && f.GetProperty("replica").GetString() == "live")
+            {
+                entry = f.Clone();
+                return true;
+            }
+        }
+
+        entry = default;
+        return false;
+    }
+
+    private static void WaitUntil(Func<bool> done, string what)
+    {
+        var deadline = Stopwatch.StartNew();
+        while (!done())
+        {
+            Assert.True(deadline.ElapsedMilliseconds < 20_000, what);
+            Thread.Sleep(50);
+        }
+    }
+
+    [Fact]
+    public void AScopeTheGameFollowsAtRunTimeIsListedCommandedAndComparedByAudience()
+    {
+        using var cluster = LaunchFollowing("runtime-follow");
+
+        // net_status lists it: scope, authority, state, tick and view hash.
+        Assert.True(Followed(cluster, 2, out var entry));
+        Assert.StartsWith("udp://", entry.GetProperty("authority").GetString());
+        Assert.Matches("^[0-9a-f]{16}$", entry.GetProperty("hash").GetString()!);
+
+        // The command goes to scope 2's authority through the client's link; the main scope is untouched.
+        cluster.Send("p1", "Wallet#1", "Earn", ["4"], scope: 2);
+        WaitUntil(() => Json(cluster.Get("srv", "Wallet#1", "Purse", 2)) == "4", "the command never reached scope 2");
+        Assert.Equal("0", Json(cluster.Get("srv", "Arena", "Hits", 1)));
+        WaitUntil(() => Json(cluster.Get("p1", "Wallet#1", "Purse", 2)) == "4", "the owner's replica never saw its purse");
+        Assert.Equal("0", Json(cluster.Get("p1", "Arena", "Hits")));
+        Assert.Equal("not_found", Assert.Throws<ControlException>(() => cluster.Send("p1", "Wallet#1", "Earn", ["1"], scope: 9)).Code);
+
+        // The audience that client holds (player 5, the first to join): the replica equals the authority's recorded view of it.
+        cluster.Audience(new FollowedAudience("p1", 2, "srv", 5));
+        Thread.Sleep(300);
+        var report = cluster.Hashes();
+        Assert.True(report.Ok, string.Join("; ", report.Problems));
+        var check = Assert.Single(report.Checks, c => c.Audience is not null);
+        Assert.True(check.Match);
+        Assert.Equal(2u, check.Scope);
+        Assert.Equal(check.ClientHash, check.ServerHash);
+
+        // A wrong audience is reported, not hidden: player 6 does not see player 5's purse, so its view of the scope differs.
+        cluster.Audience(new FollowedAudience("p1", 2, "srv", 6));
+        Thread.Sleep(300);
+        report = cluster.Hashes();
+        Assert.False(report.Ok);
+        Assert.Contains(report.Problems, p => p.Contains("audience p6t0", StringComparison.Ordinal));
+        Assert.False(Assert.Single(report.Checks, c => c.Audience is not null).Match);
+
+        // So is a tick the authority has no record of: asking for tick 0 gives no hash.
+        using var at = JsonDocument.Parse(cluster.Call("srv", "hash_at", "{\"tick\":0,\"audience\":{\"player\":5}}"));
+        Assert.All(at.RootElement.EnumerateArray(), s => Assert.False(s.TryGetProperty("audience", out var v) && v.ValueKind == JsonValueKind.String));
+    }
+
+    [Fact]
+    public void AnAudienceDeclaredInTheSpecIsCheckedByEveryHashComparison()
+    {
+        var spec = ClusterSpec.Parse("""
+            name: declared
+            nodes:
+              - { name: srv, role: server, exe: /bin/true, scopes: [{ id: 1, seed: 7 }, { id: 2, seed: 9 }] }
+              - name: p1
+                role: client
+                exe: /bin/true
+                connect: srv
+                audiences:
+                  - { scope: 2, server: srv, player: 5, team: 1, relay: false, interest: [3, 4] }
+            """);
+        var a = Assert.Single(spec.Nodes[1].Audiences);
+        Assert.Equal(new FollowedAudience("p1", 2, "srv", 5, 1, false, [3, 4]).Key, a.Key);
+        Assert.Equal("p5t1i3,4", a.Key);
+        Assert.Throws<ScenarioException>(() => ClusterSpec.Parse("nodes:\n  - { name: p1, role: client, exe: x, connect: srv, audiences: [{ scope: 2, server: nope }] }\n  - { name: srv, role: server, exe: x }"));
+    }
+
+    [Fact]
+    public void AClusterScenarioDeclaresAnAudienceCommandsTheFollowedScopeAndAgrees()
+    {
+        using var cluster = LaunchFollowing("runtime-follow-scenario");
+        var result = cluster.Run(Fixture.Scenario("runtime-follow.yaml"));
+        Assert.True(result.Passed, JsonSerializer.Serialize(result, ScenarioJson.Default.ScenarioResult));
+        Assert.Contains(result.Expectations, e => e.Kind == "agree" && e.Passed);
     }
 
     [Fact]
