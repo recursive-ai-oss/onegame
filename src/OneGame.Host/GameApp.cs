@@ -441,6 +441,7 @@ public static class GameApp
                 w.WriteNumber("scope", net.Scope);
                 w.WriteString("replica", net.Replica);
                 w.WriteString("viewHash", net.Hash);
+                w.WriteNumber("localPort", net.LocalPort);
                 w.WriteNumber("resyncs", net.Resyncs);
                 w.WriteNumber("drift", net.Drift);
                 w.WriteStartArray("followed");

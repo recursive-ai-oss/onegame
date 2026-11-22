@@ -70,6 +70,14 @@ internal static class WebExport
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();
         var configuration = dev ? "Debug" : "Release";
+        // The shader items come from build files a restore writes (the shader package's targets), so a game that was never built would
+        // list none and its wrapper would have no shaders. Restoring first makes the first export of a fresh checkout read what a build would.
+        var restore = Proc.Run(Proc.Dotnet, ["restore", project.File, "-nologo", "-v", "quiet", "-clp:NoSummary", $"-p:OneGameDev={(dev ? "true" : "false")}", $"-p:Configuration={configuration}"], project.Directory);
+        if (restore.ExitCode != 0)
+        {
+            throw new CliException(ExitCodes.BuildFailed, "bad_project", $"Could not restore {project.File}: {restore.Output.Trim()} {restore.Error.Trim()}");
+        }
+
         var query = Proc.Run(Proc.Dotnet, ["msbuild", project.File, $"-getItem:Compile,EmbeddedResource,ProjectReference,PackageReference,OneShader,OneShaderVariant,AdditionalFiles,InternalsVisibleTo", $"-getProperty:OneGameRoot,AssemblyName,RootNamespace,OneGameVersion,{string.Join(',', CarriedProperties)}", $"-p:OneGameDev={(dev ? "true" : "false")}", $"-p:Configuration={configuration}", "-nologo"], project.Directory);
         if (query.ExitCode != 0)
         {

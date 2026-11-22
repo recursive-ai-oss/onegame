@@ -142,6 +142,9 @@ public sealed class UdpConnection : INetConnection, OneGame.Sync.IBoundedSendCha
     public string RemoteName { get; }
 
     /// <inheritdoc />
+    public int LocalPort => _socket.LocalAddress.Family is AddressFamily.InterNetwork or AddressFamily.InterNetworkV6 ? new IPEndPoint(IPAddress.Any, 0).Create(_socket.LocalAddress) is IPEndPoint ep ? ep.Port : 0 : 0;
+
+    /// <inheritdoc />
     public NetStats Stats
     {
         get
