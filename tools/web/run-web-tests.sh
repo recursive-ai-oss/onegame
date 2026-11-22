@@ -2,7 +2,7 @@
 # The browser tests of the web host, on a dev export of tests/WebGame (headless Chrome, the engine's own page):
 #   tools/web/run-web-tests.sh [work folder]
 # Builds the onegame tool from this checkout, exports the fixture game, and runs the scripts in tools/web: pointer positions, the canvas on a
-# phone, the safe area, the page title, the script fingerprints, capture after a failing frame and a game's own material. The scripts that
+# phone, the safe area, the page title, the script fingerprints, capture after a failing frame, a game's own material, and render textures with post chains. The scripts that
 # present to a canvas need a hardware WebGPU adapter in Chrome (CHROME_GPU_FLAGS below, the default); the software one cannot read back then.
 set -eu
 repo="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -34,4 +34,5 @@ grep -q 'src="./boot.mjs?v=' "$folder/index.html" && grep -q "onegame-platform.j
 export CHROME_GPU_FLAGS="$hw"
 check "capture after a failing frame" run --root "$folder" --path '/index.html?control=page' --script "$repo/tools/web/capture-test.mjs"
 check "a game's own material as the first draw" run --root "$folder" --path '/index.html?control=page' --script "$repo/tools/web/material-test.mjs"
+check "render texture, bloom and a game pass on a layer" run --root "$folder" --path '/index.html?control=page' --script "$repo/tools/web/chain-test.mjs"
 exit $fail

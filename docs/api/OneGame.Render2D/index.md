@@ -25,8 +25,9 @@ dotnet add package RecursiveAI.OneGame.Render2D
 | [`Layer2D`](OneGame.Render2D/Layer2D.md) | class | A layer of a [`Scene2D`](OneGame.Render2D/Scene2D.md). |
 | [`Material`](OneGame.Render2D/Material.md) | class | A pixel shader with parameters, usable on sprites. |
 | [`PixelRect`](OneGame.Render2D/PixelRect.md) | struct | Whole pixels of a texture or sub-rectangle. |
-| [`PostChain`](OneGame.Render2D/PostChain.md) | class | A list of full-screen effects run, in order, over a finished scene. |
+| [`PostChain`](OneGame.Render2D/PostChain.md) | class | A list of full-screen effects run, in order, over a finished image: the whole scene ([`Renderer2D.DrawScene()`](OneGame.Render2D/Renderer2D.md#m-drawscene-scene2d-camera2d-postchain-iscenemarkersink)) or one layer ([`Layer2D.Post`](OneGame.Render2D/Layer2D.md#m-post)). |
 | [`Render2DModule`](OneGame.Render2D/Render2DModule.md) | static class | Identifies the Render2D assembly; a placeholder until its first feature lands. |
+| [`RenderTexture2D`](OneGame.Render2D/RenderTexture2D.md) | class | An image the 2D renderer draws into and then samples like any texture: trails, a minimap, a reflection, or a layer drawn once and reused. |
 | [`Renderer2D`](OneGame.Render2D/Renderer2D.md) | class | The 2D renderer: sprites, tilemaps, parallax layers, custom materials, post-processing and the UI display list, drawn through the GPU layer. |
 | [`Scene2D`](OneGame.Render2D/Scene2D.md) | class | Everything to draw in one frame of the world: sprites and tilemaps on layers. |
 | [`ShaderCode`](OneGame.Render2D/ShaderCode.md) | struct | One compiled shader stage: SPIR-V (and, for Metal, Metal Shading Language) and the name of its entry point. |
@@ -56,6 +57,7 @@ dotnet add package RecursiveAI.OneGame.Render2D
 | [`Quad.Frame`](OneGame.Render2D.Shaders/Quad.Frame.md) | struct |  |
 | [`Quad.PSAdditive`](OneGame.Render2D.Shaders/Quad.PSAdditive.md) | static class |  |
 | [`Quad.PSBlur`](OneGame.Render2D.Shaders/Quad.PSBlur.md) | static class |  |
+| [`Quad.PSBright`](OneGame.Render2D.Shaders/Quad.PSBright.md) | static class |  |
 | [`Quad.PSGrade`](OneGame.Render2D.Shaders/Quad.PSGrade.md) | static class |  |
 | [`Quad.PSSprite`](OneGame.Render2D.Shaders/Quad.PSSprite.md) | static class |  |
 | [`Quad.Params`](OneGame.Render2D.Shaders/Quad.Params.md) | struct |  |

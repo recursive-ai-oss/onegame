@@ -88,15 +88,18 @@ The UI drawing surface for the current frame.
 | Member | Description |
 | --- | --- |
 | [`BeginFrame(GpuTexture, in FrameOptions)`](#m-beginframe-gputexture-frameoptions) | Starts a frame that draws into `target`. |
+| [`BeginTarget(RenderTexture2D, Color?)`](#m-begintarget-rendertexture2d-color) | Starts drawing into a render texture: everything drawn until [`Renderer2D.EndTarget()`](Renderer2D.md#m-endtarget) (scenes, sprites, text, UI primitives) lands in it, in its own pixel coordinates. |
 | [`CancelFrame()`](#m-cancelframe) | Drops the frame begun with [`Renderer2D.BeginFrame()`](Renderer2D.md#m-beginframe-gputexture-frameoptions) without recording it. |
 | [`Create(GpuDevice, GpuFormat, IShaderSource)`](#m-create-gpudevice-gpuformat-ishadersource) | Makes a renderer that draws into targets of `targetFormat`. |
 | [`CreateMaterial(ShaderCode, string?)`](#m-creatematerial-shadercode-string) | Creates a material from a custom pixel shader that draws sprites. |
 | [`CreatePostChain()`](#m-createpostchain) | Makes an empty post-processing chain. |
+| [`CreateRenderTexture(int, int, TextureFilter)`](#m-createrendertexture-int-int-texturefilter) | Makes an image to draw into and sample later. |
 | [`CreateTexture(int, int, ReadOnlySpan<byte>, TextureFilter)`](#m-createtexture-int-int-readonlyspan-byte-texturefilter) | Creates a texture from straight-alpha sRGB pixels (R, G, B, A bytes, top row first). |
 | [`CreateTileSet(int, int, int, int, ReadOnlySpan<byte>, TextureFilter)`](#m-createtileset-int-int-int-int-readonlyspan-byte-texturefilter) | Creates a tile set from a grid of tiles. |
 | [`Dispose()`](#m-dispose) | Releases every GPU object the renderer made. |
 | [`DrawScene(Scene2D, in Camera2D, PostChain?, ISceneMarkerSink?)`](#m-drawscene-scene2d-camera2d-postchain-iscenemarkersink) | Draws a scene's layers back to front through `camera`. |
 | [`EndFrame(GpuCommandEncoder)`](#m-endframe-gpucommandencoder) | Uploads everything the frame drew and records its passes into `encoder`. |
+| [`EndTarget()`](#m-endtarget) | Stops drawing into the render texture begun with [`Renderer2D.BeginTarget()`](Renderer2D.md#m-begintarget-rendertexture2d-color); drawing continues on the frame's target. |
 | [`ForgetTarget(GpuTexture)`](#m-forgettarget-gputexture) | Forgets what the renderer keeps for a target texture (its constants and bind group). |
 | [`RebindTexture(Texture2D, GpuTexture)`](#m-rebindtexture-texture2d-gputexture) | Points a texture made by [`Renderer2D.WrapTexture()`](Renderer2D.md#m-wraptexture-gputexture-texturefilter) at a new GPU image (after its owner recreated it, perhaps at another size). |
 | [`ReplaceMaterialShader(Material, ShaderCode)`](#m-replacematerialshader-material-shadercode) | Replaces the pixel shader of a material made by [`Renderer2D.CreateMaterial()`](Renderer2D.md#m-creatematerial-shadercode-string) without touching its parameters, so a shader edited while the game runs shows from the next frame on. |
@@ -115,6 +118,23 @@ Starts a frame that draws into `target`. The target needs `RenderTarget` usage a
 
 - `target` (`GpuTexture`): The texture to draw into: an offscreen texture or a swapchain image.
 - `options` ([`FrameOptions`](FrameOptions.md)): Per-frame settings.
+
+### <a id="m-begintarget-rendertexture2d-color"></a>BeginTarget(RenderTexture2D, Color?)
+
+```csharp
+public void BeginTarget(RenderTexture2D target, Color? clear = default);
+```
+
+Starts drawing into a render texture: everything drawn until [`Renderer2D.EndTarget()`](Renderer2D.md#m-endtarget) (scenes, sprites, text, UI primitives) lands in it, in its own pixel coordinates. Call it between [`Renderer2D.BeginFrame()`](Renderer2D.md#m-beginframe-gputexture-frameoptions) and [`Renderer2D.EndFrame()`](Renderer2D.md#m-endframe-gpucommandencoder), before the frame draws anything that shows the texture. Targets do not nest.
+
+**Parameters**
+
+- `target` ([`RenderTexture2D`](RenderTexture2D.md)): The texture to draw into.
+- `clear` ([`Color`](../../OneGame.UI/OneGame.UI/Color.md)?): The colour to clear it to first (sRGB, straight alpha), or null to keep what it holds. A texture never drawn into before is cleared to transparent either way.
+
+**Exceptions**
+
+- [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): A target is already active, or the texture is disposed or belongs to another renderer.
 
 ### <a id="m-cancelframe"></a>CancelFrame()
 
@@ -164,6 +184,22 @@ public PostChain CreatePostChain();
 Makes an empty post-processing chain. Add effects, then pass it to [`Renderer2D.DrawScene()`](Renderer2D.md#m-drawscene-scene2d-camera2d-postchain-iscenemarkersink).
 
 **Returns:** [`PostChain`](PostChain.md) — The chain.
+
+### <a id="m-createrendertexture-int-int-texturefilter"></a>CreateRenderTexture(int, int, TextureFilter)
+
+```csharp
+public RenderTexture2D CreateRenderTexture(int width, int height, TextureFilter filter = 1);
+```
+
+Makes an image to draw into and sample later. It has the renderer's target format, so everything the renderer draws can go into it. Size it to what it will show (a fraction of the screen is fine); dispose it when it is no longer needed.
+
+**Parameters**
+
+- `width` (`int`): Width in pixels, 1 to 16384.
+- `height` (`int`): Height in pixels, 1 to 16384.
+- `filter` ([`TextureFilter`](TextureFilter.md)): How it is filtered when drawn at another size.
+
+**Returns:** [`RenderTexture2D`](RenderTexture2D.md) — The render texture, not yet drawn into (its first use clears it).
 
 ### <a id="m-createtexture-int-int-readonlyspan-byte-texturefilter"></a>CreateTexture(int, int, ReadOnlySpan&lt;byte&gt;, TextureFilter)
 
@@ -215,7 +251,7 @@ Releases every GPU object the renderer made. Dispose the textures, tile sets and
 public void DrawScene(Scene2D scene, in Camera2D camera, PostChain? post = null, ISceneMarkerSink? markers = null);
 ```
 
-Draws a scene's layers back to front through `camera`. With a post chain the scene goes into an offscreen image first, the chain runs over it, and the result lands on the current target; anything drawn after (usually the UI) is not post-processed.
+Draws a scene's layers back to front through `camera`. With a post chain the scene goes into an offscreen image first, the chain runs over it, and the result lands on the current target; anything drawn after (usually the UI) is not post-processed. A layer may draw into a render texture instead ([`Layer2D.Target`](Layer2D.md#m-target)) or have a chain of its own ([`Layer2D.Post`](Layer2D.md#m-post)).
 
 **Parameters**
 
@@ -237,6 +273,18 @@ Uploads everything the frame drew and records its passes into `encoder`. Submit 
 - `encoder` (`GpuCommandEncoder`): The command encoder to record into.
 
 **Returns:** [`FrameStats`](FrameStats.md) — What the frame cost.
+
+### <a id="m-endtarget"></a>EndTarget()
+
+```csharp
+public void EndTarget();
+```
+
+Stops drawing into the render texture begun with [`Renderer2D.BeginTarget()`](Renderer2D.md#m-begintarget-rendertexture2d-color); drawing continues on the frame's target.
+
+**Exceptions**
+
+- [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): No render texture is being drawn into.
 
 ### <a id="m-forgettarget-gputexture"></a>ForgetTarget(GpuTexture)
 

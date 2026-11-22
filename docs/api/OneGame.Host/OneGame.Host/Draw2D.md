@@ -57,6 +57,7 @@ public void Draw(Draw2D d)
 | [`Height`](#m-height) | Target height in pixels. |
 | [`Layer`](#m-layer) | The layer new sprites go on; the scene's default layer at the start of every frame. |
 | [`ParticleEmitters`](#m-particleemitters) | The emitters handed to [`Draw2D.Particles()`](Draw2D.md#m-particles-particleemitter-vector2-texture2d-float) in the last drawn frame, in call order. |
+| [`Post`](#m-post) | Effects run over the whole drawn frame (everything this class draws, not the UI above it), or null (the default) for none. |
 | [`Renderer`](#m-renderer) | The renderer drawing this frame; use it to create textures ([`Renderer2D.CreateTexture()`](../../OneGame.Render2D/OneGame.Render2D/Renderer2D.md#m-createtexture-int-int-readonlyspan-byte-texturefilter)). |
 | [`Scene`](#m-scene) | The low-level scene this frame is collected in. |
 | [`ScreenLayer`](#m-screenlayer) | The layer for things that sit on the screen, not in the world: its coordinates are framebuffer pixels (origin top-left) whatever the [`Draw2D.Camera`](Draw2D.md#m-camera) does, so a HUD keeps its place and size over a zoomed, panned world. |
@@ -176,6 +177,16 @@ The emitters handed to [`Draw2D.Particles()`](Draw2D.md#m-particles-particleemit
 
 **Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`ParticleEmitter`](../../OneGame.Particles/OneGame.Particles/ParticleEmitter.md)&gt;
 
+### <a id="m-post"></a>Post
+
+```csharp
+public PostChain? Post { get; set; }
+```
+
+Effects run over the whole drawn frame (everything this class draws, not the UI above it), or null (the default) for none. Make a chain with [`Draw2D.CreatePostChain()`](Draw2D.md#m-createpostchain) once and keep it; assign it every frame it should apply, or once and set null to stop. A frame with a null or empty chain has no extra pass and draws exactly as before. For effects on one layer only, use [`Layer2D.Post`](../../OneGame.Render2D/OneGame.Render2D/Layer2D.md#m-post).
+
+**Type:** [`PostChain`](../../OneGame.Render2D/OneGame.Render2D/PostChain.md)?
+
 ### <a id="m-renderer"></a>Renderer
 
 ```csharp
@@ -260,6 +271,7 @@ Target width in pixels.
 
 | Member | Description |
 | --- | --- |
+| [`CreatePostChain()`](#m-createpostchain) | Makes an empty post-processing chain for [`Draw2D.Post`](Draw2D.md#m-post) or [`Layer2D.Post`](../../OneGame.Render2D/OneGame.Render2D/Layer2D.md#m-post): `AddBloom()`, `AddBlur(r)`, `AddGrade(...)`, or `AddMaterial(m)` with a pixel shader of your own. |
 | [`FillCircle(Vector2, float, Color, float)`](#m-fillcircle-vector2-float-color-float) | Fills a circle. |
 | [`FillRect(Rect, Color, float, float)`](#m-fillrect-rect-color-float-float) | Fills a rectangle. |
 | [`Follow(Vector2)`](#m-follow-vector2) | The camera moves toward a point, by its smoothing, using this frame's [`Draw2D.DeltaTime`](Draw2D.md#m-deltatime). |
@@ -267,6 +279,8 @@ Target width in pixels.
 | [`Line(Vector2, Vector2, Color, float, float)`](#m-line-vector2-vector2-color-float-float) | Draws a line with square ends. |
 | [`Particles(ParticleEmitter, Vector2, Texture2D?, float)`](#m-particles-particleemitter-vector2-texture2d-float) | Shows a particle emitter at a point. |
 | [`Particles(ParticleEmitter, Vector2, string, float)`](#m-particles-particleemitter-vector2-string-float) | Shows a particle emitter at a point, with an image loaded from the game's content folders; see [`Draw2D.Particles()`](Draw2D.md#m-particles-particleemitter-vector2-texture2d-float). |
+| [`RenderLayer(string, RenderTexture2D, Color?, bool)`](#m-renderlayer-string-rendertexture2d-color-bool) | Finds or makes a layer (see [`Draw2D.GetLayer()`](Draw2D.md#m-getlayer-string)) that draws into a render texture instead of the frame. |
+| [`RenderTexture(string, int, int, TextureFilter)`](#m-rendertexture-string-int-int-texturefilter) | An image to draw into and then show as a sprite ([`RenderTexture2D.Texture`](../../OneGame.Render2D/OneGame.Render2D/RenderTexture2D.md#m-texture)): a minimap, a reflection, trails, or a complex layer drawn once. |
 | [`ScreenText(string, Vector2, float, Color?, Vector2?, string?, int, float)`](#m-screentext-string-vector2-float-color-vector2-string-int-float) | Draws one line of text at a screen pixel, unaffected by any camera or viewport. |
 | [`ScreenToWorld(Vector2)`](#m-screentoworld-vector2) | The world point under a screen pixel this frame. |
 | [`ScreenToWorld(Layer2D, Vector2)`](#m-screentoworld-layer2d-vector2) | The point of a layer under a screen pixel this frame, through that layer's own camera, parallax and viewport. |
@@ -284,6 +298,20 @@ Target width in pixels.
 | [`WarmUpText(string, float, string?, int)`](#m-warmuptext-string-float-string-int) | Rasterizes the glyphs of some characters at a size ahead of time, so the first frame that draws text of them does not stop to do it. |
 | [`WorldToScreen(Vector2)`](#m-worldtoscreen-vector2) | Where a world point lands on the screen this frame, in pixels. |
 | [`WorldToScreen(Layer2D, Vector2)`](#m-worldtoscreen-layer2d-vector2) | Where a point of a layer lands on the screen this frame, in pixels, through that layer's own camera, parallax and viewport. |
+
+### <a id="m-createpostchain"></a>CreatePostChain()
+
+```csharp
+public PostChain CreatePostChain();
+```
+
+Makes an empty post-processing chain for [`Draw2D.Post`](Draw2D.md#m-post) or [`Layer2D.Post`](../../OneGame.Render2D/OneGame.Render2D/Layer2D.md#m-post): `AddBloom()`, `AddBlur(r)`, `AddGrade(...)`, or `AddMaterial(m)` with a pixel shader of your own. Keep the chain; it owns GPU objects.
+
+**Returns:** [`PostChain`](../../OneGame.Render2D/OneGame.Render2D/PostChain.md) — The chain.
+
+**Exceptions**
+
+- [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): Called before the first frame is drawn.
 
 ### <a id="m-fillcircle-vector2-float-color-float"></a>FillCircle(Vector2, float, Color, float)
 
@@ -386,6 +414,44 @@ Shows a particle emitter at a point, with an image loaded from the game's conten
 - `position` ([`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2)): Where it is, in world units.
 - `texturePath` (`string`): Path under a content folder, like `art/spark.png`.
 - `z` (`float`): Draw order inside the layer: lower is behind.
+
+### <a id="m-renderlayer-string-rendertexture2d-color-bool"></a>RenderLayer(string, RenderTexture2D, Color?, bool)
+
+```csharp
+public Layer2D RenderLayer(string name, RenderTexture2D target, Color? clear = default, bool keep = false);
+```
+
+Finds or makes a layer (see [`Draw2D.GetLayer()`](Draw2D.md#m-getlayer-string)) that draws into a render texture instead of the frame. A layer made here uses pixel coordinates of the texture ([`Layer2D.ScreenSpace`](../../OneGame.Render2D/OneGame.Render2D/Layer2D.md#m-screenspace)); give it a [`Layer2D.Camera`](../../OneGame.Render2D/OneGame.Render2D/Layer2D.md#m-camera) instead to draw a world through it. Draw into it with [`Draw2D.Layer`](Draw2D.md#m-layer) set to the result, then show [`RenderTexture2D.Texture`](../../OneGame.Render2D/OneGame.Render2D/RenderTexture2D.md#m-texture) from a later layer. The texture is cleared on the first frame a layer draws into it, and left alone on frames the layer has nothing to draw.
+
+**Parameters**
+
+- `name` (`string`): The layer's name.
+- `target` ([`RenderTexture2D`](../../OneGame.Render2D/OneGame.Render2D/RenderTexture2D.md)): The texture to draw into.
+- `clear` ([`Color`](../../OneGame.UI/OneGame.UI/Color.md)?): What to clear the texture to when the layer draws (transparent by default).
+- `keep` (`bool`): True to never clear, so drawing accumulates over the frames.
+
+**Returns:** [`Layer2D`](../../OneGame.Render2D/OneGame.Render2D/Layer2D.md) — The layer.
+
+### <a id="m-rendertexture-string-int-int-texturefilter"></a>RenderTexture(string, int, int, TextureFilter)
+
+```csharp
+public RenderTexture2D RenderTexture(string name, int width, int height, TextureFilter filter = 1);
+```
+
+An image to draw into and then show as a sprite ([`RenderTexture2D.Texture`](../../OneGame.Render2D/OneGame.Render2D/RenderTexture2D.md#m-texture)): a minimap, a reflection, trails, or a complex layer drawn once. Made on first use and kept by name; asking again with another size makes a new one and releases the old, so ask every frame with the size you want. Aim a layer at it with [`Draw2D.RenderLayer()`](Draw2D.md#m-renderlayer-string-rendertexture2d-color-bool).
+
+**Parameters**
+
+- `name` (`string`): Names the texture between frames.
+- `width` (`int`): Width in pixels.
+- `height` (`int`): Height in pixels.
+- `filter` ([`TextureFilter`](../../OneGame.Render2D/OneGame.Render2D/TextureFilter.md)): How it is filtered when drawn at another size.
+
+**Returns:** [`RenderTexture2D`](../../OneGame.Render2D/OneGame.Render2D/RenderTexture2D.md) — The render texture.
+
+**Exceptions**
+
+- [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): Called before the first frame is drawn.
 
 ### <a id="m-screentext-string-vector2-float-color-vector2-string-int-float"></a>ScreenText(string, Vector2, float, Color?, Vector2?, string?, int, float)
 

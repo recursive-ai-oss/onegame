@@ -1,0 +1,44 @@
+using System.Numerics;
+using OneGame.Core;
+using OneGame.Host;
+using OneGame.Render2D;
+using OneGame.UI;
+using WebGame.Shaders;
+
+namespace WebGame;
+
+/// <summary>
+/// A bright square on a layer with a post chain (bloom, then the game's own tint pass) and a render texture drawn as a sprite, so a browser
+/// run can check that targets and chains work on WebGPU: the square's halo, the tint, and the texture's colour.
+/// </summary>
+[Entity]
+public partial class Glow : Entity, IView2D
+{
+    private RenderTexture2D? _badge;
+    private Material? _tint;
+    private PostChain? _chain;
+
+    [View]
+    public void Draw(Draw2D d)
+    {
+        if (_chain is null)
+        {
+            _tint = d.Renderer!.CreateMaterial(new ShaderCode(RecursiveAI.OneGpu.ShaderStage.Pixel, Tint.PSMain.EntryPoint, Tint.PSMain.SpirV.ToArray(), Tint.PSMain.Msl.ToArray(), Tint.PSMain.MslFunctionName, Tint.PSMain.Layout, Tint.PSMain.Wgsl.ToArray(), Tint.PSMain.WgslEntryPoint), "glow tint");
+            _tint.SetParameter(0, new Vector4(0.5f, 1f, 1f, 0));
+            _chain = d.CreatePostChain().AddBloom(threshold: 0.5f).AddMaterial(_tint);
+            _badge = d.RenderTexture("badge", 32, 32);
+        }
+
+        // The layer that fills the texture comes first, then the layer with the chain, then the layer that shows the texture.
+        var fill = d.RenderLayer("badge", _badge!, new Color(255, 0, 255, 255));
+        var glow = d.GetLayer("glow");
+        glow.Post = _chain;
+        var show = d.GetLayer("badge-show");
+        d.Layer = fill;
+        d.FillRect(new Rect(0, 0, 32, 16), new Color(255, 0, 255, 255));
+        d.Layer = glow;
+        d.FillRect(new Rect(-80, -30, 40, 40), Color.White);
+        d.Layer = show;
+        d.Sprite(_badge!.Texture, new Vector2(40, -60));
+    }
+}

@@ -91,7 +91,26 @@ internal static class Draw2DSmoke
             magenta += px[i] > 200 && px[i + 1] < 60 && px[i + 2] > 200 ? 1 : 0;
         }
 
-        return magenta > 100 && wrapped.Width == 8 ? null : $"overlay: magenta px {magenta}, wrapped width {wrapped.Width}";
+        if (!(magenta > 100 && wrapped.Width == 8))
+        {
+            return $"overlay: magenta px {magenta}, wrapped width {wrapped.Width}";
+        }
+
+        // A render texture filled with magenta, shown as a sprite through a bloom and blur chain.
+        using var offscreen = r2.CreateRenderTexture(16, 16);
+        using var chain = r2.CreatePostChain().AddBloom().AddBlur(1f);
+        var scene = new Scene2D();
+        scene.Draw(scene.DefaultLayer, Sprite.Create(offscreen.Texture, new Vector2(48, 32)) with { Scale = new Vector2(2, 2) });
+        r2.BeginFrame(target, new FrameOptions { Clear = new Color(0, 0, 0, 255) });
+        r2.BeginTarget(offscreen, new Color(255, 0, 255, 255));
+        r2.EndTarget();
+        r2.DrawScene(scene, new Camera2D { Position = new Vector2(48, 32), Zoom = 1 }, chain);
+        var enc = device.BeginCommands();
+        r2.EndFrame(enc);
+        device.Submit(enc);
+        device.ReadTexture(target, 0, 0, px);
+        var centre = ((32 * 96) + 48) * 4;
+        return px[centre] > 200 && px[centre + 1] < 60 && px[centre + 2] > 200 ? null : $"render texture: centre {px[centre]},{px[centre + 1]},{px[centre + 2]}";
     }
 
     private sealed class SmokeOverlay(Texture2D texture) : IFrameOverlay

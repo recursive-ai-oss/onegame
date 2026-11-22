@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>GlowExample</AssemblyName>
+    <RootNamespace>GlowExample</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Target framework, analyzers, engine references and, in Debug builds only, the development tools (live control, scenarios, capture). -->
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+
+  <ItemGroup>
+    <!-- Compiles Shaders/*.hlsl during the build and generates the C# bindings (GlowExample.Shaders.Scan). -->
+    <PackageReference Include="RecursiveAI.OneShader.Build" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

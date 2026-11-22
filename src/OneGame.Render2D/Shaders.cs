@@ -68,6 +68,9 @@ public static class ShaderNames
     /// <summary>Quad pixel entry point: separable blur.</summary>
     public const string Blur = "PSBlur";
 
+    /// <summary>Quad pixel entry point: bloom's bright pass.</summary>
+    public const string Bright = "PSBright";
+
     /// <summary>Quad pixel entry point: colour grade.</summary>
     public const string Grade = "PSGrade";
 
@@ -97,7 +100,7 @@ internal static class Layouts
 
     /// <summary>Materials, blur and grade: <see cref="Plain"/> plus a parameter block in set 2.</summary>
     public static ResourceBinding[] WithParams() =>
-        ShaderLayouts.Bindings([.. Shared, Quad.PSBlur.Layout, Quad.PSGrade.Layout], widenSets: Everywhere);
+        ShaderLayouts.Bindings([.. Shared, Quad.PSBlur.Layout, Quad.PSGrade.Layout, Quad.PSBright.Layout], widenSets: Everywhere);
 
     /// <summary>Tile programs: <see cref="Plain"/> plus parameters, the id pool and the colour pool in set 2.</summary>
     public static ResourceBinding[] WithPools() =>

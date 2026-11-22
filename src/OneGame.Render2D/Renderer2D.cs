@@ -55,7 +55,7 @@ public sealed partial class Renderer2D : IDisposable
         public int Sx, Sy, Sw, Sh;
     }
 
-    private sealed class TargetState : IDisposable
+    internal sealed class TargetState : IDisposable
     {
         public required GpuTexture Texture;
         public required GpuBuffer Constants;
@@ -107,6 +107,13 @@ public sealed partial class Renderer2D : IDisposable
     private readonly GpuShader _additivePixel;
     private readonly GpuGraphicsPipeline _additivePipeline;
     private Material? _additiveMaterial;
+    private readonly GpuShader _brightPixel;
+    private readonly GpuGraphicsPipeline _brightPipeline;
+    private RenderTexture2D? _activeTarget;
+    private bool[] _hasOps = new bool[8];
+    private int _savedCurrent;
+    private int _savedWidth;
+    private int _savedHeight;
     private readonly GpuShader _gradePixel;
     private readonly GpuBuffer _clipBuffer;
     private readonly GpuSampler _clampLinear;
@@ -156,6 +163,7 @@ public sealed partial class Renderer2D : IDisposable
         _blurPixel = Shader(ShaderNames.Quad, ShaderNames.Blur);
         _gradePixel = Shader(ShaderNames.Quad, ShaderNames.Grade);
         _additivePixel = Shader(ShaderNames.Quad, ShaderNames.Additive);
+        _brightPixel = Shader(ShaderNames.Quad, ShaderNames.Bright);
         _tileVertex = Shader(ShaderNames.Tile, ShaderNames.Vertex);
         _tileIdsPixel = Shader(ShaderNames.Tile, ShaderNames.TileIds);
         _tileFlatPixel = Shader(ShaderNames.Tile, ShaderNames.TileFlat);
@@ -166,6 +174,7 @@ public sealed partial class Renderer2D : IDisposable
         _blurPipeline = Pipeline(_layoutParams, _quadVertex, _blurPixel, Layouts.QuadVertex(), "blur");
         _gradePipeline = Pipeline(_layoutParams, _quadVertex, _gradePixel, Layouts.QuadVertex(), "grade");
         _additivePipeline = Pipeline(_layoutParams, _quadVertex, _additivePixel, Layouts.QuadVertex(), "additive");
+        _brightPipeline = Pipeline(_layoutParams, _quadVertex, _brightPixel, Layouts.QuadVertex(), "bright");
         _tileIdsPipeline = Pipeline(_layoutTile, _tileVertex, _tileIdsPixel, Layouts.QuadVertex(true), "tile ids");
         _tileFlatPipeline = Pipeline(_layoutTile, _tileVertex, _tileFlatPixel, Layouts.QuadVertex(true), "tile flat");
         _uiPipeline = Pipeline(_layoutPlain, _uiVertex, _uiPixel, Layouts.UiVertex(), "ui");
@@ -468,6 +477,89 @@ public sealed partial class Renderer2D : IDisposable
 
     internal Material CreateGradeMaterial() => NewMaterial(_gradePipeline, ownsPipeline: false);
 
+    internal Material CreateBrightMaterial() => NewMaterial(_brightPipeline, ownsPipeline: false);
+
+    /// <summary>
+    /// Makes an image to draw into and sample later. It has the renderer's target format, so everything the renderer draws can go into it. Size it
+    /// to what it will show (a fraction of the screen is fine); dispose it when it is no longer needed.
+    /// </summary>
+    /// <param name="width">Width in pixels, 1 to 16384.</param>
+    /// <param name="height">Height in pixels, 1 to 16384.</param>
+    /// <param name="filter">How it is filtered when drawn at another size.</param>
+    /// <returns>The render texture, not yet drawn into (its first use clears it).</returns>
+    public RenderTexture2D CreateRenderTexture(int width, int height, TextureFilter filter = TextureFilter.Linear)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentOutOfRangeException.ThrowIfLessThan(width, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(width, 16384);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(height, 16384);
+        var image = _device.CreateTexture(new TextureDesc((uint)width, (uint)height, _format, TextureUsage.RenderTarget | TextureUsage.Sampled) { Label = "2d render texture" });
+        var view = WrapTexture(image, filter);
+        return new RenderTexture2D(this, image, view, NewTargetState(image, pooled: false));
+    }
+
+    /// <summary>
+    /// Starts drawing into a render texture: everything drawn until <see cref="EndTarget"/> (scenes, sprites, text, UI primitives) lands in it, in
+    /// its own pixel coordinates. Call it between <see cref="BeginFrame"/> and <see cref="EndFrame"/>, before the frame draws anything that shows
+    /// the texture. Targets do not nest.
+    /// </summary>
+    /// <param name="target">The texture to draw into.</param>
+    /// <param name="clear">The colour to clear it to first (sRGB, straight alpha), or null to keep what it holds. A texture never drawn into before is cleared to transparent either way.</param>
+    /// <exception cref="InvalidOperationException">A target is already active, or the texture is disposed or belongs to another renderer.</exception>
+    public void BeginTarget(RenderTexture2D target, Color? clear = null)
+    {
+        RequireFrame();
+        ArgumentNullException.ThrowIfNull(target);
+        if (_activeTarget is not null)
+        {
+            throw new InvalidOperationException("a render texture is already being drawn into: call EndTarget first");
+        }
+
+        PushTarget(target, clear);
+    }
+
+    /// <summary>Stops drawing into the render texture begun with <see cref="BeginTarget"/>; drawing continues on the frame's target.</summary>
+    /// <exception cref="InvalidOperationException">No render texture is being drawn into.</exception>
+    public void EndTarget()
+    {
+        if (_activeTarget is null)
+        {
+            throw new InvalidOperationException("EndTarget without BeginTarget");
+        }
+
+        PopTarget();
+    }
+
+    private void PushTarget(RenderTexture2D target, Color? clear)
+    {
+        if (target.IsDisposed || !ReferenceEquals(target.Owner, this))
+        {
+            throw new InvalidOperationException("the render texture is disposed or belongs to another renderer");
+        }
+
+        _savedCurrent = _current;
+        _savedWidth = _width;
+        _savedHeight = _height;
+        _activeTarget = target;
+        var wipe = clear.HasValue || !target.Written;
+        _targets.Add(new FrameTarget { State = target.State, HasClear = wipe, Clear = clear.GetValueOrDefault() });
+        target.Written = true;
+        _current = _targets.Count - 1;
+        _width = target.Width;
+        _height = target.Height;
+        Ui.Resize(_width, _height);
+    }
+
+    private void PopTarget()
+    {
+        _activeTarget = null;
+        _current = _savedCurrent;
+        _width = _savedWidth;
+        _height = _savedHeight;
+        Ui.Resize(_width, _height);
+    }
+
     /// <summary>Forgets what the renderer keeps for a target texture (its constants and bind group). Call it when a target is destroyed, for example on swapchain resize.</summary>
     /// <param name="texture">The target.</param>
     public void ForgetTarget(GpuTexture texture)
@@ -502,6 +594,7 @@ public sealed partial class Renderer2D : IDisposable
         }
 
         _inFrame = true;
+        _activeTarget = null;
         _frame++;
         _width = (int)target.Width;
         _height = (int)target.Height;
@@ -537,6 +630,7 @@ public sealed partial class Renderer2D : IDisposable
         }
 
         _inFrame = false;
+        _activeTarget = null;
         _ops.Clear();
         _targets.Clear();
         _usedMaterials.Clear();
@@ -568,12 +662,14 @@ public sealed partial class Renderer2D : IDisposable
         return new TargetState { Texture = texture, Constants = constants, Frame = group, Pooled = pooled };
     }
 
-    private int AcquireTemp()
+    private int AcquireTemp() => AcquireTemp(_width, _height);
+
+    private int AcquireTemp(int width, int height)
     {
         TargetState? found = null;
         foreach (var t in _temps)
         {
-            if (!t.InUse && t.Texture.Width == _width && t.Texture.Height == _height)
+            if (!t.InUse && t.Texture.Width == width && t.Texture.Height == height)
             {
                 found = t;
                 break;
@@ -582,7 +678,7 @@ public sealed partial class Renderer2D : IDisposable
 
         if (found is null)
         {
-            var tex = _device.CreateTexture(new TextureDesc((uint)_width, (uint)_height, _format, TextureUsage.RenderTarget | TextureUsage.Sampled) { Label = "2d offscreen" });
+            var tex = _device.CreateTexture(new TextureDesc((uint)width, (uint)height, _format, TextureUsage.RenderTarget | TextureUsage.Sampled) { Label = "2d offscreen" });
             found = NewTargetState(tex, pooled: true);
             found.Sample = _device.CreateBindGroup(_layoutPlain, 1, [BindGroupEntry.ForTexture(0, tex), BindGroupEntry.ForSampler(1, _clampLinear)]);
             _temps.Add(found);
@@ -643,7 +739,8 @@ public sealed partial class Renderer2D : IDisposable
 
     /// <summary>
     /// Draws a scene's layers back to front through <paramref name="camera"/>. With a post chain the scene goes into an offscreen image first, the
-    /// chain runs over it, and the result lands on the current target; anything drawn after (usually the UI) is not post-processed.
+    /// chain runs over it, and the result lands on the current target; anything drawn after (usually the UI) is not post-processed. A layer may
+    /// draw into a render texture instead (<see cref="Layer2D.Target"/>) or have a chain of its own (<see cref="Layer2D.Post"/>).
     /// </summary>
     /// <param name="scene">The layers, sprites and tilemaps.</param>
     /// <param name="camera">The view.</param>
@@ -654,18 +751,19 @@ public sealed partial class Renderer2D : IDisposable
         RequireFrame();
         ArgumentNullException.ThrowIfNull(scene);
         var chain = post is { PassCount: > 0 } ? post : null;
-        var finalTarget = _current;
-        var sceneTarget = chain is null ? finalTarget : AcquireTemp();
+        var baseTarget = _current;
+        var baseW = _width;
+        var baseH = _height;
+        var sceneTarget = chain is null ? baseTarget : AcquireTemp(baseW, baseH);
         if (chain is not null)
         {
             // The scene starts from the frame's clear colour so the effects see the background too.
             var ft = _targets[sceneTarget];
-            var frameClear = _targets[finalTarget];
+            var frameClear = _targets[baseTarget];
             ft.Clear = frameClear.HasClear ? frameClear.Clear : new Color(0, 0, 0, 0);
             _targets[sceneTarget] = ft;
         }
 
-        var size = new Vector2(_width, _height);
         var layers = scene.Layers;
         if (_layerViews.Length < layers.Count)
         {
@@ -676,20 +774,43 @@ public sealed partial class Renderer2D : IDisposable
 
         for (var i = 0; i < layers.Count; i++)
         {
-            // A layer may have a camera or a viewport of its own; without either this is the scene camera's view, as before.
-            _layerViews[i] = layers[i].View(camera, size);
-            layers[i].Scissor(_width, _height, out var sx, out var sy, out var sw, out var sh);
+            // A layer may have a camera or a viewport of its own, or a render texture to draw into (whose size, not the frame's, is its screen);
+            // without any of them this is the scene camera's view, as before.
+            var lw = baseW;
+            var lh = baseH;
+            if (layers[i].Target is { } rt)
+            {
+                lw = rt.Width;
+                lh = rt.Height;
+            }
+
+            _layerViews[i] = layers[i].View(camera, new Vector2(lw, lh));
+            layers[i].Scissor(lw, lh, out var sx, out var sy, out var sw, out var sh);
             _layerScissors[i] = (sx, sy, sw, sh);
             _layerSnaps[i] = layers[i].Snaps(camera);
         }
 
         scene.Sort();
+        var open = -1;
+        var run = default(LayerRun);
+        var drawTarget = sceneTarget;
         for (var n = 0; n < scene.EntryCount; n++)
         {
             var layerIndex = scene.LayerOf(n);
             if (!layers[layerIndex].Visible)
             {
                 continue;
+            }
+
+            if (layerIndex != open)
+            {
+                if (open >= 0)
+                {
+                    CloseLayer(in run, baseTarget);
+                }
+
+                open = layerIndex;
+                drawTarget = OpenLayer(layers[layerIndex], _layerScissors[layerIndex], sceneTarget, out run);
             }
 
             var box = _layerScissors[layerIndex];
@@ -699,18 +820,87 @@ public sealed partial class Renderer2D : IDisposable
             }
             else if (scene.IsTileMap(n))
             {
-                DrawTileMap(scene.MapAt(scene.IndexOf(n)), _layerViews[layerIndex], sceneTarget, box);
+                DrawTileMap(scene.MapAt(scene.IndexOf(n)), _layerViews[layerIndex], drawTarget, box);
             }
             else
             {
-                DrawSprite(in scene.SpriteAt(scene.IndexOf(n)), _layerViews[layerIndex], _layerSnaps[layerIndex], sceneTarget, box);
+                DrawSprite(in scene.SpriteAt(scene.IndexOf(n)), _layerViews[layerIndex], _layerSnaps[layerIndex], drawTarget, box);
             }
         }
 
+        if (open >= 0)
+        {
+            CloseLayer(in run, baseTarget);
+        }
+
+        _current = baseTarget;
         if (chain is not null)
         {
-            RunPost(chain, sceneTarget, finalTarget);
+            RunPost(chain, sceneTarget, baseTarget, baseW, baseH, (0, 0, baseW, baseH));
         }
+    }
+
+    /// <summary>Where one layer's entries are going while they are drawn.</summary>
+    private struct LayerRun
+    {
+        public int Dest;
+        public int Temp;
+        public bool Pushed;
+        public PostChain? Chain;
+        public (int X, int Y, int W, int H) Box;
+    }
+
+    private int OpenLayer(Layer2D layer, (int X, int Y, int W, int H) box, int sceneTarget, out LayerRun run)
+    {
+        run = default;
+        run.Box = box;
+        run.Dest = sceneTarget;
+        if (layer.Target is { } rt)
+        {
+            if (_activeTarget is not null)
+            {
+                throw new InvalidOperationException("a layer cannot draw into a render texture while another is being drawn into (BeginTarget)");
+            }
+
+            // The texture is wiped once per frame, by the first layer that draws into it.
+            Color? clear = null;
+            if (layer.TargetClear is { } c && rt.ClearedFrame != _frame)
+            {
+                clear = c;
+                rt.ClearedFrame = _frame;
+            }
+
+            PushTarget(rt, clear);
+            run.Pushed = true;
+            run.Dest = _current;
+        }
+
+        var drawTarget = run.Dest;
+        if (layer.Post is { PassCount: > 0 } chain)
+        {
+            run.Chain = chain;
+            run.Temp = AcquireTemp(_width, _height);
+            drawTarget = run.Temp;
+        }
+
+        _current = drawTarget;
+        return drawTarget;
+    }
+
+    private void CloseLayer(in LayerRun run, int baseTarget)
+    {
+        if (run.Chain is not null)
+        {
+            // The layer's own image goes through its chain, and the last effect blends the result onto the layer's destination, inside the layer's box.
+            RunPost(run.Chain, run.Temp, run.Dest, _width, _height, run.Box);
+        }
+
+        if (run.Pushed)
+        {
+            PopTarget();
+        }
+
+        _current = baseTarget;
     }
 
     private void DrawSprite(in Sprite s, in Matrix3x2 view, bool snap, int target, (int X, int Y, int W, int H) box)
@@ -719,6 +909,11 @@ public sealed partial class Renderer2D : IDisposable
         if (tex is null)
         {
             return;
+        }
+
+        if (ReferenceEquals(tex.Texture, _targets[target].State.Texture))
+        {
+            throw new InvalidOperationException("a render texture cannot be drawn into itself: draw it from another target, or alternate two textures");
         }
 
         var src = s.Source.Width <= 0 || s.Source.Height <= 0 ? new PixelRect(0, 0, tex.Width, tex.Height) : s.Source;
@@ -775,31 +970,75 @@ public sealed partial class Renderer2D : IDisposable
 
     // ---- post ----
 
-    private void RunPost(PostChain chain, int sceneTarget, int finalTarget)
+    private void RunPost(PostChain chain, int sceneTarget, int finalTarget, int width, int height, (int X, int Y, int W, int H) box)
     {
-        // Each pass reads the previous image and writes the next; the last writes the real target. Two offscreen images alternate:
-        // a source is released right after the pass that reads it, so the next pass can pick the same texture up as its destination.
+        // Each pass reads the previous image and writes the next; the last writes the real target. Offscreen images are pooled: a source is
+        // released right after the pass that reads it, so the next pass can pick the same texture up as its destination.
         var read = sceneTarget;
         var passes = chain.Passes;
         for (var i = 0; i < passes.Count; i++)
         {
             var last = i == passes.Count - 1;
-            var dest = last ? finalTarget : AcquireTemp();
             var pass = passes[i];
-            pass.Prepare(_width, _height);
+            if (pass.Kind == PostChain.Kind.Bloom)
+            {
+                read = RunBloom(pass, read, last ? finalTarget : -1, width, height, box);
+                continue;
+            }
+
+            var dest = last ? finalTarget : AcquireTemp(width, height);
+            pass.Prepare(width, height);
             UseMaterial(pass.Material);
-            var first = AppendQuad(FullScreen());
-            AddQuadOp(pass.Material.Pipeline, _targets[read].State.Sample!, pass.Material.Group, first, 1, dest, 0, 0, _width, _height);
+            var first = AppendQuad(FullScreen(width, height));
+            var b = last ? box : (0, 0, width, height);
+            AddQuadOp(pass.Material.Pipeline, _targets[read].State.Sample!, pass.Material.Group, first, 1, dest, b.Item1, b.Item2, b.Item3, b.Item4);
             ReleaseTemp(read);
             read = dest;
         }
     }
 
-    private QuadInstance FullScreen(float opacity = 1f) => new()
+    // Bloom: keep what is bright at reduced size, blur it, then draw the source and add the glow over it. Returns the image that holds the result.
+    private int RunBloom(PostChain.Pass pass, int source, int finalTarget, int width, int height, (int X, int Y, int W, int H) box)
+    {
+        var bw = Math.Max(1, width / pass.Downscale);
+        var bh = Math.Max(1, height / pass.Downscale);
+        var bright = pass.Material;
+        var blurH = pass.BlurH!;
+        var blurV = pass.BlurV!;
+        UseMaterial(bright);
+        UseMaterial(blurH);
+        UseMaterial(blurV);
+        PostChain.Pass.PrepareBlur(blurH, Vector2.UnitX, pass.Radius, bw, bh);
+        PostChain.Pass.PrepareBlur(blurV, Vector2.UnitY, pass.Radius, bw, bh);
+
+        var glow = AcquireTemp(bw, bh);
+        AddQuadOp(bright.Pipeline, _targets[source].State.Sample!, bright.Group, AppendQuad(FullScreen(bw, bh)), 1, glow, 0, 0, bw, bh);
+        for (var k = 0; k < pass.BlurPasses; k++)
+        {
+            var across = AcquireTemp(bw, bh);
+            AddQuadOp(blurH.Pipeline, _targets[glow].State.Sample!, blurH.Group, AppendQuad(FullScreen(bw, bh)), 1, across, 0, 0, bw, bh);
+            ReleaseTemp(glow);
+            glow = AcquireTemp(bw, bh);
+            AddQuadOp(blurV.Pipeline, _targets[across].State.Sample!, blurV.Group, AppendQuad(FullScreen(bw, bh)), 1, glow, 0, 0, bw, bh);
+            ReleaseTemp(across);
+        }
+
+        var dest = finalTarget >= 0 ? finalTarget : AcquireTemp(width, height);
+        var b = finalTarget >= 0 ? box : (0, 0, width, height);
+        AddQuadOp(_spritePipeline, _targets[source].State.Sample!, null, AppendQuad(FullScreen(width, height)), 1, dest, b.Item1, b.Item2, b.Item3, b.Item4);
+        AddQuadOp(_additivePipeline, _targets[glow].State.Sample!, AdditiveMaterial.Group, AppendQuad(FullScreen(width, height)), 1, dest, b.Item1, b.Item2, b.Item3, b.Item4);
+        ReleaseTemp(glow);
+        ReleaseTemp(source);
+        return dest;
+    }
+
+    private QuadInstance FullScreen(float opacity = 1f) => FullScreen(_width, _height, opacity);
+
+    private static QuadInstance FullScreen(int width, int height, float opacity = 1f) => new()
     {
         Origin = Vector2.Zero,
-        AxisX = new Vector2(_width, 0),
-        AxisY = new Vector2(0, _height),
+        AxisX = new Vector2(width, 0),
+        AxisY = new Vector2(0, height),
         Uv = new Vector4(0, 0, 1, 1),
         Color = Colors.Pack(Color.White, opacity),
     };
@@ -950,6 +1189,29 @@ public sealed partial class Renderer2D : IDisposable
         var ui = false;
         var bindFrame = false;
         var ops = CollectionsMarshal.AsSpan(_ops);
+
+        // A target that was only cleared still needs its pass, and before the passes that may sample it (a render texture cleared and then shown).
+        if (_hasOps.Length < _targets.Count)
+        {
+            _hasOps = new bool[_targets.Count * 2];
+        }
+
+        Array.Clear(_hasOps, 0, _targets.Count);
+        for (var i = 0; i < ops.Length; i++)
+        {
+            _hasOps[ops[i].Target] = true;
+        }
+
+        for (var t = 0; t < _targets.Count; t++)
+        {
+            var ft = _targets[t];
+            if (!_hasOps[t] && !ft.Begun && ft.HasClear && !ft.State.Pooled)
+            {
+                BeginPass(encoder, t).EndPass();
+                passes++;
+            }
+        }
+
         for (var i = 0; i < ops.Length; i++)
         {
             ref var op = ref ops[i];
@@ -997,17 +1259,6 @@ public sealed partial class Renderer2D : IDisposable
         }
 
         pass?.EndPass();
-
-        // A target that was only cleared still needs its pass.
-        for (var t = 0; t < _targets.Count; t++)
-        {
-            var ft = _targets[t];
-            if (!ft.Begun && ft.HasClear && ft.State.Pooled == false)
-            {
-                BeginPass(encoder, t).EndPass();
-                passes++;
-            }
-        }
 
         LastFrame = new FrameStats(draws, passes, _spriteCount, _culledCount, _quadCount, _uiCount, _tileQuadCount, _uploadCount, bytes);
         return LastFrame;
@@ -1112,7 +1363,7 @@ public sealed partial class Renderer2D : IDisposable
         _uiBuffer?.Dispose();
         _clipBuffer.Dispose();
         _clampLinear.Dispose();
-        foreach (var p in new IDisposable[] { _spritePipeline, _tileIdsPipeline, _tileFlatPipeline, _uiPipeline, _blurPipeline, _gradePipeline, _additivePipeline, _quadVertex, _spritePixel, _blurPixel, _additivePixel, _gradePixel, _tileVertex, _tileIdsPixel, _tileFlatPixel, _uiVertex, _uiPixel, _layoutPlain, _layoutParams, _layoutTile })
+        foreach (var p in new IDisposable[] { _spritePipeline, _tileIdsPipeline, _tileFlatPipeline, _uiPipeline, _blurPipeline, _gradePipeline, _additivePipeline, _brightPipeline, _quadVertex, _spritePixel, _blurPixel, _additivePixel, _brightPixel, _gradePixel, _tileVertex, _tileIdsPixel, _tileFlatPixel, _uiVertex, _uiPixel, _layoutPlain, _layoutParams, _layoutTile })
         {
             p.Dispose();
         }
