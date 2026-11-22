@@ -36,9 +36,18 @@ internal sealed class ShapedText
     private readonly float[] _glyphAdvance;
     private readonly float[] _glyphX;
     private readonly float[] _glyphY;
+
+    // The same glyph metrics in font units, with the units per em of each glyph's face: everything that depends on the size is a product of
+    // one of these and size / unitsPerEm, so the text can be given another size without shaping it again (see Resize).
+    private readonly float[] _unitAdvance;
+    private readonly float[] _unitX;
+    private readonly float[] _unitY;
+    private readonly int[] _unitsPerEm;
     private readonly float _spacing;
     private readonly bool _wrapAllowed;
     private readonly bool _pre;
+    private TextSize? _naturalSize;
+    private List<PositionedGlyph>? _placedWhole;
     private byte[] _levelScratch = [];
     private int[] _orderScratch = [];
 
@@ -64,6 +73,10 @@ internal sealed class ShapedText
         var gAdv = new List<float>();
         var gX = new List<float>();
         var gY = new List<float>();
+        var uAdv = new List<float>();
+        var uX = new List<float>();
+        var uY = new List<float>();
+        var uEm = new List<int>();
 
         void Synthetic(int at, byte f)
         {
@@ -137,6 +150,10 @@ internal sealed class ShapedText
                         gAdv.Add(a);
                         gX.Add(g.XOffset * scale);
                         gY.Add(-g.YOffset * scale);
+                        uAdv.Add(g.XAdvance);
+                        uX.Add(g.XOffset);
+                        uY.Add(-g.YOffset);
+                        uEm.Add(stack.Faces[faceIdx].UnitsPerEm);
                         adv += a;
                     }
 
@@ -204,7 +221,70 @@ internal sealed class ShapedText
         _glyphAdvance = [.. gAdv];
         _glyphX = [.. gX];
         _glyphY = [.. gY];
+        _unitAdvance = [.. uAdv];
+        _unitX = [.. uX];
+        _unitY = [.. uY];
+        _unitsPerEm = [.. uEm];
     }
+
+    /// <summary>
+    /// Makes the same shaping for another size without shaping again: glyphs, clusters, bidi levels and break facts do not depend on the size, and
+    /// every advance and offset is recomputed from its font units with the expressions shaping uses, so the result is identical to shaping at
+    /// <paramref name="size"/>. Only for a text shaped with no letter spacing and the font's own line height.
+    /// </summary>
+    private ShapedText(ShapedText source, float size)
+    {
+        _text = source._text;
+        _n = source._n;
+        _spacing = 0;
+        _pre = source._pre;
+        _wrapAllowed = source._wrapAllowed;
+        Stack = source.Stack;
+        Size = size;
+        LineHeight = (Stack.Ascent + Stack.Descent + Stack.LineGap) * size;
+        _start = source._start;
+        _length = source._length;
+        _level = source._level;
+        _flags = source._flags;
+        _glyphFirst = source._glyphFirst;
+        _glyphCount = source._glyphCount;
+        _glyphFace = source._glyphFace;
+        _glyphId = source._glyphId;
+        _unitAdvance = source._unitAdvance;
+        _unitX = source._unitX;
+        _unitY = source._unitY;
+        _unitsPerEm = source._unitsPerEm;
+        _glyphAdvance = new float[_unitAdvance.Length];
+        _glyphX = new float[_unitAdvance.Length];
+        _glyphY = new float[_unitAdvance.Length];
+        for (var g = 0; g < _unitAdvance.Length; g++)
+        {
+            var scale = size / _unitsPerEm[g];
+            _glyphAdvance[g] = _unitAdvance[g] * scale;
+            _glyphX[g] = _unitX[g] * scale;
+            _glyphY[g] = _unitY[g] * scale;
+        }
+
+        _advance = new float[_n];
+        for (var c = 0; c < _n; c++)
+        {
+            if ((_flags[c] & FCollapsed) != 0)
+            {
+                continue;
+            }
+
+            var adv = 0f;
+            for (var g = _glyphFirst[c]; g < _glyphFirst[c] + _glyphCount[c]; g++)
+            {
+                adv += _glyphAdvance[g];
+            }
+
+            _advance[c] = adv;
+        }
+    }
+
+    /// <summary>Gives the text another size; see the private constructor. Valid only when the text was shaped with no letter spacing and no explicit line height.</summary>
+    public ShapedText Resize(float size) => new(this, size);
 
     public FontStack Stack { get; }
 
@@ -225,6 +305,26 @@ internal sealed class ShapedText
     /// line overflows on a line of its own; spaces at the end of a line hang and are not counted).
     /// </summary>
     public TextSize Wrap(float maxWidth, List<TextLine>? lines)
+    {
+        // The size of the text on one line is asked for again and again by views that draw the same label every frame; it never changes.
+        if (lines is null && float.IsPositiveInfinity(maxWidth) && _naturalSize is { } known)
+        {
+            return known;
+        }
+
+        var size = WrapLines(maxWidth, lines);
+        if (lines is null && float.IsPositiveInfinity(maxWidth))
+        {
+            _naturalSize = size;
+        }
+
+        return size;
+    }
+
+    /// <summary>The size of the text wrapped at <paramref name="maxWidth"/>, without the lines.</summary>
+    public TextSize Measure(float maxWidth) => Wrap(maxWidth, null);
+
+    private TextSize WrapLines(float maxWidth, List<TextLine>? lines)
     {
         var wrap = _wrapAllowed && !float.IsPositiveInfinity(maxWidth);
         var lh = LineHeight;
@@ -332,6 +432,25 @@ internal sealed class ShapedText
     /// display order (UAX #9 rule L2), with x from the line's left end. Collapsed spaces draw nothing.
     /// </summary>
     public void Place(int start, int length, List<PositionedGlyph> into)
+    {
+        // A whole text placed as one line (immediate-mode text) comes out the same every time, so it is worked out once.
+        if (start == 0 && length == _text.Length)
+        {
+            if (_placedWhole is null)
+            {
+                var whole = new List<PositionedGlyph>();
+                PlaceRange(start, length, whole);
+                _placedWhole = whole;
+            }
+
+            into.AddRange(_placedWhole);
+            return;
+        }
+
+        PlaceRange(start, length, into);
+    }
+
+    private void PlaceRange(int start, int length, List<PositionedGlyph> into)
     {
         var a = LowerBound(start);
         var b = a;

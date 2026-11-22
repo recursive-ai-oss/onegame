@@ -259,4 +259,35 @@ public class MeasureTests
         Assert.Throws<TextLimitException>(() => new FontLibrary().Add(new byte[FontLibrary.MaxFontBytes + 1]));
         Assert.Equal(0, m.Measure("hello", new TextStyle("Noto Sans", float.NaN, 400, false, 0, 0, WhiteSpace.Normal), 100).Width, 0.5);
     }
+
+    [Theory]
+    [InlineData("label 042", WhiteSpace.NoWrap)]
+    [InlineData("  spaced   out   words  ", WhiteSpace.Normal)]
+    [InlineData("two\nlines kept", WhiteSpace.Pre)]
+    [InlineData("mixed مرحبا and שלום text", WhiteSpace.Normal)]
+    [InlineData("fi ffi AV To 日本", WhiteSpace.NoWrap)]
+    public void ATextSeenAtOtherSizesFirstIsMeasuredAndPlacedExactlyAsIfShapedAtTheNewSize(string text, WhiteSpace ws)
+    {
+        // One measurer has shaped the text at other sizes (the later sizes reuse that shaping); a fresh one shapes only at the last size.
+        var (reused, _) = New();
+        var (fresh, _) = New();
+        foreach (var warm in new[] { 9f, 23.5f, 14.015625f })
+        {
+            reused.Measure(text, Style(warm, ws), float.PositiveInfinity);
+        }
+
+        foreach (var size in new[] { 11f, 12.3f, 16f, 17.77f, 31f, 64f })
+        {
+            var a = LayOut(reused, text, Style(size, ws), 120);
+            var b = LayOut(fresh, text, Style(size, ws), 120);
+            Assert.Equal(b.Count, a.Count);
+            for (var i = 0; i < a.Count; i++)
+            {
+                Assert.Equal(b[i].Line, a[i].Line);
+                Assert.Equal(b[i].Glyphs, a[i].Glyphs);
+            }
+
+            Assert.Equal(fresh.Measure(text, Style(size, ws), float.PositiveInfinity), reused.Measure(text, Style(size, ws), float.PositiveInfinity));
+        }
+    }
 }

@@ -21,7 +21,11 @@ public sealed class WebGameDefinition : GameDefinition
 
     public override void RegisterEntities(EntityRegistry registry) => OneGame.Generated.WebGame.EntityTypes.Register(registry);
 
-    public override void Setup(World world) => world.Add(new Swatch());
+    public override void Setup(World world)
+    {
+        world.Add(new Swatch());
+        world.Add(new TextLoad());
+    }
 
     public override void DefineScreens(ScreenSet screens) => screens.Add("main", game => Ui.Column().Padding(Length.Px(8)));
 

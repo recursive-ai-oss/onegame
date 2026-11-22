@@ -39,7 +39,10 @@ public sealed class GlyphAtlas
     /// <summary>The number of horizontal subpixel positions a glyph is rasterized at.</summary>
     public const int SubpixelSteps = 4;
 
-    private readonly record struct Key(int FaceId, int GlyphId, int SizeKey, int Step);
+    // One 64-bit key per glyph: face (22 bits), glyph (16), size in 1/64 px (24), subpixel step (2). It hashes and compares in one step,
+    // which matters in the interpreted browser build where every glyph of every text asks.
+    private static ulong KeyOf(int faceId, int glyphId, int sizeKey, int step) =>
+        ((ulong)(uint)faceId << 42) | ((ulong)(uint)glyphId << 26) | ((ulong)(uint)sizeKey << 2) | (uint)step;
 
     /// <summary>The first face id handed out by <see cref="RegisterFace"/>; ids below it are the library's own.</summary>
     public const int ExternalFaceBase = 1 << 20;
@@ -52,9 +55,9 @@ public sealed class GlyphAtlas
     private readonly Dictionary<ulong, int> _externalIds = [];
     private readonly GlyphLimits _limits;
     private readonly AtlasPages _pages;
-    private readonly Dictionary<Key, GlyphInfo> _glyphs = [];
+    private readonly Dictionary<ulong, GlyphInfo> _glyphs = [];
     private readonly GlyphRasterizer _raster = new();
-    private readonly List<Key> _scratchKeys = [];
+    private readonly List<ulong> _scratchKeys = [];
     private byte[] _bitmap = new byte[4096];
 
     /// <summary>Creates an empty atlas.</summary>
@@ -118,7 +121,17 @@ public sealed class GlyphAtlas
         }
 
         var sizeKey = (int)MathF.Round(size * 64);
-        var key = new Key(faceId, glyphId, sizeKey, subpixelStep);
+        if ((uint)faceId >= 1u << 22 || (uint)glyphId > 0xFFFF)
+        {
+            return AtlasStatus.UnknownResource;
+        }
+
+        if ((uint)sizeKey >= 1u << 24)
+        {
+            return AtlasStatus.TooLarge;
+        }
+
+        var key = KeyOf(faceId, glyphId, sizeKey, subpixelStep);
         if (_glyphs.TryGetValue(key, out info))
         {
             if (info.Width > 0)

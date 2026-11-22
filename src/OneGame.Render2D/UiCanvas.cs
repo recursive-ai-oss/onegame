@@ -77,6 +77,7 @@ public sealed class UiCanvas : IDisposable
     private readonly List<int> _released = [];
     private Matrix3x2 _m = Matrix3x2.Identity;
     private int _skip;
+    private GlyphAtlas? _pendingGlyphs;
     private int _width;
     private int _height;
 
@@ -95,10 +96,17 @@ public sealed class UiCanvas : IDisposable
         _clips.Clear();
         _clips.Add(new ClipState { X0 = 0, Y0 = 0, X1 = width, Y1 = height });
         _skip = 0;
+        _pendingGlyphs = null;
     }
 
     internal void Finish()
     {
+        if (_pendingGlyphs is { } pending)
+        {
+            _pendingGlyphs = null;
+            SyncPages(pending.Pages, AtlasKind.Glyphs);
+        }
+
         if (_clips.Count != 1 || _transforms.Count != 0 || _groups.Count != 0)
         {
             throw new InvalidOperationException("the UI stacks are unbalanced at the end of the frame: every PushClip, PushTransform and PushOpacity needs its Pop");
@@ -408,7 +416,9 @@ public sealed class UiCanvas : IDisposable
             EmitRaw(4, new Rect(g.X0, g.Y0, g.X1 - g.X0, g.Y1 - g.Y0), default, default, g.Color, g.Color, 0, default, uv, _r.GroupOf(page.Texture), 0);
         }
 
-        SyncPages(glyphs.Pages, AtlasKind.Glyphs);
+        // Uploading a changed page writes it whole, so one call that rasterizes a new glyph must not upload again for every line of text after
+        // it: the pages go up once, when the frame ends.
+        _pendingGlyphs = glyphs;
     }
 
     private void DrawArt(in DrawCommand c, ArtAtlas art, float scale)

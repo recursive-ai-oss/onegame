@@ -128,6 +128,8 @@ public sealed partial class Renderer2D : IDisposable
     private GpuBuffer? _uiBuffer;
     private ulong _uiCapacity;
     private Matrix3x2[] _layerViews = new Matrix3x2[8];
+    private (int X, int Y, int W, int H)[] _layerScissors = new (int, int, int, int)[8];
+    private bool[] _layerSnaps = new bool[8];
     private int _frame;
     private bool _inFrame;
     private int _width;
@@ -646,7 +648,8 @@ public sealed partial class Renderer2D : IDisposable
     /// <param name="scene">The layers, sprites and tilemaps.</param>
     /// <param name="camera">The view.</param>
     /// <param name="post">Effects to apply to the finished scene, or null.</param>
-    public void DrawScene(Scene2D scene, in Camera2D camera, PostChain? post = null)
+    /// <param name="markers">Receives the scene's markers (<see cref="Scene2D.Mark"/>) in draw order, or null when it has none.</param>
+    public void DrawScene(Scene2D scene, in Camera2D camera, PostChain? post = null, ISceneMarkerSink? markers = null)
     {
         RequireFrame();
         ArgumentNullException.ThrowIfNull(scene);
@@ -667,14 +670,19 @@ public sealed partial class Renderer2D : IDisposable
         if (_layerViews.Length < layers.Count)
         {
             Array.Resize(ref _layerViews, layers.Count);
+            Array.Resize(ref _layerScissors, layers.Count);
+            Array.Resize(ref _layerSnaps, layers.Count);
         }
 
         for (var i = 0; i < layers.Count; i++)
         {
-            _layerViews[i] = camera.View(size, layers[i].Parallax);
+            // A layer may have a camera or a viewport of its own; without either this is the scene camera's view, as before.
+            _layerViews[i] = layers[i].View(camera, size);
+            layers[i].Scissor(_width, _height, out var sx, out var sy, out var sw, out var sh);
+            _layerScissors[i] = (sx, sy, sw, sh);
+            _layerSnaps[i] = layers[i].Snaps(camera);
         }
 
-        var cam = camera;
         scene.Sort();
         for (var n = 0; n < scene.EntryCount; n++)
         {
@@ -684,13 +692,18 @@ public sealed partial class Renderer2D : IDisposable
                 continue;
             }
 
-            if (scene.IsTileMap(n))
+            var box = _layerScissors[layerIndex];
+            if (scene.IsMarker(n))
             {
-                DrawTileMap(scene.MapAt(scene.IndexOf(n)), _layerViews[layerIndex], sceneTarget);
+                markers?.DrawMarker(scene.IndexOf(n), layers[layerIndex], _layerViews[layerIndex]);
+            }
+            else if (scene.IsTileMap(n))
+            {
+                DrawTileMap(scene.MapAt(scene.IndexOf(n)), _layerViews[layerIndex], sceneTarget, box);
             }
             else
             {
-                DrawSprite(in scene.SpriteAt(scene.IndexOf(n)), _layerViews[layerIndex], in cam, sceneTarget);
+                DrawSprite(in scene.SpriteAt(scene.IndexOf(n)), _layerViews[layerIndex], _layerSnaps[layerIndex], sceneTarget, box);
             }
         }
 
@@ -700,7 +713,7 @@ public sealed partial class Renderer2D : IDisposable
         }
     }
 
-    private void DrawSprite(in Sprite s, in Matrix3x2 view, in Camera2D camera, int target)
+    private void DrawSprite(in Sprite s, in Matrix3x2 view, bool snap, int target, (int X, int Y, int W, int H) box)
     {
         var tex = s.Texture;
         if (tex is null)
@@ -717,7 +730,7 @@ public sealed partial class Renderer2D : IDisposable
         var o = Vector2.Transform(originWorld, view);
         var axs = Vector2.TransformNormal(ax, view);
         var ays = Vector2.TransformNormal(ay, view);
-        if (camera.PixelSnap)
+        if (snap)
         {
             var pivot = Vector2.Transform(s.Position, view);
             o += new Vector2(MathF.Round(pivot.X), MathF.Round(pivot.Y)) - pivot;
@@ -757,7 +770,7 @@ public sealed partial class Renderer2D : IDisposable
             extra = m.Group;
         }
 
-        AddQuadOp(pipeline, TextureGroup(tex), extra, first, 1, target, 0, 0, _width, _height);
+        AddQuadOp(pipeline, TextureGroup(tex), extra, first, 1, target, box.X, box.Y, box.W, box.H);
     }
 
     // ---- post ----
@@ -793,7 +806,7 @@ public sealed partial class Renderer2D : IDisposable
 
     // ---- tilemaps ----
 
-    private void DrawTileMap(TileMap map, in Matrix3x2 view, int target)
+    private void DrawTileMap(TileMap map, in Matrix3x2 view, int target, (int X, int Y, int W, int H) box)
     {
         var gpu = map.Gpu ??= NewTileGpu(map);
         var scale = MathF.Sqrt(MathF.Abs((view.M11 * view.M22) - (view.M12 * view.M21)));
@@ -810,7 +823,7 @@ public sealed partial class Renderer2D : IDisposable
         }
 
         // The screen's corners in tile units, to find which chunks can be seen.
-        Span<Vector2> corners = [Vector2.Zero, new(_width, 0), new(0, _height), new(_width, _height)];
+        Span<Vector2> corners = [new(box.X, box.Y), new(box.X + box.W, box.Y), new(box.X, box.Y + box.H), new(box.X + box.W, box.Y + box.H)];
         float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
         foreach (var c in corners)
         {
@@ -889,7 +902,7 @@ public sealed partial class Renderer2D : IDisposable
         _tileQuadCount += count;
         _uploadCount += uploads;
         map.LastStats = new TileMapStats(level, count, uploads, dropped);
-        AddQuadOp(level == 0 ? _tileIdsPipeline : _tileFlatPipeline, TextureGroup(map.TileSet.Texture), gpu.Group, first, count, target, 0, 0, _width, _height);
+        AddQuadOp(level == 0 ? _tileIdsPipeline : _tileFlatPipeline, TextureGroup(map.TileSet.Texture), gpu.Group, first, count, target, box.X, box.Y, box.W, box.H);
     }
 
     private TileGpu NewTileGpu(TileMap map)

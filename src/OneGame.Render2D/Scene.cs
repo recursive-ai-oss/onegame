@@ -118,6 +118,85 @@ public sealed class Layer2D
 
     /// <summary>Layers that are not visible are skipped.</summary>
     public bool Visible { get; set; } = true;
+
+    /// <summary>
+    /// A camera for this layer alone, or null (the default) to follow the camera the scene is drawn with. A layer with its own camera draws the
+    /// world at another zoom or place than the layers beside it, which is how a minimap or a close-up shares a frame with the main view.
+    /// <see cref="Parallax"/> still applies on top of it.
+    /// </summary>
+    public Camera2D? Camera { get; set; }
+
+    /// <summary>
+    /// When true the layer ignores every camera and its coordinates are framebuffer pixels (origin top-left, one unit per pixel): the layer for a
+    /// HUD, labels and menus drawn over a zoomed and panned world. Wins over <see cref="Camera"/>.
+    /// </summary>
+    public bool ScreenSpace { get; set; }
+
+    /// <summary>
+    /// A framebuffer rectangle the layer is confined to, or null for the whole target. The layer's camera is centred on the rectangle (a
+    /// <see cref="ScreenSpace"/> layer puts its origin at the rectangle's top-left) and nothing outside it is drawn.
+    /// </summary>
+    public Rect? Viewport { get; set; }
+
+    /// <summary>The matrix taking this layer's coordinates to framebuffer pixels (row vectors), for the scene's camera and target size.</summary>
+    /// <param name="sceneCamera">The camera the scene is drawn with; used unless the layer has its own <see cref="Camera"/>.</param>
+    /// <param name="screenSize">Target size in pixels.</param>
+    /// <returns>The layer-to-screen matrix.</returns>
+    public Matrix3x2 View(in Camera2D sceneCamera, Vector2 screenSize)
+    {
+        var origin = Vector2.Zero;
+        var size = screenSize;
+        if (Viewport is { } vp)
+        {
+            origin = new Vector2(vp.X, vp.Y);
+            size = new Vector2(vp.Width, vp.Height);
+        }
+
+        if (ScreenSpace)
+        {
+            return Matrix3x2.CreateTranslation(origin);
+        }
+
+        return (Camera ?? sceneCamera).View(size, Parallax) * Matrix3x2.CreateTranslation(origin);
+    }
+
+    /// <summary>Whether sprites on this layer snap to whole pixels for the scene's camera.</summary>
+    internal bool Snaps(in Camera2D sceneCamera) => !ScreenSpace && (Camera ?? sceneCamera).PixelSnap;
+
+    /// <summary>The framebuffer rectangle this layer may draw in, as whole pixels clipped to the target.</summary>
+    internal void Scissor(int width, int height, out int x, out int y, out int w, out int h)
+    {
+        if (Viewport is not { } vp)
+        {
+            x = 0;
+            y = 0;
+            w = width;
+            h = height;
+            return;
+        }
+
+        var x0 = Math.Clamp((int)MathF.Floor(vp.X), 0, width);
+        var y0 = Math.Clamp((int)MathF.Floor(vp.Y), 0, height);
+        var x1 = Math.Clamp((int)MathF.Ceiling(vp.X + vp.Width), 0, width);
+        var y1 = Math.Clamp((int)MathF.Ceiling(vp.Y + vp.Height), 0, height);
+        x = x0;
+        y = y0;
+        w = Math.Max(x1 - x0, 0);
+        h = Math.Max(y1 - y0, 0);
+    }
+}
+
+/// <summary>
+/// Receives the markers a <see cref="Scene2D"/> holds (see <see cref="Scene2D.Mark"/>) at their place in the draw order, while
+/// <see cref="Renderer2D.DrawScene"/> runs. The host's immediate-mode text uses it to interleave with sprites.
+/// </summary>
+public interface ISceneMarkerSink
+{
+    /// <summary>Called when a marker's turn comes; draw whatever it stands for on <see cref="Renderer2D.Ui"/>.</summary>
+    /// <param name="id">The number given to <see cref="Scene2D.Mark"/>.</param>
+    /// <param name="layer">The layer the marker was put on.</param>
+    /// <param name="view">That layer's matrix to framebuffer pixels, as <see cref="Layer2D.View"/> gives it.</param>
+    void DrawMarker(int id, Layer2D layer, in Matrix3x2 view);
 }
 
 /// <summary>
@@ -146,6 +225,24 @@ public sealed class Scene2D
 
     /// <summary>The first layer.</summary>
     public Layer2D DefaultLayer => _layers[0];
+
+    /// <summary>Finds the layer with a name, or adds it in front of the existing ones. Layers stay between frames, so a game asks for its layers by name every frame.</summary>
+    /// <param name="name">The layer's name.</param>
+    /// <param name="parallax">The parallax a new layer gets (the layer's own value is left alone when it exists); the camera exactly when null.</param>
+    /// <returns>The layer.</returns>
+    public Layer2D GetLayer(string name, Vector2? parallax = null)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        foreach (var l in _layers)
+        {
+            if (string.Equals(l.Name, name, StringComparison.Ordinal))
+            {
+                return l;
+            }
+        }
+
+        return AddLayer(name, parallax ?? Vector2.One);
+    }
 
     /// <summary>Adds a layer in front of the existing ones.</summary>
     /// <param name="name">A name for debugging.</param>
@@ -184,7 +281,7 @@ public sealed class Scene2D
         }
 
         _sprites[_spriteCount] = sprite;
-        Add(layer, sprite.Z, _spriteCount, false);
+        Add(layer, sprite.Z, _spriteCount, Kind.Sprite);
         _spriteCount++;
     }
 
@@ -195,10 +292,30 @@ public sealed class Scene2D
     public void Draw(Layer2D layer, TileMap map, float z = 0)
     {
         _maps.Add(map);
-        Add(layer, z, _maps.Count - 1, true);
+        Add(layer, z, _maps.Count - 1, Kind.Map);
     }
 
-    private void Add(Layer2D layer, float z, int index, bool isMap)
+    /// <summary>
+    /// Puts a marker in the draw order: when <see cref="Renderer2D.DrawScene"/> reaches it (by layer, then <paramref name="z"/>, then submission order, like a sprite)
+    /// it calls the sink's <see cref="ISceneMarkerSink.DrawMarker"/>. Markers cost no draw of their own.
+    /// </summary>
+    /// <param name="layer">The layer it belongs to.</param>
+    /// <param name="z">Draw order inside the layer, as for sprites.</param>
+    /// <param name="id">A number the sink understands; 0 to 2^29.</param>
+    public void Mark(Layer2D layer, float z, int id)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(id);
+        Add(layer, z, id, Kind.Marker);
+    }
+
+    private enum Kind
+    {
+        Sprite = 0,
+        Map = 1,
+        Marker = 2,
+    }
+
+    private void Add(Layer2D layer, float z, int index, Kind kind)
     {
         if (_entryCount == _keys.Length)
         {
@@ -217,7 +334,7 @@ public sealed class Scene2D
 
         _lastKey = key;
         _keys[_entryCount] = key;
-        _values[_entryCount++] = (index << 1) | (isMap ? 1 : 0);
+        _values[_entryCount++] = (index << 2) | (int)kind;
     }
 
     internal int EntryCount => _entryCount;
@@ -234,9 +351,11 @@ public sealed class Scene2D
 
     internal int LayerOf(int entry) => (int)(uint)(_keys[entry] >> 64);
 
-    internal bool IsTileMap(int entry) => (_values[entry] & 1) != 0;
+    internal bool IsTileMap(int entry) => (_values[entry] & 3) == (int)Kind.Map;
 
-    internal int IndexOf(int entry) => _values[entry] >> 1;
+    internal bool IsMarker(int entry) => (_values[entry] & 3) == (int)Kind.Marker;
+
+    internal int IndexOf(int entry) => _values[entry] >> 2;
 
     internal ref readonly Sprite SpriteAt(int index) => ref _sprites[index];
 

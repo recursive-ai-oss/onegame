@@ -250,4 +250,30 @@ public class GlyphAtlasTests
 
         Assert.NotNull(canvas);
     }
+
+    [Fact]
+    public void WarmedGlyphsAreDrawnWithoutTouchingTheAtlasAgainAtAnySubpixelPosition()
+    {
+        var lib = Fonts.Library();
+        var measurer = new FontTextMeasurer(lib);
+        var atlas = new GlyphAtlas(lib);
+        var builder = new TextQuadBuilder(measurer, atlas);
+        var style = new TextStyle(string.Empty, 13, 400, false, 0, 0, WhiteSpace.NoWrap);
+        Assert.Equal(0, builder.Warm("0123456789", style));
+        var version = atlas.Pages[0].Version;
+
+        // Numbers at four different fractional positions all find their glyphs ready.
+        var quads = new List<GlyphQuad>();
+        for (var i = 0; i < 8; i++)
+        {
+            Assert.Equal(0, builder.BuildLine("9081726354", style, 3.25f * i, 5, Color.White, quads));
+        }
+
+        Assert.NotEmpty(quads);
+        Assert.Equal(version, atlas.Pages[0].Version);
+
+        // A glyph that was not warmed is rasterized on first use, which does change the page.
+        Assert.Equal(0, builder.BuildLine("Q", style, 0, 0, Color.White, quads));
+        Assert.NotEqual(version, atlas.Pages[0].Version);
+    }
 }

@@ -33,6 +33,17 @@ public partial class Mover2D : Entity, IView2D
         d.FillCircle(new Vector2(0, 20), 6, Color.Rgb(0x00ff00));
         d.Line(new Vector2(-30, -20), new Vector2(30, -20), Color.White, 2);
         d.Text("Silk", new Vector2(-40, 10), 14);
+        d.WarmUpText("Silk", 14 * d.Camera.Zoom);
+
+        // A screen layer over the world, and a second camera confined to a corner.
+        d.Layer = d.ScreenLayer;
+        d.FillRect(new Rect(2, 2, 6, 6), Color.White);
+        d.ScreenText("hud", new Vector2(2, 44), 10);
+        var corner = d.GetLayer("corner");
+        corner.Camera = Camera2D.Default with { Zoom = 0.5f };
+        corner.Viewport = new Rect(60, 4, 30, 20);
+        d.Layer = corner;
+        d.FillCircle(Vector2.Zero, 6, Color.Rgb(0x00ff00));
     }
 }
 
@@ -61,7 +72,7 @@ internal static class Draw2DSmoke
             white += px[i] > 200 && px[i + 1] > 200 && px[i + 2] > 200 ? 1 : 0;
         }
 
-        if (!(stage.Draw.SpriteCount == 3 && stage.Draw.TextCount == 1 && green > 20 && white > 20))
+        if (!(stage.Draw.SpriteCount == 5 && stage.Draw.TextCount == 2 && green > 20 && white > 20))
         {
             return $"sprites {stage.Draw.SpriteCount}, texts {stage.Draw.TextCount}, green px {green}, white px {white}";
         }
