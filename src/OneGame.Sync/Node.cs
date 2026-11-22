@@ -120,6 +120,9 @@ public sealed class Connection
     public bool SetInterest(ScopeId scope, ReadOnlySpan<uint> keys)
         => Node.FindAuthority(scope) is { } authority && authority.SetInterest(this, keys);
 
+    /// <summary>Subscribes that arrived while the trust was empty, with the time each arrived; null when none.</summary>
+    internal List<(ScopeId Scope, long Since)>? HeldSubscribes { get; set; }
+
     /// <summary>The channel the connection was accepted on: the transport itself, so a game can ask it who the peer is (<see cref="IAuthenticatedChannel"/>) or close it. Sending through it directly skips the node's send-queue pacing.</summary>
     public IMessageChannel Channel { get; }
 
@@ -367,6 +370,8 @@ public sealed partial class Node
             return false;
         }
 
+        connection.HeldSubscribes = null;
+
         foreach (var scope in _authority)
         {
             scope.Unsubscribe(connection);
@@ -467,6 +472,7 @@ public sealed partial class Node
 
     internal void OnTrustChanged(Connection connection)
     {
+        ReleaseHeldSubscribes(connection);
         foreach (var scope in _authority)
         {
             scope.TrustChanged(connection);
@@ -494,6 +500,11 @@ public sealed partial class Node
         for (var i = 0; i < _connections.Count; i++)
         {
             var c = _connections[i];
+            if (c.HeldSubscribes is not null)
+            {
+                ExpireHeldSubscribes(c, Now);
+            }
+
             (c.Sender as PacedChannel)?.Drain();
             while (c.Channel.TryReceive(out var message))
             {
@@ -625,6 +636,88 @@ public sealed partial class Node
         to.Sender.Send(w.Written);
     }
 
+    private void RefuseSubscribe(Connection to, ScopeId scope, RefusalReason reason)
+    {
+        FileRefusal(new CommandRefusal(scope, to.Id, EntityId.None, 0, reason));
+        Out.Reset();
+        Out.WriteByte(Msg.SubscribeRefused);
+        Out.WriteVarUInt(scope.Value);
+        Out.WriteByte((byte)reason);
+        to.Sender.Send(Out.Written);
+    }
+
+    // A trust that grants nothing at all means the game has not decided yet (a client that connects before its login finishes), not
+    // that the peer was refused: a subscribe is held for it instead of being refused and asked again.
+    private static bool IsTrustPending(in Trust trust) => trust.Read.IsEmpty && trust.Command.IsEmpty && trust.Own.IsEmpty;
+
+    private const int MaxHeldSubscribes = 16;
+
+    private bool TryHoldSubscribe(Connection from, ScopeId scope)
+    {
+        if (Options.HeldSubscribeTimeoutMs <= 0)
+        {
+            return false;
+        }
+
+        var held = from.HeldSubscribes ??= [];
+        foreach (var h in held)
+        {
+            if (h.Scope == scope)
+            {
+                return true;
+            }
+        }
+
+        if (held.Count >= MaxHeldSubscribes)
+        {
+            return false;
+        }
+
+        held.Add((scope, Now));
+        return true;
+    }
+
+    /// <summary>Answers the subscribes a connection held, now that its trust was set: accept what it may read, refuse the rest.</summary>
+    private void ReleaseHeldSubscribes(Connection connection)
+    {
+        if (connection.HeldSubscribes is not { Count: > 0 } held || IsTrustPending(connection.Trust))
+        {
+            return;
+        }
+
+        connection.HeldSubscribes = null;
+        foreach (var (scope, _) in held)
+        {
+            var authority = FindAuthority(scope);
+            if (authority is not null && connection.Trust.Read.Contains(scope))
+            {
+                authority.Subscribe(connection);
+            }
+            else
+            {
+                RefuseSubscribe(connection, scope, authority is null ? RefusalReason.UnknownScope : RefusalReason.NotTrustedToRead);
+            }
+        }
+    }
+
+    private void ExpireHeldSubscribes(Connection connection, long now)
+    {
+        var held = connection.HeldSubscribes!;
+        for (var i = 0; i < held.Count; i++)
+        {
+            if (now - held[i].Since >= Options.HeldSubscribeTimeoutMs)
+            {
+                RefuseSubscribe(connection, held[i].Scope, RefusalReason.NotTrustedToRead);
+                held.RemoveAt(i--);
+            }
+        }
+
+        if (held.Count == 0)
+        {
+            connection.HeldSubscribes = null;
+        }
+    }
+
     private void HandleServerMessage(Connection from, ReadOnlySpan<byte> message)
     {
         var r = new SyncReader(message);
@@ -641,15 +734,14 @@ public sealed partial class Node
             case Msg.Subscribe:
             {
                 var authority = FindAuthority(scope);
+                if (authority is not null && !from.Trust.Read.Contains(scope) && IsTrustPending(from.Trust) && TryHoldSubscribe(from, scope))
+                {
+                    return;
+                }
+
                 if (authority is null || !from.Trust.Read.Contains(scope))
                 {
-                    var reason = authority is null ? RefusalReason.UnknownScope : RefusalReason.NotTrustedToRead;
-                    FileRefusal(new CommandRefusal(scope, from.Id, EntityId.None, 0, reason));
-                    Out.Reset();
-                    Out.WriteByte(Msg.SubscribeRefused);
-                    Out.WriteVarUInt(scope.Value);
-                    Out.WriteByte((byte)reason);
-                    from.Sender.Send(Out.Written);
+                    RefuseSubscribe(from, scope, authority is null ? RefusalReason.UnknownScope : RefusalReason.NotTrustedToRead);
                     return;
                 }
 
@@ -658,6 +750,7 @@ public sealed partial class Node
             }
 
             case Msg.Unsubscribe:
+                from.HeldSubscribes?.RemoveAll(h => h.Scope == scope);
                 FindAuthority(scope)?.Unsubscribe(from);
                 return;
 

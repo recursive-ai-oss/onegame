@@ -14,6 +14,9 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Changed
 
+- Sync: a computed interest key (an `Entity.InterestKey` override) is read once per entity per tick during publish, not once per entity per view; with 100 views over 200 entities that is 200 reads a tick instead of about 20,000. Frames, view hashes and digests are byte-identical.
+- Sync: a `Subscribe` that arrives while the connection's trust is empty (`Trust.None`) is held until the game sets `Connection.Trust`, instead of being refused with `NotTrustedToRead` (a fresh link no longer needs a second ask). It is refused if the trust then lacks the scope, when the connection detaches, or after `ClusterOptions.HeldSubscribeTimeoutMs` (5 s). The wire format is unchanged.
+- `InputInjector.Wheel` (and the live-control `input_pointer action=wheel`) is stamped with the current pointer position, so an injected wheel scrolls the scroll view under the pointer. It used 0,0.
 - Web: pointer positions keep their fraction (they were rounded to whole device pixels), and the canvas is sized to the visible area, `innerWidth` by `innerHeight` in CSS pixels, and follows `resize`, `orientationchange` and the visual viewport. It was 100vw by 100vh, which on a phone with its toolbar out is taller than the area on show, so the picture stretched against the touch positions.
 - Web: `SafeAreaChanged` now fires from `env(safe-area-inset-*)` (the page needs `viewport-fit=cover`, which the stock page has), and `Window.SafeArea` holds the value from the start.
 - Web: the page keeps a title it sets itself. The stock page now has no `<title>`, so the game's `Name` is used as written (it was written to the page in every case).
