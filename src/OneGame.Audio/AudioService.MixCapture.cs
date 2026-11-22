@@ -29,6 +29,19 @@ public sealed partial class AudioService
         }
     }
 
+    // The page's timer calls this; an exception here would end the game's loop, so a fault is recorded on the output and the pump carries on.
+    private void PumpGuarded()
+    {
+        try
+        {
+            PumpCore();
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            Output.NoteFault("audio pump: " + e.Message);
+        }
+    }
+
     private void PumpCore()
     {
         lock (_pumpGate)

@@ -78,10 +78,12 @@ using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true 
     // Decodes Vorbis (44.1 kHz into the 48 kHz output) and Opus through the real mixer, with a pitch change and a stream.
     audio.Play(audio.LoadSound(ReadAsset("tone44k.ogg")));
     audio.Play(audio.LoadSound(ReadAsset("loop48k.opus")), new PlayOptions { Pitch = 1.5f });
+    audio.Play(audio.LoadSound(ReadAsset("tone44k.ogg")), new PlayOptions { Pitch = 4f }); // a 44.1 kHz clip at 4x into 48 kHz: clamped by the core, never thrown
     audio.PlayMusic(ReadAsset("tone44k.ogg"));
     audio.Advance(4800);
     audio.Update();
-    if (audio.Capture is not { FramesCaptured: 4800 } || !(audio.Capture.Peak > 0.1f) || audio.Capture.Samples.ToArray().Any(v => !float.IsFinite(v)))
+    audio.Reset();
+    if (audio.Core.ActiveVoices != 0 || audio.Capture is not { } || audio.Capture.FramesCaptured < 4800 || !(audio.Capture.Peak > 0.1f) || audio.Capture.Samples.ToArray().Any(v => !float.IsFinite(v)))
     {
         Console.Error.WriteLine("audio capture smoke failed");
         return 1;

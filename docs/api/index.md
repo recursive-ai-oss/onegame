@@ -9,7 +9,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | Package | Namespaces | Types | Members | What it is |
 | --- | --- | --- | --- | --- |
 | [RecursiveAI.OneGame.Atlas](OneGame.Atlas/index.md) | 1 | 14 | 119 | Atlas pages and the SVG and image atlas for the 2D renderer. |
-| [RecursiveAI.OneGame.Audio](OneGame.Audio/index.md) | 1 | 58 | 449 | Audio device output and the audio service that drives a mixer. |
+| [RecursiveAI.OneGame.Audio](OneGame.Audio/index.md) | 1 | 58 | 450 | Audio device output and the audio service that drives a mixer. |
 | [RecursiveAI.OneGame.Cli](OneGame.Cli/index.md) | 0 | 0 | 0 | The onegame command: create, build, run, test, capture and replay games. |
 | [RecursiveAI.OneGame.Control](OneGame.Control/index.md) | 1 | 60 | 528 | The control layer shared by the command line, the test API and live control. |
 | [RecursiveAI.OneGame.Core](OneGame.Core/index.md) | 2 | 71 | 574 | Entity runtime: fixed-point numbers, random streams and the attributes that declare entities. |

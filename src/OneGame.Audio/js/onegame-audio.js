@@ -73,6 +73,7 @@ function hasGesture() {
 }
 
 function tryResume() {
+  if (A && !A.ctx && hasGesture()) makeContext();
   if (!A || !A.ctx || !A.wantActive || A.ctx.state === 'running' || A.ctx.state === 'closed') return;
   A.resumeRequests++;
   A.ctx.resume().catch((e) => { A.unlockLog = String(e); });
@@ -87,32 +88,47 @@ function onGesture(e) {
   tryResume();
 }
 
-// Creates the context and the worklet; returns '' or the reason it is unavailable. The context starts suspended under the autoplay policy.
+// Prepares the output; returns '' or the reason it is unavailable. The AudioContext itself is made on the first user gesture (or at once when the
+// page has already had one): a context made earlier would be born suspended and make the browser warn that it was not allowed to start.
 export function create(rate, channels, latencyMs) {
   if (A) return '';
   const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;
   if (!Ctx || !globalThis.AudioWorkletNode) return 'this browser has no AudioContext/AudioWorklet';
   A = newState();
   A.channels = channels;
-  try {
-    A.ctx = new Ctx({ sampleRate: rate, latencyHint: 'interactive' });
-  } catch (e) {
-    try { A.ctx = new Ctx({ latencyHint: 'interactive' }); } catch (e2) { const m = String(e2); A = null; return m; }
-  }
-  A.rate = A.ctx.sampleRate;
-  A.targetFrames = Math.max(latencyMs, 80) * A.rate / 1000 | 0;
-  const url = URL.createObjectURL(new Blob([processorSource], { type: 'text/javascript' }));
-  A.ctx.audioWorklet.addModule(url).then(() => {
-    A.node = new AudioWorkletNode(A.ctx, 'onegame-output', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [channels], processorOptions: { channels } });
-    A.node.port.onmessage = (e) => { A.consumed = e.data.consumed; A.underruns = e.data.underruns; A.peak = e.data.peak; };
-    A.node.connect(A.ctx.destination);
-    A.ready = true;
-    URL.revokeObjectURL(url);
-  }).catch((e) => { A.error = String(e); });
+  A.rate = rate;
+  A.targetFrames = Math.max(latencyMs, 80) * rate / 1000 | 0;
+  A.latencyMs = latencyMs;
   for (const type of ['pointerdown', 'pointerup', 'mousedown', 'touchend', 'keydown', 'click']) {
     window.addEventListener(type, onGesture, { capture: true, passive: true });
   }
-  A.ctx.addEventListener('statechange', () => { A.unlockLog = 'state:' + A.ctx.state; });
+  if (hasGesture()) return makeContext();
+  return '';
+}
+
+// Builds the context and the worklet. Called once, from a gesture handler or from create() when the page was already activated.
+function makeContext() {
+  if (!A || A.ctx || A.error) return A ? A.error : '';
+  const Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;
+  const channels = A.channels;
+  try {
+    A.ctx = new Ctx({ sampleRate: A.rate, latencyHint: 'interactive' });
+  } catch (e) {
+    try { A.ctx = new Ctx({ latencyHint: 'interactive' }); } catch (e2) { A.error = String(e2); return A.error; }
+  }
+  const ctx = A.ctx;
+  A.rate = ctx.sampleRate;
+  A.targetFrames = Math.max(A.latencyMs, 80) * A.rate / 1000 | 0;
+  const url = URL.createObjectURL(new Blob([processorSource], { type: 'text/javascript' }));
+  ctx.audioWorklet.addModule(url).then(() => {
+    if (!A || A.ctx !== ctx) return;
+    A.node = new AudioWorkletNode(ctx, 'onegame-output', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [channels], processorOptions: { channels } });
+    A.node.port.onmessage = (e) => { A.consumed = e.data.consumed; A.underruns = e.data.underruns; A.peak = e.data.peak; };
+    A.node.connect(ctx.destination);
+    A.ready = true;
+    URL.revokeObjectURL(url);
+  }).catch((e) => { if (A) A.error = String(e); });
+  ctx.addEventListener('statechange', () => { if (A) A.unlockLog = 'state:' + ctx.state; });
   return '';
 }
 
@@ -120,7 +136,7 @@ export function rate() { return A ? A.rate : 0; }
 
 export function targetFrames() { return A ? A.targetFrames : 0; }
 
-function playing() { return A && A.ready && A.ctx.state === 'running' && A.wantActive; }
+function playing() { return A && A.ctx && A.ready && A.ctx.state === 'running' && A.wantActive; }
 
 // Frames waiting to be played. While the context can't play (autoplay not yet allowed, or suspended by the app), frames are dropped and
 // this counts them down at the sample rate, so the mixer keeps real-time pace without anything being queued for later.
@@ -161,7 +177,7 @@ export function setActive(active) {
   if (active) {
     if (hasGesture()) tryResume();
   } else {
-    A.ctx.suspend().catch(() => {});
+    if (A.ctx) A.ctx.suspend().catch(() => {});
     if (A.node) A.node.port.postMessage('flush');
     A.dropped += Math.max(0, A.sent - A.dropped - A.consumed);   // what was queued is thrown away with the flush
   }
@@ -172,6 +188,10 @@ export function unlock() {
   if (!A) return 'none';
   A.wantActive = true;
   A.resumeRequests++;
+  if (!A.ctx) {
+    if (hasGesture()) makeContext();
+    if (!A.ctx) return 'suspended';
+  }
   A.ctx.resume().catch((e) => { A.unlockLog = String(e); });
   return A.ctx.state;
 }
@@ -180,6 +200,7 @@ export function unlock() {
 export function state() {
   if (!A) return 'unavailable';
   if (A.error) return 'unavailable';
+  if (!A.ctx) return 'awaiting_gesture';
   if (A.ctx.state === 'closed') return 'closed';
   if (!A.ready) return 'initializing';
   if (A.ctx.state === 'running') return A.wantActive ? 'running' : 'suspended';
@@ -190,7 +211,7 @@ export function state() {
 // "key=value; ..." for the report's detail line.
 export function stats() {
   if (!A) return 'no output';
-  const c = A.ctx;
+  const c = A.ctx || { state: 'not created', sampleRate: A.rate, baseLatency: 0, outputLatency: 0 };
   const ms = (v) => Math.round((v || 0) * 1000 * 100) / 100;
   return `contextState=${c.state}; gestureSeen=${!!hasGesture()}; gestureEvents=${A.gestureEvents}; resumeRequests=${A.resumeRequests}; ` +
     `sampleRate=${c.sampleRate}; baseLatencyMs=${ms(c.baseLatency)}; outputLatencyMs=${ms(c.outputLatency)}; ` +
@@ -213,6 +234,6 @@ export function close() {
   if (!A) return;
   if (A.timer) clearInterval(A.timer);
   for (const type of ['pointerdown', 'pointerup', 'mousedown', 'touchend', 'keydown', 'click']) window.removeEventListener(type, onGesture, { capture: true });
-  try { A.ctx.close(); } catch (e) { /* already closed */ }
+  try { if (A.ctx) A.ctx.close(); } catch (e) { /* already closed */ }
   A = null;
 }

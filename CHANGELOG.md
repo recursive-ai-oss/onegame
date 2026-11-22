@@ -4,6 +4,21 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- `AudioService.Reset()`: stops every voice and music at once and waits until the mixer has taken it. `onegame test` calls it at the start of every scenario.
+
+### Changed
+
+- In a browser, `AudioServiceOptions` defaults are lean: metering off, no bus meters, no reverbs, 32 voices and a clamping limiter (other platforms are unchanged; set the properties to opt back in). An idle page spends about 2% of the main thread on audio instead of 20% (81% to 4% at 4x CPU throttle in headless Chrome on the solitaire sample).
+- Web audio creates its `AudioContext` on the first user gesture instead of at load, so Chrome no longer warns that it was not allowed to start. The output reads `awaiting_gesture` until then, as before.
+- `onegame test` clears the `ui-scale:` override at the start of each scenario, as it does the audio voices.
+
+### Fixed
+
+- `PlayOptions.Pitch` no longer throws. The mixer's converter now runs down to a quarter of the rate, so a 44.1 kHz clip plays at up to 4.35x in a 48 kHz mixer (it stopped at about 2.17 before), and a pitch beyond what the clip allows, zero, negative or infinite plays at the nearest allowed speed (NaN plays at 1). `SetPitch` clamps the same way. A fault in the web audio pump is counted in `AudioOutput.RenderFaults`, kept in `LastError`, and no longer escapes into the page's timer, which ended the game loop.
+- Late sounds in a long `onegame test` run reported `started: false` and `sound:` expectations saw 0 plays: voices and queued commands from earlier scenarios filled the mixer. Each scenario now starts with the audio reset.
+
 ## [2.0.0] - 2026-11-13
 
 The GPU device layer moves to the standalone `RecursiveAI.OneGpu` 1.0.0 packages. This is a major release; [docs/migrating-to-2.0.md](docs/migrating-to-2.0.md) lists what a 1.x game changes.

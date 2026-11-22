@@ -220,6 +220,7 @@ Raised from [`AudioService.Update()`](AudioService.md#m-update) for each event t
 | [`LoadSound(Stream, string)`](#m-loadsound-stream-string) | Decodes a whole audio file into memory. |
 | [`Play(Sound, PlayOptions)`](#m-play-sound-playoptions) | Starts a sound. |
 | [`PlayMusic(Stream, MusicOptions, string)`](#m-playmusic-stream-musicoptions-string) | Starts a streamed music track on the music bus. |
+| [`Reset()`](#m-reset) | Silences everything and gives every voice back: stops all voices and music at once, then waits (up to a quarter of a second) until the mixer has processed it. |
 | [`ResetLoudness()`](#m-resetloudness) | Starts the integrated loudness and true peak over, for measuring a scene from its beginning. |
 | [`SetBusFilter(AudioBus, AudioFilterKind, float, float, double)`](#m-setbusfilter-audiobus-audiofilterkind-float-float-double) | Turns on or retunes a low-pass or high-pass filter (12 dB per octave) on a bus. |
 | [`SetBusMuted(AudioBus, bool)`](#m-setbusmuted-audiobus-bool) | Mutes or unmutes a bus without changing its volume. |
@@ -530,6 +531,14 @@ Starts a streamed music track on the music bus. If music is already playing it i
 - `name` (`string`): The name the play log records for the track.
 
 **Returns:** [`VoiceId`](VoiceId.md) — The voice, or an invalid id when the command queue was full.
+
+### <a id="m-reset"></a>Reset()
+
+```csharp
+public void Reset();
+```
+
+Silences everything and gives every voice back: stops all voices and music at once, then waits (up to a quarter of a second) until the mixer has processed it. The harness calls this when a scenario starts, so sounds that outlive one scenario (a long clip, a loop, a recording that is never advanced) cannot fill the voice pool or the command queue and make a later scenario's sounds report `started: false`. Bus volumes, mute and the play log are left alone.
 
 ### <a id="m-resetloudness"></a>ResetLoudness()
 

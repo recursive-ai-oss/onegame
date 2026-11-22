@@ -99,7 +99,7 @@ The device to ask for.
 public OutputLimiterMode Limiter { get; init; }
 ```
 
-How the output keeps samples in range. Default soft knee.
+How the output keeps samples in range. Default soft knee; a plain clamp in a browser, where every sample costs main-thread time.
 
 **Type:** [`OutputLimiterMode`](OutputLimiterMode.md)
 
@@ -129,7 +129,7 @@ A lookahead limiter on the master output: no sample passes the ceiling, and it r
 public int MaxBusMeters { get; init; }
 ```
 
-Buses whose loudness can be measured at once, 0 to 64 (see [`AudioService.EnableBusMeter()`](AudioService.md#m-enablebusmeter-audiobus)). Each costs about 0.1 MB, built at startup. When [`AudioServiceOptions.Metering`](AudioServiceOptions.md#m-metering) is on, the music, sfx and ui buses (as many as fit) are metered from the start. Default 3.
+Buses whose loudness can be measured at once, 0 to 64 (see [`AudioService.EnableBusMeter()`](AudioService.md#m-enablebusmeter-audiobus)). Each costs about 0.1 MB, built at startup. When [`AudioServiceOptions.Metering`](AudioServiceOptions.md#m-metering) is on, the music, sfx and ui buses (as many as fit) are metered from the start. Default 3; 0 in a browser.
 
 **Type:** `int`
 
@@ -149,7 +149,7 @@ The longest file [`AudioService.LoadSound()`](AudioService.md#m-loadsound-stream
 public int MaxReverbs { get; init; }
 ```
 
-Reverbs that can be active at once across all buses, 0 to 16. Each is built at startup and costs about 0.3 MB. Default 2.
+Reverbs that can be active at once across all buses, 0 to 16. Each is built at startup and costs about 0.3 MB. Default 2; 0 in a browser (set it to use reverb there).
 
 **Type:** `int`
 
@@ -159,7 +159,7 @@ Reverbs that can be active at once across all buses, 0 to 16. Each is built at s
 public int MaxVoices { get; init; }
 ```
 
-Most simultaneous voices. Default 64.
+Most simultaneous voices. Default 64; 32 in a browser, where the mixer shares the page's one thread.
 
 **Type:** `int`
 
@@ -169,7 +169,7 @@ Most simultaneous voices. Default 64.
 public bool Metering { get; init; }
 ```
 
-Whether the output measures loudness (EBU R 128), readable as [`AudioService.Loudness`](AudioService.md#m-loudness). The cost is small. Default true.
+Whether the output measures loudness (EBU R 128), readable as [`AudioService.Loudness`](AudioService.md#m-loudness). Default true; false in a browser, where measuring every sample is a visible share of the page's thread.
 
 **Type:** `bool`
 

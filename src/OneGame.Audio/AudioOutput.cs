@@ -66,6 +66,7 @@ public sealed partial class AudioOutput : IDisposable
     private long _losses;
     private long _reopens;
     private long _faults;
+    private string? _pumpError;
     private long _framesRendered;
     private long _silentFrames;
     private long _allocBaseline;
@@ -177,7 +178,7 @@ public sealed partial class AudioOutput : IDisposable
     public string? DeviceName => Volatile.Read(ref _deviceName);
 
     /// <summary>The most recent reason a device failed to open, or <see langword="null"/>.</summary>
-    public string? LastError => _dev is { } d ? d.LastError : Volatile.Read(ref _lastError);
+    public string? LastError => (_dev is { } d ? d.LastError : Volatile.Read(ref _lastError)) ?? Volatile.Read(ref _pumpError);
 
     /// <summary>Stops sound without stopping the device: it is fed silence and the source is not rendered, so the mixer's timeline holds still.</summary>
     public bool Paused
@@ -395,6 +396,13 @@ public sealed partial class AudioOutput : IDisposable
         {
             Interlocked.Exchange(ref _allocNow, _pumpAllocated);
         }
+    }
+
+    // A fault in the page-timer pump: counted and kept as the last error so the harness and logs show it; the sound carries on.
+    internal void NoteFault(string message)
+    {
+        Interlocked.Increment(ref _faults);
+        Volatile.Write(ref _pumpError, message);
     }
 
     /// <summary>Describes the device side for the harness: backend, the device's own state, counters, and what the device has taken from us.</summary>

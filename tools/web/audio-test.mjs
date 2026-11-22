@@ -5,7 +5,7 @@
 // stays suspended until the script sends a real mouse click through the DevTools protocol (a trusted gesture).
 let nextId = 1;
 
-export default async function ({ send, evalJs, sleep }) {
+export default async function ({ send, evalJs, sleep, logs }) {
   const call = async (name, args = {}) => {
     const reply = JSON.parse(await evalJs(`__control(${JSON.stringify(JSON.stringify({ jsonrpc: '2.0', id: nextId++, method: 'tools/call', params: { name, arguments: args } }))})`));
     if (reply.error) throw new Error(name + ': ' + JSON.stringify(reply.error));
@@ -13,8 +13,13 @@ export default async function ({ send, evalJs, sleep }) {
     if (reply.result.isError) throw new Error(name + ': ' + text);
     return JSON.parse(text);
   };
-  for (let i = 0; i < 300 && !(await evalJs('window.__control && window.__onegame && window.__onegame.frames > 3')); i++) await sleep(100);
-  await evalJs(`__control(${JSON.stringify(JSON.stringify({ jsonrpc: '2.0', id: 0, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'audio-test', version: '1' } } }))})`);
+  for (let i = 0; i < 1200 && !(await evalJs('window.__control ? 1 : 0')); i++) await sleep(100);
+  // The control handler is installed after the page's script, once the game has started: ask until it answers.
+  for (let i = 0; i < 1200; i++) {
+    const r = await evalJs(`__control(${JSON.stringify(JSON.stringify({ jsonrpc: '2.0', id: 0, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'audio-test', version: '1' } } }))})`);
+    if (!/no control channel/.test(String(r))) break;
+    await sleep(100);
+  }
 
   const steps = [];
   const device = async (args = {}) => (await call('audio', args)).device;
@@ -68,6 +73,13 @@ export default async function ({ send, evalJs, sleep }) {
   await sleep(1200);
   d = await device();
   note('resumed: the output runs again', d, d.suspended === false && d.deviceState === 'running' && d.framesPlayed > heldPlayed && d.framesRendered > heldRendered);
+
+  // 6. The page's console: no autoplay warning (the context is made on the first gesture, not at load) and no exception, e.g. from an extreme pitch.
+  const bad = (logs || []).filter(l => /AudioContext|exception/i.test(l));
+  steps.push({ step: 'no AudioContext warning or exception in the console', ok: bad.length === 0, bad });
+  const r0 = (await device()).framesRendered; await sleep(500);
+  d = await device();
+  steps.push({ step: 'the game loop is still running', ok: d.framesRendered > r0 && d.deviceState === 'running' });
 
   return { ok: steps.every(s => s.ok), steps };
 }

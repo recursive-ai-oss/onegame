@@ -105,4 +105,33 @@ public class SoundScenarioTests
         var result = cluster.Run(ScenarioParser.Parse("name: later\nsteps:\n  - step: 1\nexpect:\n  - sound: { name: click, count: 0 }\n"));
         Assert.True(result.Passed, JsonSerializer.Serialize(result, ScenarioJson.Default.ScenarioResult));
     }
+
+    [Fact]
+    public void ALongRunOfScenariosStillSeesEveryLateSound()
+    {
+        // The first scenario asks for more sounds than the mixer's command queue holds while nothing renders; without a reset per scenario the
+        // next one's sounds are refused and count as not started.
+        var heavy = "name: heavy\nsteps:\n" + string.Concat(Enumerable.Repeat("  - press: Space\n  - step: 1\n", 1200));
+        const string late = "name: late\nsteps:\n  - press: Space\n  - step: 1\nexpect:\n  - sound: { name: click, count: 1 }\n";
+        using var audio = Audio();
+        using var cluster = TestCluster.Start(new ClickGame(audio), new TestOptions { Width = 320, Height = 200, Gpu = GpuMode.Off });
+        cluster.Client.Control.Audio = audio;
+        cluster.Run(ScenarioParser.Parse(heavy));
+        var result = cluster.Run(ScenarioParser.Parse(late));
+        Assert.True(result.Passed, JsonSerializer.Serialize(result, ScenarioJson.Default.ScenarioResult));
+        Assert.All(result.Sounds!, s => Assert.True(s.Started));
+    }
+
+    [Fact]
+    public void TheUiScaleOverrideDoesNotCarryIntoTheNextScenario()
+    {
+        using var audio = Audio();
+        using var cluster = TestCluster.Start(new ClickGame(audio), new TestOptions { Width = 320, Height = 200, Gpu = GpuMode.Off });
+        var first = cluster.Run(ScenarioParser.Parse("name: scaled\nsteps:\n  - ui-scale: 2\n  - step: 1\n"));
+        Assert.True(first.Passed, JsonSerializer.Serialize(first, ScenarioJson.Default.ScenarioResult));
+        Assert.Equal(2f, cluster.Client.Game.UiScaleOverride);
+        var second = cluster.Run(ScenarioParser.Parse("name: plain\nsteps:\n  - step: 1\n"));
+        Assert.True(second.Passed);
+        Assert.Null(cluster.Client.Game.UiScaleOverride);
+    }
 }

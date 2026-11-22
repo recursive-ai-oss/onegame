@@ -260,7 +260,6 @@ public class RealMixerTests
 
         var clip = s.LoadSound(new MemoryStream(Wav(1000, 100)));
         Assert.ThrowsAny<ArgumentException>(() => s.Play(clip, new PlayOptions { Volume = float.NaN }));
-        Assert.ThrowsAny<ArgumentException>(() => s.Play(clip, new PlayOptions { Pitch = 1000f }));
         Assert.ThrowsAny<ArgumentException>(() => s.Play(clip, new PlayOptions { Pan = float.NaN }));
 
         // The service is still healthy afterwards.

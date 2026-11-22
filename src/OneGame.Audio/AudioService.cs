@@ -61,7 +61,11 @@ public readonly record struct PlayOptions
     /// <summary>Seconds to fade in from silence. Default 0.</summary>
     public double FadeInSeconds { get; init; }
 
-    /// <summary>Speed and pitch multiplier, 0.0625 to 16 (a clip's rate times this must stay within the mixer's conversion range). Default 1.</summary>
+    /// <summary>
+    /// Speed and pitch multiplier, 0.0625 to 16. Default 1. The mixer converts a clip's rate to its own, and that conversion runs between a quarter and 16 times:
+    /// the fastest a clip can play is <c>4 x mixerRate / clipRate</c> (about 4.35 for a 44.1 kHz clip in a 48 kHz mixer).
+    /// A value outside what the clip allows, zero, or a negative one plays at the nearest allowed speed, and NaN plays at 1; it never throws.
+    /// </summary>
     public float Pitch { get; init; } = 1f;
 
     /// <summary>Set to change the pitch later with <see cref="AudioService.SetPitch"/>; a sound that starts at pitch 1 ignores later changes otherwise. Default false.</summary>
@@ -107,17 +111,17 @@ public sealed record AudioServiceOptions
     /// <summary>The longest file <see cref="AudioService.LoadSound"/> decodes into memory, in seconds; longer files must be streamed as music. Default 120.</summary>
     public double MaxClipSeconds { get; init; } = 120;
 
-    /// <summary>Most simultaneous voices. Default 64.</summary>
-    public int MaxVoices { get; init; } = 64;
+    /// <summary>Most simultaneous voices. Default 64; 32 in a browser, where the mixer shares the page's one thread.</summary>
+    public int MaxVoices { get; init; } = OperatingSystem.IsBrowser() ? 32 : 64;
 
     /// <summary>Number of buses; at least 3. Default 8.</summary>
     public int BusCount { get; init; } = 8;
 
-    /// <summary>How the output keeps samples in range. Default soft knee.</summary>
-    public OutputLimiterMode Limiter { get; init; } = OutputLimiterMode.SoftKnee;
+    /// <summary>How the output keeps samples in range. Default soft knee; a plain clamp in a browser, where every sample costs main-thread time.</summary>
+    public OutputLimiterMode Limiter { get; init; } = OperatingSystem.IsBrowser() ? OutputLimiterMode.Clamp : OutputLimiterMode.SoftKnee;
 
-    /// <summary>Reverbs that can be active at once across all buses, 0 to 16. Each is built at startup and costs about 0.3 MB. Default 2.</summary>
-    public int MaxReverbs { get; init; } = 2;
+    /// <summary>Reverbs that can be active at once across all buses, 0 to 16. Each is built at startup and costs about 0.3 MB. Default 2; 0 in a browser (set it to use reverb there).</summary>
+    public int MaxReverbs { get; init; } = OperatingSystem.IsBrowser() ? 0 : 2;
 
     /// <summary>
     /// A lookahead limiter on the master output: no sample passes the ceiling, and it reduces gain gently before a peak instead of clipping it. <see langword="null"/> (the default) builds none.
@@ -130,12 +134,12 @@ public sealed record AudioServiceOptions
 
     /// <summary>
     /// Buses whose loudness can be measured at once, 0 to 64 (see <see cref="AudioService.EnableBusMeter"/>). Each costs about 0.1 MB, built at startup.
-    /// When <see cref="Metering"/> is on, the music, sfx and ui buses (as many as fit) are metered from the start. Default 3.
+    /// When <see cref="Metering"/> is on, the music, sfx and ui buses (as many as fit) are metered from the start. Default 3; 0 in a browser.
     /// </summary>
-    public int MaxBusMeters { get; init; } = 3;
+    public int MaxBusMeters { get; init; } = OperatingSystem.IsBrowser() ? 0 : 3;
 
-    /// <summary>Whether the output measures loudness (EBU R 128), readable as <see cref="AudioService.Loudness"/>. The cost is small. Default true.</summary>
-    public bool Metering { get; init; } = true;
+    /// <summary>Whether the output measures loudness (EBU R 128), readable as <see cref="AudioService.Loudness"/>. Default true; false in a browser, where measuring every sample is a visible share of the page's thread.</summary>
+    public bool Metering { get; init; } = !OperatingSystem.IsBrowser();
 
     /// <summary>Whether <see cref="AudioService.SetFocused"/> with false silences the game. Default true.</summary>
     public bool PauseOnFocusLoss { get; init; } = true;
@@ -279,7 +283,7 @@ public sealed partial class AudioService : IDisposable
         if (capture is null && output.IsPumped)
         {
             // A web page has no threads: the page's timer calls the output, and the stream feeding rides along.
-            output.BeforePump = PumpCore;
+            output.BeforePump = PumpGuarded;
         }
         else if (capture is null)
         {
@@ -861,6 +865,56 @@ public sealed partial class AudioService : IDisposable
 
             EventRaised?.Invoke(e);
         }
+    }
+
+    /// <summary>
+    /// Silences everything and gives every voice back: stops all voices and music at once, then waits (up to a quarter of a second) until the mixer has processed it.
+    /// The harness calls this when a scenario starts, so sounds that outlive one scenario (a long clip, a loop, a recording that is never advanced) cannot fill
+    /// the voice pool or the command queue and make a later scenario's sounds report <c>started: false</c>. Bus volumes, mute and the play log are left alone.
+    /// </summary>
+    public void Reset()
+    {
+        var deadline = Environment.TickCount64 + 250;
+        var canAdvance = Capture is not null && Volatile.Read(ref _mixCapture) is null;
+
+        // Nothing renders by itself in a capture, and the mixer thread may lag: let the mixer take what is queued so the stop is not refused for a full queue.
+        void Process()
+        {
+            if (canAdvance)
+            {
+                try
+                {
+                    Advance(256);
+                }
+                catch (InvalidOperationException)
+                {
+                    // A mix capture took the timeline meanwhile; it renders the commands itself.
+                    canAdvance = false;
+                }
+            }
+            else if (Output.IsPumped)
+            {
+                Output.Pump();
+            }
+            else if (Capture is null)
+            {
+                Thread.Sleep(2);
+            }
+        }
+
+        while (!Core.StopAll(0) && Environment.TickCount64 < deadline)
+        {
+            Process();
+        }
+
+        _music = default;
+        Process();
+        while (Core.ActiveVoices > 0 && Environment.TickCount64 < deadline && (canAdvance || Capture is null))
+        {
+            Process();
+        }
+
+        Update();
     }
 
     /// <summary>Capture mode only: feeds streams, then renders exactly <paramref name="frames"/> frames into <see cref="Capture"/>.</summary>
