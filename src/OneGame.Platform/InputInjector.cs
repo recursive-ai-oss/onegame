@@ -68,9 +68,18 @@ public sealed class InputInjector
             Modifiers = _app.Input.Modifiers,
         });
 
-    /// <summary>Turns the wheel; amounts are in notches.</summary>
+    /// <summary>Turns the wheel at the current pointer position (the last injected or real move); amounts are in notches.</summary>
     public void Wheel(int windowId, float deltaX, float deltaY) =>
-        _app.Post(new PlatformEvent { Kind = PlatformEventKind.PointerWheel, WindowId = windowId, DeltaX = deltaX, DeltaY = deltaY, Modifiers = _app.Input.Modifiers });
+        _app.Post(new PlatformEvent
+        {
+            Kind = PlatformEventKind.PointerWheel,
+            WindowId = windowId,
+            DeltaX = deltaX,
+            DeltaY = deltaY,
+            X = _app.Input.PointerX,
+            Y = _app.Input.PointerY,
+            Modifiers = _app.Input.Modifiers,
+        });
 
     /// <summary>Reports raw pointer motion in pixels, as sent while the cursor is locked.</summary>
     public void RelativeMotion(int windowId, float deltaX, float deltaY) =>

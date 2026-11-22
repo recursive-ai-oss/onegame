@@ -27,6 +27,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="onegame" />
     <InternalsVisibleTo Include="OneGame.Testing.Tests" />
+    <InternalsVisibleTo Include="OneGame.UI.Kit.Tests" />
   </ItemGroup>
 
   <ItemGroup>

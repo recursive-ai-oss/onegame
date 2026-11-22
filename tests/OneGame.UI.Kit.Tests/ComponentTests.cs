@@ -225,6 +225,28 @@ public class ComponentTests
     }
 
     [Fact]
+    public void AnInjectedWheelOverAScrollViewScrollsIt()
+    {
+        var s = new Screen();
+        var content = Ui.Column(Enumerable.Range(0, 40).Select(i => Ui.Label("line " + i).Height(20)).ToArray());
+        s.Root.Add(UiKit.ScrollView(content, id: "sv").Height(200).Width(300));
+        s.Settle();
+        var scroller = s.Get("sv/scroller");
+
+        var posted = new List<OneGame.Platform.PlatformEvent>();
+        using var app = OneGame.Platform.PlatformApp.Create(new OneGame.Platform.PlatformOptions { Backend = OneGame.Platform.PlatformBackendKind.Headless, EnableGamepadDevices = false });
+        var w = app.CreateWindow().Id;
+        app.Injector.PointerMove(w, 50, 50);
+        app.Injector.Wheel(w, 0, -1);
+        while (app.TryGetEvent(out var e)) posted.Add(e);
+        var wheel = posted.Single(e => e.Kind == OneGame.Platform.PlatformEventKind.PointerWheel);
+        Assert.True(OneGame.Host.InputRouter.TryTranslate(wheel, out var ui));
+        s.Host.Dispatch(ui);
+        s.Settle();
+        Assert.Equal(48, scroller.ScrollY, 0.01f);
+    }
+
+    [Fact]
     public void ScrollViewWheelThumbDragAndTrackClickScrollTheContent()
     {
         var s = new Screen();
