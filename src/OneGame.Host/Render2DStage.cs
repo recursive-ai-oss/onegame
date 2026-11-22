@@ -181,54 +181,66 @@ public class Render2DStage : IRenderStage, IDisposable
         _seen.Add(target);
         _graph ??= new RenderGraph(device);
         _graph.BeginFrame();
-        _pass.Target = _graph.ImportTexture("target", target);
-
-        // A scene stage draws first; the 2D pass then adds to what it left instead of clearing the target.
-        var hasScene = AddScenePasses(device, _graph, _pass.Target, target, frame);
-        var pages = Pages is { Any: true } p ? p : null;
-        PageRenderer? pageRenderer = null;
-        var under = false;
-        if (pages is not null)
+        try
         {
-            if (!_pageRenderers.TryGetValue(target.Format, out pageRenderer))
+            _pass.Target = _graph.ImportTexture("target", target);
+
+            // A scene stage draws first; the 2D pass then adds to what it left instead of clearing the target.
+            var hasScene = AddScenePasses(device, _graph, _pass.Target, target, frame);
+            var pages = Pages is { Any: true } p ? p : null;
+            PageRenderer? pageRenderer = null;
+            var under = false;
+            if (pages is not null)
             {
-                pageRenderer = PageRenderer.Create(device, target.Format, _glyphs, _resources.Art);
-                _pageRenderers[target.Format] = pageRenderer;
+                if (!_pageRenderers.TryGetValue(target.Format, out pageRenderer))
+                {
+                    pageRenderer = PageRenderer.Create(device, target.Format, _glyphs, _resources.Art);
+                    _pageRenderers[target.Format] = pageRenderer;
+                }
+
+                pages.Prepare(frame.Width, frame.Height, frame.Scale);
+                under = pages.Scopes.UsesUnder;
             }
 
-            pages.Prepare(frame.Width, frame.Height, frame.Scale);
-            under = pages.Scopes.UsesUnder;
-        }
-
-        renderer.BeginFrame(target, new FrameOptions { Clear = hasScene || under ? null : ClearColor });
-        _draw.Draw(renderer, frame, _text, _resources.Measurer!, _glyphs);
-        renderer.Ui.Draw(frame.List, _text, _glyphs, _resources.Art);
-        DrawOverUi(renderer, frame);
-        var chain = _overlays;
-        if (chain.Length > 0 || Overlay is not null)
-        {
-            _overlayCanvas.Begin(renderer, _text, _glyphs, _resources.Measurer!, frame);
-            foreach (var o in chain)
+            renderer.BeginFrame(target, new FrameOptions { Clear = hasScene || under ? null : ClearColor });
+            _draw.Draw(renderer, frame, _text, _resources.Measurer!, _glyphs);
+            renderer.Ui.Draw(frame.List, _text, _glyphs, _resources.Art);
+            DrawOverUi(renderer, frame);
+            var chain = _overlays;
+            if (chain.Length > 0 || Overlay is not null)
             {
-                o.Draw(_overlayCanvas);
+                _overlayCanvas.Begin(renderer, _text, _glyphs, _resources.Measurer!, frame);
+                foreach (var o in chain)
+                {
+                    o.Draw(_overlayCanvas);
+                }
+
+                Overlay?.Draw(_overlayCanvas);
+                _overlayCanvas.End();
             }
 
-            Overlay?.Draw(_overlayCanvas);
-            _overlayCanvas.End();
-        }
+            if (under)
+            {
+                // Pages that sit beneath the 2D pass clear the target first; the pass then draws over them.
+                pageRenderer!.AddPasses(_graph, _pass.Target, pages!.Screens, pages.Scopes, new PageFrame(frame.Width, frame.Height, frame.Scale, renderer.FrameNumber, PageScopes.Under, hasScene ? null : LinearClear));
+            }
 
-        if (under)
+            _pass.Renderer = renderer;
+            _pass.Preserve = hasScene || under;
+            _graph.AddPass(_pass);
+            pageRenderer?.AddPasses(_graph, _pass.Target, pages!.Screens, pages.Scopes, new PageFrame(frame.Width, frame.Height, frame.Scale, renderer.FrameNumber, PageScopes.Over));
+            _graph.Execute();
+            _pass.Renderer = null;
+        }
+        catch
         {
-            // Pages that sit beneath the 2D pass clear the target first; the pass then draws over them.
-            pageRenderer!.AddPasses(_graph, _pass.Target, pages!.Screens, pages.Scopes, new PageFrame(frame.Width, frame.Height, frame.Scale, renderer.FrameNumber, PageScopes.Under, hasScene ? null : LinearClear));
+            // A view that threw while the frame was being built must not leave the graph and the renderer mid-frame: every later frame, and every
+            // capture, would fail with "never executed" instead of the game's own error appearing once.
+            _graph.Cancel();
+            renderer.CancelFrame();
+            _pass.Renderer = null;
+            throw;
         }
-
-        _pass.Renderer = renderer;
-        _pass.Preserve = hasScene || under;
-        _graph.AddPass(_pass);
-        pageRenderer?.AddPasses(_graph, _pass.Target, pages!.Screens, pages.Scopes, new PageFrame(frame.Width, frame.Height, frame.Scale, renderer.FrameNumber, PageScopes.Over));
-        _graph.Execute();
-        _pass.Renderer = null;
     }
 
     /// <summary>The 2D renderer's frame as one graph pass: it writes the whole target, and records its own render passes.</summary>

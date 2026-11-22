@@ -51,13 +51,26 @@ internal static class WebExport
         }
         """;
 
+    // Properties of the game's project that the wrapper repeats: the ones that change how its code compiles. A game that sets one in its csproj
+    // (unsafe code for [JSImport], a shader namespace) builds the same way here as on the desktop.
+    private static readonly string[] CarriedProperties =
+    [
+        "AllowUnsafeBlocks", "NoWarn", "WarningsNotAsErrors", "WarningsAsErrors", "DefineConstants", "LangVersion", "GenerateDocumentationFile",
+        "OneShaderTargets", "OneShaderNamespace", "OneShaderAccessibility", "OneShaderEnable16BitTypes", "OneShaderDebugInfo",
+        "OneShaderOptimize", "OneShaderDefines", "OneShaderIncludeDirectories", "OneShaderMaxVariants",
+    ];
+
+    // Item metadata the shader compiler reads.
+    private static readonly string[] ShaderMetadata =
+        ["EntryPoints", "Defines", "IncludeDirectories", "Targets", "Enable16BitTypes", "DebugInfo", "Optimize", "Namespace", "Accessibility", "ClassName", "Axes", "MaxVariants"];
+
     private static readonly string[] EngineReferences = ["OneGame.Host", "OneGame.Core", "OneGame.UI", "OneGame.Generators", "OneGame.Live"];
 
     public static WebExportResult Export(ProjectRef project, bool dev, string outFolder)
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();
         var configuration = dev ? "Debug" : "Release";
-        var query = Proc.Run(Proc.Dotnet, ["msbuild", project.File, "-getItem:Compile,EmbeddedResource,ProjectReference,PackageReference", "-getProperty:OneGameRoot,AssemblyName,RootNamespace,OneGameVersion", $"-p:OneGameDev={(dev ? "true" : "false")}", "-nologo"], project.Directory);
+        var query = Proc.Run(Proc.Dotnet, ["msbuild", project.File, $"-getItem:Compile,EmbeddedResource,ProjectReference,PackageReference,OneShader,OneShaderVariant,AdditionalFiles,InternalsVisibleTo", $"-getProperty:OneGameRoot,AssemblyName,RootNamespace,OneGameVersion,{string.Join(',', CarriedProperties)}", $"-p:OneGameDev={(dev ? "true" : "false")}", $"-p:Configuration={configuration}", "-nologo"], project.Directory);
         if (query.ExitCode != 0)
         {
             throw new CliException(ExitCodes.BuildFailed, "bad_project", $"Could not read {project.File}: {query.Output.Trim()} {query.Error.Trim()}");
@@ -114,6 +127,23 @@ internal static class WebExport
         xml.AppendLine("    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>");
         xml.AppendLine("    <WasmEnableWebcil>false</WasmEnableWebcil>");
         xml.AppendLine($"    <OneGameDev>{(dev ? "true" : "false")}</OneGameDev>");
+        foreach (var name in CarriedProperties)
+        {
+            if (props.TryGetProperty(name, out var value) && value.GetString() is { Length: > 0 } text)
+            {
+                // The shader item list is written below, from the project's own evaluation, so the wrapper must not glob again.
+                xml.AppendLine($"    <{name}>{Esc(name == "OneShaderIncludeDirectories" ? AbsoluteList(text, projectDir) : text)}</{name}>");
+            }
+        }
+
+        // The browser takes WGSL; a game that compiled only for the desktop gets it added.
+        var targets = props.TryGetProperty("OneShaderTargets", out var t) && t.GetString() is { Length: > 0 } tt ? tt : "SpirV";
+        if (!targets.Split(';', StringSplitOptions.RemoveEmptyEntries).Contains("Wgsl", StringComparer.OrdinalIgnoreCase))
+        {
+            xml.AppendLine($"    <OneShaderTargets>{Esc(targets)};Wgsl</OneShaderTargets>");
+        }
+
+        xml.AppendLine("    <EnableDefaultOneShaderItems>false</EnableDefaultOneShaderItems>");
         xml.AppendLine("  </PropertyGroup>");
         if (!packageMode)
         {
@@ -144,6 +174,33 @@ internal static class WebExport
             xml.AppendLine($"    <EmbeddedResource Include=\"{Esc(full)}\"{logical} />");
         }
 
+        // The game's HLSL: compiled by OneShader.Build (the game's own package reference, passed on below) with the game's own settings.
+        foreach (var item in items.GetProperty("OneShader").EnumerateArray())
+        {
+            xml.AppendLine($"    <OneShader Include=\"{Esc(Full(item, project.Directory))}\"{ShaderAttributes(item, projectDir)} />");
+        }
+
+        foreach (var item in items.GetProperty("OneShaderVariant").EnumerateArray())
+        {
+            var shader = item.TryGetProperty("Shader", out var sh) ? sh.GetString() : null;
+            var shaderFull = string.IsNullOrEmpty(shader) ? "" : Path.GetFullPath(shader, projectDir);
+            xml.AppendLine($"    <OneShaderVariant Include=\"{Esc(item.GetProperty("Identity").GetString()!)}\" Shader=\"{Esc(shaderFull)}\"{ShaderAttributes(item, projectDir)} />");
+        }
+
+        foreach (var item in items.GetProperty("AdditionalFiles").EnumerateArray())
+        {
+            var full = Full(item, project.Directory);
+            if (!IsGenerated(full, projectDir))
+            {
+                xml.AppendLine($"    <AdditionalFiles Include=\"{Esc(full)}\" />");
+            }
+        }
+
+        foreach (var item in items.GetProperty("InternalsVisibleTo").EnumerateArray())
+        {
+            xml.AppendLine($"    <InternalsVisibleTo Include=\"{Esc(item.GetProperty("Identity").GetString()!)}\" />");
+        }
+
         foreach (var item in items.GetProperty("ProjectReference").EnumerateArray())
         {
             var full = Full(item, project.Directory);
@@ -155,17 +212,22 @@ internal static class WebExport
             xml.AppendLine($"    <ProjectReference Include=\"{Esc(full)}\" />");
         }
 
-        if (packageMode)
+        // The game's package references travel too (the shader compiler is one). A game on the SDK package pins the engine libraries at its own
+        // version; a game in an engine checkout takes its versions from the checkout's central list, so only an explicit override is repeated.
+        foreach (var item in items.GetProperty("PackageReference").EnumerateArray())
         {
-            // The engine libraries come from packages at the game's own versions (the game's Compile list already holds the development
-            // start-up file from the SDK package when dev is on).
-            foreach (var item in items.GetProperty("PackageReference").EnumerateArray())
+            var id = item.GetProperty("Identity").GetString()!;
+            var ver = item.TryGetProperty("VersionOverride", out var vo) && vo.GetString() is { Length: > 0 } v1 ? v1 : item.TryGetProperty("Version", out var vv) ? vv.GetString() : null;
+            var attr = string.IsNullOrEmpty(ver) ? "" : packageMode ? $" Version=\"{Esc(ver)}\"" : $" VersionOverride=\"{Esc(ver)}\"";
+            foreach (var meta in new[] { "PrivateAssets", "IncludeAssets", "ExcludeAssets" })
             {
-                var id = item.GetProperty("Identity").GetString()!;
-                var ver = item.TryGetProperty("VersionOverride", out var vo) && vo.GetString() is { Length: > 0 } v1 ? v1 : item.TryGetProperty("Version", out var vv) ? vv.GetString() : null;
-                var attr = ver is null ? "" : $" Version=\"{Esc(ver)}\"";
-                xml.AppendLine($"    <PackageReference Include=\"{Esc(id)}\"{attr} />");
+                if (item.TryGetProperty(meta, out var mv) && mv.GetString() is { Length: > 0 } m)
+                {
+                    attr += $" {meta}=\"{Esc(m)}\"";
+                }
             }
+
+            xml.AppendLine($"    <PackageReference Include=\"{Esc(id)}\"{attr} />");
         }
 
         // The game's content folders (fonts, art, data) travel inside the program and are written to its file system before anything runs: the
@@ -267,8 +329,91 @@ internal static class WebExport
             wire += File.Exists(br) ? new FileInfo(br).Length : length;
         }
 
+        Fingerprint(outFolder);
         return new WebExportResult(outFolder, files, bytes, wire, configuration, clock.Elapsed.TotalSeconds);
     }
+
+    // The scripts a page loads by a fixed name: a CDN or the browser's cache that kept the old file would pair a new program with an old
+    // loader. Each import in boot.mjs, and boot.mjs in index.html, gets ?v=<hash of that file's content>, so a changed file is a new URL. The
+    // runtime's own files already carry a hash in their names (and dotnet.js names them).
+    private static readonly (string Import, string File)[] VersionedImports =
+    [
+        ("./_framework/dotnet.js", "_framework/dotnet.js"),
+        ("./_content/RecursiveAI.OneGpu.WebGpu/onegpu.js", "_content/RecursiveAI.OneGpu.WebGpu/onegpu.js"),
+        ("./onegame-platform.js", "onegame-platform.js"),
+        ("./onegame-audio.js", "onegame-audio.js"),
+    ];
+
+    /// <summary>Adds content hashes to the script URLs of an exported folder and rewrites the Brotli and gzip copies of the files it changes.</summary>
+    /// <param name="folder">The export folder.</param>
+    internal static void Fingerprint(string folder)
+    {
+        var boot = Path.Combine(folder, "boot.mjs");
+        var index = Path.Combine(folder, "index.html");
+        if (!File.Exists(boot) || !File.Exists(index))
+        {
+            return;
+        }
+
+        var text = File.ReadAllText(boot);
+        foreach (var (import, file) in VersionedImports)
+        {
+            var path = Path.Combine(folder, file);
+            if (File.Exists(path))
+            {
+                text = text.Replace($"'{import}'", $"'{import}?v={Tag(path)}'", StringComparison.Ordinal);
+            }
+        }
+
+        WriteWithCopies(boot, text);
+        var page = File.ReadAllText(index).Replace("src=\"./boot.mjs\"", $"src=\"./boot.mjs?v={Tag(boot)}\"", StringComparison.Ordinal);
+        WriteWithCopies(index, page);
+    }
+
+    private static string Tag(string path) => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path)))[..10];
+
+    private static void WriteWithCopies(string path, string text)
+    {
+        var data = new UTF8Encoding(false).GetBytes(text);
+        File.WriteAllBytes(path, data);
+        foreach (var (ext, make) in new (string, Func<Stream, Stream>)[]
+        {
+            (".br", s => new System.IO.Compression.BrotliStream(s, System.IO.Compression.CompressionLevel.SmallestSize)),
+            (".gz", s => new System.IO.Compression.GZipStream(s, System.IO.Compression.CompressionLevel.SmallestSize)),
+        })
+        {
+            if (!File.Exists(path + ext))
+            {
+                continue;
+            }
+
+            using var output = File.Create(path + ext);
+            using (var packed = make(output))
+            {
+                packed.Write(data);
+            }
+        }
+    }
+
+    private static string ShaderAttributes(JsonElement item, string projectDir)
+    {
+        var text = new StringBuilder();
+        foreach (var name in ShaderMetadata)
+        {
+            if (!item.TryGetProperty(name, out var v) || v.GetString() is not { Length: > 0 } value)
+            {
+                continue;
+            }
+
+            text.Append($" {name}=\"{Esc(name == "IncludeDirectories" ? AbsoluteList(value, projectDir) : value)}\"");
+        }
+
+        return text.ToString();
+    }
+
+    // The shader compiler resolves include folders against the project it builds, which is the wrapper in obj; the game's are relative to its own folder.
+    private static string AbsoluteList(string list, string projectDir) =>
+        string.Join(';', list.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(d => Path.GetFullPath(d, projectDir)));
 
     private static string Full(JsonElement item, string directory) => Path.GetFullPath(item.GetProperty("FullPath").GetString() ?? item.GetProperty("Identity").GetString()!, directory);
 

@@ -6,16 +6,26 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `InputState.PointerEdges`: every pointer and touch event of the frame in order, each with its own sub-pixel position (`PointerEdge`, `PointerEdgeKind`), with `EndFrame()` (the game host calls it after each frame), `DroppedPointerEdges` and `PointerEmulatedFromTouch`. A press that is followed by a long move in the same frame, and a finger that moves and lifts in the same frame, now report where they happened; reading `PointerX` and `TryGetTouch` at frame time gives only where the pointer ended up. See `docs/input.md`.
+- `Renderer2D.CancelFrame()`: drops a frame that was begun but not ended, so a view that threw does not leave the renderer mid-frame.
+- `tests/WebGame` and `tools/web/run-web-tests.sh`: a small game and the headless-Chrome checks of the web host (pointer positions, phone canvas, safe area, titles, fingerprints, capture after a failing frame, a game's own material).
 - `AudioService.Reset()`: stops every voice and music at once and waits until the mixer has taken it. `onegame test` calls it at the start of every scenario.
 
 ### Changed
 
+- Web: pointer positions keep their fraction (they were rounded to whole device pixels), and the canvas is sized to the visible area, `innerWidth` by `innerHeight` in CSS pixels, and follows `resize`, `orientationchange` and the visual viewport. It was 100vw by 100vh, which on a phone with its toolbar out is taller than the area on show, so the picture stretched against the touch positions.
+- Web: `SafeAreaChanged` now fires from `env(safe-area-inset-*)` (the page needs `viewport-fit=cover`, which the stock page has), and `Window.SafeArea` holds the value from the start.
+- Web: the page keeps a title it sets itself. The stock page now has no `<title>`, so the game's `Name` is used as written (it was written to the page in every case).
+- Web export: the game's own project is built as its csproj says. The generated wrapper project carries `AllowUnsafeBlocks`, `NoWarn`, `DefineConstants`, `InternalsVisibleTo`, the `OneShader*` properties, the game's `OneShader` and `OneShaderVariant` items with their metadata, and its package references (`RecursiveAI.OneShader.Build` among them), so a custom `Sprite.Material` compiled from the game's HLSL exists in the browser. WGSL is added to `OneShaderTargets` when the game left it out.
+- Web export: the imports in `boot.mjs`, and the page's `boot.mjs` script, carry `?v=<hash of the file>`, so a CDN or cache that kept an old loader cannot pair it with a new program. The `.br` and `.gz` copies are rewritten to match.
 - In a browser, `AudioServiceOptions` defaults are lean: metering off, no bus meters, no reverbs, 32 voices and a clamping limiter (other platforms are unchanged; set the properties to opt back in). An idle page spends about 2% of the main thread on audio instead of 20% (81% to 4% at 4x CPU throttle in headless Chrome on the solitaire sample).
 - Web audio creates its `AudioContext` on the first user gesture instead of at load, so Chrome no longer warns that it was not allowed to start. The output reads `awaiting_gesture` until then, as before.
 - `onegame test` clears the `ui-scale:` override at the start of each scenario, as it does the audio voices.
 
 ### Fixed
 
+- Web, WebGPU: a custom material as the first draw of a frame failed with "No bind group set at group index 0" and drew nothing. `Renderer2D` now binds the frame constants after the pass's first pipeline.
+- A view that threw while a frame was being built left the render graph and the 2D renderer mid-frame, so every later frame and capture failed with "the previous frame was never executed". The stage now cancels the frame and the game's own error is what shows. In a browser the animation-frame loop also survives a frame that threw (`window.__onegame.frameErrors` and `lastFrameError` say what happened), and a page frame no longer runs between an offscreen capture's start and its readback.
 - `PlayOptions.Pitch` no longer throws. The mixer's converter now runs down to a quarter of the rate, so a 44.1 kHz clip plays at up to 4.35x in a 48 kHz mixer (it stopped at about 2.17 before), and a pitch beyond what the clip allows, zero, negative or infinite plays at the nearest allowed speed (NaN plays at 1). `SetPitch` clamps the same way. A fault in the web audio pump is counted in `AudioOutput.RenderFaults`, kept in `LastError`, and no longer escapes into the page's timer, which ended the game loop.
 - Late sounds in a long `onegame test` run reported `started: false` and `sound:` expectations saw 0 plays: voices and queued commands from earlier scenarios filled the mixer. Each scenario now starts with the audio reset.
 

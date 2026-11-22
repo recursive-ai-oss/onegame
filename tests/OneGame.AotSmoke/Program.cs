@@ -62,7 +62,17 @@ using (var app = PlatformApp.Create(new PlatformOptions { Backend = PlatformBack
     app.Injector.TouchDown(window.Id, 0, 30, 40);
     app.Injector.TouchDown(window.Id, 1, 90, 40);
     var pressed = app.Input.IsButtonDown(MouseButton.Left) && app.Input.TouchCount == 2 && app.Input.PointerX == 30;
+    app.Injector.TouchMove(window.Id, 1, 95.5f, 41);
     app.Injector.TouchUp(window.Id, 0, 30, 40);
+    var edges = app.Input.PointerEdges;
+    var edgesKept = edges.Length > 0 && edges[0].Kind == PointerEdgeKind.Down && edges[0].X == 30 && edges.ToArray().Any(x => x.TouchId == 1 && x.X == 95.5f);
+    app.Input.EndFrame();
+    if (!edgesKept || app.Input.PointerEdges.Length != 0)
+    {
+        Console.Error.WriteLine("pointer edge smoke failed");
+        return 1;
+    }
+
     if (!pressed || app.Input.IsButtonDown(MouseButton.Left) || app.Input.TouchCount != 1)
     {
         Console.Error.WriteLine("touch smoke failed");

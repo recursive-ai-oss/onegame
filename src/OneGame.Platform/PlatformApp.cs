@@ -151,7 +151,15 @@ public sealed class PlatformApp : IDisposable
         _queue.Enqueue(e);
         if (Options.TouchEmulatesPointer && e.Kind is PlatformEventKind.TouchDown or PlatformEventKind.TouchMove or PlatformEventKind.TouchUp or PlatformEventKind.TouchCancel)
         {
-            EmulatePointer(e);
+            Input.Emulating = true;
+            try
+            {
+                EmulatePointer(e);
+            }
+            finally
+            {
+                Input.Emulating = false;
+            }
         }
     }
 
