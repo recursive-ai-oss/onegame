@@ -43,6 +43,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- `onegame test` counted 0 unit tests when the test platform coloured its summary (a CI log, `CI=true`): the colour codes before `total:` and `succeeded:` hid them. The counts now ignore ANSI escapes.
 - Web, WebGPU: a custom material as the first draw of a frame failed with "No bind group set at group index 0" and drew nothing. `Renderer2D` now binds the frame constants after the pass's first pipeline.
 - A view that threw while a frame was being built left the render graph and the 2D renderer mid-frame, so every later frame and capture failed with "the previous frame was never executed". The stage now cancels the frame and the game's own error is what shows. In a browser the animation-frame loop also survives a frame that threw (`window.__onegame.frameErrors` and `lastFrameError` say what happened), and a page frame no longer runs between an offscreen capture's start and its readback.
 - `PlayOptions.Pitch` no longer throws. The mixer's converter now runs down to a quarter of the rate, so a 44.1 kHz clip plays at up to 4.35x in a 48 kHz mixer (it stopped at about 2.17 before), and a pitch beyond what the clip allows, zero, negative or infinite plays at the nearest allowed speed (NaN plays at 1). `SetPitch` clamps the same way. A fault in the web audio pump is counted in `AudioOutput.RenderFaults`, kept in `LastError`, and no longer escapes into the page's timer, which ended the game loop.

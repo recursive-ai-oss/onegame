@@ -234,7 +234,7 @@ internal sealed class TestVerb : IVerb
             ok &= result.ExitCode == 0;
             foreach (var raw in (result.Output + "\n" + result.Error).Split('\n'))
             {
-                var line = raw.Trim();
+                var line = StripAnsi(raw).Trim();
                 total += Count(line, "total:");
                 passed += Count(line, "succeeded:");
                 failed += Count(line, "failed:");
@@ -245,6 +245,35 @@ internal sealed class TestVerb : IVerb
         }
 
         return new UnitTestSummary(true, ok, total, passed, failed, skipped, projects, ok ? null : string.Join("\n", tail));
+    }
+
+    // The test platform colours its summary when it thinks it is on a terminal or a CI log ('CI' set), putting an escape before the label.
+    private static string StripAnsi(string text)
+    {
+        if (!text.Contains('\u001b', StringComparison.Ordinal))
+        {
+            return text;
+        }
+
+        var sb = new System.Text.StringBuilder(text.Length);
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] == '\u001b' && i + 1 < text.Length && text[i + 1] == '[')
+            {
+                i += 2;
+                while (i < text.Length && text[i] is >= '0' and <= '?')
+                {
+                    i++;
+                }
+
+                // The final byte of a CSI sequence is in @..~; the loop's own increment skips it.
+                continue;
+            }
+
+            sb.Append(text[i]);
+        }
+
+        return sb.ToString();
     }
 
     private static int Count(string line, string label) =>
