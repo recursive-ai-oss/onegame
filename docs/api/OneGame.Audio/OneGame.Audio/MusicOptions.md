@@ -32,6 +32,7 @@ Creates options for a looping track at full volume that cuts in.
 | --- | --- |
 | [`CrossfadeSeconds`](#m-crossfadeseconds) | Seconds over which the previous track fades out and this one fades in. |
 | [`Loop`](#m-loop) | Whether the track repeats. |
+| [`StartAtFrame`](#m-startatframe) | The audio-timeline frame the track's first sample plays at, the same clock and units as [`PlayOptions.StartAtFrame`](PlayOptions.md#m-startatframe): it is a frame of the mixer's output timeline, so `FramesRendered + 4800` is 100 ms ahead at 48 kHz. |
 | [`Volume`](#m-volume) | Linear volume of the track. |
 
 ### <a id="m-crossfadeseconds"></a>CrossfadeSeconds
@@ -53,6 +54,16 @@ public bool Loop { get; init; }
 Whether the track repeats. Default true.
 
 **Type:** `bool`
+
+### <a id="m-startatframe"></a>StartAtFrame
+
+```csharp
+public long StartAtFrame { get; init; }
+```
+
+The audio-timeline frame the track's first sample plays at, the same clock and units as [`PlayOptions.StartAtFrame`](PlayOptions.md#m-startatframe): it is a frame of the mixer's output timeline, so `FramesRendered + 4800` is 100 ms ahead at 48 kHz. A frame already past starts at once. 0 starts as soon as possible. Use it to put a loop's downbeat on a beat of a timeline the game keeps itself. A track at another sample rate is converted to the mixer's with the converter's delay compensated, so its first sample still lands on the requested frame (within one frame). Default 0.
+
+**Type:** `long`
 
 ### <a id="m-volume"></a>Volume
 

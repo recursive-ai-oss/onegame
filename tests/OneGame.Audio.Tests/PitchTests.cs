@@ -63,4 +63,60 @@ public class PitchTests
         Assert.Equal(1, output.RenderFaults);
         output.Dispose();
     }
+
+    [Theory]
+    [InlineData(1000)]
+    [InlineData(4801)]
+    public void ScheduledMusicStartsOnTheRequestedFrame(int frame)
+    {
+        using var s = Service();
+        var voice = s.PlayMusic(new MemoryStream(RealMixerTests.Wav(16000, 48_000, 48_000)), new MusicOptions { Loop = false, StartAtFrame = frame });
+        Assert.True(voice.IsValid);
+        s.Advance(frame + 480);
+        var samples = s.Capture!.Samples.ToArray();
+        var first = Array.FindIndex(samples, x => Math.Abs(x) > 1e-6f) / 2;
+        Assert.Equal(frame, first);
+    }
+
+    // A click at input frame 0 and silence after it, so the output's peak is where the track's first sample landed.
+    private static byte[] Click(int rate, int frames)
+    {
+        var wav = RealMixerTests.Wav(0, frames, rate);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(wav.AsSpan(44), 30000);
+        return wav;
+    }
+
+    [Theory]
+    [InlineData(22_050, 1000, true)]
+    [InlineData(22_050, 4801, true)]
+    [InlineData(44_100, 1000, true)]
+    [InlineData(44_100, 4801, true)]
+    [InlineData(22_050, 1000, false)]
+    [InlineData(44_100, 7777, false)]
+    public void AClickAtAnyRateLandsWithinAFrameOfTheRequest(int rate, int frame, bool music)
+    {
+        using var s = Service();
+        using var wav = new MemoryStream(Click(rate, rate / 2));
+        if (music)
+        {
+            Assert.True(s.PlayMusic(wav, new MusicOptions { Loop = false, StartAtFrame = frame }).IsValid);
+        }
+        else
+        {
+            Assert.True(s.Play(s.LoadSound(wav), new PlayOptions { StartAtFrame = frame }).IsValid);
+        }
+
+        s.Advance(frame + 4800);
+        var all = s.Capture!.Samples.ToArray();
+        var peak = 0;
+        for (var i = 0; i < all.Length / 2; i++)
+        {
+            if (Math.Abs(all[i * 2]) > Math.Abs(all[peak * 2]))
+            {
+                peak = i;
+            }
+        }
+
+        Assert.InRange(peak, frame - 1, frame + 1);
+    }
 }

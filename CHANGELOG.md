@@ -6,6 +6,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `MusicOptions.StartAtFrame`: start a music track at a given frame of the audio timeline, the same clock and units as `PlayOptions.StartAtFrame`, so beat-synced music lands exactly.
 - `InputState.PointerEdges`: every pointer and touch event of the frame in order, each with its own sub-pixel position (`PointerEdge`, `PointerEdgeKind`), with `EndFrame()` (the game host calls it after each frame), `DroppedPointerEdges` and `PointerEmulatedFromTouch`. A press that is followed by a long move in the same frame, and a finger that moves and lifts in the same frame, now report where they happened; reading `PointerX` and `TryGetTouch` at frame time gives only where the pointer ended up. See `docs/input.md`.
 - `Renderer2D.CancelFrame()`: drops a frame that was begun but not ended, so a view that threw does not leave the renderer mid-frame.
 - `tests/WebGame` and `tools/web/run-web-tests.sh`: a small game and the headless-Chrome checks of the web host (pointer positions, phone canvas, safe area, titles, fingerprints, capture after a failing frame, a game's own material).
