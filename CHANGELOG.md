@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Fixed
+
+- `onegame test` counted 0 unit tests when the test platform coloured its summary (a CI log, `CI=true`): the colour codes before `total:` and `succeeded:` hid them. The counts now ignore ANSI escapes.
+
 ## [2.1.0] - 2026-11-22
 
 ### Added
