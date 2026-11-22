@@ -77,6 +77,7 @@ public sealed partial class Draw2D : ISceneMarkerSink
     private Texture2D? _white;
     private Texture2D? _disk;
     private Texture2D? _soft;
+    private readonly Dictionary<string, RenderTexture2D> _renderTextures = [];
     private readonly List<ParticleEmitter> _emitters = [];
     private long _lastTick = long.MinValue;
     private float _lastTime;
@@ -127,6 +128,78 @@ public sealed partial class Draw2D : ISceneMarkerSink
     /// <returns>The layer.</returns>
     public Layer2D GetLayer(string name) => _scene.GetLayer(name);
 
+    /// <summary>
+    /// Effects run over the whole drawn frame (everything this class draws, not the UI above it), or null (the default) for none. Make a chain
+    /// with <see cref="CreatePostChain"/> once and keep it; assign it every frame it should apply, or once and set null to stop. A frame with a null or
+    /// empty chain has no extra pass and draws exactly as before. For effects on one layer only, use <see cref="Layer2D.Post"/>.
+    /// </summary>
+    public PostChain? Post { get; set; }
+
+    /// <summary>
+    /// Makes an empty post-processing chain for <see cref="Post"/> or <see cref="Layer2D.Post"/>: <c>AddBloom()</c>, <c>AddBlur(r)</c>,
+    /// <c>AddGrade(...)</c>, or <c>AddMaterial(m)</c> with a pixel shader of your own. Keep the chain; it owns GPU objects.
+    /// </summary>
+    /// <returns>The chain.</returns>
+    /// <exception cref="InvalidOperationException">Called before the first frame is drawn.</exception>
+    public PostChain CreatePostChain() =>
+        (Renderer ?? throw new InvalidOperationException("Draw2D can only make a post chain while the stage is rendering a frame.")).CreatePostChain();
+
+    /// <summary>
+    /// An image to draw into and then show as a sprite (<see cref="RenderTexture2D.Texture"/>): a minimap, a reflection, trails, or a complex layer
+    /// drawn once. Made on first use and kept by name; asking again with another size makes a new one and releases the old, so ask every frame
+    /// with the size you want. Aim a layer at it with <see cref="RenderLayer"/>.
+    /// </summary>
+    /// <param name="name">Names the texture between frames.</param>
+    /// <param name="width">Width in pixels.</param>
+    /// <param name="height">Height in pixels.</param>
+    /// <param name="filter">How it is filtered when drawn at another size.</param>
+    /// <returns>The render texture.</returns>
+    /// <exception cref="InvalidOperationException">Called before the first frame is drawn.</exception>
+    public RenderTexture2D RenderTexture(string name, int width, int height, TextureFilter filter = TextureFilter.Linear)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        var renderer = Renderer ?? throw new InvalidOperationException("Draw2D can only make a render texture while the stage is rendering a frame.");
+        if (_renderTextures.TryGetValue(name, out var known))
+        {
+            if (known.Width == width && known.Height == height)
+            {
+                return known;
+            }
+
+            known.Dispose();
+        }
+
+        var made = renderer.CreateRenderTexture(width, height, filter);
+        _renderTextures[name] = made;
+        return made;
+    }
+
+    /// <summary>
+    /// Finds or makes a layer (see <see cref="GetLayer"/>) that draws into a render texture instead of the frame. A layer made here uses pixel
+    /// coordinates of the texture (<see cref="Layer2D.ScreenSpace"/>); give it a <see cref="Layer2D.Camera"/> instead to draw a world through it. Draw
+    /// into it with <see cref="Layer"/> set to the result, then show <see cref="RenderTexture2D.Texture"/> from a later layer. The texture is
+    /// cleared on the first frame a layer draws into it, and left alone on frames the layer has nothing to draw.
+    /// </summary>
+    /// <param name="name">The layer's name.</param>
+    /// <param name="target">The texture to draw into.</param>
+    /// <param name="clear">What to clear the texture to when the layer draws (transparent by default).</param>
+    /// <param name="keep">True to never clear, so drawing accumulates over the frames.</param>
+    /// <returns>The layer.</returns>
+    public Layer2D RenderLayer(string name, RenderTexture2D target, Color? clear = null, bool keep = false)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        var before = _scene.Layers.Count;
+        var layer = _scene.GetLayer(name);
+        if (_scene.Layers.Count != before)
+        {
+            layer.ScreenSpace = true;
+        }
+
+        layer.Target = target;
+        layer.TargetClear = keep ? null : clear ?? new Color(0, 0, 0, 0);
+        return layer;
+    }
+
     /// <summary>The camera. It remembers where it is between frames; call <see cref="Follow"/> or set its properties from view code.</summary>
     public Camera2DRig Camera { get; } = new();
 
@@ -165,6 +238,7 @@ public sealed partial class Draw2D : ISceneMarkerSink
         if (!ReferenceEquals(_assetsFor, renderer))
         {
             _assetsFor = renderer;
+            _renderTextures.Clear();
             _white = renderer.CreateTexture(1, 1, [255, 255, 255, 255], TextureFilter.Nearest);
             _disk = renderer.CreateTexture(DiskSize, DiskSize, MakeDisk(), TextureFilter.Linear);
             _soft = renderer.CreateTexture(SoftSize, SoftSize, MakeSoft(), TextureFilter.Linear);
@@ -226,7 +300,7 @@ public sealed partial class Draw2D : ISceneMarkerSink
         // class at its turn. Sprites and text runs that do not interleave still batch as before.
         if (SpriteCount > 0 || _texts.Count > 0 || _scene.Layers.Count > 1)
         {
-            renderer.DrawScene(_scene, Camera.Current(new Vector2(Width, Height)), null, this);
+            renderer.DrawScene(_scene, Camera.Current(new Vector2(Width, Height)), Post, this);
         }
     }
 

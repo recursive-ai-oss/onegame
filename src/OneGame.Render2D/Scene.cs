@@ -138,6 +138,24 @@ public sealed class Layer2D
     /// </summary>
     public Rect? Viewport { get; set; }
 
+    /// <summary>
+    /// A render texture to draw this layer into instead of the frame, or null (the default). The layer's camera, viewport and screen-space rules then
+    /// refer to the texture's size. The texture is cleared to <see cref="TargetClear"/> the first time a layer draws into it in a frame; a layer that
+    /// has nothing to draw leaves it as it was, so a texture can be redrawn only when its contents change. Sprites that show the texture belong on a
+    /// later layer; an earlier layer shows what the previous frame left.
+    /// </summary>
+    public RenderTexture2D? Target { get; set; }
+
+    /// <summary>The colour <see cref="Target"/> is cleared to (sRGB, straight alpha), transparent by default; null keeps what the texture holds, so drawing accumulates.</summary>
+    public Color? TargetClear { get; set; } = new Color(0, 0, 0, 0);
+
+    /// <summary>
+    /// Effects run over this layer alone, after it is drawn and before the layers above it (a HUD on a later layer stays sharp), or null for none.
+    /// The layer is drawn into an image of its own, the chain runs over it, and the result is blended onto the frame (or onto <see cref="Target"/>).
+    /// An empty chain, like null, costs nothing and adds no pass.
+    /// </summary>
+    public PostChain? Post { get; set; }
+
     /// <summary>The matrix taking this layer's coordinates to framebuffer pixels (row vectors), for the scene's camera and target size.</summary>
     /// <param name="sceneCamera">The camera the scene is drawn with; used unless the layer has its own <see cref="Camera"/>.</param>
     /// <param name="screenSize">Target size in pixels.</param>

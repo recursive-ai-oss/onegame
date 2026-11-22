@@ -10,13 +10,13 @@
 public sealed class PostChain : IDisposable
 ```
 
-A list of full-screen effects run, in order, over a finished scene. Make one with [`Renderer2D.CreatePostChain()`](Renderer2D.md#m-createpostchain), add effects, and pass it to [`Renderer2D.DrawScene()`](Renderer2D.md#m-drawscene-scene2d-camera2d-postchain-iscenemarkersink). The effects are ordinary materials with built-in shaders, so a chain costs one full-screen pass per effect.
+A list of full-screen effects run, in order, over a finished image: the whole scene ([`Renderer2D.DrawScene()`](Renderer2D.md#m-drawscene-scene2d-camera2d-postchain-iscenemarkersink)) or one layer ([`Layer2D.Post`](Layer2D.md#m-post)). Make one with [`Renderer2D.CreatePostChain()`](Renderer2D.md#m-createpostchain), add effects, and hand it over. A chain with no effects costs nothing; each effect costs one full-screen pass (blur is two, bloom is several at reduced size). A chain keeps GPU objects, so make it once and keep it.
 
 ## Properties
 
 | Member | Description |
 | --- | --- |
-| [`PassCount`](#m-passcount) | The number of full-screen passes. |
+| [`PassCount`](#m-passcount) | The number of effects added (a blur or a bloom counts as one). |
 
 ### <a id="m-passcount"></a>PassCount
 
@@ -24,7 +24,7 @@ A list of full-screen effects run, in order, over a finished scene. Make one wit
 public int PassCount { get; }
 ```
 
-The number of full-screen passes.
+The number of effects added (a blur or a bloom counts as one).
 
 **Type:** `int`
 
@@ -32,9 +32,30 @@ The number of full-screen passes.
 
 | Member | Description |
 | --- | --- |
+| [`AddBloom(float, float, float, float, int, int)`](#m-addbloom-float-float-float-float-int-int) | Adds bloom: the parts of the image brighter than a threshold are blurred and added back, so bright things glow. |
 | [`AddBlur(float)`](#m-addblur-float) | Adds a separable Gaussian-like blur (a horizontal and a vertical pass). |
 | [`AddGrade(float, float, float, float, Color?, float)`](#m-addgrade-float-float-float-float-color-float) | Adds a colour grade. |
-| [`Dispose()`](#m-dispose) | Releases the effects' GPU objects. |
+| [`AddMaterial(Material)`](#m-addmaterial-material) | Adds a pass of your own: a pixel shader (HLSL compiled with the game's shaders, made into a [`Material`](Material.md) with [`Renderer2D.CreateMaterial()`](Renderer2D.md#m-creatematerial-shadercode-string)) that runs over the whole image. |
+| [`Dispose()`](#m-dispose) | Releases the effects' GPU objects (not the materials passed to [`PostChain.AddMaterial()`](PostChain.md#m-addmaterial-material)). |
+
+### <a id="m-addbloom-float-float-float-float-int-int"></a>AddBloom(float, float, float, float, int, int)
+
+```csharp
+public PostChain AddBloom(float threshold = 0.6f, float intensity = 1f, float radius = 1f, float softness = 0.3f, int blurPasses = 3, int downscale = 2);
+```
+
+Adds bloom: the parts of the image brighter than a threshold are blurred and added back, so bright things glow. It works in linear light on an image at reduced size, and adds the glow to what is there instead of replacing it.
+
+**Parameters**
+
+- `threshold` (`float`): Brightness (linear light, 0 to 1) above which a pixel contributes; the brightest colour channel decides.
+- `intensity` (`float`): How strongly the glow is added; 1 adds it as found. Above about 1 the glow clips in an 8-bit renderer.
+- `radius` (`float`): Spacing of the blur's taps, in pixels of the reduced image; the glow reaches several times this far per blur pass.
+- `softness` (`float`): Width of the threshold's ramp in linear brightness; larger values include dimmer pixels gently.
+- `blurPasses` (`int`): How many times the image is blurred (each is a horizontal and a vertical pass); more is wider and smoother.
+- `downscale` (`int`): The factor the glow image is smaller than the source by (1 = full size, 2 = half, 4 = quarter).
+
+**Returns:** [`PostChain`](PostChain.md) — This chain.
 
 ### <a id="m-addblur-float"></a>AddBlur(float)
 
@@ -69,10 +90,24 @@ Adds a colour grade.
 
 **Returns:** [`PostChain`](PostChain.md) — This chain.
 
+### <a id="m-addmaterial-material"></a>AddMaterial(Material)
+
+```csharp
+public PostChain AddMaterial(Material material);
+```
+
+Adds a pass of your own: a pixel shader (HLSL compiled with the game's shaders, made into a [`Material`](Material.md) with [`Renderer2D.CreateMaterial()`](Renderer2D.md#m-creatematerial-shadercode-string)) that runs over the whole image. It reads the image so far as `Tex`/`Samp` (set 1), its parameters as `P[0..7]` (set 2) and the size of the image being drawn as `Viewport` (set 0), and returns premultiplied colour. Change its parameters with [`Material.SetParameter()`](Material.md#m-setparameter-int-vector4) any time; they apply to the next frame drawn. The chain does not own the material: dispose it yourself after the chain.
+
+**Parameters**
+
+- `material` ([`Material`](Material.md)): A material whose shader reads the previous image.
+
+**Returns:** [`PostChain`](PostChain.md) — This chain.
+
 ### <a id="m-dispose"></a>Dispose()
 
 ```csharp
 public void Dispose();
 ```
 
-Releases the effects' GPU objects.
+Releases the effects' GPU objects (not the materials passed to [`PostChain.AddMaterial()`](PostChain.md#m-addmaterial-material)).

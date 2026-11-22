@@ -24,6 +24,7 @@ public sealed class WebGameDefinition : GameDefinition
     public override void Setup(World world)
     {
         world.Add(new Swatch());
+        world.Add(new Glow());
         world.Add(new TextLoad());
     }
 

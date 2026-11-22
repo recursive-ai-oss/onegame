@@ -99,6 +99,24 @@ public sealed class UiCanvas : IDisposable
         _pendingGlyphs = null;
     }
 
+    /// <summary>Tells the canvas the size of the target now being drawn into (an offscreen render texture has its own).</summary>
+    internal void Resize(int width, int height)
+    {
+        if (width == _width && height == _height)
+        {
+            return;
+        }
+
+        if (_clips.Count != 1 || _transforms.Count != 0 || _groups.Count != 0)
+        {
+            throw new InvalidOperationException("the drawing target cannot change inside a UI clip, transform or opacity group");
+        }
+
+        _width = width;
+        _height = height;
+        _clips[0] = new ClipState { X0 = 0, Y0 = 0, X1 = width, Y1 = height };
+    }
+
     internal void Finish()
     {
         if (_pendingGlyphs is { } pending)

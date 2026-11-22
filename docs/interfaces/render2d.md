@@ -84,12 +84,23 @@ use it for development reloads, not per frame. Only materials from `CreateMateri
 
 `renderer.AdditiveMaterial` is a built-in material (pixel entry `PSAdditive` in `Quad.hlsl`): it outputs the premultiplied colour with alpha 0, so with the renderer's `One, OneMinusSrcAlpha` blend the colour is added to the target and the sprite's alpha only scales its brightness. Set it as `Sprite.Material`. Additive sprites batch with each other as any run of equal texture and material; order between them does not matter. Particles use it (`particles.md`).
 
+## Render textures
+
+`renderer.CreateRenderTexture(width, height, filter)` makes a `RenderTexture2D`: an image in the renderer's target format (so every shader and pipeline of the renderer draws into it), 1 to 16384 pixels a side. Its `Texture` is an ordinary `Texture2D` (made like `WrapTexture`, so sprites, tiles and the UI draw it). Two ways to draw into one, both between `BeginFrame` and `EndFrame`:
+
+- `BeginTarget(texture, clear)` ... `EndTarget()`: everything drawn between (scenes, sprites, text, UI primitives) lands in the texture, in its pixels (the frame's size, the UI canvas's root clip and `FullScreen` quads follow the texture). `clear` is the colour to clear to first, or null to keep the contents; a texture never drawn into is cleared to transparent either way. Targets do not nest.
+- `Layer2D.Target` (with `TargetClear`): a layer draws into the texture instead of the frame; `DrawScene` does the begin and end around the layer's entries. The layer's camera, viewport and screen-space rules use the texture's size. The texture is cleared by the first layer that draws into it in a frame (`TargetClear` null: never); a layer with no entries touches nothing.
+
+Order is the order of the frame's passes: a texture is written by the passes recorded when it was drawn into and read by those recorded after, and the backend moves it between render-target and sampled use. A target that was only cleared still gets its pass, before the passes that sample it. Sampling a texture while it is the target throws `InvalidOperationException`. Textures are not part of the frame's render graph resources: `Render2DStage` runs the whole 2D frame as one graph pass (`render2d`), and the passes inside it are the renderer's own, with pooled intermediate images.
+
 ## Post-processing
 
-`renderer.CreatePostChain().AddBlur(radius).AddGrade(exposure, contrast, saturation, vignette, tint, tintAmount)` and pass it to
-`DrawScene`. The scene is drawn offscreen, each effect is one full-screen pass (blur is two), and the last writes to the frame target; the
-frame's `Clear` colour fills the scene first so the effects see the background. Effects are materials with built-in shaders, so a chain costs
-one pass per effect and two offscreen textures (reused across frames and groups).
+`renderer.CreatePostChain()` then `AddBlur(radius)`, `AddGrade(...)`, `AddBloom(...)` and `AddMaterial(material)`, in order. A chain applies to the whole scene (`DrawScene(scene, camera, chain)`) or to one layer (`Layer2D.Post`).
+
+- **Scene chain.** The scene is drawn offscreen (cleared to the frame's `Clear` colour so the effects see the background), each effect is one pass, and the last writes to the frame target; anything drawn after (usually the UI) is not post-processed.
+- **Layer chain.** The layer is drawn into an image of its own (transparent where nothing is drawn), the chain runs over it, and the last pass blends the result, premultiplied, onto the layer's destination (the scene image or the layer's `Target`) inside the layer's scissor box. Layers above it are untouched. Text drawn on the layer (markers) goes into the layer's image too.
+- **Effects.** Blur is two passes. Grade is one. Bloom: a bright pass (`PSBright`: the brightest unpremultiplied channel against a threshold with a soft ramp, in linear light) into an image `downscale` times smaller, `blurPasses` pairs of horizontal and vertical blurs, then the source is drawn to the destination and the glow added (the additive pipeline); the intensity is a gain in the bright pass, so an 8-bit renderer clips a glow stronger than 1. `AddMaterial` runs a material of the game's own over the image so far; the chain does not own it. Its shader sees the image as `Tex`/`Samp` (set 1), `P[0..7]` (set 2) and the image size as `Viewport` (set 0).
+- **Cost.** Images are pooled and reused across frames and groups; nothing is allocated in steady state. A chain with no effects, and no chain, add no pass and leave the output pixel-identical. Blur and bloom set their taps from the image size when the frame is built, so one chain used on images of two sizes in one frame is not supported.
 
 ## UI
 
@@ -123,7 +134,7 @@ an `IShaderSource` for `(program, entry)` pairs (`ShaderNames`) and gets a `Shad
 0 and 1 are identical in every program so bind groups are shared.
 
 The shaders are compiled during `dotnet build` by the shader build package (`RecursiveAI.OneShader.Build`, referenced by `OneGame.Render2D.csproj`),
-which generates the C# bindings (`OneGame.Render2D.Shaders.Quad|Tile|Ui`). `GeneratedShaders` (`GeneratedShaders.Instance`) maps the ten
+which generates the C# bindings (`OneGame.Render2D.Shaders.Quad|Tile|Ui`). `GeneratedShaders` (`GeneratedShaders.Instance`) maps the eleven
 `(program, entry)` pairs of `ShaderNames` onto the generated `Stage`/`EntryPoint`/`SpirV`; it is the default `IShaderSource` of the host, the test
 cluster and every test, and the compiled shaders are embedded in the assembly, so nothing is read from disk. A custom `IShaderSource` can still be passed to
 `Renderer2D.Create` or `GameOptions.Shaders`. A custom sprite material is HLSL in your own project compiled the same way (see
@@ -181,6 +192,7 @@ public partial class Hero : Entity, IView2D
   pixels across. Text is one line (no wrapping), unrotated, in the game's fonts (`family` null = the first); it reaches the screen through
   `UiCanvas.Text`, which uses the UI's glyph atlas; the atlas pages those calls change are uploaded once, at the end of the frame.
 - **Layer cameras.** A `Layer2D` may have its own `Camera` (replacing the one `DrawScene` is given), a `Viewport` (a framebuffer rectangle: the camera is centred on it, drawing is scissored to it) and `ScreenSpace` (framebuffer pixels, no camera). `Layer2D.View` is the layer's matrix to pixels. `Draw2D.ScreenLayer` and `GetLayer(name)` make persistent layers; `WorldToScreen(layer, p)`/`ScreenToWorld(layer, p)` convert through them. `WarmUpText(chars, size)` rasterizes glyphs ahead of time.
+- **Render textures and post chains.** `d.RenderTexture(name, w, h)` keeps a `RenderTexture2D` by name; `d.RenderLayer(name, texture, clear)` makes a layer (pixel coordinates) that draws into it; `d.Post` and `Layer2D.Post` take a chain from `d.CreatePostChain()`; see "Render textures" and "Post-processing" below.
 - **View time.** `d.Time` is `(Tick + Alpha) / 60` seconds, `d.DeltaTime` the step since the previous drawn frame. Clips read it, so animation is smooth
   in play, identical in captures and replays, and frozen while the sim is paused. Pass `clipTime: d.Time - startedAt` to play from a moment.
 - **`SpriteSheet`** (`OneGame.Render2D`): `Grid(texture, w, h, margin, spacing)` or `Frames(texture, rects)`; `AddClip(name, first, count, fps,
@@ -190,7 +202,7 @@ public partial class Hero : Entity, IView2D
   depend on how many frames were drawn, so a capture taken after a jump is not the same as one taken after every tick; keep it at 0 where captures
   must repeat (the clip and sheet maths are unaffected).
 - **Dropping down.** `d.Scene` is the `Scene2D` of the frame, `d.Layer` the layer new sprites go on (`d.Scene.AddLayer(...)` for parallax), and
-  `d.Sprite(in Sprite)` takes any hand-built sprite with a material. Tilemaps and post chains still go through `DrawOverUi` or the stage's own
+  `d.Sprite(in Sprite)` takes any hand-built sprite with a material. Tilemaps still go through `DrawOverUi` or the stage's own
   `Renderer2D`, alongside.
 - **Drawing from files.** `d.Sprite("art/ship.png", pos, ...)` and `d.Texture(path, filter)` load through the game's `Assets` (`assets.md`), cached by path, cheap every frame. The texture is updated in place when the file changes in development, so a sprite, or a grid `SpriteSheet` over it, shows the new picture from the next frame; a grid sheet is cut again when the size changes (`Resized`; clip frames past the new count show the last frame), while a sheet of explicit frames keeps its rectangles. A missing or damaged file throws `AssetException`.
 - **Textures** are the renderer's (`d.Renderer.CreateTexture`); a texture belongs to one renderer, so a game with several targets of different

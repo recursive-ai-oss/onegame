@@ -88,6 +88,20 @@ float4 PSBlur(QuadOut i) : SV_Target
     return sum * i.Color;
 }
 
+// Bloom's bright pass: keeps the part of the image above a threshold. P[0] = (threshold, softness, gain, unused), in linear light.
+// The brightest channel of the unpremultiplied colour decides, so saturated colours glow as well as white ones; the keep factor rises
+// smoothly over `softness` above the threshold, so edges of bright areas do not crawl.
+[shader("pixel")]
+float4 PSBright(QuadOut i) : SV_Target
+{
+    float4 t = Tex.Sample(Samp, i.Uv);
+    float a = t.a;
+    float3 rgb = a > 0.0 ? t.rgb / a : float3(0.0, 0.0, 0.0);
+    float peak = max(rgb.r, max(rgb.g, rgb.b));
+    float keep = saturate((peak - P[0].x) / max(P[0].y, 0.0001));
+    return t * (keep * P[0].z) * i.Color.a;
+}
+
 // Colour grade. P[0] = (exposure in stops, contrast, saturation, vignette strength); P[1] = (tint rgb, tint amount).
 // Contrast and saturation work on gamma-encoded values so 0.5 is the pivot a person expects.
 [shader("pixel")]
