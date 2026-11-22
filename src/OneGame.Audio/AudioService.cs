@@ -95,7 +95,7 @@ public readonly record struct MusicOptions
     /// <summary>
     /// The audio-timeline frame the track's first sample plays at, the same clock and units as <see cref="PlayOptions.StartAtFrame"/>: it is a frame of the mixer's output
     /// timeline, so <c>FramesRendered + 4800</c> is 100 ms ahead at 48 kHz. A frame already past starts at once. 0 starts as soon as possible. Use it to put a loop's downbeat
-    /// on a beat of a timeline the game keeps itself. The track's own sample rate is converted to the mixer's, which adds the converter's small delay for a clip at another rate.
+    /// on a beat of a timeline the game keeps itself. A track at another sample rate is converted to the mixer's with the converter's delay compensated, so its first sample still lands on the requested frame (within one frame).
     /// Default 0.
     /// </summary>
     public long StartAtFrame { get; init; }
