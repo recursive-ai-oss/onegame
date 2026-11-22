@@ -8,6 +8,7 @@ using OneGame.UI;
 
 namespace OneGame.Testing.Tests;
 
+[Collection("AudioService.Active")]
 public class SoundScenarioTests
 {
     private static string Clip([CallerFilePath] string here = "") =>

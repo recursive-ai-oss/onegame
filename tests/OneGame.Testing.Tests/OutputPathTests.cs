@@ -5,6 +5,7 @@ using OneGame.Host;
 namespace OneGame.Testing.Tests;
 
 /// <summary>Operations that write files put them under the output folder, and refuse every way out of it.</summary>
+[Collection("AudioService.Active")]
 public class OutputPathTests
 {
     private static TestOptions Options() => new() { Width = 320, Height = 200, Gpu = GpuMode.Off };

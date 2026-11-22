@@ -52,6 +52,9 @@ public static class SyncLimits
     /// <summary>Largest number of random streams or tables in a snapshot.</summary>
     public const int MaxNamed = 4096;
 
+    /// <summary>Most events one message may carry (the size of an event log).</summary>
+    public const int MaxEventsPerMessage = 512;
+
     /// <summary>Largest command payload, in bytes.</summary>
     public const int MaxCommandBytes = 64 * 1024;
 }

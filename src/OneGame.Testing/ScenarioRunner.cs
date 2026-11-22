@@ -113,6 +113,7 @@ public sealed class ScenarioRunner
             }
 
             _soundBase = SoundLastSequence();
+            _eventBase = EventNext();
             // A scenario starts a run, so data files that changed on disk while the game idled are swapped in here and nowhere mid-run.
             game.Assets.ApplyPendingData();
             if (scenario.Window is not null)
@@ -269,6 +270,93 @@ public sealed class ScenarioRunner
 
         var ok = problems.Count == 0;
         return new ExpectationResult(index, "sound", e.Line, ok, target, string.Join(", ", wanted), count.ToString(CultureInfo.InvariantCulture) + " plays", ok ? null : string.Join("; ", problems));
+    }
+
+    // The sequence the world's next event will get, so only events from this scenario count.
+    private long EventNext()
+    {
+        using var doc = JsonDocument.Parse(_surface.Call("sim_events", Obj(("max", 1))));
+        return doc.RootElement.GetProperty("next").GetInt64();
+    }
+
+    private long _eventBase;
+
+    private ExpectationResult CheckEvent(ScenarioExpectation e, int index)
+    {
+        // A world replaced during the scenario (a reset, a loaded fixture) starts a new log, whose events all count.
+        var since = _eventBase;
+        using var doc = JsonDocument.Parse(_surface.Call("sim_events", Obj(("since", since), ("max", 512))));
+        var root = doc.RootElement;
+        var events = root.GetProperty("events");
+        if (root.GetProperty("next").GetInt64() < since)
+        {
+            using var again = JsonDocument.Parse(_surface.Call("sim_events", Obj(("since", 0), ("max", 512))));
+            return CheckEventCount(e, index, again.RootElement.GetProperty("events"));
+        }
+
+        return CheckEventCount(e, index, events);
+    }
+
+    private static ExpectationResult CheckEventCount(ScenarioExpectation e, int index, JsonElement events)
+    {
+        var name = e.EventName!;
+        var count = 0;
+        foreach (var ev in events.EnumerateArray())
+        {
+            if (ev.GetProperty("type").GetString() != name)
+            {
+                continue;
+            }
+
+            var data = ev.GetProperty("data");
+            var matches = true;
+            foreach (var (field, wanted) in e.EventWhere)
+            {
+                if (data.ValueKind != JsonValueKind.Object || !data.TryGetProperty(field, out var actual) || (actual.ValueKind == JsonValueKind.String ? actual.GetString() : actual.GetRawText()) != wanted)
+                {
+                    matches = false;
+                    break;
+                }
+            }
+
+            if (matches)
+            {
+                count++;
+            }
+        }
+
+        var target = e.EventWhere.Length == 0 ? $"event {name}" : $"event {name} where {string.Join(", ", e.EventWhere.Select(w => $"{w.Field} = {w.Value}"))}";
+        var problems = new List<string>();
+        var wanted2 = new List<string>();
+        if (e.Count is { } exact)
+        {
+            wanted2.Add($"exactly {exact}");
+            if (count != exact)
+            {
+                problems.Add($"{target} was emitted {count} times, expected exactly {exact}");
+            }
+        }
+
+        if (e.Min is { } min)
+        {
+            wanted2.Add($"at least {min:0}");
+            if (count < min)
+            {
+                problems.Add($"{target} was emitted {count} times, expected at least {min:0}");
+            }
+        }
+
+        if (e.Max is { } max)
+        {
+            wanted2.Add($"at most {max:0}");
+            if (count > max)
+            {
+                problems.Add($"{target} was emitted {count} times, expected at most {max:0}");
+            }
+        }
+
+        var ok = problems.Count == 0;
+        return new ExpectationResult(index, "event", e.Line, ok, target, string.Join(", ", wanted2), count.ToString(CultureInfo.InvariantCulture) + " events", ok ? null : string.Join("; ", problems));
     }
 
     private ExpectationResult CheckParticles(ScenarioExpectation e, int index)
@@ -530,6 +618,7 @@ public sealed class ScenarioRunner
                 ExpectKind.SteamInput => CheckSteamInput(e, index),
                 ExpectKind.Action => CheckAction(e, index),
                 ExpectKind.Sound => CheckSound(e, index),
+                ExpectKind.Event => CheckEvent(e, index),
                 ExpectKind.Particles => CheckParticles(e, index),
                 ExpectKind.Tweens => CheckTweens(e, index),
                 _ => throw new ControlException("bad_args", "Unknown expectation."),

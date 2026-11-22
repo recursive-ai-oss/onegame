@@ -42,6 +42,7 @@
     <Project Path="examples/water/WaterExample.csproj" />
     <Project Path="examples/networked-counter/server/NetworkedCounterExampleServer.csproj" />
     <Project Path="examples/particles/ParticlesExample.csproj" />
+    <Project Path="examples/events/EventsExample.csproj" />
     <Project Path="examples/saves/SavesExample.csproj" />
     <Project Path="examples/sprite/SpriteExample.csproj" />
     <Project Path="examples/tween/TweenExample.csproj" />

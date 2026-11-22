@@ -73,9 +73,26 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void EventsAreRegisteredAndCarryAStableIdVisibilityAndName()
+    {
+        var compilation = Harness.Compile(Harness.Usings + "namespace A; [SimEvent] public partial struct Popped { public int Cell { get; set; } }\n[SimEvent(Visibility = Visibility.Owner)] public partial struct Looted { public string What { get; set; } }");
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(new EntityGenerator());
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var updated, out var diagnostics, TestContext.Current.CancellationToken);
+        Assert.Empty(diagnostics);
+        Assert.Empty(updated.GetDiagnostics(TestContext.Current.CancellationToken).Where(d => d.Severity == DiagnosticSeverity.Error));
+        var trees = driver.GetRunResult().GeneratedTrees;
+        var registry = trees.Single(t => t.FilePath.Contains("EntityTypes", StringComparison.Ordinal)).ToString();
+        Assert.Contains("registry.AddEvent<global::A.Popped>();", registry, StringComparison.Ordinal);
+        Assert.Contains("registry.AddEvent<global::A.Looted>();", registry, StringComparison.Ordinal);
+        var looted = trees.Single(t => t.ToString().Contains("partial struct Looted", StringComparison.Ordinal)).ToString();
+        Assert.Contains("EventVisibility => (global::OneGame.Core.Visibility)1", looted, StringComparison.Ordinal);
+        Assert.Contains("EventName => \"Looted\"", looted, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AnUnrelatedEditLeavesGeneratorOutputsCached()
     {
-        var entity = CSharpSyntaxTree.ParseText(Harness.Entity("[Command] public void Go(int a) { }"), new CSharpParseOptions(LanguageVersion.Latest), cancellationToken: TestContext.Current.CancellationToken);
+        var entity = CSharpSyntaxTree.ParseText(Harness.Entity("[Command] public void Go(int a) { }", "[SimEvent] public partial struct Hit { public int Power { get; set; } }"), new CSharpParseOptions(LanguageVersion.Latest), cancellationToken: TestContext.Current.CancellationToken);
         var other1 = CSharpSyntaxTree.ParseText("namespace Z; public class Unrelated { public int A; }", new CSharpParseOptions(LanguageVersion.Latest), cancellationToken: TestContext.Current.CancellationToken);
         var other2 = CSharpSyntaxTree.ParseText("namespace Z; public class Unrelated { public int A; public int B; void M() { } }", new CSharpParseOptions(LanguageVersion.Latest), cancellationToken: TestContext.Current.CancellationToken);
         var compilation = Harness.Compile(entity.ToString()).AddSyntaxTrees(other1);
@@ -89,6 +106,9 @@ public class GeneratorTests
         var steps = result.TrackedSteps["Entity"].SelectMany(s => s.Outputs).ToList();
         Assert.NotEmpty(steps);
         Assert.All(steps, o => Assert.True(o.Reason is IncrementalStepRunReason.Cached or IncrementalStepRunReason.Unchanged, o.Reason.ToString()));
+        var eventSteps = result.TrackedSteps["Event"].SelectMany(s => s.Outputs).ToList();
+        Assert.NotEmpty(eventSteps);
+        Assert.All(eventSteps, o => Assert.True(o.Reason is IncrementalStepRunReason.Cached or IncrementalStepRunReason.Unchanged, o.Reason.ToString()));
 
         // Changing the entity itself does re-run it.
         var changed = edited.ReplaceSyntaxTree(edited.SyntaxTrees.First(), CSharpSyntaxTree.ParseText(Harness.Entity("[Command] public void Go(int a, int b) { }"), new CSharpParseOptions(LanguageVersion.Latest), cancellationToken: TestContext.Current.CancellationToken));

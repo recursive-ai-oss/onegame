@@ -52,6 +52,10 @@ public partial class Hero : Entity
 
 Synced types: `bool`, `byte`/`sbyte`, `short`/`ushort`, `int`/`uint`, `long`/`ulong`, `string`, enums, `Fixed`, `FVec2`, `EntityId`, `Timed<T>` (`T` = `Fixed` or `FVec2`), `[SyncedStruct]` structs, and `SyncList<T>` of any of those. Anything else is OG0009; floats are OG0001. At most 64 synced properties per entity. A null string is stored as empty.
 
+### One-shot events
+
+`[SimEvent]` on a partial struct (same payload rules as `[SyncedStruct]`; floats are OG0001, unsupported types OG0009) makes it an event type: the generator adds `ISimEvent<T>` (a stable `EventTypeId` from the full type name, `EventName`, `EventVisibility`) and registers it in `EntityTypes.Register`. `[SimEvent(Visibility = ...)]` is `Everyone` (default), `Owner`, `Team` or `Hidden`. Sim code emits with `Emit(new Ev { ... })` inside an entity or `world.Emit(...)`; both are `[MutatesState]`, so a view that emits is OG0008. Views read `world.Events.NewReader()`. See `docs/events.md` and the Events section of `sync.md`.
+
 ## Sim code and view code (analyzers)
 
 - **Sim code** = every member of a type marked `[Entity]` or `[Sim]` or implementing `ISimSystem`, plus any member marked `[Sim]`, except members (or types) marked `[View]`. Rules OG0002–OG0007 and OG0016 check the code written in those members **and follow every call** out of them (below).

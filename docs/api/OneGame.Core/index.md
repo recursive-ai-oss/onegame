@@ -26,6 +26,11 @@ dotnet add package RecursiveAI.OneGame.Core
 | [`EntityId`](OneGame.Core/EntityId.md) | struct | Identifies an entity in a world. |
 | [`EntityRegistry`](OneGame.Core/EntityRegistry.md) | class | The entity types a world can create while decoding a snapshot. |
 | [`Entropy`](OneGame.Core/Entropy.md) | static class | Unpredictable bytes for connection ids, handshake secrets and keys. |
+| [`EventInfo`](OneGame.Core/EventInfo.md) | struct | Where and when an event happened. |
+| [`EventJsonWriter`](OneGame.Core/EventJsonWriter.md) | delegate | Writes the JSON of an event payload, for the harness. |
+| [`EventLog`](OneGame.Core/EventLog.md) | class | The events a world's sim emitted, as a bounded ring of the most recent ones. |
+| [`EventReader`](OneGame.Core/EventReader.md) | class | A view's place in an [`EventLog`](OneGame.Core/EventLog.md). |
+| [`EventRecord`](OneGame.Core/EventRecord.md) | struct | One event as read from an [`EventLog`](OneGame.Core/EventLog.md). |
 | [`FQuat`](OneGame.Core/FQuat.md) | struct | A rotation as a quaternion in [`Fixed`](OneGame.Core/Fixed.md) numbers. |
 | [`FVec2`](OneGame.Core/FVec2.md) | struct | A two-dimensional point or vector in [`Fixed`](OneGame.Core/Fixed.md) numbers. |
 | [`FVec3`](OneGame.Core/FVec3.md) | struct | A three-dimensional point or vector in [`Fixed`](OneGame.Core/Fixed.md) numbers. +X is right, +Y is up and -Z is forward, as in the 3D renderer. |
@@ -34,6 +39,7 @@ dotnet add package RecursiveAI.OneGame.Core
 | [`IEntropySource`](OneGame.Core/IEntropySource.md) | interface | A source of unpredictable bytes, for platforms that supply their own (the browser's `crypto.getRandomValues`, say). |
 | [`IHotTable`](OneGame.Core/IHotTable.md) | interface | A struct-of-arrays table the world snapshots and hashes. |
 | [`ILerp<TSelf>`](OneGame.Core/ILerp-1.md) | interface | A value that can be blended between two of its kind; [`Timed<T>`](OneGame.Core/Timed-1.md) uses it to interpolate. |
+| [`ISimEvent<TSelf>`](OneGame.Core/ISimEvent-1.md) | interface | A struct the generator made from [`SimEventAttribute`](OneGame.Core/SimEventAttribute.md): a synced value with a stable type id. |
 | [`ISimSystem`](OneGame.Core/ISimSystem.md) | interface | Sim logic that is not tied to one entity. |
 | [`ISyncValue<TSelf>`](OneGame.Core/ISyncValue-1.md) | interface | A value type with a binary codec. |
 | [`InterestGrid2D`](OneGame.Core/InterestGrid2D.md) | class | A flat square grid for interest keys, and the helpers that keep them from flapping at cell edges. |
@@ -56,6 +62,7 @@ dotnet add package RecursiveAI.OneGame.Core
 | [`RngStreams`](OneGame.Core/RngStreams.md) | class | The world's random streams, found by name. |
 | [`RootMotionTrack`](OneGame.Core/RootMotionTrack.md) | class | The movement of an animation's root bone, one fixed-point step per simulation tick. |
 | [`SimAttribute`](OneGame.Core/SimAttribute.md) | attribute | Marks a class, struct or method outside an entity as sim code, so the sim analyzers check it. |
+| [`SimEventAttribute`](OneGame.Core/SimEventAttribute.md) | attribute | Declares a partial struct as a one-shot sim event: something that happened on one tick ("wall completed at cell 12", "life lost") that views, audio and the harness react to exactly once. |
 | [`SimSafeAttribute`](OneGame.Core/SimSafeAttribute.md) | attribute | Vouches that an API gives the same result on every machine and run, so sim code may call it. |
 | [`SimTrustAttribute`](OneGame.Core/SimTrustAttribute.md) | attribute | Lets sim code call a library you trust to be deterministic. |
 | [`StateHash`](OneGame.Core/StateHash.md) | static class | A deterministic 64-bit hash of bytes (FNV-1a with a final avalanche), used for drift detection. |

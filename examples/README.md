@@ -8,6 +8,7 @@ Each folder is a complete game of a few dozen lines that shows one feature on th
 | [input-actions](input-actions) | Actions with default bindings, read in the view and turned into commands; driven by `action:` in a scenario ([docs/input.md](../docs/input.md)) | 62 lines |
 | [tween](tween) | A tween started from a button, and a `transition` style on a class change ([docs/tweens.md](../docs/tweens.md)) | 43 lines |
 | [particles](particles) | A spark emitter and a burst when the state changes ([docs/particles.md](../docs/particles.md)) | 72 lines |
+| [events](events) | One-shot sim events: the sim emits typed events from a command, a view reads each once through a reader, an owner-only event stays off other connections, and a loaded save does not replay old ones; asserted with `event:` in a scenario ([docs/events.md](../docs/events.md)) | 85 lines |
 | [saves](saves) | A save slot and a typed settings file ([docs/saves.md](../docs/saves.md)) | 45 lines |
 | [pathing](pathing) | Two units path round walls on a grid: searches spread over ticks, state synced and restored with the world, re-search when the map changes, paths drawn by the debug overlay ([docs/navigation.md](../docs/navigation.md)) | 270 lines |
 | [crowd](crowd) | Twelve people squeeze through a gap with avoidance: the crowd is a table of the world, stepped by the tick, saved, hashed and replicated with it; commands add, send and remove people; a capture checked against a reference ([docs/navigation.md](../docs/navigation.md)) | 127 lines |

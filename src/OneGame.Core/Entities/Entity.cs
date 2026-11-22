@@ -71,6 +71,20 @@ public abstract class Entity
     /// <summary>Writes a delta holding exactly the properties in <paramref name="mask"/>, whatever their dirty state. With the visible mask of an audience it is that audience's full view of the entity.</summary>
     public abstract void WriteMaskedDelta(SyncWriter writer, ulong mask);
 
+    /// <summary>
+    /// Emits a one-shot event from this entity's sim code. Subscribers that cannot see this entity (its visibility, owner and team, or interest)
+    /// never receive it, and an event type narrowed to <see cref="Visibility.Owner"/> or <see cref="Visibility.Team"/> reaches only that audience.
+    /// From a view it is a compile error.
+    /// </summary>
+    /// <typeparam name="T">A <see cref="SimEventAttribute"/> struct.</typeparam>
+    /// <param name="ev">The event.</param>
+    /// <returns>False when the tick's event limit was reached and the event was dropped.</returns>
+    /// <exception cref="NotInWorldException">The entity is not in a world.</exception>
+    [MutatesState]
+    public bool Emit<T>(in T ev)
+        where T : struct, ISimEvent<T>
+        => (World ?? throw new NotInWorldException($"{TypeName} is not in a world, so it cannot emit events.")).EmitFrom(ev, this);
+
     /// <summary>The value of the <see cref="OwnerKeyAttribute"/> property, or 0.</summary>
     public virtual ulong OwnerKey => 0;
 

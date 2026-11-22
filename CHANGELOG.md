@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- One-shot sim events. `[SimEvent]` on a partial struct declares an event type; sim code emits with `Entity.Emit` or `World.Emit`; views read each event once through `World.Events.NewReader()` (`EventLog`, `EventReader`, `EventRecord`, `EventInfo`, `ISimEvent<T>`). Events reach exactly the replicas that may see the emitting entity (and the type's own `Owner`/`Team`/`Hidden` visibility), never appear in saves, snapshots or state hashes, are empty after a restore, load or join, and replay to the same stream. The log keeps 512 events with a per-tick limit (`EventsPerTickLimit`, default 128). New message type 24 after a tick's frame, sent only when an audience has events (traffic of scopes without events is unchanged). A predicted world records none, and relays do not pass events on. Harness: the `event:` scenario expectation, the `sim_events` live-control operation, and `examples/events`. Rules: emitting from a view is OG0008, a float payload is OG0001. See `docs/events.md`.
+
 ## [2.1.0] - 2026-11-22
 
 ### Added

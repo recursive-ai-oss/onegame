@@ -1,0 +1,15 @@
+name: wall-events
+description: Each build emits one WallDone on the tick it ran, the owner's bonus comes on the third, and the label reacts once per event.
+steps:
+  - click: seven
+  - step: 1
+  - click: twelve
+  - step: 1
+  - click: seven
+  - step: 1
+expect:
+  - event: { name: WallDone, count: 3 }
+  - event: { name: WallDone, where: { Cell: 7 }, count: 2 }
+  - event: { name: WallDone, where: { Cell: 12 }, count: 1 }
+  - event: { name: Bonus, where: { Points: 30 }, count: 1 }
+  - ui: { id: status, text: "Walls done: 3, last cell 7, bonus 30" }

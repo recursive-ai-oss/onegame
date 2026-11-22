@@ -58,6 +58,7 @@ public sealed class AssetsGame : ShopGame
 }
 
 /// <summary>Asset loading and development hot reload, driven through the control layer and captures.</summary>
+[Collection("AudioService.Active")]
 public class AssetTests
 {
     private static int s_shots;

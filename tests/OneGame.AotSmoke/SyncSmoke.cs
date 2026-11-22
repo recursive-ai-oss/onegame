@@ -20,6 +20,7 @@ internal static class SyncSmoke
         var authority = NewWorld(WorldRole.Authority);
         ((SparkTable)authority.Tables[0]).Add(new Spark { X = Fixed.FromRatio(1, 5), Life = 3 });
         authority.Add(new Purse { Owner = "sync" });
+        authority.Add(new Chirper());
 
         var cluster = new Cluster(new ClusterOptions { DriftCheckInterval = 1, FatalDrift = true });
         var host = cluster.AddNode("host");
@@ -44,10 +45,35 @@ internal static class SyncSmoke
             return "replica drifted from its authority";
         }
 
-        var replay = Replayer.Replay(Recording.TryRead(recording.ToBytes(), out var decoded) == SyncError.None ? decoded! : recording, NewWorld(WorldRole.Authority), new ReplayOptions { MaxTicks = 10_000 });
+        // Events: the replica holds what the authority emitted, a reader decodes them, and the registry names them for the harness.
+        var events = view.World.Events.NewReaderFromStart();
+        var chirps = 0;
+        while (events.Next<Chirp>(out var chirp, out var info))
+        {
+            chirps++;
+            if (chirp.Note != "aot" || chirp.Beat != chirps * 4 || info.Tick != chirps * 4 - 1)
+            {
+                return "a chirp arrived changed";
+            }
+        }
+
+        var json = new JsonOut();
+        view.World.Events.WriteJson(json);
+        if (chirps != 10 || scope.World.Events.Count != 10 || !json.ToString().Contains("\"type\":\"Chirp\"", StringComparison.Ordinal))
+        {
+            return "events did not reach the replica: " + chirps;
+        }
+
+        var replayed = NewWorld(WorldRole.Authority);
+        var replay = Replayer.Replay(Recording.TryRead(recording.ToBytes(), out var decoded) == SyncError.None ? decoded! : recording, replayed, new ReplayOptions { MaxTicks = 10_000 });
         if (!replay.Ok || replay.FinalHash != scope.Hash)
         {
             return "replay diverged: " + replay.Divergence;
+        }
+
+        if (replayed.Events.StreamHash != scope.World.Events.StreamHash)
+        {
+            return "replay emitted a different event stream";
         }
 
         var loaded = NewWorld(WorldRole.Authority);

@@ -26,6 +26,7 @@ internal static class Msg
     public const byte CommandResult = 21;
     public const byte Revoked = 22;
     public const byte Part = 23; // one piece of a message too long to send whole: total length, offset, bytes
+    public const byte Events = 24; // the one-shot sim events of a tick, sent right after that tick's frame, only when the audience may see any
 
     // Authority transfer, between nodes: answers from the node receiving the entities, and the hint to subscribers.
     public const byte XferStaged = 48;

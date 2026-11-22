@@ -38,6 +38,8 @@ public sealed partial class AuthorityScope
     private readonly SyncWriter _entity = new(256);
     private readonly SyncWriter _frame = new(4096);
     private readonly SyncWriter _scratch = new(1024);
+    private readonly SyncWriter _eventBody = new(1024);
+    private long _eventsPublished;
 
     private Recorder? _recorder;
     private readonly List<(IMessageChannel Channel, byte[] Message)> _deferred = [];
@@ -111,6 +113,9 @@ public sealed partial class AuthorityScope
 
     /// <summary>Bytes of frame messages sent to subscribers so far (each connection's copy counts).</summary>
     public long FrameBytes { get; private set; }
+
+    /// <summary>Events sent to subscribers so far, counted once per subscriber.</summary>
+    public long EventsSent { get; private set; }
 
     /// <summary>Bytes of snapshot messages sent to subscribers so far.</summary>
     public long SnapshotBytes { get; private set; }
@@ -739,6 +744,8 @@ public sealed partial class AuthorityScope
     {
         if (_views.Count == 0)
         {
+            // Nobody to tell: a subscriber that joins later must not be handed events that came before its snapshot.
+            _eventsPublished = World.Events.Count;
             return;
         }
 
@@ -789,6 +796,11 @@ public sealed partial class AuthorityScope
             }
         }
 
+        // Events since the last publish. A relay does not pass events on, and a reset (restore, load) starts the span after it.
+        var log = World.Events;
+        var eventsTo = log.Count;
+        var eventsFrom = IsRelay ? eventsTo : Math.Max(Math.Max(_eventsPublished, log.Floor), log.FirstRetained);
+
         foreach (var view in _views)
         {
             ApplyInterest(view);
@@ -827,7 +839,14 @@ public sealed partial class AuthorityScope
             {
                 Node.SendMessage(c.Sender, _frame.Written);
             }
+
+            if (eventsTo > eventsFrom)
+            {
+                SendEvents(view, tick, eventsFrom, eventsTo);
+            }
         }
+
+        _eventsPublished = eventsTo;
 
         // Every audience has been told; the changes are now history.
         var all = World.Entities;
@@ -838,6 +857,75 @@ public sealed partial class AuthorityScope
                 all[n].ClearDirty();
             }
         }
+    }
+
+    /// <summary>
+    /// Sends the audience the events of the span it may see, as one message right after the frame. An event is visible when the emitting entity is
+    /// (its visibility, owner and team, interest) and the event type's own visibility allows the audience; a world event reaches everyone who reads
+    /// the scope unless it is hidden. What an audience may not see is not in its bytes at all.
+    /// </summary>
+    private void SendEvents(View view, long tick, long from, long to)
+    {
+        var log = World.Events;
+        _eventBody.Reset();
+        uint count = 0;
+        for (var sequence = from; sequence < to; sequence++)
+        {
+            log.Describe(sequence, out var visibility, out var source, out var e);
+            if (!EventVisible(view, visibility, source))
+            {
+                continue;
+            }
+
+            _eventBody.WriteVarInt(tick - e.Tick);
+            _eventBody.WriteFixed32(e.TypeId);
+            _eventBody.WriteVarUInt(e.Entity.Value);
+            _eventBody.WriteBytes(e.Payload);
+            count++;
+        }
+
+        if (count == 0)
+        {
+            return;
+        }
+
+        _frame.Reset();
+        _frame.WriteByte(Msg.Events);
+        _frame.WriteVarUInt(Id.Value);
+        _frame.WriteVarInt(tick);
+        _frame.WriteVarUInt(count);
+        _frame.WriteRaw(_eventBody.Written);
+        EventsSent += count * (long)view.Members.Count;
+        foreach (var c in view.Members)
+        {
+            Node.SendMessage(c.Sender, _frame.Written);
+        }
+    }
+
+    private static bool EventVisible(View view, Visibility visibility, Entity? source)
+    {
+        if (visibility == Visibility.Hidden)
+        {
+            return false;
+        }
+
+        if (source is null)
+        {
+            return true; // a world event has no key, like an entity with interest key 0: global
+        }
+
+        if (!source.TryGetAudienceMask(view.Who, view.Interest, out _))
+        {
+            return false;
+        }
+
+        var who = view.Who;
+        return visibility switch
+        {
+            Visibility.Owner => who.Relay || who.IsOwnerOf(source.OwnerKey),
+            Visibility.Team => who.Relay || who.IsTeamOf(source.OwnerKey, source.TeamKey),
+            _ => true,
+        };
     }
 
     /// <summary>

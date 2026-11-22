@@ -36,6 +36,7 @@ Creates an empty world. Build the same way (registry, systems, tables) on every 
 | Member | Description |
 | --- | --- |
 | [`Entities`](#m-entities) | The live entities in id order. |
+| [`Events`](#m-events) | The one-shot events this world's sim emitted (an authority) or its authority sent it (a replica). |
 | [`HiddenTablesOnly`](#m-hiddentablesonly) | When true, [`World.AddTable()`](World.md#m-addtable-t-t) refuses a table that is not [`Visibility.Hidden`](Visibility.md#m-hidden). |
 | [`Observer`](#m-observer) | Called for every command this world executes, queues-then-runs on an authority or forwards on a replica. |
 | [`PendingCommandCount`](#m-pendingcommandcount) | Commands accepted and waiting for the next tick. |
@@ -54,6 +55,16 @@ public IReadOnlyList<Entity> Entities { get; }
 The live entities in id order. An entity removed during a tick is no longer listed, even though it is only detached when the tick ends, so a loop that removes an entity never sees it again in the same tick.
 
 **Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`Entity`](Entity.md)&gt;
+
+### <a id="m-events"></a>Events
+
+```csharp
+public EventLog Events { get; }
+```
+
+The one-shot events this world's sim emitted (an authority) or its authority sent it (a replica). Views read them with [`EventLog.NewReader()`](EventLog.md#m-newreader). A predicted world records none: read events from the confirmed world.
+
+**Type:** [`EventLog`](EventLog.md)
 
 ### <a id="m-hiddentablesonly"></a>HiddenTablesOnly
 
@@ -147,6 +158,7 @@ The number of completed ticks. Replicas take it from the snapshots they apply.
 | [`ComputeHash()`](#m-computehash) | A 64-bit hash of everything that defines the simulation: tick, random streams, tables and every entity's state. |
 | [`ComputeViewHash()`](#m-computeviewhash) | The hash of what this world holds as a subscriber: equal to [`World.ComputeHash()`](World.md#m-computehash) on an authority and on a replica that receives everything, and the hash of the filtered view on a replica that does not. |
 | [`DumpJson()`](#m-dumpjson) | The world as a JSON document, for inspection: tick, seed, every entity and every table. |
+| [`Emit<T>(in T)`](#m-emit-t-t) | Emits a one-shot event from sim code that is not tied to an entity (a system, say). |
 | [`EncodeCommand(SyncWriter, EntityId, uint, ReadOnlySpan<byte>)`](#m-encodecommand-syncwriter-entityid-uint-readonlyspan-byte) | The wire form of a command, the inverse of [`World.SubmitEncoded()`](World.md#m-submitencoded-readonlyspan-byte). |
 | [`Find(EntityId)`](#m-find-entityid) | Finds an entity by id. |
 | [`ReadSnapshot(ReadOnlySpan<byte>)`](#m-readsnapshot-readonlyspan-byte) | Replaces this world's contents with a snapshot from untrusted bytes. |
@@ -277,6 +289,29 @@ public string DumpJson();
 The world as a JSON document, for inspection: tick, seed, every entity and every table.
 
 **Returns:** `string`
+
+### <a id="m-emit-t-t"></a>Emit&lt;T&gt;(in T)
+
+```csharp
+public bool Emit<T>(in T ev) where T : struct, ISimEvent<T>;
+```
+
+Emits a one-shot event from sim code that is not tied to an entity (a system, say). It reaches every subscriber that may read the scope, and views see it once. Owner and team events need [`Entity.Emit()`](Entity.md#m-emit-t-t). Call it only from sim code: from a view it is a compile error.
+
+**Type parameters**
+
+- `T`: A [`SimEventAttribute`](SimEventAttribute.md) struct.
+
+**Parameters**
+
+- `ev` (`T`): The event.
+
+**Returns:** `bool` — False when this tick already emitted [`EventLog.EventsPerTickLimit`](EventLog.md#m-eventsperticklimit) events and this one was dropped.
+
+**Exceptions**
+
+- [`ReplicaWriteException`](ReplicaWriteException.md): This world is a replica.
+- [`ArgumentException`](https://learn.microsoft.com/dotnet/api/system.argumentexception): The event encodes to more than [`EventLog.MaxPayloadBytes`](EventLog.md#m-maxpayloadbytes) bytes.
 
 ### <a id="m-encodecommand-syncwriter-entityid-uint-readonlyspan-byte"></a>EncodeCommand(SyncWriter, EntityId, uint, ReadOnlySpan&lt;byte&gt;)
 

@@ -25,22 +25,31 @@ public sealed class EntityGenerator : IIncrementalGenerator
             .WithTrackingName("Entity");
         var structs = context.SyntaxProvider.ForAttributeWithMetadataName(
             "OneGame.Core.SyncedStructAttribute", static (node, _) => node is StructDeclarationSyntax, ValueEmitters.BuildStruct);
+        var events = context.SyntaxProvider.ForAttributeWithMetadataName(
+            "OneGame.Core.SimEventAttribute", static (node, _) => node is StructDeclarationSyntax, ValueEmitters.BuildEvent)
+            .WithTrackingName("Event");
         var tables = context.SyntaxProvider.ForAttributeWithMetadataName(
             "OneGame.Core.HotDataAttribute", static (node, _) => node is StructDeclarationSyntax, ValueEmitters.BuildTable);
 
         context.RegisterSourceOutput(entities, Emit);
         context.RegisterSourceOutput(structs, Emit);
+        context.RegisterSourceOutput(events, Emit);
         context.RegisterSourceOutput(tables, Emit);
 
+        var eventRegistrations = events
+            .Select(static (r, _) => r.Registration)
+            .Where(static r => r is not null)
+            .Collect();
         var registrations = entities
             .Select(static (r, _) => r.Registration)
             .Where(static r => r is not null)
             .Collect()
+            .Combine(eventRegistrations)
             .Combine(context.CompilationProvider.Select(static (c, _) => c.AssemblyName ?? "Assembly"));
         context.RegisterSourceOutput(registrations, static (spc, input) =>
         {
-            var (items, assembly) = input;
-            if (items.Length == 0)
+            var ((items, eventItems), assembly) = input;
+            if (items.Length == 0 && eventItems.Length == 0)
             {
                 return;
             }
@@ -56,6 +65,11 @@ public sealed class EntityGenerator : IIncrementalGenerator
             foreach (var r in items.OrderBy(i => i!.TypeName, System.StringComparer.Ordinal))
             {
                 s.Line($"registry.Add({EmitUtil.Hex(r!.TypeId)}, {EmitUtil.Literal(r.DisplayName)}, static () => new {r.TypeName}());");
+            }
+
+            foreach (var r in eventItems.OrderBy(i => i!.TypeName, System.StringComparer.Ordinal))
+            {
+                s.Line($"registry.AddEvent<{r!.TypeName}>();");
             }
 
             s.Close();

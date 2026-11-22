@@ -17,6 +17,7 @@ Hard limits applied while decoding, so a hostile input cannot make the decoder a
 | --- | --- |
 | [`MaxCommandBytes`](#m-maxcommandbytes) | Largest command payload, in bytes. |
 | [`MaxEntities`](#m-maxentities) | Largest number of entities in a snapshot. |
+| [`MaxEventsPerMessage`](#m-maxeventspermessage) | Most events one message may carry (the size of an event log). |
 | [`MaxListCount`](#m-maxlistcount) | Largest element count of a synced list. |
 | [`MaxNamed`](#m-maxnamed) | Largest number of random streams or tables in a snapshot. |
 | [`MaxStringBytes`](#m-maxstringbytes) | Longest string, in UTF-8 bytes. |
@@ -39,6 +40,16 @@ public const int MaxEntities = 4194304;
 ```
 
 Largest number of entities in a snapshot.
+
+**Type:** `int`
+
+### <a id="m-maxeventspermessage"></a>MaxEventsPerMessage
+
+```csharp
+public const int MaxEventsPerMessage = 512;
+```
+
+Most events one message may carry (the size of an event log).
 
 **Type:** `int`
 
