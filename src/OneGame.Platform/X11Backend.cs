@@ -713,8 +713,13 @@ internal sealed unsafe partial class X11Backend : PlatformBackend
             nuint root, child;
             int gx, gy, x, y;
             uint gw, gh, border, depth;
+            var moved = Xlib.TranslateCoordinates(_b._display, Handle, _b._root, 0, 0, &x, &y, &child) != 0;
+
+            // The size is read after the position, not before: the server answers requests in order, so a size that still matches the event
+            // means the window had not been resized yet when the position was read. Read first, a maximize could land between the two
+            // requests and leave the maximized position (0,0) paired with the old size, which became the rectangle to restore to.
             var stale = Xlib.GetGeometry(_b._display, Handle, &root, &gx, &gy, &gw, &gh, &border, &depth) != 0 && (gw != (uint)width || gh != (uint)height);
-            if (Xlib.TranslateCoordinates(_b._display, Handle, _b._root, 0, 0, &x, &y, &child) != 0)
+            if (moved)
             {
                 SetPosition(x, y, !stale);
             }
