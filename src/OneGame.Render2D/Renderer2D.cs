@@ -523,6 +523,30 @@ public sealed partial class Renderer2D : IDisposable
         Ui.Reset(_width, _height);
     }
 
+    /// <summary>
+    /// Drops the frame begun with <see cref="BeginFrame"/> without recording it. A host calls it when drawing threw before <see cref="EndFrame"/>,
+    /// so the next frame can begin. Does nothing outside a frame.
+    /// </summary>
+    public void CancelFrame()
+    {
+        if (!_inFrame)
+        {
+            return;
+        }
+
+        _inFrame = false;
+        _ops.Clear();
+        _targets.Clear();
+        _usedMaterials.Clear();
+        _quadCount = 0;
+        _uiCount = 0;
+        _clipCount = 0;
+        _spriteCount = 0;
+        _tileQuadCount = 0;
+        _uploadCount = 0;
+        Ui.Reset(_width, _height);
+    }
+
     private TargetState FinalState(GpuTexture target)
     {
         if (!_finalTargets.TryGetValue(target, out var ts))
@@ -911,6 +935,7 @@ public sealed partial class Renderer2D : IDisposable
         GpuRenderPass? pass = null;
         GpuGraphicsPipeline? pipeline = null;
         var ui = false;
+        var bindFrame = false;
         var ops = CollectionsMarshal.AsSpan(_ops);
         for (var i = 0; i < ops.Length; i++)
         {
@@ -922,7 +947,7 @@ public sealed partial class Renderer2D : IDisposable
                 passes++;
                 current = op.Target;
                 pipeline = null;
-                pass.SetBindGroup(0, _targets[current].State.Frame);
+                bindFrame = true;
                 ui = !op.IsUi;
             }
 
@@ -930,6 +955,15 @@ public sealed partial class Renderer2D : IDisposable
             {
                 pass!.SetPipeline(op.Pipeline);
                 pipeline = op.Pipeline;
+            }
+
+            if (bindFrame)
+            {
+                // The frame constants (group 0) go in after the pipeline that draws first: a backend that makes bind groups against the
+                // pipeline's layout (browser WebGPU) cannot carry a group set before it from the layout of one pipeline to another's,
+                // and a custom material's layout is not the layout of the sprite pipeline.
+                pass!.SetBindGroup(0, _targets[current].State.Frame);
+                bindFrame = false;
             }
 
             if (op.IsUi != ui)

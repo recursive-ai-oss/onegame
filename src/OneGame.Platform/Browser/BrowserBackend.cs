@@ -19,6 +19,9 @@ internal static partial class PlatformJs
     [JSImport("drain", Module)]
     public static partial string Drain();
 
+    [JSImport("pageTitle", Module)]
+    public static partial string PageTitle();
+
     [JSImport("setTitle", Module)]
     public static partial void SetTitle(string title);
 
@@ -111,6 +114,9 @@ internal sealed class BrowserBackend : PlatformBackend
         {
             case "rs":
                 w.OnResized(e.GetProperty("w").GetInt32(), e.GetProperty("h").GetInt32(), (float)e.GetProperty("s").GetDouble());
+                break;
+            case "sa":
+                w.OnSafeArea(new EdgeInsets(e.GetProperty("l").GetInt32(), e.GetProperty("tp").GetInt32(), e.GetProperty("r").GetInt32(), e.GetProperty("b").GetInt32()));
                 break;
             case "fc":
                 w.OnFocus(e.GetProperty("f").GetBoolean());
@@ -265,7 +271,16 @@ internal sealed class BrowserWindow : Window
         Height = r.GetProperty("h").GetInt32();
         Scale = (float)r.GetProperty("s").GetDouble();
         IsFocused = true;
-        PlatformJs.SetTitle(options.Title);
+        if (r.TryGetProperty("sa", out var sa))
+        {
+            SafeArea = new EdgeInsets(sa.GetProperty("l").GetInt32(), sa.GetProperty("t").GetInt32(), sa.GetProperty("r").GetInt32(), sa.GetProperty("b").GetInt32());
+        }
+
+        // A page that has its own title keeps it; the game's name is for a page without one.
+        if (PlatformJs.PageTitle().Length == 0)
+        {
+            PlatformJs.SetTitle(options.Title);
+        }
     }
 
     public string CanvasId { get; }
@@ -313,6 +328,8 @@ internal sealed class BrowserWindow : Window
         ApplyScale(scale);
         ApplySize(width, height);
     }
+
+    internal void OnSafeArea(EdgeInsets insets) => ApplySafeArea(insets);
 
     internal void OnFocus(bool focused) => ApplyFocus(focused);
 

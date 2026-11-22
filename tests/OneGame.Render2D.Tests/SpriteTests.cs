@@ -214,6 +214,39 @@ public class SpriteTests
     }
 
     [Fact]
+    public void ACustomMaterialAsTheOnlyAndFirstDrawOfAFrameShadesItsSprite()
+    {
+        // The case a browser's bind-group handling got wrong: nothing but a material draws, so no sprite pipeline has been bound before it.
+        using var rig = new Rig(64, 64);
+        var tex = rig.Own(rig.Renderer.CreateTexture(8, 8, Pixels.Solid(8, 8, new Color(255, 255, 255, 255)), TextureFilter.Nearest));
+        var tint = rig.Own(rig.Renderer.CreateMaterial(new ShaderCode(RecursiveAI.OneGpu.ShaderStage.Pixel, Ripple.PSMain.EntryPoint, Ripple.PSMain.SpirV.ToArray(), Ripple.PSMain.Msl.ToArray(), Ripple.PSMain.MslFunctionName, Ripple.PSMain.Layout, Ripple.PSMain.Wgsl.ToArray(), Ripple.PSMain.WgslEntryPoint), "ripple"));
+        tint.SetParameter(0, new Vector4(0, 3, 1, 0));
+        tint.SetParameter(1, new Vector4(0, 1, 0, 0));
+        var scene = new Scene2D();
+        scene.Draw(Sprite.Create(tex, Vector2.Zero) with { Scale = new Vector2(4, 4), Material = tint });
+        var px = rig.Render(() => rig.Renderer.DrawScene(scene, Camera2D.Default), new Color(0, 0, 0, 255));
+        var (r, g, b, _) = Pixels.At(px, 64, 32, 32);
+        Assert.True(g > 200 && r < 40 && b < 40, $"({r}, {g}, {b})");
+    }
+
+    [Fact]
+    public void ACancelledFrameLeavesTheRendererReadyForTheNext()
+    {
+        using var rig = new Rig(32, 32);
+        var tex = rig.Own(rig.Renderer.CreateTexture(4, 4, Pixels.Solid(4, 4, new Color(255, 255, 255, 255)), TextureFilter.Nearest));
+        rig.Renderer.BeginFrame(rig.Target);
+        var abandoned = new Scene2D();
+        abandoned.Draw(Sprite.Create(tex, Vector2.Zero));
+        rig.Renderer.DrawScene(abandoned, Camera2D.Default);
+        rig.Renderer.CancelFrame();
+        rig.Renderer.CancelFrame();   // outside a frame it does nothing
+
+        var px = rig.Render(() => { }, new Color(10, 20, 30, 255));
+        Assert.Equal((10, 20, 30, 255), Pixels.At(px, 32, 16, 16));
+        Assert.Equal(0, rig.Stats.DrawCalls);
+    }
+
+    [Fact]
     public void BlurAndGradePassesChangeTheFrame()
     {
         using var rig = new Rig(160, 120);

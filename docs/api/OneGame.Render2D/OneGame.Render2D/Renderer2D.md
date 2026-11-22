@@ -88,6 +88,7 @@ The UI drawing surface for the current frame.
 | Member | Description |
 | --- | --- |
 | [`BeginFrame(GpuTexture, in FrameOptions)`](#m-beginframe-gputexture-frameoptions) | Starts a frame that draws into `target`. |
+| [`CancelFrame()`](#m-cancelframe) | Drops the frame begun with [`Renderer2D.BeginFrame()`](Renderer2D.md#m-beginframe-gputexture-frameoptions) without recording it. |
 | [`Create(GpuDevice, GpuFormat, IShaderSource)`](#m-create-gpudevice-gpuformat-ishadersource) | Makes a renderer that draws into targets of `targetFormat`. |
 | [`CreateMaterial(ShaderCode, string?)`](#m-creatematerial-shadercode-string) | Creates a material from a custom pixel shader that draws sprites. |
 | [`CreatePostChain()`](#m-createpostchain) | Makes an empty post-processing chain. |
@@ -114,6 +115,14 @@ Starts a frame that draws into `target`. The target needs `RenderTarget` usage a
 
 - `target` (`GpuTexture`): The texture to draw into: an offscreen texture or a swapchain image.
 - `options` ([`FrameOptions`](FrameOptions.md)): Per-frame settings.
+
+### <a id="m-cancelframe"></a>CancelFrame()
+
+```csharp
+public void CancelFrame();
+```
+
+Drops the frame begun with [`Renderer2D.BeginFrame()`](Renderer2D.md#m-beginframe-gputexture-frameoptions) without recording it. A host calls it when drawing threw before [`Renderer2D.EndFrame()`](Renderer2D.md#m-endframe-gpucommandencoder), so the next frame can begin. Does nothing outside a frame.
 
 ### <a id="m-create-gpudevice-gpuformat-ishadersource"></a>Create(GpuDevice, GpuFormat, IShaderSource)
 

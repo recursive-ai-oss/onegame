@@ -718,6 +718,8 @@ Every public type in every package, in alphabetical order.
 | [`PluginScope`](OneGame.Server/OneGame.Server/PluginScope.md) | record | `OneGame.Server` | [OneGame.Server](OneGame.Server/index.md) | One scope a plugin is bound to. |
 | [`PluginState`](OneGame.Server/OneGame.Server/PluginState.md) | enum | `OneGame.Server` | [OneGame.Server](OneGame.Server/index.md) | Whether a loaded plugin is running. |
 | [`Png`](OneGame.Host/OneGame.Host/Png.md) | static class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | PNG reading and writing for captures, through OneImage. |
+| [`PointerEdge`](OneGame.Platform/OneGame.Platform/PointerEdge.md) | struct | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | One pointer event in the order it happened, with the position it happened at. |
+| [`PointerEdgeKind`](OneGame.Platform/OneGame.Platform/PointerEdgeKind.md) | enum | `OneGame.Platform` | [OneGame.Platform](OneGame.Platform/index.md) | What a [`PointerEdge`](OneGame.Platform/OneGame.Platform/PointerEdge.md) reports. |
 | [`PointerEvents`](OneGame.UI/OneGame.UI/PointerEvents.md) | enum | `OneGame.UI` | [OneGame.UI](OneGame.UI/index.md) | The `pointer-events` property. |
 | [`PoseBlend`](OneGame.Gltf/OneGame.Gltf/PoseBlend.md) | static class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Combines poses. |
 | [`PoseMask`](OneGame.Gltf/OneGame.Gltf/PoseMask.md) | class | `OneGame.Gltf` | [OneGame.Gltf](OneGame.Gltf/index.md) | Per-node weights that limit how much of a blend applies: for example only the upper body of a character. |

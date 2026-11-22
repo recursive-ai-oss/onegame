@@ -44,6 +44,34 @@ public sealed class GamepadState
     internal void SetAxis(GamepadAxis axis, float value) => _axes[(int)axis] = value;
 }
 
+/// <summary>What a <see cref="PointerEdge"/> reports.</summary>
+public enum PointerEdgeKind : byte
+{
+    /// <summary>A button or finger went down.</summary>
+    Down,
+
+    /// <summary>The pointer or a finger moved.</summary>
+    Move,
+
+    /// <summary>A button or finger went up.</summary>
+    Up,
+
+    /// <summary>The system took a finger away (a call, a gesture): treat it as lifted without a tap.</summary>
+    Cancel,
+}
+
+/// <summary>
+/// One pointer event in the order it happened, with the position it happened at. Reading <see cref="InputState.PointerX"/> at frame time gives
+/// where the pointer ended up, which is not where a press or lift happened when the pointer moved within the same frame; the edges are.
+/// </summary>
+/// <param name="Kind">What happened.</param>
+/// <param name="TouchId">The finger, or -1 for the mouse or pen.</param>
+/// <param name="Button">The button for mouse edges of kind Down and Up; Left for fingers.</param>
+/// <param name="X">Window x in pixels, with the fraction the system reported.</param>
+/// <param name="Y">Window y in pixels, with the fraction the system reported.</param>
+/// <param name="FromTouch">True for a mouse edge made from the first finger (<see cref="PlatformOptions.TouchEmulatesPointer"/>): the finger's own edge is listed too, so a game that reads both should skip these.</param>
+public readonly record struct PointerEdge(PointerEdgeKind Kind, int TouchId, MouseButton Button, float X, float Y, bool FromTouch);
+
 /// <summary>What is currently held: keys, pointer, buttons and gamepads. It is updated by the same path that queues events, so injected and real input agree.</summary>
 public sealed class InputState
 {
@@ -52,8 +80,39 @@ public sealed class InputState
     private readonly Dictionary<int, GamepadState> _gamepads = [];
     private readonly Dictionary<int, (float X, float Y)> _touches = [];
 
+    private const int MaxEdges = 1024;
+    private const int MaxMoveEdges = 768;
+    private readonly List<PointerEdge> _edges = new(64);
+
     internal InputState()
     {
+    }
+
+    // Set by the platform while it posts the mouse events it makes from the first finger.
+    internal bool Emulating { get; set; }
+
+    /// <summary>
+    /// Every pointer and touch event since the host last ended a frame, oldest first, each with its own position. A press then a long move
+    /// in one frame reports the press where it happened, and a finger that moves and lifts in one frame reports the lift where it lifted.
+    /// The list is bounded: past 768 entries moves are dropped, and past 1,024 everything is (<see cref="DroppedPointerEdges"/>).
+    /// </summary>
+    public ReadOnlySpan<PointerEdge> PointerEdges => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_edges);
+
+    /// <summary>How many edges were dropped because a frame never ended (an app that does not call <see cref="EndFrame"/> sees this grow).</summary>
+    public int DroppedPointerEdges { get; private set; }
+
+    /// <summary>Forgets the pointer edges. The game host calls it after each frame; an app that drives <see cref="PlatformApp"/> itself should too.</summary>
+    public void EndFrame() => _edges.Clear();
+
+    private void AddEdge(PointerEdgeKind kind, int touchId, MouseButton button, float x, float y)
+    {
+        if (_edges.Count >= MaxEdges || (kind == PointerEdgeKind.Move && _edges.Count >= MaxMoveEdges))
+        {
+            DroppedPointerEdges++;
+            return;
+        }
+
+        _edges.Add(new PointerEdge(kind, touchId, button, x, y, Emulating));
     }
 
     // The action layer walks these every frame without allocating.
@@ -72,6 +131,9 @@ public sealed class InputState
 
     /// <summary>The last known pointer y in pixels.</summary>
     public float PointerY { get; private set; }
+
+    /// <summary>True while the pointer position and button come from the first finger (<see cref="PlatformOptions.TouchEmulatesPointer"/>) rather than a mouse or pen: a game can skip hover effects then.</summary>
+    public bool PointerEmulatedFromTouch { get; private set; }
 
     /// <summary>The modifiers implied by the keys currently held.</summary>
     public KeyModifiers Modifiers
@@ -144,6 +206,8 @@ public sealed class InputState
             case PlatformEventKind.PointerMoved:
                 PointerX = e.X;
                 PointerY = e.Y;
+                PointerEmulatedFromTouch = Emulating;
+                AddEdge(PointerEdgeKind.Move, -1, MouseButton.Left, e.X, e.Y);
                 break;
             case PlatformEventKind.PointerButtonDown:
             case PlatformEventKind.PointerButtonUp:
@@ -151,6 +215,9 @@ public sealed class InputState
                 {
                     _buttons[(int)e.Button] = e.Kind == PlatformEventKind.PointerButtonDown;
                 }
+
+                PointerEmulatedFromTouch = Emulating;
+                AddEdge(e.Kind == PlatformEventKind.PointerButtonDown ? PointerEdgeKind.Down : PointerEdgeKind.Up, -1, e.Button, e.X, e.Y);
 
                 break;
             case PlatformEventKind.WindowFocusChanged when !e.Focused:
@@ -161,10 +228,12 @@ public sealed class InputState
             case PlatformEventKind.TouchDown:
             case PlatformEventKind.TouchMove:
                 _touches[e.TouchId] = (e.X, e.Y);
+                AddEdge(e.Kind == PlatformEventKind.TouchDown ? PointerEdgeKind.Down : PointerEdgeKind.Move, e.TouchId, MouseButton.Left, e.X, e.Y);
                 break;
             case PlatformEventKind.TouchUp:
             case PlatformEventKind.TouchCancel:
                 _touches.Remove(e.TouchId);
+                AddEdge(e.Kind == PlatformEventKind.TouchUp ? PointerEdgeKind.Up : PointerEdgeKind.Cancel, e.TouchId, MouseButton.Left, e.X, e.Y);
                 break;
             case PlatformEventKind.SurfaceLost:
                 // Fingers that were down when the window went away never report a lift.

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- A small game the browser tests export: it logs the pointer events a frame saw, draws a sprite with its own HLSL material as the very
+       first draw, and keeps a page title of its own choosing. The unsafe-code property is here, not in a Directory.Build.props, to
+       prove the web export carries a project's own properties. -->
+  <PropertyGroup>
+    <OneGameRoot>$(MSBuildThisFileDirectory)../../</OneGameRoot>
+    <AssemblyName>WebGame</AssemblyName>
+    <RootNamespace>WebGame</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <Import Project="$(OneGameRoot)build/Game.targets" />
+
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <PackageReference Include="RecursiveAI.OneShader.Build" PrivateAssets="all" />
+    <EmbeddedResource Include="$(OneGameRoot)assets/fonts/NotoSans-Regular.ttf" LogicalName="fonts/NotoSans-Regular.ttf" />
+  </ItemGroup>
+
+</Project>

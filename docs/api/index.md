@@ -22,9 +22,9 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Pages](OneGame.Pages/index.md) | 2 | 34 | 245 | Draws OneRender pages (builder trees and HTML) through the render graph, with input, host scopes and harness support. |
 | [RecursiveAI.OneGame.Particles](OneGame.Particles/index.md) | 1 | 8 | 72 | Particle emitters: a seedable, allocation-free simulation for sparks, smoke, dust and trails, drawn by the 2D and 3D renderers. |
 | [RecursiveAI.OneGame.Physics](OneGame.Physics/index.md) | 1 | 31 | 307 | 2D and 3D rigid bodies, characters, vehicles, triggers and queries for deterministic simulations on fixed-point positions, stepped by the sim tick, with state that is saved, restored and hashed with the world. |
-| [RecursiveAI.OneGame.Platform](OneGame.Platform/index.md) | 1 | 52 | 566 | Windows, input, controllers and the app lifecycle per operating system. |
+| [RecursiveAI.OneGame.Platform](OneGame.Platform/index.md) | 1 | 54 | 581 | Windows, input, controllers and the app lifecycle per operating system. |
 | [RecursiveAI.OneGame.Purchases](OneGame.Purchases/index.md) | 1 | 21 | 159 | In-app purchases: one store-neutral API over StoreKit, Google Play Billing and a scriptable fake store. |
-| [RecursiveAI.OneGame.Render2D](OneGame.Render2D/index.md) | 2 | 65 | 402 | Sprite, tilemap and text renderer. |
+| [RecursiveAI.OneGame.Render2D](OneGame.Render2D/index.md) | 2 | 65 | 403 | Sprite, tilemap and text renderer. |
 | [RecursiveAI.OneGame.Render3D](OneGame.Render3D/index.md) | 2 | 160 | 1067 | Physically based 3D renderer: glTF materials, clustered forward lighting, image-based lighting, bloom and tone mapping on the render graph. |
 | [RecursiveAI.OneGame.Server](OneGame.Server/index.md) | 1 | 35 | 223 | The headless server host: fixed-step scopes, YAML configuration, logging, and the plugin API. |
 | [RecursiveAI.OneGame.Server.Live](OneGame.Server.Live/index.md) | 1 | 10 | 96 | Live control of a running game server over the same MCP surface as a development game: plugin and scope operations. |

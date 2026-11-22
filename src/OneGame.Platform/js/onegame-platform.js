@@ -12,21 +12,51 @@ let injected = null;         // test hook: replaces navigator.getGamepads
 
 const MODS = (e) => (e.shiftKey ? 1 : 0) | (e.ctrlKey ? 2 : 0) | (e.altKey ? 4 : 0) | (e.metaKey ? 8 : 0) | (e.getModifierState && e.getModifierState('CapsLock') ? 16 : 0) | (e.getModifierState && e.getModifierState('NumLock') ? 32 : 0);
 const push = (o) => { if (queue.length < 20000) queue.push(o); };
-const pixels = (v) => Math.round(v * (window.devicePixelRatio || 1));
+// Pointer positions keep their fraction: a device pixel is the unit, not the granularity.
+const pixels = (v) => v * (window.devicePixelRatio || 1);
+let probe = null;
+let lastSize = '', lastSafe = '';
 
+// The canvas is as large as the visible part of the page. 100vw by 100vh is the largest the page can become, which on a phone is taller than
+// what shows while the browser's toolbar is out, so the picture would stretch against the drawing surface and touches would land at the wrong height.
 function measure() {
   const dpr = window.devicePixelRatio || 1;
-  return { w: Math.max(1, Math.round(window.innerWidth * dpr)), h: Math.max(1, Math.round(window.innerHeight * dpr)), s: dpr };
+  return { w: Math.max(1, Math.round(window.innerWidth * dpr)), h: Math.max(1, Math.round(window.innerHeight * dpr)), s: dpr, sa: safeArea() };
+}
+
+// The areas the display's cut-outs and system bars cover, in device pixels (CSS env(safe-area-inset-*), which a page gets with viewport-fit=cover).
+function safeArea() {
+  if (!probe) {
+    probe = document.createElement('div');
+    probe.setAttribute('aria-hidden', 'true');
+    Object.assign(probe.style, { position: 'fixed', left: '0', top: '0', width: '0', height: '0', visibility: 'hidden', pointerEvents: 'none', boxSizing: 'content-box',
+      paddingTop: 'env(safe-area-inset-top, 0px)', paddingRight: 'env(safe-area-inset-right, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)', paddingLeft: 'env(safe-area-inset-left, 0px)' });
+    document.body.appendChild(probe);
+  }
+  const c = getComputedStyle(probe), d = window.devicePixelRatio || 1;
+  const px = (v) => Math.max(0, Math.round((parseFloat(v) || 0) * d));
+  return { l: px(c.paddingLeft), t: px(c.paddingTop), r: px(c.paddingRight), b: px(c.paddingBottom) };
+}
+
+// Fits the canvas to the visible area and reports a changed size or safe area once.
+function relayout() {
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  const n = measure(), size = n.w + 'x' + n.h + '@' + n.s, safe = n.sa.l + ',' + n.sa.t + ',' + n.sa.r + ',' + n.sa.b;
+  if (size !== lastSize) { lastSize = size; push({ t: 'rs', w: n.w, h: n.h, s: n.s }); }
+  if (safe !== lastSafe) { lastSafe = safe; push({ t: 'sa', l: n.sa.l, tp: n.sa.t, r: n.sa.r, b: n.sa.b }); }
 }
 
 export function init(canvasId) {
   canvas = document.getElementById(canvasId);
   if (!canvas) throw new Error('No canvas element with id "' + canvasId + '".');
   Object.assign(document.body.style, { margin: '0', overflow: 'hidden', background: '#000' });
-  Object.assign(canvas.style, { width: '100vw', height: '100vh', display: 'block', touchAction: 'none', outline: 'none' });
+  Object.assign(canvas.style, { position: 'fixed', left: '0', top: '0', width: window.innerWidth + 'px', height: window.innerHeight + 'px', display: 'block', touchAction: 'none', outline: 'none' });
   canvas.tabIndex = 0;
   const m = measure();
   canvas.width = m.w; canvas.height = m.h;
+  lastSize = m.w + 'x' + m.h + '@' + m.s;
+  lastSafe = m.sa.l + ',' + m.sa.t + ',' + m.sa.r + ',' + m.sa.b;
 
   input = document.createElement('input');
   input.type = 'text'; input.autocomplete = 'off'; input.autocapitalize = 'off'; input.spellcheck = false;
@@ -34,13 +64,19 @@ export function init(canvasId) {
   Object.assign(input.style, { position: 'fixed', left: '0', top: '0', width: '1px', height: '1px', opacity: '0', border: '0', padding: '0', pointerEvents: 'none' });
   document.body.appendChild(input);
 
-  window.addEventListener('resize', () => { const n = measure(); push({ t: 'rs', w: n.w, h: n.h, s: n.s }); });
+  window.addEventListener('resize', relayout);
+  window.addEventListener('orientationchange', relayout);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', relayout);
   document.addEventListener('visibilitychange', () => push({ t: 'vis', hidden: document.hidden }));
   window.addEventListener('focus', () => push({ t: 'fc', f: true }));
   window.addEventListener('blur', () => push({ t: 'fc', f: false }));
   window.addEventListener('beforeunload', () => push({ t: 'close' }));
 
-  const rel = (e) => ({ x: pixels(e.clientX - canvas.getBoundingClientRect().left), y: pixels(e.clientY - canvas.getBoundingClientRect().top) });
+  // Position on the drawing surface: the canvas's own scale, so a surface that is a pixel off the CSS size still maps exactly.
+  const rel = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * (canvas.width / (r.width || 1)), y: (e.clientY - r.top) * (canvas.height / (r.height || 1)) };
+  };
   // A finger is a small integer (0 to 31) reused after it lifts, as the platform events define; the mouse and pen use the pointer events.
   const fingers = new Map();
   const fingerSlot = (e) => {
@@ -129,6 +165,9 @@ export function init(canvasId) {
 
 export function size() { return JSON.stringify(measure()); }
 
+// The title the page set, so the game keeps it; the game's own name is used only for a page without one.
+export function pageTitle() { return document.title || ''; }
+
 // ---- gamepads (standard mapping: W3C Gamepad spec, section "Standard Gamepad") ----
 const BUTTON_MAP = [0, 1, 2, 3, 4, 5, -1, -1, 6, 7, 9, 10, 11, 12, 13, 14, 8];   // standard button index -> GamepadButton ordinal; 6 and 7 are triggers
 function pollGamepads() {
@@ -165,8 +204,11 @@ function pollGamepads() {
 // Tests replace the gamepad source with a function returning Gamepad-shaped objects.
 export function injectGamepads(fn) { injected = fn; }
 
+let drains = 0;
 export function drain() {
   pollGamepads();
+  // Browsers announce no change of the safe area by itself; it follows rotation and resizing, which relayout already sees, and this catches the rest.
+  if (++drains % 30 === 0) relayout();
   if (queue.length === 0) return '';
   const out = JSON.stringify(queue);
   queue.length = 0;
@@ -196,7 +238,15 @@ export function startFrames(callback) {
   running = true;
   const tick = (t) => {
     if (!running) return;
-    callback(t);
+    try {
+      callback(t);
+    } catch (e) {
+      // A frame that threw is that frame's problem: the loop goes on, so the page keeps drawing and a tool can still capture it.
+      const o = (window.__onegame = window.__onegame || {});
+      o.frameErrors = (o.frameErrors || 0) + 1;
+      o.lastFrameError = String((e && e.stack) || e);
+      if (o.frameErrors <= 3 || o.frameErrors % 600 === 0) console.error('onegame: a frame failed (' + o.frameErrors + '): ' + o.lastFrameError);
+    }
     // Page-level counters for tools: how many frames ran and when the first one finished (milliseconds since navigation start).
     const o = (window.__onegame = window.__onegame || {});
     o.frames = (o.frames || 0) + 1;

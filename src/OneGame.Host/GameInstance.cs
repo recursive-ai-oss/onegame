@@ -798,6 +798,8 @@ public sealed partial class GameInstance : IDisposable
             Present();
         }
 
+        // The frame's views have read the pointer edges by now.
+        Platform.Input.EndFrame();
         if (timed)
         {
             Timings.Record(Frame, started, simStart, simEnd, drawStart, Stopwatch.GetTimestamp());
@@ -968,6 +970,13 @@ public sealed partial class GameInstance : IDisposable
     /// </summary>
     public void RunHostedFrame(bool paused = false)
     {
+        if (_captures > 0)
+        {
+            // A capture is waiting for the device (a browser answers it a few frames later) and has the viewport and the renderer for now;
+            // the page's next animation frame draws.
+            return;
+        }
+
         var step = Stopwatch.Frequency / TickRate;
         _hostClock ??= Stopwatch.StartNew();
         var now = _hostClock.ElapsedTicks;
@@ -1256,6 +1265,7 @@ public sealed partial class GameInstance : IDisposable
         DrainInput();
         var pixels = new byte[checked(width * height * 4)];
         Ui.SetViewport(width, height, scale);
+        _captures++;
         try
         {
             var list = SettleUi();
@@ -1281,10 +1291,13 @@ public sealed partial class GameInstance : IDisposable
         }
         finally
         {
+            _captures--;
             SyncViewport();
             SettleUi();
         }
     }
+
+    private int _captures;
 
     // Bindings run before layout, so one that reads another element's bounds sees the previous layout. After a viewport
     // change, frame again until the display list stops changing (bounded, in case a binding never settles).

@@ -57,6 +57,8 @@ dotnet add package RecursiveAI.OneGame.Platform
 | [`PlatformException`](OneGame.Platform/PlatformException.md) | class | Thrown when the platform layer cannot do what was asked. |
 | [`PlatformModule`](OneGame.Platform/PlatformModule.md) | static class | Identifies the Platform assembly; a placeholder until its first feature lands. |
 | [`PlatformOptions`](OneGame.Platform/PlatformOptions.md) | record | Options for [`PlatformApp.Create()`](OneGame.Platform/PlatformApp.md#m-create-platformoptions). |
+| [`PointerEdge`](OneGame.Platform/PointerEdge.md) | struct | One pointer event in the order it happened, with the position it happened at. |
+| [`PointerEdgeKind`](OneGame.Platform/PointerEdgeKind.md) | enum | What a [`PointerEdge`](OneGame.Platform/PointerEdge.md) reports. |
 | [`RebindRequest`](OneGame.Platform/RebindRequest.md) | record | A rebinding waiting for the player's next input. |
 | [`RebindResult`](OneGame.Platform/RebindResult.md) | record | The outcome of a rebinding capture. |
 | [`RunningOn`](OneGame.Platform/RunningOn.md) | static class | Which kind of system the game is running on. |
