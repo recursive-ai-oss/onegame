@@ -55,7 +55,11 @@ public sealed class LiveClient : IDisposable
     {
         try
         {
-            _socket ??= Connect();
+            if (_socket is null)
+            {
+                _socket = Connect();
+                Handshake(_socket);
+            }
             var request = "{\"jsonrpc\":\"2.0\",\"id\":" + (++_id).ToString(CultureInfo.InvariantCulture) + ",\"method\":" + Quote(method) + ",\"params\":" + paramsJson + "}\n";
             _socket.Send(Encoding.UTF8.GetBytes(request));
             var line = ReadLine(_socket);
@@ -144,6 +148,21 @@ public sealed class LiveClient : IDisposable
                 return Encoding.UTF8.GetString(line.GetBuffer(), 0, (int)line.Length);
             }
         }
+    }
+
+    // A server of the library answers a request on a connection that has not initialized as the stateless protocol revision, which asks for
+    // per-request metadata; one initialize makes the session the revision every client of this harness has always spoken.
+    private static void Handshake(Socket socket)
+    {
+        var hello = "{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"onegame-harness\",\"version\":\"1\"}}}\n";
+        socket.Send(Encoding.UTF8.GetBytes(hello));
+        using var reply = JsonDocument.Parse(ReadLine(socket));
+        if (!reply.RootElement.TryGetProperty("result", out _))
+        {
+            throw new IOException("the process refused to initialize the session");
+        }
+
+        socket.Send(Encoding.UTF8.GetBytes("{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n"));
     }
 
     private void Reset()

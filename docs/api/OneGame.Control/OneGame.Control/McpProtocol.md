@@ -9,15 +9,9 @@
 public sealed class McpProtocol
 ```
 
-The Model Context Protocol (https://modelcontextprotocol.io, revision 2025-06-18) for one game: JSON-RPC 2.0 messages in, messages out. Every control operation is a tool of the same name. The class knows nothing about sockets; `OneGame.Live` moves the messages.
+> **Obsolete.** Use ControlServer: its Server runs over a stream, and OpenSession handles messages one at a time.
 
-**Example**
-
-```csharp
-var mcp = new McpProtocol(new ControlSurface(game));
-mcp.Handle("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}""");
-string? reply = mcp.Handle("""{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"info","arguments":{}}}""");
-```
+One MCP session for a game's control surface: JSON-RPC 2.0 messages in, messages out. Every control operation is a tool of the same name. It is now a thin adapter over [`ControlServer`](ControlServer.md) (RecursiveAI.OneModelContext does the protocol); new code uses that class.
 
 ## Constructors
 
@@ -58,7 +52,7 @@ Creates the protocol handler for any control endpoint, such as a server's.
 
 | Member | Description |
 | --- | --- |
-| [`LatestVersion`](#m-latestversion) | The newest protocol revision this server speaks. |
+| [`LatestVersion`](#m-latestversion) | The newest protocol revision this server has always spoken. |
 
 ### <a id="m-latestversion"></a>LatestVersion
 
@@ -66,7 +60,7 @@ Creates the protocol handler for any control endpoint, such as a server's.
 public const string LatestVersion = "2025-06-18";
 ```
 
-The newest protocol revision this server speaks.
+The newest protocol revision this server has always spoken.
 
 **Type:** `string`
 

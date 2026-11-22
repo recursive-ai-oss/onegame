@@ -4,6 +4,11 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Changed
+
+- Live control speaks MCP through RecursiveAI.OneModelContext (1.0.1; it has no dependencies of its own). New `ControlServer` (in `OneGame.Control`) serves a control endpoint's operations as tools: `Server` runs over a stream, `OpenSession()` handles one message at a time. `LiveServer` and the page channel (`?control=`) use it; the tool list (names, descriptions, schemas, read-only hints) and every operation's result are unchanged, and a transcript against a live game matches. `McpProtocol` is `[Obsolete]` and now an adapter over `ControlServer`; it stays for binary compatibility.
+- What a client may notice: send `initialize` first (all MCP clients do; the harness's own clients now do), because an uninitialized connection is read as the stateless 2026-07-28 revision; an unknown requested revision is answered with the library's newest legacy one (2025-11-25) instead of 2025-06-18, while 2025-06-18, 2025-03-26 and 2024-11-05 negotiate as before; `isError` is left out of a successful tool result (the spec's default); `resources/list` and the other empty capabilities answer instead of "method not found"; an exception inside an operation is an `isError` result with code `internal_error` and the exception's text, where the socket used to answer a JSON-RPC internal error. `ServerVerb` and `LiveClient` initialize before their first call.
+
 ### Fixed
 
 - `onegame export --target web` restores the game before it reads the project, so the first export of a game that was never built has its shaders (it failed with "namespace Shaders does not exist"). `tools/web/run-web-tests.sh` works from a clean checkout.

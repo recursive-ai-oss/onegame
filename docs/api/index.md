@@ -11,7 +11,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Atlas](OneGame.Atlas/index.md) | 1 | 14 | 119 | Atlas pages and the SVG and image atlas for the 2D renderer. |
 | [RecursiveAI.OneGame.Audio](OneGame.Audio/index.md) | 1 | 58 | 451 | Audio device output and the audio service that drives a mixer. |
 | [RecursiveAI.OneGame.Cli](OneGame.Cli/index.md) | 0 | 0 | 0 | The onegame command: create, build, run, test, capture and replay games. |
-| [RecursiveAI.OneGame.Control](OneGame.Control/index.md) | 1 | 60 | 528 | The control layer shared by the command line, the test API and live control. |
+| [RecursiveAI.OneGame.Control](OneGame.Control/index.md) | 1 | 61 | 534 | The control layer shared by the command line, the test API and live control. |
 | [RecursiveAI.OneGame.Core](OneGame.Core/index.md) | 2 | 78 | 615 | Entity runtime: fixed-point numbers, random streams and the attributes that declare entities. |
 | [RecursiveAI.OneGame.Gltf](OneGame.Gltf/index.md) | 1 | 62 | 371 | glTF 2.0 import: scenes, meshes, materials, skins and animations, safe on untrusted input. |
 | [RecursiveAI.OneGame.Gpu](OneGame.Gpu/index.md) | 1 | 16 | 117 | Render graph over the GPU layer (RecursiveAI.OneGpu). |

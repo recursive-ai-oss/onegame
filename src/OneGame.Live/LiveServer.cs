@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net.Sockets;
 using OneGame.Control;
+using RecursiveAI.OneModelContext;
 
 namespace OneGame.Live;
 
@@ -26,9 +27,10 @@ namespace OneGame.Live;
 public sealed class LiveServer : IDisposable
 {
     /// <summary>Longest request line accepted, in bytes.</summary>
-    public const int MaxLineBytes = 8 * 1024 * 1024;
+    public const int MaxLineBytes = ControlServer.MaxMessageBytes;
 
-    private readonly McpProtocol _protocol;
+    private readonly IControlEndpoint _endpoint;
+    private readonly ControlServer _control;
     private readonly ConcurrentQueue<Pending> _queue = new();
     private readonly SemaphoreSlim _work = new(0);
     private readonly List<Socket> _clients = [];
@@ -49,7 +51,8 @@ public sealed class LiveServer : IDisposable
     public LiveServer(IControlEndpoint endpoint)
     {
         ArgumentNullException.ThrowIfNull(endpoint);
-        _protocol = new McpProtocol(endpoint);
+        _endpoint = endpoint;
+        _control = new ControlServer(endpoint, Enqueue);
     }
 
     /// <summary>The socket path being listened on.</summary>
@@ -184,57 +187,21 @@ public sealed class LiveServer : IDisposable
                 _clients.Add(client);
             }
 
-            new Thread(() => Serve(client)) { IsBackground = true, Name = "onegame-live-client" }.Start();
+            _ = Task.Run(() => Serve(client));
         }
     }
 
-    private void Serve(Socket client)
+    // The library reads and frames the stream; each tool call is queued for the game's thread and answered when Pump has run it.
+    private async Task Serve(Socket client)
     {
         try
         {
-            using var stream = new NetworkStream(client, ownsSocket: false);
-            var line = new MemoryStream();
-            var buffer = new byte[16 * 1024];
-            while (!_stop.IsCancellationRequested)
-            {
-                var n = stream.Read(buffer, 0, buffer.Length);
-                if (n == 0)
-                {
-                    return;
-                }
-
-                for (var i = 0; i < n; i++)
-                {
-                    if (buffer[i] != (byte)'\n')
-                    {
-                        if (line.Length >= MaxLineBytes)
-                        {
-                            return;
-                        }
-
-                        line.WriteByte(buffer[i]);
-                        continue;
-                    }
-
-                    if (line.Length > 0)
-                    {
-                        var request = new Pending(Encoding.UTF8.GetString(line.GetBuffer(), 0, (int)line.Length));
-                        line.SetLength(0);
-                        _queue.Enqueue(request);
-                        _work.Release();
-                        var response = request.Done.Task.GetAwaiter().GetResult();
-                        if (response is not null)
-                        {
-                            var bytes = Encoding.UTF8.GetBytes(response + "\n");
-                            stream.Write(bytes, 0, bytes.Length);
-                        }
-                    }
-                }
-            }
+            await using var stream = new NetworkStream(client, ownsSocket: false);
+            await _control.Server.RunAsync(ContextTransport.Stream(stream, MaxLineBytes), _stop.Token).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException)
+        catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException or OperationCanceledException)
         {
-            // The agent went away.
+            // The agent went away, or the server is stopping.
         }
         finally
         {
@@ -247,24 +214,31 @@ public sealed class LiveServer : IDisposable
         }
     }
 
+    private ValueTask<ControlResult> Enqueue(string op, string? argsJson)
+    {
+        var request = new Pending(op, argsJson);
+        _queue.Enqueue(request);
+        _work.Release();
+        return new ValueTask<ControlResult>(request.Done.Task);
+    }
+
     /// <summary>Runs the requests that have arrived. Call it from the game's thread, between frames. Returns how many ran.</summary>
     public int Pump()
     {
         var count = 0;
         while (_queue.TryDequeue(out var request))
         {
-            string? response;
             try
             {
-                response = _protocol.Handle(request.Message);
+                request.Done.SetResult(_endpoint.InvokeAsync(request.Op, request.Args).AsTask().GetAwaiter().GetResult());
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
-                // The handler turns every expected failure into a JSON-RPC error; this guards the game against a bug in an operation.
-                response = "{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32603,\"message\":" + JsonSerializer.Serialize(ex.GetType().Name + ": " + ex.Message, LiveJson.Default.String) + "}}";
+                // A ControlException becomes the tool's error result; anything else is a bug in an operation, which the library
+                // reports to the agent as an internal error while the game goes on.
+                request.Done.SetException(ex);
             }
 
-            request.Done.SetResult(response);
             count++;
         }
 
@@ -299,7 +273,7 @@ public sealed class LiveServer : IDisposable
 
         while (_queue.TryDequeue(out var request))
         {
-            request.Done.TrySetResult(null);
+            request.Done.TrySetException(new ObjectDisposedException(nameof(LiveServer)));
         }
 
         if (Path is not null && File.Exists(Path))
@@ -308,10 +282,12 @@ public sealed class LiveServer : IDisposable
         }
     }
 
-    private sealed class Pending(string message)
+    private sealed class Pending(string op, string? args)
     {
-        public string Message { get; } = message;
+        public string Op { get; } = op;
 
-        public TaskCompletionSource<string?> Done { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public string? Args { get; } = args;
+
+        public TaskCompletionSource<ControlResult> Done { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 }

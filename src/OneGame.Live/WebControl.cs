@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 using OneGame.Control;
 using OneGame.Host;
 using OneGame.Platform;
+using RecursiveAI.OneModelContext;
 using OneGame.Testing;
 
 namespace OneGame.Live;
@@ -26,7 +27,7 @@ internal static class WebControl
 
     public static void Start(GameInstance game, ControlSurface surface, string url)
     {
-        var mcp = new McpProtocol(surface);
+        var mcp = new ControlServer(surface).OpenSession();
         BrowserPage.SetControlHandler(async message => await mcp.HandleAsync(message).ConfigureAwait(true));
         if (url != "page")
         {
@@ -50,7 +51,7 @@ internal static class WebControl
     private static async Task Loop(GameInstance game, ControlSurface surface, string url)
     {
         var socket = new BrowserWebSocket(url);
-        var mcp = new McpProtocol(surface);
+        var mcp = new ControlServer(surface).OpenSession();
         var waited = 0;
         while (socket.State == 0 && waited++ < 2000)
         {
@@ -66,7 +67,7 @@ internal static class WebControl
         Send(socket, Reply(0, w =>
         {
             w.WriteString("hello", game.Definition.Name);
-            w.WriteString("protocol", McpProtocol.LatestVersion);
+            w.WriteString("protocol", ControlServer.LatestVersion);
         }));
         while (socket.State == 1)
         {
@@ -101,7 +102,7 @@ internal static class WebControl
         return doc.RootElement.TryGetProperty("id", out var id) && id.TryGetInt64(out var v) ? v : 0;
     }
 
-    private static async Task<string> Handle(GameInstance game, ControlSurface surface, McpProtocol mcp, string text)
+    private static async Task<string> Handle(GameInstance game, ControlSurface surface, ContextSession mcp, string text)
     {
         using var doc = JsonDocument.Parse(text);
         var root = doc.RootElement;

@@ -147,21 +147,17 @@ internal sealed class ServerVerb : IVerb
     {
         using var socket = Connect(socketPath);
         using var stream = new NetworkStream(socket, ownsSocket: false);
-        var request = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":" + Str(op) + ",\"arguments\":" + argsJson + "}}\n";
+        // One initialize first: a connection that has not initialized is read as the stateless protocol revision.
+        var request = "{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"onegame\",\"version\":\"1\"}}}\n"
+            + "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n"
+            + "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":" + Str(op) + ",\"arguments\":" + argsJson + "}}\n";
         var bytes = Encoding.UTF8.GetBytes(request);
         stream.Write(bytes, 0, bytes.Length);
-        var line = new MemoryStream();
-        var one = new byte[1];
-        while (stream.Read(one, 0, 1) == 1 && one[0] != (byte)'\n')
-        {
-            line.WriteByte(one[0]);
-            if (line.Length > 16 * 1024 * 1024)
-            {
-                throw new CliException(ExitCodes.RuntimeError, "bad_reply", "The server's reply is too long.");
-            }
-        }
+        // The first line answers the initialize; the second is the call.
+        _ = ReadLine(stream);
+        var line = ReadLine(stream);
 
-        using var doc = JsonDocument.Parse(line.ToArray());
+        using var doc = JsonDocument.Parse(line);
         var root = doc.RootElement;
         if (root.TryGetProperty("error", out var rpcError))
         {
@@ -178,6 +174,22 @@ internal sealed class ServerVerb : IVerb
         }
 
         return text;
+    }
+
+    private static byte[] ReadLine(NetworkStream stream)
+    {
+        var line = new MemoryStream();
+        var one = new byte[1];
+        while (stream.Read(one, 0, 1) == 1 && one[0] != (byte)'\n')
+        {
+            line.WriteByte(one[0]);
+            if (line.Length > 16 * 1024 * 1024)
+            {
+                throw new CliException(ExitCodes.RuntimeError, "bad_reply", "The server's reply is too long.");
+            }
+        }
+
+        return line.ToArray();
     }
 
     private static Socket Connect(string path)

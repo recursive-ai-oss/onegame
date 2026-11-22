@@ -141,7 +141,7 @@ internal sealed class DevTools : IDevTools
         surface.ResumeFromHotRestart();
         using var server = new LiveServer(surface);
         server.Start(args.Get("live") ?? LiveServer.DefaultPath());
-        var hello = JsonSerializer.Serialize(new LiveHello(true, server.Path!, Environment.ProcessId, game.Definition.Name, McpProtocol.LatestVersion), LiveJson.Default.LiveHello);
+        var hello = JsonSerializer.Serialize(new LiveHello(true, server.Path!, Environment.ProcessId, game.Definition.Name, ControlServer.LatestVersion), LiveJson.Default.LiveHello);
         output.WriteLine(json ? hello : $"listening on {server.Path} (MCP, newline-delimited JSON-RPC); connect with: onegame mcp --socket {server.Path}");
         output.Flush();
         if (args.Has("realtime"))
