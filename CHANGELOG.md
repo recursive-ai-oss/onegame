@@ -4,6 +4,8 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-22
+
 ### Added
 
 - `hash_at {tick, audience}` and `audience_watch` on a server, `ServerHost.WatchAudience` and `HashesAt(tick, client, audience)`: the authority records the view hash of a named audience (player, team, relay, interest) at every tick, within `hashHistory`, so a replica that follows through relays or under an identity the server has no connection for can be compared with it. Hashes only.
