@@ -39,6 +39,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- X11: a window asked to maximize right after a move could remember (0, 0) as the position to restore to. The configure handler read the position, then the size, and a maximize landing between them paired the maximized position with the old size. It now reads the size after the position, so such an event counts as stale.
 - `onegame test` counted 0 unit tests when the test platform coloured its summary (a CI log, `CI=true`): the colour codes before `total:` and `succeeded:` hid them. The counts now ignore ANSI escapes.
 - Web, WebGPU: a custom material as the first draw of a frame failed with "No bind group set at group index 0" and drew nothing. `Renderer2D` now binds the frame constants after the pass's first pipeline.
 - A view that threw while a frame was being built left the render graph and the 2D renderer mid-frame, so every later frame and capture failed with "the previous frame was never executed". The stage now cancels the frame and the game's own error is what shows. In a browser the animation-frame loop also survives a frame that threw (`window.__onegame.frameErrors` and `lastFrameError` say what happened), and a page frame no longer runs between an offscreen capture's start and its readback.
