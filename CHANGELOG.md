@@ -4,6 +4,8 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-22
+
 ### Changed
 
 - Live control speaks MCP through RecursiveAI.OneModelContext (1.0.1; it has no dependencies of its own). New `ControlServer` (in `OneGame.Control`) serves a control endpoint's operations as tools: `Server` runs over a stream, `OpenSession()` handles one message at a time. `LiveServer` and the page channel (`?control=`) use it; the tool list (names, descriptions, schemas, read-only hints) and every operation's result are unchanged, and a transcript against a live game matches. `McpProtocol` is `[Obsolete]` and now an adapter over `ControlServer`; it stays for binary compatibility.
