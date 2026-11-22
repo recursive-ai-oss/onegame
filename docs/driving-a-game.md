@@ -69,6 +69,8 @@ public override void OnScenarioStarting(GameInstance game)
 }
 ```
 
+**Events.** `event:` counts the one-shot sim events the game emitted since the scenario began, by type name and optionally by payload fields: `event: { name: WallDone, count: 2, where: { Cell: 12 } }` (`count`, `min` or `max`; at least one when none is given). The `sim_events` operation lists them live. See [events.md](events.md).
+
 **Sounds.** A scenario can assert what the game played without a sound device: `sound:` counts the sounds the game asked the audio service for since the scenario began (earlier ones don't count), matched by the name the clip was loaded under (`audio.LoadSound(stream, "coin")`; a file extension in that name is optional in the scenario). `frames: N` counts only those requested in the last N frames. Every scenario result carries the whole event log as `sounds` (sequence, frame, sound, bus, volume, loop, music, started), and the `audio_events` operation reads it live. Name clips when loading them: the default name is `sound`.
 
 **Input and assets.** `action:` and `pad:` drive the game's input actions and a virtual gamepad ([input.md](input.md)); the live operations `actions` (list or drive actions) and `input_pad` do the same over live control. Changes show after the next `step:`. `assets:` and `asset:` check and reload loaded files, and the `assets` operation lists them with their version and state. A 2D game's drawing is visible through `draw_view` (sprites and text drawn last frame, the camera, screen to world conversion). Hot reload works in a running Debug game: save the picture and the next `capture_frame` shows it ([assets.md](assets.md)).

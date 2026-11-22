@@ -275,6 +275,13 @@ public sealed class ReplicaScope
             case Msg.Digest:
                 ApplyDigest(ref r);
                 break;
+            case Msg.Events:
+                if (State == ReplicaState.Live)
+                {
+                    ApplyEvents(ref r);
+                }
+
+                break;
             case Msg.CommandRefused:
             {
                 var sequence = r.ReadVarUInt();
@@ -566,6 +573,53 @@ public sealed class ReplicaScope
             {
                 BeginDrift(tick, authorityHash, local);
             }
+        }
+    }
+
+    /// <summary>
+    /// Appends the events that followed a frame. They belong to the frame just applied; one for any other tick is a leftover from before a
+    /// resync and is ignored. The count and each payload are checked against their limits before anything is stored.
+    /// </summary>
+    private void ApplyEvents(ref SyncReader r)
+    {
+        var tick = r.ReadVarInt();
+        if (!r.Ok)
+        {
+            Desync("events header");
+            return;
+        }
+
+        if (tick != LastTick)
+        {
+            return;
+        }
+
+        var count = r.ReadCount(SyncLimits.MaxEventsPerMessage);
+        var log = World.Events;
+        for (var n = 0; n < count && r.Ok; n++)
+        {
+            var back = r.ReadVarInt();
+            var typeId = r.ReadFixed32();
+            var entity = r.ReadVarUInt();
+            var payload = r.ReadBytes(EventLog.MaxPayloadBytes);
+            if (!r.Ok)
+            {
+                break;
+            }
+
+            if (back < 0 || back > tick)
+            {
+                r.Fail(SyncError.InvalidValue);
+                break;
+            }
+
+            log.AppendReceived(tick - back, typeId, entity, payload);
+        }
+
+        r.ExpectEnd();
+        if (!r.Ok)
+        {
+            Desync("events body: " + r.Error);
         }
     }
 

@@ -10,6 +10,11 @@ public class AnalyzerRuleTests
         { "decimal property", Harness.Entity("[Synced] public partial decimal Cash { get; set; }"), "OG0001" },
         { "float list", Harness.Entity("[Synced] public SyncList<float> Weights { get; } = new();"), "OG0001" },
         { "float command argument", Harness.Entity("[Command] public void Push(float force) { }"), "OG0001" },
+        { "float in a sim event", Harness.Entity("", "[SimEvent] public partial struct Hit { public float Power { get; set; } }"), "OG0001" },
+        { "event without a codec", Harness.Entity("", "[SimEvent] public partial struct Hit { public object Who { get; set; } }"), "OG0009" },
+        { "event emitted from a view", Harness.Entity("[View] public void Show() { Emit(new Hit { Power = 1 }); }", "[SimEvent] public partial struct Hit { public int Power { get; set; } }"), "OG0008" },
+        { "event emitted from a view helper", Harness.Entity("private void Pop() { Emit(new Hit { Power = 1 }); } [View] public void Show() { Pop(); }", "[SimEvent] public partial struct Hit { public int Power { get; set; } }"), "OG0008" },
+        { "world event emitted from a view", Harness.Entity("[View] public void Show() { World!.Emit(new Hit { Power = 1 }); }", "[SimEvent] public partial struct Hit { public int Power { get; set; } }"), "OG0008" },
         { "float in synced struct", Harness.Entity("", "[SyncedStruct] public partial struct P { public float X { get; set; } }"), "OG0001" },
         { "float in hot data", Harness.Entity("", "[HotData] public struct H { public double X { get; set; } }"), "OG0001" },
 
@@ -117,6 +122,7 @@ public class AnalyzerRuleTests
         { "view recursion without writes", Harness.Entity("private int Down(int a) => a <= 0 ? 0 : Down(a - 1); [View] public int Show() => Down(N);") },
         { "sim system with fixed-point", Harness.Entity("", "public sealed class Sys : ISimSystem { public void Tick(World w) { var e = w.Entities.Count; } }") },
         { "plain class is not checked", Harness.Entity("", "public class Tool { public float Now() => (float)DateTime.Now.Ticks; }") },
+        { "events emitted from sim, read from a view", Harness.Entity("protected override void OnTick() { Emit(new Hit { Power = N }); World!.Emit(new Hit { Power = 2 }); } [View] public int Show() { var r = World!.Events.NewReader(); var n = 0; while (r.Next<Hit>(out var h, out var i)) { n += h.Power; } return n; }", "[SimEvent(Visibility = Visibility.Owner)] public partial struct Hit { public int Power { get; set; } }") },
         { "full-featured entity", Harness.Entity("[Command] public bool Take(int n, string who) { if (n > N) { return false; } N -= n; L.Add(n); return true; } [Migrate(1)] static void Old(ref SyncReader r, E e) { e.N = r.ReadInt32(); }", "") },
     };
 

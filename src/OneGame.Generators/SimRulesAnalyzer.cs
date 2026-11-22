@@ -153,7 +153,7 @@ public sealed class SimRulesAnalyzer : DiagnosticAnalyzer
                     }
                 }
             }
-            else if (Codecs.HasAttribute(type, "SyncedStructAttribute") || Codecs.HasAttribute(type, "HotDataAttribute"))
+            else if (Codecs.HasAttribute(type, "SyncedStructAttribute") || Codecs.HasAttribute(type, "SimEventAttribute") || Codecs.HasAttribute(type, "HotDataAttribute"))
             {
                 foreach (var member in type.GetMembers())
                 {

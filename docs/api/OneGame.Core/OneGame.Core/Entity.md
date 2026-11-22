@@ -197,6 +197,7 @@ The world this entity belongs to, or null.
 | [`ComputeViewHash()`](#m-computeviewhash) | The hash of what this copy holds: [`Entity.ComputeHash()`](Entity.md#m-computehash) for a complete entity, the filtered form for a replica of a filtered one. |
 | [`ComputeViewHash(ulong)`](#m-computeviewhash-ulong) | Hash of what an audience sees of this entity: with every property visible it equals [`Entity.ComputeHash()`](Entity.md#m-computehash), otherwise it covers the type, the id and only the visible properties. |
 | [`CopyStateCore(Entity)`](#m-copystatecore-entity) | Makes this entity's synced state equal to `source`'s (same type). |
+| [`Emit<T>(in T)`](#m-emit-t-t) | Emits a one-shot event from this entity's sim code. |
 | [`EndRestore()`](#m-endrestore) | Ends [`Entity.BeginRestore()`](Entity.md#m-beginrestore). |
 | [`ExecuteCommand(uint, ref SyncReader)`](#m-executecommand-uint-syncreader) | Runs the handler for a command. |
 | [`IsOwnerOnlyCommand(uint)`](#m-isowneronlycommand-uint) | True when the command is marked `OwnerOnly`. |
@@ -316,6 +317,28 @@ Makes this entity's synced state equal to `source`'s (same type). The generator 
 **Parameters**
 
 - `source` ([`Entity`](Entity.md))
+
+### <a id="m-emit-t-t"></a>Emit&lt;T&gt;(in T)
+
+```csharp
+public bool Emit<T>(in T ev) where T : struct, ISimEvent<T>;
+```
+
+Emits a one-shot event from this entity's sim code. Subscribers that cannot see this entity (its visibility, owner and team, or interest) never receive it, and an event type narrowed to [`Visibility.Owner`](Visibility.md#m-owner) or [`Visibility.Team`](Visibility.md#m-team) reaches only that audience. From a view it is a compile error.
+
+**Type parameters**
+
+- `T`: A [`SimEventAttribute`](SimEventAttribute.md) struct.
+
+**Parameters**
+
+- `ev` (`T`): The event.
+
+**Returns:** `bool` — False when the tick's event limit was reached and the event was dropped.
+
+**Exceptions**
+
+- [`NotInWorldException`](NotInWorldException.md): The entity is not in a world.
 
 ### <a id="m-endrestore"></a>EndRestore()
 

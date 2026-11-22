@@ -81,3 +81,28 @@ public partial class Pin : Entity
 
     protected override void OnTick() => Count++;
 }
+
+/// <summary>A one-shot sim event, to exercise the generated event code under NativeAOT.</summary>
+[SimEvent]
+public partial struct Chirp
+{
+    public int Beat { get; set; }
+
+    public string Note { get; set; }
+}
+
+/// <summary>Emits an event every few ticks.</summary>
+[Entity]
+public partial class Chirper : Entity
+{
+    [Synced] public partial int Beats { get; set; }
+
+    protected override void OnTick()
+    {
+        Beats++;
+        if (Beats % 4 == 0)
+        {
+            Emit(new Chirp { Beat = Beats, Note = "aot" });
+        }
+    }
+}

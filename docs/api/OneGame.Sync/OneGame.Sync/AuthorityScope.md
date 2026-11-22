@@ -22,6 +22,7 @@ A scope whose authority is this node: it owns the simulating [`AuthorityScope.Wo
 | [`Durability`](#m-durability) | When command answers and transfer confirmations may leave this scope. |
 | [`EntitiesRemoved`](#m-entitiesremoved) | Entity removals sent to subscribers so far (entities deleted, hidden, or leaving a connection's interest). |
 | [`EntitiesSent`](#m-entitiessent) | Entity additions sent to subscribers so far (an entity entering a connection's view counts once per connection). |
+| [`EventsSent`](#m-eventssent) | Events sent to subscribers so far, counted once per subscriber. |
 | [`FrameBytes`](#m-framebytes) | Bytes of frame messages sent to subscribers so far (each connection's copy counts). |
 | [`Hash`](#m-hash) | The scope's current hash (everything, including what no subscriber may see). |
 | [`Id`](#m-id) | The scope id. |
@@ -109,6 +110,16 @@ public long EntitiesSent { get; }
 ```
 
 Entity additions sent to subscribers so far (an entity entering a connection's view counts once per connection).
+
+**Type:** `long`
+
+### <a id="m-eventssent"></a>EventsSent
+
+```csharp
+public long EventsSent { get; }
+```
+
+Events sent to subscribers so far, counted once per subscriber.
 
 **Type:** `long`
 

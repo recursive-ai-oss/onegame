@@ -3,6 +3,8 @@
   <ItemGroup>
     <ProjectReference Include="../../src/OneGame.Control/OneGame.Control.csproj" />
     <ProjectReference Include="../../src/OneGame.Audio/OneGame.Audio.csproj" />
+    <!-- The test entity runs through the generator like a game's would. -->
+    <ProjectReference Include="../../src/OneGame.Generators/OneGame.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

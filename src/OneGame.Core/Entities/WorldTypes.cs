@@ -168,5 +168,54 @@ public sealed class EntityRegistry
         _factories[typeId] = factory;
     }
 
+    private readonly Dictionary<uint, (string Name, EventJsonWriter Json)> _events = [];
+
+    /// <summary>Registers a sim event type so the harness can name it and print its payload. The generated <c>EntityTypes.Register</c> calls it for every <see cref="SimEventAttribute"/> struct.</summary>
+    /// <typeparam name="T">The event type.</typeparam>
+    /// <exception cref="DuplicateTypeException">Another event type has the same id.</exception>
+    public void AddEvent<T>()
+        where T : ISimEvent<T>
+    {
+        if (_events.TryGetValue(T.EventTypeId, out var existing))
+        {
+            if (existing.Name == T.EventName)
+            {
+                return;
+            }
+
+            throw new DuplicateTypeException($"Event types '{existing.Name}' and '{T.EventName}' share id {T.EventTypeId}. Rename one.");
+        }
+
+        _events[T.EventTypeId] = (T.EventName, static (ref SyncReader r, JsonOut j) => SyncRead.Value<T>(ref r).WriteJson(j));
+    }
+
+    internal bool TryGetEvent(uint typeId, out string name, out EventJsonWriter json)
+    {
+        if (_events.TryGetValue(typeId, out var e))
+        {
+            (name, json) = e;
+            return true;
+        }
+
+        name = string.Empty;
+        json = null!;
+        return false;
+    }
+
+    /// <summary>The id of a registered event type by name, or null.</summary>
+    /// <param name="name">The event's name (its type name).</param>
+    public uint? FindEvent(string name)
+    {
+        foreach (var (id, e) in _events)
+        {
+            if (e.Name == name)
+            {
+                return id;
+            }
+        }
+
+        return null;
+    }
+
     internal Entity? Create(uint typeId) => _factories.TryGetValue(typeId, out var f) ? f() : null;
 }

@@ -250,6 +250,9 @@ public enum ExpectKind
     /// <summary>Sounds the game asked the audio service to play: how many, by name, optionally within the last few frames.</summary>
     Sound,
 
+    /// <summary>One-shot sim events emitted since the scenario began: how many of a named type, optionally with given payload values.</summary>
+    Event,
+
     /// <summary>The state of an input action this frame: held, pressed, released, value.</summary>
     Action,
 
@@ -360,6 +363,12 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
 
     /// <summary>The sound's name (sound): the name the clip was loaded under, with or without its file extension.</summary>
     public string? SoundName { get; init; }
+
+    /// <summary>The event type's name (event).</summary>
+    public string? EventName { get; init; }
+
+    /// <summary>Payload fields an event must have to count, as field name and expected text (event).</summary>
+    public (string Field, string Value)[] EventWhere { get; init; } = [];
 
     /// <summary>The emitter's name (particles); null counts every emitter shown.</summary>
     public string? EmitterName { get; init; }
@@ -962,7 +971,7 @@ public static class ScenarioParser
 
         public ScenarioExpectation Expectation(YamlNode node)
         {
-            var (verb, target) = SplitVerb(node, "an expectation is a mapping with one key: state, ui, tick, hash, capture, pick, steam-input, sound, agree or drift (plus node: for a cluster)");
+            var (verb, target) = SplitVerb(node, "an expectation is a mapping with one key: state, ui, tick, hash, capture, pick, steam-input, sound, event, agree or drift (plus node: for a cluster)");
             var e = ExpectationCore(verb);
             return target is null ? e : e with { Node = target };
         }
@@ -1076,6 +1085,18 @@ public static class ScenarioParser
                         Min = sd.TryGetValue("min", out var sdmin) ? Number(sdmin, "min") : (noBound ? 1 : null),
                         Max = sd.TryGetValue("max", out var sdmax) ? Number(sdmax, "max") : null,
                         SoundFrames = sd.TryGetValue("frames", out var sdf) ? Whole(sdf, "frames") : 0,
+                    };
+                case "event":
+                    // event: {name: WallDone, count: 2, where: {Cell: 12}}
+                    var evm = Map(v, ["name", "count", "min", "max", "where"], "event");
+                    var evNoBound = !evm.ContainsKey("count") && !evm.ContainsKey("min") && !evm.ContainsKey("max");
+                    return new ScenarioExpectation(ExpectKind.Event, line)
+                    {
+                        EventName = evm.TryGetValue("name", out var evn) ? Text(evn, "name") : throw Error(v, "event needs the name of the event type"),
+                        Count = evm.TryGetValue("count", out var evc) ? Whole(evc, "count") : null,
+                        Min = evm.TryGetValue("min", out var evmin) ? Number(evmin, "min") : (evNoBound ? 1 : null),
+                        Max = evm.TryGetValue("max", out var evmax) ? Number(evmax, "max") : null,
+                        EventWhere = evm.TryGetValue("where", out var evw) ? [.. Map(evw, [.. evw.Entries.Select(en => en.Key.GetValue<string>())], "where").Select(kv => (kv.Key, Text(kv.Value, kv.Key)))] : [],
                     };
                 case "particles":
                     var pm = Map(v, ["emitter", "count", "min", "max"], "particles");

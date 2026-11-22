@@ -50,6 +50,8 @@ A check on the game's state. Unset fields are not checked.
 | [`Enabled`](#m-enabled) | The first match is enabled or disabled (ui). |
 | [`Entity`](#m-entity) | Entity spec (state). |
 | [`EqualTo`](#m-equalto) | The value must equal this text (numbers compare as numbers). |
+| [`EventName`](#m-eventname) | The event type's name (event). |
+| [`EventWhere`](#m-eventwhere) | Payload fields an event must have to count, as field name and expected text (event). |
 | [`Focused`](#m-focused) | The first match has focus or not (ui). |
 | [`Id`](#m-id) | Element id (ui). |
 | [`Kind`](#m-kind) |  |
@@ -230,6 +232,26 @@ public string? EqualTo { get; init; }
 The value must equal this text (numbers compare as numbers).
 
 **Type:** `string?`
+
+### <a id="m-eventname"></a>EventName
+
+```csharp
+public string? EventName { get; init; }
+```
+
+The event type's name (event).
+
+**Type:** `string?`
+
+### <a id="m-eventwhere"></a>EventWhere
+
+```csharp
+public (string Field, string Value)[] EventWhere { get; init; }
+```
+
+Payload fields an event must have to count, as field name and expected text (event).
+
+**Type:** `(string Field, string Value)[]`
 
 ### <a id="m-focused"></a>Focused
 

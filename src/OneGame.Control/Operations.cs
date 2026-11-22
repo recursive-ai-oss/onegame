@@ -379,6 +379,7 @@ public static partial class ControlOps
         ..SteamInputOps,
         ..ActionOps,
         ..AudioEventOps,
+        ..SimEventOps,
         ..WindowOps,
         ..AssetOps,
         ..TweenOps,

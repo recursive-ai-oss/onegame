@@ -1,0 +1,15 @@
+name: load-does-not-refire
+description: Loading a save is not an event. The old events stay in the past, and the label starts again from the loaded state.
+steps:
+  - click: seven
+  - step: 1
+  - click: save
+  - click: twelve
+  - step: 1
+  - expect: { event: { name: WallDone, count: 2 } }
+  - click: load
+  - step: 2
+expect:
+  - event: { name: WallDone, count: 0 }
+  - ui: { id: status, text: "Walls done: 0, last cell 0, bonus 0" }
+  - state: { entity: Builder, property: Walls, equals: 1 }

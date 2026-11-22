@@ -152,6 +152,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         "audio" => Json(AudioReport(a), ControlJson.Default.AudioStatus),
         "window" => Json(WindowOp(a), ControlJson.Default.WindowResult),
         "audio_events" => Json(AudioEvents(a), ControlJson.Default.AudioEventsResult),
+        "sim_events" => SimEventsOp(a),
         "audio_capture" => Json(AudioCapture(a), ControlJson.Default.AudioCaptureResult),
         "store" => Json(StoreAction(a), ControlJson.Default.PurchaseStatus),
         "saves" => Json(SavesOp(a), ControlJson.Default.SavesResult),

@@ -59,7 +59,11 @@ internal static class ValueEmitters
         return ok ? members : null;
     }
 
-    public static GenResult BuildStruct(GeneratorAttributeSyntaxContext context, CancellationToken ct)
+    public static GenResult BuildEvent(GeneratorAttributeSyntaxContext context, CancellationToken ct) => BuildStruct(context, isEvent: true, ct);
+
+    public static GenResult BuildStruct(GeneratorAttributeSyntaxContext context, CancellationToken ct) => BuildStruct(context, isEvent: false, ct);
+
+    private static GenResult BuildStruct(GeneratorAttributeSyntaxContext context, bool isEvent, CancellationToken ct)
     {
         var diags = new List<DiagData>();
         if (context.TargetSymbol is not INamedTypeSymbol type)
@@ -87,7 +91,27 @@ internal static class ValueEmitters
             s.Open("namespace " + ns);
         }
 
-        s.Open($"{EmitUtil.Access(type.DeclaredAccessibility == Accessibility.NotApplicable ? Accessibility.Internal : type.DeclaredAccessibility)} partial struct {name} : global::OneGame.Core.ISyncValue<{name}>");
+        s.Open($"{EmitUtil.Access(type.DeclaredAccessibility == Accessibility.NotApplicable ? Accessibility.Internal : type.DeclaredAccessibility)} partial struct {name} : global::OneGame.Core.{(isEvent ? "ISimEvent" : "ISyncValue")}<{name}>");
+        uint eventId = 0;
+        var eventVisibility = 0;
+        if (isEvent)
+        {
+            eventId = EmitUtil.Fnv32(type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", string.Empty));
+            foreach (var arg in context.Attributes[0].NamedArguments)
+            {
+                if (arg.Key == "Visibility" && arg.Value.Value is int v)
+                {
+                    eventVisibility = v;
+                }
+            }
+
+            s.Line("/// <inheritdoc />");
+            s.Line($"public static uint EventTypeId => {EmitUtil.Hex(eventId)};");
+            s.Line("/// <inheritdoc />");
+            s.Line($"public static string EventName => {EmitUtil.Literal(name)};");
+            s.Line("/// <inheritdoc />");
+            s.Line($"public static global::OneGame.Core.Visibility EventVisibility => (global::OneGame.Core.Visibility){eventVisibility};");
+        }
         s.Line("/// <inheritdoc />");
         s.Open("public void Write(global::OneGame.Core.SyncWriter w)");
         foreach (var m in members)
@@ -142,7 +166,8 @@ internal static class ValueEmitters
             s.Close();
         }
 
-        return new GenResult(EmitUtil.HintName(type, "Struct"), s.ToString(), new EquatableArray<DiagData>(diags.ToArray()), null);
+        return new GenResult(EmitUtil.HintName(type, isEvent ? "Event" : "Struct"), s.ToString(), new EquatableArray<DiagData>(diags.ToArray()),
+            isEvent ? new Registration(Codecs.TypeText(type), name, eventId) : null);
     }
 
     public static GenResult BuildTable(GeneratorAttributeSyntaxContext context, CancellationToken ct)

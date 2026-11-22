@@ -37,6 +37,39 @@ public sealed class World
         _registry = registry;
         Rng = new RngStreams(seed);
         _live = new EntityList(_entities, _removedDuringTick);
+        Events = new EventLog(registry);
+    }
+
+    /// <summary>
+    /// The one-shot events this world's sim emitted (an authority) or its authority sent it (a replica). Views read them with <see cref="EventLog.NewReader"/>.
+    /// A predicted world records none: read events from the confirmed world.
+    /// </summary>
+    public EventLog Events { get; }
+
+    /// <summary>
+    /// Emits a one-shot event from sim code that is not tied to an entity (a system, say). It reaches every subscriber that may read the scope, and
+    /// views see it once. Owner and team events need <see cref="Entity.Emit{T}"/>. Call it only from sim code: from a view it is a compile error.
+    /// </summary>
+    /// <typeparam name="T">A <see cref="SimEventAttribute"/> struct.</typeparam>
+    /// <param name="ev">The event.</param>
+    /// <returns>False when this tick already emitted <see cref="EventLog.EventsPerTickLimit"/> events and this one was dropped.</returns>
+    /// <exception cref="ReplicaWriteException">This world is a replica.</exception>
+    /// <exception cref="ArgumentException">The event encodes to more than <see cref="EventLog.MaxPayloadBytes"/> bytes.</exception>
+    [MutatesState]
+    public bool Emit<T>(in T ev)
+        where T : struct, ISimEvent<T>
+        => EmitFrom(ev, null);
+
+    internal bool EmitFrom<T>(in T ev, Entity? source)
+        where T : struct, ISimEvent<T>
+    {
+        if (Role == WorldRole.Replica)
+        {
+            throw new ReplicaWriteException("A replica world does not emit events; its authority does and sends them.");
+        }
+
+        // A predicted world re-runs ticks after a correction, so what it emitted would fire twice. Views read the confirmed world's events.
+        return Role == WorldRole.Predicted ? false : Events.Record(Tick, ev, source);
     }
 
     /// <summary>The seed the random streams derive from.</summary>
@@ -697,6 +730,7 @@ public sealed class World
         {
             t.Clear();
         }
+        Events.Reset();
     }
 
     /// <summary>
@@ -877,6 +911,7 @@ public sealed class World
         Tick = tick;
         _randomIncluded = randomIncluded;
         _pending.Clear();
+        Events.Reset();
         return SyncError.None;
     }
 
