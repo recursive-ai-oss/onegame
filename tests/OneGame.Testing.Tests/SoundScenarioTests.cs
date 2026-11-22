@@ -134,4 +134,20 @@ public class SoundScenarioTests
         Assert.True(second.Passed);
         Assert.Null(cluster.Client.Game.UiScaleOverride);
     }
+
+    [Fact]
+    public void ManyScenariosAtTheDefaultVoiceLimitAllStartEverySound()
+    {
+        // 12 scenarios of 40 sounds each is 480 voices against a pool of 64: only a per-scenario reset keeps each one's plays started.
+        using var audio = Audio();
+        using var cluster = TestCluster.Start(new ClickGame(audio), new TestOptions { Width = 320, Height = 200, Gpu = GpuMode.Off });
+        cluster.Client.Control.Audio = audio;
+        for (var n = 0; n < 12; n++)
+        {
+            var yaml = $"name: s{n}\nsteps:\n" + string.Concat(Enumerable.Repeat("  - press: Space\n  - step: 1\n", 40)) + "expect:\n  - sound: { name: click, count: 40 }\n";
+            var result = cluster.Run(ScenarioParser.Parse(yaml));
+            Assert.True(result.Passed, $"scenario {n}: " + JsonSerializer.Serialize(result, ScenarioJson.Default.ScenarioResult));
+            Assert.All(result.Sounds!, x => Assert.True(x.Started));
+        }
+    }
 }

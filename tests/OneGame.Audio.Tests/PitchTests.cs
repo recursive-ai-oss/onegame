@@ -63,4 +63,18 @@ public class PitchTests
         Assert.Equal(1, output.RenderFaults);
         output.Dispose();
     }
+
+    [Theory]
+    [InlineData(1000)]
+    [InlineData(4801)]
+    public void ScheduledMusicStartsOnTheRequestedFrame(int frame)
+    {
+        using var s = Service();
+        var voice = s.PlayMusic(new MemoryStream(RealMixerTests.Wav(16000, 48_000, 48_000)), new MusicOptions { Loop = false, StartAtFrame = frame });
+        Assert.True(voice.IsValid);
+        s.Advance(frame + 480);
+        var samples = s.Capture!.Samples.ToArray();
+        var first = Array.FindIndex(samples, x => Math.Abs(x) > 1e-6f) / 2;
+        Assert.Equal(frame, first);
+    }
 }

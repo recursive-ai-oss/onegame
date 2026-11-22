@@ -89,7 +89,7 @@ using (var audio = AudioService.Create(new AudioServiceOptions { Capture = true 
     audio.Play(audio.LoadSound(ReadAsset("tone44k.ogg")));
     audio.Play(audio.LoadSound(ReadAsset("loop48k.opus")), new PlayOptions { Pitch = 1.5f });
     audio.Play(audio.LoadSound(ReadAsset("tone44k.ogg")), new PlayOptions { Pitch = 4f }); // a 44.1 kHz clip at 4x into 48 kHz: clamped by the core, never thrown
-    audio.PlayMusic(ReadAsset("tone44k.ogg"));
+    audio.PlayMusic(ReadAsset("tone44k.ogg"), new MusicOptions { StartAtFrame = 480 });
     audio.Advance(4800);
     audio.Update();
     audio.Reset();
