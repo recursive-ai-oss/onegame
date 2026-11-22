@@ -7,7 +7,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 ### Fixed
 
 - `onegame export --target web` restores the game before it reads the project, so the first export of a game that was never built has its shaders (it failed with "namespace Shaders does not exist"). `tools/web/run-web-tests.sh` works from a clean checkout.
-- Cluster hash check: a client's main-scope replica is compared with the view the server holds for that client's own connection, not with any of the server's views, so a client holding another audience's valid view is reported. `NetStatus.LocalPort` and `INetConnection.LocalPort` (default 0) let a client name its connection to the server; release clients report `localPort` in their result.
+- Cluster hash check: a client's main-scope replica is compared with the view the server holds for that client's own connection, not with any of the server's views, so a client holding another audience's valid view is reported. `NetStatus.LocalPort` (an init property) and `INetConnection.LocalPort` (default 0) let a client name its connection to the server; release clients report `localPort` in their result.
 - A 3D stage (`Render3DStage`) whose scene update or 2D drawing throws leaves later frames and captures working, as the 2D stage already did; a test covers it.
 
 ## [2.2.0] - 2026-11-22
