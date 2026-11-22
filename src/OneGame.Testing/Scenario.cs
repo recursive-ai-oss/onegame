@@ -256,9 +256,6 @@ public enum ExpectKind
     /// <summary>Sounds the game asked the audio service to play: how many, by name, optionally within the last few frames.</summary>
     Sound,
 
-    /// <summary>One-shot sim events emitted since the scenario began: how many of a named type, optionally with given payload values.</summary>
-    Event,
-
     /// <summary>The state of an input action this frame: held, pressed, released, value.</summary>
     Action,
 
@@ -266,6 +263,9 @@ public enum ExpectKind
     Particles,
     /// <summary>How many top-level tweens are running (style transitions included).</summary>
     Tweens,
+
+    /// <summary>One-shot sim events emitted since the scenario began: how many of a named type, optionally with given payload values.</summary>
+    Event,
 }
 
 /// <summary>A check on the game's state. Unset fields are not checked.</summary>
