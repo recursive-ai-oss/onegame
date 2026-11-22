@@ -68,6 +68,10 @@ using var steam = new SteamActionSource(service, map);
 
 (`StartFake` is the stand-in controller for tests; a shipped game starts the real `SteamInputService`.) Steam's stick y is flipped to the action's y-down. Steam keeps one action set active: the context that names the open screen, else the first.
 
+## Pointer edges
+
+Actions and `app.Input.PointerX/Y` say where things are when the frame is drawn. A press followed by a long move in the same frame, or a finger that moves and lifts in the same frame, needs the events themselves: `app.Input.PointerEdges` lists the frame's pointer and touch events in order (`PointerEdge`: `Kind` Down, Move, Up or Cancel, `TouchId`, `Button`, sub-pixel `X` and `Y`, `FromTouch`), each at the position it happened. The game host calls `Input.EndFrame()` after every frame, so a view sees the edges since the previous frame. `PointerEmulatedFromTouch` says the pointer is a finger, so a game can skip hover. Limits and per-platform details are in [platform](interfaces/platform.md#mobile-touch-lifecycle-safe-area-keyboard) under "Pointer edges".
+
 ## Testing it
 
 Scenario steps drive the same actions a player would:
