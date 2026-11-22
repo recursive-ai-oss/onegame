@@ -26,7 +26,10 @@ Fonts: put `.ttf`/`.otf` files in a `fonts/` folder next to the game (or overrid
 name: click-button
 window: 320x200            # optional; also fixture, snapshot, seed
 steps:
-  - click: add             # an element id; or {selector: "Button"} or {x: 10, y: 20}
+  - click: add             # an element id; or {selector: "Button"} or {x: 10, y: 20}; at a position also button: left|right|middle
+  - pointer: { action: down, x: 20, y: 30 }   # mouse down, move, up or click at window coordinates; button: left (default), right or middle
+  - pointer: { action: move, x: 90, y: 30 }   # a drag is down, any number of moves, up
+  - pointer: { action: up, x: 90, y: 30 }
   - step: 1                # frames
   - command: { entity: Counter, name: Increment, args: [5] }
   - set: { entity: Counter, property: Count, value: 40 }

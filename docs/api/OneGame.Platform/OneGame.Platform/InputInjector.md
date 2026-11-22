@@ -33,7 +33,7 @@ Makes input events without hardware: for the harness, tests and agents driving a
 | [`TouchDown(int, int, float, float)`](#m-touchdown-int-int-float-float) | Puts a finger down at a position in window pixels. |
 | [`TouchMove(int, int, float, float)`](#m-touchmove-int-int-float-float) | Moves a finger that is down. |
 | [`TouchUp(int, int, float, float)`](#m-touchup-int-int-float-float) | Lifts a finger. |
-| [`Wheel(int, float, float)`](#m-wheel-int-float-float) | Turns the wheel; amounts are in notches. |
+| [`Wheel(int, float, float)`](#m-wheel-int-float-float) | Turns the wheel at the current pointer position (the last injected or real move); amounts are in notches. |
 
 ### <a id="m-closerequest-int"></a>CloseRequest(int)
 
@@ -289,7 +289,7 @@ Lifts a finger.
 public void Wheel(int windowId, float deltaX, float deltaY);
 ```
 
-Turns the wheel; amounts are in notches.
+Turns the wheel at the current pointer position (the last injected or real move); amounts are in notches.
 
 **Parameters**
 

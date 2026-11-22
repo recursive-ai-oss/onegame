@@ -400,7 +400,10 @@ public sealed class ScenarioRunner
                 _surface.Call("ui_click", s.Id is not null ? Obj(("id", s.Id)) : Obj(("selector", s.Selector)));
                 break;
             case StepKind.ClickAt:
-                _surface.Call("input_pointer", Obj(("action", "click"), ("x", s.X), ("y", s.Y)));
+                _surface.Call("input_pointer", Obj(("action", "click"), ("x", s.X), ("y", s.Y), ("button", s.Button ?? "left")));
+                break;
+            case StepKind.PointerAction:
+                _surface.Call("input_pointer", Obj(("action", s.Text), ("x", s.X), ("y", s.Y), ("button", s.Button ?? "left")));
                 break;
             case StepKind.Tap:
                 _surface.Call("ui_tap", s.Id is not null ? Obj(("id", s.Id)) : Obj(("selector", s.Selector)));

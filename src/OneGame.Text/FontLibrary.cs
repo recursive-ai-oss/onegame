@@ -181,7 +181,13 @@ public sealed class FontLibrary
 
         if (string.IsNullOrWhiteSpace(family))
         {
-            return _default ??= Build(string.Empty, 400, false);
+            // The default family still honours weight and slant: the nearest face of the first family added wins (CSS Fonts 4 §5.2).
+            if (weight == 400 && !italic)
+            {
+                return _default ??= Build(string.Empty, 400, false);
+            }
+
+            family = string.Empty;
         }
 
         weight = Math.Clamp(weight, 1, 1000);

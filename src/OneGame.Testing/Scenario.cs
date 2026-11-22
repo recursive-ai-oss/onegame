@@ -83,6 +83,9 @@ public enum StepKind
     /// <summary>Scroll the wheel.</summary>
     Wheel,
 
+    /// <summary>One mouse action (down, move, up or click) at window coordinates, with a button, for drags and right-clicks.</summary>
+    PointerAction,
+
     /// <summary>Save a capture.</summary>
     Capture,
 
@@ -137,6 +140,9 @@ public sealed record ScenarioStep(StepKind Kind, int Line)
 
     /// <summary>Window y.</summary>
     public double Y { get; init; }
+
+    /// <summary>Mouse button of a pointer step or a click at a position: left (default), right or middle. Null means left.</summary>
+    public string? Button { get; init; }
 
     /// <summary>Wheel delta x.</summary>
     public double Dx { get; init; }
@@ -600,6 +606,17 @@ public static class ScenarioParser
                 ? d.ToString("R", CultureInfo.InvariantCulture)
                 : throw Error(at, $"{what} must hold numbers");
 
+        private string? OptButton(Dictionary<string, YamlNode> map)
+        {
+            if (!map.TryGetValue("button", out var b))
+            {
+                return null;
+            }
+
+            var t = Text(b, "button");
+            return t is "left" or "right" or "middle" ? t : throw Error(b, "button is left, right or middle");
+        }
+
         private bool Bool(YamlNode node, string what) => Text(node, what) switch
         {
             "true" => true,
@@ -638,7 +655,7 @@ public static class ScenarioParser
 
         public ScenarioStep Step(YamlNode node)
         {
-            var (verb, target) = SplitVerb(node, "a step is a mapping with one key, the verb: click, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, store, wait, kill, start, restart or expect (plus node: for a cluster)");
+            var (verb, target) = SplitVerb(node, "a step is a mapping with one key, the verb: click, pointer, invoke, press, type, nav, command, set, screen, fixture, snapshot, reset, ui-scale, step, wheel, capture, store, wait, kill, start, restart or expect (plus node: for a cluster)");
             var step = StepCore(verb);
             return target is null ? step : step with { Node = target };
         }
@@ -656,12 +673,17 @@ public static class ScenarioParser
                         return new ScenarioStep(StepKind.Click, line) { Id = Text(v, "click") };
                     }
 
-                    var c = Map(v, ["id", "selector", "x", "y"], "click");
+                    var c = Map(v, ["id", "selector", "x", "y", "button"], "click");
                     if (c.ContainsKey("x") || c.ContainsKey("y"))
                     {
                         return c.TryGetValue("x", out var cx) && c.TryGetValue("y", out var cy)
-                            ? new ScenarioStep(StepKind.ClickAt, line) { X = Number(cx, "x"), Y = Number(cy, "y") }
+                            ? new ScenarioStep(StepKind.ClickAt, line) { X = Number(cx, "x"), Y = Number(cy, "y"), Button = OptButton(c) }
                             : throw Error(v, "click at a position needs both x and y");
+                    }
+
+                    if (c.ContainsKey("button"))
+                    {
+                        throw Error(v, "a button needs a position: click: {x: 10, y: 20, button: right}");
                     }
 
                     return c.Count == 1 ? new ScenarioStep(StepKind.Click, line) { Id = OptText(v, "id"), Selector = OptText(v, "selector") } : throw Error(v, "click needs one of id, selector or x and y");
@@ -779,6 +801,18 @@ public static class ScenarioParser
                         Name = s.TryGetValue("property", out var sp) ? Text(sp, "property") : throw Error(v, "set needs a property"),
                         Args = [s.TryGetValue("value", out var sv) ? Text(sv, "value") : throw Error(v, "set needs a value")],
                     };
+                case "pointer":
+                    var pm = Map(v, ["action", "x", "y", "button"], "pointer");
+                    var pa = pm.TryGetValue("action", out var pan) ? Text(pan, "action") : throw Error(v, "pointer needs an action: down, move, up or click");
+                    return pa is "down" or "move" or "up" or "click"
+                        ? new ScenarioStep(StepKind.PointerAction, line)
+                        {
+                            Text = pa,
+                            X = pm.TryGetValue("x", out var px) ? Number(px, "x") : throw Error(v, "pointer needs x and y"),
+                            Y = pm.TryGetValue("y", out var py) ? Number(py, "y") : throw Error(v, "pointer needs x and y"),
+                            Button = OptButton(pm),
+                        }
+                        : throw Error(pan, "pointer action is down, move, up or click");
                 case "wheel":
                     var wm = Map(v, ["x", "y", "dx", "dy"], "wheel");
                     return new ScenarioStep(StepKind.Wheel, line)

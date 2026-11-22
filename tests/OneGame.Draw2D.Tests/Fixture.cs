@@ -11,6 +11,8 @@ internal static class Fixture
 {
     private static string SourceDir([CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
 
+    public static string RepoRoot => Path.GetFullPath(Path.Combine(SourceDir(), "..", ".."));
+
     public static string Scenarios => Path.GetFullPath(Path.Combine(SourceDir(), "..", "Draw2DGame", "scenarios"));
 
     public static TestCluster Start()

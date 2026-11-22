@@ -33,6 +33,7 @@ public ClusterOptions();
 | [`DigestTimeoutTicks`](#m-digesttimeoutticks) | Authority ticks a replica waits for the answer to a digest request before it reports the drift without detail. |
 | [`DriftCheckInterval`](#m-driftcheckinterval) | Ticks between hash comparisons of authority and replicas; 0 turns drift detection off. |
 | [`FatalDrift`](#m-fataldrift) | When true, [`Cluster.Step()`](Cluster.md#m-step-int) throws [`DriftException`](DriftException.md) as soon as a drift report is filed. |
+| [`HeldSubscribeTimeoutMs`](#m-heldsubscribetimeoutms) | Milliseconds the authority holds a subscribe that arrives while the connection's trust is still empty ([`Trust.None`](Trust.md#m-none)), waiting for the game to set [`Connection.Trust`](Connection.md#m-trust). |
 | [`MaxAssembledBytes`](#m-maxassembledbytes) | Largest message a node reassembles from pieces. |
 | [`PieceBytes`](#m-piecebytes) | Messages from an authority longer than this are sent in pieces (transports cap one message at 1 MiB by default, so keep this well below). |
 | [`ResyncOnDrift`](#m-resyncondrift) | When true, a replica that found drift re-subscribes and takes a fresh snapshot. |
@@ -97,6 +98,16 @@ public bool FatalDrift { get; init; }
 When true, [`Cluster.Step()`](Cluster.md#m-step-int) throws [`DriftException`](DriftException.md) as soon as a drift report is filed. Tests turn it on.
 
 **Type:** `bool`
+
+### <a id="m-heldsubscribetimeoutms"></a>HeldSubscribeTimeoutMs
+
+```csharp
+public int HeldSubscribeTimeoutMs { get; init; }
+```
+
+Milliseconds the authority holds a subscribe that arrives while the connection's trust is still empty ([`Trust.None`](Trust.md#m-none)), waiting for the game to set [`Connection.Trust`](Connection.md#m-trust). It is answered when the trust is set, refused if the trust then lacks the scope, and refused as not trusted to read when this time runs out. 0 refuses at once. A connection holds at most 16 subscribes.
+
+**Type:** `int`
 
 ### <a id="m-maxassembledbytes"></a>MaxAssembledBytes
 

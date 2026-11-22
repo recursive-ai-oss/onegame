@@ -22,6 +22,9 @@ public partial class Hero : Entity, IView2D
 
     private SpriteSheet? _sheet;
 
+    /// <summary>The weight of the hero's label (a test sets it to compare faces).</summary>
+    public static int LabelWeight { get; set; } = 400;
+
     [View]
     public void Draw(Draw2D d)
     {
@@ -30,7 +33,7 @@ public partial class Hero : Entity, IView2D
         d.Camera.Zoom = 2;
         d.Follow(at);
         d.Sprite(_sheet, Speed == Fixed.Zero ? "idle" : "walk", at, scale: 2, flip: Speed < Fixed.Zero ? SpriteFlip.Horizontal : SpriteFlip.None, z: 1);
-        d.Text("hero", at - new Vector2(0, 24), 12, Color.White, new Vector2(0.5f, 1));
+        d.Text("hero", at - new Vector2(0, 24), 12, Color.White, new Vector2(0.5f, 1), weight: LabelWeight);
     }
 }
 

@@ -122,6 +122,33 @@ public class HarnessTests
     }
 
     [Fact]
+    public void PointerStepsDragWithTheLeftButtonAndRightClickWithTheRight()
+    {
+        using var cluster = TestCluster.Start(new ShopGame(), Options());
+        var scenario = ScenarioParser.Parse("""
+            steps:
+              - screen: pad
+              - step: 1
+              - pointer: { action: down, x: 20, y: 30 }
+              - pointer: { action: move, x: 60, y: 30 }
+              - pointer: { action: up, x: 80, y: 30 }
+              - step: 1
+              - click: { x: 40, y: 40, button: right }
+              - step: 1
+            expect:
+              - state: { entity: Shop, property: Stock, equals: 9 }
+              - state: { entity: Shop, property: Status, equals: menu }
+            """, "inline.yaml", "pointer");
+        var result = cluster.Run(scenario);
+        Assert.True(result.Passed, JsonSerializer.Serialize(result, ScenarioJson.Default.ScenarioResult));
+
+        // A button needs a position, and only the three real buttons exist.
+        Assert.Throws<ScenarioException>(() => ScenarioParser.Parse("steps:\n  - click: {id: a, button: right}\n"));
+        Assert.Throws<ScenarioException>(() => ScenarioParser.Parse("steps:\n  - pointer: {action: down, x: 1, y: 1, button: back}\n"));
+        Assert.Throws<ScenarioException>(() => ScenarioParser.Parse("steps:\n  - pointer: {action: hover, x: 1, y: 1}\n"));
+    }
+
+    [Fact]
     public void FailingScenarioReportsAJsonDiff()
     {
         using var cluster = TestCluster.Start(new ShopGame(), Options());

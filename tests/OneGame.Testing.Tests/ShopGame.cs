@@ -74,6 +74,35 @@ public class ShopGame : GameDefinition
             Ui.Button("Buy one", () => Shop(game).Send.Buy(1)).Named("buy").Size(Length.Ui(60), Length.Ui(20)).Background(Color.Rgb(0x3060A0)),
             Ui.Button("Restock", () => Shop(game).Send.Restock(2)).Named("restock").Size(Length.Px(120), Length.Px(40)).Background(Color.Rgb(0x3060A0)))
             .Padding(Length.Px(16)).Gap(Length.Px(8)).Background(Color.Rgb(0x203040)).TextColor(Color.White));
+        // A pad that reads the mouse: dragging right across it restocks one item per ten pixels; a right button press renames the shop.
+        screens.Add("pad", game =>
+        {
+            var from = 0f;
+            return Ui.Column(Ui.Label("Pad"))
+                .Named("pad").Size(Length.Px(200), Length.Px(100)).Background(Color.Rgb(0x305030))
+                .On(UiEventKind.PointerDown, (_, e) =>
+                {
+                    if (e.Button == 1)
+                    {
+                        Shop(game).Send.Rename("menu", false);
+                    }
+                    else
+                    {
+                        from = e.X;
+                    }
+
+                    return true;
+                })
+                .On(UiEventKind.PointerUp, (_, e) =>
+                {
+                    if (e.Button == 0)
+                    {
+                        Shop(game).Send.Restock((int)((e.X - from) / 10));
+                    }
+
+                    return true;
+                });
+        });
         screens.Add("help", game => Ui.Column(Ui.Label("Help").Named("title")).Padding(Length.Px(16)));
     }
 
