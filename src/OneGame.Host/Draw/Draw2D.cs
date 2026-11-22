@@ -10,14 +10,20 @@ namespace OneGame.Host;
 /// <summary>
 /// Immediate-mode 2D drawing for view code: call it every frame to say what to show, and the stage batches it onto the same
 /// <see cref="Scene2D"/> and <see cref="Renderer2D"/> a hand-built stage would use. Nothing is retained between frames except the camera.
-/// World coordinates are the renderer's: +X right, +Y down, one unit is one pixel at camera zoom 1. Draw order is by <c>z</c> (lower is
-/// behind), then call order; text is drawn over everything else, in call order. Steady frames allocate nothing (text strings that the view
-/// builds each frame are the view's own allocation).
+/// World coordinates are the renderer's: +X right, +Y down, one unit is one pixel at camera zoom 1. Draw order is by layer (in the order the
+/// layers were made), then <c>z</c> (lower is behind), then call order, and text takes part in it like a sprite: a sprite submitted after a text
+/// at the same layer and <c>z</c> covers it. Steady frames allocate nothing (text strings that the view builds each frame are the view's own
+/// allocation).
 /// </summary>
 /// <remarks>
 /// Reach it as the parameter of an <see cref="IView2D"/> entity's <c>Draw</c> method. It is view-side: read state, never write it. Use
 /// <see cref="Time"/> (not a clock) to animate so captures and replays repeat exactly. For more control drop down to <see cref="Scene"/>
 /// and <see cref="Renderer"/>.
+/// <para>
+/// There is one <see cref="Camera"/> by default. To draw a world through it and a HUD over it in the same frame, put the HUD on
+/// <see cref="ScreenLayer"/> (pixel coordinates, no camera); for a second view of the world (a minimap), make a layer with <see cref="GetLayer"/>
+/// and give it its own <see cref="Layer2D.Camera"/> and <see cref="Layer2D.Viewport"/>.
+/// </para>
 /// </remarks>
 /// <example>
 /// A sprite that moves with its synced position, animated from a sheet, with a camera that follows it and a text label:
@@ -43,7 +49,7 @@ namespace OneGame.Host;
 /// }
 /// </code>
 /// </example>
-public sealed partial class Draw2D
+public sealed partial class Draw2D : ISceneMarkerSink
 {
     private const int DiskSize = 128;
     private const int SoftSize = 64;
@@ -62,6 +68,10 @@ public sealed partial class Draw2D
 
     private readonly Scene2D _scene = new();
     private readonly List<TextItem> _texts = [];
+    private TextQuadBuilder? _textBuilder;
+    private FontTextMeasurer? _measurer;
+    private GlyphAtlas? _glyphAtlas;
+    private Layer2D? _screenLayer;
     private readonly Dictionary<(string Path, TextureFilter Filter), Asset<Texture2D>> _textures = [];
     private Renderer2D? _assetsFor;
     private Texture2D? _white;
@@ -87,6 +97,35 @@ public sealed partial class Draw2D
 
     /// <summary>The layer new sprites go on; the scene's default layer at the start of every frame.</summary>
     public Layer2D Layer { get; set; }
+
+    /// <summary>
+    /// The layer for things that sit on the screen, not in the world: its coordinates are framebuffer pixels (origin top-left) whatever the
+    /// <see cref="Camera"/> does, so a HUD keeps its place and size over a zoomed, panned world. It is made on first use, in front of the layers
+    /// that exist then, and stays; set <see cref="Layer"/> to it before drawing and back afterwards (the layer is reset to the scene's default at
+    /// the start of every frame).
+    /// </summary>
+    public Layer2D ScreenLayer
+    {
+        get
+        {
+            if (_screenLayer is null)
+            {
+                _screenLayer = _scene.GetLayer("screen");
+                _screenLayer.ScreenSpace = true;
+            }
+
+            return _screenLayer;
+        }
+    }
+
+    /// <summary>
+    /// Finds a layer by name, or makes it in front of the existing ones. Layers draw in the order they were made and stay between frames, so ask
+    /// for them by name every frame. Give a layer its own <see cref="Layer2D.Camera"/> to draw the world through another view, or a
+    /// <see cref="Layer2D.Viewport"/> to confine it to a part of the screen.
+    /// </summary>
+    /// <param name="name">The layer's name.</param>
+    /// <returns>The layer.</returns>
+    public Layer2D GetLayer(string name) => _scene.GetLayer(name);
 
     /// <summary>The camera. It remembers where it is between frames; call <see cref="Follow"/> or set its properties from view code.</summary>
     public Camera2DRig Camera { get; } = new();
@@ -161,6 +200,9 @@ public sealed partial class Draw2D
 
     internal void Draw(Renderer2D renderer, in FrameInfo frame, TextQuadBuilder text, FontTextMeasurer measurer, GlyphAtlas glyphs)
     {
+        _textBuilder = text;
+        _measurer = measurer;
+        _glyphAtlas = glyphs;
         Begin(renderer, frame);
         var entities = frame.World.Entities;
         for (var i = 0; i < entities.Count; i++)
@@ -180,36 +222,44 @@ public sealed partial class Draw2D
 
     private void End(Renderer2D renderer, TextQuadBuilder text, FontTextMeasurer measurer, GlyphAtlas glyphs)
     {
-        var size = new Vector2(Width, Height);
-        if (SpriteCount > 0 || _scene.Layers.Count > 1)
+        // Sprites, tilemaps and text lines share one draw order (layer, z, submission): the scene walks it and hands each text back to this
+        // class at its turn. Sprites and text runs that do not interleave still batch as before.
+        if (SpriteCount > 0 || _texts.Count > 0 || _scene.Layers.Count > 1)
         {
-            renderer.DrawScene(_scene, Camera.Current(size));
+            renderer.DrawScene(_scene, Camera.Current(new Vector2(Width, Height)), null, this);
         }
+    }
 
-        if (_texts.Count == 0)
+    void ISceneMarkerSink.DrawMarker(int id, Layer2D layer, in Matrix3x2 view)
+    {
+        var t = _texts[id];
+        var scale = t.Screen ? 1f : MathF.Sqrt(MathF.Abs((view.M11 * view.M22) - (view.M12 * view.M21)));
+        var px = t.Size * scale;
+        if (!(px >= 1) || t.Text.Length == 0)
         {
             return;
         }
 
-        var view = Camera.Current(size).View(size, Vector2.One);
-        for (var i = 0; i < _texts.Count; i++)
+        var style = new TextStyle(t.Family, px, t.Weight, false, 0, 0, WhiteSpace.NoWrap);
+        var at = t.Screen ? t.Position : Vector2.Transform(t.Position, view);
+        if (t.Anchor != Vector2.Zero)
         {
-            var t = _texts[i];
-            var px = t.Screen ? t.Size : t.Size * Camera.Zoom;
-            if (!(px >= 1) || t.Text.Length == 0)
-            {
-                continue;
-            }
+            var m = _measurer!.Measure(t.Text, style, float.PositiveInfinity);
+            at -= new Vector2(m.Width * t.Anchor.X, m.Height * t.Anchor.Y);
+        }
 
-            var style = new TextStyle(t.Family, px, t.Weight, false, 0, 0, WhiteSpace.NoWrap);
-            var at = t.Screen ? t.Position : Vector2.Transform(t.Position, view);
-            if (t.Anchor != Vector2.Zero)
-            {
-                var m = measurer.Measure(t.Text, style, float.PositiveInfinity);
-                at -= new Vector2(m.Width * t.Anchor.X, m.Height * t.Anchor.Y);
-            }
+        // A layer with a viewport shows nothing outside it, text included (screen text is placed by pixel and is not clipped).
+        var ui = Renderer!.Ui;
+        var clipped = !t.Screen && layer.Viewport is not null;
+        if (clipped)
+        {
+            ui.PushClip(layer.Viewport!.Value);
+        }
 
-            renderer.Ui.Text(text, glyphs, t.Text, style, at, t.Color);
+        ui.Text(_textBuilder!, _glyphAtlas!, t.Text, style, at, t.Color);
+        if (clipped)
+        {
+            ui.PopClip();
         }
     }
 
@@ -221,6 +271,27 @@ public sealed partial class Draw2D
     /// <param name="world">A world point.</param>
     /// <returns>Framebuffer pixels, origin top-left.</returns>
     public Vector2 WorldToScreen(Vector2 world) => Camera.WorldToScreen(world, new Vector2(Width, Height));
+
+    /// <summary>Where a point of a layer lands on the screen this frame, in pixels, through that layer's own camera, parallax and viewport.</summary>
+    /// <param name="layer">A layer of <see cref="Scene"/>.</param>
+    /// <param name="point">A point in the layer's coordinates.</param>
+    /// <returns>Framebuffer pixels, origin top-left.</returns>
+    public Vector2 WorldToScreen(Layer2D layer, Vector2 point)
+    {
+        ArgumentNullException.ThrowIfNull(layer);
+        return Vector2.Transform(point, layer.View(Camera.Current(new Vector2(Width, Height)), new Vector2(Width, Height)));
+    }
+
+    /// <summary>The point of a layer under a screen pixel this frame, through that layer's own camera, parallax and viewport.</summary>
+    /// <param name="layer">A layer of <see cref="Scene"/>.</param>
+    /// <param name="screen">Framebuffer pixels, origin top-left.</param>
+    /// <returns>A point in the layer's coordinates.</returns>
+    public Vector2 ScreenToWorld(Layer2D layer, Vector2 screen)
+    {
+        ArgumentNullException.ThrowIfNull(layer);
+        var size = new Vector2(Width, Height);
+        return Matrix3x2.Invert(layer.View(Camera.Current(size), size), out var inverse) ? Vector2.Transform(screen, inverse) : Camera.Position;
+    }
 
     /// <summary>The world point under a screen pixel this frame.</summary>
     /// <param name="screen">Framebuffer pixels, origin top-left.</param>
@@ -422,7 +493,8 @@ public sealed partial class Draw2D
     /// <param name="z">Draw order inside the layer.</param>
     public void StrokeCircle(Vector2 center, float radius, Color color, float thickness = 1, float z = 0)
     {
-        var segments = Math.Clamp((int)(radius * MathF.Max(Camera.Zoom, 0.01f) * 0.75f), 16, 128);
+        var zoom = Layer.ScreenSpace ? 1f : Layer.Camera?.Zoom ?? Camera.Zoom;
+        var segments = Math.Clamp((int)(radius * MathF.Max(zoom, 0.01f) * 0.75f), 16, 128);
         var prev = center + new Vector2(radius, 0);
         for (var i = 1; i <= segments; i++)
         {
@@ -458,7 +530,10 @@ public sealed partial class Draw2D
 
     // ---- text ----
 
-    /// <summary>Draws one line of text at a world point. The size scales with the camera zoom; text is not rotated, and is drawn over sprites and shapes.</summary>
+    /// <summary>
+    /// Draws one line of text at a point of the current <see cref="Layer"/>. The size scales with that layer's zoom; text is not rotated. It takes
+    /// its place in the draw order like a sprite: by layer, then <paramref name="z"/>, then call order.
+    /// </summary>
     /// <param name="text">The string. Newlines are not broken.</param>
     /// <param name="position">Where the anchor of the text goes, in world units.</param>
     /// <param name="size">Font size in world units (pixels at zoom 1).</param>
@@ -466,10 +541,14 @@ public sealed partial class Draw2D
     /// <param name="anchor">The point of the text placed at <paramref name="position"/>, as a fraction of its size: (0,0) top-left (default), (0.5,0.5) centred.</param>
     /// <param name="family">A font family the game added in <c>DefineFonts</c>, or null for the first.</param>
     /// <param name="weight">Font weight, 400 regular.</param>
-    public void Text(string text, Vector2 position, float size = 16, Color? color = null, Vector2? anchor = null, string? family = null, int weight = 400) =>
-        AddText(text, position, size, color, anchor, family, weight, false);
+    /// <param name="z">Draw order inside the layer, as for sprites: lower is behind.</param>
+    public void Text(string text, Vector2 position, float size = 16, Color? color = null, Vector2? anchor = null, string? family = null, int weight = 400, float z = 0) =>
+        AddText(text, position, size, color, anchor, family, weight, false, z);
 
-    /// <summary>Draws one line of text at a screen pixel, unaffected by the camera.</summary>
+    /// <summary>
+    /// Draws one line of text at a screen pixel, unaffected by any camera or viewport. It takes its place in the draw order like a sprite, on the
+    /// current <see cref="Layer"/>: draw it on a later layer than the world to keep it over the world's sprites.
+    /// </summary>
     /// <param name="text">The string. Newlines are not broken.</param>
     /// <param name="position">Where the anchor of the text goes, in framebuffer pixels.</param>
     /// <param name="size">Font size in pixels.</param>
@@ -477,10 +556,35 @@ public sealed partial class Draw2D
     /// <param name="anchor">The point of the text placed at <paramref name="position"/>, as a fraction of its size: (0,0) top-left (default).</param>
     /// <param name="family">A font family the game added in <c>DefineFonts</c>, or null for the first.</param>
     /// <param name="weight">Font weight, 400 regular.</param>
-    public void ScreenText(string text, Vector2 position, float size = 16, Color? color = null, Vector2? anchor = null, string? family = null, int weight = 400) =>
-        AddText(text, position, size, color, anchor, family, weight, true);
+    /// <param name="z">Draw order inside the layer, as for sprites: lower is behind.</param>
+    public void ScreenText(string text, Vector2 position, float size = 16, Color? color = null, Vector2? anchor = null, string? family = null, int weight = 400, float z = 0) =>
+        AddText(text, position, size, color, anchor, family, weight, true, z);
 
-    private void AddText(string text, Vector2 position, float size, Color? color, Vector2? anchor, string? family, int weight, bool screen)
+    /// <summary>
+    /// Rasterizes the glyphs of some characters at a size ahead of time, so the first frame that draws text of them does not stop to do it. Call it
+    /// once from a view (the first frame, or when a screen opens) with the characters and the size the text will use; sizes are matched to a
+    /// sixty-fourth of a pixel, and a text drawn at <see cref="Text"/>'s zoom-scaled size needs the scaled size. The glyph atlas is shared and
+    /// bounded: a set too large for it evicts older glyphs instead of staying ready.
+    /// </summary>
+    /// <param name="characters">The characters to prepare, such as <c>"0123456789.,:%"</c>.</param>
+    /// <param name="size">Font size in pixels, as the text will be drawn on screen (see <see cref="ScreenText"/>).</param>
+    /// <param name="family">A font family the game added in <c>DefineFonts</c>, or null for the first.</param>
+    /// <param name="weight">Font weight, 400 regular.</param>
+    /// <returns>How many glyph bitmaps the atlas could not hold; 0 normally.</returns>
+    /// <exception cref="InvalidOperationException">Called outside a frame being drawn.</exception>
+    public int WarmUpText(string characters, float size, string? family = null, int weight = 400)
+    {
+        ArgumentNullException.ThrowIfNull(characters);
+        if (_textBuilder is null || _glyphAtlas is null || Renderer is null)
+        {
+            throw new InvalidOperationException("Draw2D can only warm up text while the stage is rendering a frame.");
+        }
+
+        _glyphAtlas.BeginFrame(Renderer.FrameNumber);
+        return _textBuilder.Warm(characters, new TextStyle(family ?? string.Empty, size, weight, false, 0, 0, WhiteSpace.NoWrap));
+    }
+
+    private void AddText(string text, Vector2 position, float size, Color? color, Vector2? anchor, string? family, int weight, bool screen, float z)
     {
         ArgumentNullException.ThrowIfNull(text);
         _texts.Add(new TextItem
@@ -494,5 +598,6 @@ public sealed partial class Draw2D
             Weight = weight,
             Screen = screen,
         });
+        _scene.Mark(Layer, z, _texts.Count - 1);
     }
 }

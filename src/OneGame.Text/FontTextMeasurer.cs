@@ -18,14 +18,27 @@ public sealed class FontTextMeasurer : ITextMeasurer
 
     private const int MaxCached = 4096;
 
+    private readonly record struct BaseKey(string Text, string Family, int Weight, bool Italic, WhiteSpace WhiteSpace);
+
     private readonly record struct Key(string Text, string Family, int SizeKey, int Weight, bool Italic, int SpacingKey, int LineKey, WhiteSpace WhiteSpace);
 
     private readonly FontLibrary _library;
     private readonly Dictionary<Key, ShapedText> _cache = [];
+
+    // The last shaping of each text with no letter spacing and the font's own line height, whatever its size: a text drawn at a size it has
+    // not been drawn at (a label that pulses, a number counting up in a growing font) is the earlier shaping with new advances, not a new shaping.
+    private readonly Dictionary<BaseKey, ShapedText> _bySize = [];
     private readonly ShapedRun _scratch = new();
     private string? _lastText;
     private TextStyle _lastStyle;
     private ShapedText? _last;
+
+    // A small direct-mapped front cache keyed by the string object and the style. A view that draws the same labels every frame hands the
+    // same string objects each time, so most calls end here without hashing the text or comparing it character by character.
+    private const int FrontSize = 64;
+    private readonly string?[] _frontText = new string?[FrontSize];
+    private readonly TextStyle[] _frontStyle = new TextStyle[FrontSize];
+    private readonly ShapedText?[] _frontShaped = new ShapedText?[FrontSize];
     private int _version;
 
     /// <summary>Creates a measurer over a library.</summary>
@@ -42,7 +55,7 @@ public sealed class FontTextMeasurer : ITextMeasurer
     /// <inheritdoc/>
     /// <exception cref="TextLimitException">The text is longer than <see cref="MaxTextLength"/>.</exception>
     /// <exception cref="FontNotFoundException">The library holds no faces.</exception>
-    public TextSize Measure(string text, in TextStyle style, float maxWidth) => Shape(text, style).Wrap(maxWidth, null);
+    public TextSize Measure(string text, in TextStyle style, float maxWidth) => Shape(text, style).Measure(maxWidth);
 
     /// <inheritdoc/>
     /// <exception cref="TextLimitException">The text is longer than <see cref="MaxTextLength"/>.</exception>
@@ -87,13 +100,25 @@ public sealed class FontTextMeasurer : ITextMeasurer
         if (_version != _library.Version)
         {
             _cache.Clear();
+            _bySize.Clear();
             _last = null;
+            Array.Clear(_frontText);
+            Array.Clear(_frontShaped);
             _version = _library.Version;
         }
 
         if (ReferenceEquals(text, _lastText) && style == _lastStyle && _last is not null)
         {
             return _last;
+        }
+
+        var slot = (System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(text) ^ BitConverter.SingleToInt32Bits(style.Size)) & (FrontSize - 1);
+        if (ReferenceEquals(_frontText[slot], text) && _frontStyle[slot] == style)
+        {
+            _lastText = text;
+            _lastStyle = style;
+            _last = _frontShaped[slot];
+            return _last!;
         }
 
         if (text.Length > MaxTextLength)
@@ -113,16 +138,35 @@ public sealed class FontTextMeasurer : ITextMeasurer
             if (_cache.Count >= MaxCached)
             {
                 _cache.Clear();
+                _bySize.Clear();
             }
 
-            var stack = _library.Resolve(style.Family ?? string.Empty, style.Weight, style.Italic);
-            shaped = new ShapedText(text, stack, sizeKey / 64f, key.LineKey / 64f, key.SpacingKey / 64f, style.WhiteSpace, _scratch);
+            var plain = key.SpacingKey == 0 && key.LineKey == 0;
+            var baseKey = new BaseKey(text, key.Family, key.Weight, key.Italic, key.WhiteSpace);
+            if (plain && _bySize.TryGetValue(baseKey, out var earlier))
+            {
+                shaped = earlier.Resize(sizeKey / 64f);
+            }
+            else
+            {
+                var stack = _library.Resolve(style.Family ?? string.Empty, style.Weight, style.Italic);
+                shaped = new ShapedText(text, stack, sizeKey / 64f, key.LineKey / 64f, key.SpacingKey / 64f, style.WhiteSpace, _scratch);
+            }
+
+            if (plain)
+            {
+                _bySize[baseKey] = shaped;
+            }
+
             _cache[key] = shaped;
         }
 
         _lastText = text;
         _lastStyle = style;
         _last = shaped;
+        _frontText[slot] = text;
+        _frontStyle[slot] = style;
+        _frontShaped[slot] = shaped;
         return shaped;
     }
 }

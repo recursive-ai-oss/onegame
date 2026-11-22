@@ -176,10 +176,11 @@ public partial class Hero : Entity, IView2D
 
 - **`Draw2D`** (`OneGame.Host`): `Sprite` (texture, source rect, sheet frame, sheet clip, or a low-level `Sprite`; each with rotation, `scale`,
   `tint`, `origin` as a fraction of the sprite, `flip`, `z`), `FillRect`, `StrokeRect`, `Line`, `FillCircle`, `StrokeCircle`, `Text` (world
-  position, size in world units) and `ScreenText` (pixels). Order is `z`, then call order; text is drawn after all sprites. Shapes are sprites of a
+  position, size in world units) and `ScreenText` (pixels). Order is layer, then `z`, then call order, and text is in that order like a sprite (each text is a marker in the `Scene2D`, handed back to `Draw2D` as `DrawScene` reaches it; sprites and text that do not interleave batch as before). Shapes are sprites of a
   1x1 and a 128 px disc texture the stage makes, so they batch with everything else; circles are exact to about a pixel up to a few hundred
   pixels across. Text is one line (no wrapping), unrotated, in the game's fonts (`family` null = the first); it reaches the screen through
-  `UiCanvas.Text`, which uses the UI's glyph atlas.
+  `UiCanvas.Text`, which uses the UI's glyph atlas; the atlas pages those calls change are uploaded once, at the end of the frame.
+- **Layer cameras.** A `Layer2D` may have its own `Camera` (replacing the one `DrawScene` is given), a `Viewport` (a framebuffer rectangle: the camera is centred on it, drawing is scissored to it) and `ScreenSpace` (framebuffer pixels, no camera). `Layer2D.View` is the layer's matrix to pixels. `Draw2D.ScreenLayer` and `GetLayer(name)` make persistent layers; `WorldToScreen(layer, p)`/`ScreenToWorld(layer, p)` convert through them. `WarmUpText(chars, size)` rasterizes glyphs ahead of time.
 - **View time.** `d.Time` is `(Tick + Alpha) / 60` seconds, `d.DeltaTime` the step since the previous drawn frame. Clips read it, so animation is smooth
   in play, identical in captures and replays, and frozen while the sim is paused. Pass `clipTime: d.Time - startedAt` to play from a moment.
 - **`SpriteSheet`** (`OneGame.Render2D`): `Grid(texture, w, h, margin, spacing)` or `Frames(texture, rects)`; `AddClip(name, first, count, fps,

@@ -17,6 +17,8 @@ public sealed class Draw2DGameDefinition : GameDefinition
     {
         world.Add(new Backdrop());
         world.Add(new Hero());
+        world.Add(new Showcase());
+        world.Add(new TextLoad());
     }
 
     public override void DefineScreens(ScreenSet screens) => screens.Add("main", game => Ui.Column().Padding(Length.Px(8)));

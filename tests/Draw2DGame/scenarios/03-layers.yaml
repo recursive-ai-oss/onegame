@@ -1,0 +1,10 @@
+name: a zoomed world, a corner camera and a zoom-1 HUD share a frame, and text and sprites cover one another in draw order
+window: 480x270
+steps:
+  - step: 2
+  - command: {entity: Showcase, name: Show, args: [1]}
+  - step: 2
+  - expect: {capture: {reference: refs/layers.png, tolerance: 4, max-diff: 0.001}}
+  - command: {entity: Showcase, name: Show, args: [2]}
+  - step: 2
+  - expect: {capture: {reference: refs/order.png, tolerance: 4, max-diff: 0.001}}

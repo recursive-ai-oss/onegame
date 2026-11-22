@@ -119,6 +119,33 @@ public sealed class TextQuadBuilder
         return refused;
     }
 
+    /// <summary>
+    /// Rasterizes the glyphs of a string into the atlas at every horizontal subpixel position, so drawing text made of those characters at
+    /// that style later finds them ready instead of rasterizing in the middle of a frame.
+    /// </summary>
+    /// <param name="characters">The characters to prepare, shaped as one string (each distinct glyph is rasterized once per position).</param>
+    /// <param name="style">Family, size and weight the text will be drawn with.</param>
+    /// <returns>How many glyph bitmaps the atlas refused (too large, or every page in use this frame); 0 normally.</returns>
+    public int Warm(string characters, in TextStyle style)
+    {
+        ArgumentNullException.ThrowIfNull(characters);
+        var refused = 0;
+        _glyphs.Clear();
+        _ = _measurer.Place(characters, style, 0, characters.Length, 0, _glyphs);
+        foreach (var g in _glyphs)
+        {
+            for (var step = 0; step < GlyphAtlas.SubpixelSteps; step++)
+            {
+                if (_atlas.TryGet(g.FaceId, g.GlyphId, style.Size, step, out _) != AtlasStatus.Ok)
+                {
+                    refused++;
+                }
+            }
+        }
+
+        return refused;
+    }
+
     /// <summary>Appends the quads of every text run of a list, in run order.</summary>
     /// <param name="list">The display list.</param>
     /// <param name="quads">Receives the quads.</param>

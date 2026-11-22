@@ -6,6 +6,9 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `Layer2D.Camera`, `Layer2D.Viewport`, `Layer2D.ScreenSpace` and `Layer2D.View(...)`, `Scene2D.GetLayer(name)`, and on `Draw2D` `ScreenLayer`, `GetLayer(name)` and layer overloads of `WorldToScreen`/`ScreenToWorld`: a layer can draw through a camera of its own, inside a screen rectangle, or in plain pixels, so a HUD sits over a zoomed and panned world in one frame and a minimap shares the frame with the main view. A scene whose layers have none of these draws as before.
+- `Draw2D.Text` and `ScreenText` take a `z`, and text now takes part in the draw order (layer, `z`, call order) with sprites and shapes: a sprite on a later layer, or drawn later at the same `z`, covers a text. `Scene2D.Mark`, `ISceneMarkerSink` and the `markers` parameter of `Renderer2D.DrawScene` are the low-level seam. Sprites and text that do not interleave batch exactly as before.
+- `Draw2D.WarmUpText(characters, size, family, weight)` and `TextQuadBuilder.Warm`: rasterize the glyphs of some characters at a size ahead of time.
 - `MusicOptions.StartAtFrame`: start a music track at a given frame of the audio timeline, the same clock and units as `PlayOptions.StartAtFrame`, so beat-synced music lands exactly.
 - `InputState.PointerEdges`: every pointer and touch event of the frame in order, each with its own sub-pixel position (`PointerEdge`, `PointerEdgeKind`), with `EndFrame()` (the game host calls it after each frame), `DroppedPointerEdges` and `PointerEmulatedFromTouch`. A press that is followed by a long move in the same frame, and a finger that moves and lifts in the same frame, now report where they happened; reading `PointerX` and `TryGetTouch` at frame time gives only where the pointer ended up. See `docs/input.md`.
 - `Renderer2D.CancelFrame()`: drops a frame that was begun but not ended, so a view that threw does not leave the renderer mid-frame.
@@ -14,6 +17,9 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 - Scenario steps `pointer: {action: down|move|up|click, x, y, button}` (`StepKind.PointerAction`) and a `button: left|right|middle` option on `click: {x, y}` (`ScenarioStep.Button`), so drags and right-clicks can be tested from a scenario. Cluster scenarios take them too.
 
 ### Changed
+
+- Behaviour change: `Draw2D.Text` and `ScreenText` were always drawn over every sprite of the frame. They are now ordered like sprites (see Added): a text drawn before a sprite at the same layer and `z` is under it. Give the text a later layer or a higher `z` to keep it on top.
+- Text cost: `Draw2D.ScreenText` and `Text` no longer upload the glyph atlas once per call that rasterizes something new (the pages go up once, when the frame ends), a text drawn at a new size reuses the earlier shaping with new advances (identical output, no new shaping), repeated labels hit a small cache keyed by the string object, and the glyph atlas is keyed by one 64-bit value. In the browser build at 4x CPU throttle, 100 `ScreenText` calls at sizes that are new every frame went from 94 ms to 8 ms of main-thread time per frame.
 
 - `onegame new` writes a `global.json` that selects the Microsoft.Testing.Platform runner, and `Game.targets` (so the SDK package too) leaves `tests/**` out of the game's own compile, so a xunit.v3 project added under `tests/` passes `onegame test` (the .NET 10 SDK refused `dotnet test --project` without it).
 - Text: the default family (an empty `font-family`, `Draw2D.Text` without `family`) now honours weight and slant: the nearest face of the first family added is used. Games that load a bold face get bold text; with only a regular face nothing changes.
