@@ -206,6 +206,17 @@ public class ClusterTests
                         {
                             using var request = JsonDocument.Parse(line);
                             var root = request.RootElement;
+                            if (root.GetProperty("method").GetString() != "tools/call")
+                            {
+                                // The client's initialize is answered here; its notification has no answer.
+                                if (root.TryGetProperty("id", out var initId))
+                                {
+                                    stream.Write(System.Text.Encoding.UTF8.GetBytes("{\"jsonrpc\":\"2.0\",\"id\":" + initId.GetRawText() + ",\"result\":{}}\n"));
+                                }
+
+                                continue;
+                            }
+
                             var p = root.GetProperty("params");
                             var name = p.GetProperty("name").GetString()!;
                             var args = p.TryGetProperty("arguments", out var a) ? a.GetRawText() : null;

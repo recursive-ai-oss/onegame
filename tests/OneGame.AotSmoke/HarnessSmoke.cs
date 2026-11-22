@@ -138,8 +138,9 @@ internal static class HarnessSmoke
         }
 
         // The MCP messages.
-        var mcp = new McpProtocol(surface);
-        var tools = mcp.Handle("""{"jsonrpc":"2.0","id":1,"method":"tools/list"}""");
+        var mcp = new ControlServer(surface).OpenSession();
+        _ = mcp.HandleAsync("""{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"1"}}}""").AsTask().GetAwaiter().GetResult();
+        var tools = mcp.HandleAsync("""{"jsonrpc":"2.0","id":1,"method":"tools/list"}""").AsTask().GetAwaiter().GetResult();
 
         // The development tools: the listener, and a game run with a development option.
         var socket = Path.Combine(Path.GetTempPath(), "aot-smoke-" + Environment.ProcessId + ".sock");

@@ -379,9 +379,11 @@ public class HarnessTests
 
     // ---- MCP ----
 
-    private static JsonElement Rpc(McpProtocol mcp, string request)
+    private static string? Send(RecursiveAI.OneModelContext.ContextSession mcp, string message) => mcp.HandleAsync(message).AsTask().GetAwaiter().GetResult();
+
+    private static JsonElement Rpc(RecursiveAI.OneModelContext.ContextSession mcp, string request)
     {
-        var response = mcp.Handle(request);
+        var response = Send(mcp, request);
         Assert.NotNull(response);
         return JsonDocument.Parse(response!).RootElement.Clone();
     }
@@ -390,13 +392,13 @@ public class HarnessTests
     public void McpProtocolFollowsTheSpecShapes()
     {
         using var cluster = TestCluster.Start(new ShopGame(), Options());
-        var mcp = new McpProtocol(cluster.Client.Control);
+        var mcp = new ControlServer(cluster.Client.Control).OpenSession();
 
         var init = Rpc(mcp, """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}""");
         Assert.Equal("2025-03-26", init.GetProperty("result").GetProperty("protocolVersion").GetString());
         Assert.True(init.GetProperty("result").GetProperty("capabilities").TryGetProperty("tools", out _));
-        Assert.Null(mcp.Handle("""{"jsonrpc":"2.0","method":"notifications/initialized"}"""));
-        Assert.Equal("2025-06-18", Rpc(mcp, """{"jsonrpc":"2.0","id":"a","method":"initialize","params":{"protocolVersion":"1999-01-01"}}""").GetProperty("result").GetProperty("protocolVersion").GetString());
+        Assert.Null(Send(mcp, """{"jsonrpc":"2.0","method":"notifications/initialized"}"""));
+        Assert.Equal("2025-11-25", Rpc(mcp, """{"jsonrpc":"2.0","id":"a","method":"initialize","params":{"protocolVersion":"1999-01-01"}}""").GetProperty("result").GetProperty("protocolVersion").GetString());
 
         var tools = Rpc(mcp, """{"jsonrpc":"2.0","id":2,"method":"tools/list"}""").GetProperty("result").GetProperty("tools");
         Assert.Equal(ControlOps.All.Count, tools.GetArrayLength());
@@ -407,7 +409,7 @@ public class HarnessTests
         }
 
         var call = Rpc(mcp, """{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"state_query","arguments":{"entity":"Shop","property":"Stock"}}}""");
-        Assert.False(call.GetProperty("result").GetProperty("isError").GetBoolean());
+        Assert.False(call.GetProperty("result").TryGetProperty("isError", out var callError) && callError.GetBoolean());
         Assert.Equal("3", call.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString());
 
         var failed = Rpc(mcp, """{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"state_query","arguments":{"entity":"Bank"}}}""");
@@ -415,7 +417,7 @@ public class HarnessTests
         Assert.Contains("not_found", failed.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString(), StringComparison.Ordinal);
 
         Assert.Equal(-32602, Rpc(mcp, """{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"nope"}}""").GetProperty("error").GetProperty("code").GetInt32());
-        Assert.Equal(-32601, Rpc(mcp, """{"jsonrpc":"2.0","id":6,"method":"resources/list"}""").GetProperty("error").GetProperty("code").GetInt32());
+        Assert.Equal(-32601, Rpc(mcp, """{"jsonrpc":"2.0","id":6,"method":"nope/none"}""").GetProperty("error").GetProperty("code").GetInt32());
         Assert.Equal(-32700, Rpc(mcp, "{not json").GetProperty("error").GetProperty("code").GetInt32());
         Assert.Equal(-32600, Rpc(mcp, "[]").GetProperty("error").GetProperty("code").GetInt32());
         Assert.Equal(JsonValueKind.Object, Rpc(mcp, """{"jsonrpc":"2.0","id":7,"method":"ping"}""").GetProperty("result").ValueKind);

@@ -32,6 +32,7 @@ dotnet add package RecursiveAI.OneGame.Control
 | [`ControlOp`](OneGame.Control/ControlOp.md) | record | One operation of the control layer: the name every face uses, what it does, and its arguments as a JSON schema. |
 | [`ControlOps`](OneGame.Control/ControlOps.md) | static class | The operation table. |
 | [`ControlResult`](OneGame.Control/ControlResult.md) | record | What an operation returns: a JSON text and, for captures, the PNG bytes. |
+| [`ControlServer`](OneGame.Control/ControlServer.md) | class | A game's control operations served as Model Context Protocol tools by RecursiveAI.OneModelContext: every [`ControlOp`](OneGame.Control/ControlOp.md) is a tool of the same name with the same schema, and an operation's [`ControlResult`](OneGame.Control/ControlResult.md) is the tool's text (and, for a capture, an image). |
 | [`ControlSurface`](OneGame.Control/ControlSurface.md) | class | The control layer: every operation of [`ControlOps`](OneGame.Control/ControlOps.md) run against one [`GameInstance`](../OneGame.Host/OneGame.Host/GameInstance.md). |
 | [`DebugOverlay`](OneGame.Control/DebugOverlay.md) | class | The on-screen debug panel of development builds: frame time, entity count, network figures when the game is connected, and the audio device's counters. |
 | [`Draw2DReport`](OneGame.Control/Draw2DReport.md) | record | Result of `draw2d`: what the 2D happy path drew in the last frame and where its camera looks. |
@@ -43,7 +44,7 @@ dotnet add package RecursiveAI.OneGame.Control
 | [`InfoResult`](OneGame.Control/InfoResult.md) | record | Result of `info`, the operation to call first: which game this is, where it is in time, and what it is drawing with. |
 | [`InputResult`](OneGame.Control/InputResult.md) | record | Result of the input operations (`input_key`, `input_pointer`, `ui_click` and the like). |
 | [`InvokeResult`](OneGame.Control/InvokeResult.md) | record | Result of `ui_invoke`: the element's default action run without pointer events. |
-| [`McpProtocol`](OneGame.Control/McpProtocol.md) | class | The Model Context Protocol (https://modelcontextprotocol.io, revision 2025-06-18) for one game: JSON-RPC 2.0 messages in, messages out. |
+| [`McpProtocol`](OneGame.Control/McpProtocol.md) | class | One MCP session for a game's control surface: JSON-RPC 2.0 messages in, messages out. |
 | [`NavActions`](OneGame.Control/NavActions.md) | static class | The names the `input_nav` operation (and the scenario `nav` step) accepts for a virtual gamepad button: the menu actions (`activate`, `cancel`...) and every [`GamepadButton`](../OneGame.Platform/OneGame.Platform/GamepadButton.md) by name. |
 | [`NetDivergeResult`](OneGame.Control/NetDivergeResult.md) | record | Result of `net_diverge`: which entity was corrupted in the local replica. |
 | [`NetWaitResult`](OneGame.Control/NetWaitResult.md) | record | Result of `net_wait`: whether the tick was reached before the timeout, and where the replica is. |

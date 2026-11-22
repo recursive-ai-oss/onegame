@@ -22,6 +22,8 @@
     <PackageVersion Include="RecursiveAI.OneHtml" Version="1.5.1" />
     <PackageVersion Include="RecursiveAI.OnePath" Version="1.0.0" />
     <PackageVersion Include="RecursiveAI.OnePhysics" Version="1.0.0" />
+    <!-- Model Context Protocol: live control speaks it through this library. -->
+    <PackageVersion Include="RecursiveAI.OneModelContext" Version="1.0.1" />
     <!-- The GPU layer: devices, buffers, pipelines and the Vulkan, Metal and WebGPU backends. -->
     <PackageVersion Include="RecursiveAI.OneGpu" Version="$(OneGpuVersion)" />
     <PackageVersion Include="RecursiveAI.OneGpu.Backends" Version="$(OneGpuVersion)" />

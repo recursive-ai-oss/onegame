@@ -113,6 +113,9 @@ public class ControlTests : IDisposable
             using var stream = new NetworkStream(socket);
             using var reader = new StreamReader(stream);
             using var writer = new StreamWriter(stream) { AutoFlush = true };
+            writer.WriteLine("""{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}""");
+            _ = reader.ReadLine();
+            writer.WriteLine("""{"jsonrpc":"2.0","method":"notifications/initialized"}""");
             writer.WriteLine("""{"jsonrpc":"2.0","id":1,"method":"tools/list"}""");
             list = reader.ReadLine();
             writer.WriteLine("""{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"plugin_load","arguments":{"name":"counter","path":""" + Q(dir) + "}}}");
