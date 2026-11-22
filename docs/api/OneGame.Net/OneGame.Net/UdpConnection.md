@@ -19,6 +19,7 @@ One reliable-UDP connection, either the client end made by [`UdpTransport.Connec
 | [`ChannelBinding`](#m-channelbinding) | A 32-byte value both ends derive from the handshake (Noise's handshake hash): it names this one encrypted session, and a fresh server ephemeral key makes it unique to it. |
 | [`CloseInfo`](#m-closeinfo) | Why the connection closed; [`DisconnectReason.None`](DisconnectReason.md#m-none) until then. |
 | [`IsEncrypted`](#m-isencrypted) | True when the link is encrypted and authenticated ([`SecurityMode.Required`](SecurityMode.md#m-required)). |
+| [`LocalPort`](#m-localport) | The local port of the connection's socket, or 0 when it has none (an in-memory or browser connection). |
 | [`MaxUnreliableBytes`](#m-maxunreliablebytes) | Largest message [`UdpConnection.SendUnreliable()`](UdpConnection.md#m-sendunreliable-readonlyspan-byte) accepts. |
 | [`RemoteKey`](#m-remotekey) | The peer's authenticated public key, or null on a link without authentication (an `Insecure` transport, a loopback). |
 | [`RemoteName`](#m-remotename) | The peer's address, as text, for logs. |
@@ -54,6 +55,16 @@ public bool IsEncrypted { get; }
 True when the link is encrypted and authenticated ([`SecurityMode.Required`](SecurityMode.md#m-required)). Then [`IAuthenticatedChannel.RemoteKey`](../../OneGame.Sync/OneGame.Sync/IAuthenticatedChannel.md#m-remotekey) is the peer's proven key once connected.
 
 **Type:** `bool`
+
+### <a id="m-localport"></a>LocalPort
+
+```csharp
+public int LocalPort { get; }
+```
+
+The local port of the connection's socket, or 0 when it has none (an in-memory or browser connection). A cluster tool matches it with the server's name for this client.
+
+**Type:** `int`
 
 ### <a id="m-maxunreliablebytes"></a>MaxUnreliableBytes
 

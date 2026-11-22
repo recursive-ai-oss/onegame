@@ -16,12 +16,12 @@ A snapshot of a client's connection, for `net_status`.
 
 | Member | Description |
 | --- | --- |
-| [`NetStatus(string, string, string, string?, uint, string, long, string, long, int, int, double, long, double, double, long, long, DriftInfo[], FollowedScope[], int, bool)`](#m-ctor-string-string-string-string-uint-string-long-string-long-int-int-double-long-double-double-long-long-driftinfo-followedscope-int-bool) | A snapshot of a client's connection, for `net_status`. |
+| [`NetStatus(string, string, string, string?, uint, string, long, string, long, int, int, double, long, double, double, long, long, DriftInfo[], FollowedScope[], int, bool, int)`](#m-ctor-string-string-string-string-uint-string-long-string-long-int-int-double-long-double-double-long-long-driftinfo-followedscope-int-bool-int) | A snapshot of a client's connection, for `net_status`. |
 
-### <a id="m-ctor-string-string-string-string-uint-string-long-string-long-int-int-double-long-double-double-long-long-driftinfo-followedscope-int-bool"></a>NetStatus(string, string, string, string?, uint, string, long, string, long, int, int, double, long, double, double, long, long, DriftInfo\[\], FollowedScope\[\], int, bool)
+### <a id="m-ctor-string-string-string-string-uint-string-long-string-long-int-int-double-long-double-double-long-long-driftinfo-followedscope-int-bool-int"></a>NetStatus(string, string, string, string?, uint, string, long, string, long, int, int, double, long, double, double, long, long, DriftInfo\[\], FollowedScope\[\], int, bool, int)
 
 ```csharp
-public NetStatus(string Address, string Transport, string Connection, string? CloseReason, uint Scope, string Replica, long Tick, string Hash, long FramesApplied, int Resyncs, int Drift, double RttMs, long Retransmits, double InboundLoss, double OutboundLoss, long MessagesSent, long MessagesReceived, DriftInfo[] Reports, FollowedScope[] Followed, int Reconnects = 0, bool Reconnecting = false);
+public NetStatus(string Address, string Transport, string Connection, string? CloseReason, uint Scope, string Replica, long Tick, string Hash, long FramesApplied, int Resyncs, int Drift, double RttMs, long Retransmits, double InboundLoss, double OutboundLoss, long MessagesSent, long MessagesReceived, DriftInfo[] Reports, FollowedScope[] Followed, int Reconnects = 0, bool Reconnecting = false, int LocalPort = 0);
 ```
 
 A snapshot of a client's connection, for `net_status`.
@@ -49,6 +49,7 @@ A snapshot of a client's connection, for `net_status`.
 - `Followed` ([`FollowedScope`](FollowedScope.md)\[\]): Every other scope the client's node is subscribed to (the options' extra scopes and any the game subscribed to itself), in subscription order, with each one's view hash.
 - `Reconnects` (`int`): How many times the session connected again after losing the server.
 - `Reconnecting` (`bool`): True while the connection is lost and the session is trying to get it back.
+- `LocalPort` (`int`): The local port of the client's socket (0 when it has none), which the server's `clients` list shows in this connection's address.
 
 ## Properties
 
@@ -62,6 +63,7 @@ A snapshot of a client's connection, for `net_status`.
 | [`FramesApplied`](#m-framesapplied) | Frames applied so far. |
 | [`Hash`](#m-hash) | The hash of what the replica holds (its view of the scope) as 16 hex digits; the server's hash for this client's audience is equal at the same tick. |
 | [`InboundLoss`](#m-inboundloss) | Estimated share of the server's datagrams that never arrived. |
+| [`LocalPort`](#m-localport) | The local port of the client's socket (0 when it has none), which the server's `clients` list shows in this connection's address. |
 | [`MessagesReceived`](#m-messagesreceived) | Messages received from the server. |
 | [`MessagesSent`](#m-messagessent) | Messages sent to the server. |
 | [`OutboundLoss`](#m-outboundloss) | Share of our reliable transmissions that were repeats. |
@@ -155,6 +157,16 @@ public double InboundLoss { get; init; }
 Estimated share of the server's datagrams that never arrived.
 
 **Type:** `double`
+
+### <a id="m-localport"></a>LocalPort
+
+```csharp
+public int LocalPort { get; init; }
+```
+
+The local port of the client's socket (0 when it has none), which the server's `clients` list shows in this connection's address.
+
+**Type:** `int`
 
 ### <a id="m-messagesreceived"></a>MessagesReceived
 

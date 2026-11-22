@@ -642,7 +642,8 @@ public sealed class ProcessCluster : IDisposable
                         }
                     }
 
-                    if (connectionName is null)
+                    // A release client has already stopped, so the server has forgotten its connection: only the any-view match is left for it.
+                    if (connectionName is null && !n.Release)
                     {
                         note = $"server '{n.Connect}' has no connection from port {port.ToString(CultureInfo.InvariantCulture)} (the client's own)";
                     }
