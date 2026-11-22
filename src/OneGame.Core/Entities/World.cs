@@ -48,6 +48,15 @@ public sealed class World
     /// <summary>The number of completed ticks. Replicas take it from the snapshots they apply.</summary>
     public long Tick { get; private set; }
 
+    private uint _interestKeyCounter;
+
+    /// <summary>Non-zero while the authority publishes: entities then reuse the interest key they computed earlier in the same publish.</summary>
+    internal uint InterestKeyEpoch { get; private set; }
+
+    internal void OpenInterestKeyCache() => InterestKeyEpoch = ++_interestKeyCounter == 0 ? ++_interestKeyCounter : _interestKeyCounter;
+
+    internal void CloseInterestKeyCache() => InterestKeyEpoch = 0;
+
     /// <summary>The named random streams.</summary>
     public RngStreams Rng { get; }
 

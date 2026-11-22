@@ -742,6 +742,20 @@ public sealed partial class AuthorityScope
             return;
         }
 
+        World.OpenInterestKeyCache();
+        try
+        {
+            PublishViews();
+        }
+        finally
+        {
+            World.CloseInterestKeyCache();
+        }
+    }
+
+    private void PublishViews()
+    {
+
         var tick = World.Tick;
         var interval = Node.DriftCheckInterval;
         var hashed = interval > 0 && tick % interval == 0;

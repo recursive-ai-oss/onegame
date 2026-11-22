@@ -99,10 +99,35 @@ public abstract class Entity
     /// </summary>
     internal bool TryGetAudienceMask(in Audience audience, out ulong mask) => TryGetAudienceMask(audience, null, out mask);
 
+    private uint _interestKeyValue;
+    private uint _interestKeyEpoch;
+
+    /// <summary>
+    /// The interest key, read through the world's publish cache when one is open: a key computed from game state is asked once per entity
+    /// per publish rather than once per entity per view. The cache is only open while the authority publishes, after the tick's sim, so a
+    /// key moved by a command or a step is always seen.
+    /// </summary>
+    private uint KeyForPublish()
+    {
+        var epoch = World?.InterestKeyEpoch ?? 0;
+        if (epoch == 0)
+        {
+            return InterestKey;
+        }
+
+        if (_interestKeyEpoch != epoch)
+        {
+            _interestKeyValue = InterestKey;
+            _interestKeyEpoch = epoch;
+        }
+
+        return _interestKeyValue;
+    }
+
     /// <summary>As above, and additionally false when <paramref name="interest"/> is a restricted set that lacks this entity's non-zero <see cref="InterestKey"/>.</summary>
     internal bool TryGetAudienceMask(in Audience audience, InterestSet? interest, out ulong mask)
     {
-        if (interest is not null && !interest.Admits(InterestKey))
+        if (interest is not null && !interest.Admits(KeyForPublish()))
         {
             mask = 0;
             return false;
