@@ -34,7 +34,7 @@ Creates options for a plain one-shot on the sfx bus.
 | [`FadeInSeconds`](#m-fadeinseconds) | Seconds to fade in from silence. |
 | [`Loop`](#m-loop) | Whether to restart at the end. |
 | [`Pan`](#m-pan) | Stereo position, -1 (left) to 1 (right). |
-| [`Pitch`](#m-pitch) | Speed and pitch multiplier, 0.0625 to 16 (a clip's rate times this must stay within the mixer's conversion range). |
+| [`Pitch`](#m-pitch) | Speed and pitch multiplier, 0.0625 to 16. |
 | [`Priority`](#m-priority) | Higher priorities win when all voices are busy. |
 | [`StartAtFrame`](#m-startatframe) | The audio-timeline frame to start at, for sounds that must land on a given frame; 0 plays as soon as possible. |
 | [`VariablePitch`](#m-variablepitch) | Set to change the pitch later with [`AudioService.SetPitch()`](AudioService.md#m-setpitch-voiceid-float-double); a sound that starts at pitch 1 ignores later changes otherwise. |
@@ -86,7 +86,7 @@ Stereo position, -1 (left) to 1 (right). Default 0.
 public float Pitch { get; init; }
 ```
 
-Speed and pitch multiplier, 0.0625 to 16 (a clip's rate times this must stay within the mixer's conversion range). Default 1.
+Speed and pitch multiplier, 0.0625 to 16. Default 1. The mixer converts a clip's rate to its own, and that conversion runs between a quarter and 16 times: the fastest a clip can play is `4 x mixerRate / clipRate` (about 4.35 for a 44.1 kHz clip in a 48 kHz mixer). A value outside what the clip allows, zero, or a negative one plays at the nearest allowed speed, and NaN plays at 1; it never throws.
 
 **Type:** `float`
 

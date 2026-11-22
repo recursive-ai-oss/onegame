@@ -103,6 +103,9 @@ public sealed class ScenarioRunner
         _refusalBase = game.Art.Refusals;
         var setup = Guarded(() =>
         {
+            // Each scenario starts a fresh run: voices and queued commands from the one before do not carry over, and the scale override is cleared.
+            (_surface.Audio ?? AudioService.Active)?.Reset();
+            game.UiScaleOverride = null;
             game.Definition.OnScenarioStarting(game);
             if (game.CurrentScreen is { } initialScreen)
             {

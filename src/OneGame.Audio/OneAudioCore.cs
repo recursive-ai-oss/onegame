@@ -27,6 +27,11 @@ public sealed class OneAudioCore : IAudioCore
     private readonly object _streamLock = new();
     private readonly double _maxClipSeconds;
 
+    // The mixer refuses a voice whose conversion ratio (mixer rate / source rate / pitch) leaves its converter's range. A quarter lets a
+    // 44.1 kHz clip play four times faster into a 48 kHz mixer; Play clamps anything beyond instead of throwing into the game.
+    private const double MinConversionRatio = 0.25;
+    private const double MaxConversionRatio = 16;
+
     /// <summary>Builds the mixer. Everything it needs is allocated here, so create it at startup.</summary>
     /// <param name="sampleRate">Output frames per second.</param>
     /// <param name="channels">Output channels.</param>
@@ -57,6 +62,7 @@ public sealed class OneAudioCore : IAudioCore
                 MaxReverbs = settings.MaxReverbs,
                 MaxBusMeters = settings.MaxBusMeters,
                 LimiterLookaheadMilliseconds = settings.LimiterLookaheadMilliseconds,
+                ConverterMinRatio = MinConversionRatio,
             });
         }
         catch (ArgumentException e)
@@ -143,7 +149,7 @@ public sealed class OneAudioCore : IAudioCore
         VoiceHandle handle;
         try
         {
-            handle = _mixer.Play(ToParams(request));
+            handle = _mixer.Play(ToParams(request) with { Pitch = SafePitch(request.Pitch, source.Format.SampleRate) });
         }
         catch
         {
@@ -159,6 +165,21 @@ public sealed class OneAudioCore : IAudioCore
 
         Track(handle, source);
         return new VoiceId(handle.Id);
+    }
+
+    // A pitch the mixer accepts for this source: finite, within its pitch range and within the converter's ratio range.
+    private float SafePitch(float pitch, int sourceRate)
+    {
+        if (float.IsNaN(pitch))
+        {
+            return 1f;
+        }
+
+        var ratioPerPitch = _mixer.SampleRate / (double)Math.Max(1, sourceRate);
+        var lo = Math.Max(AudioMixer.MinPitch, ratioPerPitch / MaxConversionRatio);
+        var hi = Math.Min(AudioMixer.MaxPitch, ratioPerPitch / MinConversionRatio);
+        // Round inward so the ratio check on the boundary passes in float arithmetic.
+        return (float)Math.Clamp(pitch, lo * 1.0001, Math.Max(lo * 1.0001, hi * 0.9999));
     }
 
     /// <inheritdoc/>
@@ -180,7 +201,8 @@ public sealed class OneAudioCore : IAudioCore
     public bool SetBusGain(int bus, float gain) => _mixer.SetBusGain(bus, gain);
 
     /// <inheritdoc/>
-    public bool SetPitch(VoiceId voice, float pitch, int rampFrames) => _mixer.SetPitch(new VoiceHandle(voice.Id), pitch, rampFrames);
+    public bool SetPitch(VoiceId voice, float pitch, int rampFrames) =>
+        _mixer.SetPitch(new VoiceHandle(voice.Id), float.IsNaN(pitch) ? 1f : Math.Clamp(pitch, AudioMixer.MinPitch, AudioMixer.MaxPitch), rampFrames);
 
     /// <inheritdoc/>
     public bool SetBusMute(int bus, bool muted) => _mixer.SetBusMute(bus, muted);
