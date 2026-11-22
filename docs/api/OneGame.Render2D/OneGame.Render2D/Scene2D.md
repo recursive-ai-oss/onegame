@@ -9,7 +9,7 @@
 public sealed class Scene2D
 ```
 
-Everything to draw in one frame of the world: sprites and tilemaps on layers. Fill it each frame (or keep entries that do not move and refill the rest), then pass it to [`Renderer2D.DrawScene()`](Renderer2D.md#m-drawscene-scene2d-camera2d-postchain). It reuses its storage, so a steady scene allocates nothing.
+Everything to draw in one frame of the world: sprites and tilemaps on layers. Fill it each frame (or keep entries that do not move and refill the rest), then pass it to [`Renderer2D.DrawScene()`](Renderer2D.md#m-drawscene-scene2d-camera2d-postchain-iscenemarkersink). It reuses its storage, so a steady scene allocates nothing.
 
 ## Constructors
 
@@ -61,6 +61,8 @@ The layers, back to front.
 | [`Draw(in Sprite)`](#m-draw-sprite) | Queues a sprite on the default layer. |
 | [`Draw(Layer2D, in Sprite)`](#m-draw-layer2d-sprite) | Queues a sprite. |
 | [`Draw(Layer2D, TileMap, float)`](#m-draw-layer2d-tilemap-float) | Queues a tilemap. |
+| [`GetLayer(string, Vector2?)`](#m-getlayer-string-vector2) | Finds the layer with a name, or adds it in front of the existing ones. |
+| [`Mark(Layer2D, float, int)`](#m-mark-layer2d-float-int) | Puts a marker in the draw order: when [`Renderer2D.DrawScene()`](Renderer2D.md#m-drawscene-scene2d-camera2d-postchain-iscenemarkersink) reaches it (by layer, then `z`, then submission order, like a sprite) it calls the sink's [`ISceneMarkerSink.DrawMarker()`](ISceneMarkerSink.md#m-drawmarker-int-layer2d-matrix3x2). |
 
 ### <a id="m-addlayer-string-vector2"></a>AddLayer(string, Vector2)
 
@@ -123,3 +125,32 @@ Queues a tilemap.
 - `layer` ([`Layer2D`](Layer2D.md)): The layer it belongs to.
 - `map` ([`TileMap`](TileMap.md)): The map.
 - `z` (`float`): Draw order inside the layer, as for sprites.
+
+### <a id="m-getlayer-string-vector2"></a>GetLayer(string, Vector2?)
+
+```csharp
+public Layer2D GetLayer(string name, Vector2? parallax = default);
+```
+
+Finds the layer with a name, or adds it in front of the existing ones. Layers stay between frames, so a game asks for its layers by name every frame.
+
+**Parameters**
+
+- `name` (`string`): The layer's name.
+- `parallax` ([`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2)?): The parallax a new layer gets (the layer's own value is left alone when it exists); the camera exactly when null.
+
+**Returns:** [`Layer2D`](Layer2D.md) — The layer.
+
+### <a id="m-mark-layer2d-float-int"></a>Mark(Layer2D, float, int)
+
+```csharp
+public void Mark(Layer2D layer, float z, int id);
+```
+
+Puts a marker in the draw order: when [`Renderer2D.DrawScene()`](Renderer2D.md#m-drawscene-scene2d-camera2d-postchain-iscenemarkersink) reaches it (by layer, then `z`, then submission order, like a sprite) it calls the sink's [`ISceneMarkerSink.DrawMarker()`](ISceneMarkerSink.md#m-drawmarker-int-layer2d-matrix3x2). Markers cost no draw of their own.
+
+**Parameters**
+
+- `layer` ([`Layer2D`](Layer2D.md)): The layer it belongs to.
+- `z` (`float`): Draw order inside the layer, as for sprites.
+- `id` (`int`): A number the sink understands; 0 to 2^29.

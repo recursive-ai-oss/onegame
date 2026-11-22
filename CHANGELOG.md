@@ -4,6 +4,8 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-22
+
 ### Added
 
 - `Layer2D.Camera`, `Layer2D.Viewport`, `Layer2D.ScreenSpace` and `Layer2D.View(...)`, `Scene2D.GetLayer(name)`, and on `Draw2D` `ScreenLayer`, `GetLayer(name)` and layer overloads of `WorldToScreen`/`ScreenToWorld`: a layer can draw through a camera of its own, inside a screen rectangle, or in plain pixels, so a HUD sits over a zoomed and panned world in one frame and a minimap shares the frame with the main view. A scene whose layers have none of these draws as before.

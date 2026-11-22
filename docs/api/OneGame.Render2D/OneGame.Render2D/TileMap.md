@@ -65,7 +65,7 @@ The largest width or height in tiles.
 | Member | Description |
 | --- | --- |
 | [`Height`](#m-height) | Height in tiles. |
-| [`LastStats`](#m-laststats) | What the last [`Renderer2D.DrawScene()`](Renderer2D.md#m-drawscene-scene2d-camera2d-postchain) drew for this map. |
+| [`LastStats`](#m-laststats) | What the last [`Renderer2D.DrawScene()`](Renderer2D.md#m-drawscene-scene2d-camera2d-postchain-iscenemarkersink) drew for this map. |
 | [`LodThreshold`](#m-lodthreshold) | Once a tile would be smaller than this many pixels on screen, the renderer switches to the next coarser level. |
 | [`MaxLevel`](#m-maxlevel) | The coarsest level of detail the map can be drawn at. |
 | [`Origin`](#m-origin) | The world position of the map's top-left corner. |
@@ -90,7 +90,7 @@ Height in tiles.
 public TileMapStats LastStats { get; }
 ```
 
-What the last [`Renderer2D.DrawScene()`](Renderer2D.md#m-drawscene-scene2d-camera2d-postchain) drew for this map.
+What the last [`Renderer2D.DrawScene()`](Renderer2D.md#m-drawscene-scene2d-camera2d-postchain-iscenemarkersink) drew for this map.
 
 **Type:** [`TileMapStats`](TileMapStats.md)
 

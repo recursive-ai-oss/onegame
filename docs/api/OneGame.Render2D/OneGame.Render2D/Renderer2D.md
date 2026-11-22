@@ -95,7 +95,7 @@ The UI drawing surface for the current frame.
 | [`CreateTexture(int, int, ReadOnlySpan<byte>, TextureFilter)`](#m-createtexture-int-int-readonlyspan-byte-texturefilter) | Creates a texture from straight-alpha sRGB pixels (R, G, B, A bytes, top row first). |
 | [`CreateTileSet(int, int, int, int, ReadOnlySpan<byte>, TextureFilter)`](#m-createtileset-int-int-int-int-readonlyspan-byte-texturefilter) | Creates a tile set from a grid of tiles. |
 | [`Dispose()`](#m-dispose) | Releases every GPU object the renderer made. |
-| [`DrawScene(Scene2D, in Camera2D, PostChain?)`](#m-drawscene-scene2d-camera2d-postchain) | Draws a scene's layers back to front through `camera`. |
+| [`DrawScene(Scene2D, in Camera2D, PostChain?, ISceneMarkerSink?)`](#m-drawscene-scene2d-camera2d-postchain-iscenemarkersink) | Draws a scene's layers back to front through `camera`. |
 | [`EndFrame(GpuCommandEncoder)`](#m-endframe-gpucommandencoder) | Uploads everything the frame drew and records its passes into `encoder`. |
 | [`ForgetTarget(GpuTexture)`](#m-forgettarget-gputexture) | Forgets what the renderer keeps for a target texture (its constants and bind group). |
 | [`RebindTexture(Texture2D, GpuTexture)`](#m-rebindtexture-texture2d-gputexture) | Points a texture made by [`Renderer2D.WrapTexture()`](Renderer2D.md#m-wraptexture-gputexture-texturefilter) at a new GPU image (after its owner recreated it, perhaps at another size). |
@@ -161,7 +161,7 @@ Creates a material from a custom pixel shader that draws sprites. See the render
 public PostChain CreatePostChain();
 ```
 
-Makes an empty post-processing chain. Add effects, then pass it to [`Renderer2D.DrawScene()`](Renderer2D.md#m-drawscene-scene2d-camera2d-postchain).
+Makes an empty post-processing chain. Add effects, then pass it to [`Renderer2D.DrawScene()`](Renderer2D.md#m-drawscene-scene2d-camera2d-postchain-iscenemarkersink).
 
 **Returns:** [`PostChain`](PostChain.md) — The chain.
 
@@ -209,10 +209,10 @@ public void Dispose();
 
 Releases every GPU object the renderer made. Dispose the textures, tile sets and materials you created yourself first or after; they are independent.
 
-### <a id="m-drawscene-scene2d-camera2d-postchain"></a>DrawScene(Scene2D, in Camera2D, PostChain?)
+### <a id="m-drawscene-scene2d-camera2d-postchain-iscenemarkersink"></a>DrawScene(Scene2D, in Camera2D, PostChain?, ISceneMarkerSink?)
 
 ```csharp
-public void DrawScene(Scene2D scene, in Camera2D camera, PostChain? post = null);
+public void DrawScene(Scene2D scene, in Camera2D camera, PostChain? post = null, ISceneMarkerSink? markers = null);
 ```
 
 Draws a scene's layers back to front through `camera`. With a post chain the scene goes into an offscreen image first, the chain runs over it, and the result lands on the current target; anything drawn after (usually the UI) is not post-processed.
@@ -222,6 +222,7 @@ Draws a scene's layers back to front through `camera`. With a post chain the sce
 - `scene` ([`Scene2D`](Scene2D.md)): The layers, sprites and tilemaps.
 - `camera` ([`Camera2D`](Camera2D.md)): The view.
 - `post` ([`PostChain`](PostChain.md)?): Effects to apply to the finished scene, or null.
+- `markers` ([`ISceneMarkerSink`](ISceneMarkerSink.md)?): Receives the scene's markers ([`Scene2D.Mark()`](Scene2D.md#m-mark-layer2d-float-int)) in draw order, or null when it has none.
 
 ### <a id="m-endframe-gpucommandencoder"></a>EndFrame(GpuCommandEncoder)
 

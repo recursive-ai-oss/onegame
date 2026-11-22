@@ -20,6 +20,7 @@ dotnet add package RecursiveAI.OneGame.Render2D
 | [`FrameStats`](OneGame.Render2D/FrameStats.md) | struct | What a frame cost, counted when it was recorded. |
 | [`GeneratedShaders`](OneGame.Render2D/GeneratedShaders.md) | class | The renderer's own shaders, compiled from `Shaders/*.hlsl` during the build. |
 | [`Gradient`](OneGame.Render2D/Gradient.md) | struct | A colour ramp for a filled shape. |
+| [`ISceneMarkerSink`](OneGame.Render2D/ISceneMarkerSink.md) | interface | Receives the markers a [`Scene2D`](OneGame.Render2D/Scene2D.md) holds (see [`Scene2D.Mark()`](OneGame.Render2D/Scene2D.md#m-mark-layer2d-float-int)) at their place in the draw order, while [`Renderer2D.DrawScene()`](OneGame.Render2D/Renderer2D.md#m-drawscene-scene2d-camera2d-postchain-iscenemarkersink) runs. |
 | [`IShaderSource`](OneGame.Render2D/IShaderSource.md) | interface | Supplies the renderer's built-in shaders by program and entry point name. |
 | [`Layer2D`](OneGame.Render2D/Layer2D.md) | class | A layer of a [`Scene2D`](OneGame.Render2D/Scene2D.md). |
 | [`Material`](OneGame.Render2D/Material.md) | class | A pixel shader with parameters, usable on sprites. |

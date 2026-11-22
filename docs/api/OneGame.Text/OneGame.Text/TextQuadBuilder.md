@@ -37,6 +37,7 @@ Creates a builder.
 | [`Build(DisplayList, int, List<GlyphQuad>)`](#m-build-displaylist-int-list-glyphquad) | Appends the quads of one text run. |
 | [`BuildAll(DisplayList, List<GlyphQuad>)`](#m-buildall-displaylist-list-glyphquad) | Appends the quads of every text run of a list, in run order. |
 | [`BuildLine(string, in TextStyle, float, float, Color, List<GlyphQuad>)`](#m-buildline-string-textstyle-float-float-color-list-glyphquad) | Appends the quads of one line of text placed with its top-left corner at a point. |
+| [`Warm(string, in TextStyle)`](#m-warm-string-textstyle) | Rasterizes the glyphs of a string into the atlas at every horizontal subpixel position, so drawing text made of those characters at that style later finds them ready instead of rasterizing in the middle of a frame. |
 
 ### <a id="m-build-displaylist-int-list-glyphquad"></a>Build(DisplayList, int, List&lt;GlyphQuad&gt;)
 
@@ -87,3 +88,18 @@ Appends the quads of one line of text placed with its top-left corner at a point
 - `quads` ([`List`](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)&lt;[`GlyphQuad`](GlyphQuad.md)&gt;): Receives the quads, in draw order.
 
 **Returns:** `int` — How many glyphs the atlas refused.
+
+### <a id="m-warm-string-textstyle"></a>Warm(string, in TextStyle)
+
+```csharp
+public int Warm(string characters, in TextStyle style);
+```
+
+Rasterizes the glyphs of a string into the atlas at every horizontal subpixel position, so drawing text made of those characters at that style later finds them ready instead of rasterizing in the middle of a frame.
+
+**Parameters**
+
+- `characters` (`string`): The characters to prepare, shaped as one string (each distinct glyph is rasterized once per position).
+- `style` ([`TextStyle`](../../OneGame.UI/OneGame.UI/TextStyle.md)): Family, size and weight the text will be drawn with.
+
+**Returns:** `int` — How many glyph bitmaps the atlas refused (too large, or every page in use this frame); 0 normally.

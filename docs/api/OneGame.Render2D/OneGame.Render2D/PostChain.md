@@ -10,7 +10,7 @@
 public sealed class PostChain : IDisposable
 ```
 
-A list of full-screen effects run, in order, over a finished scene. Make one with [`Renderer2D.CreatePostChain()`](Renderer2D.md#m-createpostchain), add effects, and pass it to [`Renderer2D.DrawScene()`](Renderer2D.md#m-drawscene-scene2d-camera2d-postchain). The effects are ordinary materials with built-in shaders, so a chain costs one full-screen pass per effect.
+A list of full-screen effects run, in order, over a finished scene. Make one with [`Renderer2D.CreatePostChain()`](Renderer2D.md#m-createpostchain), add effects, and pass it to [`Renderer2D.DrawScene()`](Renderer2D.md#m-drawscene-scene2d-camera2d-postchain-iscenemarkersink). The effects are ordinary materials with built-in shaders, so a chain costs one full-screen pass per effect.
 
 ## Properties
 

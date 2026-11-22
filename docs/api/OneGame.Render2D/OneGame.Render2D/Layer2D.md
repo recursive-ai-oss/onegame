@@ -15,10 +15,23 @@ A layer of a [`Scene2D`](Scene2D.md). Layers draw in the order they were added; 
 
 | Member | Description |
 | --- | --- |
+| [`Camera`](#m-camera) | A camera for this layer alone, or null (the default) to follow the camera the scene is drawn with. |
 | [`Index`](#m-index) | Position in draw order; 0 is the back. |
 | [`Name`](#m-name) | The layer's name, for debugging and captures. |
 | [`Parallax`](#m-parallax) | How much the layer follows the camera position, per axis. |
+| [`ScreenSpace`](#m-screenspace) | When true the layer ignores every camera and its coordinates are framebuffer pixels (origin top-left, one unit per pixel): the layer for a HUD, labels and menus drawn over a zoomed and panned world. |
+| [`Viewport`](#m-viewport) | A framebuffer rectangle the layer is confined to, or null for the whole target. |
 | [`Visible`](#m-visible) | Layers that are not visible are skipped. |
+
+### <a id="m-camera"></a>Camera
+
+```csharp
+public Camera2D? Camera { get; set; }
+```
+
+A camera for this layer alone, or null (the default) to follow the camera the scene is drawn with. A layer with its own camera draws the world at another zoom or place than the layers beside it, which is how a minimap or a close-up shares a frame with the main view. [`Layer2D.Parallax`](Layer2D.md#m-parallax) still applies on top of it.
+
+**Type:** [`Camera2D`](Camera2D.md)?
 
 ### <a id="m-index"></a>Index
 
@@ -50,6 +63,26 @@ How much the layer follows the camera position, per axis. 1 is the world itself;
 
 **Type:** [`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2)
 
+### <a id="m-screenspace"></a>ScreenSpace
+
+```csharp
+public bool ScreenSpace { get; set; }
+```
+
+When true the layer ignores every camera and its coordinates are framebuffer pixels (origin top-left, one unit per pixel): the layer for a HUD, labels and menus drawn over a zoomed and panned world. Wins over [`Layer2D.Camera`](Layer2D.md#m-camera).
+
+**Type:** `bool`
+
+### <a id="m-viewport"></a>Viewport
+
+```csharp
+public Rect? Viewport { get; set; }
+```
+
+A framebuffer rectangle the layer is confined to, or null for the whole target. The layer's camera is centred on the rectangle (a [`Layer2D.ScreenSpace`](Layer2D.md#m-screenspace) layer puts its origin at the rectangle's top-left) and nothing outside it is drawn.
+
+**Type:** [`Rect`](../../OneGame.UI/OneGame.UI/Rect.md)?
+
 ### <a id="m-visible"></a>Visible
 
 ```csharp
@@ -59,3 +92,24 @@ public bool Visible { get; set; }
 Layers that are not visible are skipped.
 
 **Type:** `bool`
+
+## Methods
+
+| Member | Description |
+| --- | --- |
+| [`View(in Camera2D, Vector2)`](#m-view-camera2d-vector2) | The matrix taking this layer's coordinates to framebuffer pixels (row vectors), for the scene's camera and target size. |
+
+### <a id="m-view-camera2d-vector2"></a>View(in Camera2D, Vector2)
+
+```csharp
+public Matrix3x2 View(in Camera2D sceneCamera, Vector2 screenSize);
+```
+
+The matrix taking this layer's coordinates to framebuffer pixels (row vectors), for the scene's camera and target size.
+
+**Parameters**
+
+- `sceneCamera` ([`Camera2D`](Camera2D.md)): The camera the scene is drawn with; used unless the layer has its own [`Layer2D.Camera`](Layer2D.md#m-camera).
+- `screenSize` ([`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2)): Target size in pixels.
+
+**Returns:** [`Matrix3x2`](https://learn.microsoft.com/dotnet/api/system.numerics.matrix3x2) — The layer-to-screen matrix.

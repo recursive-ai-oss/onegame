@@ -3,15 +3,18 @@
 # Draw2D class
 
 **Namespace:** `OneGame.Host`  
-**Package:** [`RecursiveAI.OneGame.Host`](../index.md)
+**Package:** [`RecursiveAI.OneGame.Host`](../index.md)  
+**Implements:** [`ISceneMarkerSink`](../../OneGame.Render2D/OneGame.Render2D/ISceneMarkerSink.md)
 
 ```csharp
-public sealed class Draw2D
+public sealed class Draw2D : ISceneMarkerSink
 ```
 
-Immediate-mode 2D drawing for view code: call it every frame to say what to show, and the stage batches it onto the same [`Scene2D`](../../OneGame.Render2D/OneGame.Render2D/Scene2D.md) and [`Renderer2D`](../../OneGame.Render2D/OneGame.Render2D/Renderer2D.md) a hand-built stage would use. Nothing is retained between frames except the camera. World coordinates are the renderer's: +X right, +Y down, one unit is one pixel at camera zoom 1. Draw order is by `z` (lower is behind), then call order; text is drawn over everything else, in call order. Steady frames allocate nothing (text strings that the view builds each frame are the view's own allocation).
+Immediate-mode 2D drawing for view code: call it every frame to say what to show, and the stage batches it onto the same [`Scene2D`](../../OneGame.Render2D/OneGame.Render2D/Scene2D.md) and [`Renderer2D`](../../OneGame.Render2D/OneGame.Render2D/Renderer2D.md) a hand-built stage would use. Nothing is retained between frames except the camera. World coordinates are the renderer's: +X right, +Y down, one unit is one pixel at camera zoom 1. Draw order is by layer (in the order the layers were made), then `z` (lower is behind), then call order, and text takes part in it like a sprite: a sprite submitted after a text at the same layer and `z` covers it. Steady frames allocate nothing (text strings that the view builds each frame are the view's own allocation).
 
 Reach it as the parameter of an [`IView2D`](IView2D.md) entity's `Draw` method. It is view-side: read state, never write it. Use [`Draw2D.Time`](Draw2D.md#m-time) (not a clock) to animate so captures and replays repeat exactly. For more control drop down to [`Draw2D.Scene`](Draw2D.md#m-scene) and [`Draw2D.Renderer`](Draw2D.md#m-renderer).
+
+There is one [`Draw2D.Camera`](Draw2D.md#m-camera) by default. To draw a world through it and a HUD over it in the same frame, put the HUD on [`Draw2D.ScreenLayer`](Draw2D.md#m-screenlayer) (pixel coordinates, no camera); for a second view of the world (a minimap), make a layer with [`Draw2D.GetLayer()`](Draw2D.md#m-getlayer-string) and give it its own [`Layer2D.Camera`](../../OneGame.Render2D/OneGame.Render2D/Layer2D.md#m-camera) and [`Layer2D.Viewport`](../../OneGame.Render2D/OneGame.Render2D/Layer2D.md#m-viewport).
 
 **Example**
 
@@ -56,6 +59,7 @@ public void Draw(Draw2D d)
 | [`ParticleEmitters`](#m-particleemitters) | The emitters handed to [`Draw2D.Particles()`](Draw2D.md#m-particles-particleemitter-vector2-texture2d-float) in the last drawn frame, in call order. |
 | [`Renderer`](#m-renderer) | The renderer drawing this frame; use it to create textures ([`Renderer2D.CreateTexture()`](../../OneGame.Render2D/OneGame.Render2D/Renderer2D.md#m-createtexture-int-int-readonlyspan-byte-texturefilter)). |
 | [`Scene`](#m-scene) | The low-level scene this frame is collected in. |
+| [`ScreenLayer`](#m-screenlayer) | The layer for things that sit on the screen, not in the world: its coordinates are framebuffer pixels (origin top-left) whatever the [`Draw2D.Camera`](Draw2D.md#m-camera) does, so a HUD keeps its place and size over a zoomed, panned world. |
 | [`SpriteCount`](#m-spritecount) | The number of sprites queued so far this frame (shapes count; text does not). |
 | [`TextCount`](#m-textcount) | The number of text lines queued so far this frame. |
 | [`Tick`](#m-tick) | The simulation tick being shown. |
@@ -192,6 +196,16 @@ The low-level scene this frame is collected in. Use it to drop down a layer: add
 
 **Type:** [`Scene2D`](../../OneGame.Render2D/OneGame.Render2D/Scene2D.md)
 
+### <a id="m-screenlayer"></a>ScreenLayer
+
+```csharp
+public Layer2D ScreenLayer { get; }
+```
+
+The layer for things that sit on the screen, not in the world: its coordinates are framebuffer pixels (origin top-left) whatever the [`Draw2D.Camera`](Draw2D.md#m-camera) does, so a HUD keeps its place and size over a zoomed, panned world. It is made on first use, in front of the layers that exist then, and stays; set [`Draw2D.Layer`](Draw2D.md#m-layer) to it before drawing and back afterwards (the layer is reset to the scene's default at the start of every frame).
+
+**Type:** [`Layer2D`](../../OneGame.Render2D/OneGame.Render2D/Layer2D.md)
+
 ### <a id="m-spritecount"></a>SpriteCount
 
 ```csharp
@@ -249,11 +263,13 @@ Target width in pixels.
 | [`FillCircle(Vector2, float, Color, float)`](#m-fillcircle-vector2-float-color-float) | Fills a circle. |
 | [`FillRect(Rect, Color, float, float)`](#m-fillrect-rect-color-float-float) | Fills a rectangle. |
 | [`Follow(Vector2)`](#m-follow-vector2) | The camera moves toward a point, by its smoothing, using this frame's [`Draw2D.DeltaTime`](Draw2D.md#m-deltatime). |
+| [`GetLayer(string)`](#m-getlayer-string) | Finds a layer by name, or makes it in front of the existing ones. |
 | [`Line(Vector2, Vector2, Color, float, float)`](#m-line-vector2-vector2-color-float-float) | Draws a line with square ends. |
 | [`Particles(ParticleEmitter, Vector2, Texture2D?, float)`](#m-particles-particleemitter-vector2-texture2d-float) | Shows a particle emitter at a point. |
 | [`Particles(ParticleEmitter, Vector2, string, float)`](#m-particles-particleemitter-vector2-string-float) | Shows a particle emitter at a point, with an image loaded from the game's content folders; see [`Draw2D.Particles()`](Draw2D.md#m-particles-particleemitter-vector2-texture2d-float). |
-| [`ScreenText(string, Vector2, float, Color?, Vector2?, string?, int)`](#m-screentext-string-vector2-float-color-vector2-string-int) | Draws one line of text at a screen pixel, unaffected by the camera. |
+| [`ScreenText(string, Vector2, float, Color?, Vector2?, string?, int, float)`](#m-screentext-string-vector2-float-color-vector2-string-int-float) | Draws one line of text at a screen pixel, unaffected by any camera or viewport. |
 | [`ScreenToWorld(Vector2)`](#m-screentoworld-vector2) | The world point under a screen pixel this frame. |
+| [`ScreenToWorld(Layer2D, Vector2)`](#m-screentoworld-layer2d-vector2) | The point of a layer under a screen pixel this frame, through that layer's own camera, parallax and viewport. |
 | [`Sprite(in Sprite)`](#m-sprite-sprite) | Queues a fully specified low-level sprite on the current layer. |
 | [`Sprite(Texture2D, Vector2, float, float, Color?, Vector2?, SpriteFlip, float)`](#m-sprite-texture2d-vector2-float-float-color-vector2-spriteflip-float) | Draws a whole texture. |
 | [`Sprite(string, Vector2, float, float, Color?, Vector2?, SpriteFlip, float)`](#m-sprite-string-vector2-float-float-color-vector2-spriteflip-float) | Draws a whole image loaded from the game's content folders; see [`Draw2D.Texture()`](Draw2D.md#m-texture-string-texturefilter). |
@@ -263,9 +279,11 @@ Target width in pixels.
 | [`Sprite(SpriteSheet, string, Vector2, float, float, Color?, Vector2?, SpriteFlip, float, float?)`](#m-sprite-spritesheet-string-vector2-float-float-color-vector2-spriteflip-float-float) | Draws a named clip of a sprite sheet at the current view time. |
 | [`StrokeCircle(Vector2, float, Color, float, float)`](#m-strokecircle-vector2-float-color-float-float) | Draws a circle's outline as short straight segments, enough of them to look round at the current zoom. |
 | [`StrokeRect(Rect, Color, float, float)`](#m-strokerect-rect-color-float-float) | Draws a rectangle's outline, inside its bounds. |
-| [`Text(string, Vector2, float, Color?, Vector2?, string?, int)`](#m-text-string-vector2-float-color-vector2-string-int) | Draws one line of text at a world point. |
+| [`Text(string, Vector2, float, Color?, Vector2?, string?, int, float)`](#m-text-string-vector2-float-color-vector2-string-int-float) | Draws one line of text at a point of the current [`Draw2D.Layer`](Draw2D.md#m-layer). |
 | [`Texture(string, TextureFilter)`](#m-texture-string-texturefilter) | A texture loaded from the game's content folders (`art/ship.png`), cached after the first call, so it is cheap to ask for every frame. |
+| [`WarmUpText(string, float, string?, int)`](#m-warmuptext-string-float-string-int) | Rasterizes the glyphs of some characters at a size ahead of time, so the first frame that draws text of them does not stop to do it. |
 | [`WorldToScreen(Vector2)`](#m-worldtoscreen-vector2) | Where a world point lands on the screen this frame, in pixels. |
+| [`WorldToScreen(Layer2D, Vector2)`](#m-worldtoscreen-layer2d-vector2) | Where a point of a layer lands on the screen this frame, in pixels, through that layer's own camera, parallax and viewport. |
 
 ### <a id="m-fillcircle-vector2-float-color-float"></a>FillCircle(Vector2, float, Color, float)
 
@@ -308,6 +326,20 @@ The camera moves toward a point, by its smoothing, using this frame's [`Draw2D.D
 **Parameters**
 
 - `target` ([`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2)): The world point to centre on.
+
+### <a id="m-getlayer-string"></a>GetLayer(string)
+
+```csharp
+public Layer2D GetLayer(string name);
+```
+
+Finds a layer by name, or makes it in front of the existing ones. Layers draw in the order they were made and stay between frames, so ask for them by name every frame. Give a layer its own [`Layer2D.Camera`](../../OneGame.Render2D/OneGame.Render2D/Layer2D.md#m-camera) to draw the world through another view, or a [`Layer2D.Viewport`](../../OneGame.Render2D/OneGame.Render2D/Layer2D.md#m-viewport) to confine it to a part of the screen.
+
+**Parameters**
+
+- `name` (`string`): The layer's name.
+
+**Returns:** [`Layer2D`](../../OneGame.Render2D/OneGame.Render2D/Layer2D.md) — The layer.
 
 ### <a id="m-line-vector2-vector2-color-float-float"></a>Line(Vector2, Vector2, Color, float, float)
 
@@ -355,13 +387,13 @@ Shows a particle emitter at a point, with an image loaded from the game's conten
 - `texturePath` (`string`): Path under a content folder, like `art/spark.png`.
 - `z` (`float`): Draw order inside the layer: lower is behind.
 
-### <a id="m-screentext-string-vector2-float-color-vector2-string-int"></a>ScreenText(string, Vector2, float, Color?, Vector2?, string?, int)
+### <a id="m-screentext-string-vector2-float-color-vector2-string-int-float"></a>ScreenText(string, Vector2, float, Color?, Vector2?, string?, int, float)
 
 ```csharp
-public void ScreenText(string text, Vector2 position, float size = 16f, Color? color = default, Vector2? anchor = default, string? family = null, int weight = 400);
+public void ScreenText(string text, Vector2 position, float size = 16f, Color? color = default, Vector2? anchor = default, string? family = null, int weight = 400, float z = 0f);
 ```
 
-Draws one line of text at a screen pixel, unaffected by the camera.
+Draws one line of text at a screen pixel, unaffected by any camera or viewport. It takes its place in the draw order like a sprite, on the current [`Draw2D.Layer`](Draw2D.md#m-layer): draw it on a later layer than the world to keep it over the world's sprites.
 
 **Parameters**
 
@@ -372,6 +404,7 @@ Draws one line of text at a screen pixel, unaffected by the camera.
 - `anchor` ([`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2)?): The point of the text placed at `position`, as a fraction of its size: (0,0) top-left (default).
 - `family` (`string?`): A font family the game added in `DefineFonts`, or null for the first.
 - `weight` (`int`): Font weight, 400 regular.
+- `z` (`float`): Draw order inside the layer, as for sprites: lower is behind.
 
 ### <a id="m-screentoworld-vector2"></a>ScreenToWorld(Vector2)
 
@@ -386,6 +419,21 @@ The world point under a screen pixel this frame.
 - `screen` ([`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2)): Framebuffer pixels, origin top-left.
 
 **Returns:** [`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2) — A world point.
+
+### <a id="m-screentoworld-layer2d-vector2"></a>ScreenToWorld(Layer2D, Vector2)
+
+```csharp
+public Vector2 ScreenToWorld(Layer2D layer, Vector2 screen);
+```
+
+The point of a layer under a screen pixel this frame, through that layer's own camera, parallax and viewport.
+
+**Parameters**
+
+- `layer` ([`Layer2D`](../../OneGame.Render2D/OneGame.Render2D/Layer2D.md)): A layer of [`Draw2D.Scene`](Draw2D.md#m-scene).
+- `screen` ([`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2)): Framebuffer pixels, origin top-left.
+
+**Returns:** [`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2) — A point in the layer's coordinates.
 
 ### <a id="m-sprite-sprite"></a>Sprite(in Sprite)
 
@@ -554,13 +602,13 @@ Draws a rectangle's outline, inside its bounds.
 - `thickness` (`float`): Line width in world units.
 - `z` (`float`): Draw order inside the layer.
 
-### <a id="m-text-string-vector2-float-color-vector2-string-int"></a>Text(string, Vector2, float, Color?, Vector2?, string?, int)
+### <a id="m-text-string-vector2-float-color-vector2-string-int-float"></a>Text(string, Vector2, float, Color?, Vector2?, string?, int, float)
 
 ```csharp
-public void Text(string text, Vector2 position, float size = 16f, Color? color = default, Vector2? anchor = default, string? family = null, int weight = 400);
+public void Text(string text, Vector2 position, float size = 16f, Color? color = default, Vector2? anchor = default, string? family = null, int weight = 400, float z = 0f);
 ```
 
-Draws one line of text at a world point. The size scales with the camera zoom; text is not rotated, and is drawn over sprites and shapes.
+Draws one line of text at a point of the current [`Draw2D.Layer`](Draw2D.md#m-layer). The size scales with that layer's zoom; text is not rotated. It takes its place in the draw order like a sprite: by layer, then `z`, then call order.
 
 **Parameters**
 
@@ -571,6 +619,7 @@ Draws one line of text at a world point. The size scales with the camera zoom; t
 - `anchor` ([`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2)?): The point of the text placed at `position`, as a fraction of its size: (0,0) top-left (default), (0.5,0.5) centred.
 - `family` (`string?`): A font family the game added in `DefineFonts`, or null for the first.
 - `weight` (`int`): Font weight, 400 regular.
+- `z` (`float`): Draw order inside the layer, as for sprites: lower is behind.
 
 ### <a id="m-texture-string-texturefilter"></a>Texture(string, TextureFilter)
 
@@ -592,6 +641,27 @@ A texture loaded from the game's content folders (`art/ship.png`), cached after 
 - [`AssetException`](AssetException.md): The file is missing or damaged.
 - [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): The stage has no [`Draw2D.Assets`](Draw2D.md#m-assets).
 
+### <a id="m-warmuptext-string-float-string-int"></a>WarmUpText(string, float, string?, int)
+
+```csharp
+public int WarmUpText(string characters, float size, string? family = null, int weight = 400);
+```
+
+Rasterizes the glyphs of some characters at a size ahead of time, so the first frame that draws text of them does not stop to do it. Call it once from a view (the first frame, or when a screen opens) with the characters and the size the text will use; sizes are matched to a sixty-fourth of a pixel, and a text drawn at [`Draw2D.Text()`](Draw2D.md#m-text-string-vector2-float-color-vector2-string-int-float)'s zoom-scaled size needs the scaled size. The glyph atlas is shared and bounded: a set too large for it evicts older glyphs instead of staying ready.
+
+**Parameters**
+
+- `characters` (`string`): The characters to prepare, such as `"0123456789.,:%"`.
+- `size` (`float`): Font size in pixels, as the text will be drawn on screen (see [`Draw2D.ScreenText()`](Draw2D.md#m-screentext-string-vector2-float-color-vector2-string-int-float)).
+- `family` (`string?`): A font family the game added in `DefineFonts`, or null for the first.
+- `weight` (`int`): Font weight, 400 regular.
+
+**Returns:** `int` — How many glyph bitmaps the atlas could not hold; 0 normally.
+
+**Exceptions**
+
+- [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): Called outside a frame being drawn.
+
 ### <a id="m-worldtoscreen-vector2"></a>WorldToScreen(Vector2)
 
 ```csharp
@@ -603,5 +673,20 @@ Where a world point lands on the screen this frame, in pixels.
 **Parameters**
 
 - `world` ([`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2)): A world point.
+
+**Returns:** [`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2) — Framebuffer pixels, origin top-left.
+
+### <a id="m-worldtoscreen-layer2d-vector2"></a>WorldToScreen(Layer2D, Vector2)
+
+```csharp
+public Vector2 WorldToScreen(Layer2D layer, Vector2 point);
+```
+
+Where a point of a layer lands on the screen this frame, in pixels, through that layer's own camera, parallax and viewport.
+
+**Parameters**
+
+- `layer` ([`Layer2D`](../../OneGame.Render2D/OneGame.Render2D/Layer2D.md)): A layer of [`Draw2D.Scene`](Draw2D.md#m-scene).
+- `point` ([`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2)): A point in the layer's coordinates.
 
 **Returns:** [`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2) — Framebuffer pixels, origin top-left.
