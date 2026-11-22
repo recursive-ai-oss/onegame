@@ -45,6 +45,22 @@ Creates a server. Nothing runs until [`ServerHost.Start()`](ServerHost.md#m-star
 - `loader` ([`IPluginLoader`](IPluginLoader.md)?): Loads plugins. Null for a host that cannot (a NativeAOT build): configured plugins are then reported as failures.
 - `log` ([`ServerLog`](ServerLog.md)?): The log; defaults to one that keeps entries and writes nowhere.
 
+## Fields
+
+| Member | Description |
+| --- | --- |
+| [`MaxWatchedAudiences`](#m-maxwatchedaudiences) | Most audiences a host records at once; each costs one view hash per scope per tick. |
+
+### <a id="m-maxwatchedaudiences"></a>MaxWatchedAudiences
+
+```csharp
+public const int MaxWatchedAudiences = 32;
+```
+
+Most audiences a host records at once; each costs one view hash per scope per tick.
+
+**Type:** `int`
+
 ## Properties
 
 | Member | Description |
@@ -64,6 +80,7 @@ Creates a server. Nothing runs until [`ServerHost.Start()`](ServerHost.md#m-star
 | [`State`](#m-state) | Where the server is in its life. |
 | [`StopRequested`](#m-stoprequested) | True once a stop was requested (the control surface's `shutdown`). |
 | [`Tick`](#m-tick) | Ticks run so far, counted from [`ServerHost.Start()`](ServerHost.md#m-start). |
+| [`WatchedAudiences`](#m-watchedaudiences) | How many audiences are being recorded now. |
 
 ### <a id="m-authenticate"></a>Authenticate
 
@@ -220,6 +237,16 @@ Ticks run so far, counted from [`ServerHost.Start()`](ServerHost.md#m-start). Ea
 
 **Type:** `long`
 
+### <a id="m-watchedaudiences"></a>WatchedAudiences
+
+```csharp
+public int WatchedAudiences { get; }
+```
+
+How many audiences are being recorded now.
+
+**Type:** `int`
+
 ## Events
 
 | Member | Description |
@@ -257,6 +284,7 @@ Raised when a network client's connection closed (it left, timed out or was drop
 | [`FindScope(ScopeId)`](#m-findscope-scopeid) | The scope with this id, or null. |
 | [`HashesAt(long)`](#m-hashesat-long) | The recorded hash of every scope at `tick`; the hash is null for a tick that is not recorded (see `hashHistory` in the configuration). |
 | [`HashesAt(long, string?)`](#m-hashesat-long-string) | As [`ServerHost.HashesAt()`](ServerHost.md#m-hashesat-long), also naming the connection of each view and, when `client` is given, the view hash of that client in [`ScopeHashAt.View`](ScopeHashAt.md#m-view): what its replica must hold at that tick, equal to its audience's filtered view of the scope. |
+| [`HashesAt(long, string?, AudienceSpec?)`](#m-hashesat-long-string-audiencespec) | As [`ServerHost.HashesAt()`](ServerHost.md#m-hashesat-long-string), and when `audience` is given, [`ScopeHashAt.Audience`](ScopeHashAt.md#m-audience) holds the view hash that audience must hold at that tick. |
 | [`LoadPlugin(PluginConfig)`](#m-loadplugin-pluginconfig) | Loads a plugin. |
 | [`Plugins()`](#m-plugins) | Snapshots of every loaded plugin, in load order. |
 | [`PumpNetwork()`](#m-pumpnetwork) | Moves messages between the node and its network clients without ticking: accepts connections, reads what arrived (it is handled at the next tick) and sends what the last tick published. |
@@ -270,6 +298,7 @@ Raised when a network client's connection closed (it left, timed out or was drop
 | [`StepOnce()`](#m-steponce) | Runs one tick: delivers arrived messages, steps and publishes every scope. |
 | [`Stop()`](#m-stop) | Stops ticking, gives every plugin its [`ServerPlugin.Unload()`](ServerPlugin.md#m-unload) call (errors are logged) and releases it. |
 | [`UnloadPlugin(string)`](#m-unloadplugin-string) | Removes a plugin: its entities leave the scopes, its systems stop, [`ServerPlugin.Unload()`](ServerPlugin.md#m-unload) runs, and its load context is released and collected. |
+| [`WatchAudience(AudienceSpec)`](#m-watchaudience-audiencespec) | Starts recording the view hash of an audience at every tick of every scope, within `hashHistory`, so [`ServerHost.HashesAt()`](ServerHost.md#m-hashesat-long-string-audiencespec) can say what a replica of that audience must hold, however it follows the scope (directly, through a relay, or under an identity none of this host's connections has). |
 
 ### <a id="m-advance-timespan"></a>Advance(TimeSpan)
 
@@ -353,6 +382,26 @@ As [`ServerHost.HashesAt()`](ServerHost.md#m-hashesat-long), also naming the con
 
 - `tick` (`long`): The scope tick.
 - `client` (`string?`): A connected client's name (as [`ServerHost.Clients()`](ServerHost.md#m-clients) lists it), or null.
+
+**Returns:** [`ScopeHashAt`](ScopeHashAt.md)\[\]
+
+**Exceptions**
+
+- [`ArgumentException`](https://learn.microsoft.com/dotnet/api/system.argumentexception): No connected client has that name.
+
+### <a id="m-hashesat-long-string-audiencespec"></a>HashesAt(long, string?, AudienceSpec?)
+
+```csharp
+public ScopeHashAt[] HashesAt(long tick, string? client, AudienceSpec? audience);
+```
+
+As [`ServerHost.HashesAt()`](ServerHost.md#m-hashesat-long-string), and when `audience` is given, [`ScopeHashAt.Audience`](ScopeHashAt.md#m-audience) holds the view hash that audience must hold at that tick. An audience not named before is named now (see [`ServerHost.WatchAudience()`](ServerHost.md#m-watchaudience-audiencespec)), so its first answer is null.
+
+**Parameters**
+
+- `tick` (`long`): The scope tick.
+- `client` (`string?`): A connected client's name, or null.
+- `audience` ([`AudienceSpec`](AudienceSpec.md)?): The audience to answer for, or null.
 
 **Returns:** [`ScopeHashAt`](ScopeHashAt.md)\[\]
 
@@ -536,3 +585,21 @@ Removes a plugin: its entities leave the scopes, its systems stop, [`ServerPlugi
 **Exceptions**
 
 - [`PluginException`](PluginException.md): No such plugin.
+
+### <a id="m-watchaudience-audiencespec"></a>WatchAudience(AudienceSpec)
+
+```csharp
+public string WatchAudience(AudienceSpec audience);
+```
+
+Starts recording the view hash of an audience at every tick of every scope, within `hashHistory`, so [`ServerHost.HashesAt()`](ServerHost.md#m-hashesat-long-string-audiencespec) can say what a replica of that audience must hold, however it follows the scope (directly, through a relay, or under an identity none of this host's connections has). Only hashes are kept and returned; no hidden data leaves the host. Recording starts now: earlier ticks are not recorded. Naming an audience again does nothing.
+
+**Parameters**
+
+- `audience` ([`AudienceSpec`](AudienceSpec.md)): The audience.
+
+**Returns:** `string` — The audience's key, as [`AudienceSpec.Key`](AudienceSpec.md#m-key).
+
+**Exceptions**
+
+- [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): More than [`ServerHost.MaxWatchedAudiences`](ServerHost.md#m-maxwatchedaudiences) audiences are watched.

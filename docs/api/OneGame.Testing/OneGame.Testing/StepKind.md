@@ -49,3 +49,4 @@ What a scenario step does.
 | <a id="m-kill"></a>`Kill` | `31` | Kill a node's process outright (cluster scenarios only). |
 | <a id="m-start"></a>`Start` | `32` | Start a node that was killed, with the same arguments, data folder and ports (cluster scenarios only). |
 | <a id="m-restart"></a>`Restart` | `33` | Kill a node and start it again (cluster scenarios only). |
+| <a id="m-audience"></a>`Audience` | `34` | Declare who a client's replica of a followed scope is, so hash checks compare it with the authority's record of that audience (cluster scenarios only). |

@@ -445,7 +445,7 @@ Selector (ui).
 public string? Server { get; init; }
 ```
 
-The server whose recorded hashes [`ExpectKind.Agree`](ExpectKind.md#m-agree) compares against.
+The server whose recorded hashes [`ExpectKind.Agree`](ExpectKind.md#m-agree) compares against. With a [`ScenarioExpectation.Scope`](ScenarioExpectation.md#m-scope) it is the authority of that scope, and the replicas are compared with the audience each client declared for it.
 
 **Type:** `string?`
 

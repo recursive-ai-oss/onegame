@@ -37,12 +37,23 @@ One scope a client follows besides its main one (served by its server's relay), 
 
 | Member | Description |
 | --- | --- |
+| [`Authority`](#m-authority) | The node this replica follows the scope from: the name of the other end of its link (a relay, when the scope is not the link's own). |
 | [`Filtered`](#m-filtered) | True when this replica holds a filtered view of its scope: `Hash` is then the view hash the authority computes for this connection (`hash_at` with this client's name, `view`), not the whole scope's hash. |
 | [`FullHash`](#m-fullhash) | The hash of everything the replica world holds, hidden data included (always the default for what the audience may not see). |
 | [`Hash`](#m-hash) | The hash of what the replica holds, 16 hex digits. |
 | [`Replica`](#m-replica) | Replica state: subscribing, live, resyncing, refused, failed. |
 | [`Scope`](#m-scope) | The scope id. |
 | [`Tick`](#m-tick) | The replica's tick. |
+
+### <a id="m-authority"></a>Authority
+
+```csharp
+public string Authority { get; init; }
+```
+
+The node this replica follows the scope from: the name of the other end of its link (a relay, when the scope is not the link's own).
+
+**Type:** `string`
 
 ### <a id="m-filtered"></a>Filtered
 

@@ -365,6 +365,7 @@ Raised on the receiving scope when a transfer was installed, with the transfer i
 
 | Member | Description |
 | --- | --- |
+| [`AudienceHash(in Audience, InterestSet?)`](#m-audiencehash-audience-interestset) | The hash of the view an audience would hold of this scope now, as [`AuthorityScope.ViewHashFor()`](AuthorityScope.md#m-viewhashfor-connection) gives it for a connection: what a replica of that audience (directly, or through relays that never widen what they pass on) must equal. |
 | [`BeginTransfer(Link, ScopeId, IEnumerable<EntityId>)`](#m-begintransfer-link-scopeid-ienumerable-entityid) | Starts moving entities to a scope on another node. |
 | [`ClearInterest(Connection)`](#m-clearinterest-connection) | Gives the connection back everything it may see. |
 | [`InterestOf(Connection)`](#m-interestof-connection) | The interest keys the connection is set to receive (the ones the last frame was built with), or null when it receives every entity. |
@@ -374,6 +375,21 @@ Raised on the receiving scope when a transfer was installed, with the transfer i
 | [`StartRecording(RecordingOptions?)`](#m-startrecording-recordingoptions) | Starts recording: takes the start snapshot now, then logs every command and the hash checkpoints. |
 | [`StepAndPublish()`](#m-stepandpublish) | Runs one tick and publishes the resulting frame. |
 | [`ViewHashFor(Connection)`](#m-viewhashfor-connection) | The hash of the view this connection holds of the scope: what its replica's [`ReplicaScope.ViewHash`](ReplicaScope.md#m-viewhash) must equal at the same tick. |
+
+### <a id="m-audiencehash-audience-interestset"></a>AudienceHash(in Audience, InterestSet?)
+
+```csharp
+public ulong AudienceHash(in Audience who, InterestSet? interest = null);
+```
+
+The hash of the view an audience would hold of this scope now, as [`AuthorityScope.ViewHashFor()`](AuthorityScope.md#m-viewhashfor-connection) gives it for a connection: what a replica of that audience (directly, or through relays that never widen what they pass on) must equal. Only the hash leaves; hidden data does not.
+
+**Parameters**
+
+- `who` ([`Audience`](../../OneGame.Core/OneGame.Core/Audience.md)): The audience: player, team, and whether it is a relay.
+- `interest` ([`InterestSet`](../../OneGame.Core/OneGame.Core/InterestSet.md)?): The interest the audience holds in this scope; null when it is not restricted.
+
+**Returns:** `ulong`
 
 ### <a id="m-begintransfer-link-scopeid-ienumerable-entityid"></a>BeginTransfer(Link, ScopeId, IEnumerable&lt;EntityId&gt;)
 

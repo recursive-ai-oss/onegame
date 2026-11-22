@@ -44,7 +44,7 @@ Connects an empty replica world to a server and subscribes to the scope. Pump it
 | [`Options`](#m-options) | The options it was created with. |
 | [`Reconnects`](#m-reconnects) | How many times the session connected again after losing the server. |
 | [`Replica`](#m-replica) | The replica of the server's scope; its world is the game's world. |
-| [`Replicas`](#m-replicas) | Every replica this session follows, the main one first. |
+| [`Replicas`](#m-replicas) | Every replica this session's node holds, the main one first and the rest in subscription order, including scopes the game subscribed to itself after the session was made. |
 | [`Transport`](#m-transport) | `udp` or `ws`. |
 
 ### <a id="m-connection"></a>Connection
@@ -143,7 +143,7 @@ The replica of the server's scope; its world is the game's world.
 public IReadOnlyList<ReplicaScope> Replicas { get; }
 ```
 
-Every replica this session follows, the main one first.
+Every replica this session's node holds, the main one first and the rest in subscription order, including scopes the game subscribed to itself after the session was made.
 
 **Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`ReplicaScope`](../../OneGame.Sync/OneGame.Sync/ReplicaScope.md)&gt;
 

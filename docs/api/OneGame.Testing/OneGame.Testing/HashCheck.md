@@ -41,6 +41,7 @@ A client replica compared with its server's recorded hash at the replica's tick.
 
 | Member | Description |
 | --- | --- |
+| [`Audience`](#m-audience) | Set when the replica was compared with the view of a declared audience ([`FollowedAudience`](FollowedAudience.md)) rather than with one of the server's own connections: the audience's key. |
 | [`Client`](#m-client) | The client node. |
 | [`ClientHash`](#m-clienthash) | The replica's hash. |
 | [`Match`](#m-match) | True when the hashes are equal. |
@@ -49,6 +50,16 @@ A client replica compared with its server's recorded hash at the replica's tick.
 | [`Server`](#m-server) | The server node. |
 | [`ServerHash`](#m-serverhash) | The server's hash at that tick, or null when it was not recorded. |
 | [`Tick`](#m-tick) | The replica's tick, at which both hashes are compared. |
+
+### <a id="m-audience"></a>Audience
+
+```csharp
+public string? Audience { get; init; }
+```
+
+Set when the replica was compared with the view of a declared audience ([`FollowedAudience`](FollowedAudience.md)) rather than with one of the server's own connections: the audience's key.
+
+**Type:** `string?`
 
 ### <a id="m-client"></a>Client
 

@@ -31,6 +31,7 @@ public NodeSpec();
 | Member | Description |
 | --- | --- |
 | [`Args`](#m-args) | Extra command-line arguments, before the ones the harness adds. |
+| [`Audiences`](#m-audiences) | Clients: the audiences of the scopes this client follows, declared up front ([`ProcessCluster.Audience()`](ProcessCluster.md#m-audience-followedaudience) does the same later). |
 | [`Connect`](#m-connect) | Clients: the server node to connect to. |
 | [`Exe`](#m-exe) | The program to start: an executable, or a `.dll` that is run with `dotnet`. |
 | [`Listen`](#m-listen) | Servers: what to listen on, `udp`, `ws` or `udp+ws`. |
@@ -53,6 +54,16 @@ public IReadOnlyList<string> Args { get; init; }
 Extra command-line arguments, before the ones the harness adds.
 
 **Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)`<string>`
+
+### <a id="m-audiences"></a>Audiences
+
+```csharp
+public IReadOnlyList<FollowedAudience> Audiences { get; init; }
+```
+
+Clients: the audiences of the scopes this client follows, declared up front ([`ProcessCluster.Audience()`](ProcessCluster.md#m-audience-followedaudience) does the same later). Each one makes every hash comparison check that replica against its authority.
+
+**Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`FollowedAudience`](FollowedAudience.md)&gt;
 
 ### <a id="m-connect"></a>Connect
 

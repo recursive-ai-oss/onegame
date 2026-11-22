@@ -29,6 +29,7 @@ dotnet add package RecursiveAI.OneGame.Testing
 | [`EndpointState`](OneGame.Testing/EndpointState.md) | record | A listening address of a server node. |
 | [`ExpectKind`](OneGame.Testing/ExpectKind.md) | enum | What an expectation looks at. |
 | [`ExpectationResult`](OneGame.Testing/ExpectationResult.md) | record | Outcome of one expectation. |
+| [`FollowedAudience`](OneGame.Testing/FollowedAudience.md) | record | Who a client's replica of a followed scope is, as the scope's authority knows it, so the cluster can compare the replica with the authority's own record of that audience (see [`ProcessCluster.Audience()`](OneGame.Testing/ProcessCluster.md#m-audience-followedaudience)). |
 | [`HashCheck`](OneGame.Testing/HashCheck.md) | record | A client replica compared with its server's recorded hash at the replica's tick. |
 | [`ImageCompare`](OneGame.Testing/ImageCompare.md) | static class | Per-pixel image comparison for capture checks. |
 | [`ImageDiff`](OneGame.Testing/ImageDiff.md) | struct | How two images differ. |

@@ -37,10 +37,21 @@ A running cluster as `cluster.json` records it, enough for another process to fi
 
 | Member | Description |
 | --- | --- |
+| [`Audiences`](#m-audiences) | The audiences declared for followed scopes (see [`ProcessCluster.Audience()`](ProcessCluster.md#m-audience-followedaudience)), checked by every hash comparison. |
 | [`Dir`](#m-dir) | The folder with logs, sockets and this file. |
 | [`Name`](#m-name) | The cluster's name. |
 | [`Nodes`](#m-nodes) | The nodes in start order. |
 | [`Owner`](#m-owner) | The process that started it. |
+
+### <a id="m-audiences"></a>Audiences
+
+```csharp
+public FollowedAudience[]? Audiences { get; init; }
+```
+
+The audiences declared for followed scopes (see [`ProcessCluster.Audience()`](ProcessCluster.md#m-audience-followedaudience)), checked by every hash comparison.
+
+**Type:** [`FollowedAudience`](FollowedAudience.md)\[\]?
 
 ### <a id="m-dir"></a>Dir
 

@@ -14,6 +14,7 @@ dotnet add package RecursiveAI.OneGame.Server.Live
 
 | Type | Kind | Description |
 | --- | --- | --- |
+| [`AudienceWatched`](OneGame.Server.Live/AudienceWatched.md) | record | Result of `audience_watch`. |
 | [`ServerApp`](OneGame.Server.Live/ServerApp.md) | static class | The whole `Main` of a dedicated server: parse the command line, build a [`ServerHost`](../OneGame.Server/OneGame.Server/ServerHost.md), listen for clients, serve live control, run until stopped. |
 | [`ServerAppJson`](OneGame.Server.Live/ServerAppJson.md) | class | Source-generated JSON for the lines a server process prints. |
 | [`ServerControl`](OneGame.Server.Live/ServerControl.md) | class | The control surface of a game server: the operations an agent or the command line uses to look at a running server and to load, reload and unload its plugins. |

@@ -44,6 +44,7 @@ Creates a new instance.
 
 | Member | Description |
 | --- | --- |
+| [`AudienceWatched`](#m-audiencewatched) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`Boolean`](#m-boolean) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ClientInfo`](#m-clientinfo) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ClientInfoArray`](#m-clientinfoarray) | Defines the source generated JSON serialization contract metadata for a given type. |
@@ -80,6 +81,16 @@ Creates a new instance.
 | [`UInt32Array`](#m-uint32array) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`UInt64`](#m-uint64) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`UnloadResult`](#m-unloadresult) | Defines the source generated JSON serialization contract metadata for a given type. |
+
+### <a id="m-audiencewatched"></a>AudienceWatched
+
+```csharp
+public JsonTypeInfo<AudienceWatched> AudienceWatched { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`AudienceWatched`](AudienceWatched.md)&gt;
 
 ### <a id="m-boolean"></a>Boolean
 

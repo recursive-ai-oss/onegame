@@ -54,6 +54,8 @@ Creates a new instance.
 | [`DriftEntryArray`](#m-driftentryarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`EndpointState`](#m-endpointstate) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`EndpointStateArray`](#m-endpointstatearray) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`FollowedAudience`](#m-followedaudience) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`FollowedAudienceArray`](#m-followedaudiencearray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`GeneratedSerializerOptions`](#m-generatedserializeroptions) | The source-generated options associated with this context. |
 | [`HashCheck`](#m-hashcheck) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`HashCheckArray`](#m-hashcheckarray) | Defines the source generated JSON serialization contract metadata for a given type. |
@@ -68,6 +70,7 @@ Creates a new instance.
 | [`String`](#m-string) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`StringArray`](#m-stringarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`UInt32`](#m-uint32) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`UInt32Array`](#m-uint32array) | Defines the source generated JSON serialization contract metadata for a given type. |
 
 ### <a id="m-boolean"></a>Boolean
 
@@ -168,6 +171,26 @@ public JsonTypeInfo<EndpointState[]> EndpointStateArray { get; }
 Defines the source generated JSON serialization contract metadata for a given type.
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`EndpointState`](EndpointState.md)\[\]&gt;
+
+### <a id="m-followedaudience"></a>FollowedAudience
+
+```csharp
+public JsonTypeInfo<FollowedAudience> FollowedAudience { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`FollowedAudience`](FollowedAudience.md)&gt;
+
+### <a id="m-followedaudiencearray"></a>FollowedAudienceArray
+
+```csharp
+public JsonTypeInfo<FollowedAudience[]> FollowedAudienceArray { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`FollowedAudience`](FollowedAudience.md)\[\]&gt;
 
 ### <a id="m-generatedserializeroptions"></a>GeneratedSerializerOptions
 
@@ -308,6 +331,16 @@ public JsonTypeInfo<uint> UInt32 { get; }
 Defines the source generated JSON serialization contract metadata for a given type.
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)`<uint>`
+
+### <a id="m-uint32array"></a>UInt32Array
+
+```csharp
+public JsonTypeInfo<uint[]> UInt32Array { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)`<uint[]>`
 
 ## Methods
 

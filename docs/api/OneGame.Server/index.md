@@ -14,6 +14,7 @@ dotnet add package RecursiveAI.OneGame.Server
 
 | Type | Kind | Description |
 | --- | --- | --- |
+| [`AudienceSpec`](OneGame.Server/AudienceSpec.md) | record | Who a replica holds a view for, as the authority knows it: the player and team of the trust it was given, whether it is a relay, and the interest cells it holds. |
 | [`ClientInfo`](OneGame.Server/ClientInfo.md) | record | One connected client, for reports. |
 | [`ClientRequest`](OneGame.Server/ClientRequest.md) | record | A client that has just connected, as the authentication hook sees it. |
 | [`ClientTrustConfig`](OneGame.Server/ClientTrustConfig.md) | record | What clients may do on this server. |

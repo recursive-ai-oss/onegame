@@ -87,9 +87,11 @@ The path of `cluster.json`.
 | Member | Description |
 | --- | --- |
 | [`Attach(string)`](#m-attach-string) | Finds the nodes of a cluster that another process started, from its `cluster.json`. |
+| [`Audience(FollowedAudience)`](#m-audience-followedaudience) | Declares who a client's replica of a followed scope is, so the cluster can compare it with the authority. |
 | [`Call(string, string, string?)`](#m-call-string-string-string) | Runs a control operation on one node (any operation [`ProcessCluster.Operations()`](ProcessCluster.md#m-operations-string) lists) and returns its JSON. |
 | [`Dispose()`](#m-dispose) | Stops the cluster when this object started it (see [`ProcessCluster.Down()`](ProcessCluster.md#m-down)); one found with [`ProcessCluster.Attach()`](ProcessCluster.md#m-attach-string) is left running. |
 | [`Down()`](#m-down) | Stops every node (asking first, then killing what does not stop), checks that none is left, and removes the sockets. |
+| [`Get(string, string, string, uint?)`](#m-get-string-string-string-uint) | Reads a synced value from a client's replica of a scope (`scope`; its main scope when null), or from a server's scope (default 1), as JSON. |
 | [`Hashes()`](#m-hashes) | Every node's current tick and hash, every client's replica compared with its server's recorded hash at the replica's tick, and all drift reports. |
 | [`IsAlive(int)`](#m-isalive-int) | Whether a process with this id exists and has not exited. |
 | [`Kill(string)`](#m-kill-string) | Kills a node's process outright (SIGKILL: nothing is saved or announced on the way out), like a crash or a power cut. |
@@ -99,6 +101,7 @@ The path of `cluster.json`.
 | [`Restart(string)`](#m-restart-string) | Kills a node's process and starts it again (see [`ProcessCluster.Kill()`](ProcessCluster.md#m-kill-string) and [`ProcessCluster.Start()`](ProcessCluster.md#m-start-string)). |
 | [`Run(Scenario)`](#m-run-scenario) | Runs a scenario against the cluster: steps and expectations aimed at nodes, in order. |
 | [`Run(string)`](#m-run-string) | Reads a scenario file and runs it against the cluster. |
+| [`Send(string, string, string, string[]?, uint?)`](#m-send-string-string-string-string-uint) | Sends a command from a client node, as a player would. |
 | [`Start(string)`](#m-start-string) | Starts a node that was killed (or never ran) again with the same arguments, data folder and ports, and waits until it is up: a server listening, a client connected and subscribed. |
 | [`Status()`](#m-status) | Each node's pid, whether it is alive, and its own status. |
 | [`TickOf(string)`](#m-tickof-string) | The tick of the node's scope (a server's first scope, or a client's replica). |
@@ -122,6 +125,22 @@ Finds the nodes of a cluster that another process started, from its `cluster.jso
 **Exceptions**
 
 - [`ClusterException`](ClusterException.md): There is no such cluster.
+
+### <a id="m-audience-followedaudience"></a>Audience(FollowedAudience)
+
+```csharp
+public void Audience(FollowedAudience audience);
+```
+
+Declares who a client's replica of a followed scope is, so the cluster can compare it with the authority. The authority server starts recording the view hash of that audience at every tick (`audience_watch`), and every [`ProcessCluster.Hashes()`](ProcessCluster.md#m-hashes) afterwards compares the client's replica with it at the replica's tick, however the client reaches the scope (directly, through a relay, under an identity the server has no connection for). The declaration is kept in `cluster.json`, so `onegame cluster hashes` from another process checks it too. Declaring the same client and scope again replaces it.
+
+**Parameters**
+
+- `audience` ([`FollowedAudience`](FollowedAudience.md)): Which client's replica, of which scope, the server that is its authority, and the audience (player, team, relay, interest) it holds.
+
+**Exceptions**
+
+- [`ClusterException`](ClusterException.md): The client or server is not a node of this cluster, or the server refused the audience.
 
 ### <a id="m-call-string-string-string"></a>Call(string, string, string?)
 
@@ -166,6 +185,23 @@ Stops every node (asking first, then killing what does not stop), checks that no
 **Exceptions**
 
 - [`ClusterException`](ClusterException.md): A node is still alive after being killed.
+
+### <a id="m-get-string-string-string-uint"></a>Get(string, string, string, uint?)
+
+```csharp
+public string Get(string node, string entity, string property, uint? scope = default);
+```
+
+Reads a synced value from a client's replica of a scope (`scope`; its main scope when null), or from a server's scope (default 1), as JSON.
+
+**Parameters**
+
+- `node` (`string`): The node.
+- `entity` (`string`): The entity: an id, a type name or `Type#n`.
+- `property` (`string`): The property path.
+- `scope` (`uint?`): The scope.
+
+**Returns:** `string`
 
 ### <a id="m-hashes"></a>Hashes()
 
@@ -298,6 +334,28 @@ Reads a scenario file and runs it against the cluster. Steps and expectations na
 **Exceptions**
 
 - [`ScenarioException`](ScenarioException.md): The file does not parse.
+
+### <a id="m-send-string-string-string-string-uint"></a>Send(string, string, string, string\[\]?, uint?)
+
+```csharp
+public string Send(string node, string entity, string command, string[]? args = null, uint? scope = default);
+```
+
+Sends a command from a client node, as a player would. With `scope` the entity is one of that followed scope's (the client must follow it, from its options or because its game subscribed at run time); the command goes through the client's link to that scope's authority, whose trust checks apply unchanged. A refusal or an unknown scope throws, as [`ProcessCluster.Call()`](ProcessCluster.md#m-call-string-string-string) does.
+
+**Parameters**
+
+- `node` (`string`): The client node.
+- `entity` (`string`): The entity: an id, a type name or `Type#n`.
+- `command` (`string`): The command's name.
+- `args` (`string[]?`): The arguments as text, in order.
+- `scope` (`uint?`): The scope of the entity; the client's main scope when null.
+
+**Returns:** `string`
+
+**Exceptions**
+
+- [`ControlException`](../../OneGame.Control/OneGame.Control/ControlException.md): The node does not follow the scope, or the entity or command does not exist.
 
 ### <a id="m-start-string"></a>Start(string)
 
