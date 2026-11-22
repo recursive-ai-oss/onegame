@@ -106,6 +106,9 @@ public sealed class WebSocketConnection : INetConnection, OneGame.Sync.IBoundedS
     public string RemoteName => _remoteName;
 
     /// <inheritdoc />
+    public int LocalPort => _sock.LocalEndPoint is IPEndPoint ep ? ep.Port : 0;
+
+    /// <inheritdoc />
     public NetStats Stats => new()
     {
         RttMs = _srtt,

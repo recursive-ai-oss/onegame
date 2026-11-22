@@ -219,6 +219,9 @@ public sealed class ConditionedConnection : INetConnection
     public string RemoteName => _inner.RemoteName;
 
     /// <inheritdoc />
+    public int LocalPort => _inner.LocalPort;
+
+    /// <inheritdoc />
     public void Send(ReadOnlySpan<byte> message)
     {
         var now = _clock.NowMs;

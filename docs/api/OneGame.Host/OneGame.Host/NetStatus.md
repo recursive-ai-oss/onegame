@@ -62,6 +62,7 @@ A snapshot of a client's connection, for `net_status`.
 | [`FramesApplied`](#m-framesapplied) | Frames applied so far. |
 | [`Hash`](#m-hash) | The hash of what the replica holds (its view of the scope) as 16 hex digits; the server's hash for this client's audience is equal at the same tick. |
 | [`InboundLoss`](#m-inboundloss) | Estimated share of the server's datagrams that never arrived. |
+| [`LocalPort`](#m-localport) | The local port of the client's socket (0 when it has none), which the server's `clients` list shows in this connection's address. |
 | [`MessagesReceived`](#m-messagesreceived) | Messages received from the server. |
 | [`MessagesSent`](#m-messagessent) | Messages sent to the server. |
 | [`OutboundLoss`](#m-outboundloss) | Share of our reliable transmissions that were repeats. |
@@ -155,6 +156,16 @@ public double InboundLoss { get; init; }
 Estimated share of the server's datagrams that never arrived.
 
 **Type:** `double`
+
+### <a id="m-localport"></a>LocalPort
+
+```csharp
+public int LocalPort { get; init; }
+```
+
+The local port of the client's socket (0 when it has none), which the server's `clients` list shows in this connection's address.
+
+**Type:** `int`
 
 ### <a id="m-messagesreceived"></a>MessagesReceived
 

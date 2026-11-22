@@ -255,6 +255,9 @@ internal sealed class SecureConnection : INetConnection
     public string RemoteName => _inner.RemoteName;
 
     /// <inheritdoc />
+    public int LocalPort => _inner.LocalPort;
+
+    /// <inheritdoc />
     public bool IsEncrypted => true;
 
     /// <inheritdoc />

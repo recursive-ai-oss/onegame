@@ -156,6 +156,9 @@ public interface INetConnection : OneGame.Sync.IAuthenticatedChannel
     /// <summary>The peer's address, as text, for logs.</summary>
     string RemoteName { get; }
 
+    /// <summary>The local port of the connection's socket, or 0 when it has none (an in-memory or browser connection). A cluster tool matches it with the server's name for this client.</summary>
+    int LocalPort => 0;
+
     /// <summary>Raised once when the handshake completes.</summary>
     event Action<INetConnection>? Connected;
 

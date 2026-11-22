@@ -96,7 +96,11 @@ public sealed record FollowedScope(uint Scope, string Replica, long Tick, string
 /// <param name="Reconnecting">True while the connection is lost and the session is trying to get it back.</param>
 public sealed record NetStatus(
     string Address, string Transport, string Connection, string? CloseReason, uint Scope, string Replica, long Tick, string Hash,
-    long FramesApplied, int Resyncs, int Drift, double RttMs, long Retransmits, double InboundLoss, double OutboundLoss, long MessagesSent, long MessagesReceived, DriftInfo[] Reports, FollowedScope[] Followed, int Reconnects = 0, bool Reconnecting = false);
+    long FramesApplied, int Resyncs, int Drift, double RttMs, long Retransmits, double InboundLoss, double OutboundLoss, long MessagesSent, long MessagesReceived, DriftInfo[] Reports, FollowedScope[] Followed, int Reconnects = 0, bool Reconnecting = false)
+{
+    /// <summary>The local port of the client's socket (0 when it has none), which the server's <c>clients</c> list shows in this connection's address.</summary>
+    public int LocalPort { get; init; }
+}
 
 /// <summary>
 /// A game's connection to a server: a node holding one replica scope, reached through a transport connection
@@ -333,7 +337,7 @@ public sealed class RemoteSession
             Replica.FramesApplied, Replica.Resyncs, Node.DriftCount, Math.Round(s.RttMs, 1), s.Retransmits, Math.Round(s.InboundLoss, 4), Math.Round(s.OutboundLoss, 4),
             s.MessagesSent, s.MessagesReceived, DriftInfos(),
             [.. Node.ReplicaScopes.Where(r => !ReferenceEquals(r, Replica)).Select(r => new FollowedScope(r.Id.Value, r.State.ToString().ToLowerInvariant(), r.World.Tick, r.ViewHash.ToString("x16", CultureInfo.InvariantCulture)) { FullHash = r.Hash.ToString("x16", CultureInfo.InvariantCulture), Authority = r.Link.PeerName })],
-            Reconnects, IsReconnecting);
+            Reconnects, IsReconnecting) { LocalPort = Connection.LocalPort };
     }
 
     private DriftInfo[] DriftInfos()

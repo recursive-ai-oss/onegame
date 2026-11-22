@@ -151,6 +151,87 @@ public class ClusterTests
     }
 
     [Fact]
+    public void AClientHoldingAnotherAudiencesValidViewOfItsMainScopeFailsTheHashCheck()
+    {
+        // Both clients' main scope is the one with wallets, so each holds a filtered view, and the views of the two players differ.
+        var server = Fixture.ServerNode("srv", tickRate: 120) with { Scopes = [new ScopeSpec(1, 7), new ScopeSpec(2, 9)] };
+        using var cluster = TestCluster.Launch(Spec("own-view", server, Fixture.ClientNode("p1", "srv") with { Scope = 2 }, Fixture.ClientNode("p2", "srv") with { Scope = 2 }));
+        cluster.Send("p1", "Wallet#1", "Earn", ["4"]);
+        WaitUntil(() => Json(cluster.Get("p1", "Wallet#1", "Purse")) == "4", "the owner's replica never saw its purse");
+        WaitUntil(() => cluster.Hashes().Ok, "the clients never agreed with the server");
+        Assert.Equal(2, cluster.Hashes().Checks.Count(c => c.Match));
+
+        // The faulty client: a stand-in for p1's live endpoint that answers with what p2 holds (p2's valid view of the scope, at p2's tick)
+        // while still reporting p1's own connection. Nothing in the replica's data is wrong; it is the wrong audience's view.
+        using var p1Port = JsonDocument.Parse(cluster.Call("p1", "net_status"));
+        var port = p1Port.RootElement.GetProperty("localPort").GetInt32();
+        var dir = Fixture.NewDir("liar");
+        Directory.CreateDirectory(dir);
+        var fakePath = Path.Combine(dir, "p1.sock");
+        using var fake = new SwappedView(fakePath, cluster, "p2", port);
+        var real = cluster.State.Nodes.First(n => n.Name == "p1").Socket;
+        var state = Path.Combine(dir, "cluster.json");
+        File.WriteAllText(state, File.ReadAllText(cluster.StateFile).Replace(real, fakePath, StringComparison.Ordinal));
+        var attached = ProcessCluster.Attach(state);
+
+        var report = attached.Hashes();
+        Assert.False(report.Ok, "p1 holds p2's view and the check passed");
+        var bad = Assert.Single(report.Checks, c => c.Client == "p1" && !c.Match);
+        Assert.Equal(2u, bad.Scope);
+        Assert.Contains(report.Checks, c => c.Client == "p2" && c.Match);
+        Directory.Delete(dir, true);
+    }
+
+    /// <summary>A node's live-control endpoint that forwards every call to another node and reports a given local port in <c>net_status</c>.</summary>
+    private sealed class SwappedView : IDisposable
+    {
+        private readonly System.Net.Sockets.Socket _listener;
+        private readonly Thread _thread;
+
+        public SwappedView(string path, ProcessCluster cluster, string target, int port)
+        {
+            _listener = new System.Net.Sockets.Socket(System.Net.Sockets.AddressFamily.Unix, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Unspecified);
+            _listener.Bind(new System.Net.Sockets.UnixDomainSocketEndPoint(path));
+            _listener.Listen(4);
+            _thread = new Thread(() =>
+            {
+                try
+                {
+                    while (true)
+                    {
+                        using var client = _listener.Accept();
+                        using var stream = new System.Net.Sockets.NetworkStream(client);
+                        using var reader = new StreamReader(stream);
+                        while (reader.ReadLine() is { } line)
+                        {
+                            using var request = JsonDocument.Parse(line);
+                            var root = request.RootElement;
+                            var p = root.GetProperty("params");
+                            var name = p.GetProperty("name").GetString()!;
+                            var args = p.TryGetProperty("arguments", out var a) ? a.GetRawText() : null;
+                            var text = cluster.Call(target, name, args);
+                            if (name == "net_status")
+                            {
+                                text = System.Text.RegularExpressions.Regex.Replace(text, "\"localPort\":\\d+", "\"localPort\":" + port);
+                            }
+
+                            var reply = "{\"jsonrpc\":\"2.0\",\"id\":" + root.GetProperty("id").GetRawText() + ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":" + JsonSerializer.Serialize(text) + "}]}}\n";
+                            stream.Write(System.Text.Encoding.UTF8.GetBytes(reply));
+                        }
+                    }
+                }
+                catch (Exception ex) when (ex is System.Net.Sockets.SocketException or ObjectDisposedException or IOException)
+                {
+                }
+            })
+            { IsBackground = true };
+            _thread.Start();
+        }
+
+        public void Dispose() => _listener.Dispose();
+    }
+
+    [Fact]
     public void AnAudienceDeclaredInTheSpecIsCheckedByEveryHashComparison()
     {
         var spec = ClusterSpec.Parse("""

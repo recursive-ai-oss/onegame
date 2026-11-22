@@ -17,6 +17,7 @@ A WebSocket connection (RFC 6455) over a non-blocking TCP socket, client or serv
 | Member | Description |
 | --- | --- |
 | [`CloseInfo`](#m-closeinfo) | Why the connection closed; [`DisconnectReason.None`](DisconnectReason.md#m-none) until then. |
+| [`LocalPort`](#m-localport) | The local port of the connection's socket, or 0 when it has none (an in-memory or browser connection). |
 | [`RemoteName`](#m-remotename) | The peer's address, as text, for logs. |
 | [`State`](#m-state) | Current state. |
 | [`Stats`](#m-stats) | A snapshot of the counters. |
@@ -30,6 +31,16 @@ public DisconnectInfo CloseInfo { get; }
 Why the connection closed; [`DisconnectReason.None`](DisconnectReason.md#m-none) until then.
 
 **Type:** [`DisconnectInfo`](DisconnectInfo.md)
+
+### <a id="m-localport"></a>LocalPort
+
+```csharp
+public int LocalPort { get; }
+```
+
+The local port of the connection's socket, or 0 when it has none (an in-memory or browser connection). A cluster tool matches it with the server's name for this client.
+
+**Type:** `int`
 
 ### <a id="m-remotename"></a>RemoteName
 

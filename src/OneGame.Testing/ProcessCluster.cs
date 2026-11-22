@@ -526,11 +526,12 @@ public sealed class ProcessCluster : IDisposable
         var clientStates = new Dictionary<string, (long Tick, string Hash, uint Scope)>(StringComparer.Ordinal);
         var followed = new List<(string Client, uint Scope, string Replica, long Tick)>();
         var followedHashes = new Dictionary<(string, uint), string>();
+        var clientPorts = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var n in _state.Nodes.Where(n => n.Role == "client"))
         {
             if (n.Release)
             {
-                ReadReleaseClient(n, nodes, clientStates, followed, drift, problems);
+                ReadReleaseClient(n, nodes, clientStates, clientPorts, followed, drift, problems);
                 continue;
             }
 
@@ -545,6 +546,11 @@ public sealed class ProcessCluster : IDisposable
                 var connection = r.GetProperty("connection").GetString();
                 nodes.Add(new NodeHash(n.Name, "client", scope, tick, hash));
                 clientStates[n.Name] = (tick, hash, scope);
+                if (r.TryGetProperty("localPort", out var lp) && lp.TryGetInt32(out var port))
+                {
+                    clientPorts[n.Name] = port;
+                }
+
                 if (replica != "live" || connection != "connected")
                 {
                     problems.Add($"{n.Name}: connection {connection}, replica {replica} at tick {tick}");
@@ -619,15 +625,46 @@ public sealed class ProcessCluster : IDisposable
             string? note = null;
             try
             {
-                using var doc = JsonDocument.Parse(Call(n.Connect, "hash_at", $"{{\"tick\":{c.Tick.ToString(CultureInfo.InvariantCulture)}}}"));
+                // The replica holds its own connection's view of the scope. The server names that connection by the client's address, whose
+                // port is the one the client reports, so the comparison is with that view and no other: a replica holding another audience's
+                // (valid) view is drift. A client with no port to report (no socket) can only be matched against every view the server holds.
+                string? connectionName = null;
+                if (clientPorts.TryGetValue(n.Name, out var port) && port > 0)
+                {
+                    using var list = JsonDocument.Parse(Call(n.Connect, "clients"));
+                    foreach (var ci in list.RootElement.EnumerateArray())
+                    {
+                        var address = ci.GetProperty("address").GetString() ?? "";
+                        if (address.EndsWith(":" + port.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal))
+                        {
+                            connectionName = ci.GetProperty("name").GetString();
+                            break;
+                        }
+                    }
+
+                    // A release client has already stopped, so the server has forgotten its connection: only the any-view match is left for it.
+                    if (connectionName is null && !n.Release)
+                    {
+                        note = $"server '{n.Connect}' has no connection from port {port.ToString(CultureInfo.InvariantCulture)} (the client's own)";
+                    }
+                }
+
+                var query = connectionName is null ? $"{{\"tick\":{c.Tick.ToString(CultureInfo.InvariantCulture)}}}" : $"{{\"tick\":{c.Tick.ToString(CultureInfo.InvariantCulture)},\"client\":\"{JsonEncodedText.Encode(connectionName)}\"}}";
+                using var doc = JsonDocument.Parse(Call(n.Connect, "hash_at", query));
                 foreach (var s in doc.RootElement.EnumerateArray())
                 {
-                    if (s.GetProperty("scope").GetUInt32() == c.Scope)
+                    if (s.GetProperty("scope").GetUInt32() != c.Scope)
+                    {
+                        continue;
+                    }
+
+                    if (connectionName is not null)
+                    {
+                        serverHash = s.TryGetProperty("view", out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+                    }
+                    else if (note is null)
                     {
                         serverHash = s.TryGetProperty("hash", out var h) && h.ValueKind == JsonValueKind.String ? h.GetString() : null;
-
-                        // The replica holds its audience's view of the scope: it matches when it equals the view of one of the server's clients
-                        // (or the whole scope, when everything is visible).
                         foreach (var v in s.GetProperty("views").EnumerateArray())
                         {
                             if (v.GetString() == c.Hash)
@@ -638,7 +675,7 @@ public sealed class ProcessCluster : IDisposable
                     }
                 }
 
-                if (serverHash is null)
+                if (serverHash is null && note is null)
                 {
                     note = $"server '{n.Connect}' has no hash recorded for scope {c.Scope} at tick {c.Tick} (history off, or the tick is older than its history)";
                 }
@@ -743,7 +780,7 @@ public sealed class ProcessCluster : IDisposable
     }
 
     // A release client has no live control, so what it printed when it stopped stands for net_status.
-    private static void ReadReleaseClient(NodeState n, List<NodeHash> nodes, Dictionary<string, (long Tick, string Hash, uint Scope)> clientStates, List<(string Client, uint Scope, string Replica, long Tick)> followed, List<DriftEntry> drift, List<string> problems)
+    private static void ReadReleaseClient(NodeState n, List<NodeHash> nodes, Dictionary<string, (long Tick, string Hash, uint Scope)> clientStates, Dictionary<string, int> clientPorts, List<(string Client, uint Scope, string Replica, long Tick)> followed, List<DriftEntry> drift, List<string> problems)
     {
         if (IsAlive(n.Pid))
         {
@@ -766,6 +803,11 @@ public sealed class ProcessCluster : IDisposable
         var connection = r.GetProperty("connection").GetString();
         nodes.Add(new NodeHash(n.Name, "client", scope, tick, hash));
         clientStates[n.Name] = (tick, hash, scope);
+        if (r.TryGetProperty("localPort", out var lp) && lp.TryGetInt32(out var port))
+        {
+            clientPorts[n.Name] = port;
+        }
+
         if (replica != "live" || connection != "connected")
         {
             problems.Add($"{n.Name}: connection {connection}, replica {replica} at tick {tick}");
