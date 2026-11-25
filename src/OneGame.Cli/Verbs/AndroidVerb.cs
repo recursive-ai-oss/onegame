@@ -329,7 +329,7 @@ internal sealed class AndroidVerb : IVerb
         var devicePort = int.TryParse(a.Get("--port"), out var p) ? p : 7878;
         adb.Shell("am force-stop " + package);
         adb.RunAs(package, "mkdir -p files && rm -f files/onegame-exit.txt files/onegame-stdout.txt");
-        var args = $"--live tcp:{devicePort} --realtime --json";
+        var args = string.Join(' ', new[] { "--live", $"tcp:{devicePort}", "--realtime", "--json" }.Concat(a.Game).Select(Quote));
         var start = adb.Shell($"am start -W -n {package}/{Activity} -e onegame.args {ShellQuote(args)}");
         if (start.ExitCode != 0 || start.Output.Contains("Error", StringComparison.Ordinal))
         {

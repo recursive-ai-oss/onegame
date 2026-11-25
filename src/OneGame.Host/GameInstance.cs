@@ -29,6 +29,12 @@ public enum GpuMode
 /// <summary>Options of a <see cref="GameInstance"/>.</summary>
 public sealed record GameOptions
 {
+    /// <summary>
+    /// The command line the game was started with, for <see cref="GameInstance.Args"/>. <see cref="GameApp.Run(GameDefinition, string[])"/> sets it;
+    /// a test sets it to try a game's own options.
+    /// </summary>
+    public GameArgs Args { get; init; } = GameArgs.Empty;
+
     /// <summary>No window: events come only from injection and nothing is presented.</summary>
     public bool Headless { get; init; }
 
@@ -273,6 +279,13 @@ public sealed partial class GameInstance : IDisposable
 
     /// <summary>The options the instance was created with.</summary>
     public GameOptions Options { get; private set; }
+
+    /// <summary>
+    /// The command line this game was started with, including the options it declared in <see cref="GameDefinition.OptionNames"/>. It is
+    /// the same in debug and release builds. Read it from view and host code (screens, <c>OnEachFrame</c>, the host); sim code must not,
+    /// because the command line is not part of the synced state or the recording.
+    /// </summary>
+    public GameArgs Args => Options.Args;
 
     /// <summary>The authority world: the state the simulation runs on. Read it through this property rather than keeping the reference: it changes when a snapshot or fixture is loaded.</summary>
     public World World { get; private set; } = null!;

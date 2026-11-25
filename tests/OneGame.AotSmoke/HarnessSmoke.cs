@@ -15,6 +15,8 @@ internal sealed class SmokeGame : GameDefinition
 {
     public override string Name => "AotSmokeGame";
 
+    public override IReadOnlyList<string> OptionNames => ["smoke-level"];
+
     public int ScenarioStarts { get; private set; }
 
     public override void OnScenarioStarting(GameInstance game) => ScenarioStarts++;
@@ -157,6 +159,17 @@ internal static class HarnessSmoke
         if (devExit != 0 || !devOutput.ToString().Contains("\"sha256\"", StringComparison.Ordinal))
         {
             Console.Error.WriteLine($"harness smoke failed: dev run exit {devExit}: {devOutput}");
+            return 1;
+        }
+
+        // A game's own option next to a development option, and on its own.
+        var optionOutput = new StringWriter();
+        var optionExit = GameApp.Run(new SmokeGame(), ["--headless", "--frames", "1", "--smoke-level", "4", "--json"], optionOutput, optionOutput);
+        var withDev = new StringWriter();
+        var withDevExit = GameApp.Run(new SmokeGame(), ["--headless", "--frames", "1", "--smoke-level", "4", "--capture", "aot-smoke2.png", "--artifacts", Path.GetTempPath(), "--json"], withDev, withDev);
+        if (optionExit != 0 || withDevExit != 0 || !optionOutput.ToString().Contains("\"gameOptions\":{\"smoke-level\":\"4\"}", StringComparison.Ordinal))
+        {
+            Console.Error.WriteLine($"harness smoke failed: game option exit {optionExit}/{withDevExit}: {optionOutput}{withDev}");
             return 1;
         }
 

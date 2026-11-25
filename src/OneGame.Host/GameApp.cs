@@ -66,6 +66,9 @@ public sealed class GameArgs
         Positional = positional;
     }
 
+    /// <summary>A command line with nothing on it.</summary>
+    public static GameArgs Empty { get; } = new([]);
+
     /// <summary>Arguments that are not options.</summary>
     public IReadOnlyList<string> Positional { get; }
 
@@ -194,11 +197,24 @@ public static class GameApp
             return Fail(json, output, error, ExitCodes.Usage, "bad_args", ex.Message);
         }
 
-        var extra = parsed.Names.Where(n => Array.IndexOf(BaseOptions, n) < 0).ToArray();
+        // Options the game declared are its own: they work in every build and never reach the development tools. Everything else that is
+        // not an engine option is a development option, so a misspelt one is still refused rather than ignored.
+        var declared = game.OptionNames;
+        foreach (var name in declared)
+        {
+            if (string.IsNullOrEmpty(name) || name.StartsWith('-') || name.Contains('=', StringComparison.Ordinal) || name.Any(char.IsWhiteSpace))
+            {
+                return Fail(json, output, error, ExitCodes.Usage, "bad_game_option", $"GameDefinition.OptionNames has '{name}'. Give names without dashes, spaces or '=', for example \"level\".");
+            }
+        }
+
+        options = options with { Args = parsed };
+        var extra = parsed.Names.Where(n => Array.IndexOf(BaseOptions, n) < 0 && !declared.Contains(n)).ToArray();
         if (extra.Length > 0 && DevTools is null)
         {
+            var own = declared.Count == 0 ? "" : $" This game's own options are {string.Join(", ", declared.Select(n => "--" + n))}.";
             return Fail(json, output, error, ExitCodes.NoDevTools, "no_dev_tools",
-                $"{string.Join(", ", extra.Select(n => "--" + n))}: this build has no development tools. Build the Debug configuration (or set OneGameDev=true).");
+                $"{string.Join(", ", extra.Select(n => "--" + n))}: this build has no development tools, and the game does not declare the option (GameDefinition.OptionNames). Build the Debug configuration (or set OneGameDev=true).{own}");
         }
 
         if (OperatingSystem.IsBrowser())
@@ -474,6 +490,18 @@ public static class GameApp
                 }
 
                 w.WriteEndArray();
+            }
+
+            if (g.Definition.OptionNames.Any(g.Args.Has))
+            {
+                // The game's own options that were given, so a script can check what the game received.
+                w.WriteStartObject("gameOptions");
+                foreach (var name in g.Definition.OptionNames.Where(g.Args.Has))
+                {
+                    w.WriteString(name, g.Args.Get(name) ?? "");
+                }
+
+                w.WriteEndObject();
             }
 
             w.WriteNumber("width", g.Window.Width);

@@ -36,6 +36,15 @@ public abstract class GameDefinition
     /// <summary>The game's name, shown in the window title and in harness output.</summary>
     public abstract string Name { get; }
 
+    /// <summary>
+    /// The names (without dashes) of the command-line options this game takes itself, for example <c>"level"</c> for <c>--level 3</c> or a bare
+    /// <c>--fake-store</c>. They work in every build, beside the engine's and the development options, and the game reads them from
+    /// <see cref="GameInstance.Args"/> (view and host code; sim code must not, so a run stays the same whatever the command line).
+    /// Declaring them is what lets <see cref="GameApp.Run(GameDefinition, string[])"/> keep refusing misspelt engine and development options.
+    /// A name that an engine or development option already uses is that option's.
+    /// </summary>
+    public virtual IReadOnlyList<string> OptionNames => [];
+
     /// <summary>The game's version text, recorded in each save slot's description (for a load screen: "made with 1.2"). Optional.</summary>
     public virtual string Version => string.Empty;
 
