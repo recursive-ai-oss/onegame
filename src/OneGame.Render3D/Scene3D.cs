@@ -371,6 +371,15 @@ public sealed class Scene3D
     /// <summary>The quality level: bounds shadow map size, cascades, ambient occlusion, multisampling, bloom and environment size. Change it any time.</summary>
     public QualityLevel Quality { get; set; } = QualityLevel.High;
 
+    /// <summary>
+    /// The share of the target's width and height the scene is drawn at, from 0.25 to 1 (default 1: full size, identical to a renderer that
+    /// has no such setting). Below 1 the whole 3D frame (shadows, lighting, bloom, tone mapping) runs on a smaller image that is then
+    /// stretched over the target, so the 2D and UI passes drawn afterwards stay sharp. It is the cheapest lever on frame time: cost follows
+    /// the pixel count, so 0.5 is about a quarter of the pixel work. Change it any time. Cameras, picking and projection keep working in
+    /// target pixels; sizes given in screen pixels (outline and debug line widths) are in the smaller image's pixels.
+    /// </summary>
+    public float RenderScale { get; set; } = 1f;
+
     /// <summary>The mirror plane for materials with <see cref="Material3D.PlanarReflection"/>.</summary>
     public ReflectionSettings Reflection { get; } = new();
 

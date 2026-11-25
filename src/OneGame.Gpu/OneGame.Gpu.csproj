@@ -13,6 +13,7 @@
   <ItemGroup>
     <!-- The graph is written against the GPU layer's types, which used to share its namespace. -->
     <Using Include="RecursiveAI.OneGpu" />
+    <InternalsVisibleTo Include="OneGame.Gpu.Vulkan.Tests" />
   </ItemGroup>
 
 </Project>

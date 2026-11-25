@@ -44,6 +44,16 @@ public sealed partial class Renderer3D
         _ssaoBuffer = Own(device.CreateBuffer(new BufferDesc(2 * GpuDevice.DynamicOffsetAlignment, BufferUsage.Uniform | BufferUsage.CopyDestination) { Label = "3d ssao" }));
     }
 
+    private void DropSsaoGroups()
+    {
+        foreach (var g in _ssaoGroups.Values)
+        {
+            _deferred.Add(g);
+        }
+
+        _ssaoGroups.Clear();
+    }
+
     private void DisposeSsao()
     {
         foreach (var g in _ssaoGroups.Values)

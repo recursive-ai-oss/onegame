@@ -10,6 +10,17 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 - `ModelInstance3D.CastShadows` and `ModelOptions.CastShadows`: one instance can be drawn without casting shadows.
 - `image-rendering: pixelated` (`StyleBuilder.ImageRendering`, `ImageRendering`, `Ui.PixelImage`, `DrawCommand.Pixelated`): nearest-neighbour sampling for images, tiles and nine-slices.
 - `backdrop-blur` (`StyleBuilder.BackdropBlur`, `DrawKind.BackdropBlur`, `UiCanvas.BackdropBlur`): a UI box blurs what is drawn behind it, including a 3D scene, as in CSS `backdrop-filter: blur()`. No extra pass is recorded in frames that use none.
+- 3D render scale. `Scene3D.RenderScale` and `SceneView3D.RenderScale` (0.25 to 1, default 1) draw the 3D frame at a fraction of the window and stretch it over the target before the 2D and UI passes, so the UI stays sharp and cost follows the pixel count. Full size adds no pass and draws the same pixels; picking, projection, anchors and captures keep using window pixels. New control op `render_scale`, `FrameStats3D.RenderWidth/RenderHeight`, and `Renderer3D.SceneColor` (with `SceneColorWidth/Height`) exposing the tone-mapped scene image to later passes of the same graph frame. `docs/interfaces/render3d.md`.
+
+### Changed
+
+- Every view of one `Renderer3D` (the main scene and each `Offscreen3D`) now shares a single shadow atlas instead of pooling one per view, so sixteen sampled views with shadows reserve one 192 MiB atlas (High, directional plus point light) rather than sixteen. `Offscreen3D.Dispose` also drops the renderer's cached bind groups for its targets.
+
+### Fixed
+
+- `Renderer3D.ReadGpuPassTimes` and the graph's pass times could return a wrapped value of about 1.6e13 ms when a pass's end timestamp read below its start; such an interval is now zero.
+- `FrameStats3D.GpuFrameMs` was null on about one frame in a hundred on a busy GPU because the timing ring slot of the only finished frame was recycled before it was read; the graph now keeps the newest resolved frame, so it is a value from the first finished frame on.
+- The shader hot-reload test in the Testing tests skips on Metal, like the Render2D one (reloading recompiles to SPIR-V only), instead of failing there.
 
 ## [2.3.0] - 2026-11-22
 

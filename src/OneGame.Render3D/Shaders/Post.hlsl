@@ -146,3 +146,10 @@ float4 PSTonemap(FullOut i) : SV_Target
 
     return float4(c, 1.0);
 }
+
+// Copies the colour image to the target, resampled by the sampler (bilinear): the upscale of a scene drawn at a fraction of the window.
+[shader("pixel")]
+float4 PSBlit(FullOut i) : SV_Target
+{
+    return float4(Color.SampleLevel(Samp, i.Uv, 0).rgb, 1.0);
+}

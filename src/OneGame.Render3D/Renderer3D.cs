@@ -55,6 +55,12 @@ public readonly record struct FrameStats3D(int Objects, int DrawCalls, long Tria
 
     /// <summary>The <see cref="RenderGraph.Frame"/> number <see cref="GpuFrameMs"/> was measured on; 0 when it is null.</summary>
     public int GpuFrameIndex { get; init; }
+
+    /// <summary>Width in pixels of the image the scene was drawn at: the target's width times <see cref="Scene3D.RenderScale"/>.</summary>
+    public int RenderWidth { get; init; }
+
+    /// <summary>Height in pixels of the image the scene was drawn at.</summary>
+    public int RenderHeight { get; init; }
 }
 
 /// <summary>
@@ -212,6 +218,20 @@ public sealed partial class Renderer3D : IDisposable
 
         return _statsGraph.ReadPassTimes(into);
     }
+
+    /// <summary>
+    /// The tone-mapped scene of the frame being built, before any upscale: the image the 3D pass produced, at <see cref="SceneColorWidth"/> x
+    /// <see cref="SceneColorHeight"/> pixels. With a <see cref="Scene3D.RenderScale"/> below 1 it is a transient texture of the graph (named
+    /// <c>scene_scaled</c>) that a later pass may read before the graph executes, for example to blur it behind a panel; at full scale it is the
+    /// target passed to <see cref="Render"/> itself. The handle belongs to the graph frame of the last <see cref="Render"/> call and is default before the first.
+    /// </summary>
+    public GraphTexture SceneColor { get; private set; }
+
+    /// <summary>Width in pixels of <see cref="SceneColor"/>.</summary>
+    public int SceneColorWidth { get; private set; }
+
+    /// <summary>Height in pixels of <see cref="SceneColor"/>.</summary>
+    public int SceneColorHeight { get; private set; }
 
     private FrameStats3D _stats;
     private RenderGraph? _statsGraph;

@@ -40,6 +40,13 @@ public sealed class SceneView3D : IScene3DProbe, IDisposable
     /// <summary>The models entities can show.</summary>
     public ModelLibrary Models { get; }
 
+    /// <summary>
+    /// The share of the window the 3D scene is drawn at, 0.25 to 1 (default 1); see <see cref="Scene3D.RenderScale"/>. Copied to the scene by
+    /// <see cref="Build"/>, so it can change every frame. The UI and 2D drawn over the scene stay at full resolution, and
+    /// <see cref="TryProject"/>, <see cref="Ray"/> and <see cref="Pick"/> keep using window pixels.
+    /// </summary>
+    public float RenderScale { get; set; } = 1f;
+
     /// <summary>Whether view helpers emit debug geometry. Controlled by the debug overlay; off by default.</summary>
     public bool DebugVisible { get; set; }
 
@@ -109,6 +116,7 @@ public sealed class SceneView3D : IScene3DProbe, IDisposable
         _camera.Near = cam.Near;
         _camera.Far = cam.Far;
         scene.Camera = _camera;
+        scene.RenderScale = RenderScale;
 
         scene.Debug.Clear();
         scene.Debug.Append(_writer.Debug);

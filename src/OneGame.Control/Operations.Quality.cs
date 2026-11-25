@@ -21,6 +21,12 @@ public sealed record QualityResult(
     string Level, string[] Levels, int ShadowTileSize, int MaxCascades, int ShadowFilterRadius, int MaxSamples, bool Bloom, int EnvironmentSize,
     bool SsaoAllowed, int SsaoSamples, bool SsaoEnabled, int ShadowTiles, int ShadowLights, int Instances, int InstancesDrawn, string[] Passes);
 
+/// <summary>Result of <c>render_scale</c>: the share of the window the 3D scene is drawn at.</summary>
+/// <param name="Scale">The scale in effect, 0.25 to 1.</param>
+/// <param name="RenderWidth">Width in pixels of the image the last frame drew the scene at (0 before the first frame).</param>
+/// <param name="RenderHeight">Height in pixels of that image.</param>
+public sealed record RenderScaleResult(double Scale, int RenderWidth, int RenderHeight);
+
 /// <summary>Result of <c>environment</c>: the scene's distance fog and environment crossfade.</summary>
 /// <param name="FogEnabled">Whether fog is applied.</param>
 /// <param name="FogColor">Linear fog colour (r, g, b).</param>
@@ -53,6 +59,9 @@ public static partial class ControlOps
         new("environment",
             "Read or set the distance fog and the environment crossfade of a game that draws a 3D scene, to tune them live. fog true or false turns fog on or off; fogColor is linear [r,g,b]; fogStart and fogEnd are distances from the camera (fogEnd above fogStart); fogMaxDensity is 0..1. fogMode picks the curve: linear (fogStart to fogEnd, the default), exp or exp2 (fogDensity per world unit), or height (fogDensity at fogHeightBase, falling off by fogHeightFalloff per unit of height). blend (0..1) moves the picture from the scene's first environment map to its second (it has no effect while the game set no second map); intensity and yaw (radians) scale and turn the environment light. Changes apply from the next frame and last until the game sets them again. Returns the current values.",
             """{"type":"object","properties":{"fog":{"type":"boolean"},"fogColor":{"type":"array","items":{"type":"number","minimum":0},"minItems":3,"maxItems":3},"fogStart":{"type":"number","minimum":0},"fogEnd":{"type":"number","exclusiveMinimum":0},"fogMaxDensity":{"type":"number","minimum":0,"maximum":1},"fogMode":{"type":"string","enum":["linear","exp","exp2","height"]},"fogDensity":{"type":"number","minimum":0},"fogHeightBase":{"type":"number"},"fogHeightFalloff":{"type":"number","minimum":0},"blend":{"type":"number","minimum":0,"maximum":1},"intensity":{"type":"number","minimum":0},"yaw":{"type":"number"}}}""", true),
+        new("render_scale",
+            "Read or set the share of the window a game's 3D scene is drawn at, the cheapest lever on frame time. scale is 0.25 to 1 (1 is full size): the 3D frame (shadows, lighting, bloom, tone mapping) runs on a smaller image that is stretched over the window before the 2D and UI passes, so the UI stays sharp; cost follows the pixel count. Picking, projection and captures keep using window pixels. Applies from the next frame. Returns the scale and the pixel size the last frame drew the scene at.",
+            """{"type":"object","properties":{"scale":{"type":"number","minimum":0.25,"maximum":1}}}""", true),
         new("quality",
             "Read or set the quality level of a game that draws a 3D scene. level is low, medium, high or ultra: it bounds shadow map size and cascades, ambient occlusion, multisampling, bloom and environment size, and applies from the next frame. ssao true or false asks the scene for screen-space ambient occlusion (a level may still disallow it). Returns the level's settings, what the last frame did (shadow tiles, instances drawn) and the passes it ran.",
             """{"type":"object","properties":{"level":{"type":"string","enum":["low","medium","high","ultra"]},"ssao":{"type":"boolean"},"ssaoRadius":{"type":"number","exclusiveMinimum":0}}}""", true),

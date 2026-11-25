@@ -77,6 +77,18 @@ internal static class Render3DSmoke
             target.Capture(scene);
         }
 
+        // Render scale: the frame is drawn at half size, stretched over the target, and the scaled scene image is reported.
+        scene.RenderScale = 0.5f;
+        var halfFrame = target.Capture(scene);
+        var scaled = renderer.LastStats;
+        if (halfFrame.Length != 96 * 72 * 4 || scaled.RenderWidth != 48 || scaled.RenderHeight != 36 || renderer.SceneColorWidth != 48)
+        {
+            return $"render scale did not apply: {scaled.RenderWidth}x{scaled.RenderHeight}";
+        }
+
+        scene.RenderScale = 1f;
+        target.Capture(scene);
+
         var stats = renderer.LastStats;
         device.WaitIdle();
         if (!(stats.CpuFrameMs > 0) || renderer.LastStats.GpuFrameMs is <= 0 || renderer.ReadGpuPassTimes([]) < 0)

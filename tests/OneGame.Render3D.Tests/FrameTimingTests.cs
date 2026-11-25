@@ -55,6 +55,60 @@ public class FrameTimingTests
         }
     }
 
+    /// <summary>
+    /// Many frames, read every frame the way an overlay does: no pass or frame time is ever a wrapped subtraction (about 1.8e13 ms), and once
+    /// the first frame has finished there is always a frame time, however far the GPU lags. ONEGAME_TIMING_FRAMES sets the length (default 600).
+    /// </summary>
+    [Fact]
+    public void LongRunsNeverWrapAndNeverLoseTheFrameTime()
+    {
+        var frames = int.TryParse(Environment.GetEnvironmentVariable("ONEGAME_TIMING_FRAMES"), out var n) && n > 0 ? n : 600;
+        // ONEGAME_TIMING_SIZE (for example 3840x2160) makes the GPU the slow side, which is when finished frames pile up unread.
+        var size = Environment.GetEnvironmentVariable("ONEGAME_TIMING_SIZE")?.Split('x');
+        var (rig, scene) = size is { Length: 2 } ? Pond(int.Parse(size[0]), int.Parse(size[1])) : Pond();
+        using (rig)
+        {
+            if (!rig.Device.Capabilities.Timestamps)
+            {
+                return;
+            }
+
+            var passes = new List<PassTime>(64);
+            var missing = 0;
+            var worst = 0.0;
+            var worstPass = 0.0;
+            var lastIndex = 0;
+            for (var i = 0; i < frames; i++)
+            {
+                rig.Target.Render(scene);
+                var s = rig.Renderer.LastStats;
+                if (i >= 8 && s.GpuFrameMs is null)
+                {
+                    missing++;
+                }
+
+                if (s.GpuFrameMs is { } ms)
+                {
+                    worst = Math.Max(worst, ms);
+                    Assert.True(s.GpuFrameIndex >= lastIndex, $"frame time went back from {lastIndex} to {s.GpuFrameIndex}");
+                    lastIndex = s.GpuFrameIndex;
+                }
+
+                rig.Renderer.ReadGpuPassTimes(passes);
+                foreach (var p in passes)
+                {
+                    worstPass = Math.Max(worstPass, p.Microseconds / 1000.0);
+                }
+            }
+
+            rig.Device.WaitIdle();
+            Console.WriteLine($"{rig.Device.Adapter.Name}: {frames} frames, longest frame {worst:F3} ms, longest pass {worstPass:F3} ms, frames without a time {missing}");
+            Assert.True(worst < 5000, $"a frame took {worst} ms");
+            Assert.True(worstPass < 5000, $"a pass took {worstPass} ms");
+            Assert.Equal(0, missing);
+        }
+    }
+
     [Fact]
     public void ReadingNeverWaitsForTheGpu()
     {

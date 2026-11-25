@@ -44,6 +44,30 @@ public sealed partial class ControlSurface
             q.EnvironmentSize, q.Ssao, q.SsaoSamples, scene.Ssao.Enabled, stats?.ShadowTiles ?? 0, stats?.ShadowLights ?? 0, stats?.Instances ?? 0, stats?.InstancesDrawn ?? 0, passes);
     }
 
+    private RenderScaleResult RenderScaleOp(Args a)
+    {
+        var stage = Game.Stage as Render3DStage
+            ?? throw new ControlException("no_scene3d", "This game does not draw a 3D scene. Return a Render3DStage from GameDefinition.CreateRenderStage.");
+        if (a.Has("scale"))
+        {
+            var scale = a.Double("scale", 1);
+            if (!(scale >= Renderer3D.MinRenderScale && scale <= 1))
+            {
+                throw new ControlException("bad_args", "scale must be between 0.25 and 1.");
+            }
+
+            if (stage.View is { } view)
+            {
+                view.RenderScale = (float)scale;
+            }
+
+            stage.Scene.RenderScale = (float)scale;
+        }
+
+        var stats = stage.Renderer?.LastStats;
+        return new RenderScaleResult(stage.Scene.RenderScale, stats?.RenderWidth ?? 0, stats?.RenderHeight ?? 0);
+    }
+
     private EnvironmentResult EnvironmentOp(Args a)
     {
         var stage = Game.Stage as Render3DStage
