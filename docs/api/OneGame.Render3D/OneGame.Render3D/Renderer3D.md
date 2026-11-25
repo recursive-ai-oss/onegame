@@ -291,7 +291,7 @@ A round white spot that fades smoothly to nothing at its edge: what billboards s
 | [`CreateLayeredMaterial(string, int, int, ReadOnlySpan<ReadOnlyMemory<byte>>, MaterialAlpha3D, bool, Vector4?, float, bool)`](#m-createlayeredmaterial-string-int-int-readonlyspan-readonlymemory-byte-materialalpha3d-bool-vector4-float-bool) | Makes a material whose base colour is a stack of same-size images, with the layer chosen per vertex ([`MeshVertex3D.Layer`](MeshVertex3D.md#m-layer), or the second texture coordinate's first component of a glTF mesh). |
 | [`CreateMaterial(string, MaterialAlpha3D, bool, Vector4?, float)`](#m-creatematerial-string-materialalpha3d-bool-vector4-float) | Makes a material for [`DynamicMesh3D`](DynamicMesh3D.md)s without a glTF file. |
 | [`CreateMesh(Material3D, ReadOnlySpan<MeshVertex3D>, ReadOnlySpan<uint>, string)`](#m-createmesh-material3d-readonlyspan-meshvertex3d-readonlyspan-uint-string) | Creates a mesh. |
-| [`Dispose()`](#m-dispose) | Releases everything the renderer created. |
+| [`Dispose()`](#m-dispose) | Releases everything the renderer created, including models, dynamic meshes, environment maps, billboard images and offscreen targets that were not disposed first (disposing them yourself earlier is fine and frees them sooner). |
 | [`PrepareEnvironment(EnvironmentMap)`](#m-prepareenvironment-environmentmap) | Runs the filtering of an environment now, on its own graph, and waits for it. |
 | [`ReadGpuPassTimes(List<PassTime>)`](#m-readgpupasstimes-list-passtime) | Copies the GPU time of each pass of the newest finished frame of the last graph rendered with (for example `planar_reflection`, `forward`, `bloom`) into `into`, in execution order. |
 | [`Render(RenderGraph, Scene3D, GraphTexture, int, int, GpuFormat)`](#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat) | Adds this frame's passes to a render graph that has begun a frame: shadow maps, the depth prepass and ambient occlusion when the scene asks for them, light clustering, the forward pass, bloom and tone mapping into `target`. |
@@ -422,7 +422,7 @@ Creates a mesh. See [`DynamicMesh3D`](DynamicMesh3D.md).
 public void Dispose();
 ```
 
-Releases everything the renderer created. Models and environments are disposed separately, before this.
+Releases everything the renderer created, including models, dynamic meshes, environment maps, billboard images and offscreen targets that were not disposed first (disposing them yourself earlier is fine and frees them sooner).
 
 ### <a id="m-prepareenvironment-environmentmap"></a>PrepareEnvironment(EnvironmentMap)
 

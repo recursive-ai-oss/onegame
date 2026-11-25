@@ -47,9 +47,20 @@ public sealed class EnvironmentMap : IDisposable
 
     internal bool Pending { get; set; }
 
+    private bool _disposed;
+
+    internal Renderer3D? Tracker { get; set; }
+
     /// <inheritdoc />
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Tracker?.Untrack(this);
         Equirect?.Dispose();
         Source.Dispose();
         Specular.Dispose();
@@ -167,7 +178,7 @@ public sealed partial class Renderer3D
             Label = label,
         };
 
-        return new EnvironmentMap(equirect, Device.CreateTexture(Cube(size, mips, "environment source")), Device.CreateTexture(Cube(size, mips, "environment specular")), Device.CreateTexture(Cube(IrradianceSize, 1, "environment irradiance")), size, follows);
+        return Track(new EnvironmentMap(equirect, Device.CreateTexture(Cube(size, mips, "environment source")), Device.CreateTexture(Cube(size, mips, "environment specular")), Device.CreateTexture(Cube(IrradianceSize, 1, "environment irradiance")), size, follows) { Tracker = this });
     }
 
     private void ValidateEnvironment(HdrImage image, int size, string sizeParameter)

@@ -12,6 +12,7 @@ public sealed class Offscreen3D : IDisposable
 {
     private readonly Renderer3D _renderer;
     private readonly RenderGraph _graph;
+    private bool _disposed;
 
     /// <summary>Creates a target of <paramref name="width"/> x <paramref name="height"/> pixels.</summary>
     /// <param name="renderer">The renderer to draw with.</param>
@@ -42,6 +43,7 @@ public sealed class Offscreen3D : IDisposable
         Height = height;
         Format = format;
         _graph = new RenderGraph(renderer.Device);
+        renderer.Track(this);
         Target = renderer.Device.CreateTexture(new TextureDesc((uint)width, (uint)height, format, TextureUsage.RenderTarget | TextureUsage.CopySource | (sampled ? TextureUsage.Sampled : TextureUsage.None)) { Label = "3d capture" });
     }
 
@@ -107,6 +109,13 @@ public sealed class Offscreen3D : IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _renderer.Untrack(this);
         _renderer.Device.WaitIdle();
         _graph.Dispose();
         Target.Dispose();

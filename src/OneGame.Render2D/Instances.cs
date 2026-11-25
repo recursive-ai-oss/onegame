@@ -145,6 +145,10 @@ public sealed class Texture2D : IDisposable
     /// <summary>False for a texture made by <see cref="Renderer2D.WrapTexture"/>: the GPU image belongs to someone else.</summary>
     internal bool Owned { get; }
 
+    private bool _disposed;
+
+    internal Renderer2D? Tracker { get; init; }
+
     internal GpuTexture Texture { get; private set; }
 
     internal GpuSampler Sampler { get; private set; }
@@ -171,6 +175,13 @@ public sealed class Texture2D : IDisposable
     /// </summary>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Tracker?.Untrack(this);
         Group?.Dispose();
         Group = null;
         if (Owned)

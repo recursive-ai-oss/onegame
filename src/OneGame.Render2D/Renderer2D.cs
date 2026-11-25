@@ -122,6 +122,9 @@ public sealed partial class Renderer2D : IDisposable
     private readonly Dictionary<GpuTexture, TargetState> _finalTargets = [];
     private readonly List<TargetState> _temps = [];
     private readonly List<TileGpu> _tileStates = [];
+
+    // Textures, materials and render textures this renderer made and the game has not disposed yet. Disposing the renderer frees them.
+    private readonly HashSet<IDisposable> _live = new(ReferenceEqualityComparer.Instance);
     private readonly List<DrawOp> _ops = [];
     private readonly List<FrameTarget> _targets = [];
     private readonly List<Material> _usedMaterials = [];
@@ -320,7 +323,7 @@ public sealed partial class Renderer2D : IDisposable
         CheckWrappable(texture);
         var f = filter == TextureFilter.Linear ? FilterMode.Linear : FilterMode.Nearest;
         var sampler = _device.CreateSampler(new SamplerDesc { MagFilter = f, MinFilter = f, MipFilter = FilterMode.Nearest, AddressU = AddressMode.ClampToEdge, AddressV = AddressMode.ClampToEdge, MaxAnisotropy = 1 });
-        return new Texture2D(texture, sampler, texture.Format, owned: false);
+        return Track(new Texture2D(texture, sampler, texture.Format, owned: false) { Tracker = this });
     }
 
     /// <summary>
@@ -359,12 +362,21 @@ public sealed partial class Renderer2D : IDisposable
         }
     }
 
+    internal T Track<T>(T resource)
+        where T : IDisposable
+    {
+        _live.Add(resource);
+        return resource;
+    }
+
+    internal void Untrack(IDisposable resource) => _live.Remove(resource);
+
     internal Texture2D CreateRaw(int width, int height, GpuFormat format, TextureFilter filter)
     {
         var gpu = _device.CreateTexture(new TextureDesc((uint)width, (uint)height, format, TextureUsage.Sampled | TextureUsage.CopyDestination));
         var f = filter == TextureFilter.Linear ? FilterMode.Linear : FilterMode.Nearest;
         var sampler = _device.CreateSampler(new SamplerDesc { MagFilter = f, MinFilter = f, MipFilter = FilterMode.Nearest, AddressU = AddressMode.ClampToEdge, AddressV = AddressMode.ClampToEdge, MaxAnisotropy = 1 });
-        return new Texture2D(gpu, sampler, format);
+        return Track(new Texture2D(gpu, sampler, format) { Tracker = this });
     }
 
     /// <summary>Creates a tile set from a grid of tiles.</summary>
@@ -462,7 +474,7 @@ public sealed partial class Renderer2D : IDisposable
     {
         var buffer = _device.CreateBuffer(new BufferDesc(128, BufferUsage.Uniform | BufferUsage.CopyDestination) { Label = "2d material" });
         var group = _device.CreateBindGroup(_layoutParams, 2, [BindGroupEntry.ForBuffer(0, buffer)]);
-        return new Material(buffer, group, pipeline, ownsPipeline);
+        return Track(new Material(buffer, group, pipeline, ownsPipeline) { Tracker = this });
     }
 
     /// <summary>
@@ -498,7 +510,7 @@ public sealed partial class Renderer2D : IDisposable
         ArgumentOutOfRangeException.ThrowIfGreaterThan(height, 16384);
         var image = _device.CreateTexture(new TextureDesc((uint)width, (uint)height, _format, TextureUsage.RenderTarget | TextureUsage.Sampled | TextureUsage.CopySource) { Label = "2d render texture" });
         var view = WrapTexture(image, filter);
-        return new RenderTexture2D(this, image, view, NewTargetState(image, pooled: false));
+        return Track(new RenderTexture2D(this, image, view, NewTargetState(image, pooled: false)));
     }
 
     /// <summary>
@@ -1344,7 +1356,7 @@ public sealed partial class Renderer2D : IDisposable
         }
     }
 
-    /// <summary>Releases every GPU object the renderer made. Dispose the textures, tile sets and materials you created yourself first or after; they are independent.</summary>
+    /// <summary>Releases every GPU object the renderer made, including the textures, render textures and materials you created and did not dispose. Disposing those yourself first, or after, is fine.</summary>
     public void Dispose()
     {
         if (_disposed)
@@ -1354,6 +1366,12 @@ public sealed partial class Renderer2D : IDisposable
 
         _disposed = true;
         _device.WaitIdle();
+        foreach (var live in _live.ToArray())
+        {
+            live.Dispose();
+        }
+
+        _live.Clear();
         foreach (var t in _tileStates)
         {
             t.Dispose();

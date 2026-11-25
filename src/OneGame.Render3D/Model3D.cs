@@ -299,6 +299,11 @@ public sealed class Model3D : IDisposable
 {
     private readonly List<IDisposable> _owned = [];
 
+    private bool _disposed;
+
+    // The renderer to tell when this model is disposed (set for models made by Renderer3D.Upload).
+    internal Renderer3D? Tracker { get; init; }
+
     internal Model3D(GltfModel source, int scene)
     {
         Source = source;
@@ -426,6 +431,13 @@ public sealed class Model3D : IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Tracker?.Untrack(this);
         foreach (var o in _owned)
         {
             o.Dispose();

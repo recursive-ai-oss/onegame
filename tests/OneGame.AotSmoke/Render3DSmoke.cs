@@ -190,10 +190,10 @@ internal static class Render3DSmoke
         var greenPixels = 0;
         for (var i = 0; i < drawn.Length; i += 4)
         {
-            greenPixels += drawn[i + 1] > 100 && drawn[i] < 100 ? 1 : 0;
+            greenPixels += drawn[i + 1] > 200 && drawn[i] < 180 ? 1 : 0;
         }
 
-        if (greenPixels < 100) { return $"the mesh covers {greenPixels} pixels"; }
+        if (greenPixels < 100) { return $"the mesh covers {greenPixels} pixels (centre {drawn[(((target.Height / 2) * target.Width) + (target.Width / 2)) * 4]},{drawn[(((target.Height / 2) * target.Width) + (target.Width / 2)) * 4 + 1]},{drawn[(((target.Height / 2) * target.Width) + (target.Width / 2)) * 4 + 2]})"; }
 
         // A layered material: the vertex layer picks the second (pure red) of two one-texel layers.
         var layerImages = new ReadOnlyMemory<byte>[] { new byte[] { 0, 0, 255, 255 }, new byte[] { 255, 0, 0, 255 } };
@@ -247,10 +247,10 @@ internal static class Render3DSmoke
         var limePixels = 0;
         for (var i = 0; i < exempt.Length; i += 4)
         {
-            limePixels += exempt[i + 1] > 100 && exempt[i] < 100 ? 1 : 0;
+            limePixels += exempt[i + 1] > exempt[i] + 30 && exempt[i + 1] > exempt[i + 2] + 30 ? 1 : 0;
         }
 
-        if (limePixels < 100) { return $"the fog-exempt mesh covers {limePixels} pixels"; }
+        if (limePixels < 100) { return $"the fog-exempt mesh covers {limePixels} pixels (centre {exempt[(((target.Height / 2) * target.Width) + (target.Width / 2)) * 4]},{exempt[(((target.Height / 2) * target.Width) + (target.Width / 2)) * 4 + 1]},{exempt[(((target.Height / 2) * target.Width) + (target.Width / 2)) * 4 + 2]})"; }
 
         // An environment made over several frames matches the one made at once.
         meshScene.Environment.NextMap = null;
@@ -288,6 +288,29 @@ internal static class Render3DSmoke
         var mirrored = renderer.LastStats.PlanarReflection;
         lime.PlanarReflection = false;
         device.WaitIdle();
+
+        // A renderer frees what its game never disposed: a model, an environment, a billboard image and an offscreen target dropped on the floor.
+        long Spare()
+        {
+            using (var spare = new Renderer3D(device))
+            {
+                var kept = spare.Upload(GltfLoader.Load(foxGlb));
+                var env = spare.CreateEnvironment(HdrImage.CreateSky(32, 16, new Vector3(0.2f, 0.4f, 1f), new Vector3(0.9f, 0.9f, 1f), new Vector3(0.2f)), 32);
+                var billboard = spare.CreateBillboardTexture(8, 8, new byte[8 * 8 * 4]);
+                var offscreen = new Offscreen3D(spare, 32, 32);
+                if (kept is null || env is null || billboard is null || offscreen is null) { return -1; }
+            }
+
+            device.WaitIdle();
+            return device.MemoryStats.Allocations;
+        }
+
+        // The first round may leave one-time pools behind; the second must not add to them.
+        var firstRound = Spare();
+        var after = Spare();
+        if (firstRound < 0) { return "the spare renderer made nothing"; }
+        if (after != firstRound) { return $"disposing a renderer left {after - firstRound} more allocations behind"; }
+
         return mirrored ? null : "the planar reflection pass did not run";
     }
 }

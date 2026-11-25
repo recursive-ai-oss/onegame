@@ -56,6 +56,7 @@ public sealed class RenderTexture2D : IDisposable
         }
 
         _disposed = true;
+        Owner.Untrack(this);
         Owner.Device.WaitIdle();
         Texture.Dispose();
         State.Dispose();

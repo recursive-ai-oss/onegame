@@ -67,6 +67,8 @@ public sealed class BillboardBatch3D
 /// <summary>An image for billboards, uploaded with its colours premultiplied by alpha in linear light. Create it with <see cref="Renderer3D.CreateBillboardTexture"/> and dispose it before the renderer.</summary>
 public sealed class BillboardTexture3D : IDisposable
 {
+    private bool _disposed;
+
     internal BillboardTexture3D(GpuTexture texture, GpuBindGroup group, int width, int height)
     {
         Texture = texture;
@@ -83,11 +85,20 @@ public sealed class BillboardTexture3D : IDisposable
 
     internal GpuTexture Texture { get; }
 
+    internal Renderer3D? Tracker { get; set; }
+
     internal GpuBindGroup Group { get; }
 
     /// <summary>Releases the GPU image.</summary>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Tracker?.Untrack(this);
         Group.Dispose();
         Texture.Dispose();
     }
