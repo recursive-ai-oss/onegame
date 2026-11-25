@@ -210,8 +210,9 @@ public sealed class GameHost : IDisposable
 
     private void CloseAtExit()
     {
-        // A process that exits from inside a running game leaves the teardown to the operating system, as it always did.
-        if (!_inUse)
+        // A process that exits from inside a running game leaves the teardown to the operating system, as it always did. On macOS
+        // AppKit objects must be closed on the main thread and this handler may not run there, so a game that opted in calls Release itself.
+        if (!_inUse && !OperatingSystem.IsMacOS())
         {
             Dispose();
         }

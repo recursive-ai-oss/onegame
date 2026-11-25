@@ -26,7 +26,7 @@ internal static class Program
 | Member | Description |
 | --- | --- |
 | [`DevTools`](#m-devtools) | Set by development builds before [`GameApp.Run()`](GameApp.md#m-run-gamedefinition-string) so the extra options work. |
-| [`ReuseWindow`](#m-reusewindow) | True (the default) keeps the window, graphics device and swapchain of a windowed run alive after [`GameApp.Run()`](GameApp.md#m-run-gamedefinition-string) returns, so a later call in the same process starts drawing at once; they close when the process exits or at [`GameHost.Release()`](GameHost.md#m-release). |
+| [`ReuseWindow`](#m-reusewindow) | True keeps the window, graphics device and swapchain of a windowed run alive after [`GameApp.Run()`](GameApp.md#m-run-gamedefinition-string) returns, so a later call in the same process starts drawing at once; they close when the process exits or at [`GameHost.Release()`](GameHost.md#m-release). |
 
 ### <a id="m-devtools"></a>DevTools
 
@@ -44,7 +44,7 @@ Set by development builds before [`GameApp.Run()`](GameApp.md#m-run-gamedefiniti
 public static bool ReuseWindow { get; set; }
 ```
 
-True (the default) keeps the window, graphics device and swapchain of a windowed run alive after [`GameApp.Run()`](GameApp.md#m-run-gamedefinition-string) returns, so a later call in the same process starts drawing at once; they close when the process exits or at [`GameHost.Release()`](GameHost.md#m-release). Set it to false before the first run to give every run a window of its own that closes with it. Headless runs and phones are not affected. See `docs/interfaces/host-lifetime.md`.
+True keeps the window, graphics device and swapchain of a windowed run alive after [`GameApp.Run()`](GameApp.md#m-run-gamedefinition-string) returns, so a later call in the same process starts drawing at once; they close when the process exits or at [`GameHost.Release()`](GameHost.md#m-release). Set it to false before the first run to give every run a window of its own that closes with it. The default is true except on macOS, where it is false until reuse has been checked on a desktop session; set it to true there to opt in (and call [`GameHost.Release()`](GameHost.md#m-release) from the main thread before `Main` returns). Headless runs and phones are not affected. See `docs/interfaces/host-lifetime.md`.
 
 **Type:** `bool`
 

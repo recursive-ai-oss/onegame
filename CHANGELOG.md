@@ -6,7 +6,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Added
 
-- `GameHost` and `GameOptions.Host`: the window, graphics device and swapchain of a windowed game can outlive one `GameInstance`, so a process that runs several games in a row starts each later one drawing at once. `GameApp.Run` uses `GameHost.Shared` (`GameApp.ReuseWindow = false` opts out; `GameHost.Release()` closes it early; it also closes at process exit). A window the player closed is replaced, and nothing but the window, device and swapchain carries over. See `docs/interfaces/host-lifetime.md`.
+- `GameHost` and `GameOptions.Host`: the window, graphics device and swapchain of a windowed game can outlive one `GameInstance`, so a process that runs several games in a row starts each later one drawing at once. `GameApp.Run` uses `GameHost.Shared` (`GameApp.ReuseWindow = false` opts out; `GameHost.Release()` closes it early; it also closes at process exit). On macOS reuse is off by default until it has been checked on a desktop session; `ReuseWindow = true` opts in, and the game then calls `GameHost.Release()` on the main thread itself. A window the player closed is replaced, and nothing but the window, device and swapchain carries over. See `docs/interfaces/host-lifetime.md`.
 - `GameInstance.SwitchConnection(ConnectOptions?)`: closes the server connection and starts a fresh session (a replica of another scope or server, or a new local world) on the running instance, keeping the window, device and renderers.
 - `PlatformApp.ResetForNewRun()`: drops queued events, held input and a pending quit request, keeping the windows.
 

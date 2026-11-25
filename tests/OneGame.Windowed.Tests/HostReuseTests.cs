@@ -155,3 +155,46 @@ public sealed class HostReuseTests : IClassFixture<XvfbFixture>
         }
     }
 }
+
+/// <summary>The same reuse on Windows, where the Windows CI runner checks it: one window and device serve two instances, and the second starts fresh.</summary>
+[Collection("run loops")]
+public sealed class Win32HostReuseTests
+{
+    [Fact]
+    public void TwoInstancesShareOneWindowAndDeviceAndTheSecondStartsFresh() => MainThread.Run(() =>
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "needs Windows");
+        Environment.SetEnvironmentVariable("ONEGPU_ADAPTER", Environment.GetEnvironmentVariable("ONEGAME_WINDOWED_ADAPTER") is { Length: > 0 } chosen ? chosen : "software");
+        Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
+        using var host = new GameHost();
+        var options = new GameOptions { Width = 320, Height = 200, Gpu = GpuMode.Required, Backend = PlatformBackendKind.Win32, Host = host };
+        Window window;
+        using (var game = GameInstance.Create(new WindowedGame(), options))
+        {
+            for (var i = 0; i < 300 && game.PresentedFrames < 3; i++)
+            {
+                game.Step();
+                Thread.Sleep(2);
+            }
+
+            Assert.True(game.PresentedFrames >= 3);
+            window = game.Window;
+        }
+
+        Assert.True(host.HasWindow);
+        Assert.True(host.HasDevice);
+        using (var game = GameInstance.Create(new WindowedGame(), options))
+        {
+            Assert.Same(window, game.Window);
+            Assert.Equal(0, game.World.Tick);
+            for (var i = 0; i < 300 && game.PresentedFrames < 3; i++)
+            {
+                game.Step();
+                Thread.Sleep(2);
+            }
+
+            Assert.True(game.PresentedFrames >= 3);
+            Assert.Empty(game.TakeGpuValidationMessages());
+        }
+    });
+}

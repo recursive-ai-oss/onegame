@@ -14,11 +14,11 @@ Everything else belongs to the `GameInstance` and is destroyed with it: the worl
 
 ## Who uses it
 
-- `GameApp.Run` passes `GameHost.Shared` to every windowed run, unless `GameApp.ReuseWindow` is false (set it before the first run). Headless runs, browsers and phones never use a host.
+- `GameApp.Run` passes `GameHost.Shared` to every windowed run, unless `GameApp.ReuseWindow` is false (set it before the first run). Headless runs, browsers and phones never use a host. **On macOS reuse is off by default**: the Cocoa backend has not been checked for reuse on a desktop session, and AppKit objects must be closed on the main thread. A Mac game may set `GameApp.ReuseWindow = true`; it must then call `GameHost.Release()` on the main thread before `Main` returns, because the process-exit handler does nothing on macOS. Windows reuse is covered by `HostReuseTests` on the Windows CI runner.
 - `GameInstance.Create(game, new GameOptions { Host = host })` does the same for code that makes its own instances. `host.Dispose()` closes the window and device; do it when no instance is running on the host.
 - With no host, an instance makes its own window and device and closes them in `Dispose`, as before.
 
-The shared host closes when the process exits (a `ProcessExit` handler), or earlier with `GameHost.Release()`. A game that leaves the loop for good and wants the GPU memory back calls `Release()`.
+The shared host closes when the process exits (a `ProcessExit` handler; not on macOS), or earlier with `GameHost.Release()`. A game that leaves the loop for good and wants the GPU memory back calls `Release()`.
 
 ## What a new run gets
 
@@ -35,7 +35,7 @@ A window the player closed is not reused: the host closes the device with it and
 - One running instance per host. A second `Create` on a busy host throws `InvalidOperationException`; a start that throws leaves the host free.
 - Use a host from one thread, the one that runs the game. On macOS that is the main thread.
 - While no run is active the window is not serviced. A game that works for a long time between runs calls `host.Pump()` now and then so the window manager does not mark it as not responding.
-- The process-exit handler skips teardown when a run is still active (the process was told to exit from inside a game).
+- The process-exit handler skips teardown when a run is still active (the process was told to exit from inside a game), and always on macOS.
 - Teardown order is unchanged and lives in one place (`GameHost`): swapchain, window system connection, device. The window system connection closes while the driver is loaded, because the driver hooks display close.
 
 ## Switching connect options without a new run

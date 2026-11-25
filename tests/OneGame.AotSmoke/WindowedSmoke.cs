@@ -40,7 +40,7 @@ internal static class WindowedSmoke
         {
             switching.Step(3);
             switching.SwitchConnection(null);
-            if (switching.World.Tick != 0 || switching.Remote is not null || !GameApp.ReuseWindow)
+            if (switching.World.Tick != 0 || switching.Remote is not null)
             {
                 Console.Error.WriteLine("switch connection smoke failed");
                 return 1;
