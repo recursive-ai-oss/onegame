@@ -24,6 +24,9 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`DebugSize3D`](OneGame.Render3D/DebugSize3D.md) | enum | How debug primitive widths and point sizes are measured. |
 | [`DynamicMesh3D`](OneGame.Render3D/DynamicMesh3D.md) | class | A triangle mesh a game builds and changes while running, such as a streamed voxel chunk. |
 | [`Environment3D`](OneGame.Render3D/Environment3D.md) | class | Image-based lighting and backdrop of a scene. |
+| [`EnvironmentLoad`](OneGame.Render3D/EnvironmentLoad.md) | class | An environment being made over several frames: the conversion runs off the render thread and the filtering passes are added a few per frame, while the game keeps drawing its current map. |
+| [`EnvironmentLoadOptions`](OneGame.Render3D/EnvironmentLoadOptions.md) | class | Tuning for [`Renderer3D.CreateEnvironmentAsync()`](OneGame.Render3D/Renderer3D.md#m-createenvironmentasync-hdrimage-environmentloadoptions). |
+| [`EnvironmentLoadState`](OneGame.Render3D/EnvironmentLoadState.md) | enum | Where an [`EnvironmentLoad`](OneGame.Render3D/EnvironmentLoad.md) is. |
 | [`EnvironmentMap`](OneGame.Render3D/EnvironmentMap.md) | class | An environment prepared for lighting: a GGX-prefiltered specular cube (roughness grows with the mip level, mip 0 is the sharp environment) and a cosine-convolved diffuse cube. |
 | [`FogSettings`](OneGame.Render3D/FogSettings.md) | class | Distance fog: surfaces fade towards a colour with their distance from the camera. |
 | [`FrameStats3D`](OneGame.Render3D/FrameStats3D.md) | struct | What one frame of 3D drew. |

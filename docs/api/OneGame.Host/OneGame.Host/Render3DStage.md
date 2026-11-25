@@ -39,11 +39,33 @@ Creates the stage.
 
 | Member | Description |
 | --- | --- |
+| [`LatestEnvironmentLoad`](#m-latestenvironmentload) | The newest load given to [`Render3DStage.AdoptEnvironment()`](Render3DStage.md#m-adoptenvironment-environmentload-environmentslot), running, ready (and already swapped in) or failed; null before the first. |
+| [`LatestEnvironmentSlot`](#m-latestenvironmentslot) | The slot the newest adopted load fills. |
 | [`Manual`](#m-manual) | For a stage built without a [`Render3DStage.View`](Render3DStage.md#m-view): the probe the live `camera`, `pick` and `project` operations use on [`Render3DStage.Scene`](Render3DStage.md#m-scene). |
 | [`Name`](#m-name) | A short name shown in harness output. |
 | [`Renderer`](#m-renderer) | The 3D renderer, once the first frame has created it. |
 | [`Scene`](#m-scene) | The scene drawn every frame. |
 | [`View`](#m-view) | The view that builds the scene from the world's [`IView3D`](IView3D.md) entities; null for a stage whose game fills the scene by hand. |
+
+### <a id="m-latestenvironmentload"></a>LatestEnvironmentLoad
+
+```csharp
+public EnvironmentLoad? LatestEnvironmentLoad { get; }
+```
+
+The newest load given to [`Render3DStage.AdoptEnvironment()`](Render3DStage.md#m-adoptenvironment-environmentload-environmentslot), running, ready (and already swapped in) or failed; null before the first.
+
+**Type:** [`EnvironmentLoad`](../../OneGame.Render3D/OneGame.Render3D/EnvironmentLoad.md)?
+
+### <a id="m-latestenvironmentslot"></a>LatestEnvironmentSlot
+
+```csharp
+public EnvironmentSlot LatestEnvironmentSlot { get; }
+```
+
+The slot the newest adopted load fills.
+
+**Type:** [`EnvironmentSlot`](EnvironmentSlot.md)
 
 ### <a id="m-manual"></a>Manual
 
@@ -100,6 +122,7 @@ The view that builds the scene from the world's [`IView3D`](IView3D.md) entities
 | Member | Description |
 | --- | --- |
 | [`AddScenePasses(GpuDevice, RenderGraph, GraphTexture, GpuTexture, in FrameInfo)`](#m-addscenepasses-gpudevice-rendergraph-graphtexture-gputexture-frameinfo) | Adds passes that draw into the target before the 2D renderer and the UI, for a stage that draws a 3D scene. |
+| [`AdoptEnvironment(EnvironmentLoad, EnvironmentSlot)`](#m-adoptenvironment-environmentload-environmentslot) | Hands a running environment load to the stage: when it is ready the stage puts its map in `slot` of [`Render3DStage.Scene`](Render3DStage.md#m-scene) at the start of a frame, frees the map it replaces (when the stage made it) and owns the new one. |
 | [`Dispose()`](#m-dispose) |  |
 | [`RendererCreated(Renderer3D)`](#m-renderercreated-renderer3d) | Called once, on the first frame, with the new renderer: upload models and environments here. |
 | [`UpdateScene(Scene3D, in FrameInfo)`](#m-updatescene-scene3d-frameinfo) | Called every frame before the scene is drawn: set the environment and post settings, or (with no view) the camera, models and lights. |
@@ -121,6 +144,19 @@ Adds passes that draw into the target before the 2D renderer and the UI, for a s
 - `frame` ([`FrameInfo`](FrameInfo.md)): The frame being drawn.
 
 **Returns:** `bool`
+
+### <a id="m-adoptenvironment-environmentload-environmentslot"></a>AdoptEnvironment(EnvironmentLoad, EnvironmentSlot)
+
+```csharp
+public void AdoptEnvironment(EnvironmentLoad load, EnvironmentSlot slot = 1);
+```
+
+Hands a running environment load to the stage: when it is ready the stage puts its map in `slot` of [`Render3DStage.Scene`](Render3DStage.md#m-scene) at the start of a frame, frees the map it replaces (when the stage made it) and owns the new one. The stage disposes what it owns with itself. A load that fails or is cancelled changes nothing.
+
+**Parameters**
+
+- `load` ([`EnvironmentLoad`](../../OneGame.Render3D/OneGame.Render3D/EnvironmentLoad.md)): The load, from [`Renderer3D.CreateEnvironmentAsync()`](../../OneGame.Render3D/OneGame.Render3D/Renderer3D.md#m-createenvironmentasync-hdrimage-environmentloadoptions).
+- `slot` ([`EnvironmentSlot`](EnvironmentSlot.md)): Which environment to replace.
 
 ### <a id="m-dispose"></a>Dispose()
 

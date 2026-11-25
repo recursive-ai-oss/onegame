@@ -50,6 +50,7 @@ Result of `environment`: the scene's distance fog and environment crossfade.
 | [`FogStart`](#m-fogstart) | Distance where fog begins. |
 | [`HasNextMap`](#m-hasnextmap) | Whether the scene has a second environment to fade to. |
 | [`Intensity`](#m-intensity) | Image-based light scale. |
+| [`Load`](#m-load) | The newest asynchronous environment load the stage was given; null when there was none. |
 | [`Yaw`](#m-yaw) | Environment turn about +Y in radians. |
 
 ### <a id="m-blend"></a>Blend
@@ -131,6 +132,16 @@ public double Intensity { get; init; }
 Image-based light scale.
 
 **Type:** `double`
+
+### <a id="m-load"></a>Load
+
+```csharp
+public EnvironmentLoadResult? Load { get; init; }
+```
+
+The newest asynchronous environment load the stage was given; null when there was none.
+
+**Type:** [`EnvironmentLoadResult`](EnvironmentLoadResult.md)?
 
 ### <a id="m-yaw"></a>Yaw
 

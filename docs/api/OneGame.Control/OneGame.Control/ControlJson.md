@@ -74,6 +74,7 @@ Creates a new instance.
 | [`DriftInfo`](#m-driftinfo) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`DriftInfoArray`](#m-driftinfoarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`DuckingStatus`](#m-duckingstatus) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`EnvironmentLoadResult`](#m-environmentloadresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`EnvironmentResult`](#m-environmentresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`FilterStatus`](#m-filterstatus) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`FollowedScope`](#m-followedscope) | Defines the source generated JSON serialization contract metadata for a given type. |
@@ -461,6 +462,16 @@ public JsonTypeInfo<DuckingStatus> DuckingStatus { get; }
 Defines the source generated JSON serialization contract metadata for a given type.
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`DuckingStatus`](../../OneGame.Audio/OneGame.Audio/DuckingStatus.md)&gt;
+
+### <a id="m-environmentloadresult"></a>EnvironmentLoadResult
+
+```csharp
+public JsonTypeInfo<EnvironmentLoadResult> EnvironmentLoadResult { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`EnvironmentLoadResult`](EnvironmentLoadResult.md)&gt;
 
 ### <a id="m-environmentresult"></a>EnvironmentResult
 
