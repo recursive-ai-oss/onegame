@@ -28,18 +28,52 @@ struct LightData
     float4 ShadowInfo;  // x shadow records, y unused
     float4 AoInfo;      // x ambient occlusion strength (0 = none), y radius in world units
     float4 FogColor;    // rgb linear fog colour, w maximum density
-    float4 FogRange;    // x start distance, y 1 / (end - start), z 1 when fog is on
+    float4 FogRange;    // x start distance, y 1 / (end - start), z 1 when fog is on, w mode (0 linear, 1 exponential, 2 exponential squared, 3 height)
     float4 EnvB;        // x highest specular mip of the second environment, y blend weight towards it, z backdrop mip of the second environment
     row_major float4x4 ReflViewProj;   // the main view mirrored about the reflection plane (planar reflection lookup)
     float4 Refl;        // x 1 while drawing the reflection itself (clip below the plane), y plane height, z 1 when a reflection image is bound, w scene time in seconds
     float4 MainZ;       // the third column of the main view, so shadow cascades pick by the main camera's depth in the reflection too
+    float4 FogParams;   // x density, y height fog base height, z height fog falloff per unit
 };
 
-// Distance fog: linear in the distance from the camera (view depth for an orthographic camera) between start and end, scaled by the maximum density.
+// Distance fog. Linear (mode 0): linear in the distance from the camera (view depth for an orthographic camera) between start and end.
+// Exponential modes: 1 - exp(-tau), with tau = density * d (mode 1) or (density * d)^2 (mode 2). Height fog (mode 3) integrates a density that
+// falls off exponentially with world height, density * exp(-falloff * (y - base)), along the ray from the camera to the point, so fog pools in
+// valleys and thins on hills (closed form of the line integral; the exponents are clamped to stay finite). All are scaled by the maximum density.
 float FogAmount(float3 worldPos)
 {
     float d = CameraPos.w > 0.5 ? -mul(float4(worldPos, 1.0), View).z : length(worldPos - CameraPos.xyz);
-    return FogRange.z > 0.5 ? saturate((d - FogRange.x) * FogRange.y) * FogColor.w : 0.0;
+    if (FogRange.z < 0.5)
+    {
+        return 0.0;
+    }
+
+    if (FogRange.w < 0.5)
+    {
+        return saturate((d - FogRange.x) * FogRange.y) * FogColor.w;
+    }
+
+    float tau;
+    if (FogRange.w < 1.5)
+    {
+        tau = FogParams.x * d;
+    }
+    else if (FogRange.w < 2.5)
+    {
+        float t = FogParams.x * d;
+        tau = t * t;
+    }
+    else
+    {
+        float f = FogParams.z;
+        float a = clamp(-f * (CameraPos.y - FogParams.y), -80.0, 80.0);
+        float b = clamp(-f * (worldPos.y - FogParams.y), -80.0, 80.0);
+        float k = a - b;   // f * (y1 - y0), before clamping
+        float avg = abs(k) < 1e-4 ? exp(a) : (exp(a) - exp(b)) / k;
+        tau = FogParams.x * d * avg;
+    }
+
+    return (1.0 - exp(-tau)) * FogColor.w;
 }
 
 // Blends a lit colour towards the fog colour. weight is the share of the fog colour a fully fogged pixel shows (1 for opaque colour,

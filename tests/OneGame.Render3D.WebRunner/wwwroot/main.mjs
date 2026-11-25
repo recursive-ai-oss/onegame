@@ -13,6 +13,12 @@ try {
   await put(R, '/repo/testdata/render3d/cases.json', '/testdata/render3d/cases.json');
   const cases = (await (await fetch('/testdata/render3d/cases.json')).json()).cases;
   const results = [];
+  if (new URLSearchParams(location.search).get('fog')) {
+    const r = JSON.parse(await R.RunFog());
+    window.__result = JSON.stringify({ adapter: gpu.takeMessages(0), results: [r] });
+    log.textContent = 'fog: ' + (r.ok ? 'ok' : 'FAIL');
+    throw new Error('__done');
+  }
   for (const name of names) {
     if (name === 'envload') {   // self-contained: an asynchronous environment against the synchronous one
       const started = performance.now();
@@ -35,6 +41,8 @@ try {
   }
   window.__result = JSON.stringify({ adapter: gpu.takeMessages(0), results });
 } catch (e) {
-  window.__result = JSON.stringify({ fatal: String(e && e.stack || e) });
-  log.textContent = 'fatal: ' + e;
+  if (!String(e).includes('__done')) {
+    window.__result = JSON.stringify({ fatal: String(e && e.stack || e) });
+    log.textContent = 'fatal: ' + e;
+  }
 }

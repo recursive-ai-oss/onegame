@@ -28,7 +28,9 @@ public sealed class WebGameDefinition : GameDefinition
         world.Add(new TextLoad());
     }
 
-    public override void DefineScreens(ScreenSet screens) => screens.Add("main", game => Ui.Column().Padding(Length.Px(8)));
+    public override void DefineScreens(ScreenSet screens) => screens.Add("main", game => Ui.Column(
+        Ui.Box().Named("glass").Style(s => s.Position(PositionMode.Absolute).Left(0).Top(0).Right(0).Bottom(0).BackdropBlur(Length.Px(6)))
+            .BindVisible(() => game.World.Entities[0] is Swatch { Glass: true })).Padding(Length.Px(8)).Size(Length.Percent(100), Length.Percent(100)));
 
     public override void DefineFonts(OneGame.Text.FontLibrary fonts)
     {

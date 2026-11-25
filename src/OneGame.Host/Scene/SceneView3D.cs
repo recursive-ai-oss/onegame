@@ -168,6 +168,7 @@ public sealed class SceneView3D : IScene3DProbe, IDisposable
             instance.Transform = d.World;
             instance.Opacity = d.Opacity;
             instance.Label = d.Label;
+            instance.CastShadows = d.CastShadows;
             instance.Visible = true;
         }
 

@@ -337,6 +337,44 @@ public sealed class UiCanvas : IDisposable
         Emit(3, bounds, radii, default, tint, tint, 0, default, uv, _r.GroupOf(texture), true);
     }
 
+    /// <summary>The number of backdrop blurs drawn since the renderer was made (each costs a copy of the target and a few small passes).</summary>
+    public int BackdropBlurs { get; private set; }
+
+    /// <summary>
+    /// Replaces what is behind a rounded rectangle with a Gaussian blur of it: the target as drawn so far, so a 3D scene, sprites and UI painted
+    /// earlier all blur. The shape follows the clips and transform in effect, so it can be rotated or clipped. Inside an opacity group the backdrop is the
+    /// group's own picture. Draw the translucent panel after it. A target that cannot be copied (a wrapped foreign texture) is left unblurred.
+    /// </summary>
+    /// <param name="bounds">The rectangle, in the coordinates in effect now.</param>
+    /// <param name="radii">Corner radii, or default for square corners.</param>
+    /// <param name="sigma">The blur's standard deviation in pixels (CSS <c>backdrop-filter: blur()</c>); values above 64 count as 64 and values under a quarter pixel draw nothing.</param>
+    public void BackdropBlur(Rect bounds, CornerRadii radii, float sigma)
+    {
+        if (_skip > 0 || !(sigma >= 0.25f) || !_r.CanSnapshotCurrent)
+        {
+            return;
+        }
+
+        var clip = _clips[^1];
+        var p0 = Vector2.Transform(new Vector2(bounds.X, bounds.Y), _m);
+        var p1 = Vector2.Transform(new Vector2(bounds.X + bounds.Width, bounds.Y), _m);
+        var p2 = Vector2.Transform(new Vector2(bounds.X, bounds.Y + bounds.Height), _m);
+        var p3 = Vector2.Transform(new Vector2(bounds.X + bounds.Width, bounds.Y + bounds.Height), _m);
+        var x0 = Math.Max((int)MathF.Floor(MathF.Min(MathF.Min(p0.X, p1.X), MathF.Min(p2.X, p3.X))), clip.X0);
+        var y0 = Math.Max((int)MathF.Floor(MathF.Min(MathF.Min(p0.Y, p1.Y), MathF.Min(p2.Y, p3.Y))), clip.Y0);
+        var x1 = Math.Min((int)MathF.Ceiling(MathF.Max(MathF.Max(p0.X, p1.X), MathF.Max(p2.X, p3.X))), clip.X1);
+        var y1 = Math.Min((int)MathF.Ceiling(MathF.Max(MathF.Max(p0.Y, p1.Y), MathF.Max(p2.Y, p3.Y))), clip.Y1);
+        if (x1 <= x0 || y1 <= y0)
+        {
+            return;
+        }
+
+        var target = _r.RecordBackdropBlur(Math.Min(sigma, Renderer2D.MaxBackdropSigma), x0, y0, x1 - x0, y1 - y0, out var picture);
+        Emit(6, bounds, radii, default, new Color(255, 255, 255, 255), new Color(255, 255, 255, 255), 0, default, default, picture, true);
+        _r.ReleaseGroupTarget(target);
+        BackdropBlurs++;
+    }
+
     // ---- display list ----
 
     /// <summary>
@@ -394,6 +432,9 @@ public sealed class UiCanvas : IDisposable
                 case DrawKind.PopOpacity:
                     PopOpacity();
                     break;
+                case DrawKind.BackdropBlur:
+                    BackdropBlur(c.Bounds, c.Radii, c.Value);
+                    break;
                 default:
                     break;
             }
@@ -439,6 +480,8 @@ public sealed class UiCanvas : IDisposable
         _pendingGlyphs = glyphs;
     }
 
+    private const uint NearestKind = 8;
+
     private void DrawArt(in DrawCommand c, ArtAtlas art, float scale)
     {
         if (_skip > 0)
@@ -476,18 +519,19 @@ public sealed class UiCanvas : IDisposable
         }
 
         var group = _r.GroupOf(ArtTexture(art, region).Texture);
+        var nearest = c.Pixelated ? NearestKind : 0u;   // the shader reads it as the gradient kind, which images do not use
         if (tiled)
         {
             // Kind 5 wraps inside the region in the shader, so the whole pattern is one instance however many tiles it has.
             var grad = new Vector4((c.Repeat & TileAxes.X) != 0 ? 1 : 0, (c.Repeat & TileAxes.Y) != 0 ? 1 : 0, region.Width, region.Height);
             var span = new Vector4(c.TileOrigin.X, c.TileOrigin.Y, c.TileSize.X, c.TileSize.Y);
-            Emit(5, c.Bounds, c.Radii, span, c.Color, c.Color, 0, grad, new Vector4(region.U0, region.V0, region.U1 - region.U0, region.V1 - region.V0), group, true);
+            Emit(5, c.Bounds, c.Radii, span, c.Color, c.Color, nearest, grad, new Vector4(region.U0, region.V0, region.U1 - region.U0, region.V1 - region.V0), group, true);
             return;
         }
 
         if (c.Slice.IsZero)
         {
-            Emit(3, c.Bounds, c.Radii, default, c.Color, c.Color, 0, default, new Vector4(region.U0, region.V0, region.U1 - region.U0, region.V1 - region.V0), group, true);
+            Emit(3, c.Bounds, c.Radii, default, c.Color, c.Color, nearest, default, new Vector4(region.U0, region.V0, region.U1 - region.U0, region.V1 - region.V0), group, true);
             return;
         }
 
@@ -520,7 +564,7 @@ public sealed class UiCanvas : IDisposable
                 }
 
                 var uv = new Vector4(su[col], sv[row], su[col + 1] - su[col], sv[row + 1] - sv[row]);
-                Emit(3, new Rect(dx[col], dy[row], w, h), default, default, c.Color, c.Color, 0, default, uv, group, true);
+                Emit(3, new Rect(dx[col], dy[row], w, h), default, default, c.Color, c.Color, nearest, default, uv, group, true);
             }
         }
     }

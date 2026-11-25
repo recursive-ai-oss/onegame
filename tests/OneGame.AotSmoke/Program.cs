@@ -492,6 +492,27 @@ if (frame[red] != 255 || frame[red + 1] != 0 || frame[green] != 0 || frame[green
 
 Console.WriteLine($"render2d: sprite, rounded rect and text drawn in {frameStats.DrawCalls} draws, {frameStats.Passes} pass; read back 96x64");
 
+// A backdrop-blurred box over a white half, and a pixelated style, through the style system: the box edge reads between black and white.
+var glassTree = new UiTree(measurer);
+glassTree.SetViewport(96, 64);
+glassTree.Root.With(Ui.Box().Style(s => s.Position(PositionMode.Absolute).Left(10).Top(10).Width(76).Height(40).BackdropBlur(4).ImageRendering(ImageRendering.Pixelated)));
+var glassList = glassTree.Frame();
+renderer.BeginFrame(frameTarget, new FrameOptions { Clear = new Color(0, 0, 0, 255) });
+renderer.Ui.Fill(new Rect(0, 0, 48, 64), new Color(255, 255, 255, 255));
+renderer.Ui.Draw(glassList, quads, glyphAtlas, art);
+var glassEncoder = device.BeginCommands();
+renderer.EndFrame(glassEncoder);
+device.Submit(glassEncoder);
+device.ReadTexture(frameTarget, 0, 0, frame);
+var edge = ((32 * 96) + 48) * 4;
+if (renderer.Ui.BackdropBlurs != 1 || frame[edge] < 20 || frame[edge] > 235 || frame[((32 * 96) + 2) * 4] != 255)
+{
+    Console.Error.WriteLine($"backdrop blur: edge pixel {frame[edge]}, blurs {renderer.Ui.BackdropBlurs}");
+    return 1;
+}
+
+Console.WriteLine($"backdrop blur: edge pixel {frame[edge]}");
+
 var draw2dProblem = Draw2DSmoke.Run(device, ReadResource("font.ttf"));
 if (draw2dProblem is not null)
 {

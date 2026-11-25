@@ -18,6 +18,13 @@ public partial class Swatch : Entity, IView2D
     [Command]
     public void Break(bool on) => Broken = on;
 
+    /// <summary>While set, the screen shows a full-window panel that blurs everything behind it (backdrop blur).</summary>
+    [Synced] public partial bool Glass { get; private set; }
+
+    /// <summary>Shows or hides the blurring panel.</summary>
+    [Command]
+    public void SetGlass(bool on) => Glass = on;
+
     private Texture2D? _texture;
     private Material? _material;
 

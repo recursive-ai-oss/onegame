@@ -39,6 +39,18 @@ public sealed record RenderScaleResult(double Scale, int RenderWidth, int Render
 /// <param name="Yaw">Environment turn about +Y in radians.</param>
 public sealed record EnvironmentResult(bool FogEnabled, double[] FogColor, double FogStart, double FogEnd, double FogMaxDensity, bool HasNextMap, double Blend, double Intensity, double Yaw)
 {
+    /// <summary>The fog curve: linear, exp, exp2 or height.</summary>
+    public string FogMode { get; init; } = "linear";
+
+    /// <summary>Fog thickness per world unit in the exp, exp2 and height modes.</summary>
+    public double FogDensity { get; init; }
+
+    /// <summary>Height fog: the world height where the density equals <see cref="FogDensity"/>.</summary>
+    public double FogHeightBase { get; init; }
+
+    /// <summary>Height fog: the density falloff per unit of height.</summary>
+    public double FogHeightFalloff { get; init; }
+
     /// <summary>The newest asynchronous environment load the stage was given; null when there was none.</summary>
     public EnvironmentLoadResult? Load { get; init; }
 }
@@ -55,8 +67,8 @@ public static partial class ControlOps
     private static ControlOp[] QualityOps =>
     [
         new("environment",
-            "Read or set the distance fog and the environment crossfade of a game that draws a 3D scene, to tune them live. fog true or false turns fog on or off; fogColor is linear [r,g,b]; fogStart and fogEnd are distances from the camera (fogEnd above fogStart); fogMaxDensity is 0..1. blend (0..1) moves the picture from the scene's first environment map to its second (it has no effect while the game set no second map); intensity and yaw (radians) scale and turn the environment light. Changes apply from the next frame and last until the game sets them again. load (a Radiance .hdr file in the output folder) or sky (a procedural panorama of that pixel width) starts an asynchronous environment load of face size size (0 follows quality): the game keeps drawing its current map, the filtering is spread over frames, and when it is ready the result replaces the scene map named by into (next, the default, to fade to with blend; or map). cancel true stops a running load. Returns the current values, with the latest load's state and progress.",
-            """{"type":"object","properties":{"fog":{"type":"boolean"},"fogColor":{"type":"array","items":{"type":"number","minimum":0},"minItems":3,"maxItems":3},"fogStart":{"type":"number","minimum":0},"fogEnd":{"type":"number","exclusiveMinimum":0},"fogMaxDensity":{"type":"number","minimum":0,"maximum":1},"blend":{"type":"number","minimum":0,"maximum":1},"intensity":{"type":"number","minimum":0},"yaw":{"type":"number"},"load":{"type":"string"},"sky":{"type":"integer","minimum":64,"maximum":8192},"size":{"type":"integer","minimum":0,"maximum":1024},"into":{"enum":["next","map"]},"cancel":{"type":"boolean"}}}""", true),
+            "Read or set the distance fog and the environment crossfade of a game that draws a 3D scene, to tune them live. fog true or false turns fog on or off; fogColor is linear [r,g,b]; fogStart and fogEnd are distances from the camera (fogEnd above fogStart); fogMaxDensity is 0..1. fogMode picks the curve: linear (fogStart to fogEnd, the default), exp or exp2 (fogDensity per world unit), or height (fogDensity at fogHeightBase, falling off by fogHeightFalloff per unit of height). blend (0..1) moves the picture from the scene's first environment map to its second (it has no effect while the game set no second map); intensity and yaw (radians) scale and turn the environment light. Changes apply from the next frame and last until the game sets them again. load (a Radiance .hdr file in the output folder) or sky (a procedural panorama of that pixel width) starts an asynchronous environment load of face size size (0 follows quality): the game keeps drawing its current map, the filtering is spread over frames, and when it is ready the result replaces the scene map named by into (next, the default, to fade to with blend; or map). cancel true stops a running load. Returns the current values, with the latest load's state and progress.",
+            """{"type":"object","properties":{"fog":{"type":"boolean"},"fogColor":{"type":"array","items":{"type":"number","minimum":0},"minItems":3,"maxItems":3},"fogStart":{"type":"number","minimum":0},"fogEnd":{"type":"number","exclusiveMinimum":0},"fogMaxDensity":{"type":"number","minimum":0,"maximum":1},"fogMode":{"type":"string","enum":["linear","exp","exp2","height"]},"fogDensity":{"type":"number","minimum":0},"fogHeightBase":{"type":"number"},"fogHeightFalloff":{"type":"number","minimum":0},"blend":{"type":"number","minimum":0,"maximum":1},"intensity":{"type":"number","minimum":0},"yaw":{"type":"number"},"load":{"type":"string"},"sky":{"type":"integer","minimum":64,"maximum":8192},"size":{"type":"integer","minimum":0,"maximum":1024},"into":{"enum":["next","map"]},"cancel":{"type":"boolean"}}}""", true),
         new("render_scale",
             "Read or set the share of the window a game's 3D scene is drawn at, the cheapest lever on frame time. scale is 0.25 to 1 (1 is full size): the 3D frame (shadows, lighting, bloom, tone mapping) runs on a smaller image that is stretched over the window before the 2D and UI passes, so the UI stays sharp; cost follows the pixel count. Picking, projection and captures keep using window pixels. Applies from the next frame. Returns the scale and the pixel size the last frame drew the scene at.",
             """{"type":"object","properties":{"scale":{"type":"number","minimum":0.25,"maximum":1}}}""", true),

@@ -50,6 +50,8 @@ public sealed partial class Renderer2D : IDisposable
         public GpuBindGroup Texture;
         public GpuBindGroup? Extra;
         public bool IsUi;
+        public bool IsCopy;
+        public int CopyTo;
         public int First;
         public int Count;
         public int Sx, Sy, Sw, Sh;
@@ -494,7 +496,7 @@ public sealed partial class Renderer2D : IDisposable
         ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(width, 16384);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(height, 16384);
-        var image = _device.CreateTexture(new TextureDesc((uint)width, (uint)height, _format, TextureUsage.RenderTarget | TextureUsage.Sampled) { Label = "2d render texture" });
+        var image = _device.CreateTexture(new TextureDesc((uint)width, (uint)height, _format, TextureUsage.RenderTarget | TextureUsage.Sampled | TextureUsage.CopySource) { Label = "2d render texture" });
         var view = WrapTexture(image, filter);
         return new RenderTexture2D(this, image, view, NewTargetState(image, pooled: false));
     }
@@ -678,7 +680,7 @@ public sealed partial class Renderer2D : IDisposable
 
         if (found is null)
         {
-            var tex = _device.CreateTexture(new TextureDesc((uint)width, (uint)height, _format, TextureUsage.RenderTarget | TextureUsage.Sampled) { Label = "2d offscreen" });
+            var tex = _device.CreateTexture(new TextureDesc((uint)width, (uint)height, _format, TextureUsage.RenderTarget | TextureUsage.Sampled | TextureUsage.CopySource | TextureUsage.CopyDestination) { Label = "2d offscreen" });
             found = NewTargetState(tex, pooled: true);
             found.Sample = _device.CreateBindGroup(_layoutPlain, 1, [BindGroupEntry.ForTexture(0, tex), BindGroupEntry.ForSampler(1, _clampLinear)]);
             _temps.Add(found);
@@ -1215,6 +1217,17 @@ public sealed partial class Renderer2D : IDisposable
         for (var i = 0; i < ops.Length; i++)
         {
             ref var op = ref ops[i];
+            if (op.IsCopy)
+            {
+                // A backdrop snapshot: the target as drawn so far, copied outside any render pass so later passes can sample it.
+                pass?.EndPass();
+                pass = null;
+                current = -1;
+                pipeline = null;
+                encoder.CopyTexture(_targets[op.Target].State.Texture, _targets[op.CopyTo].State.Texture);
+                continue;
+            }
+
             if (op.Target != current)
             {
                 pass?.EndPass();

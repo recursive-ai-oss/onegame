@@ -134,7 +134,7 @@ onegame mcp --socket /tmp/shop.sock     # then: info, ui_click, input_text, clip
 
 `capture_frame` renders offscreen at any size; with `"presented": true` it returns the frame the window actually shows. `input_*` operations go through the same queue as the keyboard and mouse, so a text field cannot tell them apart; `input_composition` plays an input method's pre-edit text and `clipboard_get`/`clipboard_set` read and write the system clipboard (paste with `input_key` `v` + `Control`). With no display (a CI machine) run headless, or start `Xvfb :88 -noreset` for a window.
 
-`environment` tunes a 3D scene live: `{"fog":true,"fogColor":[0.45,0.55,0.7],"fogStart":10,"fogEnd":90,"fogMaxDensity":0.9}` turns distance fog on, `{"blend":0.5}` moves the scene halfway from its first environment map to its second (`Environment.NextMap`), and `intensity` and `yaw` scale and turn the environment light. It returns the values in force. A game that sets the same fields from its own code each frame overrides what you send, so tune with the game's own setting held still; then `capture_frame` to look.
+`environment` tunes a 3D scene live: `{"fog":true,"fogColor":[0.45,0.55,0.7],"fogStart":10,"fogEnd":90,"fogMaxDensity":0.9}` turns distance fog on, `fogMode` (`linear`, `exp`, `exp2`, `height`) with `fogDensity`, `fogHeightBase` and `fogHeightFalloff` picks another fog curve, `{"blend":0.5}` moves the scene halfway from its first environment map to its second (`Environment.NextMap`), and `intensity` and `yaw` scale and turn the environment light. It returns the values in force. A game that sets the same fields from its own code each frame overrides what you send, so tune with the game's own setting held still; then `capture_frame` to look.
 
 ### Shader hot reload
 
