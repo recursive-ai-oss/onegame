@@ -570,6 +570,7 @@ Raised after the world is replaced by a reset, a fixture or a snapshot load. Rec
 | [`StartRecording(RecordingOptions?)`](#m-startrecording-recordingoptions) | Starts recording the run from the current state. |
 | [`StartSessionRecording(RecordingOptions?)`](#m-startsessionrecording-recordingoptions) | Starts recording the session from the current state and keeps going across world replacements (resets, fixtures, loaded saves), so the result replays a run that starts new games. |
 | [`Step(int)`](#m-step-int) | Runs `frames` frames: input, one tick, UI update (and drawing when windowed). |
+| [`SwitchConnection(ConnectOptions?)`](#m-switchconnection-connectoptions) | Replaces the game's session while the window, device and renderer stay as they are: the current server connection (if any) is closed and the game starts over, either as a replica of the scope `connect` names or, with null, as a new world of its own. |
 | [`TakeGpuValidationMessages()`](#m-takegpuvalidationmessages) | Validation messages the graphics layer collected since the last call; empty when validation is off or nothing was reported. |
 | [`TryLoadSnapshot(ReadOnlySpan<byte>)`](#m-tryloadsnapshot-readonlyspan-byte) | Like [`GameInstance.LoadSnapshot()`](GameInstance.md#m-loadsnapshot-readonlyspan-byte) but reports a refused save instead of throwing. |
 
@@ -952,6 +953,22 @@ Runs `frames` frames: input, one tick, UI update (and drawing when windowed).
 **Parameters**
 
 - `frames` (`int`)
+
+### <a id="m-switchconnection-connectoptions"></a>SwitchConnection(ConnectOptions?)
+
+```csharp
+public void SwitchConnection(ConnectOptions? connect);
+```
+
+Replaces the game's session while the window, device and renderer stay as they are: the current server connection (if any) is closed and the game starts over, either as a replica of the scope `connect` names or, with null, as a new world of its own. Nothing of the old world or session is kept. Raises [`GameInstance.WorldReplaced`](GameInstance.md#m-worldreplaced), and [`GameInstance.Options`](GameInstance.md#m-options) then carries the new [`GameOptions.Connect`](GameOptions.md#m-connect). The open screen is left alone; reopen one with [`GameInstance.OpenScreen()`](GameInstance.md#m-openscreen-string) if it shows session state.
+
+**Parameters**
+
+- `connect` ([`ConnectOptions`](ConnectOptions.md)?): The server to play on, or null for a local game.
+
+**Exceptions**
+
+- [`ObjectDisposedException`](https://learn.microsoft.com/dotnet/api/system.objectdisposedexception): The instance was disposed.
 
 ### <a id="m-takegpuvalidationmessages"></a>TakeGpuValidationMessages()
 

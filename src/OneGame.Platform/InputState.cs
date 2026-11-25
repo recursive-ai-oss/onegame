@@ -101,6 +101,15 @@ public sealed class InputState
     /// <summary>How many edges were dropped because a frame never ended (an app that does not call <see cref="EndFrame"/> sees this grow).</summary>
     public int DroppedPointerEdges { get; private set; }
 
+    // A new run on the same windows starts with nothing held.
+    internal void ReleaseAll()
+    {
+        Array.Clear(_keys);
+        Array.Clear(_buttons);
+        _touches.Clear();
+        _edges.Clear();
+    }
+
     /// <summary>Forgets the pointer edges. The game host calls it after each frame; an app that drives <see cref="PlatformApp"/> itself should too.</summary>
     public void EndFrame() => _edges.Clear();
 

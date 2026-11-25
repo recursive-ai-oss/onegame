@@ -26,6 +26,7 @@ internal static class Program
 | Member | Description |
 | --- | --- |
 | [`DevTools`](#m-devtools) | Set by development builds before [`GameApp.Run()`](GameApp.md#m-run-gamedefinition-string) so the extra options work. |
+| [`ReuseWindow`](#m-reusewindow) | True keeps the window, graphics device and swapchain of a windowed run alive after [`GameApp.Run()`](GameApp.md#m-run-gamedefinition-string) returns, so a later call in the same process starts drawing at once; they close when the process exits or at [`GameHost.Release()`](GameHost.md#m-release). |
 
 ### <a id="m-devtools"></a>DevTools
 
@@ -36,6 +37,16 @@ public static Func<IDevTools>? DevTools { get; set; }
 Set by development builds before [`GameApp.Run()`](GameApp.md#m-run-gamedefinition-string) so the extra options work. A release build leaves it null, and those options then fail with [`ExitCodes.NoDevTools`](ExitCodes.md#m-nodevtools).
 
 **Type:** [`Func`](https://learn.microsoft.com/dotnet/api/system.func-1)&lt;[`IDevTools`](IDevTools.md)&gt;?
+
+### <a id="m-reusewindow"></a>ReuseWindow
+
+```csharp
+public static bool ReuseWindow { get; set; }
+```
+
+True keeps the window, graphics device and swapchain of a windowed run alive after [`GameApp.Run()`](GameApp.md#m-run-gamedefinition-string) returns, so a later call in the same process starts drawing at once; they close when the process exits or at [`GameHost.Release()`](GameHost.md#m-release). Set it to false before the first run to give every run a window of its own that closes with it. The default is true except on macOS, where it is false until reuse has been checked on a desktop session; set it to true there to opt in (and call [`GameHost.Release()`](GameHost.md#m-release) from the main thread before `Main` returns). Headless runs and phones are not affected. See `docs/interfaces/host-lifetime.md`.
+
+**Type:** `bool`
 
 ## Methods
 
