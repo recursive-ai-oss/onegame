@@ -22,6 +22,10 @@ public struct Pbr.VSInst.Vertex
 | [`Rx`](#m-rx) |  |
 | [`Ry`](#m-ry) |  |
 | [`Rz`](#m-rz) |  |
+| [`Skin_W`](#m-skin-w) |  |
+| [`Skin_X`](#m-skin-x) |  |
+| [`Skin_Y`](#m-skin-y) |  |
+| [`Skin_Z`](#m-skin-z) |  |
 | [`Tangent`](#m-tangent) |  |
 | [`Tint`](#m-tint) |  |
 | [`Uv0`](#m-uv0) |  |
@@ -91,6 +95,38 @@ public Vector4 Rz;
 ```
 
 **Type:** [`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)
+
+### <a id="m-skin-w"></a>Skin\_W
+
+```csharp
+public uint Skin_W;
+```
+
+**Type:** `uint`
+
+### <a id="m-skin-x"></a>Skin\_X
+
+```csharp
+public uint Skin_X;
+```
+
+**Type:** `uint`
+
+### <a id="m-skin-y"></a>Skin\_Y
+
+```csharp
+public uint Skin_Y;
+```
+
+**Type:** `uint`
+
+### <a id="m-skin-z"></a>Skin\_Z
+
+```csharp
+public uint Skin_Z;
+```
+
+**Type:** `uint`
 
 ### <a id="m-tangent"></a>Tangent
 

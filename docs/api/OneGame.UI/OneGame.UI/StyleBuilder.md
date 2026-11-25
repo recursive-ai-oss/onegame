@@ -33,6 +33,7 @@ Creates an empty builder for use in a style sheet rule.
 | [`AlignItems(Align)`](#m-alignitems-align) | Sets `align-items`. |
 | [`AlignSelf(Align)`](#m-alignself-align) | Sets `align-self`. |
 | [`Anchor(AnchorPoint, Length, Length, bool)`](#m-anchor-anchorpoint-length-length-bool) | Pins an element at `point` of its containing box (the parent, or the screen when `toScreen`). |
+| [`BackdropBlur(Length)`](#m-backdropblur-length) | Sets `backdrop-blur`, the blur of `backdrop-filter: blur(radius)` (CSS Filter Effects 2): what is drawn behind the element (a 3D scene, sprites, UI painted earlier) is replaced inside its rounded box by a Gaussian blur with this standard deviation. |
 | [`Background(Color)`](#m-background-color) | Sets `background-color`. |
 | [`BackgroundImage(string)`](#m-backgroundimage-string) | Sets the background image by asset id (raster or SVG); an empty string clears it. |
 | [`BackgroundPosition(Length, Length)`](#m-backgroundposition-length-length) | Sets `background-position-x` and `-y`. |
@@ -60,6 +61,7 @@ Creates an empty builder for use in a style sheet rule.
 | [`Gap(Length)`](#m-gap-length) | Sets both gaps. |
 | [`Grow(float)`](#m-grow-float) | Sets `flex-grow`. |
 | [`Height(Length)`](#m-height-length) | Sets `height`. |
+| [`ImageRendering(ImageRendering)`](#m-imagerendering-imagerendering) | Sets `image-rendering`: [`ImageRendering.Pixelated`](ImageRendering.md#m-pixelated) samples images with nearest-neighbour filtering so pixel art stays sharp when scaled. |
 | [`Inset(Length)`](#m-inset-length) | Sets all four insets (`left/top/right/bottom`). |
 | [`JustifyContent(Align)`](#m-justifycontent-align) | Sets `justify-content`. |
 | [`Left(Length)`](#m-left-length) | Sets `left`. |
@@ -166,6 +168,20 @@ Pins an element at `point` of its containing box (the parent, or the screen when
 - `x` ([`Length`](Length.md))
 - `y` ([`Length`](Length.md))
 - `toScreen` (`bool`)
+
+**Returns:** [`StyleBuilder`](StyleBuilder.md)
+
+### <a id="m-backdropblur-length"></a>BackdropBlur(Length)
+
+```csharp
+public StyleBuilder BackdropBlur(Length v);
+```
+
+Sets `backdrop-blur`, the blur of `backdrop-filter: blur(radius)` (CSS Filter Effects 2): what is drawn behind the element (a 3D scene, sprites, UI painted earlier) is replaced inside its rounded box by a Gaussian blur with this standard deviation. Give the element a translucent background for the frosted-glass look. Zero (the default) costs nothing; each blurred box costs a copy of the target and a few small passes, so keep the count low. Radii above 64 pixels are drawn as 64.
+
+**Parameters**
+
+- `v` ([`Length`](Length.md))
 
 **Returns:** [`StyleBuilder`](StyleBuilder.md)
 
@@ -552,6 +568,20 @@ Sets `height`.
 **Parameters**
 
 - `v` ([`Length`](Length.md))
+
+**Returns:** [`StyleBuilder`](StyleBuilder.md)
+
+### <a id="m-imagerendering-imagerendering"></a>ImageRendering(ImageRendering)
+
+```csharp
+public StyleBuilder ImageRendering(ImageRendering v);
+```
+
+Sets `image-rendering`: [`ImageRendering.Pixelated`](ImageRendering.md#m-pixelated) samples images with nearest-neighbour filtering so pixel art stays sharp when scaled. Inherited by children.
+
+**Parameters**
+
+- `v` ([`ImageRendering`](ImageRendering.md))
 
 **Returns:** [`StyleBuilder`](StyleBuilder.md)
 

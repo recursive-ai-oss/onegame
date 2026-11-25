@@ -109,6 +109,8 @@ View time in seconds: the shown tick and fraction at the simulation's rate. Part
 | [`DirectionalLight(Vector3, Vector3, float, bool)`](#m-directionallight-vector3-vector3-float-bool) | A light from infinitely far away. |
 | [`Instance(string, Transform3, Vector4?)`](#m-instance-string-transform3-vector4) | Shows one copy of a static model among many: every copy of the same model in a frame is drawn with one instanced draw per primitive and culled against the camera and the shadow maps, so thousands of trees or rocks are cheap. |
 | [`Instance(string, in Matrix4x4, Vector4?)`](#m-instance-string-matrix4x4-vector4) | Shows one copy of a static model among many at a world matrix; see the [`Transform3`](../../OneGame.Core/OneGame.Core/Transform3.md) form. |
+| [`Instance(string, Transform3, NodePose, Vector4?)`](#m-instance-string-transform3-nodepose-vector4) | Shows one copy of an animated, skinned model among many, each in its own pose (for example `Animator.Pose`): every copy of the same model in a frame is drawn with one instanced draw per primitive, so hundreds of characters cost a handful of draws. |
+| [`Instance(string, in Matrix4x4, NodePose, Vector4?)`](#m-instance-string-matrix4x4-nodepose-vector4) | Shows one copy of an animated, skinned model among many at a world matrix; see the [`Transform3`](../../OneGame.Core/OneGame.Core/Transform3.md) form. |
 | [`Model(string, Transform3, in ModelOptions)`](#m-model-string-transform3-modeloptions) | Shows a model with an opacity and a label, for example to fade an island in. |
 | [`Model(string, Transform3, bool)`](#m-model-string-transform3-bool) | Shows a model from the [`ModelLibrary`](ModelLibrary.md) at a transform. |
 | [`Model(string, in Matrix4x4, in ModelOptions)`](#m-model-string-matrix4x4-modeloptions) | Shows a model at a world matrix with an opacity and a label. |
@@ -314,6 +316,44 @@ Shows one copy of a static model among many at a world matrix; see the [`Transfo
 
 - `model` (`string`): The name the model was added under.
 - `world` ([`Matrix4x4`](https://learn.microsoft.com/dotnet/api/system.numerics.matrix4x4)): Where it is; scale must be uniform and unmirrored.
+- `tint` ([`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)?): Linear RGBA multiplied into the base colour; null leaves it unchanged.
+
+**Exceptions**
+
+- [`UnknownModelException`](UnknownModelException.md): The library has no such model.
+
+### <a id="m-instance-string-transform3-nodepose-vector4"></a>Instance(string, Transform3, NodePose, Vector4?)
+
+```csharp
+public void Instance(string model, Transform3 transform, NodePose pose, Vector4? tint = default);
+```
+
+Shows one copy of an animated, skinned model among many, each in its own pose (for example `Animator.Pose`): every copy of the same model in a frame is drawn with one instanced draw per primitive, so hundreds of characters cost a handful of draws. The pose is read when the frame is built, so the caller keeps its buffer. Copies are culled against the camera and the shadow maps, cast and receive shadows and take fog. Nodes without a skin and morph targets stay at the rest pose, copies cannot be picked, and the scale should be uniform and unmirrored.
+
+**Parameters**
+
+- `model` (`string`): The name the model was added under.
+- `transform` ([`Transform3`](../../OneGame.Core/OneGame.Core/Transform3.md)): Where it is.
+- `pose` ([`NodePose`](../../OneGame.Gltf/OneGame.Gltf/NodePose.md)): The node pose to draw (from the same model's rig).
+- `tint` ([`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)?): Linear RGBA multiplied into the base colour; null leaves it unchanged.
+
+**Exceptions**
+
+- [`UnknownModelException`](UnknownModelException.md): The library has no such model.
+
+### <a id="m-instance-string-matrix4x4-nodepose-vector4"></a>Instance(string, in Matrix4x4, NodePose, Vector4?)
+
+```csharp
+public void Instance(string model, in Matrix4x4 world, NodePose pose, Vector4? tint = default);
+```
+
+Shows one copy of an animated, skinned model among many at a world matrix; see the [`Transform3`](../../OneGame.Core/OneGame.Core/Transform3.md) form.
+
+**Parameters**
+
+- `model` (`string`): The name the model was added under.
+- `world` ([`Matrix4x4`](https://learn.microsoft.com/dotnet/api/system.numerics.matrix4x4)): Where it is; scale must be uniform and unmirrored.
+- `pose` ([`NodePose`](../../OneGame.Gltf/OneGame.Gltf/NodePose.md)): The node pose to draw (from the same model's rig).
 - `tint` ([`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)?): Linear RGBA multiplied into the base colour; null leaves it unchanged.
 
 **Exceptions**

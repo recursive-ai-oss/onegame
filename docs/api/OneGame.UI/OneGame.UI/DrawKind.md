@@ -26,3 +26,4 @@ The kind of a [`DrawCommand`](DrawCommand.md).
 | <a id="m-poptransform"></a>`PopTransform` | `8` | Remove the transform pushed by the matching [`DrawKind.PushTransform`](DrawKind.md#m-pushtransform). |
 | <a id="m-pushopacity"></a>`PushOpacity` | `9` | Draw everything until the matching [`DrawKind.PopOpacity`](DrawKind.md#m-popopacity) as a group, then blend it with [`DrawCommand.Value`](DrawCommand.md#m-value) opacity. |
 | <a id="m-popopacity"></a>`PopOpacity` | `10` | End the group started by the matching [`DrawKind.PushOpacity`](DrawKind.md#m-pushopacity). |
+| <a id="m-backdropblur"></a>`BackdropBlur` | `11` | Replace what is behind the rounded rectangle [`DrawCommand.Bounds`](DrawCommand.md#m-bounds) with a Gaussian blur of it; [`DrawCommand.Value`](DrawCommand.md#m-value) is the standard deviation in pixels (`backdrop-filter: blur()`). The element's own background is drawn after it. |

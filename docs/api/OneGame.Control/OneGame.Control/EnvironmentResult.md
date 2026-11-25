@@ -44,9 +44,13 @@ Result of `environment`: the scene's distance fog and environment crossfade.
 | --- | --- |
 | [`Blend`](#m-blend) | Crossfade weight, 0 (first map) to 1 (second map). |
 | [`FogColor`](#m-fogcolor) | Linear fog colour (r, g, b). |
+| [`FogDensity`](#m-fogdensity) | Fog thickness per world unit in the exp, exp2 and height modes. |
 | [`FogEnabled`](#m-fogenabled) | Whether fog is applied. |
 | [`FogEnd`](#m-fogend) | Distance where fog reaches its maximum. |
+| [`FogHeightBase`](#m-fogheightbase) | Height fog: the world height where the density equals [`EnvironmentResult.FogDensity`](EnvironmentResult.md#m-fogdensity). |
+| [`FogHeightFalloff`](#m-fogheightfalloff) | Height fog: the density falloff per unit of height. |
 | [`FogMaxDensity`](#m-fogmaxdensity) | Largest share of the fog colour a surface shows. |
+| [`FogMode`](#m-fogmode) | The fog curve: linear, exp, exp2 or height. |
 | [`FogStart`](#m-fogstart) | Distance where fog begins. |
 | [`HasNextMap`](#m-hasnextmap) | Whether the scene has a second environment to fade to. |
 | [`Intensity`](#m-intensity) | Image-based light scale. |
@@ -73,6 +77,16 @@ Linear fog colour (r, g, b).
 
 **Type:** `double[]`
 
+### <a id="m-fogdensity"></a>FogDensity
+
+```csharp
+public double FogDensity { get; init; }
+```
+
+Fog thickness per world unit in the exp, exp2 and height modes.
+
+**Type:** `double`
+
 ### <a id="m-fogenabled"></a>FogEnabled
 
 ```csharp
@@ -93,6 +107,26 @@ Distance where fog reaches its maximum.
 
 **Type:** `double`
 
+### <a id="m-fogheightbase"></a>FogHeightBase
+
+```csharp
+public double FogHeightBase { get; init; }
+```
+
+Height fog: the world height where the density equals [`EnvironmentResult.FogDensity`](EnvironmentResult.md#m-fogdensity).
+
+**Type:** `double`
+
+### <a id="m-fogheightfalloff"></a>FogHeightFalloff
+
+```csharp
+public double FogHeightFalloff { get; init; }
+```
+
+Height fog: the density falloff per unit of height.
+
+**Type:** `double`
+
 ### <a id="m-fogmaxdensity"></a>FogMaxDensity
 
 ```csharp
@@ -102,6 +136,16 @@ public double FogMaxDensity { get; init; }
 Largest share of the fog colour a surface shows.
 
 **Type:** `double`
+
+### <a id="m-fogmode"></a>FogMode
+
+```csharp
+public string FogMode { get; init; }
+```
+
+The fog curve: linear, exp, exp2 or height.
+
+**Type:** `string`
 
 ### <a id="m-fogstart"></a>FogStart
 

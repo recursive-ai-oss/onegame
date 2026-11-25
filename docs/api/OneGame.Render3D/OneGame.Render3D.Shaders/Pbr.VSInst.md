@@ -66,7 +66,7 @@ public const ShaderStage Stage = 0;
 ### <a id="m-stride"></a>Stride
 
 ```csharp
-public const uint Stride = 160;
+public const uint Stride = 176;
 ```
 
 **Type:** `uint`

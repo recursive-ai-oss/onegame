@@ -28,6 +28,7 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`EnvironmentLoadOptions`](OneGame.Render3D/EnvironmentLoadOptions.md) | class | Tuning for [`Renderer3D.CreateEnvironmentAsync()`](OneGame.Render3D/Renderer3D.md#m-createenvironmentasync-hdrimage-environmentloadoptions). |
 | [`EnvironmentLoadState`](OneGame.Render3D/EnvironmentLoadState.md) | enum | Where an [`EnvironmentLoad`](OneGame.Render3D/EnvironmentLoad.md) is. |
 | [`EnvironmentMap`](OneGame.Render3D/EnvironmentMap.md) | class | An environment prepared for lighting: a GGX-prefiltered specular cube (roughness grows with the mip level, mip 0 is the sharp environment) and a cosine-convolved diffuse cube. |
+| [`FogMode`](OneGame.Render3D/FogMode.md) | enum | How [`FogSettings`](OneGame.Render3D/FogSettings.md) turns distance (and height) into an amount of fog. |
 | [`FogSettings`](OneGame.Render3D/FogSettings.md) | class | Distance fog: surfaces fade towards a colour with their distance from the camera. |
 | [`FrameStats3D`](OneGame.Render3D/FrameStats3D.md) | struct | What one frame of 3D drew. |
 | [`HdrException`](OneGame.Render3D/HdrException.md) | class | The file is not a valid Radiance (.hdr) image, or exceeds a limit. |
@@ -56,6 +57,7 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`ShadowSettings`](OneGame.Render3D/ShadowSettings.md) | class | Scene-wide shadow controls. |
 | [`SsaoSettings`](OneGame.Render3D/SsaoSettings.md) | class | Screen-space ambient occlusion, computed from the depth and normals of the scene. |
 | [`ToneMapper`](OneGame.Render3D/ToneMapper.md) | enum | The curve that maps scene-referred HDR light to display values. |
+| [`VolumetricSettings`](OneGame.Render3D/VolumetricSettings.md) | class | Light shafts (also called god rays or volumetric light): lights scattering through the air, so a sun through a gap in a wall or a flashlight's cone shows as a beam, and objects that block the light leave dark shafts in it. |
 
 ## OneGame.Render3D.Shaders
 
@@ -129,6 +131,8 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`Pbr.Bindings.Irradiance`](OneGame.Render3D.Shaders/Pbr.Bindings.Irradiance.md) | static class |  |
 | [`Pbr.Bindings.IrradianceB`](OneGame.Render3D.Shaders/Pbr.Bindings.IrradianceB.md) | static class |  |
 | [`Pbr.Bindings.Joints`](OneGame.Render3D.Shaders/Pbr.Bindings.Joints.md) | static class |  |
+| [`Pbr.Bindings.LayerSamp`](OneGame.Render3D.Shaders/Pbr.Bindings.LayerSamp.md) | static class |  |
+| [`Pbr.Bindings.LayerTex`](OneGame.Render3D.Shaders/Pbr.Bindings.LayerTex.md) | static class |  |
 | [`Pbr.Bindings.Lights`](OneGame.Render3D.Shaders/Pbr.Bindings.Lights.md) | static class |  |
 | [`Pbr.Bindings.Material`](OneGame.Render3D.Shaders/Pbr.Bindings.Material.md) | static class |  |
 | [`Pbr.Bindings.MrSamp`](OneGame.Render3D.Shaders/Pbr.Bindings.MrSamp.md) | static class |  |
@@ -169,11 +173,26 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`Post.Bindings.Color`](OneGame.Render3D.Shaders/Post.Bindings.Color.md) | static class |  |
 | [`Post.Bindings.Params`](OneGame.Render3D.Shaders/Post.Bindings.Params.md) | static class |  |
 | [`Post.Bindings.Samp`](OneGame.Render3D.Shaders/Post.Bindings.Samp.md) | static class |  |
+| [`Post.PSBlit`](OneGame.Render3D.Shaders/Post.PSBlit.md) | static class |  |
 | [`Post.PSDown`](OneGame.Render3D.Shaders/Post.PSDown.md) | static class |  |
 | [`Post.PSTonemap`](OneGame.Render3D.Shaders/Post.PSTonemap.md) | static class |  |
 | [`Post.PSUp`](OneGame.Render3D.Shaders/Post.PSUp.md) | static class |  |
 | [`Post.Params`](OneGame.Render3D.Shaders/Post.Params.md) | struct |  |
 | [`Post.VSFull`](OneGame.Render3D.Shaders/Post.VSFull.md) | static class |  |
+| [`Shafts`](OneGame.Render3D.Shaders/Shafts.md) | static class |  |
+| [`Shafts.Bindings`](OneGame.Render3D.Shaders/Shafts.Bindings.md) | static class |  |
+| [`Shafts.Bindings.Frame`](OneGame.Render3D.Shaders/Shafts.Bindings.Frame.md) | static class |  |
+| [`Shafts.Bindings.Gbuf`](OneGame.Render3D.Shaders/Shafts.Bindings.Gbuf.md) | static class |  |
+| [`Shafts.Bindings.Scatter`](OneGame.Render3D.Shaders/Shafts.Bindings.Scatter.md) | static class |  |
+| [`Shafts.Bindings.ShadowAtlas`](OneGame.Render3D.Shaders/Shafts.Bindings.ShadowAtlas.md) | static class |  |
+| [`Shafts.Bindings.ShadowSamp`](OneGame.Render3D.Shaders/Shafts.Bindings.ShadowSamp.md) | static class |  |
+| [`Shafts.Bindings.Shadows`](OneGame.Render3D.Shaders/Shafts.Bindings.Shadows.md) | static class |  |
+| [`Shafts.Bindings.ShaftParams`](OneGame.Render3D.Shaders/Shafts.Bindings.ShaftParams.md) | static class |  |
+| [`Shafts.Frame`](OneGame.Render3D.Shaders/Shafts.Frame.md) | struct |  |
+| [`Shafts.PSComposite`](OneGame.Render3D.Shaders/Shafts.PSComposite.md) | static class |  |
+| [`Shafts.PSMarch`](OneGame.Render3D.Shaders/Shafts.PSMarch.md) | static class |  |
+| [`Shafts.ShadowData`](OneGame.Render3D.Shaders/Shafts.ShadowData.md) | struct |  |
+| [`Shafts.ShaftParams`](OneGame.Render3D.Shaders/Shafts.ShaftParams.md) | struct |  |
 | [`Ssao`](OneGame.Render3D.Shaders/Ssao.md) | static class |  |
 | [`Ssao.Bindings`](OneGame.Render3D.Shaders/Ssao.Bindings.md) | static class |  |
 | [`Ssao.Bindings.Gbuf`](OneGame.Render3D.Shaders/Ssao.Bindings.Gbuf.md) | static class |  |

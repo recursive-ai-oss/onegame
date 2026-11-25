@@ -16,7 +16,18 @@ Draws UI shapes, images and text into the current frame, in coordinates of frame
 
 | Member | Description |
 | --- | --- |
+| [`BackdropBlurs`](#m-backdropblurs) | The number of backdrop blurs drawn since the renderer was made (each costs a copy of the target and a few small passes). |
 | [`MissingArt`](#m-missingart) | Images the display list named that the atlas could not find, drawn as magenta boxes; counts since the renderer was made. |
+
+### <a id="m-backdropblurs"></a>BackdropBlurs
+
+```csharp
+public int BackdropBlurs { get; }
+```
+
+The number of backdrop blurs drawn since the renderer was made (each costs a copy of the target and a few small passes).
+
+**Type:** `int`
 
 ### <a id="m-missingart"></a>MissingArt
 
@@ -32,6 +43,7 @@ Images the display list named that the atlas could not find, drawn as magenta bo
 
 | Member | Description |
 | --- | --- |
+| [`BackdropBlur(Rect, CornerRadii, float)`](#m-backdropblur-rect-cornerradii-float) | Replaces what is behind a rounded rectangle with a Gaussian blur of it: the target as drawn so far, so a 3D scene, sprites and UI painted earlier all blur. |
 | [`Border(Rect, Color, Edges, CornerRadii)`](#m-border-rect-color-edges-cornerradii) | Strokes the inside edge of a rounded rectangle, with a thickness per side. |
 | [`Dispose()`](#m-dispose) | Releases the atlas page textures. |
 | [`Draw(DisplayList, TextQuadBuilder, GlyphAtlas, ArtAtlas)`](#m-draw-displaylist-textquadbuilder-glyphatlas-artatlas) | Draws a display list: every command in order, with its clips, transforms and opacity groups. |
@@ -47,6 +59,20 @@ Images the display list named that the atlas could not find, drawn as magenta bo
 | [`PushTransform(Matrix3x2)`](#m-pushtransform-matrix3x2) | Applies `matrix` to everything drawn until [`UiCanvas.PopTransform()`](UiCanvas.md#m-poptransform). |
 | [`Shadow(Rect, Color, CornerRadii, Vector2, float, float)`](#m-shadow-rect-color-cornerradii-vector2-float-float) | Draws a soft shadow of a rounded box. |
 | [`Text(TextQuadBuilder, GlyphAtlas, string, in TextStyle, Vector2, Color)`](#m-text-textquadbuilder-glyphatlas-string-textstyle-vector2-color) | Draws one line of text with its top-left corner at a point, outside any display list. |
+
+### <a id="m-backdropblur-rect-cornerradii-float"></a>BackdropBlur(Rect, CornerRadii, float)
+
+```csharp
+public void BackdropBlur(Rect bounds, CornerRadii radii, float sigma);
+```
+
+Replaces what is behind a rounded rectangle with a Gaussian blur of it: the target as drawn so far, so a 3D scene, sprites and UI painted earlier all blur. The shape follows the clips and transform in effect, so it can be rotated or clipped. Inside an opacity group the backdrop is the group's own picture. Draw the translucent panel after it. A target that cannot be copied (a wrapped foreign texture) is left unblurred.
+
+**Parameters**
+
+- `bounds` ([`Rect`](../../OneGame.UI/OneGame.UI/Rect.md)): The rectangle, in the coordinates in effect now.
+- `radii` ([`CornerRadii`](../../OneGame.UI/OneGame.UI/CornerRadii.md)): Corner radii, or default for square corners.
+- `sigma` (`float`): The blur's standard deviation in pixels (CSS `backdrop-filter: blur()`); values above 64 count as 64 and values under a quarter pixel draw nothing.
 
 ### <a id="m-border-rect-color-edges-cornerradii"></a>Border(Rect, Color, Edges, CornerRadii)
 

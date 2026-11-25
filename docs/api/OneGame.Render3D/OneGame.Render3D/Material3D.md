@@ -17,6 +17,8 @@ A material on the GPU: constants and textures bound as one group. Its [`Material
 | --- | --- |
 | [`Emissive`](#m-emissive) | Emitted colour, linear RGB (the file's emissive factor times its strength at load). |
 | [`EmissiveStrength`](#m-emissivestrength) | A multiplier on [`Material3D.Emissive`](Material3D.md#m-emissive) (1 by default), for pulsing or fading a glow without touching its colour. |
+| [`FogExempt`](#m-fogexempt) | Leaves the material out of [`Scene3D.Fog`](Scene3D.md#m-fog) (false by default). |
+| [`LayerCount`](#m-layercount) | Number of texture layers chosen per vertex (see [`Renderer3D.CreateLayeredMaterial()`](Renderer3D.md#m-createlayeredmaterial-string-int-int-readonlyspan-readonlymemory-byte-materialalpha3d-bool-vector4-float-bool)); 0 for an ordinary material. |
 | [`Name`](#m-name) | The material's name in the glTF file (empty for the default material). |
 | [`Opacity`](#m-opacity) | 1 (default) draws the material as the file says; below 1 it multiplies the alpha and moves the material to the blended pass, which sorts far to near and writes no depth, as for a glTF BLEND material. |
 | [`OutlineColor`](#m-outlinecolor) | Outline colour, linear RGB. |
@@ -48,6 +50,26 @@ public float EmissiveStrength { get; set; }
 A multiplier on [`Material3D.Emissive`](Material3D.md#m-emissive) (1 by default), for pulsing or fading a glow without touching its colour.
 
 **Type:** `float`
+
+### <a id="m-fogexempt"></a>FogExempt
+
+```csharp
+public bool FogExempt { get; set; }
+```
+
+Leaves the material out of [`Scene3D.Fog`](Scene3D.md#m-fog) (false by default). Use it for a backdrop layer that must keep its own colours: a sky dome or skybox mesh, distant mountains painted into the sky. The material is still lit, tone mapped and depth tested as usual.
+
+**Type:** `bool`
+
+### <a id="m-layercount"></a>LayerCount
+
+```csharp
+public int LayerCount { get; }
+```
+
+Number of texture layers chosen per vertex (see [`Renderer3D.CreateLayeredMaterial()`](Renderer3D.md#m-createlayeredmaterial-string-int-int-readonlyspan-readonlymemory-byte-materialalpha3d-bool-vector4-float-bool)); 0 for an ordinary material.
+
+**Type:** `int`
 
 ### <a id="m-name"></a>Name
 

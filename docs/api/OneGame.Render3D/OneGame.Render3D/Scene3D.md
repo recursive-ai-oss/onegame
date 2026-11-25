@@ -38,10 +38,12 @@ public Scene3D();
 | [`Post`](#m-post) | Bloom, exposure and tone mapping. |
 | [`Quality`](#m-quality) | The quality level: bounds shadow map size, cascades, ambient occlusion, multisampling, bloom and environment size. |
 | [`Reflection`](#m-reflection) | The mirror plane for materials with [`Material3D.PlanarReflection`](Material3D.md#m-planarreflection). |
+| [`RenderScale`](#m-renderscale) | The share of the target's width and height the scene is drawn at, from 0.25 to 1 (default 1: full size, identical to a renderer that has no such setting). |
 | [`Samples`](#m-samples) | Multisampling: 1 (off), 4 or 8 (a request for 2 uses 4), limited by the device and by [`Scene3D.Quality`](Scene3D.md#m-quality). |
 | [`Shadows`](#m-shadows) | Shadow controls; a light casts shadows when its [`Light3D.CastShadows`](Light3D.md#m-castshadows) is set. |
 | [`Ssao`](#m-ssao) | Screen-space ambient occlusion. |
 | [`Time`](#m-time) | The scene clock in seconds, for animation done in shaders: a material's [`Material3D.UvScroll`](Material3D.md#m-uvscroll) offsets its textures by velocity times this. |
+| [`Volumetric`](#m-volumetric) | Light shafts through the air; off until [`VolumetricSettings.Enabled`](VolumetricSettings.md#m-enabled) is set and a light opts in with [`Light3D.Volumetric`](Light3D.md#m-volumetric). |
 
 ### <a id="m-batches"></a>Batches
 
@@ -153,6 +155,16 @@ The mirror plane for materials with [`Material3D.PlanarReflection`](Material3D.m
 
 **Type:** [`ReflectionSettings`](ReflectionSettings.md)
 
+### <a id="m-renderscale"></a>RenderScale
+
+```csharp
+public float RenderScale { get; set; }
+```
+
+The share of the target's width and height the scene is drawn at, from 0.25 to 1 (default 1: full size, identical to a renderer that has no such setting). Below 1 the whole 3D frame (shadows, lighting, bloom, tone mapping) runs on a smaller image that is then stretched over the target, so the 2D and UI passes drawn afterwards stay sharp. It is the cheapest lever on frame time: cost follows the pixel count, so 0.5 is about a quarter of the pixel work. Change it any time. Cameras, picking and projection keep working in target pixels; sizes given in screen pixels (outline and debug line widths) are in the smaller image's pixels.
+
+**Type:** `float`
+
 ### <a id="m-samples"></a>Samples
 
 ```csharp
@@ -193,6 +205,16 @@ The scene clock in seconds, for animation done in shaders: a material's [`Materi
 
 **Type:** `double`
 
+### <a id="m-volumetric"></a>Volumetric
+
+```csharp
+public VolumetricSettings Volumetric { get; }
+```
+
+Light shafts through the air; off until [`VolumetricSettings.Enabled`](VolumetricSettings.md#m-enabled) is set and a light opts in with [`Light3D.Volumetric`](Light3D.md#m-volumetric).
+
+**Type:** [`VolumetricSettings`](VolumetricSettings.md)
+
 ## Methods
 
 | Member | Description |
@@ -200,6 +222,7 @@ The scene clock in seconds, for animation done in shaders: a material's [`Materi
 | [`Add(Model3D, Matrix4x4?)`](#m-add-model3d-matrix4x4) | Adds a copy of a model and returns it. |
 | [`AddInstanced(Model3D, int)`](#m-addinstanced-model3d-int) | Adds a batch that draws many copies of a static model with per-copy transforms and colours. |
 | [`AddModelLights(ModelInstance3D)`](#m-addmodellights-modelinstance3d) | Adds the lights the model's glTF file defines (KHR\_lights\_punctual) at their current positions, through the instance transform. |
+| [`AddSkinnedInstanced(Model3D, int)`](#m-addskinnedinstanced-model3d-int) | Adds a batch whose copies each have their own pose: a crowd of one animated, skinned model drawn with one instanced draw per primitive (plus one per shadow tile) instead of one draw per character. |
 | [`CameraOf(ModelInstance3D, int)`](#m-cameraof-modelinstance3d-int) | The camera a node of the model carries, placed through the instance's transform. |
 
 ### <a id="m-add-model3d-matrix4x4"></a>Add(Model3D, Matrix4x4?)
@@ -243,6 +266,21 @@ Adds the lights the model's glTF file defines (KHR\_lights\_punctual) at their c
 **Parameters**
 
 - `instance` ([`ModelInstance3D`](ModelInstance3D.md))
+
+### <a id="m-addskinnedinstanced-model3d-int"></a>AddSkinnedInstanced(Model3D, int)
+
+```csharp
+public InstanceBatch3D AddSkinnedInstanced(Model3D model, int capacity = 64);
+```
+
+Adds a batch whose copies each have their own pose: a crowd of one animated, skinned model drawn with one instanced draw per primitive (plus one per shadow tile) instead of one draw per character. Give each copy a pose with [`InstanceBatch3D.Add()`](InstanceBatch3D.md#m-add-matrix4x4-nodepose-vector4). The copies are culled, cast and receive shadows, take fog and the model's materials like those of [`Scene3D.AddInstanced()`](Scene3D.md#m-addinstanced-model3d-int). Skinned nodes follow the pose; nodes without a skin, and morph targets, stay at the rest pose. A model with no skin gives a plain batch.
+
+**Parameters**
+
+- `model` ([`Model3D`](Model3D.md)): The model.
+- `capacity` (`int`): Copies to reserve room for; the batch grows as needed.
+
+**Returns:** [`InstanceBatch3D`](InstanceBatch3D.md)
 
 ### <a id="m-cameraof-modelinstance3d-int"></a>CameraOf(ModelInstance3D, int)
 

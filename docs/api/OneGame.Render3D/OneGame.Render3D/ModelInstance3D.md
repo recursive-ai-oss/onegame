@@ -16,6 +16,7 @@ One placed copy of a [`Model3D`](Model3D.md), with its own pose.
 
 | Member | Description |
 | --- | --- |
+| [`CastShadows`](#m-castshadows) | Whether the instance casts shadows from shadow-casting lights (true by default). |
 | [`Label`](#m-label) | A name tools show for this instance, for example in `pick` results of a game that fills the scene by hand. |
 | [`Model`](#m-model) | The model this instance draws. |
 | [`NodeWorlds`](#m-nodeworlds) | World matrix of every node of the model (before [`ModelInstance3D.Transform`](ModelInstance3D.md#m-transform)), as of the last [`ModelInstance3D.UpdateTransforms()`](ModelInstance3D.md#m-updatetransforms). |
@@ -23,6 +24,16 @@ One placed copy of a [`Model3D`](Model3D.md), with its own pose.
 | [`Pose`](#m-pose) | Per-node translation, rotation, scale and morph weights. |
 | [`Transform`](#m-transform) | Placement of the whole model in the world. |
 | [`Visible`](#m-visible) | Whether the instance is drawn. |
+
+### <a id="m-castshadows"></a>CastShadows
+
+```csharp
+public bool CastShadows { get; set; }
+```
+
+Whether the instance casts shadows from shadow-casting lights (true by default). Off, it is still drawn and still receives shadows. Translucent instances cast none either way.
+
+**Type:** `bool`
 
 ### <a id="m-label"></a>Label
 

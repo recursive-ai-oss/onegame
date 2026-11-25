@@ -34,6 +34,7 @@ screens.Add("main", game => Ui.Column(
 | [`Image(string, float, float)`](#m-image-string-float-float) | An element that shows the image or SVG with this asset id (kind `Image`). |
 | [`Label(Func<string>)`](#m-label-func-string) | A text element whose text follows a lambda. |
 | [`Label(string)`](#m-label-string) | A text element (kind `Label`). |
+| [`PixelImage(string, float, float)`](#m-pixelimage-string-float-float) | Like [`Ui.Image()`](Ui.md#m-image-string-float-float), drawn with nearest-neighbour filtering (`image-rendering: pixelated`) so pixel art and small icons stay sharp at every UI scale. |
 | [`Row(Element[])`](#m-row-element) | A container that lays children out left to right. |
 | [`Spacer()`](#m-spacer) | An empty element that grows to fill free space in its parent. |
 
@@ -136,6 +137,22 @@ A text element (kind `Label`).
 **Parameters**
 
 - `text` (`string`)
+
+**Returns:** [`Element`](Element.md)
+
+### <a id="m-pixelimage-string-float-float"></a>PixelImage(string, float, float)
+
+```csharp
+public static Element PixelImage(string assetId, float naturalWidth = 0f, float naturalHeight = 0f);
+```
+
+Like [`Ui.Image()`](Ui.md#m-image-string-float-float), drawn with nearest-neighbour filtering (`image-rendering: pixelated`) so pixel art and small icons stay sharp at every UI scale.
+
+**Parameters**
+
+- `assetId` (`string`)
+- `naturalWidth` (`float`)
+- `naturalHeight` (`float`)
 
 **Returns:** [`Element`](Element.md)
 

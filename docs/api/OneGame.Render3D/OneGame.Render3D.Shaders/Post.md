@@ -14,6 +14,7 @@ public static class Post
 | Type | Description |
 | --- | --- |
 | [`Post.Bindings`](Post.Bindings.md) |  |
+| [`Post.PSBlit`](Post.PSBlit.md) |  |
 | [`Post.PSDown`](Post.PSDown.md) |  |
 | [`Post.PSTonemap`](Post.PSTonemap.md) |  |
 | [`Post.PSUp`](Post.PSUp.md) |  |

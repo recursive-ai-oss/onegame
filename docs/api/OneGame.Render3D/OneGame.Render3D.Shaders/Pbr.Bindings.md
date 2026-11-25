@@ -26,6 +26,8 @@ public static class Pbr.Bindings
 | [`Pbr.Bindings.Irradiance`](Pbr.Bindings.Irradiance.md) |  |
 | [`Pbr.Bindings.IrradianceB`](Pbr.Bindings.IrradianceB.md) |  |
 | [`Pbr.Bindings.Joints`](Pbr.Bindings.Joints.md) |  |
+| [`Pbr.Bindings.LayerSamp`](Pbr.Bindings.LayerSamp.md) |  |
+| [`Pbr.Bindings.LayerTex`](Pbr.Bindings.LayerTex.md) |  |
 | [`Pbr.Bindings.Lights`](Pbr.Bindings.Lights.md) |  |
 | [`Pbr.Bindings.Material`](Pbr.Bindings.Material.md) |  |
 | [`Pbr.Bindings.MrSamp`](Pbr.Bindings.MrSamp.md) |  |

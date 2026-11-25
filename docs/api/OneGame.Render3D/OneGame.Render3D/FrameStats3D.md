@@ -50,10 +50,13 @@ What one frame of 3D drew.
 | [`Objects`](#m-objects) | Mesh nodes drawn. |
 | [`PlanarReflection`](#m-planarreflection) | Whether the planar reflection pass ran (a material opted in and the quality level and camera allowed it). |
 | [`Quality`](#m-quality) | The quality level the frame was drawn at. |
+| [`RenderHeight`](#m-renderheight) | Height in pixels of the image the scene was drawn at. |
+| [`RenderWidth`](#m-renderwidth) | Width in pixels of the image the scene was drawn at: the target's width times [`Scene3D.RenderScale`](Scene3D.md#m-renderscale). |
 | [`ShadowLights`](#m-shadowlights) | Lights that cast shadows. |
 | [`ShadowTiles`](#m-shadowtiles) | Shadow map tiles rendered (cascades, spot maps, point faces). |
 | [`Ssao`](#m-ssao) | Whether ambient occlusion ran. |
 | [`Triangles`](#m-triangles) | Triangles submitted. |
+| [`Volumetric`](#m-volumetric) | Whether the light shaft passes ran (see [`VolumetricSettings`](VolumetricSettings.md)). |
 
 ### <a id="m-billboards"></a>Billboards
 
@@ -175,6 +178,26 @@ The quality level the frame was drawn at.
 
 **Type:** [`QualityLevel`](QualityLevel.md)
 
+### <a id="m-renderheight"></a>RenderHeight
+
+```csharp
+public int RenderHeight { get; init; }
+```
+
+Height in pixels of the image the scene was drawn at.
+
+**Type:** `int`
+
+### <a id="m-renderwidth"></a>RenderWidth
+
+```csharp
+public int RenderWidth { get; init; }
+```
+
+Width in pixels of the image the scene was drawn at: the target's width times [`Scene3D.RenderScale`](Scene3D.md#m-renderscale).
+
+**Type:** `int`
+
 ### <a id="m-shadowlights"></a>ShadowLights
 
 ```csharp
@@ -214,3 +237,13 @@ public long Triangles { get; init; }
 Triangles submitted.
 
 **Type:** `long`
+
+### <a id="m-volumetric"></a>Volumetric
+
+```csharp
+public bool Volumetric { get; init; }
+```
+
+Whether the light shaft passes ran (see [`VolumetricSettings`](VolumetricSettings.md)).
+
+**Type:** `bool`

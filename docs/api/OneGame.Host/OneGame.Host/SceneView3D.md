@@ -41,6 +41,7 @@ Creates a view over a model library.
 | [`Describer`](#m-describer) | Describes the scene from the world as a whole, after the [`IView3D`](IView3D.md) entities have been asked. |
 | [`Models`](#m-models) | The models entities can show. |
 | [`ParticleEmitters`](#m-particleemitters) | The particle emitters entities showed in the last [`SceneView3D.Prepare()`](SceneView3D.md#m-prepare-world-long-fixed), in call order. |
+| [`RenderScale`](#m-renderscale) | The share of the window the 3D scene is drawn at, 0.25 to 1 (default 1); see [`Scene3D.RenderScale`](../../OneGame.Render3D/OneGame.Render3D/Scene3D.md#m-renderscale). |
 
 ### <a id="m-camera"></a>Camera
 
@@ -111,6 +112,16 @@ public IReadOnlyList<ParticleEmitter> ParticleEmitters { get; }
 The particle emitters entities showed in the last [`SceneView3D.Prepare()`](SceneView3D.md#m-prepare-world-long-fixed), in call order.
 
 **Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`ParticleEmitter`](../../OneGame.Particles/OneGame.Particles/ParticleEmitter.md)&gt;
+
+### <a id="m-renderscale"></a>RenderScale
+
+```csharp
+public float RenderScale { get; set; }
+```
+
+The share of the window the 3D scene is drawn at, 0.25 to 1 (default 1); see [`Scene3D.RenderScale`](../../OneGame.Render3D/OneGame.Render3D/Scene3D.md#m-renderscale). Copied to the scene by [`SceneView3D.Build()`](SceneView3D.md#m-build-scene3d-renderer3d), so it can change every frame. The UI and 2D drawn over the scene stay at full resolution, and [`SceneView3D.TryProject()`](SceneView3D.md#m-tryproject-vector3-int-int-vector2-float), [`SceneView3D.Ray()`](SceneView3D.md#m-ray-float-float-int-int) and [`SceneView3D.Pick()`](SceneView3D.md#m-pick-float-float-int-int) keep using window pixels.
+
+**Type:** `float`
 
 ## Methods
 

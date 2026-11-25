@@ -58,8 +58,11 @@ Creates a renderer on a device.
 | [`HdrFormat`](#m-hdrformat) | Format of the HDR image the scene is lit into. |
 | [`MaxLights`](#m-maxlights) | Most punctual lights one frame uses; extra lights are ignored. |
 | [`MaxLightsPerCluster`](#m-maxlightspercluster) | Most lights one cluster can hold; the rest are dropped. |
+| [`MaxMaterialLayers`](#m-maxmateriallayers) | Most layers one layered material may have (the device may allow fewer). |
 | [`MaxShadowLights`](#m-maxshadowlights) | Most lights that cast shadows in one frame. |
 | [`MaxShadowTiles`](#m-maxshadowtiles) | Most shadow map tiles (cascades, spot maps, point light faces) in one frame. |
+| [`MaxVolumetricLights`](#m-maxvolumetriclights) | Most lights that make light shafts in one frame; extra opted-in lights are ignored. |
+| [`MinRenderScale`](#m-minrenderscale) | Smallest [`Scene3D.RenderScale`](Scene3D.md#m-renderscale) used. |
 | [`TileSize`](#m-tilesize) | Screen tile size of the light grid, in pixels. |
 
 ### <a id="m-depthformat"></a>DepthFormat
@@ -112,6 +115,16 @@ Most lights one cluster can hold; the rest are dropped.
 
 **Type:** `int`
 
+### <a id="m-maxmateriallayers"></a>MaxMaterialLayers
+
+```csharp
+public const int MaxMaterialLayers = 2048;
+```
+
+Most layers one layered material may have (the device may allow fewer).
+
+**Type:** `int`
+
 ### <a id="m-maxshadowlights"></a>MaxShadowLights
 
 ```csharp
@@ -132,6 +145,26 @@ Most shadow map tiles (cascades, spot maps, point light faces) in one frame.
 
 **Type:** `int`
 
+### <a id="m-maxvolumetriclights"></a>MaxVolumetricLights
+
+```csharp
+public const int MaxVolumetricLights = 4;
+```
+
+Most lights that make light shafts in one frame; extra opted-in lights are ignored.
+
+**Type:** `int`
+
+### <a id="m-minrenderscale"></a>MinRenderScale
+
+```csharp
+public const float MinRenderScale = 0.25f;
+```
+
+Smallest [`Scene3D.RenderScale`](Scene3D.md#m-renderscale) used.
+
+**Type:** `float`
+
 ### <a id="m-tilesize"></a>TileSize
 
 ```csharp
@@ -151,6 +184,9 @@ Screen tile size of the light grid, in pixels.
 | [`Device`](#m-device) | The device this renderer draws with. |
 | [`LastStats`](#m-laststats) | What the last [`Renderer3D.Render()`](Renderer3D.md#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat) call prepared. |
 | [`RunningEnvironmentLoads`](#m-runningenvironmentloads) | Number of environment loads that are still running. |
+| [`SceneColor`](#m-scenecolor) | The tone-mapped scene of the frame being built, before any upscale: the image the 3D pass produced, at [`Renderer3D.SceneColorWidth`](Renderer3D.md#m-scenecolorwidth) x [`Renderer3D.SceneColorHeight`](Renderer3D.md#m-scenecolorheight) pixels. |
+| [`SceneColorHeight`](#m-scenecolorheight) | Height in pixels of [`Renderer3D.SceneColor`](Renderer3D.md#m-scenecolor). |
+| [`SceneColorWidth`](#m-scenecolorwidth) | Width in pixels of [`Renderer3D.SceneColor`](Renderer3D.md#m-scenecolor). |
 | [`SoftSpot`](#m-softspot) | A round white spot that fades smoothly to nothing at its edge: what billboards show when their batch has no texture. |
 
 ### <a id="m-brdflut"></a>BrdfLut
@@ -205,6 +241,36 @@ Number of environment loads that are still running.
 
 **Type:** `int`
 
+### <a id="m-scenecolor"></a>SceneColor
+
+```csharp
+public GraphTexture SceneColor { get; }
+```
+
+The tone-mapped scene of the frame being built, before any upscale: the image the 3D pass produced, at [`Renderer3D.SceneColorWidth`](Renderer3D.md#m-scenecolorwidth) x [`Renderer3D.SceneColorHeight`](Renderer3D.md#m-scenecolorheight) pixels. With a [`Scene3D.RenderScale`](Scene3D.md#m-renderscale) below 1 it is a transient texture of the graph (named `scene_scaled`) that a later pass may read before the graph executes, for example to blur it behind a panel; at full scale it is the target passed to [`Renderer3D.Render()`](Renderer3D.md#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat) itself. The handle belongs to the graph frame of the last [`Renderer3D.Render()`](Renderer3D.md#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat) call and is default before the first.
+
+**Type:** [`GraphTexture`](../../OneGame.Gpu/OneGame.Gpu.Graph/GraphTexture.md)
+
+### <a id="m-scenecolorheight"></a>SceneColorHeight
+
+```csharp
+public int SceneColorHeight { get; }
+```
+
+Height in pixels of [`Renderer3D.SceneColor`](Renderer3D.md#m-scenecolor).
+
+**Type:** `int`
+
+### <a id="m-scenecolorwidth"></a>SceneColorWidth
+
+```csharp
+public int SceneColorWidth { get; }
+```
+
+Width in pixels of [`Renderer3D.SceneColor`](Renderer3D.md#m-scenecolor).
+
+**Type:** `int`
+
 ### <a id="m-softspot"></a>SoftSpot
 
 ```csharp
@@ -222,6 +288,7 @@ A round white spot that fades smoothly to nothing at its edge: what billboards s
 | [`CreateBillboardTexture(int, int, ReadOnlySpan<byte>, string?)`](#m-createbillboardtexture-int-int-readonlyspan-byte-string) | Uploads an image for billboards. |
 | [`CreateEnvironment(HdrImage, int)`](#m-createenvironment-hdrimage-int) | Makes an environment from an equirectangular panorama (see [`HdrImage`](HdrImage.md) for the orientation). |
 | [`CreateEnvironmentAsync(HdrImage, EnvironmentLoadOptions?)`](#m-createenvironmentasync-hdrimage-environmentloadoptions) | Starts making an environment without a hitch: the panorama is converted on a worker thread (in slices on the render thread in a browser), copied to the GPU in bands, and filtered a few passes per frame, all driven by [`Renderer3D.Render()`](Renderer3D.md#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat). |
+| [`CreateLayeredMaterial(string, int, int, ReadOnlySpan<ReadOnlyMemory<byte>>, MaterialAlpha3D, bool, Vector4?, float, bool)`](#m-createlayeredmaterial-string-int-int-readonlyspan-readonlymemory-byte-materialalpha3d-bool-vector4-float-bool) | Makes a material whose base colour is a stack of same-size images, with the layer chosen per vertex ([`MeshVertex3D.Layer`](MeshVertex3D.md#m-layer), or the second texture coordinate's first component of a glTF mesh). |
 | [`CreateMaterial(string, MaterialAlpha3D, bool, Vector4?, float)`](#m-creatematerial-string-materialalpha3d-bool-vector4-float) | Makes a material for [`DynamicMesh3D`](DynamicMesh3D.md)s without a glTF file. |
 | [`CreateMesh(Material3D, ReadOnlySpan<MeshVertex3D>, ReadOnlySpan<uint>, string)`](#m-createmesh-material3d-readonlyspan-meshvertex3d-readonlyspan-uint-string) | Creates a mesh. |
 | [`Dispose()`](#m-dispose) | Releases everything the renderer created. |
@@ -281,6 +348,34 @@ Starts making an environment without a hitch: the panorama is converted on a wor
 - `options` ([`EnvironmentLoadOptions`](EnvironmentLoadOptions.md)?): Size and per-frame budgets; null for the defaults.
 
 **Returns:** [`EnvironmentLoad`](EnvironmentLoad.md) — The load. Dispose it (a finished, untaken map goes with it), or [`EnvironmentLoad.Take()`](EnvironmentLoad.md#m-take) the map.
+
+### <a id="m-createlayeredmaterial-string-int-int-readonlyspan-readonlymemory-byte-materialalpha3d-bool-vector4-float-bool"></a>CreateLayeredMaterial(string, int, int, ReadOnlySpan&lt;ReadOnlyMemory&lt;byte&gt;&gt;, MaterialAlpha3D, bool, Vector4?, float, bool)
+
+```csharp
+public Material3D CreateLayeredMaterial(string name, int width, int height, ReadOnlySpan<ReadOnlyMemory<byte>> layers, MaterialAlpha3D alpha = 0, bool doubleSided = false, Vector4? baseColor = default, float alphaCutoff = 0.5f, bool mipmaps = true);
+```
+
+Makes a material whose base colour is a stack of same-size images, with the layer chosen per vertex ([`MeshVertex3D.Layer`](MeshVertex3D.md#m-layer), or the second texture coordinate's first component of a glTF mesh). One such material draws every block texture of a voxel world in one batch.
+
+Sampling is nearest, and coordinates repeat inside each layer: a quad whose coordinates run 0 to 4 shows the layer four times. Layers never mix, even in the mip chain. Everything else (style, outline, fog, shadows, instancing, alpha mode) works as for [`Renderer3D.CreateMaterial()`](Renderer3D.md#m-creatematerial-string-materialalpha3d-bool-vector4-float). The images are copied; nothing of the arguments is kept.
+
+**Parameters**
+
+- `name` (`string`): A name for tools.
+- `width` (`int`): Width in texels of every layer.
+- `height` (`int`): Height in texels of every layer.
+- `layers` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)&lt;[`ReadOnlyMemory`](https://learn.microsoft.com/dotnet/api/system.readonlymemory-1)`<byte>>`): One tightly packed RGBA8 image (sRGB-encoded colour, straight alpha) per layer, `width * height * 4` bytes each.
+- `alpha` ([`MaterialAlpha3D`](MaterialAlpha3D.md)): How alpha is treated.
+- `doubleSided` (`bool`): Draw back faces too.
+- `baseColor` ([`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)?): Linear RGBA multiplied into the texels; null for white.
+- `alphaCutoff` (`float`): Threshold for [`MaterialAlpha3D.Mask`](MaterialAlpha3D.md#m-mask).
+- `mipmaps` (`bool`): Build a mip chain (each mip a box average of its layer, picked without blending between levels) so distant blocks do not shimmer. False keeps every texel sharp at any distance.
+
+**Returns:** [`Material3D`](Material3D.md) — The material. Like every material it lives as long as the renderer.
+
+**Exceptions**
+
+- [`ArgumentException`](https://learn.microsoft.com/dotnet/api/system.argumentexception): There are no layers or too many, the size is not positive or exceeds the device's limit, or a layer has the wrong byte count.
 
 ### <a id="m-creatematerial-string-materialalpha3d-bool-vector4-float"></a>CreateMaterial(string, MaterialAlpha3D, bool, Vector4?, float)
 

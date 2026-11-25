@@ -61,7 +61,7 @@ dotnet add package RecursiveAI.OneGame.Host
 | [`LoadedFont`](OneGame.Host/LoadedFont.md) | record | A font added to a library by [`Assets.LoadFont()`](OneGame.Host/Assets.md#m-loadfont-string-fontlibrary). |
 | [`ManualScene3D`](OneGame.Host/ManualScene3D.md) | class | Lets the live-control operations `camera`, `pick` and `project` work on a scene a game fills by hand (a [`Render3DStage`](OneGame.Host/Render3DStage.md) built without a [`SceneView3D`](OneGame.Host/SceneView3D.md)). |
 | [`ModelLibrary`](OneGame.Host/ModelLibrary.md) | class | The models a game's entities can show, by name. |
-| [`ModelOptions`](OneGame.Host/ModelOptions.md) | struct | Per-draw settings for `SceneWriter.Model` beyond placement: how see-through the model is, and the name tools show for it. |
+| [`ModelOptions`](OneGame.Host/ModelOptions.md) | struct | Per-draw settings for `SceneWriter.Model` beyond placement: how see-through the model is, whether it casts shadows, and the name tools show for it. |
 | [`NetStatus`](OneGame.Host/NetStatus.md) | record | A snapshot of a client's connection, for `net_status`. |
 | [`OverlayCanvas`](OneGame.Host/OverlayCanvas.md) | class | The few drawing calls an [`IFrameOverlay`](OneGame.Host/IFrameOverlay.md) has: filled rectangles and one-line text, in framebuffer pixels. |
 | [`PickHit`](OneGame.Host/PickHit.md) | struct | What a pick found. |

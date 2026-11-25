@@ -23,6 +23,7 @@ public struct Pbr.Frame
 | [`EnvA`](#m-enva) |  |
 | [`EnvB`](#m-envb) |  |
 | [`FogColor`](#m-fogcolor) |  |
+| [`FogParams`](#m-fogparams) |  |
 | [`FogRange`](#m-fogrange) |  |
 | [`Grid`](#m-grid) |  |
 | [`InvProj`](#m-invproj) |  |
@@ -111,6 +112,14 @@ public Vector4 FogColor;
 
 **Type:** [`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)
 
+### <a id="m-fogparams"></a>FogParams
+
+```csharp
+public Vector4 FogParams;
+```
+
+**Type:** [`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)
+
 ### <a id="m-fogrange"></a>FogRange
 
 ```csharp
@@ -186,7 +195,7 @@ public Vector4 ShadowInfo;
 ### <a id="m-size"></a>Size
 
 ```csharp
-public const uint Size = 608;
+public const uint Size = 624;
 ```
 
 **Type:** `uint`

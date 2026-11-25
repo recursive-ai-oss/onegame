@@ -36,6 +36,8 @@ public Light3D();
 | [`OuterConeAngle`](#m-outerconeangle) | Spot: angle in radians from the axis at which the light reaches zero. |
 | [`Position`](#m-position) | Position (point and spot). |
 | [`Range`](#m-range) | Distance at which a point or spot light is cut off with a smooth window; 0 means no limit. |
+| [`Volumetric`](#m-volumetric) | Whether this light makes light shafts (see [`VolumetricSettings`](VolumetricSettings.md); [`Scene3D.Volumetric`](Scene3D.md#m-volumetric) must be enabled too). |
+| [`VolumetricIntensity`](#m-volumetricintensity) | A multiplier on this light's shafts only (default 1), so a sun can have bold beams next to a faint lamp. |
 
 ### <a id="m-castshadows"></a>CastShadows
 
@@ -124,6 +126,26 @@ public float Range { get; set; }
 ```
 
 Distance at which a point or spot light is cut off with a smooth window; 0 means no limit.
+
+**Type:** `float`
+
+### <a id="m-volumetric"></a>Volumetric
+
+```csharp
+public bool Volumetric { get; set; }
+```
+
+Whether this light makes light shafts (see [`VolumetricSettings`](VolumetricSettings.md); [`Scene3D.Volumetric`](Scene3D.md#m-volumetric) must be enabled too). Off by default. At most [`Renderer3D.MaxVolumetricLights`](Renderer3D.md#m-maxvolumetriclights) lights are used per frame, in light order. With [`Light3D.CastShadows`](Light3D.md#m-castshadows) the shafts are broken up by whatever blocks the light; without it the light fills its whole cone or reach evenly.
+
+**Type:** `bool`
+
+### <a id="m-volumetricintensity"></a>VolumetricIntensity
+
+```csharp
+public float VolumetricIntensity { get; set; }
+```
+
+A multiplier on this light's shafts only (default 1), so a sun can have bold beams next to a faint lamp. Negative and non-finite values are 0.
 
 **Type:** `float`
 

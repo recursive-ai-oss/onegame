@@ -56,6 +56,7 @@ dotnet add package RecursiveAI.OneGame.Control
 | [`PickResult`](OneGame.Control/PickResult.md) | record | Result of `pick`: what is under a pixel, or along a ray. |
 | [`ProjectResult`](OneGame.Control/ProjectResult.md) | record | Result of `project`: where a world point lands on the screen. |
 | [`QualityResult`](OneGame.Control/QualityResult.md) | record | Result of `quality`: the level of the 3D renderer and what it means, with what the last frame did. |
+| [`RenderScaleResult`](OneGame.Control/RenderScaleResult.md) | record | Result of `render_scale`: the share of the window the 3D scene is drawn at. |
 | [`SavesResult`](OneGame.Control/SavesResult.md) | record | Result of the `saves` operation. |
 | [`SceneModelEntry`](OneGame.Control/SceneModelEntry.md) | record | One model of `scene_models`. |
 | [`SceneModelsResult`](OneGame.Control/SceneModelsResult.md) | record | Result of `scene_models`: what the 3D view draws this frame. |
@@ -74,5 +75,7 @@ dotnet add package RecursiveAI.OneGame.Control
 | [`TimingReport`](OneGame.Control/TimingReport.md) | record | Frame timing over the last [`FrameTimings.Capacity`](../OneGame.Host/OneGame.Host/FrameTimings.md#m-capacity) frames. |
 | [`TweensResult`](OneGame.Control/TweensResult.md) | record | Result of the `tweens` operation. |
 | [`UiScaleResult`](OneGame.Control/UiScaleResult.md) | record | Result of `ui_scale`: the scale in effect, the override (null when following the window) and the window's own scale. |
+| [`VolumetricLightInfo`](OneGame.Control/VolumetricLightInfo.md) | record | One light as `volumetric` reports it. |
+| [`VolumetricResult`](OneGame.Control/VolumetricResult.md) | record | Result of `volumetric`: the scene's light shaft settings and what the quality level and the last frame did with them. |
 | [`WindowResult`](OneGame.Control/WindowResult.md) | record | Result of `window`: the window's placement. |
 | [`WorkAreaInfo`](OneGame.Control/WorkAreaInfo.md) | record | A screen's usable rectangle in [`WindowResult`](OneGame.Control/WindowResult.md). |

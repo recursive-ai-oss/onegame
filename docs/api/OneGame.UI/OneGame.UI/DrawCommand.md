@@ -19,6 +19,7 @@ One drawing instruction. Which fields matter depends on [`DrawCommand.Kind`](Dra
 | [`Color`](#m-color) | The fill, stroke, tint, shadow or text color. |
 | [`Kind`](#m-kind) | What to draw. |
 | [`Offset`](#m-offset) | Shadow offset. |
+| [`Pixelated`](#m-pixelated) | For an image: sample with nearest-neighbour filtering instead of smoothing (`image-rendering: pixelated`). |
 | [`Radii`](#m-radii) | Corner radii of [`DrawCommand.Bounds`](DrawCommand.md#m-bounds). |
 | [`Repeat`](#m-repeat) | For an image with a [`DrawCommand.TileSize`](DrawCommand.md#m-tilesize): the axes along which the tile repeats. |
 | [`Resource`](#m-resource) | The asset id of an image or SVG. |
@@ -71,6 +72,16 @@ public Vector2 Offset { get; init; }
 Shadow offset.
 
 **Type:** [`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2)
+
+### <a id="m-pixelated"></a>Pixelated
+
+```csharp
+public bool Pixelated { get; init; }
+```
+
+For an image: sample with nearest-neighbour filtering instead of smoothing (`image-rendering: pixelated`).
+
+**Type:** `bool`
 
 ### <a id="m-radii"></a>Radii
 

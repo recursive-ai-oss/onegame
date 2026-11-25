@@ -48,6 +48,7 @@ dotnet add package RecursiveAI.OneGame.UI
 | [`FontStyle`](OneGame.UI/FontStyle.md) | enum | The `font-style` property. |
 | [`IArtSizes`](OneGame.UI/IArtSizes.md) | interface | Tells the UI how big an image or SVG is, so it can size and tile backgrounds (`background-size`, `background-repeat`) without knowing how art is stored. |
 | [`ITextMeasurer`](OneGame.UI/ITextMeasurer.md) | interface | Measures and breaks text for layout. |
+| [`ImageRendering`](OneGame.UI/ImageRendering.md) | enum | The `image-rendering` property (CSS Images 3 §5.3): how an image is resampled when it is drawn at another size than its own pixels. |
 | [`KeyModifiers`](OneGame.UI/KeyModifiers.md) | enum | Modifier keys held during a key event. |
 | [`Length`](OneGame.UI/Length.md) | struct | A CSS-style length: a number and a unit. |
 | [`LengthUnit`](OneGame.UI/LengthUnit.md) | enum | The unit of a [`Length`](OneGame.UI/Length.md). |

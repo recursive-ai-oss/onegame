@@ -120,6 +120,7 @@ Creates a new instance.
 | [`PurchaseStatus`](#m-purchasestatus) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`QualityResult`](#m-qualityresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`RenderGraphReport`](#m-rendergraphreport) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`RenderScaleResult`](#m-renderscaleresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ResourceReport`](#m-resourcereport) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ResourceReportArray`](#m-resourcereportarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ReverbOptions`](#m-reverboptions) | Defines the source generated JSON serialization contract metadata for a given type. |
@@ -159,6 +160,9 @@ Creates a new instance.
 | [`UInt32`](#m-uint32) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`UInt64`](#m-uint64) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`UiScaleResult`](#m-uiscaleresult) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`VolumetricLightInfo`](#m-volumetriclightinfo) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`VolumetricLightInfoArray`](#m-volumetriclightinfoarray) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`VolumetricResult`](#m-volumetricresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`WindowResult`](#m-windowresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`WorkAreaInfo`](#m-workareainfo) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`WorkAreaInfoArray`](#m-workareainfoarray) | Defines the source generated JSON serialization contract metadata for a given type. |
@@ -923,6 +927,16 @@ Defines the source generated JSON serialization contract metadata for a given ty
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`RenderGraphReport`](../../OneGame.Gpu/OneGame.Gpu.Graph/RenderGraphReport.md)&gt;
 
+### <a id="m-renderscaleresult"></a>RenderScaleResult
+
+```csharp
+public JsonTypeInfo<RenderScaleResult> RenderScaleResult { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`RenderScaleResult`](RenderScaleResult.md)&gt;
+
 ### <a id="m-resourcereport"></a>ResourceReport
 
 ```csharp
@@ -1312,6 +1326,36 @@ public JsonTypeInfo<UiScaleResult> UiScaleResult { get; }
 Defines the source generated JSON serialization contract metadata for a given type.
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`UiScaleResult`](UiScaleResult.md)&gt;
+
+### <a id="m-volumetriclightinfo"></a>VolumetricLightInfo
+
+```csharp
+public JsonTypeInfo<VolumetricLightInfo> VolumetricLightInfo { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`VolumetricLightInfo`](VolumetricLightInfo.md)&gt;
+
+### <a id="m-volumetriclightinfoarray"></a>VolumetricLightInfoArray
+
+```csharp
+public JsonTypeInfo<VolumetricLightInfo[]> VolumetricLightInfoArray { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`VolumetricLightInfo`](VolumetricLightInfo.md)\[\]&gt;
+
+### <a id="m-volumetricresult"></a>VolumetricResult
+
+```csharp
+public JsonTypeInfo<VolumetricResult> VolumetricResult { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`VolumetricResult`](VolumetricResult.md)&gt;
 
 ### <a id="m-windowresult"></a>WindowResult
 

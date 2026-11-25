@@ -54,6 +54,8 @@ What a [`QualityLevel`](QualityLevel.md) means in resources and work. Features s
 | [`Ssao`](#m-ssao) | Whether ambient occlusion may run. |
 | [`SsaoHalfResolution`](#m-ssaohalfresolution) | Whether occlusion is computed at half resolution. |
 | [`SsaoSamples`](#m-ssaosamples) | Occlusion samples per pixel. |
+| [`VolumetricScale`](#m-volumetricscale) | Edge of the image the shafts are marched at, as a share of the frame's width and height (0.25 or 0.5 by level); it is upsampled to full size. |
+| [`VolumetricSteps`](#m-volumetricsteps) | Samples along each view ray for light shafts ([`VolumetricSettings`](VolumetricSettings.md)). |
 
 ### <a id="m-bloom"></a>Bloom
 
@@ -162,6 +164,26 @@ public int SsaoSamples { get; init; }
 ```
 
 Occlusion samples per pixel.
+
+**Type:** `int`
+
+### <a id="m-volumetricscale"></a>VolumetricScale
+
+```csharp
+public float VolumetricScale { get; init; }
+```
+
+Edge of the image the shafts are marched at, as a share of the frame's width and height (0.25 or 0.5 by level); it is upsampled to full size.
+
+**Type:** `float`
+
+### <a id="m-volumetricsteps"></a>VolumetricSteps
+
+```csharp
+public int VolumetricSteps { get; init; }
+```
+
+Samples along each view ray for light shafts ([`VolumetricSettings`](VolumetricSettings.md)). 0 turns them off (Low, and a [`QualitySettings`](QualitySettings.md) built by hand without it).
 
 **Type:** `int`
 
