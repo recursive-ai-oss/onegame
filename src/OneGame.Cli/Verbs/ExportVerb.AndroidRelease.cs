@@ -232,7 +232,9 @@ internal sealed partial class ExportVerb
             return inSdk;
         }
 
-        var cache = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "onegame", "bundletool");
+        // Full path: the tool runs bundletool from another working directory.
+        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var cache = Path.GetFullPath(Path.Combine(string.IsNullOrEmpty(local) ? Path.GetTempPath() : local, "onegame", "bundletool"));
         var jar = Path.Combine(cache, $"bundletool-all-{BundletoolVersion}.jar");
         if (File.Exists(jar) && FileHash(jar) == BundletoolSha256)
         {
