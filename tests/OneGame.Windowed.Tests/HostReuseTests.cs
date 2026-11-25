@@ -18,8 +18,11 @@ public sealed class HostReuseTests : IClassFixture<XvfbFixture>
         Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
     }
 
+    // A real X server (a vendor driver needs one) can be named in ONEGAME_RUNLOOP_DISPLAY; Xvfb otherwise.
+    private string? Display => Environment.GetEnvironmentVariable("ONEGAME_RUNLOOP_DISPLAY") is { Length: > 0 } named ? named : _xvfb.Display;
+
     private GameOptions Options(GameHost? host) =>
-        new() { Width = 320, Height = 200, Gpu = GpuMode.Required, Backend = PlatformBackendKind.X11, DisplayName = _xvfb.Display, Host = host };
+        new() { Width = 320, Height = 200, Gpu = GpuMode.Required, Backend = PlatformBackendKind.X11, DisplayName = Display, Host = host };
 
     private static void Present(GameInstance game)
     {
@@ -48,7 +51,7 @@ public sealed class HostReuseTests : IClassFixture<XvfbFixture>
     [Fact]
     public void TheWindowAndDeviceSurviveAnInstanceAndTheNextOneStartsFresh() => MainThread.Run(() =>
     {
-        Assert.SkipUnless(_xvfb.Available, "Xvfb is not installed");
+        Assert.SkipUnless(Display is not null, "Xvfb is not installed");
         using var host = new GameHost();
         ulong first;
         PlatformApp app;
@@ -93,7 +96,7 @@ public sealed class HostReuseTests : IClassFixture<XvfbFixture>
     [Fact]
     public void AStaleQuitAndHeldKeysDoNotCarryOver() => MainThread.Run(() =>
     {
-        Assert.SkipUnless(_xvfb.Available, "Xvfb is not installed");
+        Assert.SkipUnless(Display is not null, "Xvfb is not installed");
         using var host = new GameHost();
         using (var game = GameInstance.Create(new WindowedGame(), Options(host)))
         {
@@ -116,7 +119,7 @@ public sealed class HostReuseTests : IClassFixture<XvfbFixture>
     [Fact]
     public void AWindowThePlayerClosedIsReplacedAndAFailedStartLeavesTheHostFree() => MainThread.Run(() =>
     {
-        Assert.SkipUnless(_xvfb.Available, "Xvfb is not installed");
+        Assert.SkipUnless(Display is not null, "Xvfb is not installed");
         using var host = new GameHost();
         Window closed;
         using (var game = GameInstance.Create(new WindowedGame(), Options(host)))
