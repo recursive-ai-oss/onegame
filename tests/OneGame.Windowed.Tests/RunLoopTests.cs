@@ -94,12 +94,26 @@ public sealed class RunLoopTests : IClassFixture<XvfbFixture>, IClassFixture<Wes
     /// <summary>The child half. Prints one JSON object per run and a final line, then returns (the parent times the process exit).</summary>
     internal static int RunChild(string backend, string display, int runs, bool sameDefinition, string extra)
     {
+        // Cocoa windows belong to the main thread, so the runs happen there.
+        var code = 0;
+        MainThread.Run(() => code = RunChildOnThisThread(backend, display, runs, sameDefinition, extra));
+        return code;
+    }
+
+    private static int RunChildOnThisThread(string backend, string display, int runs, bool sameDefinition, string extra)
+    {
         var clock = Stopwatch.StartNew();
         var shared = new WaterGame();
         for (var i = 0; i < runs; i++)
         {
             var probe = new ProbeGame(sameDefinition ? shared : new WaterGame(), clock);
-            var args = new List<string> { "--backend", backend, "--display", display, "--frames", "90" };
+            var args = new List<string> { "--backend", backend, "--frames", "90" };
+            if (display != "-")
+            {
+                args.Add("--display");
+                args.Add(display);
+            }
+
             args.AddRange(extra.Split(' ', StringSplitOptions.RemoveEmptyEntries));
             var start = clock.ElapsedMilliseconds;
             var code = GameApp.Run(probe, [.. args], Console.Out, Console.Error);
@@ -112,6 +126,12 @@ public sealed class RunLoopTests : IClassFixture<XvfbFixture>, IClassFixture<Wes
                 Console.Error.WriteLine("validation: " + message);
             }
 
+        }
+
+        // A Mac game releases the host itself: the process-exit handler leaves macOS windows alone. The test can leave that call out to see what exit does then.
+        if (Environment.GetEnvironmentVariable("ONEGAME_CHILD_NO_RELEASE") is not { Length: > 0 })
+        {
+            GameHost.Release();
         }
 
         Console.WriteLine("done");
@@ -247,5 +267,37 @@ public sealed class RunLoopTests : IClassFixture<XvfbFixture>, IClassFixture<Wes
         Report("x11-same", runs, exitMs);
         AssertArrivals(runs, 3, 250, 50, 1000);
         Assert.True(exitMs < 1000, $"the process took {exitMs} ms to exit");
+    }
+
+    /// <summary>The same on Cocoa: three runs with reuse, and the main thread releasing the host before the process leaves.</summary>
+    [Fact]
+    public async Task ThreeRunsOnCocoaArriveFastAndTheProcessLeavesPromptly()
+    {
+        Assert.SkipUnless(OperatingSystem.IsMacOS(), "needs macOS");
+        var (runs, exitMs, errors) = await RunChildAsync("cocoa", "-", 3, sameDefinition: false);
+        Report("cocoa", runs, exitMs);
+        AssertArrivals(runs, 3, 250, 50, 1000);
+        Assert.True(exitMs < 1000, $"the process took {exitMs} ms to exit");
+        Assert.DoesNotContain("validation:", errors, StringComparison.Ordinal);
+    }
+
+    /// <summary>Cocoa with no <see cref="GameHost.Release"/> call: the process must still leave, whatever the exit path does on macOS.</summary>
+    [Fact]
+    public async Task TheProcessLeavesAfterCocoaRunsWithoutAReleaseCall()
+    {
+        Assert.SkipUnless(OperatingSystem.IsMacOS(), "needs macOS");
+        Environment.SetEnvironmentVariable("ONEGAME_CHILD_NO_RELEASE", "1");
+        try
+        {
+            var (runs, exitMs, errors) = await RunChildAsync("cocoa", "-", 3, sameDefinition: false);
+            Report("cocoa-no-release", runs, exitMs);
+            AssertArrivals(runs, 3, 250, 50, 1000);
+            Assert.True(exitMs < 1000, $"the process took {exitMs} ms to exit");
+            Assert.DoesNotContain("validation:", errors, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ONEGAME_CHILD_NO_RELEASE", null);
+        }
     }
 }

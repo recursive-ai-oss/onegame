@@ -140,12 +140,12 @@ public static class GameApp
     /// <summary>
     /// True keeps the window, graphics device and swapchain of a windowed run alive after <see cref="Run(GameDefinition, string[])"/> returns, so a later
     /// call in the same process starts drawing at once; they close when the process exits or at <see cref="GameHost.Release"/>. Set it to false before the first run
-    /// to give every run a window of its own that closes with it. The default is true except on macOS, where it is false until reuse has been checked on a desktop session; set it to true there to opt in
-    /// (and call <see cref="GameHost.Release"/> from the main thread before <c>Main</c> returns). Headless runs and phones are not affected. See <c>docs/interfaces/host-lifetime.md</c>.
+    /// to give every run a window of its own that closes with it. The default is true on every desktop OS. On macOS the runs are on the main thread, as AppKit requires of any window, and a game may call
+    /// <see cref="GameHost.Release"/> there before <c>Main</c> returns to close the window early (the process-exit handler leaves macOS windows to the system). Headless runs and phones are not affected. See <c>docs/interfaces/host-lifetime.md</c>.
     /// </summary>
     public static bool ReuseWindow
     {
-        get => _reuseWindow ?? !OperatingSystem.IsMacOS();
+        get => _reuseWindow ?? true;
         set => _reuseWindow = value;
     }
 

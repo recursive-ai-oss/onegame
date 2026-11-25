@@ -65,7 +65,7 @@ onegame export --target web                        # a folder to host; any stati
 onegame web test --json --tolerance 2 --max-diff 0.02   # solitaire's scenarios in headless Chrome
 ```
 
-A page needs a browser with WebGPU (Chrome and Edge 113+; Safari and Firefox are not tested). Sound starts after the first click or key press, as browsers require; until then the `audio` op reports `awaiting_gesture`. To see the page present frames on a real GPU, start headed Chrome on a display with `--enable-unsafe-webgpu --ignore-gpu-blocklist --enable-features=Vulkan --ozone-platform=x11 --no-first-run --disable-extensions` (a virtual X server such as `Xvfb` is enough), open the exported page, and `navigator.gpu.requestAdapter()` names the GPU.
+A page needs a browser with WebGPU (Chrome and Edge 113+; Firefox is not tested. Safari 27 loads the page, offers WebGPU and starts the game, but `tools/web/run-safari-tests.sh` (safaridriver) needs a Mac with an unlocked screen: Safari runs no animation frames for a hidden page, so the frame-driven checks cannot run on a locked Mac). Sound starts after the first click or key press, as browsers require; until then the `audio` op reports `awaiting_gesture`. To see the page present frames on a real GPU, start headed Chrome on a display with `--enable-unsafe-webgpu --ignore-gpu-blocklist --enable-features=Vulkan --ozone-platform=x11 --no-first-run --disable-extensions` (a virtual X server such as `Xvfb` is enough), open the exported page, and `navigator.gpu.requestAdapter()` names the GPU.
 
 ## Repeating the simulator checks
 

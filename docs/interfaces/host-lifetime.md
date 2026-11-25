@@ -14,11 +14,11 @@ Everything else belongs to the `GameInstance` and is destroyed with it: the worl
 
 ## Who uses it
 
-- `GameApp.Run` passes `GameHost.Shared` to every windowed run, unless `GameApp.ReuseWindow` is false (set it before the first run). Headless runs, browsers and phones never use a host. **On macOS reuse is off by default**: the Cocoa backend has not been checked for reuse on a desktop session, and AppKit objects must be closed on the main thread. A Mac game may set `GameApp.ReuseWindow = true`; it must then call `GameHost.Release()` on the main thread before `Main` returns, because the process-exit handler does nothing on macOS. Windows reuse is covered by `HostReuseTests` on the Windows CI runner.
+- `GameApp.Run` passes `GameHost.Shared` to every windowed run, unless `GameApp.ReuseWindow` is false (set it before the first run). Headless runs, browsers and phones never use a host. Reuse is on for macOS too (it was off until checked): AppKit needs the runs on the main thread, and a Mac game may call `GameHost.Release()` there before `Main` returns to close the window early; without it the process still leaves in about 10 ms, because the exit handler leaves macOS windows to the system. Windows and macOS reuse are covered by `HostReuseTests` (the Windows CI runner and a Mac).
 - `GameInstance.Create(game, new GameOptions { Host = host })` does the same for code that makes its own instances. `host.Dispose()` closes the window and device; do it when no instance is running on the host.
 - With no host, an instance makes its own window and device and closes them in `Dispose`, as before.
 
-The shared host closes when the process exits (a `ProcessExit` handler; not on macOS), or earlier with `GameHost.Release()`. A game that leaves the loop for good and wants the GPU memory back calls `Release()`.
+The shared host closes when the process exits (a `ProcessExit` handler; on macOS it leaves the window to the system), or earlier with `GameHost.Release()`. A game that leaves the loop for good and wants the GPU memory back calls `Release()`.
 
 ## What a new run gets
 
@@ -51,5 +51,6 @@ Three `GameApp.Run` calls in one process, a 3D scene with a planar reflection, 9
 | Xvfb, RTX 4070 (driver 580) | 501 ms | 35 ms | 35 ms | 23-26 ms | under 50 ms |
 | Xvfb, llvmpipe | 382 ms | 116 ms | 109 ms | 12-18 ms | 34 ms |
 | Weston, llvmpipe | 412 ms | 115 ms | 109 ms | 0-8 ms | 29 ms |
+| macOS Cocoa, Apple M2, Metal validation on | 308-1,845 ms | 11-18 ms | 31-33 ms | 10-25 ms | 10-29 ms (with or without `Release()`) |
 
 Before this change run 2 took 121-147 ms on the same machines and each run's teardown 60-72 ms (RTX 4070) with the device destroyed each time.
