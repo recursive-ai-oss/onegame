@@ -169,7 +169,9 @@ public sealed partial class Renderer3D
     {
         ArgumentNullException.ThrowIfNull(name);
         var owner = Own(new Model3D(Template, 0));
+        // The glTF default is fully metallic, which has no diffuse light; the documented start is a rough non-metal.
         var constants = BuildMaterial(new GltfMaterial());
+        constants.P0.X = 0f;
         constants.BaseColor = baseColor ?? Vector4.One;
         constants.P1.X = alphaCutoff;
         constants.P1.Y = (float)(int)alpha;
