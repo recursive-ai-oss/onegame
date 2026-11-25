@@ -24,6 +24,8 @@ public sealed partial class Renderer3D
     private int _batchItemCount;
     private int _instCount;
 
+    private int[] _paletteMap = new int[64];
+
     private int InstanceTotal { get; set; }
 
     private int InstanceVisible { get; set; }
@@ -33,7 +35,7 @@ public sealed partial class Renderer3D
     private void InitInstancing()
     {
         _instanceCapacity = 1024;
-        _instanceBuffer = Own(Device.CreateBuffer(new BufferDesc((ulong)_instanceCapacity * 64, BufferUsage.Vertex | BufferUsage.CopyDestination) { Label = "3d instances" }));
+        _instanceBuffer = Own(Device.CreateBuffer(new BufferDesc((ulong)_instanceCapacity * InstanceStride, BufferUsage.Vertex | BufferUsage.CopyDestination) { Label = "3d instances" }));
     }
 
     private void CollectBatches(Scene3D scene, int samples)
@@ -58,8 +60,9 @@ public sealed partial class Renderer3D
 
             var model = b.Model;
             var nodes = model.Source.Nodes;
-            foreach (var n in model.DrawNodes)
+            for (var k = 0; k < model.DrawNodes.Length; k++)
             {
+                var n = model.DrawNodes[k];
                 var prims = model.Meshes[nodes[n].Mesh]!;
                 if (prims.Length == 0)
                 {
@@ -73,9 +76,22 @@ public sealed partial class Renderer3D
                     GrowObjects(slot + 1);
                 }
 
-                Matrix4x4.Invert(world, out var inverse);
-                _objects[slot] = new ObjectConstants { Model = world, NormalMat = Matrix4x4.Transpose(inverse) };
-                var flipped = world.GetDeterminant() < 0;
+                bool flipped;
+                if (b.Posed && nodes[n].Skin >= 0 && nodes[n].Skin < model.Source.Skins.Length)
+                {
+                    // A skinned node's palette already holds joint world * inverse bind (model space), so the object matrix is the identity
+                    // and the node's own transform is ignored, as glTF 2.0 section 3.7.3 says for skinned meshes. The vertex shader adds the
+                    // instance's palette start to this node's offset (Info.X).
+                    _objects[slot] = new ObjectConstants { Model = Matrix4x4.Identity, NormalMat = Matrix4x4.Identity, Info = new UInt4 { X = (uint)b.PaletteOffsetOf(k), Y = 1 } };
+                    flipped = false;
+                }
+                else
+                {
+                    Matrix4x4.Invert(world, out var inverse);
+                    _objects[slot] = new ObjectConstants { Model = world, NormalMat = Matrix4x4.Transpose(inverse) };
+                    flipped = world.GetDeterminant() < 0;
+                }
+
                 foreach (var p in prims)
                 {
                     if (_batchItemCount == _batchItems.Length)
@@ -116,6 +132,15 @@ public sealed partial class Renderer3D
             var b = _activeBatches[bi];
             var raw = b.Raw;
             var n = b.Count;
+            if (b.Posed)
+            {
+                if (_paletteMap.Length < n)
+                {
+                    _paletteMap = new int[Math.Max(n, _paletteMap.Length * 2)];
+                }
+
+                Array.Fill(_paletteMap, -1, 0, n);
+            }
 
             // The views are the camera, the shadow tiles, and last the mirror image when it is drawn.
             for (var vi = 0; vi <= views; vi++)
@@ -149,12 +174,14 @@ public sealed partial class Renderer3D
                         continue;
                     }
 
+                    var palette = b.Posed ? PaletteFor(b, i) : 0;
                     _instStaging[_instCount++] = new InstanceGpu
                     {
                         Rx = new Vector4(m.M11, m.M21, m.M31, m.M41),
                         Ry = new Vector4(m.M12, m.M22, m.M32, m.M42),
                         Rz = new Vector4(m.M13, m.M23, m.M33, m.M43),
                         Color = it.Color,
+                        Skin = new UInt4 { X = (uint)palette },
                     };
                 }
 
@@ -183,11 +210,35 @@ public sealed partial class Renderer3D
                 _instanceCapacity = Math.Max(_instCount, _instanceCapacity * 2);
                 _owned.Remove(_instanceBuffer);
                 _deferred.Add(_instanceBuffer);
-                _instanceBuffer = Own(Device.CreateBuffer(new BufferDesc((ulong)_instanceCapacity * 64, BufferUsage.Vertex | BufferUsage.CopyDestination) { Label = "3d instances" }));
+                _instanceBuffer = Own(Device.CreateBuffer(new BufferDesc((ulong)_instanceCapacity * InstanceStride, BufferUsage.Vertex | BufferUsage.CopyDestination) { Label = "3d instances" }));
             }
 
             Device.WriteBuffer(_instanceBuffer, 0, MemoryMarshal.AsBytes(new ReadOnlySpan<InstanceGpu>(_instStaging, 0, _instCount)));
         }
+    }
+
+    // The first joint of copy i's palette in the joint buffer. The palette is copied in the first time any view needs the copy this frame
+    // and reused by the rest (the camera and every shadow tile that sees it), so each posed copy costs one upload however many views draw it.
+    private int PaletteFor(InstanceBatch3D b, int i)
+    {
+        var at = _paletteMap[i];
+        if (at >= 0)
+        {
+            return at;
+        }
+
+        var vectors = b.PaletteVectors;
+        var needed = (_jointUsed * 4) + vectors;
+        if (needed > _jointRows.Length)
+        {
+            Array.Resize(ref _jointRows, Math.Max(_jointRows.Length * 2, needed));
+        }
+
+        b.CopyPalette(i, _jointRows.AsSpan(_jointUsed * 4, vectors));
+        at = _jointUsed;
+        _jointUsed += vectors / 4;
+        _paletteMap[i] = at;
+        return at;
     }
 
     private void DrawBatches(GpuRenderPass pass, PipeKind kind, int samples, int view, bool blend, bool mirror = false)
@@ -227,7 +278,7 @@ public sealed partial class Renderer3D
             }
 
             pass.SetVertexBuffer(0, p.Vertices);
-            pass.SetVertexBuffer(1, _instanceBuffer, (ulong)range.First * 64);
+            pass.SetVertexBuffer(1, _instanceBuffer, (ulong)range.First * InstanceStride);
             pass.SetIndexBuffer(p.Indices, p.IndexFormat);
             pass.DrawIndexed(p.IndexCount, (uint)range.Count);
         }
@@ -251,7 +302,7 @@ public sealed partial class Renderer3D
             pass.SetBindGroup(1, _set1!, offset);
             pass.SetBindGroup(2, p.Material.Group);
             pass.SetVertexBuffer(0, p.Vertices);
-            pass.SetVertexBuffer(1, _instanceBuffer, (ulong)range.First * 64);
+            pass.SetVertexBuffer(1, _instanceBuffer, (ulong)range.First * InstanceStride);
             pass.SetIndexBuffer(p.Indices, p.IndexFormat);
             pass.DrawIndexed(p.IndexCount, (uint)range.Count);
         }

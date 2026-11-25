@@ -96,19 +96,21 @@ struct VOut
     [[vk::location(5)]] float4 Color : TEXCOORD5;
 };
 
-float4x4 JointMatrix(uint index)
+float4x4 JointMatrix(uint first, uint index)
 {
-    uint b = (ObjInfo.x + index) * 4u;
+    uint b = (first + index) * 4u;
     return float4x4(Joints[b], Joints[b + 1u], Joints[b + 2u], Joints[b + 3u]);
 }
 
-// Per-instance data: the first three columns of the instance matrix as rows of a 3x4 (x' = dot((p, 1), Rx)), and a colour.
+// Per-instance data: the first three columns of the instance matrix as rows of a 3x4 (x' = dot((p, 1), Rx)), a colour, and where the
+// instance's joint matrices start (Skin.x, added to the object's own first joint; zero for batches that draw the rest pose).
 struct InstIn
 {
     [[vk::location(8)]] float4 Rx : INSTROW0;
     [[vk::location(9)]] float4 Ry : INSTROW1;
     [[vk::location(10)]] float4 Rz : INSTROW2;
     [[vk::location(11)]] float4 Tint : INSTCOLOR;
+    [[vk::location(12)]] uint4 Skin : INSTSKIN;
 };
 
 float3 Inst(float3 v, float w, InstIn n)
@@ -124,6 +126,7 @@ InstIn NoInstance()
     n.Ry = float4(0.0, 1.0, 0.0, 0.0);
     n.Rz = float4(0.0, 0.0, 1.0, 0.0);
     n.Tint = float4(1.0, 1.0, 1.0, 1.0);
+    n.Skin = uint4(0, 0, 0, 0);
     return n;
 }
 
@@ -139,7 +142,8 @@ VOut Transform(VIn i, bool instanced, InstIn inst)
         uint j1 = i.Joints.x >> 16;
         uint j2 = i.Joints.y & 0xFFFFu;
         uint j3 = i.Joints.y >> 16;
-        float4x4 s = JointMatrix(j0) * i.Weights.x + JointMatrix(j1) * i.Weights.y + JointMatrix(j2) * i.Weights.z + JointMatrix(j3) * i.Weights.w;
+        uint first = ObjInfo.x + inst.Skin.x;
+        float4x4 s = JointMatrix(first, j0) * i.Weights.x + JointMatrix(first, j1) * i.Weights.y + JointMatrix(first, j2) * i.Weights.z + JointMatrix(first, j3) * i.Weights.w;
         p = mul(float4(p, 1.0), s).xyz;
         n = mul(float4(n, 0.0), s).xyz;
         t = mul(float4(t, 0.0), s).xyz;

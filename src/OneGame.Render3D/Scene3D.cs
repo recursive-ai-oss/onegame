@@ -421,6 +421,22 @@ public sealed class Scene3D
         return batch;
     }
 
+    /// <summary>
+    /// Adds a batch whose copies each have their own pose: a crowd of one animated, skinned model drawn with one instanced draw per primitive
+    /// (plus one per shadow tile) instead of one draw per character. Give each copy a pose with <see cref="InstanceBatch3D.Add(in Matrix4x4, NodePose, Vector4?)"/>.
+    /// The copies are culled, cast and receive shadows, take fog and the model's materials like those of <see cref="AddInstanced"/>. Skinned
+    /// nodes follow the pose; nodes without a skin, and morph targets, stay at the rest pose. A model with no skin gives a plain batch.
+    /// </summary>
+    /// <param name="model">The model.</param>
+    /// <param name="capacity">Copies to reserve room for; the batch grows as needed.</param>
+    public InstanceBatch3D AddSkinnedInstanced(Model3D model, int capacity = 64)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        var batch = new InstanceBatch3D(model, capacity, posed: true);
+        Batches.Add(batch);
+        return batch;
+    }
+
     /// <summary>Adds the lights the model's glTF file defines (KHR_lights_punctual) at their current positions, through the instance transform.</summary>
     public void AddModelLights(ModelInstance3D instance)
     {

@@ -28,6 +28,7 @@ An entity that implements `IView3D` is asked once per drawn frame, in entity ord
 | `Model(name, transform, pickable = true)` / `Model(name, transform, extraScale)` | a model of the `ModelLibrary`; unknown names throw `UnknownModelException` listing the known ones |
 | `Model(name, transform, pose, pickable = true)` | a model in an animated pose (an `Animator`'s `Pose`, or one you blend yourself), copied when the frame is built: see [../animation.md](../animation.md) |
 | `Instance(name, transform, tint = null)` | one copy among many of a static model: all copies of a model in a frame become one instanced batch (culled, shadowed, one draw per primitive); rest pose, uniform scale, not pickable |
+| `Instance(name, transform, pose, tint = null)` | one copy of an animated, skinned model among many, each in its own pose (an `Animator`'s `Pose`): all posed copies of a model in a frame become one skinned batch (culled, shadowed, one draw per primitive per view); uniform scale, not pickable, nodes without a skin stay at rest. See `render3d.md` |
 | `PointLight`, `SpotLight`, `DirectionalLight` | lights (a transform gives position and facing; `Light3D` units) |
 | `Camera(transform, fovDegrees, priority, near, far, orthoHeight)` | offers a camera; highest `priority` wins, first on a tie; with none the `SceneView3D.DefaultCamera` is used |
 

@@ -28,6 +28,14 @@ try {
       results.push(r);
       continue;
     }
+    if (name === 'skinned') {   // a crowd in one skinned batch against the same models drawn one by one
+      for (const f of await (await fetch('/__list?path=/models/Fox/glTF')).json()) await put(R, '/models/Fox/glTF/' + f, '/models/Fox/glTF/' + f);
+      const started = performance.now();
+      const r = JSON.parse(await R.RunSkinnedInstances());
+      r.ms = Math.round(performance.now() - started);
+      results.push(r);
+      continue;
+    }
     if (name === 'shafts') {   // light shafts against the software rasterizer's reference
       await put(R, '/ref/shafts_slit.png', '/testdata/render3d/m4/shafts_slit.png');
       const started = performance.now();

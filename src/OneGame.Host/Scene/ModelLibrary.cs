@@ -305,6 +305,7 @@ public sealed class ModelLibrary : IDisposable
             Pool.Clear();
             Used = 0;
             Batch = null;
+            PosedBatch = null;
             Mesh?.Dispose();
             Mesh = null;
             Gpu?.Dispose();
@@ -366,6 +367,8 @@ public sealed class ModelLibrary : IDisposable
         public int Used { get; set; }
 
         public InstanceBatch3D? Batch { get; set; }
+
+        public InstanceBatch3D? PosedBatch { get; set; }
 
         private Matrix4x4[]? _nodeInverse;
 

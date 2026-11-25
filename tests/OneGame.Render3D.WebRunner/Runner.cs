@@ -130,6 +130,75 @@ public static partial class Runner
     }
 
     /// <summary>
+    /// Draws twelve posed copies of the Fox once as separate animated models and once as one skinned instance batch (shadows on) and returns the
+    /// largest per-channel difference, the draw counts and the validation messages.
+    /// </summary>
+    [JSExport]
+    public static async Task<string> RunSkinnedInstances()
+    {
+        try
+        {
+            _device ??= await WebGpu.CreateDeviceAsync(new GpuDeviceOptions { ApplicationName = "render3d web runner" }).ConfigureAwait(true);
+            using var renderer = new Renderer3D(_device);
+            using var target = new Offscreen3D(renderer, 320, 200, GpuFormat.Rgba8UnormSrgb);
+            using var rig = new Rig(renderer);
+            var fox = rig.Own(renderer.Upload(GltfLoader.LoadFile("/models/Fox/glTF/Fox.gltf")));
+            var ground = rig.Own(new Shapes().Ground(0f, 200f, Shapes.Matte(0.45f, 0.5f, 0.35f)).Upload(rig));
+
+            Scene3D Stage()
+            {
+                var scene = new Scene3D { Camera = Camera3D.LookAt(new Vector3(0, 7, 14), new Vector3(0, 1.2f, -4.4f), Vector3.UnitY), Samples = 1 };
+                scene.Camera.Far = 300f;
+                scene.Add(ground);
+                scene.Lights.Add(new Light3D { Kind = LightKind.Directional, Direction = Vector3.Normalize(new Vector3(-0.5f, -1f, -0.4f)), Intensity = 3f, CastShadows = true });
+                scene.Shadows.MaxDistance = 80f;
+                scene.Environment.Intensity = 0.6f;
+                return scene;
+            }
+
+            var separate = Stage();
+            var crowd = Stage();
+            var batch = crowd.AddSkinnedInstanced(fox, 12);
+            for (var i = 0; i < 12; i++)
+            {
+                var pose = fox.Source.CreateRestPose();
+                var clip = fox.Source.Animations[1 + (i % 2)];
+                clip.Apply(pose, (i * 0.137f) % clip.Duration);
+                var place = Matrix4x4.CreateScale(0.04f) * Matrix4x4.CreateRotationY(i * 0.7f) * Matrix4x4.CreateTranslation(((i % 4) - 1.5f) * 4.5f, 0, -(i / 4) * 4.5f);
+                var instance = separate.Add(fox, place);
+                instance.Pose.CopyFrom(pose);
+                instance.UpdateTransforms();
+                batch.Add(place, pose);
+            }
+
+            var expected = await target.CaptureAsync(separate).ConfigureAwait(true);
+            var separateDraws = renderer.LastStats.DrawCalls;
+            var actual = await target.CaptureAsync(crowd).ConfigureAwait(true);
+            var stats = renderer.LastStats;
+            await WebGpu.SettleAsync(_device).ConfigureAwait(true);
+            var worst = 0;
+            for (var i = 0; i < expected.Length; i++)
+            {
+                worst = Math.Max(worst, Math.Abs(expected[i] - actual[i]));
+            }
+
+            var messages = _device.TakeValidationMessages();
+            Directory.CreateDirectory("/out");
+            Png.Write("/out/skinned.png", 320, 200, actual);
+            return JsonSerializer.Serialize(new Dictionary<string, object?>
+            {
+                ["name"] = "skinned", ["ok"] = worst <= 3 && stats.Instances == 12 && stats.DrawCalls < separateDraws && messages.Length == 0,
+                ["maxDiff"] = worst, ["draws"] = stats.DrawCalls, ["separateDraws"] = separateDraws, ["validation"] = messages,
+                ["png"] = Convert.ToBase64String(File.ReadAllBytes("/out/skinned.png")),
+            }, RunnerJson.Options);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return JsonSerializer.Serialize(new Dictionary<string, object?> { ["name"] = "skinned", ["ok"] = false, ["error"] = ex.ToString() }, RunnerJson.Options);
+        }
+    }
+
+    /// <summary>
     /// Draws one case of <c>cases.json</c> (the model is at <c>/models/&lt;model path&gt;</c>, the panorama at <c>/env/&lt;name&gt;_1k.hdr</c>) and returns
     /// a JSON result: the measured difference to the reference, the limits, and the captured frame as a PNG in base64.
     /// </summary>

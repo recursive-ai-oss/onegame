@@ -118,7 +118,7 @@ internal struct FrameSlot
     public FrameConstants Frame;
 }
 
-/// <summary>Per-instance vertex data: the instance matrix as three rows of a 3x4 (x' = dot((p, 1), Rx)) and a colour.</summary>
+/// <summary>Per-instance vertex data: the instance matrix as three rows of a 3x4 (x' = dot((p, 1), Rx)), a colour, and the first joint of the instance's palette (Skin.X).</summary>
 [StructLayout(LayoutKind.Sequential)]
 internal struct InstanceGpu
 {
@@ -126,6 +126,7 @@ internal struct InstanceGpu
     public Vector4 Ry;
     public Vector4 Rz;
     public Vector4 Color;
+    public UInt4 Skin;
 }
 
 /// <summary>Ambient occlusion pass constants (Ssao.hlsl).</summary>

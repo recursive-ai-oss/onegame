@@ -176,6 +176,7 @@ public sealed class SceneView3D : IScene3DProbe, IDisposable
         for (var i = 0; i < Models.Count; i++)
         {
             Models.At(i).Batch?.Clear();
+            Models.At(i).PosedBatch?.Clear();
         }
 
         var instances = _writer.Instances;
@@ -189,6 +190,27 @@ public sealed class SceneView3D : IScene3DProbe, IDisposable
             }
 
             entry.Gpu ??= renderer.Upload(entry.Source);
+            if (d.Pose is { } pose && !entry.IsMesh)
+            {
+                // A model without a skin gives a plain batch, which ignores the pose.
+                var posed = entry.PosedBatch ??= scene.AddSkinnedInstanced(entry.Gpu, 64);
+                if (!scene.Batches.Contains(posed))
+                {
+                    scene.Batches.Add(posed);
+                }
+
+                if (posed.Posed)
+                {
+                    posed.Add(d.World, pose, d.Tint);
+                }
+                else
+                {
+                    posed.Add(d.World, d.Tint);
+                }
+
+                continue;
+            }
+
             if (entry.Batch is null)
             {
                 entry.Batch = scene.AddInstanced(entry.Gpu, 64);

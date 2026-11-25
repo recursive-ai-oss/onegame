@@ -125,6 +125,21 @@ public sealed partial class SceneWriter
     public void Instance(string model, Transform3 transform, Vector4? tint = null)
         => _instances.Add(new InstanceDraw(_models.IndexOf(model), ToMatrix(transform), tint ?? Vector4.One));
 
+    /// <summary>
+    /// Shows one copy of an animated, skinned model among many, each in its own pose (for example <c>Animator.Pose</c>): every copy of the
+    /// same model in a frame is drawn with one instanced draw per primitive, so hundreds of characters cost a handful of draws. The pose is
+    /// read when the frame is built, so the caller keeps its buffer. Copies are culled against the camera and the shadow maps, cast and
+    /// receive shadows and take fog. Nodes without a skin and morph targets stay at the rest pose, copies cannot be picked, and the scale
+    /// should be uniform and unmirrored.
+    /// </summary>
+    /// <param name="model">The name the model was added under.</param>
+    /// <param name="transform">Where it is.</param>
+    /// <param name="pose">The node pose to draw (from the same model's rig).</param>
+    /// <param name="tint">Linear RGBA multiplied into the base colour; null leaves it unchanged.</param>
+    /// <exception cref="UnknownModelException">The library has no such model.</exception>
+    public void Instance(string model, Transform3 transform, NodePose pose, Vector4? tint = null)
+        => _instances.Add(new InstanceDraw(_models.IndexOf(model), ToMatrix(transform), tint ?? Vector4.One, pose));
+
     /// <summary>A light that shines in all directions from the transform's position.</summary>
     /// <param name="transform">Where it is.</param>
     /// <param name="color">Linear RGB.</param>
@@ -193,7 +208,7 @@ public sealed partial class SceneWriter
 
     internal readonly record struct ModelDraw(int Model, EntityId Entity, Matrix4x4 World, bool Pickable, NodePose? Pose = null, float Opacity = 1f, string? Label = null, bool CastShadows = true);
 
-    internal readonly record struct InstanceDraw(int Model, Matrix4x4 World, Vector4 Tint);
+    internal readonly record struct InstanceDraw(int Model, Matrix4x4 World, Vector4 Tint, NodePose? Pose = null);
 
     internal readonly record struct LightDraw(LightKind Kind, Vector3 Position, Vector3 Direction, Vector3 Color, float Intensity, float Range, float Inner, float Outer, bool Shadows = false);
 }
