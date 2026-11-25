@@ -4,6 +4,11 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- Environments without a hitch. `Renderer3D.CreateEnvironmentAsync(HdrImage, EnvironmentLoadOptions?)` returns an `EnvironmentLoad` (`State`, `Progress`, `IsReady`, `Error`, `Take()`, `Cancel()`, `Dispose()`): the panorama is converted on a worker thread (in slices on the render thread in a browser), copied to the GPU in bands and filtered a few passes per frame under `EnvironmentLoadOptions.GpuBudget`, while the game keeps drawing its current map. The finished map is pixel-identical to `CreateEnvironment` plus `PrepareEnvironment`; the synchronous calls are unchanged. A face size of 0 follows quality, and a quality change mid-load restarts the filtering at the new size. `Renderer3D.RetireEnvironment` frees a replaced map once frames in flight are done. On the RTX 4070 the worst frame of a 2048x1024 panorama at 256 is 1.3 ms against 50 ms for the synchronous pair.
+- `Render3DStage.AdoptEnvironment(load, EnvironmentSlot)` swaps a ready load into `Environment.Map` or `NextMap` at the start of a frame and frees what it replaced. The `environment` control operation starts a load (`load` file or `sky` width, `size`, `into`), cancels it (`cancel`) and reports its state and progress (`EnvironmentResult.Load`).
+
 ## [2.3.0] - 2026-11-22
 
 ### Changed

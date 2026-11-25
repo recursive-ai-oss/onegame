@@ -123,6 +123,7 @@ public sealed partial class Renderer3D
 
     private void DisposeIbl()
     {
+        DisposeLoads();
         _defaultEnvironment?.Dispose();
         _defaultEnvironment = null;
     }
@@ -143,16 +144,7 @@ public sealed partial class Renderer3D
             size = QualitySettings.For(_quality).EnvironmentSize;
         }
 
-        if (size is < 16 or > 1024 || (size & (size - 1)) != 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(size), "The size must be a power of two from 16 to 1024.");
-        }
-
-        var max = (int)Device.Capabilities.MaxTextureSize;
-        if (image.Width > max || image.Height > max)
-        {
-            throw new ArgumentException($"The panorama is larger than the device's {max} texel texture limit.", nameof(image));
-        }
+        ValidateEnvironment(image, size, nameof(size));
 
         // Half-float range tops out at 65504: clamp so a very bright sun disc cannot become infinity and smear through the filtering.
         var halves = new Half[image.Width * image.Height * 4];
@@ -176,6 +168,20 @@ public sealed partial class Renderer3D
         };
 
         return new EnvironmentMap(equirect, Device.CreateTexture(Cube(size, mips, "environment source")), Device.CreateTexture(Cube(size, mips, "environment specular")), Device.CreateTexture(Cube(IrradianceSize, 1, "environment irradiance")), size, follows);
+    }
+
+    private void ValidateEnvironment(HdrImage image, int size, string sizeParameter)
+    {
+        if (size is < 16 or > 1024 || (size & (size - 1)) != 0)
+        {
+            throw new ArgumentOutOfRangeException(sizeParameter, "The size must be a power of two from 16 to 1024.");
+        }
+
+        var max = (int)Device.Capabilities.MaxTextureSize;
+        if (image.Width > max || image.Height > max)
+        {
+            throw new ArgumentException($"The panorama is larger than the device's {max} texel texture limit.", nameof(image));
+        }
     }
 
     /// <summary>Runs the filtering of an environment now, on its own graph, and waits for it. Frames do this by themselves; tests and tools use it to inspect the cubes.</summary>
@@ -256,12 +262,46 @@ public sealed partial class Renderer3D
         });
     }
 
-    private void AddEnvironmentPasses(RenderGraph graph, EnvironmentMap env)
+    // The filtering is a list of steps, one graph pass each: panorama to cube, source mips, copy of mip 0, one prefilter per further mip,
+    // then the irradiance cube. A frame that needs the environment adds them all; an asynchronous load adds a few per frame.
+    private static int EnvironmentStepCount(int mips) => mips + 3;
+
+    // Rough GPU cost of a step in filter samples; only used to spread asynchronous work across frames.
+    private static long EnvironmentStepCost(int size, int mips, int step)
+    {
+        var faces = 6L * size * size;
+        if (step == 0)
+        {
+            return faces * 8;
+        }
+
+        if (step <= 2)
+        {
+            return faces * (step == 1 ? 4 : 1);
+        }
+
+        if (step == mips + 2)
+        {
+            return 6L * IrradianceSize * IrradianceSize * IrradianceSamples;
+        }
+
+        var level = Math.Max(size >> (step - 2), 1);
+        return 6L * level * level * PrefilterSamples;
+    }
+
+    /// <summary>The uniform block and bind groups that the steps of one environment's filtering use.</summary>
+    internal sealed class EnvironmentSet
+    {
+        public GpuBuffer Parameters = null!;
+        public GpuBindGroup?[] Groups = [];
+    }
+
+    private EnvironmentSet BuildEnvironmentSet(EnvironmentMap env)
     {
         var device = Device;
         var mips = env.SpecularMipCount;
         var slots = mips + 2;
-        var parameters = device.CreateBuffer(new BufferDesc((ulong)slots * 256, BufferUsage.Uniform | BufferUsage.CopyDestination) { Label = "env params" });
+        var set = new EnvironmentSet { Parameters = device.CreateBuffer(new BufferDesc((ulong)slots * 256, BufferUsage.Uniform | BufferUsage.CopyDestination) { Label = "env params" }), Groups = new GpuBindGroup?[mips + 3] };
         var values = new Vector4[slots * 16];
         values[0] = new Vector4(env.Size, 0, 0, 0);
         for (var m = 1; m < mips; m++)
@@ -271,50 +311,97 @@ public sealed partial class Renderer3D
         }
 
         values[mips * 16] = new Vector4(IrradianceSize, IrradianceSamples, env.Size, 0);
-        device.WriteBuffer(parameters, 0, MemoryMarshal.AsBytes(values.AsSpan()));
-        _deferred.Add(parameters);
+        device.WriteBuffer(set.Parameters, 0, MemoryMarshal.AsBytes(values.AsSpan()));
 
-        GpuBindGroup Group(int slot, GpuTexture? sampled, GpuSampler sampler, GpuTexture storage, uint mip)
-        {
-            var g = device.CreateBindGroup(_iblLayout, 0,
-            [
-                BindGroupEntry.ForBuffer(0, parameters, (ulong)slot * 256, 16),
-                BindGroupEntry.ForTexture(1, sampled ?? _white),
-                BindGroupEntry.ForSampler(2, sampler),
-                BindGroupEntry.ForTexture(3, storage, new TextureViewDesc { BaseMip = mip, MipCount = 1, BaseLayer = 0, LayerCount = 6, Kind = TextureViewKind.D2Array }),
-            ]);
-            _deferred.Add(g);
-            return g;
-        }
+        GpuBindGroup Group(int slot, GpuTexture? sampled, GpuSampler sampler, GpuTexture storage, uint mip) => device.CreateBindGroup(_iblLayout, 0,
+        [
+            BindGroupEntry.ForBuffer(0, set.Parameters, (ulong)slot * 256, 16),
+            BindGroupEntry.ForTexture(1, sampled ?? _white),
+            BindGroupEntry.ForSampler(2, sampler),
+            BindGroupEntry.ForTexture(3, storage, new TextureViewDesc { BaseMip = mip, MipCount = 1, BaseLayer = 0, LayerCount = 6, Kind = TextureViewKind.D2Array }),
+        ]);
 
-        var equirect = graph.ImportTexture("env_panorama", env.Equirect!);
-        var source = graph.ImportTexture("env_source", env.Source);
-        var specular = graph.ImportTexture("env_specular", env.Specular);
-        var irradiance = graph.ImportTexture("env_irradiance", env.Irradiance);
-
-        var equirectGroup = Group(0, env.Equirect, _equirectSampler, env.Source, 0);
-        graph.AddPass("env_panorama_to_cube", b =>
-        {
-            b.Compute();
-            b.Read(equirect);
-            b.WriteStorage(source);
-        }, c =>
-        {
-            c.Compute.SetPipeline(_equirectPipeline);
-            c.Compute.SetBindGroup(0, equirectGroup);
-            c.Compute.Dispatch((uint)(env.Size + 7) / 8, (uint)(env.Size + 7) / 8, 6);
-        });
-        graph.AddPass("env_source_mips", b => b.ReadWrite(source), c => c.Encoder.GenerateMips(c.Texture(source)));
-        graph.AddPass("env_copy_mip0", b =>
-        {
-            b.CopySource(source);
-            b.CopyDestination(specular);
-        }, c => c.Encoder.CopyTexture(c.Texture(source), c.Texture(specular)));
-
+        set.Groups[0] = Group(0, env.Equirect, _equirectSampler, env.Source, 0);
         for (var m = 1; m < mips; m++)
         {
+            set.Groups[m + 2] = Group(m, env.Source, _envSampler, env.Specular, (uint)m);
+        }
+
+        set.Groups[mips + 2] = Group(mips, env.Source, _envSampler, env.Irradiance, 0);
+        return set;
+    }
+
+    // Frames already recorded may still use the set: it is freed at the start of the next render.
+    private void RetireEnvironmentSet(EnvironmentSet? set)
+    {
+        if (set is null)
+        {
+            return;
+        }
+
+        _deferred.Add(set.Parameters);
+        foreach (var g in set.Groups)
+        {
+            if (g is not null)
+            {
+                _deferred.Add(g);
+            }
+        }
+    }
+
+    private void AddEnvironmentPasses(RenderGraph graph, EnvironmentMap env)
+    {
+        var set = BuildEnvironmentSet(env);
+        RetireEnvironmentSet(set);
+        var count = EnvironmentStepCount(env.SpecularMipCount);
+        for (var step = 0; step < count; step++)
+        {
+            AddEnvironmentStep(graph, env, set, step);
+        }
+    }
+
+    private void AddEnvironmentStep(RenderGraph graph, EnvironmentMap env, EnvironmentSet set, int step)
+    {
+        var mips = env.SpecularMipCount;
+        if (step == 0)
+        {
+            var equirect = graph.ImportTexture("env_panorama", env.Equirect!);
+            var source = graph.ImportTexture("env_source", env.Source);
+            var group = set.Groups[0]!;
+            graph.AddPass("env_panorama_to_cube", b =>
+            {
+                b.Compute();
+                b.Read(equirect);
+                b.WriteStorage(source);
+            }, c =>
+            {
+                c.Compute.SetPipeline(_equirectPipeline);
+                c.Compute.SetBindGroup(0, group);
+                c.Compute.Dispatch((uint)(env.Size + 7) / 8, (uint)(env.Size + 7) / 8, 6);
+            });
+        }
+        else if (step == 1)
+        {
+            var source = graph.ImportTexture("env_source", env.Source);
+            graph.AddPass("env_source_mips", b => b.ReadWrite(source), c => c.Encoder.GenerateMips(c.Texture(source)));
+        }
+        else if (step == 2)
+        {
+            var source = graph.ImportTexture("env_source", env.Source);
+            var specular = graph.ImportTexture("env_specular", env.Specular);
+            graph.AddPass("env_copy_mip0", b =>
+            {
+                b.CopySource(source);
+                b.CopyDestination(specular);
+            }, c => c.Encoder.CopyTexture(c.Texture(source), c.Texture(specular)));
+        }
+        else if (step < mips + 2)
+        {
+            var m = step - 2;
             var size = Math.Max(env.Size >> m, 1);
-            var group = Group(m, env.Source, _envSampler, env.Specular, (uint)m);
+            var source = graph.ImportTexture("env_source", env.Source);
+            var specular = graph.ImportTexture("env_specular", env.Specular);
+            var group = set.Groups[step]!;
             graph.AddPass("env_prefilter_" + m, b =>
             {
                 b.Compute();
@@ -327,18 +414,22 @@ public sealed partial class Renderer3D
                 c.Compute.Dispatch((uint)(size + 7) / 8, (uint)(size + 7) / 8, 6);
             });
         }
-
-        var irradianceGroup = Group(mips, env.Source, _envSampler, env.Irradiance, 0);
-        graph.AddPass("env_irradiance", b =>
+        else
         {
-            b.Compute();
-            b.Read(source);
-            b.WriteStorage(irradiance);
-        }, c =>
-        {
-            c.Compute.SetPipeline(_irradiancePipeline);
-            c.Compute.SetBindGroup(0, irradianceGroup);
-            c.Compute.Dispatch(IrradianceSize / 8, IrradianceSize / 8, 6);
-        });
+            var source = graph.ImportTexture("env_source", env.Source);
+            var irradiance = graph.ImportTexture("env_irradiance", env.Irradiance);
+            var group = set.Groups[step]!;
+            graph.AddPass("env_irradiance", b =>
+            {
+                b.Compute();
+                b.Read(source);
+                b.WriteStorage(irradiance);
+            }, c =>
+            {
+                c.Compute.SetPipeline(_irradiancePipeline);
+                c.Compute.SetBindGroup(0, group);
+                c.Compute.Dispatch(IrradianceSize / 8, IrradianceSize / 8, 6);
+            });
+        }
     }
 }

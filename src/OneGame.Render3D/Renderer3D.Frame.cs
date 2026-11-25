@@ -148,6 +148,7 @@ public sealed partial class Renderer3D
             samples = wanted >= 8 && most >= 8 ? 8 : 4;
         }
 
+        AdvanceLoads(graph);
         var env = scene.Environment.Map ?? DefaultEnvironment();
         EnvironmentWork(graph, env);
         var envB = scene.Environment.NextMap is { } next && scene.Environment.Blend > 0f ? next : null;

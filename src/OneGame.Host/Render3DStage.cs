@@ -17,6 +17,16 @@ public interface IScene3DStage
     ManualScene3D? Manual => null;
 }
 
+/// <summary>Which environment of the scene an adopted <see cref="EnvironmentLoad"/> replaces.</summary>
+public enum EnvironmentSlot
+{
+    /// <summary>The scene's <c>Environment.Map</c>: the picture changes at once when the load is ready.</summary>
+    Map,
+
+    /// <summary>The scene's <c>Environment.NextMap</c>: fade to it by raising <c>Environment.Blend</c>.</summary>
+    NextMap,
+}
+
 /// <summary>
 /// A render stage that draws a 3D scene first and the 2D scene and UI over it. A game returns it from
 /// <see cref="GameDefinition.CreateRenderStage"/>. Two ways to fill the scene:
@@ -29,6 +39,8 @@ public interface IScene3DStage
 public class Render3DStage : Render2DStage, IScene3DStage
 {
     private Renderer3D? _renderer;
+    private readonly List<(EnvironmentLoad Load, EnvironmentSlot Slot)> _adopting = [];
+    private readonly List<EnvironmentMap> _adopted = [];
 
     /// <summary>Creates the stage.</summary>
     /// <param name="resources">What the host provides: fonts, shaders, art.</param>
@@ -59,6 +71,67 @@ public class Render3DStage : Render2DStage, IScene3DStage
     /// <summary>The 3D renderer, once the first frame has created it.</summary>
     public Renderer3D? Renderer => _renderer;
 
+    /// <summary>The newest load given to <see cref="AdoptEnvironment"/>, running, ready (and already swapped in) or failed; null before the first.</summary>
+    public EnvironmentLoad? LatestEnvironmentLoad { get; private set; }
+
+    /// <summary>The slot the newest adopted load fills.</summary>
+    public EnvironmentSlot LatestEnvironmentSlot { get; private set; }
+
+    /// <summary>
+    /// Hands a running environment load to the stage: when it is ready the stage puts its map in <paramref name="slot"/> of <see cref="Scene"/> at the start of a frame,
+    /// frees the map it replaces (when the stage made it) and owns the new one. The stage disposes what it owns with itself. A load that fails or is cancelled changes nothing.
+    /// </summary>
+    /// <param name="load">The load, from <see cref="Renderer3D.CreateEnvironmentAsync"/>.</param>
+    /// <param name="slot">Which environment to replace.</param>
+    public void AdoptEnvironment(EnvironmentLoad load, EnvironmentSlot slot = EnvironmentSlot.NextMap)
+    {
+        ArgumentNullException.ThrowIfNull(load);
+        if (LatestEnvironmentLoad is { } previous && previous != load && previous.IsRunning)
+        {
+            previous.Cancel();
+        }
+
+        LatestEnvironmentLoad = load;
+        LatestEnvironmentSlot = slot;
+        _adopting.Add((load, slot));
+    }
+
+    private void SwapReadyEnvironments()
+    {
+        for (var i = 0; i < _adopting.Count; i++)
+        {
+            var (load, slot) = _adopting[i];
+            if (load.IsRunning)
+            {
+                continue;
+            }
+
+            _adopting.RemoveAt(i--);
+            if (!load.IsReady)
+            {
+                continue;
+            }
+
+            var map = load.Take();
+            var env = Scene.Environment;
+            var old = slot == EnvironmentSlot.Map ? env.Map : env.NextMap;
+            if (slot == EnvironmentSlot.Map)
+            {
+                env.Map = map;
+            }
+            else
+            {
+                env.NextMap = map;
+            }
+
+            _adopted.Add(map);
+            if (old is not null && _adopted.Remove(old))
+            {
+                _renderer!.RetireEnvironment(old);
+            }
+        }
+    }
+
     /// <summary>Called once, on the first frame, with the new renderer: upload models and environments here.</summary>
     /// <param name="renderer">The renderer.</param>
     protected virtual void RendererCreated(Renderer3D renderer)
@@ -84,6 +157,7 @@ public class Render3DStage : Render2DStage, IScene3DStage
             RendererCreated(_renderer);
         }
 
+        SwapReadyEnvironments();
         if (View is { } view)
         {
             view.Prepare(frame.World, frame.Tick, frame.Alpha);
@@ -101,6 +175,18 @@ public class Render3DStage : Render2DStage, IScene3DStage
     {
         // Models and environments the game uploaded must be disposed by the game first; the renderer then releases the rest.
         View?.Dispose();
+        foreach (var load in _adopting)
+        {
+            load.Load.Dispose();
+        }
+
+        _adopting.Clear();
+        foreach (var map in _adopted)
+        {
+            map.Dispose();
+        }
+
+        _adopted.Clear();
         _renderer?.Dispose();
         _renderer = null;
         base.Dispose();

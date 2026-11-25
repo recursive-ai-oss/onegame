@@ -150,6 +150,49 @@ public class LiveMeshTests
         Assert.True(frame.Rgba[o + 1] > 120, "fog off again shows the lime tile");
     }
 
+    [Fact]
+    public void TheEnvironmentOpStartsAnAsynchronousLoadAndReportsItsProgress()
+    {
+        var definition = new MeshGame();
+        using var game = GameInstance.Create(definition, new GameOptions { Headless = true, Gpu = GpuMode.Required });
+        var surface = new ControlSurface(game);
+        game.Capture(160, 90);
+        Assert.Equal(JsonValueKind.Null, Call(surface, "environment").TryGetProperty("load", out var none) ? none.ValueKind : JsonValueKind.Null);
+
+        var started = Call(surface, "environment", """{"sky":512,"size":64,"into":"next"}""");
+        Assert.NotEqual("ready", started.GetProperty("load").GetProperty("state").GetString());
+        var seen = new HashSet<string>();
+        var progress = -1.0;
+        for (var i = 0; i < 600; i++)
+        {
+            game.Capture(160, 90);
+            var load = Call(surface, "environment").GetProperty("load");
+            seen.Add(load.GetProperty("state").GetString()!);
+            Assert.True(load.GetProperty("progress").GetDouble() >= progress);
+            progress = load.GetProperty("progress").GetDouble();
+            if (load.GetProperty("state").GetString() == "ready")
+            {
+                break;
+            }
+        }
+
+        Assert.Contains("filtering", seen);
+        game.Capture(160, 90);
+        var done = Call(surface, "environment");
+        Assert.Equal("ready", done.GetProperty("load").GetProperty("state").GetString());
+        Assert.True(done.GetProperty("hasNextMap").GetBoolean(), "the ready map was swapped in as the next map");
+
+        // Cancelling a second load leaves the first result alone.
+        Call(surface, "environment", """{"sky":512,"size":64}""");
+        var cancelled = Call(surface, "environment", """{"cancel":true}""");
+        Assert.Equal("canceled", cancelled.GetProperty("load").GetProperty("state").GetString());
+        Assert.True(cancelled.GetProperty("hasNextMap").GetBoolean());
+        Assert.Throws<ControlException>(() => surface.Call("environment", """{"sky":512,"size":100}"""));
+        Assert.Throws<ControlException>(() => surface.Call("environment", """{"load":"../nope.hdr"}"""));
+        game.Capture(160, 90);
+        Assert.Empty(game.TakeGpuValidationMessages());
+    }
+
     private static (MeshVertex3D[], uint[]) Tile()
     {
         var n = Vector3.UnitY;
