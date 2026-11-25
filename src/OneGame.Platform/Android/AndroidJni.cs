@@ -14,6 +14,7 @@ internal sealed unsafe class AndroidJni
     private const int DeleteLocalRefIndex = 23;
     private const int GetObjectClassIndex = 31;
     private const int GetMethodIdIndex = 33;
+    private const int NewObjectAIndex = 30;
     private const int CallObjectMethodAIndex = 36;
     private const int CallBooleanMethodAIndex = 39;
     private const int CallIntMethodAIndex = 51;
@@ -78,6 +79,15 @@ internal sealed unsafe class AndroidJni
     public nint GetMethodId(nint cls, string name, string signature) => MethodId(GetMethodIdIndex, cls, name, signature);
 
     public nint GetStaticMethodId(nint cls, string name, string signature) => MethodId(GetStaticMethodIdIndex, cls, name, signature);
+
+    /// <summary>Constructs an object with the constructor <paramref name="ctor"/> (a method id from <c>GetMethodId(cls, "&lt;init&gt;", ...)</c>).</summary>
+    public nint NewObject(nint cls, nint ctor, params ReadOnlySpan<long> args)
+    {
+        fixed (long* a = args)
+        {
+            return Checked(((delegate* unmanaged<nint, nint, nint, long*, nint>)Table[NewObjectAIndex])(_env, cls, ctor, a));
+        }
+    }
 
     /// <summary>Calls an instance method returning an object. Arguments are jvalues: an int or a reference widened to 64 bits.</summary>
     public nint CallObject(nint obj, nint method, params ReadOnlySpan<long> args)
@@ -312,6 +322,76 @@ internal sealed unsafe class AndroidJni
         }
         finally
         {
+            DeleteLocal(viewClass);
+            DeleteLocal(view);
+            DeleteLocal(contentClass);
+            DeleteLocal(content);
+            DeleteLocal(activityClass);
+        }
+    }
+
+    /// <summary>
+    /// Sets the activity's content view's system gesture exclusion rectangles (<c>View.setSystemGestureExclusionRects</c>, API 29): drags
+    /// that start inside them are the app's and not the system's back gesture. <paramref name="ltrb"/> holds left, top, right, bottom per
+    /// rectangle in view pixels. Main thread only. Returns false when the view or the call is missing (before API 29).
+    /// </summary>
+    public bool SetGestureExclusion(nint activity, ReadOnlySpan<int> ltrb)
+    {
+        nint activityClass = 0, content = 0, contentClass = 0, view = 0, viewClass = 0, listClass = 0, list = 0, rectClass = 0;
+        try
+        {
+            activityClass = GetObjectClass(activity);
+            var find = GetMethodId(activityClass, "findViewById", "(I)Landroid/view/View;");
+            content = find == 0 ? 0 : CallObject(activity, find, 0x01020002); // android.R.id.content
+            if (content == 0)
+            {
+                return false;
+            }
+
+            contentClass = GetObjectClass(content);
+            var childAt = GetMethodId(contentClass, "getChildAt", "(I)Landroid/view/View;");
+            view = childAt == 0 ? 0 : CallObject(content, childAt, 0);
+            if (view == 0)
+            {
+                return false;
+            }
+
+            viewClass = GetObjectClass(view);
+            var set = GetMethodId(viewClass, "setSystemGestureExclusionRects", "(Ljava/util/List;)V");
+            listClass = FindClass("java/util/ArrayList");
+            rectClass = FindClass("android/graphics/Rect");
+            if (set == 0 || listClass == 0 || rectClass == 0)
+            {
+                return false;
+            }
+
+            var listInit = GetMethodId(listClass, "<init>", "()V");
+            var add = GetMethodId(listClass, "add", "(Ljava/lang/Object;)Z");
+            var rectInit = GetMethodId(rectClass, "<init>", "(IIII)V");
+            list = listInit == 0 ? 0 : NewObject(listClass, listInit);
+            if (list == 0 || add == 0 || rectInit == 0)
+            {
+                return false;
+            }
+
+            for (var i = 0; i + 3 < ltrb.Length; i += 4)
+            {
+                var rect = NewObject(rectClass, rectInit, ltrb[i], ltrb[i + 1], ltrb[i + 2], ltrb[i + 3]);
+                if (rect != 0)
+                {
+                    CallBool(list, add, rect);
+                    DeleteLocal(rect);
+                }
+            }
+
+            CallVoid(view, set, list);
+            return true;
+        }
+        finally
+        {
+            DeleteLocal(list);
+            DeleteLocal(rectClass);
+            DeleteLocal(listClass);
             DeleteLocal(viewClass);
             DeleteLocal(view);
             DeleteLocal(contentClass);

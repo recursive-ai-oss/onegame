@@ -116,6 +116,12 @@ internal static unsafe partial class AndroidNative
     [LibraryImport(Android)]
     public static partial void ALooper_wake(nint looper);
 
+    // looper.h: runs `callback(fd, events, data)` on the looper's own thread when the descriptor is readable; the callback returns 1 to stay registered.
+    [LibraryImport(Android)]
+    public static partial int ALooper_addFd(nint looper, int fd, int ident, int events, nint callback, nint data);
+
+    public const int LooperEventInput = 1;
+
     // ---- assets (asset_manager.h) ----
 
     [LibraryImport(Android, StringMarshalling = StringMarshalling.Utf8)]

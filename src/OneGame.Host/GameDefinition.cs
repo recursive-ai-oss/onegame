@@ -114,6 +114,16 @@ public abstract class GameDefinition
     {
     }
 
+    /// <summary>
+    /// Called when the user presses the system's back button or makes its gesture (Android), before anything else sees it. Return true when
+    /// the game used it (close a panel, open the pause screen): nothing else happens. Return false, which is the default, and the host sends
+    /// the UI a <c>Cancel</c> (so the topmost dialog or page closes) and, when nothing took that either, leaves the app, as the system would.
+    /// Runs on the game thread as part of input handling, so read state and send commands; do not write synced state.
+    /// </summary>
+    /// <param name="game">The running game.</param>
+    /// <returns>True if the game handled back.</returns>
+    public virtual bool OnBack(GameInstance game) => false;
+
     /// <summary>Called for an input event the UI did not consume, such as a click on empty space or a gameplay key.</summary>
     /// <param name="game">The running game.</param>
     /// <param name="input">The event: a key, pointer, touch or gamepad change in screen pixels.</param>

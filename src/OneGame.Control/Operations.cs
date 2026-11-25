@@ -240,6 +240,7 @@ public sealed record BusLoudnessStatus(int Index, string? Name, OneGame.Audio.Lo
 [JsonSerializable(typeof(OneGame.Steam.Input.SteamInputReport))]
 [JsonSerializable(typeof(AudioEventsResult))]
 [JsonSerializable(typeof(WindowResult))]
+[JsonSerializable(typeof(GestureClaimResult))]
 [JsonSerializable(typeof(StateResult))]
 [JsonSerializable(typeof(UiScaleResult))]
 [JsonSerializable(typeof(PatchResult))]
@@ -384,6 +385,7 @@ public static partial class ControlOps
         ..AudioEventOps,
         ..SimEventOps,
         ..WindowOps,
+        ..GestureOps,
         ..AssetOps,
         ..TweenOps,
         ..PageOps,

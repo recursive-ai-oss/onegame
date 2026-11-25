@@ -935,7 +935,12 @@ public sealed partial class GameInstance : IDisposable
                 Definition.OnInput(this, e);
                 return;
             case PlatformEventKind.BackRequested:
-                // Back closes the topmost thing; with nothing left to close it leaves the app.
+                // The game sees back first. Unhandled, it closes the topmost UI layer, and with nothing left to close it leaves the app.
+                if (Definition.OnBack(this))
+                {
+                    return;
+                }
+
                 if (!Ui.Dispatch(UiEvent.Cancel()))
                 {
                     Platform.RequestQuit();

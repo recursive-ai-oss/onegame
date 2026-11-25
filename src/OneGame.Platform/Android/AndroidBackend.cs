@@ -426,7 +426,28 @@ internal sealed class AndroidWindow : Window
         if (w > 0 && h > 0)
         {
             ApplySize(w, h);
+            // The view was laid out again: hand the system the claim once more, for the new size.
+            ApplyGestureClaims();
         }
+    }
+
+    // Android lets an app exclude at most 200 dp of height along each edge; the rest of the list is ignored by the system.
+    public override int GestureClaimLimit => (int)(200 * Scale);
+
+    private protected override void ApplyGestureClaims()
+    {
+        var claims = ClaimedGestureRegions;
+        var ltrb = new int[claims.Count * 4];
+        for (var i = 0; i < claims.Count; i++)
+        {
+            var r = claims[i];
+            ltrb[i * 4] = Math.Max(0, r.X);
+            ltrb[i * 4 + 1] = Math.Max(0, r.Y);
+            ltrb[i * 4 + 2] = Math.Min(Width, r.X + r.Width);
+            ltrb[i * 4 + 3] = Math.Min(Height, r.Y + r.Height);
+        }
+
+        _host.SetGestureRects(ltrb);
     }
 
     // Returns false when the destroyed surface is not the current one.
