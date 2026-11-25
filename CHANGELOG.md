@@ -4,6 +4,14 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Changed
+
+- `GameApp.ReuseWindow` is now true on macOS too, so a second `GameApp.Run` in a process reuses the Cocoa window and Metal device (run 2 and 3 first frame 11-33 ms, teardown 10-14 ms, the process leaves in 10-29 ms with or without `GameHost.Release()`). Set it to false before the first run for a window per run.
+
+### Fixed
+
+- `RunLoopTests` and `HostReuseTests` also run on macOS.
+
 ## [2.4.0] - 2026-11-25
 
 ### Added
