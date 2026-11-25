@@ -196,6 +196,31 @@ internal static class Render3DSmoke
 
         if (limePixels < 100) { return $"the fog-exempt mesh covers {limePixels} pixels"; }
 
+        // An environment made over several frames matches the one made at once.
+        meshScene.Environment.NextMap = null;
+        meshScene.Environment.Blend = 0f;
+        var skyImage = HdrImage.CreateSky(128, 64, new Vector3(0.2f, 0.4f, 1f), new Vector3(0.9f, 0.9f, 1f), new Vector3(0.2f));
+        using var atOnce = renderer.CreateEnvironment(skyImage, 32);
+        renderer.PrepareEnvironment(atOnce);
+        meshScene.Environment.Map = atOnce;
+        var expectedPixels = target.Capture(meshScene);
+        using var load = renderer.CreateEnvironmentAsync(skyImage, new EnvironmentLoadOptions { Size = 32, GpuBudget = 100_000, UploadBytesPerFrame = 4096 });
+        var loadFrames = 0;
+        while (load.IsRunning && loadFrames < 500)
+        {
+            target.Render(meshScene);
+            loadFrames++;
+        }
+
+        if (!load.IsReady || loadFrames < 5) { return $"the asynchronous environment was {load.State} after {loadFrames} frames"; }
+        using var later = load.Take();
+        meshScene.Environment.Map = later;
+        var laterPixels = target.Capture(meshScene);
+        for (var i = 0; i < laterPixels.Length; i++)
+        {
+            if (Math.Abs(laterPixels[i] - expectedPixels[i]) > 1) { return "the asynchronous environment draws differently"; }
+        }
+
         // Planar reflection and texture scrolling on a material, with the mirror plane and the scene clock set on the scene.
         meshScene.Fog.Enabled = false;
         lime.PlanarReflection = true;

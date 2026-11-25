@@ -150,6 +150,7 @@ Screen tile size of the light grid, in pixels.
 | [`DebugDrawCalls`](#m-debugdrawcalls) | Instanced debug draw calls issued by the last frame (zero to two). |
 | [`Device`](#m-device) | The device this renderer draws with. |
 | [`LastStats`](#m-laststats) | What the last [`Renderer3D.Render()`](Renderer3D.md#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat) call prepared. |
+| [`RunningEnvironmentLoads`](#m-runningenvironmentloads) | Number of environment loads that are still running. |
 | [`SoftSpot`](#m-softspot) | A round white spot that fades smoothly to nothing at its edge: what billboards show when their batch has no texture. |
 
 ### <a id="m-brdflut"></a>BrdfLut
@@ -194,6 +195,16 @@ The counts are those of the last [`Renderer3D.Render()`](Renderer3D.md#m-render-
 
 **Type:** [`FrameStats3D`](FrameStats3D.md)
 
+### <a id="m-runningenvironmentloads"></a>RunningEnvironmentLoads
+
+```csharp
+public int RunningEnvironmentLoads { get; }
+```
+
+Number of environment loads that are still running.
+
+**Type:** `int`
+
 ### <a id="m-softspot"></a>SoftSpot
 
 ```csharp
@@ -210,12 +221,14 @@ A round white spot that fades smoothly to nothing at its edge: what billboards s
 | --- | --- |
 | [`CreateBillboardTexture(int, int, ReadOnlySpan<byte>, string?)`](#m-createbillboardtexture-int-int-readonlyspan-byte-string) | Uploads an image for billboards. |
 | [`CreateEnvironment(HdrImage, int)`](#m-createenvironment-hdrimage-int) | Makes an environment from an equirectangular panorama (see [`HdrImage`](HdrImage.md) for the orientation). |
+| [`CreateEnvironmentAsync(HdrImage, EnvironmentLoadOptions?)`](#m-createenvironmentasync-hdrimage-environmentloadoptions) | Starts making an environment without a hitch: the panorama is converted on a worker thread (in slices on the render thread in a browser), copied to the GPU in bands, and filtered a few passes per frame, all driven by [`Renderer3D.Render()`](Renderer3D.md#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat). |
 | [`CreateMaterial(string, MaterialAlpha3D, bool, Vector4?, float)`](#m-creatematerial-string-materialalpha3d-bool-vector4-float) | Makes a material for [`DynamicMesh3D`](DynamicMesh3D.md)s without a glTF file. |
 | [`CreateMesh(Material3D, ReadOnlySpan<MeshVertex3D>, ReadOnlySpan<uint>, string)`](#m-createmesh-material3d-readonlyspan-meshvertex3d-readonlyspan-uint-string) | Creates a mesh. |
 | [`Dispose()`](#m-dispose) | Releases everything the renderer created. |
 | [`PrepareEnvironment(EnvironmentMap)`](#m-prepareenvironment-environmentmap) | Runs the filtering of an environment now, on its own graph, and waits for it. |
 | [`ReadGpuPassTimes(List<PassTime>)`](#m-readgpupasstimes-list-passtime) | Copies the GPU time of each pass of the newest finished frame of the last graph rendered with (for example `planar_reflection`, `forward`, `bloom`) into `into`, in execution order. |
 | [`Render(RenderGraph, Scene3D, GraphTexture, int, int, GpuFormat)`](#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat) | Adds this frame's passes to a render graph that has begun a frame: shadow maps, the depth prepass and ambient occlusion when the scene asks for them, light clustering, the forward pass, bloom and tone mapping into `target`. |
+| [`RetireEnvironment(EnvironmentMap)`](#m-retireenvironment-environmentmap) | Frees a map that frames already recorded may still draw with, at the start of the next render. |
 | [`Upload(GltfModel, int)`](#m-upload-gltfmodel-int) | Uploads a glTF model: vertex and index buffers, materials, and textures with generated mip levels (colour textures as sRGB). |
 
 ### <a id="m-createbillboardtexture-int-int-readonlyspan-byte-string"></a>CreateBillboardTexture(int, int, ReadOnlySpan&lt;byte&gt;, string?)
@@ -253,6 +266,21 @@ Makes an environment from an equirectangular panorama (see [`HdrImage`](HdrImage
 - `size` (`int`): Face size of the specular cube, a power of two from 16 to 1024; 0 (the default) follows the scene's quality level.
 
 **Returns:** [`EnvironmentMap`](EnvironmentMap.md) — The environment. Dispose it before the renderer.
+
+### <a id="m-createenvironmentasync-hdrimage-environmentloadoptions"></a>CreateEnvironmentAsync(HdrImage, EnvironmentLoadOptions?)
+
+```csharp
+public EnvironmentLoad CreateEnvironmentAsync(HdrImage image, EnvironmentLoadOptions? options = null);
+```
+
+Starts making an environment without a hitch: the panorama is converted on a worker thread (in slices on the render thread in a browser), copied to the GPU in bands, and filtered a few passes per frame, all driven by [`Renderer3D.Render()`](Renderer3D.md#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat). The game keeps drawing its current map until [`EnvironmentLoad.IsReady`](EnvironmentLoad.md#m-isready), then swaps it in (or fades with `Environment.NextMap` and `Blend`).
+
+**Parameters**
+
+- `image` ([`HdrImage`](HdrImage.md)): The panorama, linear radiance. Do not change it until the load is ready.
+- `options` ([`EnvironmentLoadOptions`](EnvironmentLoadOptions.md)?): Size and per-frame budgets; null for the defaults.
+
+**Returns:** [`EnvironmentLoad`](EnvironmentLoad.md) — The load. Dispose it (a finished, untaken map goes with it), or [`EnvironmentLoad.Take()`](EnvironmentLoad.md#m-take) the map.
 
 ### <a id="m-creatematerial-string-materialalpha3d-bool-vector4-float"></a>CreateMaterial(string, MaterialAlpha3D, bool, Vector4?, float)
 
@@ -343,6 +371,18 @@ Adds this frame's passes to a render graph that has begun a frame: shadow maps, 
 - `width` (`int`): Target width in pixels.
 - `height` (`int`): Target height in pixels.
 - `targetFormat` (`GpuFormat`): Format of the target texture.
+
+### <a id="m-retireenvironment-environmentmap"></a>RetireEnvironment(EnvironmentMap)
+
+```csharp
+public void RetireEnvironment(EnvironmentMap environment);
+```
+
+Frees a map that frames already recorded may still draw with, at the start of the next render. Use it for the map a swap replaced.
+
+**Parameters**
+
+- `environment` ([`EnvironmentMap`](EnvironmentMap.md)): The map to free.
 
 ### <a id="m-upload-gltfmodel-int"></a>Upload(GltfModel, int)
 

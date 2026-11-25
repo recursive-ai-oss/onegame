@@ -22,7 +22,7 @@
 
   <ItemGroup>
     <Compile Include="*.cs" />
-    <Compile Include="$(Shared)ReferenceCases.cs;$(Shared)Png.cs" />
+    <Compile Include="$(Shared)ReferenceCases.cs;$(Shared)Png.cs;$(Shared)Shapes.cs" />
     <ProjectReference Include="../../src/OneGame.Render3D/OneGame.Render3D.csproj" />
     <PackageReference Include="RecursiveAI.OneGpu.WebGpu" />
   </ItemGroup>

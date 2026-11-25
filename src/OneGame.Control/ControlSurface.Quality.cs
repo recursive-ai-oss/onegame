@@ -165,12 +165,82 @@ public sealed partial class ControlSurface
             env.Yaw = (float)a.Double("yaw", 0);
         }
 
-        return new EnvironmentResult(fog.Enabled, [fog.Color.X, fog.Color.Y, fog.Color.Z], fog.Start, fog.End, fog.MaxDensity, env.NextMap is not null, env.Blend, env.Intensity, env.Yaw)
-        {
+        EnvironmentLoadCommands(stage, a);
+        var latest = stage.LatestEnvironmentLoad;
+        var load = latest is null ? null : new EnvironmentLoadResult(latest.State.ToString().ToLowerInvariant(), Math.Round(latest.Progress, 3), stage.LatestEnvironmentSlot == EnvironmentSlot.Map ? "map" : "next", latest.Error?.Message);
+        return new EnvironmentResult(fog.Enabled, [fog.Color.X, fog.Color.Y, fog.Color.Z], fog.Start, fog.End, fog.MaxDensity, env.NextMap is not null, env.Blend, env.Intensity, env.Yaw) { Load = load,
             FogMode = fog.Mode switch { FogMode.Exponential => "exp", FogMode.ExponentialSquared => "exp2", FogMode.Height => "height", _ => "linear" },
             FogDensity = fog.Density,
             FogHeightBase = fog.HeightBase,
             FogHeightFalloff = fog.HeightFalloff,
         };
+    }
+
+    private void EnvironmentLoadCommands(Render3DStage stage, Args a)
+    {
+        if (a.Bool("cancel", false))
+        {
+            stage.LatestEnvironmentLoad?.Cancel();
+        }
+
+        var path = a.Str("load");
+        var sky = a.Has("sky") ? a.Int("sky", 2048) : 0;
+        if (path is null && sky == 0)
+        {
+            return;
+        }
+
+        var renderer = stage.Renderer ?? throw new ControlException("not_ready", "The 3D renderer is created by the first frame; step a frame and try again.");
+        var into = a.Str("into") ?? "next";
+        if (into is not ("next" or "map"))
+        {
+            throw new ControlException("bad_args", "into must be next or map.");
+        }
+
+        HdrImage image;
+        if (path is not null)
+        {
+            var full = ResolveOutput(path);
+            var info = new FileInfo(full);
+            if (!info.Exists)
+            {
+                throw new ControlException("not_found", $"No panorama file {full}.");
+            }
+
+            if (info.Length > 256L * 1024 * 1024)
+            {
+                throw new ControlException("too_large", "The panorama file is larger than 256 MiB.");
+            }
+
+            try
+            {
+                image = HdrImage.Decode(File.ReadAllBytes(full));
+            }
+            catch (HdrException e)
+            {
+                throw new ControlException("bad_args", e.Message);
+            }
+        }
+        else
+        {
+            if (sky is < 64 or > 8192)
+            {
+                throw new ControlException("bad_args", "sky must be a width from 64 to 8192.");
+            }
+
+            image = HdrImage.CreateSky(sky, Math.Max(sky / 2, 1), new System.Numerics.Vector3(0.25f, 0.5f, 1.2f), new System.Numerics.Vector3(0.9f, 0.95f, 1.1f), new System.Numerics.Vector3(0.25f, 0.23f, 0.2f), new System.Numerics.Vector3(0.3f, 1f, 0.2f), new System.Numerics.Vector3(30f));
+        }
+
+        EnvironmentLoad load;
+        try
+        {
+            load = renderer.CreateEnvironmentAsync(image, new EnvironmentLoadOptions { Size = a.Int("size", 0) });
+        }
+        catch (ArgumentException e)
+        {
+            throw new ControlException("bad_args", e.Message);
+        }
+
+        stage.AdoptEnvironment(load, into == "map" ? EnvironmentSlot.Map : EnvironmentSlot.NextMap);
     }
 }

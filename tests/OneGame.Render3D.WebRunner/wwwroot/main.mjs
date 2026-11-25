@@ -20,6 +20,13 @@ try {
     throw new Error('__done');
   }
   for (const name of names) {
+    if (name === 'envload') {   // self-contained: an asynchronous environment against the synchronous one
+      const started = performance.now();
+      const r = JSON.parse(await R.RunEnvironmentLoad());
+      r.ms = Math.round(performance.now() - started);
+      results.push(r);
+      continue;
+    }
     const c = cases.find(x => x.name === name);
     const dir = c.model.split('/').slice(0, -2).join('/') + '/' + c.model.split('/').slice(-2, -1)[0];   // <Model>/glTF
     const files = await (await fetch('/__list?path=' + encodeURIComponent('/models/' + dir))).json();
