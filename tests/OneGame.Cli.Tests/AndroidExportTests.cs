@@ -54,6 +54,18 @@ public class AndroidExportTests
         Assert.Contains("android:debuggable='false'", xml, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void TargetSdkDefaultsTo36CanBeSetAndWarnsBelow()
+    {
+        Assert.Contains("android:targetSdkVersion='36'", ExportVerb.AndroidManifest("com.example.game", "G", "1.0.0", "G", dev: false, "unspecified"), StringComparison.Ordinal);
+        Assert.Contains("android:targetSdkVersion='37'", ExportVerb.AndroidManifest("com.example.game", "G", "1.0.0", "G", dev: false, "unspecified", targetSdk: 37), StringComparison.Ordinal);
+        Assert.Equal(36, ExportVerb.ResolveTargetSdk(null, out var none));
+        Assert.Null(none);
+        Assert.Equal(35, ExportVerb.ResolveTargetSdk("35", out var low));
+        Assert.Equal("target_sdk_low", low!.Code);
+        Assert.Throws<CliException>(() => ExportVerb.ResolveTargetSdk("abc", out _));
+    }
+
     [Theory]
     [InlineData("0.1.0", 100)]
     [InlineData("1.2.3", 10203)]

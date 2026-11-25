@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Changed
+
+- Android exports target SDK 36 by default (Google Play requires it) and link against platform 36: install `platforms;android-36`. `--target-sdk <level>` or `<AndroidTargetSdk>` sets another level; below 36 the export warns (`target_sdk_low`). Behaviour changes at 36 are predictive back and enforced edge-to-edge.
+
 ## [2.4.0] - 2026-11-25
 
 ### Added

@@ -25,7 +25,7 @@ Options: `--abi arm64-v8a,x86_64`, `--dev`, `--package com.example.game` (defaul
 - The .NET SDK does not list `linux-bionic` as a NativeAOT target, so `build/Android.targets` (imported by `build/Game.targets`) downloads the host compiler and the `Microsoft.NETCore.App.Runtime.NativeAOT.linux-bionic-*` pack at restore and points the compiler at them and at the NDK's clang and sysroot. A plain `dotnet publish -r linux-bionic-arm64` of a game that imports `Game.targets` does the same.
 - The APK is signed with the Android debug key (`$ANDROID_USER_HOME/debug.keystore` or `~/.android/debug.keystore`, made with `keytool` when missing). Debug-signed means installable on any device with USB debugging and on emulators; it is not a store build. An AAB and release signing are not built (they need Play's bundletool and a key the owner holds).
 - `--dev` adds the INTERNET permission (the live listener is a loopback socket), `android:debuggable` (so `run-as` can read the app's files) and the development tools. Without it the app has neither, and `--live`, `--scenario` and friends exit 5 `no_dev_tools`, like a desktop release.
-- minSdk 26 (Vulkan 1.0 hardware), targetSdk 35, `android.hardware.vulkan.level` required. Libraries are linked with 16 KiB page alignment.
+- minSdk 26 (Vulkan 1.0 hardware), targetSdk 36 (`--target-sdk` or `AndroidTargetSdk` to change; below 36 warns because Play refuses it), `android.hardware.vulkan.level` required. Libraries are linked with 16 KiB page alignment.
 
 ## Device commands
 

@@ -31,7 +31,7 @@ internal sealed class AndroidSdk
     public string Adb => File.Exists(Path.Combine(PlatformTools, "adb")) ? Path.Combine(PlatformTools, "adb") : "adb";
 
     /// <summary>Finds the SDK from <paramref name="option"/>, <c>ANDROID_HOME</c> or <c>ANDROID_SDK_ROOT</c> and the newest build tools, platform and NDK in it.</summary>
-    public static AndroidSdk Find(string? option, bool needNdk = true)
+    public static AndroidSdk Find(string? option, bool needNdk = true, int minPlatform = 0)
     {
         var home = option ?? Environment.GetEnvironmentVariable("ANDROID_HOME") ?? Environment.GetEnvironmentVariable("ANDROID_SDK_ROOT");
         if (string.IsNullOrEmpty(home) || !Directory.Exists(home))
@@ -41,9 +41,16 @@ internal sealed class AndroidSdk
         }
 
         var buildTools = Newest(Path.Combine(home, "build-tools"))
-            ?? throw new CliException(ExitCodes.RuntimeError, "android_sdk_incomplete", $"{home} has no build-tools. Install them with: sdkmanager \"build-tools;35.0.0\".");
+            ?? throw new CliException(ExitCodes.RuntimeError, "android_sdk_incomplete", $"{home} has no build-tools. Install them with: sdkmanager \"build-tools;36.0.0\".");
         var platform = Newest(Path.Combine(home, "platforms"), "android-")
-            ?? throw new CliException(ExitCodes.RuntimeError, "android_sdk_incomplete", $"{home} has no platform. Install one with: sdkmanager \"platforms;android-35\".");
+            ?? throw new CliException(ExitCodes.RuntimeError, "android_sdk_incomplete", $"{home} has no platform. Install one with: sdkmanager \"platforms;android-36\".");
+        // The platform's android.jar is what the manifest and resources are linked against; a target SDK above it cannot be compiled for.
+        var platformLevel = int.TryParse(Path.GetFileName(platform)["android-".Length..], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var level) ? level : 0;
+        if (platformLevel < minPlatform)
+        {
+            throw new CliException(ExitCodes.RuntimeError, "android_sdk_incomplete", $"{home} has platform {Path.GetFileName(platform)} but the target SDK is {minPlatform}. Install one with: sdkmanager \"platforms;android-{minPlatform}\".");
+        }
+
         var ndk = Environment.GetEnvironmentVariable("ANDROID_NDK") ?? Newest(Path.Combine(home, "ndk")) ?? "";
         if (needNdk && !File.Exists(Path.Combine(ndk, "toolchains", "llvm", "prebuilt", "linux-x86_64", "bin", "clang")))
         {
@@ -55,7 +62,7 @@ internal sealed class AndroidSdk
 
     public string BuildTool(string name) => Path.Combine(BuildTools, name);
 
-    // The highest version-numbered subfolder; "android-35" style names compare by their number.
+    // The highest version-numbered subfolder; "android-36" style names compare by their number.
     private static string? Newest(string folder, string prefix = "")
     {
         if (!Directory.Exists(folder))
@@ -110,7 +117,10 @@ internal sealed partial class ExportVerb
             throw new CliException(ExitCodes.RuntimeError, "android_host", "Exporting for Android runs NativeAOT with the NDK's Linux toolchain, so it needs a Linux x86-64 host.");
         }
 
-        var sdk = AndroidSdk.Find(a.Get("--sdk"));
+        var project = Projects.Find(a.Get("--project"));
+        var settings = ReadAndroidSettings(project);
+        var targetSdk = ResolveTargetSdk(a.Get("--target-sdk") ?? settings.GetValueOrDefault("AndroidTargetSdk"), out var targetWarning);
+        var sdk = AndroidSdk.Find(a.Get("--sdk"), minPlatform: targetSdk);
         var abis = (a.Get("--abi") ?? string.Join(',', AndroidAbis.Select(x => x.Abi))).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         foreach (var abi in abis)
         {
@@ -120,10 +130,8 @@ internal sealed partial class ExportVerb
             }
         }
 
-        var project = Projects.Find(a.Get("--project"));
         var clock = System.Diagnostics.Stopwatch.StartNew();
         var props = ReadProperties(project);
-        var settings = ReadAndroidSettings(project);
         var package = a.Get("--package") ?? settings.GetValueOrDefault("AndroidPackage") ?? "dev.onegame." + new string([.. props.AssemblyName.ToLowerInvariant().Where(char.IsAsciiLetterOrDigit)]);
         if (!System.Text.RegularExpressions.Regex.IsMatch(package, "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"))
         {
@@ -177,11 +185,11 @@ internal sealed partial class ExportVerb
         }
 
         var manifest = Path.Combine(work, "AndroidManifest.xml");
-        File.WriteAllText(manifest, AndroidManifest(package, label, props.Version, props.AssemblyName, dev, a.Get("--orientation") ?? settings.GetValueOrDefault("AndroidOrientation") ?? "unspecified", playBilling, string.Equals(settings.GetValueOrDefault("AndroidInternet"), "true", StringComparison.OrdinalIgnoreCase)), new UTF8Encoding(false));
+        File.WriteAllText(manifest, AndroidManifest(package, label, props.Version, props.AssemblyName, dev, a.Get("--orientation") ?? settings.GetValueOrDefault("AndroidOrientation") ?? "unspecified", playBilling, string.Equals(settings.GetValueOrDefault("AndroidInternet"), "true", StringComparison.OrdinalIgnoreCase), targetSdk), new UTF8Encoding(false));
 
         var versionCode = VersionCode(props.Version);
         var baseApk = Path.Combine(work, "base.apk");
-        RunTool(sdk.BuildTool("aapt2"), ["link", "-o", baseApk, "-I", sdk.AndroidJar, "--manifest", manifest, "--min-sdk-version", "26", "--target-sdk-version", "35",
+        RunTool(sdk.BuildTool("aapt2"), ["link", "-o", baseApk, "-I", sdk.AndroidJar, "--manifest", manifest, "--min-sdk-version", "26", "--target-sdk-version", targetSdk.ToString(System.Globalization.CultureInfo.InvariantCulture),
             "--version-code", versionCode.ToString(System.Globalization.CultureInfo.InvariantCulture), "--version-name", props.Version], work, "aapt2_failed");
 
         // The game's content folders (art, fonts, data) go in as assets with a list; the app unpacks them into its files folder at start-up.
@@ -229,6 +237,11 @@ internal sealed partial class ExportVerb
         {
             new("debug_signed", "The APK is signed with a debug key: fine for installing on a device or emulator, not for a store. A release key and an AAB for Play come with the store binding."),
         };
+        if (targetWarning is not null)
+        {
+            warnings.Add(targetWarning);
+        }
+
         warnings.AddRange(contentWarnings);
         if (dex is not null)
         {
@@ -266,7 +279,7 @@ internal sealed partial class ExportVerb
     private static Dictionary<string, string> ReadAndroidSettings(ProjectRef project)
     {
         var settings = new Dictionary<string, string>(StringComparer.Ordinal);
-        var run = Proc.Run(Proc.Dotnet, ["msbuild", project.File, "-getProperty:AndroidPackage", "-getProperty:AndroidLabel", "-getProperty:AndroidOrientation", "-getProperty:AndroidInternet", "-getProperty:AndroidPlayBilling", "-getProperty:OneGameRoot", "-nologo"], project.Directory);
+        var run = Proc.Run(Proc.Dotnet, ["msbuild", project.File, "-getProperty:AndroidPackage", "-getProperty:AndroidLabel", "-getProperty:AndroidOrientation", "-getProperty:AndroidInternet", "-getProperty:AndroidPlayBilling", "-getProperty:AndroidTargetSdk", "-getProperty:OneGameRoot", "-nologo"], project.Directory);
         if (run.ExitCode == 0)
         {
             using var doc = JsonDocument.Parse(run.Output);
@@ -307,7 +320,7 @@ internal sealed partial class ExportVerb
         }
     }
 
-    internal static string AndroidManifest(string package, string label, string version, string library, bool dev, string orientation, bool playBilling = false, bool internet = false)
+    internal static string AndroidManifest(string package, string label, string version, string library, bool dev, string orientation, bool playBilling = false, bool internet = false, int targetSdk = DefaultTargetSdk)
     {
         static string X(string s) => System.Security.SecurityElement.Escape(s) ?? "";
         _ = version;
@@ -319,7 +332,7 @@ internal sealed partial class ExportVerb
         {
             "<?xml version='1.0' encoding='utf-8'?>",
             $"<manifest xmlns:android='http://schemas.android.com/apk/res/android' package='{X(package)}'>",
-            "  <uses-sdk android:minSdkVersion='26' android:targetSdkVersion='35'/>",
+            $"  <uses-sdk android:minSdkVersion='26' android:targetSdkVersion='{targetSdk}'/>",
             "  <uses-feature android:name='android.hardware.vulkan.level' android:version='0' android:required='true'/>",
             "  <uses-feature android:name='android.hardware.touchscreen' android:required='false'/>",
             "  <uses-feature android:name='android.hardware.gamepad' android:required='false'/>",
@@ -359,6 +372,31 @@ internal sealed partial class ExportVerb
         lines.Add("  </application>");
         lines.Add("</manifest>");
         return string.Join('\n', lines) + "\n";
+    }
+
+    /// <summary>The API level apps are built for unless the game says otherwise; Google Play requires new releases to target the newest level.</summary>
+    internal const int DefaultTargetSdk = 36;
+
+    // The game's choice (--target-sdk or AndroidTargetSdk), or the default; a level below the default is allowed with a warning because Play refuses it.
+    internal static int ResolveTargetSdk(string? text, out ExportWarning? warning)
+    {
+        warning = null;
+        if (string.IsNullOrEmpty(text))
+        {
+            return DefaultTargetSdk;
+        }
+
+        if (!int.TryParse(text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var level) || level < 26 || level > 99)
+        {
+            throw new CliException(ExitCodes.Usage, "bad_target_sdk", $"'{text}' is not a target SDK level (a number from 26, such as {DefaultTargetSdk}).");
+        }
+
+        if (level < DefaultTargetSdk)
+        {
+            warning = new("target_sdk_low", $"Target SDK {level} is below {DefaultTargetSdk}, which Google Play requires for new apps and updates. Fine for side-loading and tests.");
+        }
+
+        return level;
     }
 
     // 1.2.3 becomes 10203, so a newer version always has a higher code.
