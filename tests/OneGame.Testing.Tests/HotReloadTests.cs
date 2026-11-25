@@ -5,6 +5,7 @@ using OneGame.Control;
 using OneGame.Host;
 using OneGame.Render2D;
 using OneGame.Testing.Tests.Shaders;
+using RecursiveAI.OneGpu;
 using OneGame.Text;
 
 namespace OneGame.Testing.Tests;
@@ -76,6 +77,8 @@ public class HotReloadTests
     [Fact]
     public void ShaderEditsReachTheNextCaptureWithoutARestart()
     {
+        // Reloading recompiles to SPIR-V; the Metal path would recompile to Metal Shading Language and is not built yet.
+        Assert.SkipUnless(GpuBackends.Selected == GpuBackend.Vulkan, "hot reload is wired to the Vulkan backend");
         var dir = Path.Combine(Path.GetTempPath(), "onegame-hot-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
