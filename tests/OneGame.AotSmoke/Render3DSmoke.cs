@@ -77,6 +77,22 @@ internal static class Render3DSmoke
             target.Capture(scene);
         }
 
+        // Light shafts: the sun and the spot opt in, the march and composite run at the High level and not at Low, and the settings clamp.
+        scene.Volumetric.Enabled = true;
+        scene.Volumetric.Density = 0.01f;
+        scene.Volumetric.MaxDistance = 800f;
+        scene.Volumetric.LinkToFog = true;
+        foreach (var l in scene.Lights) { l.Volumetric = true; l.VolumetricIntensity = 2f; }
+        scene.Quality = QualityLevel.High;
+        target.Capture(scene);
+        if (!renderer.LastStats.Volumetric) { return "light shafts did not run at High"; }
+        scene.Quality = QualityLevel.Low;
+        target.Capture(scene);
+        if (renderer.LastStats.Volumetric) { return "light shafts ran at Low"; }
+        scene.Volumetric.Enabled = false;
+        foreach (var l in scene.Lights) { l.Volumetric = false; }
+        scene.Quality = QualityLevel.Ultra;
+
         // Render scale: the frame is drawn at half size, stretched over the target, and the scaled scene image is reported.
         scene.RenderScale = 0.5f;
         var halfFrame = target.Capture(scene);

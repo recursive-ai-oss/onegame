@@ -535,7 +535,7 @@ if (render3dProblem is not null)
     return 1;
 }
 
-Console.WriteLine("render3d: skinned glTF model through the PBR passes, then shadow maps (cascaded and spot), ambient occlusion, an instance batch, toon outlines and all four quality levels");
+Console.WriteLine("render3d: skinned glTF model through the PBR passes, then shadow maps (cascaded and spot), ambient occlusion, an instance batch, toon outlines, light shafts and all four quality levels");
 
 return 0;
 

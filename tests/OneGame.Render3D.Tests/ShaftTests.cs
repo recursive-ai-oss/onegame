@@ -12,34 +12,11 @@ public class ShaftTests
     private const int W = 320;
     private const int H = 180;
 
-    /// <summary>A wall with a slit at z = 0 and the sun behind it: the light comes through the slit as a slab and crosses the air in front.</summary>
+    /// <summary>A wall with three slits at z = 0 and the sun behind it: the light comes through as slabs and crosses the air in front.</summary>
     internal static (Rig Rig, Scene3D Scene) SunThroughSlit(int width = W, int height = H, bool shafts = true)
     {
         var rig = new Rig(width, height);
-        // Four wall pieces leave three slits 0.8 wide, 2.8 apart.
-        var wall = Shapes.Matte(0.5f, 0.35f, 0.3f);
-        var model = new Shapes()
-            .Ground(0f, 40f, Shapes.Matte(0.55f, 0.55f, 0.5f))
-            .Box(new Vector3(-13.2f, 15f, 0f), new Vector3(20f, 30f, 0.4f), wall)
-            .Box(new Vector3(-1.4f, 15f, 0f), new Vector3(2f, 30f, 0.4f), wall)
-            .Box(new Vector3(1.4f, 15f, 0f), new Vector3(2f, 30f, 0.4f), wall)
-            .Box(new Vector3(13.2f, 15f, 0f), new Vector3(20f, 30f, 0.4f), wall)
-            .Upload(rig);
-        var scene = new Scene3D { Camera = Camera3D.LookAt(new Vector3(-1f, 2f, 9f), new Vector3(0f, 2.6f, 0f), Vector3.UnitY) };
-        scene.Add(model);
-        scene.Environment.Intensity = 0.15f;
-        scene.Environment.Background = BackgroundMode.Color;
-        scene.Environment.BackgroundColor = new Vector3(0.02f, 0.025f, 0.03f);
-        scene.Post.Bloom = false;
-        var sun = Light3D.Directional(new Vector3(0.2f, -0.45f, 0.87f), new Vector3(1f, 0.93f, 0.8f), 3f);
-        sun.CastShadows = true;
-        sun.Volumetric = shafts;
-        scene.Lights.Add(sun);
-        scene.Volumetric.Enabled = shafts;
-        scene.Volumetric.Density = 0.03f;
-        scene.Volumetric.Intensity = 3.5f;
-        scene.Volumetric.MaxDistance = 40f;
-        scene.Shadows.MaxDistance = 60f;
+        var scene = ShaftScene.Slit(ShaftScene.SlitShapes().Upload(rig), shafts);
         return (rig, scene);
     }
 
@@ -308,6 +285,65 @@ public class ShaftTests
 
             rig.Device.WaitIdle();
             Assert.True(allocated == 0, $"40 steady shaft frames allocated {allocated} bytes");
+        }
+    }
+
+    /// <summary>
+    /// GPU time of the shaft passes at 1080p per quality level (four cascades, 4x MSAA, SSAO), printed for the record. Runs only with
+    /// ONEGAME_SHAFT_TIMING=1: a timing run is for the 4070, not for every test pass.
+    /// </summary>
+    [Fact]
+    public void GpuCostPerLevel()
+    {
+        if (Environment.GetEnvironmentVariable("ONEGAME_SHAFT_TIMING") != "1")
+        {
+            return;
+        }
+
+        var (rig, scene) = SunThroughSlit(1920, 1080);
+        using (rig)
+        {
+            if (!rig.Device.Capabilities.Timestamps)
+            {
+                return;
+            }
+
+            scene.Ssao.Enabled = true;
+            var line = new System.Text.StringBuilder(rig.Device.Adapter.Name + " 1920x1080 (median over frames, ms):");
+            var passes = new List<PassTime>(64);
+            foreach (var level in new[] { QualityLevel.Low, QualityLevel.Medium, QualityLevel.High, QualityLevel.Ultra })
+            {
+                scene.Quality = level;
+                var seen = new HashSet<int>();
+                var march = new List<double>();
+                var composite = new List<double>();
+                var frame = new List<double>();
+                for (var i = 0; i < 260; i++)
+                {
+                    rig.Target.Render(scene);
+                    var index = rig.Renderer.ReadGpuPassTimes(passes);
+                    if (i >= 20 && index > 0 && seen.Add(index))
+                    {
+                        march.Add(passes.FirstOrDefault(p => p.Name == "light_shafts").Microseconds / 1000.0);
+                        composite.Add(passes.FirstOrDefault(p => p.Name == "light_shafts_composite").Microseconds / 1000.0);
+                        if (rig.Renderer.LastStats.GpuFrameMs is { } ms)
+                        {
+                            frame.Add(ms);
+                        }
+                    }
+                }
+
+                rig.Device.WaitIdle();
+                static double Median(List<double> v) => v.Count == 0 ? double.NaN : v.Order().ElementAt(v.Count / 2);
+                line.Append(System.Globalization.CultureInfo.InvariantCulture, $" {level}: march {Median(march):F3} + composite {Median(composite):F3} (frame {Median(frame):F2});");
+            }
+
+            Console.WriteLine(line);
+            if (Paths.CaptureDir is { } dir)
+            {
+                Directory.CreateDirectory(dir);
+                File.AppendAllText(Path.Combine(dir, "shafttimes.txt"), line + "\n");
+            }
         }
     }
 
