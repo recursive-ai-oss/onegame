@@ -29,6 +29,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 - A second `GameApp.Run` in one process no longer rebuilds the window and device: with a 3D scene the first frame of later runs arrives in 35 ms on an RTX 4070 (121-147 ms before) and in about 110 ms on llvmpipe, and a run's teardown no longer destroys the device. `GameInstance.Options` can now change after creation (only `Connect`, through `SwitchConnection`).
 
 ### Fixed
+- A render graph no longer throws when the device refuses its GPU timestamp queries (Metal runs out of counter sample buffers after a few graphs, for example with many `Offscreen3D` views): that graph runs untimed (`TimingEnabled` false, `GpuFrameMs` null, no pass times).
 
 - Disposing a renderer, and so a `GameInstance`, now frees every GPU resource it handed out that the game left undisposed: `Renderer3D` models, dynamic meshes, environment maps (also finished async loads), billboard images, `Offscreen3D` targets and morphed-instance buffers, and `Renderer2D` textures, render textures and materials (post chains and tile sets release through them). With a `GameHost` the device outlives the instance, so a game that dropped these without disposing leaked about 300 MB per run. Disposing something yourself first, or twice, is fine.
 - `Renderer3D.ReadGpuPassTimes` and the graph's pass times could return a wrapped value of about 1.6e13 ms when a pass's end timestamp read below its start; such an interval is now zero.

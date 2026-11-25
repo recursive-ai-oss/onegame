@@ -213,6 +213,9 @@ public sealed class RenderGraph : IDisposable
     int _latestResolved = -1;
     bool _disposed;
 
+    // Lets a test make the device refuse timestamp sets, which real devices only do when they run out.
+    internal static Func<uint, GpuTimestampSet>? CreateTimestampSetOverride;
+
     /// <summary>Creates a graph that records on <paramref name="device"/>.</summary>
     public RenderGraph(GpuDevice device, RenderGraphOptions? options = null)
     {
@@ -227,9 +230,22 @@ public sealed class RenderGraph : IDisposable
 
         if (_options.Timing && device.Capabilities.Timestamps)
         {
-            for (var i = 0; i < TimingRing; i++)
+            // A device has a limited number of timestamp sets (Metal's counter sample buffers run out after a handful of graphs). A graph
+            // the device refuses runs untimed instead of failing: all or none, so TimingEnabled stays truthful.
+            try
             {
-                _timestampSets[i] = device.CreateTimestampSet(TimingQueriesPerFrame);
+                for (var i = 0; i < TimingRing; i++)
+                {
+                    _timestampSets[i] = (CreateTimestampSetOverride ?? device.CreateTimestampSet)(TimingQueriesPerFrame);
+                }
+            }
+            catch (GpuException)
+            {
+                for (var i = 0; i < TimingRing; i++)
+                {
+                    _timestampSets[i]?.Dispose();
+                    _timestampSets[i] = null;
+                }
             }
         }
     }
