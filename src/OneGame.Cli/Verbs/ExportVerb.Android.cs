@@ -98,7 +98,8 @@ internal sealed class AndroidSdk
 /// <summary>What <c>onegame export --target android</c> printed.</summary>
 internal sealed record AndroidExportResult(
     bool Ok, string Game, string GameVersion, string EngineVersion, string Target, string Package, string Apk, long Size, string Sha256, string[] Abis,
-    bool DevTools, bool Debuggable, string Signing, ExportFile[] Libraries, ExportWarning[] Warnings, double Seconds);
+    bool DevTools, bool Debuggable, string Signing, ExportFile[] Libraries, ExportWarning[] Warnings, double Seconds,
+    int VersionCode = 0, string VersionName = "", int TargetSdk = 0, string? Bundle = null, long BundleSize = 0, string? BundleSha256 = null, string? SigningCertSha256 = null, string? SymbolsArchive = null);
 
 internal sealed partial class ExportVerb
 {
@@ -117,10 +118,15 @@ internal sealed partial class ExportVerb
             throw new CliException(ExitCodes.RuntimeError, "android_host", "Exporting for Android runs NativeAOT with the NDK's Linux toolchain, so it needs a Linux x86-64 host.");
         }
 
+        var aab = a.Own.ContainsKey("--aab");
+        var debugKey = a.Own.ContainsKey("--debug-key");
+        // Resolved before the slow part so a missing key or password fails at once.
+        var signing = ResolveSigning(a.Get("--keystore"), a.Get("--key-alias"), dev, debugKey, Environment.GetEnvironmentVariable, () => EnsureDebugKeystore(out _));
         var project = Projects.Find(a.Get("--project"));
         var settings = ReadAndroidSettings(project);
         var targetSdk = ResolveTargetSdk(a.Get("--target-sdk") ?? settings.GetValueOrDefault("AndroidTargetSdk"), out var targetWarning);
         var sdk = AndroidSdk.Find(a.Get("--sdk"), minPlatform: targetSdk);
+        var bundletool = aab ? FindBundletool(a.Get("--bundletool"), sdk) : null;
         var abis = (a.Get("--abi") ?? string.Join(',', AndroidAbis.Select(x => x.Abi))).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         foreach (var abi in abis)
         {
@@ -184,13 +190,15 @@ internal sealed partial class ExportVerb
             dex = PlayBillingKit.BuildDex(sdk, PlayBillingKit.ExtractBridgeSources(buildWork), buildWork);
         }
 
-        var manifest = Path.Combine(work, "AndroidManifest.xml");
-        File.WriteAllText(manifest, AndroidManifest(package, label, props.Version, props.AssemblyName, dev, a.Get("--orientation") ?? settings.GetValueOrDefault("AndroidOrientation") ?? "unspecified", playBilling, string.Equals(settings.GetValueOrDefault("AndroidInternet"), "true", StringComparison.OrdinalIgnoreCase), targetSdk), new UTF8Encoding(false));
+        var versionCode = ResolveVersionCode(a.Get("--version-code") ?? settings.GetValueOrDefault("AndroidVersionCode"), props.Version);
+        var versionName = a.Get("--version-name") ?? settings.GetValueOrDefault("AndroidVersionName") ?? props.Version;
 
-        var versionCode = VersionCode(props.Version);
+        var manifest = Path.Combine(work, "AndroidManifest.xml");
+        File.WriteAllText(manifest, AndroidManifest(package, label, versionName, props.AssemblyName, dev, a.Get("--orientation") ?? settings.GetValueOrDefault("AndroidOrientation") ?? "unspecified", playBilling, string.Equals(settings.GetValueOrDefault("AndroidInternet"), "true", StringComparison.OrdinalIgnoreCase), targetSdk, playBilling ? BillingMetaData() : null), new UTF8Encoding(false));
+
         var baseApk = Path.Combine(work, "base.apk");
         RunTool(sdk.BuildTool("aapt2"), ["link", "-o", baseApk, "-I", sdk.AndroidJar, "--manifest", manifest, "--min-sdk-version", "26", "--target-sdk-version", targetSdk.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            "--version-code", versionCode.ToString(System.Globalization.CultureInfo.InvariantCulture), "--version-name", props.Version], work, "aapt2_failed");
+            "--version-code", versionCode.ToString(System.Globalization.CultureInfo.InvariantCulture), "--version-name", versionName], work, "aapt2_failed");
 
         // The game's content folders (art, fonts, data) go in as assets with a list; the app unpacks them into its files folder at start-up.
         var contentRoot = Directory.CreateDirectory(Path.Combine(work, "content")).FullName;
@@ -224,19 +232,51 @@ internal sealed partial class ExportVerb
         }
 
         var aligned = Path.Combine(work, "aligned.apk");
-        RunTool(sdk.BuildTool("zipalign"), ["-f", "4", baseApk, aligned], work, "zipalign_failed");
+        // -P 16 also page-aligns stored libraries to 16 KiB (a no-op while the libraries are deflated, and right if they are ever stored).
+        RunTool(sdk.BuildTool("zipalign"), ["-f", "-P", "16", "4", baseApk, aligned], work, "zipalign_failed");
 
-        var keystore = a.Get("--keystore") ?? EnsureDebugKeystore(out _);
         Directory.CreateDirectory(outRoot);
         var apk = Path.Combine(outRoot, $"{project.Name}-{props.Version}-android{(dev ? "-dev" : "")}.apk");
-        RunTool(sdk.BuildTool("apksigner"), ["sign", "--ks", keystore, "--ks-pass", "pass:android", "--key-pass", "pass:android", "--out", apk, aligned], work, "apksigner_failed");
-        RunTool(sdk.BuildTool("apksigner"), ["verify", apk], work, "apksigner_verify_failed");
+        var certificate = SignApk(sdk, signing, aligned, apk, work);
+
+        string? bundle = null;
+        string? symbolsArchive = null;
+        if (aab)
+        {
+            bundle = Path.Combine(outRoot, $"{project.Name}-{props.Version}-android{(dev ? "-dev" : "")}.aab");
+            BuildBundle(sdk, baseApk, bundletool!, signing, bundle, work);
+            var bundleCertificate = BundleCertificate(bundle, work);
+            if (bundleCertificate != certificate)
+            {
+                throw new CliException(ExitCodes.RuntimeError, "bundle_signature_mismatch", "The bundle and the APK are signed with different certificates.");
+            }
+
+            if (a.Get("--symbols") is { } symbolsFolder)
+            {
+                symbolsArchive = WriteSymbolsArchive(Path.GetFullPath(symbolsFolder), props.AssemblyName, abis);
+            }
+        }
+
+        var misaligned = libraries.Where(l => LoadSegmentAlignment(l.Path) is { } align && align < 16384).Select(l => l.Abi).ToArray();
 
         var libs = libraries.Select(l => Describe(Path.GetDirectoryName(l.Path)!, Path.GetFileName(l.Path)) with { Path = $"lib/{l.Abi}/lib{props.AssemblyName}.so" }).ToArray();
         var warnings = new List<ExportWarning>
         {
-            new("debug_signed", "The APK is signed with a debug key: fine for installing on a device or emulator, not for a store. A release key and an AAB for Play come with the store binding."),
         };
+        if (signing.IsDebug)
+        {
+            warnings.Add(new("debug_signed", "Signed with the debug key: fine for installing on a device or emulator, and Google Play refuses it. Pass --keystore and --key-alias (passwords in ONEGAME_ANDROID_STORE_PASSWORD and ONEGAME_ANDROID_KEY_PASSWORD) for a release."));
+        }
+
+        if (misaligned.Length > 0)
+        {
+            warnings.Add(new("page_size_4k", $"The native library for {string.Join(", ", misaligned)} has segments aligned below 16 KiB. Android 15 devices with 16 KiB pages cannot load it, and Google Play refuses such apps that target Android 15 or later."));
+        }
+
+        if (aab && dev)
+        {
+            warnings.Add(new("debuggable_bundle", "The bundle is a --dev build (debuggable, with live control). Google Play refuses debuggable bundles; export without --dev for an upload."));
+        }
         if (targetWarning is not null)
         {
             warnings.Add(targetWarning);
@@ -255,9 +295,10 @@ internal sealed partial class ExportVerb
 
         var sha = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(apk)));
         var size = new FileInfo(apk).Length;
+        var bundleSha = bundle is null ? null : Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(bundle)));
         Directory.Delete(work, true);
-        var result = new AndroidExportResult(true, project.Name, props.Version, Program.GetVersion(), "android", package, apk, size, sha, abis, dev, dev, "debug-key", libs, [.. warnings],
-            Math.Round(clock.Elapsed.TotalSeconds, 1));
+        var result = new AndroidExportResult(true, project.Name, props.Version, Program.GetVersion(), "android", package, apk, size, sha, abis, dev, dev, signing.IsDebug ? "debug-key" : "release-key", libs, [.. warnings],
+            Math.Round(clock.Elapsed.TotalSeconds, 1), versionCode, versionName, targetSdk, bundle, bundle is null ? 0 : new FileInfo(bundle).Length, bundleSha, certificate, symbolsArchive);
         if (json)
         {
             output.WriteLine(JsonSerializer.Serialize(result, CliJson.Default.AndroidExportResult));
@@ -265,7 +306,11 @@ internal sealed partial class ExportVerb
         else
         {
             output.WriteLine($"exported {project.Name} {props.Version} for Android ({string.Join(", ", abis)}): {apk} ({size / 1024} KiB)");
-            output.WriteLine($"  package: {package}   install: onegame android install {apk}");
+            output.WriteLine($"  package: {package}   version {versionName} ({versionCode})   target SDK {targetSdk}   signed with {(signing.IsDebug ? "the debug key" : "the release key")}   install: onegame android install {apk}");
+            if (bundle is not null)
+            {
+                output.WriteLine($"  bundle: {bundle} ({new FileInfo(bundle).Length / 1024} KiB)");
+            }
             foreach (var w in warnings)
             {
                 output.WriteLine($"  warning {w.Code}: {w.Message}");
@@ -279,7 +324,7 @@ internal sealed partial class ExportVerb
     private static Dictionary<string, string> ReadAndroidSettings(ProjectRef project)
     {
         var settings = new Dictionary<string, string>(StringComparer.Ordinal);
-        var run = Proc.Run(Proc.Dotnet, ["msbuild", project.File, "-getProperty:AndroidPackage", "-getProperty:AndroidLabel", "-getProperty:AndroidOrientation", "-getProperty:AndroidInternet", "-getProperty:AndroidPlayBilling", "-getProperty:AndroidTargetSdk", "-getProperty:OneGameRoot", "-nologo"], project.Directory);
+        var run = Proc.Run(Proc.Dotnet, ["msbuild", project.File, "-getProperty:AndroidPackage", "-getProperty:AndroidLabel", "-getProperty:AndroidOrientation", "-getProperty:AndroidInternet", "-getProperty:AndroidPlayBilling", "-getProperty:AndroidTargetSdk", "-getProperty:AndroidVersionCode", "-getProperty:AndroidVersionName", "-getProperty:OneGameRoot", "-nologo"], project.Directory);
         if (run.ExitCode == 0)
         {
             using var doc = JsonDocument.Parse(run.Output);
@@ -320,7 +365,7 @@ internal sealed partial class ExportVerb
         }
     }
 
-    internal static string AndroidManifest(string package, string label, string version, string library, bool dev, string orientation, bool playBilling = false, bool internet = false, int targetSdk = DefaultTargetSdk)
+    internal static string AndroidManifest(string package, string label, string version, string library, bool dev, string orientation, bool playBilling = false, bool internet = false, int targetSdk = DefaultTargetSdk, (string Name, string Value)[]? billingMetaData = null)
     {
         static string X(string s) => System.Security.SecurityElement.Escape(s) ?? "";
         _ = version;
@@ -353,7 +398,17 @@ internal sealed partial class ExportVerb
             lines.Add("  </queries>");
         }
 
+        // Play reads the Billing Library's version from the meta-data its own manifest declares; without it the upload is refused as too old.
+        billingMetaData ??= [(BillingVersionKey, PlayBillingKit.BillingVersion)];
         lines.Add($"  <application android:label='{X(label)}' android:hasCode='{(playBilling ? "true" : "false")}' android:allowBackup='false' android:debuggable='{debuggable}'>");
+        if (playBilling)
+        {
+            foreach (var (name, value) in billingMetaData)
+            {
+                lines.Add($"    <meta-data android:name='{X(name)}' android:value='{X(value)}'/>");
+            }
+        }
+
         lines.Add($"    <activity android:name='android.app.NativeActivity' android:exported='true' android:launchMode='singleTask' android:screenOrientation='{X(orientation)}'");
         lines.Add("        android:theme='@android:style/Theme.Black.NoTitleBar.Fullscreen'");
         lines.Add("        android:configChanges='orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density|uiMode|fontScale|layoutDirection|locale'>");

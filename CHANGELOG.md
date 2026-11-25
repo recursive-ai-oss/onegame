@@ -4,8 +4,15 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- Android release packaging. `onegame export --target android --aab --keystore <file> --key-alias <name>` writes a signed Android App Bundle for Google Play (base module, per-ABI splits, uncompressed 16 KiB-aligned libraries, built with Google's bundletool, fetched once with a pinned SHA-256 or named with `--bundletool`) and an APK signed with the same key. Keystores may be PKCS12 or JKS; the passwords come from `ONEGAME_ANDROID_STORE_PASSWORD` / `ONEGAME_ANDROID_KEY_PASSWORD` and are passed to the signing tools through the environment, never on a command line. `--version-code`, `--version-name` (or `AndroidVersionCode`, `AndroidVersionName`) set the version; `--symbols` with `--aab` also writes `native-debug-symbols.zip`. The export result gains `versionCode`, `versionName`, `targetSdk`, `signingCertSha256`, `bundle`, `bundleSize`, `bundleSha256`, `symbolsArchive`; `signing` is `release-key` for the game's own key. `docs/interfaces/android.md`.
+- The export warns `page_size_4k` when a native library has segments aligned below 16 KiB, and zip-aligns with 16 KiB pages.
+
 ### Changed
 
+- **A release Android export (no `--dev`) now needs a signing key**: it exits 2 `keystore_required` instead of signing with the debug key. Pass `--keystore` and `--key-alias`, or `--debug-key` for a build that only has to install on a test device. `--keystore` no longer assumes the password `android`; set `ONEGAME_ANDROID_STORE_PASSWORD`. `--dev` exports keep the debug key.
+- Play Billing exports declare the Billing Library's `com.google.android.play.billingclient.version` meta-data, taken from the library's own manifest, so Play can read the bundled version.
 - Android exports target SDK 36 by default (Google Play requires it) and link against platform 36: install `platforms;android-36`. `--target-sdk <level>` or `<AndroidTargetSdk>` sets another level; below 36 the export warns (`target_sdk_low`). Behaviour changes at 36 are predictive back and enforced edge-to-edge.
 
 ## [2.4.0] - 2026-11-25

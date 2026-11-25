@@ -13,11 +13,11 @@ internal sealed partial class ExportVerb : IVerb
 {
     public string Name => "export";
 
-    public string Summary => "Package the game: onegame export --target linux|win|osx|web [--dev] [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins]; or a debug-signed APK: export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id]; or an iOS app bundle (on a Mac): export --target ios-simulator|ios [--dev] [--bundle-id id] [--orientation all|landscape|portrait].";
+    public string Summary => "Package the game: onegame export --target linux|win|osx|web [--dev] [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins]; or an Android APK and bundle: export --target android [--abi arm64-v8a,x86_64] [--dev] [--aab] [--keystore file --key-alias name] [--package id]; or an iOS app bundle (on a Mac): export --target ios-simulator|ios [--dev] [--bundle-id id] [--orientation all|landscape|portrait].";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
-        var a = new ProjectArgs(args, "--target", "--out", "--steam-redist", "--bundle-id", "--abi", "--package", "--label", "--orientation", "--sdk", "--keystore", "--target-sdk", "--symbols", "--sysroot");
+        var a = new ProjectArgs(args, "--target", "--out", "--steam-redist", "--bundle-id", "--abi", "--package", "--label", "--orientation", "--sdk", "--keystore", "--target-sdk", "--key-alias", "--version-code", "--version-name", "--bundletool", "--symbols", "--sysroot");
         var steam = a.Game.Remove("--steam");
         var noArchive = a.Game.Remove("--no-archive");
         var noAot = a.Game.Remove("--no-aot");
@@ -37,9 +37,17 @@ internal sealed partial class ExportVerb : IVerb
 
         if (a.Get("--target") == "android")
         {
+            foreach (var flag in new[] { "--aab", "--debug-key" })
+            {
+                if (a.Game.Remove(flag))
+                {
+                    a.Own[flag] = "";
+                }
+            }
+
             if (a.Game.Count > 0 || steam)
             {
-                throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {(steam ? "--steam" : a.Game[0])}. Usage: onegame export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id] [--label name] [--orientation unspecified|sensorLandscape|...] [--sdk <dir>] [--keystore <file>] [--target-sdk <level>] [--symbols <dir>] [--out <dir>].");
+                throw new CliException(ExitCodes.Usage, "bad_args", $"Unknown option {(steam ? "--steam" : a.Game[0])}. Usage: onegame export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id] [--label name] [--orientation unspecified|sensorLandscape|...] [--sdk <dir>] [--keystore <file> --key-alias <name>] [--debug-key] [--aab] [--version-code <n>] [--version-name <text>] [--target-sdk <level>] [--bundletool <jar>] [--symbols <dir>] [--out <dir>]. Passwords come from ONEGAME_ANDROID_STORE_PASSWORD and ONEGAME_ANDROID_KEY_PASSWORD.");
             }
 
             return RunAndroidExport(a, dev, noAot, json, output);
