@@ -110,5 +110,6 @@ public sealed class Offscreen3D : IDisposable
         _renderer.Device.WaitIdle();
         _graph.Dispose();
         Target.Dispose();
+        _renderer.DropCachedGroups();
     }
 }
