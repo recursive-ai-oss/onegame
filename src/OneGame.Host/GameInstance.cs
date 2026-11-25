@@ -98,6 +98,14 @@ public sealed record GameOptions
     /// argument). Tests that must see a save survive a restart or a page reload use it.
     /// </summary>
     public bool PersistData { get; init; }
+
+    /// <summary>
+    /// Where the window, the graphics device and the swapchain live. When set, a windowed instance borrows them from the host and gives them
+    /// back when it is disposed, so the next instance on the same host starts drawing without building them again. Null (the default for
+    /// <see cref="GameInstance.Create"/>) gives the instance its own, closed with it. <see cref="GameApp.Run(GameDefinition, string[])"/> passes <see cref="GameHost.Shared"/>.
+    /// Ignored by a headless instance and by one given a <see cref="Device"/>.
+    /// </summary>
+    public GameHost? Host { get; init; }
 }
 
 /// <summary>A captured frame: RGBA8 pixels, top row first.</summary>
@@ -142,6 +150,8 @@ public sealed partial class GameInstance : IDisposable
     private string? _gpuError;
     private bool _gpuTried;
     private GpuSwapchain? _swapchain;
+    private bool _swapchainSrgb;
+    private readonly GameHost? _host;
     private readonly StickNavigator _stick = new();
     private bool _grabNext;
     private Task<CapturedFrame>? _grab;
@@ -178,14 +188,34 @@ public sealed partial class GameInstance : IDisposable
             pageStage.Pages = Pages;
         }
 
-        Platform = PlatformApp.Create(new PlatformOptions
+        if (options.Host is { } host && !options.Headless && options.Device is null)
         {
-            Backend = options.Headless ? PlatformBackendKind.Headless : options.Backend,
-            DisplayName = options.Headless ? null : options.CanvasId ?? options.DisplayName,
-            // Android hands gamepads over as input events; there are no device files to scan.
-            EnableGamepadDevices = !options.Headless && !OneGame.Platform.RunningOn.Android,
-        });
-        Window = Platform.CreateWindow(new WindowOptions { Title = definition.Name, Width = options.Width, Height = options.Height });
+            _host = host;
+            (Platform, Window) = host.Acquire(options, definition.Name);
+            if (host.Device is not null && options.Gpu != GpuMode.Off)
+            {
+                _gpuTried = true;
+                _device = host.Device;
+                _swapchain = host.TakeSwapchain(out _swapchainSrgb, out _swapchainMode);
+                if (_swapchain is { } kept && (kept.Width != (uint)Math.Max(1, Window.Width) || kept.Height != (uint)Math.Max(1, Window.Height)))
+                {
+                    // The window was resized while no game was running; its resize events went with the previous run.
+                    kept.Resize((uint)Math.Max(1, Window.Width), (uint)Math.Max(1, Window.Height));
+                }
+            }
+        }
+        else
+        {
+            Platform = PlatformApp.Create(new PlatformOptions
+            {
+                Backend = options.Headless ? PlatformBackendKind.Headless : options.Backend,
+                DisplayName = options.Headless ? null : options.CanvasId ?? options.DisplayName,
+                // Android hands gamepads over as input events; there are no device files to scan.
+                EnableGamepadDevices = !options.Headless && !OneGame.Platform.RunningOn.Android,
+            });
+            Window = Platform.CreateWindow(new WindowOptions { Title = definition.Name, Width = options.Width, Height = options.Height });
+        }
+
         Ui = new UiTree(measurer) { ArtSizes = new OneGame.Text.ArtAtlasSizes(art) };
         if (!options.Headless && Platform.Clipboard.IsAvailable)
         {
@@ -214,7 +244,19 @@ public sealed partial class GameInstance : IDisposable
     public static GameInstance Create(GameDefinition definition, GameOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(definition);
-        return new GameInstance(definition, options ?? new GameOptions { Headless = true });
+        options ??= new GameOptions { Headless = true };
+        var host = options.Headless || options.Device is not null ? null : options.Host;
+        host?.ThrowIfBusy();
+        try
+        {
+            return new GameInstance(definition, options);
+        }
+        catch
+        {
+            // A game that fails to start must not leave the host marked as busy; whatever the failed start took from it is closed.
+            host?.Abort();
+            throw;
+        }
     }
 
     /// <summary>Raised after the world is replaced by a reset, a fixture or a snapshot load. Recorders reattach here.</summary>
@@ -230,7 +272,7 @@ public sealed partial class GameInstance : IDisposable
     public GameDefinition Definition { get; }
 
     /// <summary>The options the instance was created with.</summary>
-    public GameOptions Options { get; }
+    public GameOptions Options { get; private set; }
 
     /// <summary>The authority world: the state the simulation runs on. Read it through this property rather than keeping the reference: it changes when a snapshot or fixture is loaded.</summary>
     public World World { get; private set; } = null!;
@@ -460,6 +502,34 @@ public sealed partial class GameInstance : IDisposable
         ArgumentNullException.ThrowIfNull(recording);
         // The world's seed decides random streams that did not exist yet when the snapshot was taken, so replay builds the world with the recorded seed.
         return Replayer.Replay(recording, NewWorld(static _ => { }, recording.Seed), new ReplayOptions { OnTick = onTick });
+    }
+
+    /// <summary>
+    /// Replaces the game's session while the window, device and renderer stay as they are: the current server connection (if any) is closed and
+    /// the game starts over, either as a replica of the scope <paramref name="connect"/> names or, with null, as a new world of its own.
+    /// Nothing of the old world or session is kept. Raises <see cref="WorldReplaced"/>, and <see cref="Options"/> then carries the new
+    /// <see cref="GameOptions.Connect"/>. The open screen is left alone; reopen one with <see cref="OpenScreen"/> if it shows session state.
+    /// </summary>
+    /// <param name="connect">The server to play on, or null for a local game.</param>
+    /// <exception cref="ObjectDisposedException">The instance was disposed.</exception>
+    public void SwitchConnection(ConnectOptions? connect)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _remote?.Close();
+        _remote = null;
+        _remoteTick = -1;
+        _cluster = null;
+        _scope = null;
+        Options = Options with { Connect = connect };
+        if (connect is { } c)
+        {
+            AttachRemote(c);
+            WorldReplaced?.Invoke(World);
+        }
+        else
+        {
+            Replace(NewWorld(null));
+        }
     }
 
     /// <summary>Starts a new game: a fresh world filled by <see cref="GameDefinition.Setup"/>, optionally with a different seed.</summary>
@@ -1012,6 +1082,7 @@ public sealed partial class GameInstance : IDisposable
             _device = given;
             return;
         }
+
         try
         {
             LegacyGpuEnvironment.Apply();
@@ -1025,6 +1096,7 @@ public sealed partial class GameInstance : IDisposable
                 Validation = Environment.GetEnvironmentVariable("ONEGPU_VALIDATION") == "1",
                 ApplicationName = Definition.Name,
             });
+            _host?.SetDevice(_device);
         }
         catch (GpuException ex)
         {
@@ -1081,7 +1153,8 @@ public sealed partial class GameInstance : IDisposable
             NativeWindowKind.MetalLayer => SurfaceSource.MetalLayer(h.Window),
             _ => SurfaceSource.Win32(h.Display, h.Window),
         };
-        return _swapchain = _device!.CreateSwapchain(source, new SwapchainDesc((uint)Window.Width, (uint)Window.Height) { Srgb = _stage.RequiresSrgb, PresentMode = _swapchainMode });
+        _swapchainSrgb = _stage.RequiresSrgb;
+        return _swapchain = _device!.CreateSwapchain(source, new SwapchainDesc((uint)Window.Width, (uint)Window.Height) { Srgb = _swapchainSrgb, PresentMode = _swapchainMode });
     }
 
     // The format an offscreen capture renders in. The renderers keep per-format state, and the art atlas hands each upload to exactly one
@@ -1117,7 +1190,7 @@ public sealed partial class GameInstance : IDisposable
         }
 
         // A run that starts stepping and then turns realtime (or back) changes how vsync must be done on Wayland: remake the swapchain.
-        if (_swapchain is not null && _swapchainMode != SwapchainPresentMode(Window.NativeHandle.Kind))
+        if (_swapchain is not null && (_swapchainMode != SwapchainPresentMode(Window.NativeHandle.Kind) || _swapchainSrgb != _stage.RequiresSrgb))
         {
             DropSwapchain();
         }
@@ -1345,6 +1418,17 @@ public sealed partial class GameInstance : IDisposable
         _disposed = true;
         _remote?.Close();
         _device?.WaitIdle();
+        if (_host is { } host)
+        {
+            // The window, device and swapchain go back to the host; only what belongs to this game is destroyed.
+            (_stage as IDisposable)?.Dispose();
+            Assets.Dispose();
+            var kept = _swapchain;
+            _swapchain = null;
+            host.Return(kept, _swapchainSrgb, _swapchainMode);
+            return;
+        }
+
         _swapchain?.Dispose();
         (_stage as IDisposable)?.Dispose();
         Assets.Dispose();
@@ -1355,5 +1439,6 @@ public sealed partial class GameInstance : IDisposable
         {
             _device?.Dispose();
         }
+
     }
 }

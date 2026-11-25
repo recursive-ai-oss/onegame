@@ -152,7 +152,7 @@ Always the standard layout: `GamepadButton` South/East/West/North (positional, s
 
 ## Shutdown order
 
-A game releases its graphics objects in this order: swapchain (which destroys the window surface), then the platform app (windows, then the display connection), then the GPU device and instance. The display connection must close while the graphics driver is still loaded: on X11 the driver registers a close hook on the connection, and destroying the Vulkan instance can unload the driver, so closing the display afterwards jumps into unloaded code (SIGSEGV at exit on NVIDIA). `GameInstance.Dispose` encodes this; a device layer that replaces the Vulkan backend must keep the instance alive until the platform app is disposed.
+A game releases its graphics objects in this order: swapchain (which destroys the window surface), then the platform app (windows, then the display connection), then the GPU device and instance. The display connection must close while the graphics driver is still loaded: on X11 the driver registers a close hook on the connection, and destroying the Vulkan instance can unload the driver, so closing the display afterwards jumps into unloaded code (SIGSEGV at exit on NVIDIA). `GameInstance.Dispose` encodes this for an instance with its own window, and `GameHost` for one that borrows a window and device from a host (the order is the same, run when the host closes; see [host-lifetime](host-lifetime.md)); a device layer that replaces the Vulkan backend must keep the instance alive until the platform app is disposed.
 
 ## Backends and requirements
 

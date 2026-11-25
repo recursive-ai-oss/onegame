@@ -37,6 +37,7 @@ public GameOptions();
 | [`Gpu`](#m-gpu) | Graphics device policy: [`GpuMode.Auto`](GpuMode.md#m-auto) uses a device when one can be made, [`GpuMode.Off`](GpuMode.md#m-off) renders captures on the CPU, [`GpuMode.Required`](GpuMode.md#m-required) fails without a device. |
 | [`Headless`](#m-headless) | No window: events come only from injection and nothing is presented. |
 | [`Height`](#m-height) | Window (or virtual window) height in pixels. |
+| [`Host`](#m-host) | Where the window, the graphics device and the swapchain live. |
 | [`PersistData`](#m-persistdata) | Keep saves and settings in the platform's persistent store even for a headless or unpresented run (the `--persist-data` argument). |
 | [`PresentFrames`](#m-presentframes) | False runs frames (simulation, input, layout) without drawing them to the window; captures still render offscreen. |
 | [`PresentMode`](#m-presentmode) | How the swapchain paces presentation. |
@@ -135,6 +136,16 @@ public int Height { get; init; }
 Window (or virtual window) height in pixels.
 
 **Type:** `int`
+
+### <a id="m-host"></a>Host
+
+```csharp
+public GameHost? Host { get; init; }
+```
+
+Where the window, the graphics device and the swapchain live. When set, a windowed instance borrows them from the host and gives them back when it is disposed, so the next instance on the same host starts drawing without building them again. Null (the default for [`GameInstance.Create()`](GameInstance.md#m-create-gamedefinition-gameoptions)) gives the instance its own, closed with it. [`GameApp.Run()`](GameApp.md#m-run-gamedefinition-string) passes [`GameHost.Shared`](GameHost.md#m-shared). Ignored by a headless instance and by one given a [`GameOptions.Device`](GameOptions.md#m-device).
+
+**Type:** [`GameHost`](GameHost.md)?
 
 ### <a id="m-persistdata"></a>PersistData
 

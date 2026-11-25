@@ -17,6 +17,30 @@ public class HeadlessAppTests
     }
 
     [Fact]
+    public void ResetForNewRunForgetsEventsHeldInputAndAQuitButKeepsTheWindows()
+    {
+        using var app = NewApp();
+        var window = app.CreateWindow();
+        app.Injector.Key(window.Id, Key.W, true);
+        app.Injector.PointerMove(window.Id, 10, 20);
+        app.RequestQuit();
+        Assert.True(app.QuitRequested);
+        Assert.True(app.Input.IsKeyDown(Key.W));
+
+        app.ResetForNewRun();
+        Assert.False(app.QuitRequested);
+        Assert.False(app.Input.IsKeyDown(Key.W));
+        Assert.False(app.TryGetEvent(out _));
+        Assert.Same(window, Assert.Single(app.Windows));
+        Assert.False(window.IsClosed);
+
+        // Input after the reset behaves as on a new app.
+        app.Injector.Key(window.Id, Key.W, true);
+        Assert.True(app.Input.IsKeyDown(Key.W));
+        Assert.True(app.TryGetEvent(out _));
+    }
+
+    [Fact]
     public void ModuleIsNamedAfterItsAssembly() => Assert.Equal("OneGame.Platform", PlatformModule.Name);
 
     [Fact]
