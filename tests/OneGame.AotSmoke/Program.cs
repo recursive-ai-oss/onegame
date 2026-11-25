@@ -346,6 +346,17 @@ if (actionProblem is not null)
 
 Console.WriteLine("actions: keyboard, pad, harness and Steam Input sources, rebinding and the bindings text");
 
+OneGame.Platform.Haptics.ClearLog();
+OneGame.Platform.Haptics.Tick();
+OneGame.Platform.Haptics.Play(OneGame.Platform.HapticKind.Error);
+if (OneGame.Platform.Haptics.GetLog().Count != 2 || OneGame.Platform.Haptics.GetLog()[0].Delivered)
+{
+    Console.Error.WriteLine("haptics: the log did not record two undelivered requests");
+    return 1;
+}
+
+Console.WriteLine("haptics: two requests recorded, none delivered on desktop");
+
 
 // Text and vector art: shape a string with the real measurer, rasterize one glyph and one SVG into atlas pages.
 var fonts = new FontLibrary();

@@ -266,6 +266,9 @@ public enum ExpectKind
 
     /// <summary>One-shot sim events emitted since the scenario began: how many of a named type, optionally with given payload values.</summary>
     Event,
+
+    /// <summary>Haptic requests (<c>Haptics.Tick</c>, <c>Haptics.Buzz</c>, ...) made since the scenario began: how many, optionally of one kind, optionally within the last few frames.</summary>
+    Haptic,
 }
 
 /// <summary>A check on the game's state. Unset fields are not checked.</summary>
@@ -381,6 +384,9 @@ public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
 
     /// <summary>Only sounds requested in the last this-many frames count (sound); 0 counts every sound since the scenario began.</summary>
     public int SoundFrames { get; init; }
+
+    /// <summary>The haptic kind to count (haptic), such as tick or buzz; null counts every kind.</summary>
+    public string? HapticKind { get; init; }
 
     /// <summary>A digital action that must be down on some controller (steam-input).</summary>
     public string? DownAction { get; init; }
@@ -1104,6 +1110,18 @@ public static class ScenarioParser
                         Min = sd.TryGetValue("min", out var sdmin) ? Number(sdmin, "min") : (noBound ? 1 : null),
                         Max = sd.TryGetValue("max", out var sdmax) ? Number(sdmax, "max") : null,
                         SoundFrames = sd.TryGetValue("frames", out var sdf) ? Whole(sdf, "frames") : 0,
+                    };
+                case "haptic":
+                    // haptic: {kind: tick, count: 1, frames: 5}
+                    var hp = Map(v, ["kind", "count", "min", "max", "frames"], "haptic");
+                    var hpNoBound = !hp.ContainsKey("count") && !hp.ContainsKey("min") && !hp.ContainsKey("max");
+                    return new ScenarioExpectation(ExpectKind.Haptic, line)
+                    {
+                        HapticKind = hp.TryGetValue("kind", out var hpk) ? Text(hpk, "kind") : null,
+                        Count = hp.TryGetValue("count", out var hpc) ? Whole(hpc, "count") : null,
+                        Min = hp.TryGetValue("min", out var hpmin) ? Number(hpmin, "min") : (hpNoBound ? 1 : null),
+                        Max = hp.TryGetValue("max", out var hpmax) ? Number(hpmax, "max") : null,
+                        SoundFrames = hp.TryGetValue("frames", out var hpf) ? Whole(hpf, "frames") : 0,
                     };
                 case "event":
                     // event: {name: WallDone, count: 2, where: {Cell: 12}}

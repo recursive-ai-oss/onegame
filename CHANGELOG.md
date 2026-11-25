@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- Haptics. `Haptics.Tick()`, `Haptics.Buzz()` and `Haptics.Play(HapticKind)` give touch feedback on phones: Android through `View.performHapticFeedback` (no permission needed), iOS through the UIKit feedback generators; desktop and the web do nothing. Every request is recorded on every platform (`Haptics.GetLog`), read by the new `haptics` control operation and the scenario expectation `haptic: {kind, count, min, max, frames}`. `Haptics.Enabled` is the game's own vibration switch. `docs/interfaces/platform.md`.
+
 ## [2.4.0] - 2026-11-25
 
 ### Added

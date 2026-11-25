@@ -50,6 +50,7 @@ expect:
   - steam-input: { set: Map, controllers: 1, down: map_select, keyboard: false }   # active action set, pads, held actions, on-screen keyboard (docs/interfaces/steam.md)
   - particles: { emitter: sparks, min: 50, max: 100 }  # live particles in the frame just drawn (an emitter's name, or all); count, min, max; see docs/particles.md
   - sound: { name: coin, count: 1, frames: 5 }  # the game played the clip loaded as "coin" (or coin.ogg) once in the last 5 frames; also min, max; no bounds = at least once
+  - haptic: { kind: tick, count: 1, frames: 5 }  # Haptics.Tick() was requested once in the last 5 frames (kind optional; also min, max); recorded on desktop too
   - action: { name: move, held: true, x: 1 }   # an action's current state (also pressed, released, y)
   - asset: { path: art/ship.png, state: ready, version: 1 }
   - tick: 3

@@ -318,6 +318,8 @@ public sealed partial class GameInstance : IDisposable
     /// </summary>
     public long Frame { get; private set; }
 
+    private Func<long>? _frameClock;
+
     /// <summary>The shaders the game's render stage registered for hot reload. A development build recompiles them when their files change.</summary>
     public HotShaders HotShaders { get; }
 
@@ -679,6 +681,7 @@ public sealed partial class GameInstance : IDisposable
     /// <summary>Handles all pending input without running a tick. Control operations call this after injecting input so its effect is visible at once.</summary>
     public void DrainInput()
     {
+        OneGame.Platform.Haptics.FrameClock = _frameClock ??= () => Frame;
         _remote?.Pump();
         Platform.PumpEvents();
         while (Platform.TryGetEvent(out var e))
@@ -804,6 +807,7 @@ public sealed partial class GameInstance : IDisposable
 
     private void RunFrame(int ticks)
     {
+        OneGame.Platform.Haptics.FrameClock = _frameClock ??= () => Frame;
         var timed = Timings.Enabled;
         var started = timed ? Stopwatch.GetTimestamp() : 0;
         long simStart = 0, simEnd = 0, drawStart = 0;
