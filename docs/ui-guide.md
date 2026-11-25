@@ -297,7 +297,6 @@ ui.Root.Add(Ui.Box().Style(s => s.Size(Length.Ui(300), Length.Ui(160))
 | `background-repeat` | `no-repeat` (default), `repeat`, `repeat-x`, `repeat-y` |
 | `background-size` | `fill` (default: the box), `auto` (natural size times the UI scale), `cover`, `contain`; or `BackgroundSize(width, height)` with lengths (an `auto` side keeps the aspect ratio; `%` is of the box) |
 | `background-position-x`, `-y` | a length from the box's top-left corner, or `%`: that fraction of the free space, so 50% centres and 100% right-aligns |
-
 | `image-rendering` | `auto` (default, smooth), `pixelated` (nearest-neighbour, inherited; `Ui.PixelImage(id)` is an image element with it set) |
 | `backdrop-blur` | a length: the blur of CSS `backdrop-filter: blur(r)`, see below |
 
