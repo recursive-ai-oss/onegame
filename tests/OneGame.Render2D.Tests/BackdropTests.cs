@@ -145,6 +145,48 @@ public class BackdropTests
         Assert.InRange(inside, 1, 254);
     }
 
+    [Fact]
+    public void SteadyFramesWithBackdropBlursAllocateNothing()
+    {
+        using var rig = new Rig(160, 100);
+        var ui = rig.Renderer.Ui;
+
+        void Frame()
+        {
+            rig.Renderer.BeginFrame(rig.Target, new FrameOptions { Clear = new Color(10, 20, 40, 255) });
+            ui.Fill(new Rect(0, 0, 80, 100), Color.White);
+            ui.BackdropBlur(new Rect(20, 10, 100, 40), new CornerRadii(8, 8, 8, 8), 9f);
+            ui.BackdropBlur(new Rect(30, 55, 60, 30), default, 3f);
+            var enc = rig.Device.BeginCommands();
+            rig.Renderer.EndFrame(enc);
+            rig.Device.Submit(enc);
+        }
+
+        for (var n = 0; n < 50; n++)
+        {
+            Frame();
+        }
+
+        rig.Device.WaitIdle();
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var n = 0; n < 100; n++)
+        {
+            Frame();
+        }
+
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        rig.Device.WaitIdle();
+        Assert.Equal(300, ui.BackdropBlurs);
+        if (rig.Device.Adapter.Kind == RecursiveAI.OneGpu.AdapterKind.Software || rig.Device.Adapter.VendorId == 0x10DE)
+        {
+            Assert.Equal(0, allocated);
+        }
+        else
+        {
+            Assert.True(allocated <= 16 * 100, $"{allocated} bytes over 100 frames");
+        }
+    }
+
     private static byte[] Checker()
     {
         // 2 x 2 texels: black and white on the diagonal.
