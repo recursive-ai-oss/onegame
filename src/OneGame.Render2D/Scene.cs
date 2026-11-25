@@ -389,6 +389,9 @@ public sealed class Material : IDisposable
 {
     private readonly Vector4[] _params = new Vector4[8];
     private readonly bool _ownsPipeline;
+    private bool _disposed;
+
+    internal Renderer2D? Tracker { get; init; }
 
     internal Material(GpuBuffer buffer, GpuBindGroup group, GpuGraphicsPipeline pipeline, bool ownsPipeline)
     {
@@ -451,6 +454,13 @@ public sealed class Material : IDisposable
     /// <summary>Releases the GPU objects. Do not draw with the material afterwards.</summary>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Tracker?.Untrack(this);
         Group.Dispose();
         Buffer.Dispose();
         if (_ownsPipeline)

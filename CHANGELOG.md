@@ -30,6 +30,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- Disposing a renderer, and so a `GameInstance`, now frees every GPU resource it handed out that the game left undisposed: `Renderer3D` models, dynamic meshes, environment maps (also finished async loads), billboard images, `Offscreen3D` targets and morphed-instance buffers, and `Renderer2D` textures, render textures and materials (post chains and tile sets release through them). With a `GameHost` the device outlives the instance, so a game that dropped these without disposing leaked about 300 MB per run. Disposing something yourself first, or twice, is fine.
 - `Renderer3D.ReadGpuPassTimes` and the graph's pass times could return a wrapped value of about 1.6e13 ms when a pass's end timestamp read below its start; such an interval is now zero.
 - `FrameStats3D.GpuFrameMs` was null on about one frame in a hundred on a busy GPU because the timing ring slot of the only finished frame was recycled before it was read; the graph now keeps the newest resolved frame, so it is a value from the first finished frame on.
 - The shader hot-reload test in the Testing tests skips on Metal, like the Render2D one (reloading recompiles to SPIR-V only), instead of failing there.

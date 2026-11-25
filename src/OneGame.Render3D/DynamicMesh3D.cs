@@ -112,6 +112,7 @@ public sealed class DynamicMesh3D : IDisposable
         }
 
         _disposed = true;
+        _renderer.Untrack(this);
         Model.Dispose();
     }
 }
@@ -224,7 +225,7 @@ public sealed partial class Renderer3D
             model.DrawNodes = [0];
             var mesh = new DynamicMesh3D(this, model, primitive, material, name, vertexCapacity, indexCapacity);
             mesh.Update(vertices, indices);
-            return mesh;
+            return Track(mesh);
         }
         catch
         {

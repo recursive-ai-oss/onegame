@@ -469,7 +469,7 @@ public sealed partial class Renderer3D
 
             MakeCube(Device, size, mips, "environment source", out var source);
             MakeCube(Device, size, mips, "environment specular", out var specular);
-            load.Map = new EnvironmentMap(load.Equirect!, source, specular, irradiance, size, load.Follows);
+            load.Map = Track(new EnvironmentMap(load.Equirect!, source, specular, irradiance, size, load.Follows) { Tracker = this });
             load.Set = BuildEnvironmentSet(load.Map);
             load.CostTotal = 0;
             for (var s = 0; s < EnvironmentStepCount((int)mips); s++)

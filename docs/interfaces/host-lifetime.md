@@ -10,7 +10,7 @@ A game that calls `GameApp.Run` more than once in a process (a menu loop, then a
 - the graphics device,
 - the swapchain.
 
-Everything else belongs to the `GameInstance` and is destroyed with it: the world, the cluster or server session, the UI tree, input actions and rebinding state, the asset service, the art atlas, fonts, the render stage with its renderers, and every texture, model and environment the game uploaded. A second run therefore starts from nothing a first run did; only the window, the device and the swapchain carry over. Scenario hashes of a game run twice in one process equal those of two separate processes (`HostReuseTests`).
+Everything else belongs to the `GameInstance` and is destroyed with it: the world, the cluster or server session, the UI tree, input actions and rebinding state, the asset service, the art atlas, fonts, the render stage with its renderers, and every texture, model, mesh, environment and offscreen target the game made through its renderers, whether or not the game disposed them. A second run therefore starts from nothing a first run did; only the window, the device and the swapchain carry over. Scenario hashes of a game run twice in one process equal those of two separate processes (`HostReuseTests`).
 
 ## Who uses it
 
@@ -19,6 +19,10 @@ Everything else belongs to the `GameInstance` and is destroyed with it: the worl
 - With no host, an instance makes its own window and device and closes them in `Dispose`, as before.
 
 The shared host closes when the process exits (a `ProcessExit` handler; on macOS it leaves the window to the system), or earlier with `GameHost.Release()`. A game that leaves the loop for good and wants the GPU memory back calls `Release()`.
+
+## How the stage releases GPU resources
+
+`Renderer3D` and `Renderer2D` each keep a list of the resources they handed out and the game has not disposed yet (models, dynamic meshes, environment maps, billboard images, `Offscreen3D`, morphed instances; textures, render textures, materials). Disposing the renderer, which the stage does when the instance goes, disposes what is still listed after waiting for the GPU. Disposing a resource yourself removes it from the list, and disposing twice is harmless. Resources of other kinds (a `GpuTexture` you made straight on the device) are yours: the device outlives the instance, so free those yourself. `ResourceLifetimeTests` runs eight instances that make one of everything and dispose nothing: device memory is identical after each (21.6 MB and 100 allocations on lavapipe, of which 17 MB is the device's own staging pool).
 
 ## What a new run gets
 

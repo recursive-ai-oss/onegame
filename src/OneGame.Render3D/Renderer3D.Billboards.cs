@@ -74,7 +74,7 @@ public sealed partial class Renderer3D
         var tex = Device.CreateTexture(new TextureDesc((uint)width, (uint)height, GpuFormat.Rgba8UnormSrgb, TextureUsage.Sampled | TextureUsage.CopyDestination) { Label = label ?? "billboard" });
         Device.WriteTexture(tex, 0, 0, data);
         var group = Device.CreateBindGroup(_bbLayout!, 1, [BindGroupEntry.ForTexture(0, tex), BindGroupEntry.ForSampler(1, _bbSampler!)]);
-        return new BillboardTexture3D(tex, group, width, height);
+        return Track(new BillboardTexture3D(tex, group, width, height) { Tracker = this });
     }
 
     private BillboardTexture3D MakeSoftSpot()

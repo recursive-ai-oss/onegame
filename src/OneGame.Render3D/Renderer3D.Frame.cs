@@ -599,7 +599,7 @@ public sealed partial class Renderer3D
                     if (p.BaseVertices is not null && node.Mesh >= 0)
                     {
                         shapeChanges = true;
-                        vertices = instance.MorphedVertices(Device, n, pi, p, instance.Pose.Weights[n]);
+                        vertices = instance.MorphedVertices(Device, n, pi, p, instance.Pose.Weights[n], this);
                     }
 
                     var center = Vector3.Transform(p.Center, world);

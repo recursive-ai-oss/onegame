@@ -160,6 +160,7 @@ public sealed class ModelInstance3D : IDisposable
 {
     private readonly Matrix4x4[] _world;
     private readonly Dictionary<(int Node, int Primitive), MorphState> _morphs = [];
+    private Renderer3D? _trackerOwner;
 
     internal ModelInstance3D(Model3D model)
     {
@@ -236,6 +237,7 @@ public sealed class ModelInstance3D : IDisposable
     /// <summary>Releases the vertex buffers of morphed primitives. Call it when an instance of a model with morph targets is discarded.</summary>
     public void Dispose()
     {
+        _trackerOwner?.Untrack(this);
         foreach (var m in _morphs.Values)
         {
             m.Buffer.Dispose();
@@ -255,8 +257,11 @@ public sealed class ModelInstance3D : IDisposable
 
     // Blends the morph targets of one primitive on the CPU (glTF 2.0 section 3.7.2.2) into a per-instance vertex buffer. The buffer is
     // rewritten only when the weights change.
-    internal GpuBuffer MorphedVertices(GpuDevice device, int node, int primitiveIndex, Primitive3D primitive, float[] weights)
+    internal GpuBuffer MorphedVertices(GpuDevice device, int node, int primitiveIndex, Primitive3D primitive, float[] weights, Renderer3D tracker)
     {
+        // The instance holds GPU buffers from now on; if the game never disposes it, the renderer does.
+        _trackerOwner = tracker;
+        _ = tracker.Track(this);
         var key = (node, primitiveIndex);
         if (!_morphs.TryGetValue(key, out var state))
         {

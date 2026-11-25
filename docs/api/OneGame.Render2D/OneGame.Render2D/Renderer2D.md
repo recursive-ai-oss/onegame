@@ -96,7 +96,7 @@ The UI drawing surface for the current frame.
 | [`CreateRenderTexture(int, int, TextureFilter)`](#m-createrendertexture-int-int-texturefilter) | Makes an image to draw into and sample later. |
 | [`CreateTexture(int, int, ReadOnlySpan<byte>, TextureFilter)`](#m-createtexture-int-int-readonlyspan-byte-texturefilter) | Creates a texture from straight-alpha sRGB pixels (R, G, B, A bytes, top row first). |
 | [`CreateTileSet(int, int, int, int, ReadOnlySpan<byte>, TextureFilter)`](#m-createtileset-int-int-int-int-readonlyspan-byte-texturefilter) | Creates a tile set from a grid of tiles. |
-| [`Dispose()`](#m-dispose) | Releases every GPU object the renderer made. |
+| [`Dispose()`](#m-dispose) | Releases every GPU object the renderer made, including the textures, render textures and materials you created and did not dispose. |
 | [`DrawScene(Scene2D, in Camera2D, PostChain?, ISceneMarkerSink?)`](#m-drawscene-scene2d-camera2d-postchain-iscenemarkersink) | Draws a scene's layers back to front through `camera`. |
 | [`EndFrame(GpuCommandEncoder)`](#m-endframe-gpucommandencoder) | Uploads everything the frame drew and records its passes into `encoder`. |
 | [`EndTarget()`](#m-endtarget) | Stops drawing into the render texture begun with [`Renderer2D.BeginTarget()`](Renderer2D.md#m-begintarget-rendertexture2d-color); drawing continues on the frame's target. |
@@ -243,7 +243,7 @@ Creates a tile set from a grid of tiles.
 public void Dispose();
 ```
 
-Releases every GPU object the renderer made. Dispose the textures, tile sets and materials you created yourself first or after; they are independent.
+Releases every GPU object the renderer made, including the textures, render textures and materials you created and did not dispose. Disposing those yourself first, or after, is fine.
 
 ### <a id="m-drawscene-scene2d-camera2d-postchain-iscenemarkersink"></a>DrawScene(Scene2D, in Camera2D, PostChain?, ISceneMarkerSink?)
 

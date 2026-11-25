@@ -136,6 +136,8 @@ public sealed partial class Renderer3D : IDisposable
     private readonly Dictionary<GltfSampler, GpuSampler> _samplers = [];
     private readonly VertexBufferLayout _vertexLayout;
     private readonly List<IDisposable> _deferred = [];
+    private readonly HashSet<IDisposable> _live = new(ReferenceEqualityComparer.Instance);
+    private bool _disposed;
 
     /// <summary>Creates a renderer on a device.</summary>
     /// <param name="device">The graphics device. It must outlive the renderer.</param>
@@ -250,6 +252,17 @@ public sealed partial class Renderer3D : IDisposable
     private int _statsFrame;
     private double _buildMs;
 
+    // Everything the game gets from this renderer and may or may not dispose (models, meshes, environments, billboard images, offscreen
+    // targets) is listed here until it is disposed, so that disposing the renderer frees what the game left behind.
+    internal T Track<T>(T resource)
+        where T : IDisposable
+    {
+        _live.Add(resource);
+        return resource;
+    }
+
+    internal void Untrack(IDisposable resource) => _live.Remove(resource);
+
     private T Own<T>(T resource)
         where T : IDisposable
     {
@@ -271,7 +284,7 @@ public sealed partial class Renderer3D : IDisposable
 
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(scene, model.Scenes.Length);
 
-        var result = new Model3D(model, scene);
+        var result = Track(new Model3D(model, scene) { Tracker = this });
         try
         {
             UploadInto(result);
@@ -502,10 +515,25 @@ public sealed partial class Renderer3D : IDisposable
         c.Xf[(slot * 2) + 1] = new Vector4(uv.M12, uv.M22, uv.M32, 0f);
     }
 
-    /// <summary>Releases everything the renderer created. Models and environments are disposed separately, before this.</summary>
+    /// <summary>
+    /// Releases everything the renderer created, including models, dynamic meshes, environment maps, billboard images and offscreen targets that
+    /// were not disposed first (disposing them yourself earlier is fine and frees them sooner).
+    /// </summary>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         Device.WaitIdle();
+        foreach (var live in _live.ToArray())
+        {
+            live.Dispose();
+        }
+
+        _live.Clear();
         DisposeDeferred();
         DisposeFrame();
         DisposePost();
