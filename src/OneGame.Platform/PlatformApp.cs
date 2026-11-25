@@ -121,6 +121,19 @@ public sealed class PlatformApp : IDisposable
     /// <summary>Asks the application to quit; the game sees <see cref="PlatformEventKind.QuitRequested"/>.</summary>
     public void RequestQuit() => Post(new PlatformEvent { Kind = PlatformEventKind.QuitRequested });
 
+    /// <summary>
+    /// Readies the application for a new game on its existing windows: reads what the system has queued, then forgets every queued event,
+    /// a pending quit request, held keys and buttons and touches. Windows stay open. The game host calls it between runs.
+    /// </summary>
+    public void ResetForNewRun()
+    {
+        _backend.Pump(0);
+        _queue.Clear();
+        QuitRequested = false;
+        _primaryTouch = -1;
+        Input.ReleaseAll();
+    }
+
     /// <summary>Closes every window and disconnects.</summary>
     public void Dispose()
     {

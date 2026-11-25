@@ -138,6 +138,13 @@ public static class GameApp
     public static Func<IDevTools>? DevTools { get; set; }
 
     /// <summary>
+    /// True (the default) keeps the window, graphics device and swapchain of a windowed run alive after <see cref="Run(GameDefinition, string[])"/> returns, so a later
+    /// call in the same process starts drawing at once; they close when the process exits or at <see cref="GameHost.Release"/>. Set it to false before the first run
+    /// to give every run a window of its own that closes with it. Headless runs and phones are not affected. See <c>docs/interfaces/host-lifetime.md</c>.
+    /// </summary>
+    public static bool ReuseWindow { get; set; } = true;
+
+    /// <summary>
     /// Runs a game. Options: <c>--headless</c>, <c>--frames N</c> (stop after N frames), <c>--size 1280x720</c>, <c>--scale 1.5</c>
     /// (headless UI scale), <c>--seed N</c>, <c>--gpu auto|off|required</c>, <c>--backend wayland|x11|cocoa</c> and <c>--display NAME</c> (which window system and display
     /// a windowed run opens on; the environment decides without them), <c>--present vsync|lowlatency|immediate</c>, <c>--json</c> (print one result object),
@@ -192,6 +199,11 @@ public static class GameApp
             // A browser cannot block: the page creates the GPU device asynchronously and drives the frames, so Main returns at once.
             BrowserHost.Start(game, options, parsed, extra.Length > 0 ? DevTools : null, output);
             return ExitCodes.Ok;
+        }
+
+        if (ReuseWindow && !options.Headless && !OneGame.Platform.RunningOn.Android && !OperatingSystem.IsIOS())
+        {
+            options = options with { Host = GameHost.Shared };
         }
 
         try

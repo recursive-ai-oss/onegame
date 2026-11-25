@@ -127,6 +127,7 @@ The open windows.
 | [`NativeCommand(string, string?)`](#m-nativecommand-string-string) | Runs a command that only one backend understands, for the harness and tests: on iOS `describe`, `orientation`, `text_insert`, `text_mark`, `text_unmark` and `text_delete` (see docs/interfaces/ios.md). |
 | [`PumpEvents(int)`](#m-pumpevents-int) | Reads everything the operating system and the gamepads have to say and queues it. |
 | [`RequestQuit()`](#m-requestquit) | Asks the application to quit; the game sees [`PlatformEventKind.QuitRequested`](PlatformEventKind.md#m-quitrequested). |
+| [`ResetForNewRun()`](#m-resetfornewrun) | Readies the application for a new game on its existing windows: reads what the system has queued, then forgets every queued event, a pending quit request, held keys and buttons and touches. |
 | [`TryGetEvent(out PlatformEvent)`](#m-trygetevent-platformevent) | Takes the next queued event, oldest first. |
 
 ### <a id="m-create-platformoptions"></a>Create(PlatformOptions?)
@@ -221,6 +222,14 @@ public void RequestQuit();
 ```
 
 Asks the application to quit; the game sees [`PlatformEventKind.QuitRequested`](PlatformEventKind.md#m-quitrequested).
+
+### <a id="m-resetfornewrun"></a>ResetForNewRun()
+
+```csharp
+public void ResetForNewRun();
+```
+
+Readies the application for a new game on its existing windows: reads what the system has queued, then forgets every queued event, a pending quit request, held keys and buttons and touches. Windows stay open. The game host calls it between runs.
 
 ### <a id="m-trygetevent-platformevent"></a>TryGetEvent(out PlatformEvent)
 

@@ -11,7 +11,9 @@ internal static class Program
     private static int Run(string[] args) =>
         args is ["--child-window", var mode, var display]
             ? X11ExitTests.RunChild(mode, display)
-            : RunTests(args);
+            : args is ["--child-runs", var backend, var shown, var count, var definition, var extra]
+                ? RunLoopTests.RunChild(backend, shown, int.Parse(count, System.Globalization.CultureInfo.InvariantCulture), definition == "same", extra == "-" ? "" : extra)
+                : RunTests(args);
 
     private static int RunTests(string[] args) =>
         args.Any(a => a == "--server" || a == "--internal-msbuild-node")

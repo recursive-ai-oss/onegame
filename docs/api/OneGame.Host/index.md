@@ -38,6 +38,7 @@ dotnet add package RecursiveAI.OneGame.Host
 | [`GameApp`](OneGame.Host/GameApp.md) | static class | The entry point of a game: parse the command line, create the instance, run it. |
 | [`GameArgs`](OneGame.Host/GameArgs.md) | class | The command line of a game: `--name value`, `--name=value` and bare `--flag`. |
 | [`GameDefinition`](OneGame.Host/GameDefinition.md) | class | What a game is, as far as the host cares: its entity types, how its world starts, its screens and its named fixtures. |
+| [`GameHost`](OneGame.Host/GameHost.md) | class | The parts of a windowed game that are costly to build and need not die with one [`GameInstance`](OneGame.Host/GameInstance.md): the connection to the window system, the window, the graphics device and the swapchain. |
 | [`GameInstance`](OneGame.Host/GameInstance.md) | class | One running game: the world, the UI tree, the window and event queue, and the render stage, advanced one frame at a time. |
 | [`GameOptions`](OneGame.Host/GameOptions.md) | record | Options of a [`GameInstance`](OneGame.Host/GameInstance.md). |
 | [`GameStorage`](OneGame.Host/GameStorage.md) | class | A game's saves and settings: the happy path over [`IByteStore`](../OneGame.Core/OneGame.Storage/IByteStore.md), [`SaveSlots`](../OneGame.Sync/OneGame.Storage/SaveSlots.md) and [`SettingsFile<T>`](../OneGame.Core/OneGame.Storage/SettingsFile-1.md). |

@@ -35,6 +35,18 @@ internal static class WindowedSmoke
             }
         }
 
+        // Switching a running game's session starts a fresh world and keeps the instance.
+        using (var switching = GameInstance.Create(new SmokeGame(), new GameOptions { Headless = true, Gpu = GpuMode.Off }))
+        {
+            switching.Step(3);
+            switching.SwitchConnection(null);
+            if (switching.World.Tick != 0 || switching.Remote is not null || !GameApp.ReuseWindow)
+            {
+                Console.Error.WriteLine("switch connection smoke failed");
+                return 1;
+            }
+        }
+
         if (Environment.GetEnvironmentVariable("ONEGAME_SMOKE_DISPLAY") is not { Length: > 0 } display)
         {
             Console.WriteLine("ok: clipboard and composition (headless); set ONEGAME_SMOKE_DISPLAY to run the window paths");
@@ -68,6 +80,29 @@ internal static class WindowedSmoke
         {
             Console.Error.WriteLine($"x11 clipboard smoke failed: '{pasted}'");
             return 1;
+        }
+
+        // A host keeps the window and device from one game to the next.
+        using (var host = new GameHost())
+        {
+            PlatformApp? kept = null;
+            for (var run = 0; run < 2; run++)
+            {
+                using var hosted = GameInstance.Create(new SmokeGame(), new GameOptions { Width = 320, Height = 200, Gpu = GpuMode.Required, Backend = PlatformBackendKind.X11, DisplayName = display, Host = host });
+                for (var i = 0; i < 20 && hosted.PresentedFrames < 3; i++)
+                {
+                    hosted.Step();
+                    Thread.Sleep(5);
+                }
+
+                if (hosted.PresentedFrames < 3 || (kept is not null && !ReferenceEquals(kept, hosted.Platform)))
+                {
+                    Console.Error.WriteLine($"host smoke failed on run {run}: presented {hosted.PresentedFrames}");
+                    return 1;
+                }
+
+                kept = hosted.Platform;
+            }
         }
 
         using var game = GameInstance.Create(new SmokeGame(), new GameOptions { Width = 320, Height = 200, Gpu = GpuMode.Required, Backend = PlatformBackendKind.X11, DisplayName = display });
