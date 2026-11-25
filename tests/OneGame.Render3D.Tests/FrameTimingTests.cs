@@ -103,8 +103,11 @@ public class FrameTimingTests
 
             rig.Device.WaitIdle();
             Console.WriteLine($"{rig.Device.Adapter.Name}: {frames} frames, longest frame {worst:F3} ms, longest pass {worstPass:F3} ms, frames without a time {missing}");
-            Assert.True(worst < 5000, $"a frame took {worst} ms");
-            Assert.True(worstPass < 5000, $"a pass took {worstPass} ms");
+            // A wrapped subtraction reads as about 1.8e13 ms. A software rasterizer on a busy machine can really take seconds per frame,
+            // so the bound sits far above any real frame (ten minutes) and far below a wrap.
+            const double WrapBoundMs = 600_000;
+            Assert.True(worst < WrapBoundMs, $"a frame took {worst} ms");
+            Assert.True(worstPass < WrapBoundMs, $"a pass took {worstPass} ms");
             Assert.Equal(0, missing);
         }
     }
