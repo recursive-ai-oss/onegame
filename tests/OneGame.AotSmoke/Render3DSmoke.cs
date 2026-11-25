@@ -190,7 +190,7 @@ internal static class Render3DSmoke
         var greenPixels = 0;
         for (var i = 0; i < drawn.Length; i += 4)
         {
-            greenPixels += drawn[i + 1] > 100 && drawn[i] < 100 ? 1 : 0;
+            greenPixels += drawn[i + 1] > 150 && drawn[i + 1] - drawn[i] > 60 ? 1 : 0;
         }
 
         if (greenPixels < 100) { return $"the mesh covers {greenPixels} pixels"; }
@@ -247,7 +247,7 @@ internal static class Render3DSmoke
         var limePixels = 0;
         for (var i = 0; i < exempt.Length; i += 4)
         {
-            limePixels += exempt[i + 1] > 100 && exempt[i] < 100 ? 1 : 0;
+            limePixels += exempt[i + 1] > 120 && exempt[i + 1] - exempt[i] > 40 ? 1 : 0;
         }
 
         if (limePixels < 100) { return $"the fog-exempt mesh covers {limePixels} pixels"; }
