@@ -13,6 +13,12 @@ try {
   await put(R, '/repo/testdata/render3d/cases.json', '/testdata/render3d/cases.json');
   const cases = (await (await fetch('/testdata/render3d/cases.json')).json()).cases;
   const results = [];
+  if (new URLSearchParams(location.search).get('fog')) {
+    const r = JSON.parse(await R.RunFog());
+    window.__result = JSON.stringify({ adapter: gpu.takeMessages(0), results: [r] });
+    log.textContent = 'fog: ' + (r.ok ? 'ok' : 'FAIL');
+    throw new Error('__done');
+  }
   for (const name of names) {
     const c = cases.find(x => x.name === name);
     const dir = c.model.split('/').slice(0, -2).join('/') + '/' + c.model.split('/').slice(-2, -1)[0];   // <Model>/glTF
@@ -28,6 +34,8 @@ try {
   }
   window.__result = JSON.stringify({ adapter: gpu.takeMessages(0), results });
 } catch (e) {
-  window.__result = JSON.stringify({ fatal: String(e && e.stack || e) });
-  log.textContent = 'fatal: ' + e;
+  if (!String(e).includes('__done')) {
+    window.__result = JSON.stringify({ fatal: String(e && e.stack || e) });
+    log.textContent = 'fatal: ' + e;
+  }
 }

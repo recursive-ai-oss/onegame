@@ -91,6 +91,87 @@ public static partial class Runner
     }
 }
 
+public static partial class Runner
+{
+    private static byte Srgb(double linear)
+    {
+        var c = Math.Clamp(linear, 0, 1);
+        var e = c <= 0.0031308 ? c * 12.92 : (1.055 * Math.Pow(c, 1 / 2.4)) - 0.055;
+        return (byte)Math.Round(e * 255);
+    }
+
+    /// <summary>
+    /// Draws a flat-shaded quad under each fog mode and compares its centre pixel with the formula, then with the material opted out of fog.
+    /// Returns a JSON result like <see cref="Run"/>.
+    /// </summary>
+    [JSExport]
+    public static async Task<string> RunFog()
+    {
+        try
+        {
+            _device ??= await WebGpu.CreateDeviceAsync(new GpuDeviceOptions { ApplicationName = "render3d web runner" }).ConfigureAwait(true);
+            using var renderer = new Renderer3D(_device);
+            using var target = new Offscreen3D(renderer, 64, 64, GpuFormat.Rgba8UnormSrgb);
+            var baseColour = new Vector3(0.8f, 0.2f, 0.1f);
+            var fogColour = new Vector3(0.2f, 0.4f, 0.8f);
+            var material = renderer.CreateMaterial("flat", baseColor: new Vector4(baseColour, 1f));
+            material.Style = MaterialStyle3D.Flat;
+            var n = Vector3.UnitZ;
+            MeshVertex3D[] quad = [new(new Vector3(-5, -5, 0), n, default), new(new Vector3(5, -5, 0), n, default), new(new Vector3(5, 5, 0), n, default), new(new Vector3(-5, 5, 0), n, default)];
+            using var mesh = renderer.CreateMesh(material, quad, [0, 1, 2, 0, 2, 3], "quad");
+            var scene = new Scene3D { Camera = Camera3D.LookAt(new Vector3(0, 6, 10), Vector3.Zero, Vector3.UnitY), Samples = 1 };
+            scene.Add(mesh.Model);
+            scene.Environment.Intensity = 0f;
+            scene.Environment.Background = BackgroundMode.Color;
+            scene.Environment.BackgroundColor = Vector3.Zero;
+            scene.Post.Bloom = false;
+            scene.Post.ToneMapper = ToneMapper.None;
+            scene.Fog.Enabled = true;
+            scene.Fog.Color = fogColour;
+            var length = Math.Sqrt((6 * 6) + (10 * 10));
+            var rows = new List<Dictionary<string, object?>>();
+            var allOk = true;
+
+            async Task Check(string name, double amount)
+            {
+                var px = await target.CaptureAsync(scene).ConfigureAwait(true);
+                var o = ((32 * 64) + 32) * 4;
+                var expected = new[] { Srgb((baseColour.X * (1 - amount)) + (fogColour.X * amount)), Srgb((baseColour.Y * (1 - amount)) + (fogColour.Y * amount)), Srgb((baseColour.Z * (1 - amount)) + (fogColour.Z * amount)) };
+                var diff = Math.Max(Math.Abs(px[o] - expected[0]), Math.Max(Math.Abs(px[o + 1] - expected[1]), Math.Abs(px[o + 2] - expected[2])));
+                var ok = diff <= 3;
+                allOk &= ok;
+                rows.Add(new() { ["case"] = name, ["amount"] = Math.Round(amount, 4), ["got"] = new[] { px[o], px[o + 1], px[o + 2] }, ["expected"] = expected, ["ok"] = ok });
+            }
+
+            scene.Fog.Mode = FogMode.Linear;
+            scene.Fog.Start = 4f;
+            scene.Fog.End = 14f;
+            await Check("linear", Math.Clamp((length - 4) / 10, 0, 1)).ConfigureAwait(true);
+            scene.Fog.Mode = FogMode.Exponential;
+            scene.Fog.Density = 0.1f;
+            await Check("exp", 1 - Math.Exp(-0.1 * length)).ConfigureAwait(true);
+            scene.Fog.Mode = FogMode.ExponentialSquared;
+            scene.Fog.Density = 0.07f;
+            await Check("exp2", 1 - Math.Exp(-Math.Pow(0.07 * length, 2))).ConfigureAwait(true);
+            scene.Fog.Mode = FogMode.Height;
+            scene.Fog.Density = 0.1f;
+            scene.Fog.HeightBase = 0f;
+            scene.Fog.HeightFalloff = 0.2f;
+            double a = -0.2 * 6, b = 0, k = a - b;
+            await Check("height", 1 - Math.Exp(-0.1 * length * ((Math.Exp(a) - Math.Exp(b)) / k))).ConfigureAwait(true);
+            material.FogExempt = true;
+            await Check("exempt", 0).ConfigureAwait(true);
+            await WebGpu.SettleAsync(_device).ConfigureAwait(true);
+            var messages = _device.TakeValidationMessages();
+            return JsonSerializer.Serialize(new Dictionary<string, object?> { ["name"] = "fog", ["ok"] = allOk && messages.Length == 0, ["rows"] = rows, ["validation"] = messages }, RunnerJson.Options);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return JsonSerializer.Serialize(new Dictionary<string, object?> { ["name"] = "fog", ["ok"] = false, ["error"] = ex.ToString() }, RunnerJson.Options);
+        }
+    }
+}
+
 internal static class RunnerJson
 {
     public static readonly JsonSerializerOptions Options = new() { TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver() };
