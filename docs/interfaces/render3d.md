@@ -38,7 +38,19 @@ Harness: control op `environment` (`fog`, `fogColor`, `fogStart`, `fogEnd`, `fog
 
 ## Fog
 
-`Scene3D.Fog` (`FogSettings`): `Enabled` (off by default, and then the output is identical to a build without fog), `Color` (linear), `Start`, `End`, `MaxDensity` (0..1). The amount is linear in the distance from the camera (view depth with an orthographic camera): 0 at `Start`, `MaxDensity` at `End`, constant beyond; a surface is `colour * (1 - amount) + Color * amount`, in HDR before tone mapping. It is a per-frame constant (in the frame constants, `Frame.hlsli`: `FogAmount`, `ApplyFog`), so changing it never touches meshes, pipelines or the GPU memory, and steady frames still allocate nothing. Every surface shader applies it: PBR, toon, flat and unlit, outlines, masked and blended surfaces (blended ones fade by their own alpha), instanced draws and dynamic meshes (they share the shader); billboards fade by coverage and additive quads fade out instead of turning into fog. Left alone: the backdrop (an environment or flat colour) and debug geometry. To make far terrain meet the sky, set `Color` to the sky colour at the horizon, and `MaxDensity` below 1 when the horizon should stay faintly visible. Not built: exponential or height fog, and tinting by view direction.
+`Scene3D.Fog` (`FogSettings`): `Enabled` (off by default, and then the output is identical to a build without fog), `Color` (linear), `MaxDensity` (0..1, the cap on every mode), and a `Mode` (`FogMode`):
+
+- `Linear` (default): `Start`, `End`. The amount is linear in the distance from the camera (view depth with an orthographic camera): 0 at `Start`, `MaxDensity` at `End`, constant beyond. This mode's output is unchanged from earlier versions.
+- `Exponential`: `1 - exp(-Density * d)`. `ExponentialSquared`: `1 - exp(-(Density * d)^2)`. `Density` is per world unit; 0 draws no fog.
+- `Height`: exponential fog whose density falls off with world height, `Density * exp(-HeightFalloff * (y - HeightBase))`, integrated in closed form along the ray from the camera to the surface, so fog pools in low ground and a camera above it sees through it (`HeightFalloff` 0 equals `Exponential`; exponents are clamped to stay finite; with an orthographic camera the ray length is the view depth).
+
+A surface is `colour * (1 - amount) + Color * amount`, in HDR before tone mapping. It is a per-frame constant (in the frame constants, `Frame.hlsli`: `FogAmount`, `ApplyFog`; the mode is `FogRange.w`, the exponential and height settings are `FogParams`), so changing it never touches meshes, pipelines or the GPU memory, and steady frames still allocate nothing. Every surface shader applies it: PBR, toon, flat and unlit, outlines, masked and blended surfaces (blended ones fade by their own alpha), instanced draws and dynamic meshes (they share the shader); billboards fade by coverage and additive quads fade out instead of turning into fog.
+
+**Backdrop layers.** The environment backdrop or flat colour and debug geometry are never fogged. A sky dome, skybox mesh or painted distant mountains are ordinary meshes, so they opt out per material with `Material3D.FogExempt = true` (`Pbr.hlsl`: `SurfaceFog`, material flag `Flags.y`); they keep their own lit colour while everything else fogs. To make far terrain meet the sky, set `Color` to the sky colour at the horizon, and `MaxDensity` below 1 when the horizon should stay faintly visible. Not built: tinting by view direction.
+
+The `environment` op reads and sets `fogMode` (`linear`, `exp`, `exp2`, `height`), `fogDensity`, `fogHeightBase` and `fogHeightFalloff` beside the earlier fields. Tests: `FogTests` (linear, unchanged), `FogModeTests` (each mode against its formula, the exempt material, per-instance shadows).
+
+`ModelInstance3D.CastShadows` (default true; `ModelOptions.CastShadows` for `SceneWriter.Model`) leaves one instance out of the shadow passes while it is still drawn and still receives shadows (translucent instances never cast). Per-instance opacity is `ModelInstance3D.Opacity` (below 1 draws in the blended pass).
 
 ## Planar reflection and UV scroll
 

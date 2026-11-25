@@ -30,6 +30,9 @@ public sealed partial class Renderer3D
         public int Slot;
         public bool Flipped;
 
+        /// <summary>The instance does not cast shadows (<see cref="ModelInstance3D.CastShadows"/>): the shadow passes skip it.</summary>
+        public bool NoShadow;
+
         /// <summary>World-space bounding sphere (centre, radius); the radius is infinite for meshes whose shape changes (skinned, morphed).</summary>
         public Vector4 Sphere;
     }
@@ -314,7 +317,8 @@ public sealed partial class Renderer3D
         var maxMip = env.SpecularMipCount - 1;
         _ssaoActive = scene.Ssao.Enabled && q.Ssao;
         var fog = scene.Fog;
-        var fogOn = fog.Enabled && float.IsFinite(fog.Start) && float.IsFinite(fog.End) && fog.MaxDensity > 0f;
+        var fogLinear = fog.Mode == FogMode.Linear;
+        var fogOn = fog.Enabled && fog.MaxDensity > 0f && (fogLinear ? float.IsFinite(fog.Start) && float.IsFinite(fog.End) : float.IsFinite(fog.Density) && fog.Density > 0f);
         var fogSpan = MathF.Max(fog.End - fog.Start, 1e-4f);
         var maxMipB = (envB ?? env).SpecularMipCount - 1;
         _frame = new FrameConstants
@@ -334,7 +338,8 @@ public sealed partial class Renderer3D
             ShadowInfo = new Vector4(_shadowCount, 0, 0, 0),
             AoInfo = new Vector4(_ssaoActive ? Math.Clamp(scene.Ssao.Intensity, 0f, 1f) : 0f, scene.Ssao.Radius, 0, 0),
             FogColor = new Vector4(fog.Color, Math.Clamp(fog.MaxDensity, 0f, 1f)),
-            FogRange = new Vector4(fog.Start, 1f / fogSpan, fogOn ? 1f : 0f, 0),
+            FogRange = new Vector4(fog.Start, 1f / fogSpan, fogOn ? 1f : 0f, (float)(int)fog.Mode),
+            FogParams = new Vector4(fog.Density, fog.HeightBase, MathF.Max(fog.HeightFalloff, 0f), 0f),
             EnvB = new Vector4(maxMipB, envB is null ? 0f : env0.Blend, env0.BackgroundBlur * maxMipB, 0),
             ReflViewProj = reflProj,
             Refl = new Vector4(0f, mirrorPlane.Height, _reflActive ? 1f : 0f, (float)scene.Time),
@@ -531,6 +536,7 @@ public sealed partial class Renderer3D
                         Vertices = vertices,
                         Slot = slot,
                         Flipped = flipped,
+                        NoShadow = !instance.CastShadows,
                         Sphere = new Vector4(center, radius),
                         Pipeline = ScenePipeline(PipeKind.Main, p.Material.Blend || instanceBlend, p.Material.DoubleSided, flipped, false, false, samples),
                     };
@@ -862,6 +868,11 @@ public sealed partial class Renderer3D
         for (var i = 0; i < count; i++)
         {
             ref var d = ref items[i];
+            if (kind == PipeKind.Shadow && d.NoShadow)
+            {
+                continue;
+            }
+
             if (tile >= 0 && !Inside(planes, new Vector3(d.Sphere.X, d.Sphere.Y, d.Sphere.Z), d.Sphere.W))
             {
                 continue;

@@ -14,6 +14,9 @@ public sealed class Scene3DGameDefinition : GameDefinition
     /// <summary>Builds the scene from the world. One game definition drives one game.</summary>
     public SceneView3D View { get; } = CreateView();
 
+    /// <summary>Above zero the screen also shows a translucent glass panel that blurs the scene behind it by this many UI units. Set it before the game starts.</summary>
+    public float GlassBlur { get; set; }
+
     public override string Name => "Scene3D";
 
     public override void RegisterEntities(EntityRegistry registry) => OneGame.Generated.Scene3DGame.EntityTypes.Register(registry);
@@ -34,11 +37,21 @@ public sealed class Scene3DGameDefinition : GameDefinition
         fonts.Add(Read("fonts/NotoSans-Regular.ttf"));
     }
 
-    public override void DefineScreens(ScreenSet screens) => screens.Add("main", game => Ui.Column(
-        Ui.Label(() => "tick " + game.World.Tick).Named("hud"),
-        Ui.Label("orbiter").Named("tag").Padding(Length.Px(4)).Background(Color.Rgb(0x203040)).TextColor(Color.White)
-            .PinToWorld(View, game, () => game.World.Find(new EntityId(3)) is Crate c ? c.Transform.Position + new FVec3(0, 1, 0) : null))
-        .Padding(Length.Px(8)).TextColor(Color.White));
+    public override void DefineScreens(ScreenSet screens) => screens.Add("main", game =>
+    {
+        var root = Ui.Column(
+            Ui.Label(() => "tick " + game.World.Tick).Named("hud"),
+            Ui.Label("orbiter").Named("tag").Padding(Length.Px(4)).Background(Color.Rgb(0x203040)).TextColor(Color.White)
+                .PinToWorld(View, game, () => game.World.Find(new EntityId(3)) is Crate c ? c.Transform.Position + new FVec3(0, 1, 0) : null))
+            .Padding(Length.Px(8)).TextColor(Color.White);
+        if (GlassBlur > 0)
+        {
+            root.With(Ui.Box().Named("glass").Style(s => s.Position(PositionMode.Absolute).Left(Length.Ui(200)).Top(Length.Ui(70)).Width(Length.Ui(240)).Height(Length.Ui(170))
+                .Radius(Length.Ui(18)).Background(new Color(255, 255, 255, 50)).BackdropBlur(Length.Ui(GlassBlur))));
+        }
+
+        return root;
+    });
 
     public override IRenderStage CreateRenderStage(HostResources resources)
     {

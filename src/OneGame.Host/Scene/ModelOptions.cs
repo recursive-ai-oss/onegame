@@ -1,6 +1,6 @@
 namespace OneGame.Host;
 
-/// <summary>Per-draw settings for <c>SceneWriter.Model</c> beyond placement: how see-through the model is, and the name tools show for it.</summary>
+/// <summary>Per-draw settings for <c>SceneWriter.Model</c> beyond placement: how see-through the model is, whether it casts shadows, and the name tools show for it.</summary>
 public readonly record struct ModelOptions
 {
     /// <summary>Settings that change nothing: fully opaque, no label, pickable.</summary>
@@ -13,6 +13,9 @@ public readonly record struct ModelOptions
     /// shadow), as for <c>ModelInstance3D.Opacity</c>. At 0 nothing is drawn.
     /// </summary>
     public float Opacity { get; init; } = 1f;
+
+    /// <summary>Whether the model casts shadows (default true), as for <c>ModelInstance3D.CastShadows</c>. Off, it is still drawn and receives shadows.</summary>
+    public bool CastShadows { get; init; } = true;
 
     /// <summary>A name for tools; it is the instance's <c>ModelInstance3D.Label</c>. Null leaves it empty.</summary>
     public string? Label { get; init; }

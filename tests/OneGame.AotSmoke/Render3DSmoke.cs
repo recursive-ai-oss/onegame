@@ -168,6 +168,22 @@ internal static class Render3DSmoke
 
         if (redPixels < 100) { return $"fog turned {redPixels} pixels red"; }
 
+        // Height fog, and a material that ignores fog.
+        meshScene.Fog.Mode = FogMode.Height;
+        meshScene.Fog.Density = 2f;
+        meshScene.Fog.HeightBase = 5f;
+        meshScene.Fog.HeightFalloff = 0.1f;
+        lime.FogExempt = true;
+        var exempt = target.Capture(meshScene);
+        lime.FogExempt = false;
+        var limePixels = 0;
+        for (var i = 0; i < exempt.Length; i += 4)
+        {
+            limePixels += exempt[i + 1] > 100 && exempt[i] < 100 ? 1 : 0;
+        }
+
+        if (limePixels < 100) { return $"the fog-exempt mesh covers {limePixels} pixels"; }
+
         // Planar reflection and texture scrolling on a material, with the mirror plane and the scene clock set on the scene.
         meshScene.Fog.Enabled = false;
         lime.PlanarReflection = true;

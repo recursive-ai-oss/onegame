@@ -61,9 +61,9 @@ internal static class Plane
         "\"KHR_materials_ior\"");
 
     /// <summary>A flat colour surface (KHR_materials_unlit): the shader returns the base colour untouched, so exposure and tone mapping can be checked alone.</summary>
-    public static byte[] Unlit(float r, float g, float b) => Gltf(
+    public static byte[] Unlit(float r, float g, float b, float half = 5f) => Gltf(
         """{"pbrMetallicRoughness":{"baseColorFactor":[@R@,@G@,@B@,1]},"extensions":{"KHR_materials_unlit":{}}}""".Replace("@R@", r.ToString(System.Globalization.CultureInfo.InvariantCulture)).Replace("@G@", g.ToString(System.Globalization.CultureInfo.InvariantCulture)).Replace("@B@", b.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-        "\"KHR_materials_unlit\"");
+        "\"KHR_materials_unlit\"", half);
 
     /// <summary>An orthographic camera looking straight down at the plane, covering <paramref name="width"/> x its aspect world units.</summary>
     public static Camera3D TopDown(float height, float distance = 10f) => new()

@@ -65,6 +65,39 @@ public sealed partial class ControlSurface
             fog.Color = new System.Numerics.Vector3((float)c[0], (float)c[1], (float)c[2]);
         }
 
+        if (a.Str("fogMode") is { } mode)
+        {
+            fog.Mode = mode.ToLowerInvariant() switch
+            {
+                "linear" => FogMode.Linear,
+                "exp" or "exponential" => FogMode.Exponential,
+                "exp2" or "exponentialsquared" => FogMode.ExponentialSquared,
+                "height" => FogMode.Height,
+                _ => throw new ControlException("bad_args", "fogMode must be linear, exp, exp2 or height."),
+            };
+        }
+
+        if (a.Has("fogDensity"))
+        {
+            var d = a.Double("fogDensity", fog.Density);
+            if (!(d >= 0 && d < double.PositiveInfinity))
+            {
+                throw new ControlException("bad_args", "fogDensity must be zero or more.");
+            }
+
+            fog.Density = (float)d;
+        }
+
+        if (a.Has("fogHeightBase"))
+        {
+            fog.HeightBase = (float)a.Double("fogHeightBase", fog.HeightBase);
+        }
+
+        if (a.Has("fogHeightFalloff"))
+        {
+            fog.HeightFalloff = (float)Math.Max(0, a.Double("fogHeightFalloff", fog.HeightFalloff));
+        }
+
         var start = a.Has("fogStart") ? (float)Math.Max(0, a.Double("fogStart", fog.Start)) : fog.Start;
         var end = a.Has("fogEnd") ? (float)a.Double("fogEnd", fog.End) : fog.End;
         if (!(end > start))
@@ -108,6 +141,12 @@ public sealed partial class ControlSurface
             env.Yaw = (float)a.Double("yaw", 0);
         }
 
-        return new EnvironmentResult(fog.Enabled, [fog.Color.X, fog.Color.Y, fog.Color.Z], fog.Start, fog.End, fog.MaxDensity, env.NextMap is not null, env.Blend, env.Intensity, env.Yaw);
+        return new EnvironmentResult(fog.Enabled, [fog.Color.X, fog.Color.Y, fog.Color.Z], fog.Start, fog.End, fog.MaxDensity, env.NextMap is not null, env.Blend, env.Intensity, env.Yaw)
+        {
+            FogMode = fog.Mode switch { FogMode.Exponential => "exp", FogMode.ExponentialSquared => "exp2", FogMode.Height => "height", _ => "linear" },
+            FogDensity = fog.Density,
+            FogHeightBase = fog.HeightBase,
+            FogHeightFalloff = fog.HeightFalloff,
+        };
     }
 }

@@ -145,6 +145,13 @@ public class LiveMeshTests
 
         Assert.Throws<ControlException>(() => surface.Call("environment", """{"fogEnd":0.5}"""));
         Assert.Throws<ControlException>(() => surface.Call("environment", """{"blend":2}"""));
+        var height = Call(surface, "environment", """{"fog":true,"fogMode":"height","fogDensity":0.5,"fogHeightBase":-2,"fogHeightFalloff":0.25}""");
+        Assert.Equal("height", height.GetProperty("fogMode").GetString());
+        Assert.Equal(0.5, height.GetProperty("fogDensity").GetDouble());
+        Assert.Equal(-2.0, height.GetProperty("fogHeightBase").GetDouble());
+        Assert.Equal(0.25, height.GetProperty("fogHeightFalloff").GetDouble());
+        Assert.Throws<ControlException>(() => surface.Call("environment", """{"fogMode":"mist"}"""));
+        Assert.Equal("linear", Call(surface, "environment", """{"fogMode":"linear"}""").GetProperty("fogMode").GetString());
         Call(surface, "environment", """{"fog":false}""");
         frame = game.Capture(160, 90);
         Assert.True(frame.Rgba[o + 1] > 120, "fog off again shows the lime tile");

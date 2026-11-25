@@ -281,6 +281,17 @@ public sealed class StyleBuilder
     /// <summary>Sets <c>background-position-x</c> and <c>-y</c>. A percentage aligns that fraction of the image with the same fraction of the box, as in CSS; other lengths move the image from the box's top-left corner.</summary>
     public StyleBuilder BackgroundPosition(Length x, Length y) => L(StyleProp.BackgroundPositionX, x).L(StyleProp.BackgroundPositionY, y);
 
+    /// <summary>Sets <c>image-rendering</c>: <see cref="ImageRendering.Pixelated"/> samples images with nearest-neighbour filtering so pixel art stays sharp when scaled. Inherited by children.</summary>
+    public StyleBuilder ImageRendering(ImageRendering v) => E(StyleProp.ImageRendering, (int)v);
+
+    /// <summary>
+    /// Sets <c>backdrop-blur</c>, the blur of <c>backdrop-filter: blur(radius)</c> (CSS Filter Effects 2): what is drawn behind the element (a 3D scene,
+    /// sprites, UI painted earlier) is replaced inside its rounded box by a Gaussian blur with this standard deviation. Give the element a translucent
+    /// background for the frosted-glass look. Zero (the default) costs nothing; each blurred box costs a copy of the target and a few small passes, so
+    /// keep the count low. Radii above 64 pixels are drawn as 64.
+    /// </summary>
+    public StyleBuilder BackdropBlur(Length v) => L(StyleProp.BackdropBlur, v);
+
     /// <summary>Sets the color the background image is multiplied by (white by default, which leaves it as drawn). White single-color art tinted with a theme token follows the theme.</summary>
     public StyleBuilder BackgroundTint(Color v) => C(StyleProp.BackgroundTint, v);
 

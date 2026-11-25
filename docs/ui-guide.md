@@ -298,10 +298,19 @@ ui.Root.Add(Ui.Box().Style(s => s.Size(Length.Ui(300), Length.Ui(160))
 | `background-size` | `fill` (default: the box), `auto` (natural size times the UI scale), `cover`, `contain`; or `BackgroundSize(width, height)` with lengths (an `auto` side keeps the aspect ratio; `%` is of the box) |
 | `background-position-x`, `-y` | a length from the box's top-left corner, or `%`: that fraction of the free space, so 50% centres and 100% right-aligns |
 
+| `image-rendering` | `auto` (default, smooth), `pixelated` (nearest-neighbour, inherited; `Ui.PixelImage(id)` is an image element with it set) |
+| `backdrop-blur` | a length: the blur of CSS `backdrop-filter: blur(r)`, see below |
+
 - A repeated tile is rounded to whole pixels, so the pattern stays crisp and seamless at any UI scale. An SVG tile is rasterized at exactly that size; a raster tile is scaled by the sampler (use a size equal to the image's pixels times the scale for one-to-one).
 - Tiling costs one draw instruction however many tiles it covers: the display list holds a tile size and an origin, and the renderer repeats the tile in its shader. `background-tint`, rounded corners and clips apply to the pattern.
 - Sizing keywords and tiling need the art's natural size, which the game host supplies (`UiTree.ArtSizes`; `GameInstance` sets it). In a bare `UiTree` set `ui.ArtSizes = new ArtAtlasSizes(art)`, or every background stays stretched.
 - `BackgroundSlice` (nine-slice) and tiling do not combine: a tiled or sized image ignores the slice.
+
+### Pixel art and backdrop blur
+
+`image-rendering: pixelated` samples raster art with nearest-neighbour filtering, so every source pixel stays a sharp block at any UI scale and in tiles and nine-slices (CSS Images 3 §5.3). Raster art is stored at its own size, so no resampling happens before the GPU magnifies it.
+
+`backdrop-blur: 12px` (`StyleBuilder.BackdropBlur`) is the blur of `backdrop-filter: blur()` (Filter Effects 2): what is behind the element (a `SceneView3D` scene, sprites, UI drawn earlier) is replaced inside its rounded box by a Gaussian blur with that standard deviation; give the element a translucent `background` for frosted glass. The display list carries one `DrawKind.BackdropBlur` command before the element's background; `UiCanvas.BackdropBlur` draws it. Cost appears only when used: each blurred box copies the target once and runs a few small passes over the box (the copy is reduced by halving until each blur pass is under 2 texels, then two separable nine-tap passes, so the radius costs almost nothing). Keep the count of blurred boxes low; radii above 64 px count as 64; the blur reads the target as drawn so far, so a box blurs the boxes painted before it; inside an opacity group the backdrop is the group's own picture; and a clipped or rotated box blurs correctly. A frame with no blurred box records the same passes as before (`UiCanvas.BackdropBlurs` counts them).
 
 ### Large images
 

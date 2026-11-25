@@ -63,10 +63,31 @@ public sealed class Environment3D
     public float BackgroundBlur { get; set; } = 0.3f;
 }
 
+/// <summary>How <see cref="FogSettings"/> turns distance (and height) into an amount of fog.</summary>
+public enum FogMode
+{
+    /// <summary>Rises linearly from 0 at <see cref="FogSettings.Start"/> to the maximum at <see cref="FogSettings.End"/>. The default.</summary>
+    Linear = 0,
+
+    /// <summary>1 - exp(-<see cref="FogSettings.Density"/> * distance): thick fog with no hard far edge.</summary>
+    Exponential = 1,
+
+    /// <summary>1 - exp(-(<see cref="FogSettings.Density"/> * distance)^2): clear nearby, then closing in faster.</summary>
+    ExponentialSquared = 2,
+
+    /// <summary>
+    /// Exponential fog whose density falls off with world height: <see cref="FogSettings.Density"/> at <see cref="FogSettings.HeightBase"/>,
+    /// shrinking by <see cref="FogSettings.HeightFalloff"/> per unit above it (and growing below). Fog pools in low ground and a camera above it
+    /// sees through it.
+    /// </summary>
+    Height = 3,
+}
+
 /// <summary>
 /// Distance fog: surfaces fade towards a colour with their distance from the camera. It is a per-frame constant, so changing it never
-/// touches meshes or pipelines. The amount rises linearly from 0 at <see cref="Start"/> to <see cref="MaxDensity"/> at <see cref="End"/>
-/// and stays there. It applies to every surface style (PBR, toon, flat, unlit), outlines, instanced draws, dynamic meshes and billboards
+/// touches meshes or pipelines. In the default <see cref="FogMode.Linear"/> mode the amount rises linearly from 0 at <see cref="Start"/> to <see cref="MaxDensity"/> at <see cref="End"/>
+/// and stays there; the other <see cref="Mode"/> values use <see cref="Density"/> (and the height settings). A material with <see cref="Material3D.FogExempt"/>
+/// ignores fog, which is how a sky dome or other backdrop layer keeps its colours. It applies to every surface style (PBR, toon, flat, unlit), outlines, instanced draws, dynamic meshes and billboards
 /// (added light fades out instead of turning into fog). The backdrop and debug geometry are left alone: set <see cref="Color"/> to the
 /// sky's horizon colour so far surfaces meet it. The colour is linear light and is tone mapped with the rest of the frame.
 /// </summary>
@@ -86,6 +107,18 @@ public sealed class FogSettings
 
     /// <summary>Largest share of the fog colour a surface shows, 0 to 1. Below 1 the far end never fully disappears.</summary>
     public float MaxDensity { get; set; } = 1f;
+
+    /// <summary>The fog curve. <see cref="FogMode.Linear"/> by default, which uses <see cref="Start"/> and <see cref="End"/>.</summary>
+    public FogMode Mode { get; set; }
+
+    /// <summary>Fog thickness per world unit for the exponential and height modes (0.02 means about 63% fog at 50 units). Ignored by linear fog; at 0 the other modes draw no fog.</summary>
+    public float Density { get; set; } = 0.02f;
+
+    /// <summary>Height fog: the world height (y) where the density equals <see cref="Density"/>.</summary>
+    public float HeightBase { get; set; }
+
+    /// <summary>Height fog: how fast the density shrinks per unit of height above <see cref="HeightBase"/> (0 makes it uniform; negative values count as 0).</summary>
+    public float HeightFalloff { get; set; } = 0.1f;
 }
 
 /// <summary>
@@ -153,6 +186,9 @@ public sealed class ModelInstance3D : IDisposable
     /// A translucent instance casts no shadow and has no outline. Values are clamped to 0..1.
     /// </summary>
     public float Opacity { get => _opacity; set => _opacity = Math.Clamp(value, 0f, 1f); }
+
+    /// <summary>Whether the instance casts shadows from shadow-casting lights (true by default). Off, it is still drawn and still receives shadows. Translucent instances cast none either way.</summary>
+    public bool CastShadows { get; set; } = true;
 
     /// <summary>A name tools show for this instance, for example in <c>pick</c> results of a game that fills the scene by hand.</summary>
     public string? Label { get; set; }

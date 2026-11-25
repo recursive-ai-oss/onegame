@@ -153,6 +153,15 @@ public enum WhiteSpace
     Pre,
 }
 
+/// <summary>The <c>image-rendering</c> property (CSS Images 3 §5.3): how an image is resampled when it is drawn at another size than its own pixels.</summary>
+public enum ImageRendering
+{
+    /// <summary>Smooth (bilinear) filtering. The default.</summary>
+    Auto,
+    /// <summary>Nearest-neighbour: every source pixel becomes a sharp block, for pixel art and icons that must stay crisp at any UI scale. Inherited.</summary>
+    Pixelated,
+}
+
 /// <summary>The <c>background-repeat</c> property (CSS Backgrounds 3 §3.3). The default is <c>no-repeat</c>, so a lone image is drawn once.</summary>
 public enum BackgroundRepeat
 {

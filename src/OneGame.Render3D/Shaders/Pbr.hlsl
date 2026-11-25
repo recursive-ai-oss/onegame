@@ -46,13 +46,19 @@ struct ShadowData
     float4 Emissive;       // rgb already multiplied by emissive strength, w = 1 - material opacity (0 by default)
     float4 P0;             // x metallic, y roughness, z normal scale, w occlusion strength
     float4 P1;             // x alpha cutoff, y alpha mode (0 opaque, 1 mask, 2 blend), z unlit, w dielectric f0
-    uint4 Flags;           // x has normal map
+    uint4 Flags;           // x has normal map, y 1 when the material ignores fog
     float4 Xf[10];         // per texture: row 0 = (m11, m21, m31, uv set), row 1 = (m12, m22, m32, 0)
     float4 StyleA;         // x style (0 pbr, 1 toon, 2 flat), y toon bands, z toon softness, w toon highlight
     float4 StyleB;         // x outline width in pixels
     float4 OutlineColor;
     float4 WaterA;         // x planar reflection strength (0 = off), yz uv scroll in texture units per second
 };
+
+// Fog for a surface drawn with the current material: zero when the material opted out (a sky dome or other backdrop layer).
+float SurfaceFog(float3 worldPos)
+{
+    return Flags.y != 0u ? 0.0 : FogAmount(worldPos);
+}
 
 [[vk::binding(1, 2)]] Texture2D<float4> BaseTex;
 [[vk::binding(2, 2)]] Texture2D<float4> MrTex;
@@ -484,7 +490,7 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
     if (P1.z > 0.5 || StyleA.x > 1.5)
     {
         // KHR_materials_unlit, or the flat style
-        return float4(ApplyFog(base.rgb, FogAmount(i.WorldPos), 1.0), alpha);
+        return float4(ApplyFog(base.rgb, SurfaceFog(i.WorldPos), 1.0), alpha);
     }
 
     float3 v = normalize(CameraPos.w > 0.5 ? View._m02_m12_m22 : CameraPos.xyz - i.WorldPos);
@@ -549,7 +555,7 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
         }
 
         float3 ambient = SampleDiffuseEnv(n) * base.rgb * (EnvA.y * aoScreen);
-        return float4(ApplyFog(toon + ambient + emis, FogAmount(i.WorldPos), 1.0), alpha);
+        return float4(ApplyFog(toon + ambient + emis, SurfaceFog(i.WorldPos), 1.0), alpha);
     }
 
     float metallic = saturate(P0.x * mr.b);
@@ -603,7 +609,7 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
 
     color += ibl;
     color += emis;
-    return float4(ApplyFog(color, FogAmount(i.WorldPos), 1.0), alpha);
+    return float4(ApplyFog(color, SurfaceFog(i.WorldPos), 1.0), alpha);
 }
 
 // ---- depth-only passes ----
@@ -644,7 +650,7 @@ float4 PSOutline(VOut i) : SV_Target
         discard;
     }
 
-    return float4(ApplyFog(OutlineColor.rgb, FogAmount(i.WorldPos), 1.0), 1.0);
+    return float4(ApplyFog(OutlineColor.rgb, SurfaceFog(i.WorldPos), 1.0), 1.0);
 }
 
 // ---- environment backdrop ----

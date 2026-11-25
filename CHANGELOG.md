@@ -4,6 +4,13 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- Fog modes. `FogSettings.Mode` (`FogMode.Linear` default and unchanged, `Exponential`, `ExponentialSquared`, `Height`) with `Density`, `HeightBase` and `HeightFalloff`; `Material3D.FogExempt` leaves a material out of fog (a sky dome or other backdrop layer). The `environment` op reads and sets `fogMode`, `fogDensity`, `fogHeightBase`, `fogHeightFalloff`.
+- `ModelInstance3D.CastShadows` and `ModelOptions.CastShadows`: one instance can be drawn without casting shadows.
+- `image-rendering: pixelated` (`StyleBuilder.ImageRendering`, `ImageRendering`, `Ui.PixelImage`, `DrawCommand.Pixelated`): nearest-neighbour sampling for images, tiles and nine-slices.
+- `backdrop-blur` (`StyleBuilder.BackdropBlur`, `DrawKind.BackdropBlur`, `UiCanvas.BackdropBlur`): a UI box blurs what is drawn behind it, including a 3D scene, as in CSS `backdrop-filter: blur()`. No extra pass is recorded in frames that use none.
+
 ## [2.3.0] - 2026-11-22
 
 ### Changed

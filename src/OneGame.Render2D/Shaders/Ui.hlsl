@@ -7,7 +7,11 @@
 // Clips are a table of rounded boxes (set 0, binding 1; four float4 each). An instance names the innermost clip, and each entry
 // names its parent, so nested clips with rounded corners or rotation multiply together (up to four deep).
 //
-// Kinds: 0 fill, 1 border, 2 shadow, 3 image (rgba page), 4 glyph (coverage page), 5 placed or tiled image.
+// Images (kinds 3 and 5) use the gradient kind 8 to ask for nearest-neighbour sampling (image-rendering: pixelated).
+//
+// Kinds: 0 fill, 1 border, 2 shadow, 3 image (rgba page), 4 glyph (coverage page), 5 placed or tiled image, 6 backdrop (the blurred picture of
+// the whole target, sampled by pixel position and cut to the rounded box), 7 backdrop blur step (one separable pass at the pixel position; Grad.xy is
+// the tap step in texture units, zero copies).
 //
 // Kind 5 draws one tile at Widths = (x, y, w, h) in local coordinates and repeats it along the axes flagged in Grad.xy; Grad.zw is the size of the
 // region in texels. The four bilinear taps wrap inside the region by hand, so a tile cut from a shared page never reads its neighbour and the
@@ -160,9 +164,46 @@ float4 PSMain(UiOut i) : SV_Target
     else if (kind == 3u)
     {
         float2 uv = i.Uv.xy + i.Uv.zw * saturate((i.Local - i.Rect.xy) / max(i.Rect.zw, 1e-5));
-        float4 tx = Tex.Sample(Samp, uv);
+        float4 tx;
+        if (gradKind == 8u)
+        {
+            // Snap to the centre of the texel under this pixel, inside the region, so the filter has nothing to blend and a neighbour in the page never bleeds in.
+            uint tw, th;
+            Tex.GetDimensions(tw, th);
+            float2 texSize = float2(tw, th);
+            float2 lo = floor(i.Uv.xy * texSize + 0.001);
+            float2 hi = max(ceil((i.Uv.xy + i.Uv.zw) * texSize - 0.001) - 1.0, lo);
+            float2 texel = clamp(floor(uv * texSize), lo, hi);
+            tx = Tex.SampleLevel(Samp, (texel + 0.5) / texSize, 0.0);
+        }
+        else
+        {
+            tx = Tex.Sample(Samp, uv);
+        }
+
         float4 tint = float4(col.rgb * col.a, col.a);
         outc = tx * tint * Cover(d);
+    }
+    else if (kind == 6u)
+    {
+        float2 buv = i.Pos.xy / Viewport;
+        float4 tx = Tex.SampleLevel(Samp, buv, 0.0);
+        float4 tint = float4(col.rgb * col.a, col.a);
+        outc = tx * tint * Cover(d);
+    }
+    else if (kind == 7u)
+    {
+        // The same nine-tap Gaussian as the blur post effect: five linear samples.
+        float2 buv = i.Pos.xy / Viewport;
+        float2 st = i.Grad.xy;
+        float4 sum = Tex.SampleLevel(Samp, buv, 0.0) * (dot(st, st) > 0.0 ? 0.2270270270 : 1.0);
+        if (dot(st, st) > 0.0)
+        {
+            sum += (Tex.SampleLevel(Samp, buv + st * 1.3846153846, 0.0) + Tex.SampleLevel(Samp, buv - st * 1.3846153846, 0.0)) * 0.3162162162;
+            sum += (Tex.SampleLevel(Samp, buv + st * 3.2307692308, 0.0) + Tex.SampleLevel(Samp, buv - st * 3.2307692308, 0.0)) * 0.0702702703;
+        }
+
+        outc = sum;
     }
     else if (kind == 5u)
     {
@@ -175,6 +216,12 @@ float4 PSMain(UiOut i) : SV_Target
         float2 tc = t * size - 0.5;
         float2 b = floor(tc);
         float2 f = tc - b;
+        if (gradKind == 8u)
+        {
+            b = floor(t * size);
+            f = 0.0;
+        }
+
         float2 b1 = b + 1.0;
         // Wrap (repeating axes) or clamp (single tile) each tap into the region, then sample at the texel centre.
         float2 ax = float2(i.Grad.x > 0.5 ? b.x - size.x * floor(b.x / size.x) : clamp(b.x, 0.0, size.x - 1.0), i.Grad.y > 0.5 ? b.y - size.y * floor(b.y / size.y) : clamp(b.y, 0.0, size.y - 1.0));

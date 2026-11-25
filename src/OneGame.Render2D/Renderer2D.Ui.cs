@@ -34,7 +34,9 @@ public sealed partial class Renderer2D
         AddQuadOp(_spritePipeline, _targets[source].State.Sample!, null, first, 1, destination, sx, sy, sw, sh);
     }
 
-    internal void EmitUi(in UiInstance item, GpuBindGroup texture, int sx, int sy, int sw, int sh)
+    internal void EmitUi(in UiInstance item, GpuBindGroup texture, int sx, int sy, int sw, int sh) => EmitUiOn(_current, item, texture, sx, sy, sw, sh);
+
+    internal void EmitUiOn(int target, in UiInstance item, GpuBindGroup texture, int sx, int sy, int sw, int sh)
     {
         if (_uiCount == _uiItems.Length)
         {
@@ -46,7 +48,7 @@ public sealed partial class Renderer2D
         if (_ops.Count > 0)
         {
             ref var last = ref System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_ops)[^1];
-            if (last.IsUi && last.Target == _current && last.Texture == texture && last.Sx == sx && last.Sy == sy && last.Sw == sw && last.Sh == sh
+            if (last.IsUi && last.Target == target && last.Texture == texture && last.Sx == sx && last.Sy == sy && last.Sw == sw && last.Sh == sh
                 && last.First + last.Count == index)
             {
                 last.Count++;
@@ -54,7 +56,7 @@ public sealed partial class Renderer2D
             }
         }
 
-        _ops.Add(new DrawOp { Target = _current, Pipeline = _uiPipeline, Texture = texture, IsUi = true, First = index, Count = 1, Sx = sx, Sy = sy, Sw = sw, Sh = sh });
+        _ops.Add(new DrawOp { Target = target, Pipeline = _uiPipeline, Texture = texture, IsUi = true, First = index, Count = 1, Sx = sx, Sy = sy, Sw = sw, Sh = sh });
     }
 
     /// <summary>Adds a rounded clip to the table. Returns 0 when the table is full (the clip then applies only through its scissor box).</summary>

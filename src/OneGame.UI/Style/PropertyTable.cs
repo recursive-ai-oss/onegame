@@ -12,7 +12,7 @@ internal enum StyleProp : byte
     FlexDirection, FlexWrap, JustifyContent, AlignItems, AlignSelf, AlignContent,
     FlexGrow, FlexShrink, FlexBasis, RowGap, ColumnGap, Order,
     OverflowX, OverflowY,
-    BackgroundColor, BackgroundImage, BackgroundSlice, BackgroundTint, BackgroundRepeat, BackgroundSize, BackgroundWidth, BackgroundHeight, BackgroundPositionX, BackgroundPositionY, BorderColor,
+    BackgroundColor, BackgroundImage, BackgroundSlice, BackgroundTint, BackgroundRepeat, BackgroundSize, BackgroundWidth, BackgroundHeight, BackgroundPositionX, BackgroundPositionY, ImageRendering, BackdropBlur, BorderColor,
     RadiusTopLeft, RadiusTopRight, RadiusBottomRight, RadiusBottomLeft,
     Opacity, Visibility, ZIndex, PointerEvents, Cursor,
     OutlineWidth, OutlineColor, OutlineOffset,
@@ -97,6 +97,8 @@ internal static class PropertyTable
         Len(StyleProp.BackgroundHeight, "background-height", false, auto, paintOnly: true);
         Len(StyleProp.BackgroundPositionX, "background-position-x", false, zero, paintOnly: true);
         Len(StyleProp.BackgroundPositionY, "background-position-y", false, zero, paintOnly: true);
+        Enum(StyleProp.ImageRendering, "image-rendering", true, true, UI.ImageRendering.Auto, "auto", "pixelated");
+        Len(StyleProp.BackdropBlur, "backdrop-blur", false, zero, paintOnly: true);
         Col(StyleProp.BorderColor, "border-color", false, Color.Black);
         Len(StyleProp.RadiusTopLeft, "border-top-left-radius", false, zero, paintOnly: true);
         Len(StyleProp.RadiusTopRight, "border-top-right-radius", false, zero, paintOnly: true);
