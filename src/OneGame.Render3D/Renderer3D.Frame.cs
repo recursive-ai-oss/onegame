@@ -63,6 +63,7 @@ public sealed partial class Renderer3D
     private GpuBuffer? _boundCluster;
     private int _clusterCapacity;
     private int _jointCapacity;
+    private int _jointUsed;
     private int _objectCapacity;
     private ObjectConstants[] _objects = new ObjectConstants[64];
     private Vector4[] _jointRows = new Vector4[256];
@@ -454,6 +455,7 @@ public sealed partial class Renderer3D
         FinishShadows();
 
         CullBatches(viewProj);
+        FlushJoints();
         FlushObjects();
         RefreshBindGroups();
         CollectBillboards(scene, view);
@@ -522,6 +524,7 @@ public sealed partial class Renderer3D
         _sceneMin = new Vector3(float.MaxValue);
         _sceneMax = new Vector3(float.MinValue);
         var jointCount = 0;
+        _jointUsed = 0;
 
         foreach (var instance in scene.Models)
         {
@@ -648,14 +651,20 @@ public sealed partial class Renderer3D
         Array.Sort(_opaqueKeys, _opaque, 0, _opaqueCount);
         Array.Sort(_blendKeys, _blend, 0, _blendCount);
 
-        // The joint buffer always holds at least one matrix so the binding is never empty.
-        if (jointCount > 0)
-        {
-            EnsureJointCapacity(jointCount);
-            Device.WriteBuffer(_jointBuffer, 0, MemoryMarshal.AsBytes(new ReadOnlySpan<Vector4>(_jointRows, 0, jointCount * 4)));
-        }
-
+        // Posed instances append their palettes after these while they are culled; the buffer is written once both are known (FlushJoints).
+        _jointUsed = jointCount;
         CollectBatches(scene, samples);
+    }
+
+    // Uploads the joint matrices of every skinned draw and every posed instance that survived culling. The joint buffer always holds at
+    // least one matrix so the binding is never empty.
+    private void FlushJoints()
+    {
+        if (_jointUsed > 0)
+        {
+            EnsureJointCapacity(_jointUsed);
+            Device.WriteBuffer(_jointBuffer, 0, MemoryMarshal.AsBytes(new ReadOnlySpan<Vector4>(_jointRows, 0, _jointUsed * 4)));
+        }
     }
 
     // Uploads the object constants of every draw (regular nodes and batch nodes) once all slots are assigned.

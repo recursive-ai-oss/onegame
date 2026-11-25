@@ -117,6 +117,26 @@ internal static class Render3DSmoke
             return $"instancing or shadows did not run: {stats}";
         }
 
+        // Skinned instancing: every copy in its own pose, with the shadows, outlines and toon style still set above.
+        if (model.Source.Animations.Length > 0)
+        {
+            scene.Batches.Clear();
+            var crowd = scene.AddSkinnedInstanced(model, 16);
+            for (var i = 0; i < 16; i++)
+            {
+                var pose = model.Source.CreateRestPose();
+                model.Source.Animations[0].Apply(pose, i * 0.1f);
+                crowd.Add(Matrix4x4.CreateRotationY(i * 0.7f) * Matrix4x4.CreateTranslation(((i % 4) - 2) * 90f, 0, ((i / 4) - 2) * 90f), pose);
+            }
+
+            target.Capture(scene);
+            var posed = renderer.LastStats;
+            if (!crowd.Posed || posed.Instances != 16 || posed.InstancesDrawn == 0 || posed.ShadowTiles < 1)
+            {
+                return $"skinned instancing did not run: {posed}";
+            }
+        }
+
         // A view inside a view, runtime emissive and opacity, and the probe a hand-filled scene answers the control operations with.
         scene.Models.Clear();
         scene.Lights.Clear();

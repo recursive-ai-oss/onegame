@@ -1,3 +1,4 @@
+using OneGame.Gltf;
 using System.Numerics;
 using OneGame.Core;
 using OneGame.Render3D;
@@ -46,6 +47,15 @@ public sealed partial class SceneWriter
     /// <exception cref="UnknownModelException">The library has no such model.</exception>
     public void Instance(string model, in Matrix4x4 world, Vector4? tint = null)
         => _instances.Add(new InstanceDraw(_models.IndexOf(model), world, tint ?? Vector4.One));
+
+    /// <summary>Shows one copy of an animated, skinned model among many at a world matrix; see the <see cref="Transform3"/> form.</summary>
+    /// <param name="model">The name the model was added under.</param>
+    /// <param name="world">Where it is; scale must be uniform and unmirrored.</param>
+    /// <param name="pose">The node pose to draw (from the same model's rig).</param>
+    /// <param name="tint">Linear RGBA multiplied into the base colour; null leaves it unchanged.</param>
+    /// <exception cref="UnknownModelException">The library has no such model.</exception>
+    public void Instance(string model, in Matrix4x4 world, NodePose pose, Vector4? tint = null)
+        => _instances.Add(new InstanceDraw(_models.IndexOf(model), world, tint ?? Vector4.One, pose));
 
     /// <summary>Offers a camera placed by a rigid camera-to-world matrix (it looks down its -Z). Same choice rule as the transform form.</summary>
     /// <param name="world">Camera-to-world matrix.</param>

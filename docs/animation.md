@@ -53,6 +53,8 @@ A by-hand frame is: `rig.Sample(walk, t, a); rig.Sample(run, t, b); PoseBlend.Le
 
 Models need their parts in a skin (`GltfModel.Skins`); the renderer skins on the GPU. `scene.Model(name, transform, pose)` copies the pose when the frame is built. Picking still tests the rest pose.
 
+Crowds: when many characters share one model, show each with `scene.Instance("hero", transform, pose)` instead of `scene.Model(...)`. All of them are drawn by one skinned instance batch, a handful of draws for hundreds of characters (shadows, fog and tints work as for models); the poses can come from a few shared `Animator`s or a pose per character. Instanced characters cannot be picked, and nodes without a skin are not animated. See `interfaces/render3d.md`.
+
 ## Root motion and determinism
 
 **Animation is view code. The sim never runs it.** An `Animator`, a `Rig` and poses use floats and playback state that is not part of the world, so they belong in `[View]` members and fields, where they read synced state and never write it. Using any `OneGame.Gltf` type in sim code is error OG0023.

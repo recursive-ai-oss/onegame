@@ -112,6 +112,9 @@ public sealed partial class Renderer3D : IDisposable
 
     private const int ClusterStride = MaxLightsPerCluster + 1;
 
+    /// <summary>Bytes of one instance in the instance vertex buffer (matrix rows, tint, palette start).</summary>
+    private const int InstanceStride = 80;
+
     private readonly List<IDisposable> _owned = [];
     private readonly GpuPipelineLayout _layout;
     private readonly GpuShader _pbrVs;
@@ -156,7 +159,7 @@ public sealed partial class Renderer3D : IDisposable
         // The packed glTF vertex (GltfPrimitive.PackVertices) is what the shader declares; joint indices are two 32-bit words, each holding two 16-bit indices.
         _vertexLayout = ShaderLayouts.Vertex(Pbr.VSMain.Layout);
 
-        _instanceLayout = ShaderLayouts.VertexStreams(Pbr.VSInst.Layout, new OneShader.Layouts.VertexStream(0, GltfPrimitive.PackedVertexSize), new OneShader.Layouts.VertexStream(8, 64, OneShader.Layouts.VertexStepMode.Instance))[1];
+        _instanceLayout = ShaderLayouts.VertexStreams(Pbr.VSInst.Layout, new OneShader.Layouts.VertexStream(0, GltfPrimitive.PackedVertexSize), new OneShader.Layouts.VertexStream(8, InstanceStride, OneShader.Layouts.VertexStepMode.Instance))[1];
 
         _envSampler = Own(device.CreateSampler(SamplerDesc.Linear with { MaxLod = 32f }));
         _defaultSampler = Own(device.CreateSampler(new SamplerDesc

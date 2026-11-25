@@ -6,6 +6,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Skinned instancing. `Scene3D.AddSkinnedInstanced(model, capacity)` and `InstanceBatch3D.Add/Set(transform, pose, tint)`, `SetPose`, `Posed` and `BoundsMargin` draw many copies of one skinned model, each in its own `NodePose`, with one instanced draw per primitive per view; copies are culled, cast and receive shadows and take fog like the plain batch. In view code, `SceneWriter.Instance(name, transform-or-matrix, pose, tint)`. 500 animated Fox models are 2 draws (the ground and the crowd) plus one per shadow tile, 0 B per frame, 0.70 ms GPU at 1280x720 with shadows on an RTX 4070 (indicative; 2,000 copies 1.66 ms). The instance vertex record grows from 64 to 80 bytes (the palette start); frames of plain batches are unchanged. `docs/interfaces/render3d.md`.
 - Fog modes. `FogSettings.Mode` (`FogMode.Linear` default and unchanged, `Exponential`, `ExponentialSquared`, `Height`) with `Density`, `HeightBase` and `HeightFalloff`; `Material3D.FogExempt` leaves a material out of fog (a sky dome or other backdrop layer). The `environment` op reads and sets `fogMode`, `fogDensity`, `fogHeightBase`, `fogHeightFalloff`.
 - `ModelInstance3D.CastShadows` and `ModelOptions.CastShadows`: one instance can be drawn without casting shadows.
 - `image-rendering: pixelated` (`StyleBuilder.ImageRendering`, `ImageRendering`, `Ui.PixelImage`, `DrawCommand.Pixelated`): nearest-neighbour sampling for images, tiles and nine-slices.
