@@ -60,6 +60,11 @@ public sealed class TextGame : GameDefinition
 
     public override void OnInput(GameInstance game, in PlatformEvent input)
     {
+        if (input.Kind == PlatformEventKind.SafeAreaChanged)
+        {
+            Console.WriteLine($"probe: safe area {input.Insets}");
+        }
+
         if (input.Kind is PlatformEventKind.TouchDown or PlatformEventKind.TouchMove or PlatformEventKind.TouchUp or PlatformEventKind.TouchCancel)
         {
             Console.WriteLine($"probe: {input.Kind} {input.X:0},{input.Y:0}");

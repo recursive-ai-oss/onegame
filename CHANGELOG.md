@@ -4,6 +4,16 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- `GameDefinition.OnBack(game)`: a game sees the system back button or gesture first and returns true when it handled it. Unhandled, the UI gets a `Cancel` and the app quits as before. Android activities opt out of the platform's own back callback (`enableOnBackInvokedCallback=false`), because at target SDK 36 it finished the activity next to the key.
+- `Window.ClaimSystemGestures(regions)` with `GestureRegion`, `ScreenEdges`, `ClaimedGestureRegions`, `ClaimedEdges` and `GestureClaimLimit`: a game keeps drags that start inside its regions from becoming the system's back swipe (Android `setSystemGestureExclusionRects`, capped near 200 dp per edge). iOS already defers all edges; desktop and web record only.
+- Control ops `system_gestures` (read and set the claim) and `input_back`; `InputInjector.Back`.
+
+### Fixed
+
+- Android `Window.SafeArea` was zero under the enforced edge-to-edge window of target SDK 36; it now reads `WindowInsets.getInsets` (and includes the display cut-out and the system-gesture bands from API 30).
+
 ### Changed
 
 - Android exports target SDK 36 by default (Google Play requires it) and link against platform 36: install `platforms;android-36`. `--target-sdk <level>` or `<AndroidTargetSdk>` sets another level; below 36 the export warns (`target_sdk_low`). Behaviour changes at 36 are predictive back and enforced edge-to-edge.

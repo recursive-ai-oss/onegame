@@ -17,6 +17,8 @@ public class AndroidExportTests
         var activity = app.Element("activity")!;
         Assert.Equal("android.app.NativeActivity", (string?)activity.Attribute(ns + "name"));
         Assert.Equal("sensorLandscape", (string?)activity.Attribute(ns + "screenOrientation"));
+        // Back must stay a key the game reads; the default at targetSdk 36 makes the system finish the activity itself as well.
+        Assert.Equal("false", (string?)activity.Attribute(ns + "enableOnBackInvokedCallback"));
         Assert.Equal("MyGame", (string?)activity.Element("meta-data")!.Attribute(ns + "value"));
         Assert.DoesNotContain("INTERNET", xml, StringComparison.Ordinal);
     }

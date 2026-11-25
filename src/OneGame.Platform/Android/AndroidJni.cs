@@ -13,6 +13,8 @@ internal sealed unsafe class AndroidJni
     private const int NewGlobalRefIndex = 21;
     private const int DeleteLocalRefIndex = 23;
     private const int GetObjectClassIndex = 31;
+    private const int GetFieldIdIndex = 94;
+    private const int GetIntFieldIndex = 100;
     private const int GetMethodIdIndex = 33;
     private const int NewObjectAIndex = 30;
     private const int CallObjectMethodAIndex = 36;
@@ -77,6 +79,16 @@ internal sealed unsafe class AndroidJni
     public nint GetObjectClass(nint obj) => Checked(((delegate* unmanaged<nint, nint, nint>)Table[GetObjectClassIndex])(_env, obj));
 
     public nint GetMethodId(nint cls, string name, string signature) => MethodId(GetMethodIdIndex, cls, name, signature);
+
+    public nint GetFieldId(nint cls, string name, string signature) => MethodId(GetFieldIdIndex, cls, name, signature);
+
+    /// <summary>Reads an int field.</summary>
+    public int GetIntField(nint obj, nint field)
+    {
+        var r = ((delegate* unmanaged<nint, nint, nint, int>)Table[GetIntFieldIndex])(_env, obj, field);
+        Clear();
+        return r;
+    }
 
     public nint GetStaticMethodId(nint cls, string name, string signature) => MethodId(GetStaticMethodIdIndex, cls, name, signature);
 
@@ -434,6 +446,35 @@ internal sealed unsafe class AndroidJni
             }
 
             insetsClass = GetObjectClass(insets);
+
+            // WindowInsets.getInsets(typeMask) (API 30): the status and navigation bars, caption bar, the bottom/top system-gesture band and the
+            // display cut-out, for the bars that are showing. The older getSystemWindowInset* calls report zero under the enforced
+            // edge-to-edge window of targetSdk 36 even though the bars and the cut-out are there.
+            var getInsetsOf = GetMethodId(insetsClass, "getInsets", "(I)Landroid/graphics/Insets;");
+            if (getInsetsOf != 0)
+            {
+                const int mask = 1 | 2 | 4 | 32 | 128; // statusBars, navigationBars, captionBar, mandatorySystemGestures, displayCutout
+                var typed = CallObject(insets, getInsetsOf, mask);
+                if (typed != 0)
+                {
+                    nint typedClass = 0;
+                    try
+                    {
+                        typedClass = GetObjectClass(typed);
+                        nint l = GetFieldId(typedClass, "left", "I"), t = GetFieldId(typedClass, "top", "I"), r = GetFieldId(typedClass, "right", "I"), b = GetFieldId(typedClass, "bottom", "I");
+                        if (l != 0 && t != 0 && r != 0 && b != 0)
+                        {
+                            return new EdgeInsets(GetIntField(typed, l), GetIntField(typed, t), GetIntField(typed, r), GetIntField(typed, b));
+                        }
+                    }
+                    finally
+                    {
+                        DeleteLocal(typedClass);
+                        DeleteLocal(typed);
+                    }
+                }
+            }
+
             int Read(string name)
             {
                 var m = GetMethodId(insetsClass, name, "()I");
