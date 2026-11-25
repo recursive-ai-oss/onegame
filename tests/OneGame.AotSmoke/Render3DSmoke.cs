@@ -147,6 +147,26 @@ internal static class Render3DSmoke
 
         if (greenPixels < 100) { return $"the mesh covers {greenPixels} pixels"; }
 
+        // A layered material: the vertex layer picks the second (pure red) of two one-texel layers.
+        var layerImages = new ReadOnlyMemory<byte>[] { new byte[] { 0, 0, 255, 255 }, new byte[] { 255, 0, 0, 255 } };
+        var layered = renderer.CreateLayeredMaterial("layers", 1, 1, layerImages);
+        layered.Style = OneGame.Render3D.MaterialStyle3D.Flat;
+        MeshVertex3D[] layerQuad = [new(new Vector3(-1, 0, -1), Vector3.UnitY, Vector2.Zero, Vector4.One, 1), new(new Vector3(1, 0, -1), Vector3.UnitY, Vector2.UnitX, Vector4.One, 1), new(new Vector3(1, 0, 1), Vector3.UnitY, Vector2.One, Vector4.One, 1), new(new Vector3(-1, 0, 1), Vector3.UnitY, Vector2.UnitY, Vector4.One, 1)];
+        using var layerMesh = renderer.CreateMesh(layered, layerQuad, quadIndices, "layered");
+        var layerScene = new Scene3D();
+        layerScene.Add(layerMesh.Model);
+        layerScene.Camera = meshScene.Camera;
+        layerScene.Lights.Add(Light3D.Directional(new Vector3(0.2f, -1, -0.3f), Vector3.One, 3f));
+        var layerPixels = target.Capture(layerScene);
+        var redPixels = 0;
+        for (var i = 0; i < layerPixels.Length; i += 4)
+        {
+            redPixels += layerPixels[i] > 150 && layerPixels[i + 2] < 60 ? 1 : 0;
+        }
+
+        if (layered.LayerCount != 2 || redPixels < 100) { return $"the layered material shows {redPixels} red pixels"; }
+        device.WaitIdle();
+
         // Distance fog and an environment crossfade, both set per frame.
         using var dayMap = renderer.CreateEnvironment(HdrImage.CreateSky(32, 16, new Vector3(0.2f, 0.4f, 1f), new Vector3(0.9f, 0.9f, 1f), new Vector3(0.2f)), 32);
         using var duskMap = renderer.CreateEnvironment(HdrImage.CreateSky(32, 16, new Vector3(0.1f, 0.05f, 0.3f), new Vector3(1.5f, 0.5f, 0.2f), new Vector3(0.1f)), 32);

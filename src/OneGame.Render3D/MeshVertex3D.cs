@@ -22,4 +22,22 @@ public readonly record struct MeshVertex3D(Vector3 Position, Vector3 Normal, Vec
         : this(position, normal, uv, Vector4.One)
     {
     }
+
+    /// <summary>A vertex that picks a layer of a layered material (<see cref="Renderer3D.CreateLayeredMaterial"/>).</summary>
+    /// <param name="position">Where the vertex is.</param>
+    /// <param name="normal">Surface direction.</param>
+    /// <param name="uv">Texture coordinates within the layer; they repeat outside 0 to 1.</param>
+    /// <param name="color">Linear RGBA multiplied into the base colour.</param>
+    /// <param name="layer">Layer index. Give all three vertices of a triangle the same one.</param>
+    public MeshVertex3D(Vector3 position, Vector3 normal, Vector2 uv, Vector4 color, int layer)
+        : this(position, normal, uv, color)
+    {
+        Layer = layer;
+    }
+
+    /// <summary>
+    /// Which layer of a layered material this vertex samples (rounded to the nearest whole number; out-of-range values use the first or last
+    /// layer). Ignored by other materials. 0 by default.
+    /// </summary>
+    public float Layer { get; init; }
 }

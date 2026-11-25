@@ -130,6 +130,9 @@ public sealed class Material3D
     /// <summary>The material's name in the glTF file (empty for the default material).</summary>
     public string Name { get; }
 
+    /// <summary>Number of texture layers chosen per vertex (see <see cref="Renderer3D.CreateLayeredMaterial"/>); 0 for an ordinary material.</summary>
+    public int LayerCount { get; internal set; }
+
     internal GpuBuffer Constants { get; }
 
     internal GpuBindGroup Group => _group;
@@ -244,6 +247,26 @@ public sealed class Material3D
     }
 
     private GpuTexture?[]? _originalTextures;
+
+    internal Model3D OwnerModel => _owner;
+
+    // Switches the base colour to a texture array whose layer each vertex picks (Pbr.hlsl, BaseSample).
+    internal void SetLayers(GpuTexture texture, GpuSampler sampler, int count)
+    {
+        _constants.Flags.Y = 1;
+        LayerCount = count;
+        _entries[Array.FindIndex(_entries, e => e.Binding == 11)] = BindGroupEntry.ForTexture(11, texture, new TextureViewDesc { Kind = TextureViewKind.D2Array });
+        _entries[Array.FindIndex(_entries, e => e.Binding == 12)] = BindGroupEntry.ForSampler(12, sampler);
+        var c = _constants;
+        c.StyleA = new Vector4((float)(int)_style, _bands, _softness, _highlight);
+        c.Emissive = new Vector4(_emissive * _emissiveStrength, 1f - _opacity);
+        _device.WriteBuffer(Constants, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(new ReadOnlySpan<MaterialConstants>(in c)));
+        var made = _renderer.CreateMaterialGroup(_entries);
+        _renderer.Retire(_group);
+        _owner.Disown(_group);
+        _owner.Own(made);
+        _group = made;
+    }
 
     private void Set<T>(ref T field, T value)
     {
