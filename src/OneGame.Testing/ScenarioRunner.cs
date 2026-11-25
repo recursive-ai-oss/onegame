@@ -113,6 +113,7 @@ public sealed class ScenarioRunner
             }
 
             _soundBase = SoundLastSequence();
+            _hapticBase = HapticLastSequence();
             _eventBase = EventNext();
             // A scenario starts a run, so data files that changed on disk while the game idled are swapped in here and nowhere mid-run.
             game.Assets.ApplyPendingData();
@@ -175,6 +176,7 @@ public sealed class ScenarioRunner
     }
 
     private long _soundBase;
+    private long _hapticBase;
     private long _refusalBase;
 
     // The sequence number of the newest sound before the scenario began, or 0 when the game has no audio service yet.
@@ -224,6 +226,55 @@ public sealed class ScenarioRunner
         return [.. root.GetProperty("events").EnumerateArray().Select(e => new PlayedSound(
             e.GetProperty("sequence").GetInt64(), e.GetProperty("frame").GetInt64(), e.GetProperty("sound").GetString()!, e.GetProperty("bus").GetInt32(),
             e.GetProperty("volume").GetSingle(), e.GetProperty("loop").GetBoolean(), e.GetProperty("music").GetBoolean(), e.GetProperty("started").GetBoolean()))];
+    }
+
+    private long HapticLastSequence()
+    {
+        using var doc = JsonDocument.Parse(_surface.Call("haptics"));
+        return doc.RootElement.GetProperty("lastSequence").GetInt64();
+    }
+
+    private ExpectationResult CheckHaptic(ScenarioExpectation e, int index)
+    {
+        using var doc = JsonDocument.Parse(_surface.Call("haptics", Obj(("since", _hapticBase))));
+        var root = doc.RootElement;
+        var frame = root.GetProperty("frame").GetInt64();
+        var kind = e.HapticKind;
+        var count = root.GetProperty("events").EnumerateArray().Count(ev =>
+            (kind is null || string.Equals(ev.GetProperty("kind").GetString(), kind, StringComparison.OrdinalIgnoreCase))
+            && (e.SoundFrames <= 0 || ev.GetProperty("frame").GetInt64() > frame - e.SoundFrames));
+        var target = (kind is null ? "haptics" : $"haptic {kind}") + (e.SoundFrames > 0 ? $" in the last {e.SoundFrames} frames" : "");
+        var problems = new List<string>();
+        var wanted = new List<string>();
+        if (e.Count is { } exact)
+        {
+            wanted.Add($"exactly {exact}");
+            if (count != exact)
+            {
+                problems.Add($"{target} was requested {count} times, expected exactly {exact}");
+            }
+        }
+
+        if (e.Min is { } min)
+        {
+            wanted.Add($"at least {min:0}");
+            if (count < min)
+            {
+                problems.Add($"{target} was requested {count} times, expected at least {min:0}");
+            }
+        }
+
+        if (e.Max is { } max)
+        {
+            wanted.Add($"at most {max:0}");
+            if (count > max)
+            {
+                problems.Add($"{target} was requested {count} times, expected at most {max:0}");
+            }
+        }
+
+        var ok = problems.Count == 0;
+        return new ExpectationResult(index, "haptic", e.Line, ok, target, string.Join(", ", wanted), count.ToString(CultureInfo.InvariantCulture) + " requests", ok ? null : string.Join("; ", problems));
     }
 
     private ExpectationResult CheckTweens(ScenarioExpectation e, int index)
@@ -618,6 +669,7 @@ public sealed class ScenarioRunner
                 ExpectKind.SteamInput => CheckSteamInput(e, index),
                 ExpectKind.Action => CheckAction(e, index),
                 ExpectKind.Sound => CheckSound(e, index),
+                ExpectKind.Haptic => CheckHaptic(e, index),
                 ExpectKind.Event => CheckEvent(e, index),
                 ExpectKind.Particles => CheckParticles(e, index),
                 ExpectKind.Tweens => CheckTweens(e, index),

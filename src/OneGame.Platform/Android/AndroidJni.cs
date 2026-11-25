@@ -38,7 +38,11 @@ internal sealed unsafe class AndroidJni
     {
         _vm = vm;
         _env = env;
+        ThreadId = Environment.CurrentManagedThreadId;
     }
+
+    /// <summary>The managed thread this environment belongs to; a JNI environment must only be used on its own thread.</summary>
+    public int ThreadId { get; }
 
     /// <summary>The environment of the thread that received the activity's callback (the main thread).</summary>
     public static AndroidJni ForMainThread(nint vm, nint env) => new(vm, env);
