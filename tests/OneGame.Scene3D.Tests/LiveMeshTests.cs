@@ -96,7 +96,8 @@ public class LiveMeshTests
         var (px, py) = ((int)projected.GetProperty("x").GetDouble(), (int)projected.GetProperty("y").GetDouble());
         var left = At(px, py);
         var right = At(160 - px, py);
-        Assert.True(left.G > 120 && left.R < 80, $"solid tile {left}");
+        // Lime (0.2, 0.9, 0.1) on a rough non-metal lit surface reads about (139, 249, 115): green dominates, red stays well below it.
+        Assert.True(left.G > 200 && left.R > 100 && left.R < 170 && left.B < 150, $"solid tile {left}");
         Assert.True(right.G > 40 && right.G < left.G, $"faded tile {right} against {left}");
 
         // Removing a mesh takes it out of the listing and the frame.
