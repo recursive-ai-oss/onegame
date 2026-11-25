@@ -197,6 +197,12 @@ public sealed class RenderGraph : IDisposable
     readonly ColorAttachment[] _attachments = new ColorAttachment[MaxColorTargets];
     readonly GpuTimestampSet?[] _timestampSets = new GpuTimestampSet?[TimingRing];
     readonly FrameTiming[] _timings = new FrameTiming[TimingRing];
+
+    // The newest resolved frame, copied out of the ring: a ring slot is reused three frames later whether or not anyone read it, so a reader
+    // that polls on a busy GPU would otherwise find nothing. The span has its own entry because the newest frame's span can be unusable.
+    readonly FrameTiming _latest = new();
+    ulong _latestSpanNanos;
+    int _latestSpanFrame;
     int _passCount;
     int _resourceCount;
     int _frame;
@@ -975,7 +981,7 @@ public sealed class RenderGraph : IDisposable
                 ulong sum = 0;
                 for (var q = 0; q < pairs; q++)
                 {
-                    sum += raw[q * 2 + 1] - raw[q * 2];
+                    sum += Elapsed(raw[q * 2], raw[q * 2 + 1]);
                 }
 
                 t.Nanos[k] = sum;
@@ -983,28 +989,55 @@ public sealed class RenderGraph : IDisposable
 
             if (all)
             {
-                t.SpanNanos = seen && spanEnd > spanStart ? spanEnd - spanStart : 0;
+                t.SpanNanos = seen ? Elapsed(spanStart, spanEnd) : 0;
                 t.Pending = false;
                 t.Resolved = true;
                 if (t.Frame > _latestResolved)
                 {
                     _latestResolved = t.Frame;
+                    CopyLatest(t);
+                }
+
+                if (t.SpanNanos > 0 && t.Frame > _latestSpanFrame)
+                {
+                    _latestSpanFrame = t.Frame;
+                    _latestSpanNanos = t.SpanNanos;
                 }
             }
         }
     }
 
-    internal bool TryTiming(string passName, out ulong nanoseconds, out int frame)
+    /// <summary>
+    /// Nanoseconds between two timestamps of one pass. Some drivers stamp the end of an almost empty pass before its start, and a counter
+    /// narrower than 64 bits wraps; both read as end below start, and an unsigned subtraction would turn that into about 1.8e19. Such an
+    /// interval is unusable, so it counts as zero.
+    /// </summary>
+    internal static ulong Elapsed(ulong start, ulong end) => end >= start ? end - start : 0;
+
+    void CopyLatest(FrameTiming from)
     {
-        FrameTiming? best = null;
-        foreach (var t in _timings)
+        var to = _latest;
+        if (to.Names.Length < from.PassCount)
         {
-            if (t.Resolved && (best is null || t.Frame > best.Frame))
-            {
-                best = t;
-            }
+            var n = from.Names.Length;
+            Array.Resize(ref to.Names, n);
+            Array.Resize(ref to.First, n);
+            Array.Resize(ref to.Pairs, n);
+            Array.Resize(ref to.Nanos, n);
         }
 
+        to.Frame = from.Frame;
+        to.PassCount = from.PassCount;
+        to.SpanNanos = from.SpanNanos;
+        to.Resolved = true;
+        Array.Copy(from.Names, to.Names, from.PassCount);
+        Array.Copy(from.Pairs, to.Pairs, from.PassCount);
+        Array.Copy(from.Nanos, to.Nanos, from.PassCount);
+    }
+
+    internal bool TryTiming(string passName, out ulong nanoseconds, out int frame)
+    {
+        var best = _latest.Resolved ? _latest : null;
         nanoseconds = 0;
         frame = best?.Frame ?? 0;
         if (best is null)
@@ -1041,22 +1074,13 @@ public sealed class RenderGraph : IDisposable
         microseconds = 0;
         frame = 0;
         ResolveTimings();
-        FrameTiming? best = null;
-        foreach (var t in _timings)
-        {
-            if (t.Resolved && t.SpanNanos > 0 && (best is null || t.Frame > best.Frame))
-            {
-                best = t;
-            }
-        }
-
-        if (best is null)
+        if (_latestSpanFrame == 0)
         {
             return false;
         }
 
-        microseconds = best.SpanNanos / 1000.0;
-        frame = best.Frame;
+        microseconds = _latestSpanNanos / 1000.0;
+        frame = _latestSpanFrame;
         return true;
     }
 
@@ -1073,15 +1097,7 @@ public sealed class RenderGraph : IDisposable
         ThrowIfDisposed();
         into.Clear();
         ResolveTimings();
-        FrameTiming? best = null;
-        foreach (var t in _timings)
-        {
-            if (t.Resolved && (best is null || t.Frame > best.Frame))
-            {
-                best = t;
-            }
-        }
-
+        var best = _latest.Resolved ? _latest : null;
         if (best is null)
         {
             return 0;

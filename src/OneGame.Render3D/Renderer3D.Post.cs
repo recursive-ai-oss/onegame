@@ -26,6 +26,9 @@ public sealed partial class Renderer3D
     private GpuShader _downPs = null!;
     private GpuShader _upPs = null!;
     private GpuShader _tonemapPs = null!;
+    private GpuShader _blitPs = null!;
+    private readonly Dictionary<GpuFormat, GpuGraphicsPipeline> _blitPipelines = [];
+    private readonly UpscalePass _upscalePass = new();
     private GpuGraphicsPipeline _downPipeline = null!;
     private GpuGraphicsPipeline _upPipeline = null!;
     private GpuBuffer _postBuffer = null!;
@@ -33,11 +36,12 @@ public sealed partial class Renderer3D
     private void InitPost()
     {
         var device = Device;
-        _postLayout = Own(device.CreatePipelineLayout(ShaderLayouts.Bindings([Post.PSDown.Layout, Post.PSUp.Layout, Post.PSTonemap.Layout], [(0, 0)])));
+        _postLayout = Own(device.CreatePipelineLayout(ShaderLayouts.Bindings([Post.PSDown.Layout, Post.PSUp.Layout, Post.PSTonemap.Layout, Post.PSBlit.Layout], [(0, 0)])));
         _postVs = Own(device.CreateShader(new ShaderSource(ShaderStage.Vertex, Post.VSFull.EntryPoint) { SpirV = Post.VSFull.SpirV, Wgsl = Post.VSFull.Wgsl, WgslEntryPoint = Post.VSFull.WgslEntryPoint, Msl = Post.VSFull.Msl, MslFunctionName = Post.VSFull.MslFunctionName, Layout = Post.VSFull.Layout }));
         _downPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Post.PSDown.EntryPoint) { SpirV = Post.PSDown.SpirV, Wgsl = Post.PSDown.Wgsl, WgslEntryPoint = Post.PSDown.WgslEntryPoint, Msl = Post.PSDown.Msl, MslFunctionName = Post.PSDown.MslFunctionName, Layout = Post.PSDown.Layout }));
         _upPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Post.PSUp.EntryPoint) { SpirV = Post.PSUp.SpirV, Wgsl = Post.PSUp.Wgsl, WgslEntryPoint = Post.PSUp.WgslEntryPoint, Msl = Post.PSUp.Msl, MslFunctionName = Post.PSUp.MslFunctionName, Layout = Post.PSUp.Layout }));
         _tonemapPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Post.PSTonemap.EntryPoint) { SpirV = Post.PSTonemap.SpirV, Wgsl = Post.PSTonemap.Wgsl, WgslEntryPoint = Post.PSTonemap.WgslEntryPoint, Msl = Post.PSTonemap.Msl, MslFunctionName = Post.PSTonemap.MslFunctionName, Layout = Post.PSTonemap.Layout }));
+        _blitPs = Own(device.CreateShader(new ShaderSource(ShaderStage.Pixel, Post.PSBlit.EntryPoint) { SpirV = Post.PSBlit.SpirV, Wgsl = Post.PSBlit.Wgsl, WgslEntryPoint = Post.PSBlit.WgslEntryPoint, Msl = Post.PSBlit.Msl, MslFunctionName = Post.PSBlit.MslFunctionName, Layout = Post.PSBlit.Layout }));
         _postBuffer = Own(device.CreateBuffer(new BufferDesc((ulong)PostSlots * GpuDevice.DynamicOffsetAlignment, BufferUsage.Uniform | BufferUsage.CopyDestination) { Label = "3d post" }));
         _postSampler = Own(device.CreateSampler(SamplerDesc.Linear));
         _downPipeline = Own(device.CreateGraphicsPipeline(PostPipeline(_downPs, HdrFormat, null, "bloom down")));
@@ -77,6 +81,12 @@ public sealed partial class Renderer3D
         }
 
         _tonemapPipelines.Clear();
+        foreach (var p in _blitPipelines.Values)
+        {
+            p.Dispose();
+        }
+
+        _blitPipelines.Clear();
     }
 
     private GpuBindGroup PostGroup(GpuTexture color, GpuTexture bloom)
@@ -114,6 +124,17 @@ public sealed partial class Renderer3D
         {
             pipeline = Device.CreateGraphicsPipeline(PostPipeline(_tonemapPs, format, null, "tonemap"));
             _tonemapPipelines[format] = pipeline;
+        }
+
+        return pipeline;
+    }
+
+    private GpuGraphicsPipeline BlitPipeline(GpuFormat format)
+    {
+        if (!_blitPipelines.TryGetValue(format, out var pipeline))
+        {
+            pipeline = Device.CreateGraphicsPipeline(PostPipeline(_blitPs, format, null, "scene upscale"));
+            _blitPipelines[format] = pipeline;
         }
 
         return pipeline;
@@ -235,6 +256,35 @@ public sealed partial class Renderer3D
             Span<uint> offset = stackalloc uint[1];
             offset[0] = (PostSlots - 1) * GpuDevice.DynamicOffsetAlignment;
             pass.SetBindGroup(0, r.PostGroup(context.Texture(Hdr), Bloom.IsValid ? context.Texture(Bloom) : r._white), offset);
+            pass.Draw(3);
+        }
+    }
+
+    // Stretches the scene drawn at a fraction of the window over the window-sized target. The tone-mapped scene is what is filtered, so
+    // the filter works on display values and 2D and UI passes added later draw over a full-resolution image at their own sharpness.
+    private sealed class UpscalePass : IGraphPass
+    {
+        public Renderer3D? Owner;
+        public GraphTexture Source;
+        public GraphTexture Target;
+        public GpuFormat Format;
+
+        public string Name => "scene_upscale";
+
+        public void Setup(PassBuilder builder)
+        {
+            builder.Read(Source);
+            builder.ColorTarget(Target, LoadOp.DontCare);
+        }
+
+        public void Execute(PassContext context)
+        {
+            var r = Owner!;
+            var pass = context.Render;
+            pass.SetPipeline(r.BlitPipeline(Format));
+            Span<uint> offset = stackalloc uint[1];
+            offset[0] = 0;
+            pass.SetBindGroup(0, r.PostGroup(context.Texture(Source), r._white), offset);
             pass.Draw(3);
         }
     }

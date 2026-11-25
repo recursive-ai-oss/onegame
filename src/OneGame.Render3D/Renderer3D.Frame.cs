@@ -22,6 +22,9 @@ public sealed partial class Renderer3D
     private const int ReflSlot = 1 + MaxShadowTiles;
     private const int MaxViews = 2 + MaxShadowTiles;
 
+    /// <summary>Smallest <see cref="Scene3D.RenderScale"/> used.</summary>
+    public const float MinRenderScale = 0.25f;
+
     private struct DrawItem
     {
         public Primitive3D Primitive;
@@ -100,6 +103,25 @@ public sealed partial class Renderer3D
         InitInstancing();
     }
 
+    // A graph that is going away takes its pooled textures with it; bind groups that name those textures are of no further use. They are
+    // released (late, like every retired group) instead of waiting for the caches to fill up and flush.
+    internal void DropCachedGroups()
+    {
+        foreach (var g in _set0Cache.Values)
+        {
+            _deferred.Add(g);
+        }
+
+        _set0Cache.Clear();
+        foreach (var g in _postGroups.Values)
+        {
+            _deferred.Add(g);
+        }
+
+        _postGroups.Clear();
+        DropSsaoGroups();
+    }
+
     private void DisposeFrame()
     {
         foreach (var g in _set0Cache.Values)
@@ -112,6 +134,8 @@ public sealed partial class Renderer3D
         _clusterSet0?.Dispose();
         _set1 = null;
         _clusterSet0 = null;
+        _atlasTexture?.Dispose();
+        _atlasTexture = null;
     }
 
     /// <summary>
@@ -156,7 +180,19 @@ public sealed partial class Renderer3D
             EnvironmentWork(graph, envB);
         }
 
-        PrepareFrame(scene, width, height, samples, env, envB, q);
+        // Below full scale everything is drawn at (rw, rh); the camera keeps the target's aspect, so a scaled frame shows the same picture.
+        var fullWidth = width;
+        var fullHeight = height;
+        var scale = scene.RenderScale;
+        scale = scale < 1f ? MathF.Max(scale, MinRenderScale) : 1f;     // also catches NaN
+        if (scale < 1f)
+        {
+            width = Math.Max(1, (int)MathF.Round(fullWidth * scale));
+            height = Math.Max(1, (int)MathF.Round(fullHeight * scale));
+        }
+
+        var scaled = width != fullWidth || height != fullHeight;
+        PrepareFrame(scene, width, height, fullWidth / (float)fullHeight, samples, env, envB, q);
 
         var hdr = graph.CreateTexture("scene_hdr", new TextureDesc((uint)width, (uint)height, HdrFormat, TextureUsage.None));
         var depth = graph.CreateTexture("scene_depth", new TextureDesc((uint)width, (uint)height, DepthFormat, TextureUsage.None) { SampleCount = (uint)samples });
@@ -213,7 +249,25 @@ public sealed partial class Renderer3D
         _forward.Clear = environment.Background == BackgroundMode.Environment ? Vector3.Zero : environment.BackgroundColor;
         graph.AddPass(_forward);
 
-        AddPostPasses(graph, scene.Post, q.Bloom, hdr, target, width, height, targetFormat);
+        var sceneColor = target;
+        if (scaled)
+        {
+            sceneColor = graph.CreateTexture("scene_scaled", new TextureDesc((uint)width, (uint)height, targetFormat, TextureUsage.None));
+        }
+
+        AddPostPasses(graph, scene.Post, q.Bloom, hdr, sceneColor, width, height, targetFormat);
+        if (scaled)
+        {
+            _upscalePass.Owner = this;
+            _upscalePass.Source = sceneColor;
+            _upscalePass.Target = target;
+            _upscalePass.Format = targetFormat;
+            graph.AddPass(_upscalePass);
+        }
+
+        SceneColor = sceneColor;
+        SceneColorWidth = width;
+        SceneColorHeight = height;
         _stats = new FrameStats3D(_objectCount, _opaqueCount + _blendCount + BatchDrawCalls, _drawnTriangles, _lightCount, _gridX * _gridY * DepthSlices)
         {
             ShadowTiles = _tileCount,
@@ -224,16 +278,17 @@ public sealed partial class Renderer3D
             Quality = _quality,
             Ssao = _ssaoActive,
             PlanarReflection = _reflActive,
+            RenderWidth = width,
+            RenderHeight = height,
         };
         _statsGraph = graph;
         _statsFrame = graph.Frame;
         _buildMs = (Stopwatch.GetTimestamp() - cpuStart) * 1000.0 / Stopwatch.Frequency;
     }
 
-    private void PrepareFrame(Scene3D scene, int width, int height, int samples, EnvironmentMap env, EnvironmentMap? envB, in QualitySettings q)
+    private void PrepareFrame(Scene3D scene, int width, int height, float aspect, int samples, EnvironmentMap env, EnvironmentMap? envB, in QualitySettings q)
     {
         var camera = scene.Camera;
-        var aspect = width / (float)height;
         var view = camera.View;
         var proj = camera.Projection(aspect);
         var viewProj = view * proj;
