@@ -10,7 +10,7 @@ folder=$(sed -n 's|.*"folder":"\([^"]*\)".*|\1|p' "$work/export.json")
 echo "folder $folder"
 nohup safaridriver -p 4444 </dev/null > "$work/safaridriver.log" 2>&1 &
 SD=$!
-trap 'kill $SD 2>/dev/null; osascript -e "tell application \"Safari\" to quit" 2>/dev/null; sleep 1; pkill -f "safaridriver -p 4444" 2>/dev/null' EXIT
+trap 'kill $SD 2>/dev/null; pkill -f "safaridriver -p 4444" 2>/dev/null; pkill -f "Safari.app/Contents/MacOS/Safari" 2>/dev/null' EXIT
 sleep 2
 run() { name=$1; shift; echo "== $name"; node "$repo/tools/web/run-page-safari.mjs" --timeout 240 --print 3500 "$@" 2>&1 | tail -c 3600; }
 run viewport --root "$folder" --path '/index.html' --script "$repo/tools/web/safari-viewport-test.mjs" --screenshot "$work/viewport.png"

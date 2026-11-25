@@ -55,7 +55,8 @@ session = created.sessionId;
 const s = (p) => `/session/${session}${p}`;
 await wd('POST', s('/timeouts'), { script: 600000, pageLoad: 120000 });
 // Safari stops animation frames for a window that is not in front, so the game would never draw.
-if (process.platform === 'darwin') spawnSync('osascript', ['-e', 'tell application "Safari" to activate']);
+// (`open -a` needs no Apple-event permission; osascript would wait for a prompt nobody can answer over ssh.)
+if (process.platform === 'darwin') spawnSync('open', ['-a', 'Safari'], { timeout: 10000 });
 await wd('POST', s('/url'), { url: `http://127.0.0.1:${httpPort}${args.path || '/index.html'}` });
 
 // With pageLoadStrategy "none" the navigation call returns at once; the new document replaces about:blank some seconds later.
