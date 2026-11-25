@@ -1,6 +1,6 @@
 #!/bin/bash
 # The browser checks of the web host in Safari, on a Mac with a desktop session and "Allow Remote Automation" on (safaridriver --enable once):
-#   tools/web/run-safari-tests.sh [work folder]   (ONEGAME names the onegame tool, default onegame)
+#   tools/web/run-safari-tests.sh [work folder]   (ONEGAME names the onegame tool, default onegame; RUNNER is the published 3D runner folder, for the fog and layers cases)
 repo="$(cd "$(dirname "$0")/../.." && pwd)"; work=${1:-${TMPDIR:-/tmp}/safari-tests}; L=$work; mkdir -p "$work"; work="$(cd "$work" && pwd)"
 cd "$repo/tests/WebGame"
 if [ ! -d "$work/export" ]; then
@@ -18,6 +18,12 @@ run title --root "$folder" --path '/index.html?expect=Web%20Fixture' --script "$
 run capture --root "$folder" --path '/index.html?control=page' --script "$repo/tools/web/capture-test.mjs"
 run material --root "$folder" --path '/index.html?control=page' --script "$repo/tools/web/material-test.mjs"
 run blur --root "$folder" --path '/index.html?control=page' --script "$repo/tools/web/blur-test.mjs" --screenshot "$work/blur.png"
+run uiscale --root "$folder" --path '/index.html?control=page' --script "$repo/tools/web/ui-scale-test.mjs"
 run chain --root "$folder" --path '/index.html?control=page' --script "$repo/tools/web/chain-test.mjs"
+# The 3D runner page (fog modes, layered materials) when it has been published: dotnet publish tests/OneGame.Render3D.WebRunner -o <dir>
+if [ -n "${RUNNER:-}" ]; then
+  run fog --root "$RUNNER/wwwroot" --mounts "/testdata=$repo/testdata" --path '/index.html?fog=1' --screenshot "$work/fog.png"
+  run layers --root "$RUNNER/wwwroot" --mounts "/testdata=$repo/testdata" --path '/index.html?layers=1'
+fi
 echo "== fingerprints"
 grep -q 'src="./boot.mjs?v=' "$folder/index.html" && grep -q "onegame-platform.js?v=" "$folder/boot.mjs" && grep -q "_framework/dotnet.js?v=" "$folder/boot.mjs" && echo fingerprints ok
