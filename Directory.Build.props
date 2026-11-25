@@ -63,7 +63,7 @@
     <Version>2.4.0</Version>
     <!-- Pack checks each package against the last release on nuget.org, so a minor cannot break its public API by accident. -->
     <EnablePackageValidation>true</EnablePackageValidation>
-    <PackageValidationBaselineVersion>2.3.0</PackageValidationBaselineVersion>
+    <PackageValidationBaselineVersion>2.4.0</PackageValidationBaselineVersion>
   </PropertyGroup>
 
   <!-- Only the engine libraries under src/ are packages. The sample games and the tools are built, not published to nuget.org. -->
