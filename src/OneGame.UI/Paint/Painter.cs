@@ -224,6 +224,12 @@ internal sealed class Painter(UiTree ui)
             });
         }
 
+        var backdrop = ui.Px(s.L(P.BackdropBlur));
+        if (backdrop > 0f)
+        {
+            _list.Add(new DrawCommand { Kind = DrawKind.BackdropBlur, Bounds = box, Radii = radii, Value = backdrop, Source = e });
+        }
+
         var bg = s.C(P.BackgroundColor);
         if (bg.A > 0)
         {
@@ -233,14 +239,15 @@ internal sealed class Painter(UiTree ui)
         var img = s.T(P.BackgroundImage);
         if (img.Length > 0)
         {
+            var pixelated = (ImageRendering)s.E(P.ImageRendering) == ImageRendering.Pixelated;
             if (!TryPlaceImage(s, img, box, out var tile, out var origin, out var axes))
             {
                 var sl = ui.Px(s.L(P.BackgroundSlice));
-                _list.Add(new DrawCommand { Kind = DrawKind.Image, Bounds = box, Resource = img, Color = s.C(P.BackgroundTint), Radii = radii, Slice = new Edges(sl, sl, sl, sl), Source = e });
+                _list.Add(new DrawCommand { Kind = DrawKind.Image, Bounds = box, Resource = img, Color = s.C(P.BackgroundTint), Radii = radii, Slice = new Edges(sl, sl, sl, sl), Pixelated = pixelated, Source = e });
             }
             else if (tile.X > 0 && tile.Y > 0)
             {
-                _list.Add(new DrawCommand { Kind = DrawKind.Image, Bounds = box, Resource = img, Color = s.C(P.BackgroundTint), Radii = radii, TileSize = tile, TileOrigin = origin, Repeat = axes, Source = e });
+                _list.Add(new DrawCommand { Kind = DrawKind.Image, Bounds = box, Resource = img, Color = s.C(P.BackgroundTint), Radii = radii, TileSize = tile, TileOrigin = origin, Repeat = axes, Pixelated = pixelated, Source = e });
             }
         }
 

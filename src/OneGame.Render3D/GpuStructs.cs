@@ -39,6 +39,7 @@ internal struct FrameConstants
     public Matrix4x4 ReflViewProj;
     public Vector4 Refl;
     public Vector4 MainZ;
+    public Vector4 FogParams;
 }
 
 [StructLayout(LayoutKind.Sequential)]

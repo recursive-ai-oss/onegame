@@ -14,7 +14,20 @@ try {
   const cases = (await (await fetch('/testdata/render3d/cases.json')).json()).cases;
   const results = [];
   if (new URLSearchParams(location.search).get('layers')) results.push(JSON.parse(await R.RunLayers()));
+  if (new URLSearchParams(location.search).get('fog')) {
+    const r = JSON.parse(await R.RunFog());
+    window.__result = JSON.stringify({ adapter: gpu.takeMessages(0), results: [r] });
+    log.textContent = 'fog: ' + (r.ok ? 'ok' : 'FAIL');
+    throw new Error('__done');
+  }
   for (const name of names) {
+    if (name === 'envload') {   // self-contained: an asynchronous environment against the synchronous one
+      const started = performance.now();
+      const r = JSON.parse(await R.RunEnvironmentLoad());
+      r.ms = Math.round(performance.now() - started);
+      results.push(r);
+      continue;
+    }
     const c = cases.find(x => x.name === name);
     const dir = c.model.split('/').slice(0, -2).join('/') + '/' + c.model.split('/').slice(-2, -1)[0];   // <Model>/glTF
     const files = await (await fetch('/__list?path=' + encodeURIComponent('/models/' + dir))).json();
@@ -29,6 +42,8 @@ try {
   }
   window.__result = JSON.stringify({ adapter: gpu.takeMessages(0), results });
 } catch (e) {
-  window.__result = JSON.stringify({ fatal: String(e && e.stack || e) });
-  log.textContent = 'fatal: ' + e;
+  if (!String(e).includes('__done')) {
+    window.__result = JSON.stringify({ fatal: String(e && e.stack || e) });
+    log.textContent = 'fatal: ' + e;
+  }
 }

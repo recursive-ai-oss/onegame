@@ -34,6 +34,15 @@ public sealed partial class Renderer3D
     private int _atlasW = 1;
     private int _atlasH = 1;
 
+    // One depth atlas per renderer, shared by every view it draws (the main scene and each Offscreen3D). Views render one after another on
+    // the graph's queue and each reads its shadows in the graph that wrote them, so they can reuse the same memory; before this each graph
+    // pooled an atlas of its own, which at High quality is about 190 MB per sampled offscreen view. The atlas only grows (for one tile size),
+    // so views that alternate between a few lights and many do not reallocate, and it is released after a while with no shadows at all.
+    private GpuTexture? _atlasTexture;
+    private int _atlasTexTile;
+    private int _atlasUnusedFrames;
+    private const int AtlasKeepFrames = 240;
+
     private void InitShadows()
     {
         var device = Device;
@@ -87,6 +96,13 @@ public sealed partial class Renderer3D
         _atlasCols = Math.Max(1, (int)MathF.Ceiling(MathF.Sqrt(tiles)));
         var rows = Math.Max(1, (tiles + _atlasCols - 1) / _atlasCols);
         _tileSize = q.ShadowTileSize;
+        if (tiles > 0 && _atlasTexture is not null && _atlasTexTile == _tileSize)
+        {
+            // Never shrink the layout the existing atlas has; the tiles of a smaller frame sit in its first cells.
+            _atlasCols = Math.Max(_atlasCols, (int)(_atlasTexture.Width / (uint)_tileSize));
+            rows = Math.Max(rows, (int)(_atlasTexture.Height / (uint)_tileSize));
+        }
+
         var max = (int)Device.Capabilities.MaxTextureSize;
         while (_tileSize > 64 && (_tileSize * _atlasCols > max || _tileSize * rows > max))
         {
@@ -323,15 +339,41 @@ public sealed partial class Renderer3D
     {
         if (_tileCount == 0)
         {
+            if (_atlasTexture is not null && ++_atlasUnusedFrames > AtlasKeepFrames)
+            {
+                ReleaseAtlas();
+            }
+
             return default;
         }
 
-        var atlas = graph.CreateTexture("shadow_atlas", new TextureDesc((uint)_atlasW, (uint)_atlasH, DepthFormat, TextureUsage.None));
+        _atlasUnusedFrames = 0;
+        if (_atlasTexture is null || _atlasTexture.Width != (uint)_atlasW || _atlasTexture.Height != (uint)_atlasH)
+        {
+            ReleaseAtlas();
+            _atlasTexture = Device.CreateTexture(new TextureDesc((uint)_atlasW, (uint)_atlasH, DepthFormat, TextureUsage.Sampled | TextureUsage.RenderTarget) { Label = "3d shadow atlas" });
+            _atlasTexTile = _tileSize;
+        }
+
+        var atlas = graph.ImportTexture("shadow_atlas", _atlasTexture);
         _shadowPass.Owner = this;
         _shadowPass.Atlas = atlas;
         graph.AddPass(_shadowPass);
         return atlas;
     }
+
+    // Frames already recorded may still sample the atlas, so it goes through the deferred release like every other replaced resource.
+    private void ReleaseAtlas()
+    {
+        if (_atlasTexture is not null)
+        {
+            _deferred.Add(_atlasTexture);
+            _atlasTexture = null;
+        }
+    }
+
+    /// <summary>Bytes of the shared shadow atlas (0 when none is allocated).</summary>
+    internal long ShadowAtlasBytes => _atlasTexture is null ? 0 : (long)_atlasTexture.Width * _atlasTexture.Height * 4;
 
     private void DrawShadows(GpuRenderPass pass)
     {

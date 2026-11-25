@@ -45,6 +45,14 @@ public static class Ui
         return e;
     }
 
+    /// <summary>Like <see cref="Image"/>, drawn with nearest-neighbour filtering (<c>image-rendering: pixelated</c>) so pixel art and small icons stay sharp at every UI scale.</summary>
+    public static Element PixelImage(string assetId, float naturalWidth = 0, float naturalHeight = 0)
+    {
+        var e = Image(assetId, naturalWidth, naturalHeight);
+        e.Style(s => s.ImageRendering(ImageRendering.Pixelated));
+        return e;
+    }
+
     /// <summary>An empty element that grows to fill free space in its parent.</summary>
     public static Element Spacer() => new Element("Spacer").Grow();
 

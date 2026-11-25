@@ -29,6 +29,8 @@ public enum DrawKind
     PushOpacity,
     /// <summary>End the group started by the matching <see cref="PushOpacity"/>.</summary>
     PopOpacity,
+    /// <summary>Replace what is behind the rounded rectangle <see cref="DrawCommand.Bounds"/> with a Gaussian blur of it; <see cref="DrawCommand.Value"/> is the standard deviation in pixels (<c>backdrop-filter: blur()</c>). The element's own background is drawn after it.</summary>
+    BackdropBlur,
 }
 
 /// <summary>One drawing instruction. Which fields matter depends on <see cref="Kind"/>; the others are default.</summary>
@@ -60,6 +62,9 @@ public struct DrawCommand
 
     /// <summary>For an image with a <see cref="TileSize"/>: the axes along which the tile repeats. Where it does not repeat, nothing is drawn outside the one tile.</summary>
     public TileAxes Repeat { get; init; }
+
+    /// <summary>For an image: sample with nearest-neighbour filtering instead of smoothing (<c>image-rendering: pixelated</c>).</summary>
+    public bool Pixelated { get; init; }
 
     /// <summary>The asset id of an image or SVG.</summary>
     public string? Resource { get; init; }

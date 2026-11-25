@@ -77,6 +77,18 @@ internal static class Render3DSmoke
             target.Capture(scene);
         }
 
+        // Render scale: the frame is drawn at half size, stretched over the target, and the scaled scene image is reported.
+        scene.RenderScale = 0.5f;
+        var halfFrame = target.Capture(scene);
+        var scaled = renderer.LastStats;
+        if (halfFrame.Length != 96 * 72 * 4 || scaled.RenderWidth != 48 || scaled.RenderHeight != 36 || renderer.SceneColorWidth != 48)
+        {
+            return $"render scale did not apply: {scaled.RenderWidth}x{scaled.RenderHeight}";
+        }
+
+        scene.RenderScale = 1f;
+        target.Capture(scene);
+
         var stats = renderer.LastStats;
         device.WaitIdle();
         if (!(stats.CpuFrameMs > 0) || renderer.LastStats.GpuFrameMs is <= 0 || renderer.ReadGpuPassTimes([]) < 0)
@@ -187,6 +199,47 @@ internal static class Render3DSmoke
         }
 
         if (redPixels < 100) { return $"fog turned {redPixels} pixels red"; }
+
+        // Height fog, and a material that ignores fog.
+        meshScene.Fog.Mode = FogMode.Height;
+        meshScene.Fog.Density = 2f;
+        meshScene.Fog.HeightBase = 5f;
+        meshScene.Fog.HeightFalloff = 0.1f;
+        lime.FogExempt = true;
+        var exempt = target.Capture(meshScene);
+        lime.FogExempt = false;
+        var limePixels = 0;
+        for (var i = 0; i < exempt.Length; i += 4)
+        {
+            limePixels += exempt[i + 1] > 100 && exempt[i] < 100 ? 1 : 0;
+        }
+
+        if (limePixels < 100) { return $"the fog-exempt mesh covers {limePixels} pixels"; }
+
+        // An environment made over several frames matches the one made at once.
+        meshScene.Environment.NextMap = null;
+        meshScene.Environment.Blend = 0f;
+        var skyImage = HdrImage.CreateSky(128, 64, new Vector3(0.2f, 0.4f, 1f), new Vector3(0.9f, 0.9f, 1f), new Vector3(0.2f));
+        using var atOnce = renderer.CreateEnvironment(skyImage, 32);
+        renderer.PrepareEnvironment(atOnce);
+        meshScene.Environment.Map = atOnce;
+        var expectedPixels = target.Capture(meshScene);
+        using var load = renderer.CreateEnvironmentAsync(skyImage, new EnvironmentLoadOptions { Size = 32, GpuBudget = 100_000, UploadBytesPerFrame = 4096 });
+        var loadFrames = 0;
+        while (load.IsRunning && loadFrames < 500)
+        {
+            target.Render(meshScene);
+            loadFrames++;
+        }
+
+        if (!load.IsReady || loadFrames < 5) { return $"the asynchronous environment was {load.State} after {loadFrames} frames"; }
+        using var later = load.Take();
+        meshScene.Environment.Map = later;
+        var laterPixels = target.Capture(meshScene);
+        for (var i = 0; i < laterPixels.Length; i++)
+        {
+            if (Math.Abs(laterPixels[i] - expectedPixels[i]) > 1) { return "the asynchronous environment draws differently"; }
+        }
 
         // Planar reflection and texture scrolling on a material, with the mirror plane and the scene clock set on the scene.
         meshScene.Fog.Enabled = false;

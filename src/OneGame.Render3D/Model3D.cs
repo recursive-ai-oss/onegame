@@ -108,6 +108,7 @@ public sealed class Material3D
     private float _emissiveStrength = 1f;
     private float _opacity = 1f;
     private bool _reflect;
+    private bool _fogExempt;
     private float _reflectStrength = 1f;
     private Vector2 _scroll;
 
@@ -201,6 +202,12 @@ public sealed class Material3D
     public Vector2 UvScroll { get => _scroll; set => Set(ref _scroll, value); }
 
     /// <summary>
+    /// Leaves the material out of <see cref="Scene3D.Fog"/> (false by default). Use it for a backdrop layer that must keep its own colours: a sky
+    /// dome or skybox mesh, distant mountains painted into the sky. The material is still lit, tone mapped and depth tested as usual.
+    /// </summary>
+    public bool FogExempt { get => _fogExempt; set => Set(ref _fogExempt, value); }
+
+    /// <summary>
     /// Replaces one texture of this material, for example with the target of an <see cref="Offscreen3D"/> built with <c>sampled: true</c>, so a
     /// portal window shows another view. The texture keeps being used until <see cref="ResetTexture"/>; it must outlive the frames that draw it.
     /// Rendered targets are tone-mapped already: show one through <see cref="MaterialSlot3D.Emissive"/> (base colour black) or the
@@ -253,7 +260,7 @@ public sealed class Material3D
     // Switches the base colour to a texture array whose layer each vertex picks (Pbr.hlsl, BaseSample).
     internal void SetLayers(GpuTexture texture, GpuSampler sampler, int count)
     {
-        _constants.Flags.Y = 1;
+        _constants.Flags.Z = 1;
         LayerCount = count;
         _entries[Array.FindIndex(_entries, e => e.Binding == 11)] = BindGroupEntry.ForTexture(11, texture, new TextureViewDesc { Kind = TextureViewKind.D2Array });
         _entries[Array.FindIndex(_entries, e => e.Binding == 12)] = BindGroupEntry.ForSampler(12, sampler);
@@ -282,6 +289,7 @@ public sealed class Material3D
         c.OutlineColor = new Vector4(_outlineColor, 1f);
         c.Emissive = new Vector4(_emissive * _emissiveStrength, 1f - _opacity);
         c.WaterA = new Vector4(_reflect ? _reflectStrength : 0f, _scroll.X, _scroll.Y, 0f);
+        c.Flags.Y = _fogExempt ? 1u : 0u;
         _device.WriteBuffer(Constants, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(new ReadOnlySpan<MaterialConstants>(in c)));
     }
 }

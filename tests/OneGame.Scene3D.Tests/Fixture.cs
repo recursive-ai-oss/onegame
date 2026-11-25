@@ -14,11 +14,11 @@ internal static class Fixture
 
     public static string Scenarios => Path.GetFullPath(Path.Combine(SourceDir(), "..", "Scene3DGame", "scenarios"));
 
-    public static TestCluster Start(int width = 640, int height = 360)
+    public static TestCluster Start(int width = 640, int height = 360, float glassBlur = 0f)
     {
         // The Vulkan validation layer must stay silent through every frame these tests draw.
         Environment.SetEnvironmentVariable("ONEGPU_VALIDATION", "1");
-        return TestCluster.Start(new Scene3DGameDefinition(), new TestOptions { Width = width, Height = height, Gpu = GpuMode.Required });
+        return TestCluster.Start(new Scene3DGameDefinition { GlassBlur = glassBlur }, new TestOptions { Width = width, Height = height, Gpu = GpuMode.Required });
     }
 
     public static JsonElement Json(string text) => JsonDocument.Parse(text).RootElement.Clone();

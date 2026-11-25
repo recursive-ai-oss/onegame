@@ -6,6 +6,23 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Fog modes. `FogSettings.Mode` (`FogMode.Linear` default and unchanged, `Exponential`, `ExponentialSquared`, `Height`) with `Density`, `HeightBase` and `HeightFalloff`; `Material3D.FogExempt` leaves a material out of fog (a sky dome or other backdrop layer). The `environment` op reads and sets `fogMode`, `fogDensity`, `fogHeightBase`, `fogHeightFalloff`.
+- `ModelInstance3D.CastShadows` and `ModelOptions.CastShadows`: one instance can be drawn without casting shadows.
+- `image-rendering: pixelated` (`StyleBuilder.ImageRendering`, `ImageRendering`, `Ui.PixelImage`, `DrawCommand.Pixelated`): nearest-neighbour sampling for images, tiles and nine-slices.
+- `backdrop-blur` (`StyleBuilder.BackdropBlur`, `DrawKind.BackdropBlur`, `UiCanvas.BackdropBlur`): a UI box blurs what is drawn behind it, including a 3D scene, as in CSS `backdrop-filter: blur()`. No extra pass is recorded in frames that use none.
+- 3D render scale. `Scene3D.RenderScale` and `SceneView3D.RenderScale` (0.25 to 1, default 1) draw the 3D frame at a fraction of the window and stretch it over the target before the 2D and UI passes, so the UI stays sharp and cost follows the pixel count. Full size adds no pass and draws the same pixels; picking, projection, anchors and captures keep using window pixels. New control op `render_scale`, `FrameStats3D.RenderWidth/RenderHeight`, and `Renderer3D.SceneColor` (with `SceneColorWidth/Height`) exposing the tone-mapped scene image to later passes of the same graph frame. `docs/interfaces/render3d.md`.
+- Environments without a hitch. `Renderer3D.CreateEnvironmentAsync(HdrImage, EnvironmentLoadOptions?)` returns an `EnvironmentLoad` (`State`, `Progress`, `IsReady`, `Error`, `Take()`, `Cancel()`, `Dispose()`): the panorama is converted on a worker thread (in slices on the render thread in a browser), copied to the GPU in bands and filtered a few passes per frame under `EnvironmentLoadOptions.GpuBudget`, while the game keeps drawing its current map. The finished map is pixel-identical to `CreateEnvironment` plus `PrepareEnvironment`; the synchronous calls are unchanged. A face size of 0 follows quality, and a quality change mid-load restarts the filtering at the new size. `Renderer3D.RetireEnvironment` frees a replaced map once frames in flight are done. On the RTX 4070 the worst frame of a 2048x1024 panorama at 256 is 1.3 ms against 50 ms for the synchronous pair.
+- `Render3DStage.AdoptEnvironment(load, EnvironmentSlot)` swaps a ready load into `Environment.Map` or `NextMap` at the start of a frame and frees what it replaced. The `environment` control operation starts a load (`load` file or `sky` width, `size`, `into`), cancels it (`cancel`) and reports its state and progress (`EnvironmentResult.Load`).
+
+### Changed
+
+- Every view of one `Renderer3D` (the main scene and each `Offscreen3D`) now shares a single shadow atlas instead of pooling one per view, so sixteen sampled views with shadows reserve one 192 MiB atlas (High, directional plus point light) rather than sixteen. `Offscreen3D.Dispose` also drops the renderer's cached bind groups for its targets.
+
+### Fixed
+
+- `Renderer3D.ReadGpuPassTimes` and the graph's pass times could return a wrapped value of about 1.6e13 ms when a pass's end timestamp read below its start; such an interval is now zero.
+- `FrameStats3D.GpuFrameMs` was null on about one frame in a hundred on a busy GPU because the timing ring slot of the only finished frame was recycled before it was read; the graph now keeps the newest resolved frame, so it is a value from the first finished frame on.
+- The shader hot-reload test in the Testing tests skips on Metal, like the Render2D one (reloading recompiles to SPIR-V only), instead of failing there.
 - Layered materials for blocky worlds: `Renderer3D.CreateLayeredMaterial(name, width, height, layers, ...)` builds a `Material3D` whose base colour is a texture array (nearest, repeating inside each layer, no blending between layers), and each vertex chooses its layer with `MeshVertex3D.Layer` (a new init property and a five-argument constructor; for glTF meshes, the first component of `TEXCOORD_1`). One material and one draw per chunk replace one per texture per chunk: a 36-chunk, 32-texture test scene goes from 1,151 draws to 36. `Material3D.LayerCount`. Every material's bind group gains two bindings (set 2, bindings 11 and 12: a one-texel placeholder array and a sampler); the 3D pixel shaders read the base colour through one function, so existing materials draw as before.
 
 ## [2.3.0] - 2026-11-22

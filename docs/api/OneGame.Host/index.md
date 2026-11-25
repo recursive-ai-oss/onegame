@@ -28,6 +28,7 @@ dotnet add package RecursiveAI.OneGame.Host
 | [`DisplayListRaster`](OneGame.Host/DisplayListRaster.md) | static class | A small CPU rasterizer for display lists: flat rectangles, borders and one bar per text line, with clips and group opacity. |
 | [`Draw2D`](OneGame.Host/Draw2D.md) | class | Immediate-mode 2D drawing for view code: call it every frame to say what to show, and the stage batches it onto the same [`Scene2D`](../OneGame.Render2D/OneGame.Render2D/Scene2D.md) and [`Renderer2D`](../OneGame.Render2D/OneGame.Render2D/Renderer2D.md) a hand-built stage would use. |
 | [`DriftInfo`](OneGame.Host/DriftInfo.md) | record | One drift report: a replica whose state differed from the server's at the same tick. |
+| [`EnvironmentSlot`](OneGame.Host/EnvironmentSlot.md) | enum | Which environment of the scene an adopted [`EnvironmentLoad`](../OneGame.Render3D/OneGame.Render3D/EnvironmentLoad.md) replaces. |
 | [`ExitCodes`](OneGame.Host/ExitCodes.md) | static class | Process exit codes shared by games and the `onegame` command. |
 | [`FileAssetSource`](OneGame.Host/FileAssetSource.md) | class | Reads content from folders. |
 | [`FixtureSet`](OneGame.Host/FixtureSet.md) | class | The named fixtures of a game. |
