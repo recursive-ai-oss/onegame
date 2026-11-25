@@ -134,7 +134,8 @@ public class LayeredTerrainTests
 
         var pixels = rig.Capture(scene, "layered-terrain");
         Assert.Equal(4, rig.Renderer.LastStats.DrawCalls);
-        Reference.Compare("layered-terrain", pixels, w, h, meanTolerance: 0.6, maxTolerance: 16);
+        // Other GPUs pick mip levels slightly differently, so a few texel edges differ; the tolerance is wider than for flat scenes.
+        Reference.Compare("layered-terrain", pixels, w, h, meanTolerance: 1.5, maxTolerance: 24, outlierFraction: 0.03);
     }
 
     [Fact]
