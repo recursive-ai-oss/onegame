@@ -120,6 +120,7 @@ public sealed partial class Renderer3D
 
         _postGroups.Clear();
         DropSsaoGroups();
+        DropShaftGroups();
     }
 
     private void DisposeFrame()
@@ -130,6 +131,7 @@ public sealed partial class Renderer3D
         }
 
         _set0Cache.Clear();
+        DisposeShafts();
         _set1?.Dispose();
         _clusterSet0?.Dispose();
         _set1 = null;
@@ -204,7 +206,14 @@ public sealed partial class Renderer3D
         }
 
         var atlas = AddShadowPass(graph);
-        var ao = AddSsaoPasses(graph, scene, q, width, height);
+        GraphTexture gbuffer = default;
+        if (_ssaoActive || _shaftActive)
+        {
+            gbuffer = AddPrepass(graph, width, height);
+        }
+
+        var ao = AddSsaoPasses(graph, scene, q, width, height, gbuffer);
+        var shafts = AddShaftMarch(graph, gbuffer, atlas, width, height);
 
         var hasClusters = _lightCount > (int)_frame.Counts.X;
         GraphBuffer lights = default;
@@ -249,6 +258,7 @@ public sealed partial class Renderer3D
         _forward.Sky = environment.Background == BackgroundMode.Environment;
         _forward.Clear = environment.Background == BackgroundMode.Environment ? Vector3.Zero : environment.BackgroundColor;
         graph.AddPass(_forward);
+        AddShaftComposite(graph, shafts, gbuffer, hdr);
 
         var sceneColor = target;
         if (scaled)
@@ -279,6 +289,7 @@ public sealed partial class Renderer3D
             Quality = _quality,
             Ssao = _ssaoActive,
             PlanarReflection = _reflActive,
+            Volumetric = _shaftActive,
             RenderWidth = width,
             RenderHeight = height,
         };
@@ -333,6 +344,7 @@ public sealed partial class Renderer3D
 
         // Lights: directional ones first (always applied), then the clustered punctual ones. Lights that cast shadows get tiles of the atlas.
         BeginShadows(scene, q, width, height, aspect, near, far);
+        var shaftsWanted = BeginShafts(scene, q);
         var count = 0;
         var dirCount = 0;
         for (var pass = 0; pass < 2; pass++)
@@ -352,6 +364,10 @@ public sealed partial class Renderer3D
                 }
 
                 _lightRecords[count++] = rec;
+                if (shaftsWanted && l.Volumetric)
+                {
+                    AddShaftLight(rec, l);
+                }
                 if (pass == 0)
                 {
                     dirCount++;
@@ -360,6 +376,7 @@ public sealed partial class Renderer3D
         }
 
         _lightCount = count;
+        FinishShafts(scene, q, width, height, ShaftSize(width, q.VolumetricScale), ShaftSize(height, q.VolumetricScale));
         if (count > 0)
         {
             Device.WriteBuffer(_lightBuffer, 0, MemoryMarshal.AsBytes(new ReadOnlySpan<LightRecord>(_lightRecords, 0, count)));

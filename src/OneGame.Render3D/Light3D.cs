@@ -39,6 +39,18 @@ public sealed class Light3D
     /// </summary>
     public bool CastShadows { get; set; }
 
+    /// <summary>
+    /// Whether this light makes light shafts (see <see cref="VolumetricSettings"/>; <see cref="Scene3D.Volumetric"/> must be enabled too). Off by default.
+    /// At most <see cref="Renderer3D.MaxVolumetricLights"/> lights are used per frame, in light order. With <see cref="CastShadows"/> the shafts are
+    /// broken up by whatever blocks the light; without it the light fills its whole cone or reach evenly.
+    /// </summary>
+    public bool Volumetric { get; set; }
+
+    private float _volumetricIntensity = 1f;
+
+    /// <summary>A multiplier on this light's shafts only (default 1), so a sun can have bold beams next to a faint lamp. Negative and non-finite values are 0.</summary>
+    public float VolumetricIntensity { get => _volumetricIntensity; set => _volumetricIntensity = float.IsFinite(value) ? Math.Max(value, 0f) : 0f; }
+
     /// <summary>Lux (directional) or candela (point, spot).</summary>
     public float Intensity { get; set; } = 1f;
 

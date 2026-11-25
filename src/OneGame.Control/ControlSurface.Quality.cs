@@ -68,6 +68,89 @@ public sealed partial class ControlSurface
         return new RenderScaleResult(stage.Scene.RenderScale, stats?.RenderWidth ?? 0, stats?.RenderHeight ?? 0);
     }
 
+    private VolumetricResult VolumetricOp(Args a)
+    {
+        var stage = Game.Stage as Render3DStage
+            ?? throw new ControlException("no_scene3d", "This game does not draw a 3D scene. Return a Render3DStage from GameDefinition.CreateRenderStage.");
+        var scene = stage.Scene;
+        var v = scene.Volumetric;
+        if (a.Has("enabled"))
+        {
+            v.Enabled = a.Bool("enabled", false);
+        }
+
+        if (a.Has("density"))
+        {
+            v.Density = (float)Positive(a.Double("density", v.Density), "density", allowZero: true);
+        }
+
+        if (a.Has("intensity"))
+        {
+            v.Intensity = (float)Positive(a.Double("intensity", v.Intensity), "intensity", allowZero: true);
+        }
+
+        if (a.Has("anisotropy"))
+        {
+            var g = a.Double("anisotropy", v.Anisotropy);
+            if (!(g >= -0.95 && g <= 0.95))
+            {
+                throw new ControlException("bad_args", "anisotropy must be between -0.95 and 0.95.");
+            }
+
+            v.Anisotropy = (float)g;
+        }
+
+        if (a.Has("maxDistance"))
+        {
+            v.MaxDistance = (float)Positive(a.Double("maxDistance", v.MaxDistance), "maxDistance", allowZero: false);
+        }
+
+        if (a.Has("linkToFog"))
+        {
+            v.LinkToFog = a.Bool("linkToFog", false);
+        }
+
+        if (a.Has("light"))
+        {
+            var index = a.Int("light", 0);
+            if ((uint)index >= (uint)scene.Lights.Count)
+            {
+                throw new ControlException("bad_args", $"light must be an index from 0 to {scene.Lights.Count - 1} (the scene has {scene.Lights.Count} lights).");
+            }
+
+            var light = scene.Lights[index];
+            if (a.Has("lightEnabled"))
+            {
+                light.Volumetric = a.Bool("lightEnabled", false);
+            }
+
+            if (a.Has("lightIntensity"))
+            {
+                light.VolumetricIntensity = (float)Positive(a.Double("lightIntensity", light.VolumetricIntensity), "lightIntensity", allowZero: true);
+            }
+        }
+
+        var q = QualitySettings.For(scene.Quality);
+        var lights = new VolumetricLightInfo[scene.Lights.Count];
+        for (var i = 0; i < lights.Length; i++)
+        {
+            var l = scene.Lights[i];
+            lights[i] = new VolumetricLightInfo(i, l.Kind.ToString().ToLowerInvariant(), l.Volumetric, l.VolumetricIntensity, l.CastShadows);
+        }
+
+        return new VolumetricResult(v.Enabled, v.Density, v.Intensity, v.Anisotropy, v.MaxDistance, v.LinkToFog, q.VolumetricSteps > 0, q.VolumetricSteps, q.VolumetricScale, stage.Renderer?.LastStats.Volumetric ?? false, lights);
+    }
+
+    private static double Positive(double value, string name, bool allowZero)
+    {
+        if (!(double.IsFinite(value) && (allowZero ? value >= 0 : value > 0)))
+        {
+            throw new ControlException("bad_args", $"{name} must be {(allowZero ? "zero or more" : "above 0")}.");
+        }
+
+        return value;
+    }
+
     private EnvironmentResult EnvironmentOp(Args a)
     {
         var stage = Game.Stage as Render3DStage

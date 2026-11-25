@@ -45,14 +45,23 @@ public readonly record struct QualitySettings(
     /// </summary>
     public float ReflectionScale { get; init; }
 
+    /// <summary>
+    /// Samples along each view ray for light shafts (<see cref="VolumetricSettings"/>). 0 turns them off (Low, and a <see cref="QualitySettings"/>
+    /// built by hand without it).
+    /// </summary>
+    public int VolumetricSteps { get; init; }
+
+    /// <summary>Edge of the image the shafts are marched at, as a share of the frame's width and height (0.25 or 0.5 by level); it is upsampled to full size.</summary>
+    public float VolumetricScale { get; init; }
+
     /// <summary>The settings of a level.</summary>
     /// <param name="level">The level.</param>
     public static QualitySettings For(QualityLevel level) => level switch
     {
         QualityLevel.Low => new(level, 512, 2, 0, false, 0, true, 1, false, 64),
-        QualityLevel.Medium => new(level, 1024, 3, 0, true, 8, true, 4, true, 128) { ReflectionScale = 0.5f },
-        QualityLevel.Ultra => new(level, 4096, 4, 2, true, 24, false, 8, true, 512) { ReflectionScale = 1f },
-        _ => new(QualityLevel.High, 2048, 4, 1, true, 14, false, 4, true, 256) { ReflectionScale = 0.75f },
+        QualityLevel.Medium => new(level, 1024, 3, 0, true, 8, true, 4, true, 128) { ReflectionScale = 0.5f, VolumetricSteps = 16, VolumetricScale = 0.25f },
+        QualityLevel.Ultra => new(level, 4096, 4, 2, true, 24, false, 8, true, 512) { ReflectionScale = 1f, VolumetricSteps = 48, VolumetricScale = 0.5f },
+        _ => new(QualityLevel.High, 2048, 4, 1, true, 14, false, 4, true, 256) { ReflectionScale = 0.75f, VolumetricSteps = 24, VolumetricScale = 0.5f },
     };
 
     /// <summary>Parses a level name (case-insensitive); false for an unknown name.</summary>
