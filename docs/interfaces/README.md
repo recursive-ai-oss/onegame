@@ -12,6 +12,6 @@ To make a game, start with [first-game.md](../first-game.md) and [driving-a-game
 
 **UI:** [ui-render](ui-render.md) (the display list), [ui-input-inspect](ui-input-inspect.md), [ui-kit](ui-kit.md), [onerender](onerender.md) (HTML and CSS pages), [tween](tween.md) (tweens, easing and style transitions).
 
-**Platform and services:** [platform](platform.md) (windows, events, input devices), [host-lifetime](host-lifetime.md) (what survives a `GameApp.Run`), [input](input.md) (actions and rebinding), [audio](audio.md), [assets](assets.md), [storage](storage.md), [steam](steam.md), [store](store.md) (in-app purchases), [android](android.md), [ios](ios.md).
+**Platform and services:** [platform](platform.md) (windows, events, input devices), [host-lifetime](host-lifetime.md) (what survives a `GameApp.Run`), [game-options](game-options.md) (a game's own command-line options), [input](input.md) (actions and rebinding), [audio](audio.md), [assets](assets.md), [storage](storage.md), [steam](steam.md), [store](store.md) (in-app purchases), [android](android.md), [ios](ios.md).
 
 **Harness:** [control](control.md) (the control layer and its three faces).

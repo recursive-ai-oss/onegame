@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- Game-defined command-line options. `GameDefinition.OptionNames` declares the names a game takes itself; they work in release and development builds beside the engine's and the development options (and on Android through the `onegame.args` extra), and the game reads them from `GameInstance.Args` (also `GameOptions.Args`, `GameArgs.Empty`). Undeclared options are refused as before, so a misspelt `--scenaro` still fails, and the error lists the game's own options. A non-development run's `--json` summary has a `gameOptions` object. `onegame android live` now forwards the game arguments after `--`. `docs/interfaces/game-options.md`.
+
 ## [2.4.0] - 2026-11-25
 
 ### Added

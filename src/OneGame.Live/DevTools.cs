@@ -35,9 +35,10 @@ internal sealed class DevTools : IDevTools
                     continue;
                 }
 
-                if (Array.IndexOf(Known, name) < 0)
+                if (Array.IndexOf(Known, name) < 0 && !game.Definition.OptionNames.Contains(name))
                 {
-                    throw new FormatException($"Unknown option --{name}. Development options: {string.Join(" ", Known.Select(k => "--" + k))}.");
+                    var own = game.Definition.OptionNames.Count == 0 ? "" : $" Game options: {string.Join(" ", game.Definition.OptionNames.Select(k => "--" + k))}.";
+                    throw new FormatException($"Unknown option --{name}. Development options: {string.Join(" ", Known.Select(k => "--" + k))}.{own}");
                 }
             }
 
