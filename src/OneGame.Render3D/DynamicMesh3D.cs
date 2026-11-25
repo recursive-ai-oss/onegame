@@ -188,6 +188,8 @@ public sealed partial class Renderer3D
             BindGroupEntry.ForSampler(8, _defaultSampler),
             BindGroupEntry.ForSampler(9, _defaultSampler),
             BindGroupEntry.ForSampler(10, _defaultSampler),
+            BindGroupEntry.ForTexture(11, _whiteLayer, new TextureViewDesc { Kind = TextureViewKind.D2Array }),
+            BindGroupEntry.ForSampler(12, _defaultSampler),
         ];
         var group = owner.Own(CreateMaterialGroup(entries));
         var material = new Material3D(this, owner, name, constants, buffer, group, entries, alpha == MaterialAlpha3D.Blend, doubleSided, alpha == MaterialAlpha3D.Mask);
@@ -254,7 +256,7 @@ public sealed partial class Renderer3D
         for (var i = 0; i < vertices.Length; i++)
         {
             ref readonly var v = ref vertices[i];
-            _packVertices[i] = new PackedVertex { Position = v.Position, Normal = v.Normal, Tangent = new Vector4(0, 0, 0, 1), Uv0 = v.Uv, Color = v.Color, Weights = new Vector4(1, 0, 0, 0) };
+            _packVertices[i] = new PackedVertex { Position = v.Position, Normal = v.Normal, Tangent = new Vector4(0, 0, 0, 1), Uv0 = v.Uv, Uv1 = new Vector2(v.Layer, 0), Color = v.Color, Weights = new Vector4(1, 0, 0, 0) };
             min = Vector3.Min(min, v.Position);
             max = Vector3.Max(max, v.Position);
         }

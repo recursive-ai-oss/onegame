@@ -128,6 +128,7 @@ public sealed partial class Renderer3D : IDisposable
     private readonly GpuSampler _envSampler;
     private readonly GpuSampler _defaultSampler;
     private readonly GpuTexture _white;
+    private readonly GpuTexture _whiteLayer;
     private readonly Dictionary<int, GpuGraphicsPipeline> _pipelines = [];
     private readonly Dictionary<GltfSampler, GpuSampler> _samplers = [];
     private readonly VertexBufferLayout _vertexLayout;
@@ -169,6 +170,10 @@ public sealed partial class Renderer3D : IDisposable
         }));
         _white = Own(device.CreateTexture(new TextureDesc(1, 1, GpuFormat.Rgba8Unorm, TextureUsage.Sampled | TextureUsage.CopyDestination) { Label = "white" }));
         device.WriteTexture(_white, 0, 0, new byte[] { 255, 255, 255, 255 });
+
+        // Stands in for the layer binding of materials that don't use layers; the shader never samples it then.
+        _whiteLayer = Own(device.CreateTexture(new TextureDesc(1, 1, GpuFormat.Rgba8Unorm, TextureUsage.Sampled | TextureUsage.CopyDestination) { Label = "white layer" }));
+        device.WriteTexture(_whiteLayer, 0, 0, new byte[] { 255, 255, 255, 255 });
 
         InitFrame();
         InitPost();
@@ -358,6 +363,8 @@ public sealed partial class Renderer3D : IDisposable
                 BindGroupEntry.ForSampler(8, SamplerFor(m.NormalTexture)),
                 BindGroupEntry.ForSampler(9, SamplerFor(m.OcclusionTexture)),
                 BindGroupEntry.ForSampler(10, SamplerFor(m.EmissiveTexture)),
+                BindGroupEntry.ForTexture(11, _whiteLayer, new TextureViewDesc { Kind = TextureViewKind.D2Array }),
+                BindGroupEntry.ForSampler(12, _defaultSampler),
             ];
             var group = result.Own(CreateMaterialGroup(entries));
             materials[i] = new Material3D(this, result, m.Name ?? "", constants, buffer, group, entries, m.AlphaMode == GltfAlphaMode.Blend, m.DoubleSided, m.AlphaMode == GltfAlphaMode.Mask);
@@ -516,6 +523,8 @@ public sealed partial class Renderer3D : IDisposable
 
         _owned.Clear();
     }
+
+    internal GpuTexture WhiteLayer => _whiteLayer;
 
     internal GpuBindGroup CreateMaterialGroup(BindGroupEntry[] entries) => Device.CreateBindGroup(_layout, 2, entries);
 

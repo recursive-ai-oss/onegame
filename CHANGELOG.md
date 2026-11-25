@@ -28,6 +28,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 - `Renderer3D.ReadGpuPassTimes` and the graph's pass times could return a wrapped value of about 1.6e13 ms when a pass's end timestamp read below its start; such an interval is now zero.
 - `FrameStats3D.GpuFrameMs` was null on about one frame in a hundred on a busy GPU because the timing ring slot of the only finished frame was recycled before it was read; the graph now keeps the newest resolved frame, so it is a value from the first finished frame on.
 - The shader hot-reload test in the Testing tests skips on Metal, like the Render2D one (reloading recompiles to SPIR-V only), instead of failing there.
+- Layered materials for blocky worlds: `Renderer3D.CreateLayeredMaterial(name, width, height, layers, ...)` builds a `Material3D` whose base colour is a texture array (nearest, repeating inside each layer, no blending between layers), and each vertex chooses its layer with `MeshVertex3D.Layer` (a new init property and a five-argument constructor; for glTF meshes, the first component of `TEXCOORD_1`). One material and one draw per chunk replace one per texture per chunk: a 36-chunk, 32-texture test scene goes from 1,151 draws to 36. `Material3D.LayerCount`. Every material's bind group gains two bindings (set 2, bindings 11 and 12: a one-texel placeholder array and a sampler); the 3D pixel shaders read the base colour through one function, so existing materials draw as before.
 
 ## [2.3.0] - 2026-11-22
 

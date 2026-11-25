@@ -46,7 +46,7 @@ struct ShadowData
     float4 Emissive;       // rgb already multiplied by emissive strength, w = 1 - material opacity (0 by default)
     float4 P0;             // x metallic, y roughness, z normal scale, w occlusion strength
     float4 P1;             // x alpha cutoff, y alpha mode (0 opaque, 1 mask, 2 blend), z unlit, w dielectric f0
-    uint4 Flags;           // x has normal map, y 1 when the material ignores fog
+    uint4 Flags;           // x has normal map, y 1 when the material ignores fog, z 1 when the base colour comes from LayerTex (layer = Uv1.x)
     float4 Xf[10];         // per texture: row 0 = (m11, m21, m31, uv set), row 1 = (m12, m22, m32, 0)
     float4 StyleA;         // x style (0 pbr, 1 toon, 2 flat), y toon bands, z toon softness, w toon highlight
     float4 StyleB;         // x outline width in pixels
@@ -70,6 +70,8 @@ float SurfaceFog(float3 worldPos)
 [[vk::binding(8, 2)]] SamplerState NormalSamp;
 [[vk::binding(9, 2)]] SamplerState OccSamp;
 [[vk::binding(10, 2)]] SamplerState EmisSamp;
+[[vk::binding(11, 2)]] Texture2DArray<float4> LayerTex;   // layered materials (Flags.z = 1): base colour layers, chosen per vertex
+[[vk::binding(12, 2)]] SamplerState LayerSamp;
 
 struct VIn
 {
@@ -211,6 +213,18 @@ float2 TexUv(uint slot, VOut i)
     float2 uv = r0.w > 0.5 ? i.Uv1 : i.Uv0;
     float3 h = float3(uv, 1.0);
     return float2(dot(h, r0.xyz), dot(h, r1.xyz)) + WaterA.yz * Refl.w;
+}
+
+// Base colour texel. A layered material reads layer round(Uv1.x) of LayerTex at the base texture's coordinates (nearest, repeating within the layer).
+float4 BaseSample(VOut i)
+{
+    float2 uv = TexUv(0u, i);
+    if (Flags.z != 0u)
+    {
+        return LayerTex.Sample(LayerSamp, float3(uv, floor(i.Uv1.x + 0.5)));
+    }
+
+    return BaseTex.Sample(BaseSamp, uv);
 }
 
 // ---- BRDF pieces (glTF 2.0 Appendix B) ----
@@ -473,7 +487,7 @@ bool AlphaMasked(float4 base)
 float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
 {
     // Every texture is sampled before anything can discard, so screen-space derivatives stay defined.
-    float4 base = BaseColor * i.Color * BaseTex.Sample(BaseSamp, TexUv(0u, i));
+    float4 base = BaseColor * i.Color * BaseSample(i);
     float4 mr = MrTex.Sample(MrSamp, TexUv(1u, i));
     float3 tn = NormalTex.Sample(NormalSamp, TexUv(2u, i)).xyz * 2.0 - 1.0;
     float occ = OccTex.Sample(OccSamp, TexUv(3u, i)).r;
@@ -618,7 +632,7 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
 [shader("pixel")]
 void PSShadowMask(VOut i)
 {
-    float4 base = BaseColor * i.Color * BaseTex.Sample(BaseSamp, TexUv(0u, i));
+    float4 base = BaseColor * i.Color * BaseSample(i);
     if (AlphaMasked(base))
     {
         discard;
@@ -629,7 +643,7 @@ void PSShadowMask(VOut i)
 [shader("pixel")]
 float4 PSPrepass(VOut i, bool front : SV_IsFrontFace) : SV_Target
 {
-    float4 base = BaseColor * i.Color * BaseTex.Sample(BaseSamp, TexUv(0u, i));
+    float4 base = BaseColor * i.Color * BaseSample(i);
     if (AlphaMasked(base))
     {
         discard;
@@ -644,7 +658,7 @@ float4 PSPrepass(VOut i, bool front : SV_IsFrontFace) : SV_Target
 [shader("pixel")]
 float4 PSOutline(VOut i) : SV_Target
 {
-    float4 base = BaseColor * i.Color * BaseTex.Sample(BaseSamp, TexUv(0u, i));
+    float4 base = BaseColor * i.Color * BaseSample(i);
     if (AlphaMasked(base))
     {
         discard;
