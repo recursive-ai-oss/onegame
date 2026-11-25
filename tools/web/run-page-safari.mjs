@@ -21,10 +21,13 @@ const hook = `<script>if (!window.__ogLogs) { window.__ogLogs = []; const push =
   for (const k of ['log', 'info', 'warn', 'error', 'debug']) { const o = console[k].bind(console); console[k] = (...a) => { push(k, a); o(...a); }; }
   window.addEventListener('error', e => window.__ogLogs.push('exception: ' + e.message));
   window.addEventListener('unhandledrejection', e => window.__ogLogs.push('exception: ' + e.reason)); }</script>`;
+// --mounts "/testdata=<dir>,/models=<dir>" serves more folders under URL prefixes (the 3D runner page fetches its test data that way).
+const mounts = (args.mounts || '').split(',').filter(Boolean).map(m => { const [prefix, dir] = m.split('='); return [prefix, path.resolve(dir)]; });
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
-  let file = path.join(root, decodeURIComponent(url.pathname));
-  if (!file.startsWith(root)) { res.writeHead(403).end(); return; }
+  const mount = mounts.find(([prefix]) => url.pathname.startsWith(prefix + '/'));
+  let file = mount ? path.join(mount[1], decodeURIComponent(url.pathname.slice(mount[0].length))) : path.join(root, decodeURIComponent(url.pathname));
+  if (!mount && !file.startsWith(root)) { res.writeHead(403).end(); return; }
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
   if (!fs.existsSync(file)) { res.writeHead(404).end('not found'); return; }
   res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-store' });
@@ -84,6 +87,12 @@ if (args.script) {
   const mod = await import(path.resolve(args.script));
   const watchdog = new Promise((_, rej) => setTimeout(() => rej(new Error('script timed out')), timeout));
   try { result = JSON.stringify(await Promise.race([mod.default({ evalJs, sleep, logs, driver: { wd, s } }), watchdog])); } catch (e) { result = JSON.stringify({ ok: false, error: String(e && e.stack || e) }); }
+}
+// No script: wait for the page to publish window.__result (the runner pages do), as run-page.mjs does.
+for (const start = Date.now(); !result && !args.script && Date.now() - start < timeout;) {
+  await sleep(500);
+  const r = await wd('POST', s('/execute/sync'), { script: 'return window.__result || null', args: [] }).catch(() => null);
+  if (r) result = typeof r === 'string' ? r : JSON.stringify(r);
 }
 clearInterval(timer);
 if (!result || args.log) console.error(logs.join('\n'));
