@@ -160,6 +160,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         "capture_sequence" => Json(CaptureSequenceAsync(a).AsTask().GetAwaiter().GetResult(), ControlJson.Default.SequenceResult),
         "quality" => Json(Quality(a), ControlJson.Default.QualityResult),
         "render_scale" => Json(RenderScaleOp(a), ControlJson.Default.RenderScaleResult),
+        "volumetric" => Json(VolumetricOp(a), ControlJson.Default.VolumetricResult),
         "environment" => Json(EnvironmentOp(a), ControlJson.Default.EnvironmentResult),
         "draw_view" => Json(Draw2DOp(a), ControlJson.Default.Draw2DReport),
         "particles" => Json(ParticlesOp(a), ControlJson.Default.ParticlesReport),

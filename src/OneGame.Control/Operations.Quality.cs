@@ -62,6 +62,29 @@ public sealed record EnvironmentResult(bool FogEnabled, double[] FogColor, doubl
 /// <param name="Error">Why a failed load failed.</param>
 public sealed record EnvironmentLoadResult(string State, double Progress, string Slot, string? Error);
 
+/// <summary>One light as <c>volumetric</c> reports it.</summary>
+/// <param name="Index">Position in the scene's light list.</param>
+/// <param name="Kind">directional, point or spot.</param>
+/// <param name="Volumetric">Whether the light opts in to light shafts.</param>
+/// <param name="Intensity">The light's own shaft multiplier.</param>
+/// <param name="CastShadows">Whether the light has shadow maps (shafts are broken up by them).</param>
+public sealed record VolumetricLightInfo(int Index, string Kind, bool Volumetric, double Intensity, bool CastShadows);
+
+/// <summary>Result of <c>volumetric</c>: the scene's light shaft settings and what the quality level and the last frame did with them.</summary>
+/// <param name="Enabled">Whether the scene asks for light shafts.</param>
+/// <param name="Density">Scattering per world unit.</param>
+/// <param name="Intensity">Scene-wide multiplier on the scattered light.</param>
+/// <param name="Anisotropy">Henyey-Greenstein g, -0.95 to 0.95.</param>
+/// <param name="MaxDistance">Longest marched stretch of a view ray.</param>
+/// <param name="LinkToFog">Whether shafts fade with the scene's fog.</param>
+/// <param name="Allowed">Whether the current quality level allows shafts (Low does not).</param>
+/// <param name="Steps">Samples per ray at the current level.</param>
+/// <param name="Scale">Size of the marched image as a share of the frame at the current level.</param>
+/// <param name="Active">Whether the last frame ran the shaft passes.</param>
+/// <param name="Lights">Every light of the scene.</param>
+public sealed record VolumetricResult(
+    bool Enabled, double Density, double Intensity, double Anisotropy, double MaxDistance, bool LinkToFog, bool Allowed, int Steps, double Scale, bool Active, VolumetricLightInfo[] Lights);
+
 public static partial class ControlOps
 {
     private static ControlOp[] QualityOps =>
@@ -72,6 +95,9 @@ public static partial class ControlOps
         new("render_scale",
             "Read or set the share of the window a game's 3D scene is drawn at, the cheapest lever on frame time. scale is 0.25 to 1 (1 is full size): the 3D frame (shadows, lighting, bloom, tone mapping) runs on a smaller image that is stretched over the window before the 2D and UI passes, so the UI stays sharp; cost follows the pixel count. Picking, projection and captures keep using window pixels. Applies from the next frame. Returns the scale and the pixel size the last frame drew the scene at.",
             """{"type":"object","properties":{"scale":{"type":"number","minimum":0.25,"maximum":1}}}""", true),
+        new("volumetric",
+            "Read or set the light shafts (volumetric light) of a game that draws a 3D scene. enabled turns them on for the scene; density is scattering per world unit (about 0.01 to 0.1); intensity multiplies the scattered light; anisotropy (-0.95..0.95) favours scattering toward the light's direction of travel when positive; maxDistance is the longest marched stretch of a view ray (keep it at or below the shadow distance); linkToFog fades shafts with the scene's fog. light picks a light by its index in the scene's list: lightEnabled opts it in or out and lightIntensity sets its own multiplier. The quality level bounds the cost and Low has no shafts. Changes apply from the next frame; a game that sets these itself in UpdateScene overwrites them every frame. Returns the settings, whether the level allows shafts, whether the last frame ran them, and every light.",
+            """{"type":"object","properties":{"enabled":{"type":"boolean"},"density":{"type":"number","minimum":0},"intensity":{"type":"number","minimum":0},"anisotropy":{"type":"number","minimum":-0.95,"maximum":0.95},"maxDistance":{"type":"number","exclusiveMinimum":0},"linkToFog":{"type":"boolean"},"light":{"type":"integer","minimum":0},"lightEnabled":{"type":"boolean"},"lightIntensity":{"type":"number","minimum":0}}}""", true),
         new("quality",
             "Read or set the quality level of a game that draws a 3D scene. level is low, medium, high or ultra: it bounds shadow map size and cascades, ambient occlusion, multisampling, bloom and environment size, and applies from the next frame. ssao true or false asks the scene for screen-space ambient occlusion (a level may still disallow it). Returns the level's settings, what the last frame did (shadow tiles, instances drawn) and the passes it ran.",
             """{"type":"object","properties":{"level":{"type":"string","enum":["low","medium","high","ultra"]},"ssao":{"type":"boolean"},"ssaoRadius":{"type":"number","exclusiveMinimum":0}}}""", true),

@@ -79,6 +79,57 @@ public static partial class Runner
     }
 
     /// <summary>
+    /// Draws the light shaft scene (a wall with three slits, the sun behind it) on WebGPU, shafts on and off, and compares the shaft frame with
+    /// the software rasterizer's reference. Reports the largest differences, the brightness the shafts add and the validation messages.
+    /// </summary>
+    [JSExport]
+    public static async Task<string> RunShafts()
+    {
+        try
+        {
+            _device ??= await WebGpu.CreateDeviceAsync(new GpuDeviceOptions { ApplicationName = "render3d web runner" }).ConfigureAwait(true);
+            const int w = 320;
+            const int h = 180;
+            var (rw, rh, reference) = Png.Read("/ref/shafts_slit.png");
+            if ((rw, rh) != (w, h))
+            {
+                throw new InvalidOperationException($"reference is {rw}x{rh}, expected {w}x{h}");
+            }
+
+            using var renderer = new Renderer3D(_device);
+            using var target = new Offscreen3D(renderer, w, h, GpuFormat.Rgba8UnormSrgb);
+            using var rig = new Rig(renderer);
+            var scene = ShaftScene.Slit(ShaftScene.SlitShapes().Upload(rig));
+            var on = await target.CaptureAsync(scene).ConfigureAwait(true);
+            var ran = renderer.LastStats.Volumetric;
+            scene.Volumetric.Enabled = false;
+            var off = await target.CaptureAsync(scene).ConfigureAwait(true);
+            await WebGpu.SettleAsync(_device).ConfigureAwait(true);
+            long added = 0;
+            for (var i = 0; i < on.Length; i += 4)
+            {
+                added += (on[i] - off[i]) + (on[i + 1] - off[i + 1]) + (on[i + 2] - off[i + 2]);
+            }
+
+            var diff = new byte[w * h * 4];
+            var d = Compare.Measure(w, h, reference, on, 2, diff);
+            var messages = _device.TakeValidationMessages();
+            Directory.CreateDirectory("/out");
+            Png.Write("/out/shafts.png", w, h, on);
+            return JsonSerializer.Serialize(new Dictionary<string, object?>
+            {
+                ["name"] = "shafts", ["ok"] = ran && added > w * h * 3 * 8 && d.MeanAbs <= 11 && d.P95 <= 45 && messages.Length == 0,
+                ["ran"] = ran, ["meanAdded"] = Math.Round(added / (w * h * 3.0), 2), ["meanAbs"] = Math.Round(d.MeanAbs, 3), ["p95"] = d.P95,
+                ["validation"] = messages, ["png"] = Convert.ToBase64String(File.ReadAllBytes("/out/shafts.png")),
+            }, RunnerJson.Options);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return JsonSerializer.Serialize(new Dictionary<string, object?> { ["name"] = "shafts", ["ok"] = false, ["error"] = ex.ToString() }, RunnerJson.Options);
+        }
+    }
+
+    /// <summary>
     /// Draws one case of <c>cases.json</c> (the model is at <c>/models/&lt;model path&gt;</c>, the panorama at <c>/env/&lt;name&gt;_1k.hdr</c>) and returns
     /// a JSON result: the measured difference to the reference, the limits, and the captured frame as a PNG in base64.
     /// </summary>

@@ -359,6 +359,9 @@ public sealed class Scene3D
     /// <summary>Distance fog; off until <see cref="FogSettings.Enabled"/> is set.</summary>
     public FogSettings Fog { get; } = new();
 
+    /// <summary>Light shafts through the air; off until <see cref="VolumetricSettings.Enabled"/> is set and a light opts in with <see cref="Light3D.Volumetric"/>.</summary>
+    public VolumetricSettings Volumetric { get; } = new();
+
     /// <summary>Copies of models drawn in bulk (see <see cref="AddInstanced"/>).</summary>
     public List<InstanceBatch3D> Batches { get; } = [];
 

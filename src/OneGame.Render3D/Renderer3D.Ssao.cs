@@ -91,8 +91,20 @@ public sealed partial class Renderer3D
         return group;
     }
 
-    // Adds the prepass and the two occlusion passes; returns the finished occlusion texture, or an invalid handle when the effect is off.
-    private GraphTexture AddSsaoPasses(RenderGraph graph, Scene3D scene, in QualitySettings q, int width, int height)
+    // Adds the depth and normal prepass (view-space normals and distances) that occlusion and light shafts read; returns its image.
+    private GraphTexture AddPrepass(RenderGraph graph, int width, int height)
+    {
+        var gbuffer = graph.CreateTexture("ssao_gbuffer", new TextureDesc((uint)width, (uint)height, GBufferFormat, TextureUsage.None));
+        var depth = graph.CreateTexture("ssao_depth", new TextureDesc((uint)width, (uint)height, DepthFormat, TextureUsage.None));
+        _prepassPass.Owner = this;
+        _prepassPass.Gbuffer = gbuffer;
+        _prepassPass.Depth = depth;
+        graph.AddPass(_prepassPass);
+        return gbuffer;
+    }
+
+    // Adds the two occlusion passes over the prepass image; returns the finished occlusion texture, or an invalid handle when the effect is off.
+    private GraphTexture AddSsaoPasses(RenderGraph graph, Scene3D scene, in QualitySettings q, int width, int height, GraphTexture gbuffer)
     {
         if (!_ssaoActive)
         {
@@ -101,8 +113,6 @@ public sealed partial class Renderer3D
 
         var aoW = q.SsaoHalfResolution ? Math.Max(width / 2, 1) : width;
         var aoH = q.SsaoHalfResolution ? Math.Max(height / 2, 1) : height;
-        var gbuffer = graph.CreateTexture("ssao_gbuffer", new TextureDesc((uint)width, (uint)height, GBufferFormat, TextureUsage.None));
-        var depth = graph.CreateTexture("ssao_depth", new TextureDesc((uint)width, (uint)height, DepthFormat, TextureUsage.None));
         var raw = graph.CreateTexture("ssao_raw", new TextureDesc((uint)aoW, (uint)aoH, GpuFormat.R8Unorm, TextureUsage.None));
         var ao = graph.CreateTexture("ssao", new TextureDesc((uint)aoW, (uint)aoH, GpuFormat.R8Unorm, TextureUsage.None));
 
@@ -116,11 +126,6 @@ public sealed partial class Renderer3D
         _ssaoConstants[0] = constants;
         _ssaoConstants[1] = constants;
         Device.WriteBuffer(_ssaoBuffer, 0, MemoryMarshal.AsBytes(new ReadOnlySpan<SsaoConstants>(_ssaoConstants)));
-
-        _prepassPass.Owner = this;
-        _prepassPass.Gbuffer = gbuffer;
-        _prepassPass.Depth = depth;
-        graph.AddPass(_prepassPass);
 
         _ssaoRawPass.Owner = this;
         _ssaoRawPass.Gbuffer = gbuffer;

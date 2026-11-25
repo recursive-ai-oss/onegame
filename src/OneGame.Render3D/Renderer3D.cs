@@ -61,6 +61,9 @@ public readonly record struct FrameStats3D(int Objects, int DrawCalls, long Tria
 
     /// <summary>Height in pixels of the image the scene was drawn at.</summary>
     public int RenderHeight { get; init; }
+
+    /// <summary>Whether the light shaft passes ran (see <see cref="VolumetricSettings"/>).</summary>
+    public bool Volumetric { get; init; }
 }
 
 /// <summary>
@@ -170,6 +173,7 @@ public sealed partial class Renderer3D : IDisposable
         InitFrame();
         InitPost();
         InitSsao();
+        InitShafts();
         InitIbl();
     }
 

@@ -27,6 +27,14 @@ try {
       results.push(r);
       continue;
     }
+    if (name === 'shafts') {   // light shafts against the software rasterizer's reference
+      await put(R, '/ref/shafts_slit.png', '/testdata/render3d/m4/shafts_slit.png');
+      const started = performance.now();
+      const r = JSON.parse(await R.RunShafts());
+      r.ms = Math.round(performance.now() - started);
+      results.push(r);
+      continue;
+    }
     const c = cases.find(x => x.name === name);
     const dir = c.model.split('/').slice(0, -2).join('/') + '/' + c.model.split('/').slice(-2, -1)[0];   // <Model>/glTF
     const files = await (await fetch('/__list?path=' + encodeURIComponent('/models/' + dir))).json();
