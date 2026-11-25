@@ -169,14 +169,14 @@ internal static class Render3DSmoke
         layerScene.Add(layerMesh.Model);
         layerScene.Camera = meshScene.Camera;
         layerScene.Lights.Add(Light3D.Directional(new Vector3(0.2f, -1, -0.3f), Vector3.One, 3f));
-        var layerPixels = target.Capture(layerScene);
-        var redPixels = 0;
-        for (var i = 0; i < layerPixels.Length; i += 4)
+        var layerPix = target.Capture(layerScene);
+        var layerRed = 0;
+        for (var i = 0; i < layerPix.Length; i += 4)
         {
-            redPixels += layerPixels[i] > 150 && layerPixels[i + 2] < 60 ? 1 : 0;
+            layerRed += layerPix[i] > 150 && layerPix[i + 2] < 60 ? 1 : 0;
         }
 
-        if (layered.LayerCount != 2 || redPixels < 100) { return $"the layered material shows {redPixels} red pixels"; }
+        if (layered.LayerCount != 2 || layerRed < 100) { return $"the layered material shows {layerRed} red pixels"; }
         device.WaitIdle();
 
         // Distance fog and an environment crossfade, both set per frame.
