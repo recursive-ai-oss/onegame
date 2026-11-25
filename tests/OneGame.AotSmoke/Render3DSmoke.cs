@@ -173,10 +173,10 @@ internal static class Render3DSmoke
         var layerRed = 0;
         for (var i = 0; i < layerPix.Length; i += 4)
         {
-            layerRed += layerPix[i] > 150 && layerPix[i + 2] < 60 ? 1 : 0;
+            layerRed += layerPix[i] > 150 && layerPix[i + 1] < 100 && layerPix[i + 2] < 100 ? 1 : 0;
         }
 
-        if (layered.LayerCount != 2 || layerRed < 100) { return $"the layered material shows {layerRed} red pixels"; }
+        if (layered.LayerCount != 2 || layerRed < 100) { return $"the layered material shows {layerRed} red pixels (centre {layerPix[(((target.Height / 2) * target.Width) + (target.Width / 2)) * 4]},{layerPix[(((target.Height / 2) * target.Width) + (target.Width / 2)) * 4 + 1]},{layerPix[(((target.Height / 2) * target.Width) + (target.Width / 2)) * 4 + 2]})"; }
         device.WaitIdle();
 
         // Distance fog and an environment crossfade, both set per frame.
