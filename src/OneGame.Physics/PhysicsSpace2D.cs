@@ -25,7 +25,7 @@ namespace OneGame.Physics;
 /// views draw into ordinary synced properties.
 /// </para>
 /// </summary>
-public sealed class PhysicsSpace2D : IHotTable
+public sealed partial class PhysicsSpace2D : IHotTable
 {
     /// <summary>The default table name.</summary>
     public const string TableName = "physics";
@@ -153,6 +153,13 @@ public sealed class PhysicsSpace2D : IHotTable
                 h = StateHash.Combine(h, (ulong)(uint)e.BodyB.Index | ((ulong)(uint)e.BodyB.Generation << 32));
             }
 
+            foreach (ref readonly var e in _world.FluidEvents)
+            {
+                h = StateHash.Combine(h, (ulong)e.Kind + 8);
+                h = StateHash.Combine(h, (ulong)(uint)e.Body.Index | ((ulong)(uint)e.Body.Generation << 32));
+                h = StateHash.Combine(h, (ulong)(uint)e.Fluid);
+            }
+
             return h;
         }
     }
@@ -176,6 +183,7 @@ public sealed class PhysicsSpace2D : IHotTable
     {
         _world.Warmup();
         _ = SnapshotInto(_world, ref _scratch); // sizes the snapshot buffer now, not on the first save or hash
+        WarmFluids();
         _warm = true;
     }
 
@@ -476,6 +484,13 @@ public sealed class PhysicsSpace2D : IHotTable
 
     private static ReadOnlySpan<byte> SnapshotInto(PhysicsWorld2D world, ref byte[] scratch)
     {
+        // A buffer that was big enough last time usually still is: try it first, because asking the size costs the library an allocation
+        // while a particle fluid exists.
+        if (scratch.Length > 0 && world.TrySnapshot(scratch, out var fit))
+        {
+            return scratch.AsSpan(0, fit);
+        }
+
         var size = world.GetSnapshotSize();
         if (scratch.Length < size)
         {
@@ -491,7 +506,12 @@ public sealed class PhysicsSpace2D : IHotTable
     }
 
     /// <inheritdoc />
-    public void Clear() => _world = Create();
+    public void Clear()
+    {
+        _world = Create();
+        _emitters.Clear();
+        _drains.Clear();
+    }
 
     /// <inheritdoc />
     /// <remarks>The whole physics snapshot, byte-exact.</remarks>
@@ -590,6 +610,26 @@ public sealed class PhysicsSpace2D : IHotTable
         }
 
         json.EndArray();
+        if (_world.ParticleFluidCount > 0)
+        {
+            json.Name("fluidParticles");
+            json.Value(_world.FluidParticleCount);
+            json.Name("fluids");
+            json.BeginArray();
+            for (var i = 0; i < _world.ParticleFluidCount; i++)
+            {
+                var f = _world.GetParticleFluid(i);
+                json.BeginObject();
+                json.Name("slot");
+                json.Value(i);
+                json.Name("particles");
+                json.Value(f.ParticleCount);
+                json.EndObject();
+            }
+
+            json.EndArray();
+        }
+
         json.EndObject();
     }
 

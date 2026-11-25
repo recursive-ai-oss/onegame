@@ -10,6 +10,8 @@ internal static class PhysicsSmoke
     {
         var three = Run3D();
         if (three is not null) return three;
+        var fluid = RunFluid();
+        if (fluid is not null) return fluid;
         var registry = new EntityRegistry();
         var world = new World(1, registry);
         var space = PhysicsSpace2D.AddTo(world);
@@ -65,6 +67,50 @@ internal static class PhysicsSmoke
 
         return space.Position(box).Y < Fixed.FromInt(-1) ? "the box fell through the ground" : null;
     }
+    // A cup of water over a drain: fill, emit, drain, query and read particles, then save mid-flow and restore into a second world.
+    private static string? RunFluid()
+    {
+        var world = new World(1, new EntityRegistry());
+        var space = PhysicsSpace2D.AddTo(world);
+        space.AddBox(new FVec2(20, 1), new FVec2(0, Fixed.FromRatio(-1, 2)), new BodyOptions { Kind = BodyKind.Static });
+        var water = space.AddFluid(new FluidOptions { Preset = FluidPreset.Water });
+        var filled = space.FillFluidBox(water, new FVec2(-2, 1), new FVec2(2, 2));
+        space.AddEmitter(water, new FluidEmitterOptions { Position = new FVec2(0, 4), Direction = new FVec2(0, -1), MaxEmitted = 50 });
+        var drain = space.AddDrain(water, new FluidDrainOptions { Position = new FVec2(0, Fixed.FromRatio(1, 5)), Size = new FVec2(3, Fixed.FromRatio(1, 5)) });
+        for (var i = 0; i < 40; i++)
+        {
+            world.Step();
+        }
+
+        var writer = new SyncWriter();
+        world.WriteSnapshot(writer);
+        var copy = new World(1, new EntityRegistry());
+        var copySpace = PhysicsSpace2D.AddTo(copy);
+        if (copy.ReadSnapshot(writer.Written) != SyncError.None)
+        {
+            return "the fluid snapshot did not load";
+        }
+
+        for (var i = 0; i < 200; i++)
+        {
+            world.Step();
+            copy.Step();
+            if (world.ComputeHash() != copy.ComputeHash())
+            {
+                return $"restored fluid world diverged at tick {world.Tick}";
+            }
+        }
+
+        var buffer = new FluidParticle[512];
+        var n = space.GetFluidParticles(buffer, water);
+        if (filled < 50 || n != copySpace.ParticleCount(water) || space.Drained(drain) == 0)
+        {
+            return $"fluid check failed: filled {filled}, read {n}, drained {space.Drained(drain)}";
+        }
+
+        return space.OverlapFluidCircle(new FVec2(0, 50), Fixed.One, default, water) == 0 ? null : "fluid found where there is none";
+    }
+
     private static string? Run3D()
     {
         var world = new World(1, new EntityRegistry());

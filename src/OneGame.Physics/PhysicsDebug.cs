@@ -45,11 +45,23 @@ public sealed class PhysicsDebugShapes
     /// <summary>Colour of contact points and normals.</summary>
     public const uint ContactColor = 0xFF5050FF;
 
+    /// <summary>Colour of fluid particles.</summary>
+    public const uint FluidColor = 0x4FA8FFFF;
+
+    /// <summary>Colour of emitter nozzles.</summary>
+    public const uint EmitterColor = 0x50E070FF;
+
+    /// <summary>Colour of drain volumes.</summary>
+    public const uint DrainColor = 0xFF9040FF;
+
     private const int CircleSegments = 16;
 
     private readonly List<PhysicsDebugLine> _lines = [];
     private readonly DebugGeometry _geometry = new();
     private readonly Dictionary<int, DebugBodyState> _states = [];
+
+    /// <summary>Whether fluid particles (one short dash each) and the outlines of emitters and drains are collected too. Default true; turn it off for a fluid with many thousands of particles.</summary>
+    public bool IncludeFluids { get; set; } = true;
 
     /// <summary>The lines collected so far.</summary>
     public IReadOnlyList<PhysicsDebugLine> Lines => _lines;
@@ -59,7 +71,13 @@ public sealed class PhysicsDebugShapes
 
     internal void Collect(PhysicsWorld2D world)
     {
-        world.GetDebugGeometry(DebugContent.Shapes | DebugContent.Contacts | DebugContent.Bodies, _geometry);
+        var content = DebugContent.Shapes | DebugContent.Contacts | DebugContent.Bodies;
+        if (IncludeFluids && world.ParticleFluidCount > 0)
+        {
+            content |= DebugContent.Fluids;
+        }
+
+        world.GetDebugGeometry(content, _geometry);
         _states.Clear();
         foreach (ref readonly var b in _geometry.Bodies)
         {
@@ -107,6 +125,34 @@ public sealed class PhysicsDebugShapes
                     }
 
                     break;
+            }
+        }
+
+        if ((content & DebugContent.Fluids) != 0)
+        {
+            foreach (ref readonly var p in _geometry.FluidParticles)
+            {
+                var c = P(p.Position);
+                _lines.Add(new PhysicsDebugLine(c - new Vector2(0.03f, 0f), c + new Vector2(0.03f, 0f), FluidColor, 0.06f));
+            }
+
+            foreach (ref readonly var v in _geometry.FluidVolumes)
+            {
+                var c = P(v.Centre);
+                var color = v.IsEmitter ? EmitterColor : DrainColor;
+                if (v.Kind == RecursiveAI.OnePhysics.FluidVolumeKind.Sphere)
+                {
+                    Circle(c, v.Size.X, color);
+                }
+                else
+                {
+                    var hx = v.Size.X;
+                    var hy = v.Size.Y;
+                    Add(c + new Vector2(-hx, -hy), c + new Vector2(hx, -hy), color);
+                    Add(c + new Vector2(hx, -hy), c + new Vector2(hx, hy), color);
+                    Add(c + new Vector2(hx, hy), c + new Vector2(-hx, hy), color);
+                    Add(c + new Vector2(-hx, hy), c + new Vector2(-hx, -hy), color);
+                }
             }
         }
 

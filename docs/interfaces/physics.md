@@ -56,3 +56,14 @@ snapshot bytes through the ordinary table contract. Warmup reserves snapshot
 storage; the world serializer warms on its first hash. `Snapshot` and
 `DescribeDifferences` let tooling retain and compare physics checkpoints without
 adding diagnostic payloads to engine recordings or replica messages.
+
+## 2D particle fluids
+
+`PhysicsSpace2D` exposes the library's particle fluids (`PhysicsSpace2D.Fluids.cs`, types in `Fluids.cs`). Fluids, particles, emitters, drains and the fluid settings are inside the library snapshot and `ComputeHash`, so the table's bytes, the space `Hash` and the world hash cover them with no format change (a fresh world loaded from a mid-flow save continues with equal hashes; a test per claim in `FluidTests` and `FluidGameTests`). `Hash` also folds in the last step's wet/dry events when there are any.
+
+- References: `FluidRef` is slot + 1 (fluids are never removed). `FluidEmitterRef` and `FluidDrainRef` carry fluid, slot and a space-local serial so a reused slot never answers an old reference.
+- Handles: the library returns emitter and drain handles only from `AddEmitter`/`AddDrain`, so the space keeps them in two lookup tables (never iterated). They survive `Restore` into the same space. A space that only loaded a save has none, so `Exists` is false and `Drained`, `Emitted`, `Remove` and `SetEnabled` throw `StaleFluidException`. This depends on the history of the process, so sim code that must behave the same on every node after a load uses fluid-level reads (`ParticleCount`, overlaps) instead. A library lookup by slot would remove the limit.
+- Reads: `GetFluidParticles` and the overlaps go through one grow-only `FluidParticleInfo` scratch array (sized by `Warmup` for the particles that exist then, and by the largest span a caller passes). The library does not filter a read by fluid, so a filtered read scans all particles.
+- Snapshots: `SnapshotInto` tries the existing buffer before asking the library for the size, because with a fluid present each size query, snapshot and hash allocates 112 bytes inside the library (one per world hash after this change).
+- Debug: `PhysicsDebugShapes.IncludeFluids` (default true) adds one dash per particle and the emitter/drain outlines.
+- Harness: the `physics` table JSON gains `fluidParticles` and `fluids` (`slot`, `particles`) when the space has a fluid; nothing changes for spaces without one.

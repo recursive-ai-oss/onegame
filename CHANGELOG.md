@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- 2D particle fluids through `PhysicsSpace2D` on OnePhysics 1.0.0: `AddFluid(FluidOptions)` (presets `FluidPreset.Water/Oil/Honey/Sand/Gravel/Snow/Mud/Clay/Dough` with optional viscosity, density, friction, gravity scale, speed limit and layer), `FluidWorldSettings` (`SetFluidSettings`/`FluidSettings`), `FillFluidBox`, `FillFluidCircle`, `AddFluidParticle`, `AddEmitter`, `AddDrain` (`SetEnabled`, `Remove`, `Emitted`, `Drained`), count and shape queries (`ParticleCount`, `OverlapFluidCircle`, `OverlapFluidBox`, `FluidDensityAt`), `FluidState` for a body, wet and dry events (`FluidEvents`), and a span-filling `GetFluidParticles` for views that allocates nothing. Inputs and outputs are `Fixed`/`FVec2`; `FluidRef`, `FluidEmitterRef` and `FluidDrainRef` are checked synced values. Fluids are in the space's saves, restores, replays and hash with no format change. `PhysicsDebugShapes` draws particles, emitters and drains (`IncludeFluids`); the `physics` table in `state_query` reports `fluidParticles` and a `fluids` array. `examples/physics/fluid` and `docs/physics.md`.
+
 ## [2.4.0] - 2026-11-25
 
 ### Added

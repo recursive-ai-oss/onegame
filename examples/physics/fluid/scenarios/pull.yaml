@@ -1,0 +1,22 @@
+name: pull
+description: Water sits in a cup on a pin with a ball floating on it. Pulling the pin drops the water through the gap onto the floor, where a drain removes it; the drain's count, the particles left and the ball's wet and dry events all reach sim code.
+window: 320x180
+steps:
+  - step: 250
+  - expect:
+      state: { entity: Tank, property: BallWet, min: 1 }
+  - expect:
+      state: { entity: Tank, property: CupHasWater, equals: true }
+  - expect:
+      state: { entity: Tank, property: Drained, equals: 0 }
+  - command: { entity: Tank, name: Pull }
+  - step: 30
+  - expect:
+      capture: { reference: refs/falling.png, tolerance: 8, max-diff: 0.02 }
+  - step: 300
+expect:
+  - state: { entity: Tank, property: Pulled, equals: true }
+  - state: { entity: Tank, property: Remaining, equals: 0 }
+  - state: { entity: Tank, property: Drained, min: 300 }
+  - state: { entity: Tank, property: CupHasWater, equals: false }
+  - state: { entity: Tank, property: BallDry, min: 1 }
