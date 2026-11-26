@@ -58,6 +58,7 @@ dotnet add package RecursiveAI.OneGame.Render2D
 | [`Quad.PSAdditive`](OneGame.Render2D.Shaders/Quad.PSAdditive.md) | static class |  |
 | [`Quad.PSBlur`](OneGame.Render2D.Shaders/Quad.PSBlur.md) | static class |  |
 | [`Quad.PSBright`](OneGame.Render2D.Shaders/Quad.PSBright.md) | static class |  |
+| [`Quad.PSFluid`](OneGame.Render2D.Shaders/Quad.PSFluid.md) | static class |  |
 | [`Quad.PSGrade`](OneGame.Render2D.Shaders/Quad.PSGrade.md) | static class |  |
 | [`Quad.PSSprite`](OneGame.Render2D.Shaders/Quad.PSSprite.md) | static class |  |
 | [`Quad.Params`](OneGame.Render2D.Shaders/Quad.Params.md) | struct |  |

@@ -301,6 +301,8 @@ Every public type in every package, in alphabetical order.
 | [`FluidParticle`](OneGame.Physics/OneGame.Physics/FluidParticle.md) | struct | `OneGame.Physics` | [OneGame.Physics](OneGame.Physics/index.md) | One particle of a fluid, in game types. |
 | [`FluidPreset`](OneGame.Physics/OneGame.Physics/FluidPreset.md) | enum | `OneGame.Physics` | [OneGame.Physics](OneGame.Physics/index.md) | The material a particle fluid starts from. |
 | [`FluidRef`](OneGame.Physics/OneGame.Physics/FluidRef.md) | struct | `OneGame.Physics` | [OneGame.Physics](OneGame.Physics/index.md) | A reference to a fluid, a body-ref-like value that fits a synced property. |
+| [`FluidSurface2D`](OneGame.Host/OneGame.Host/FluidSurface2D.md) | class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | Draws a particle fluid as one smooth body instead of separate dots. |
+| [`FluidSurfaceStyle`](OneGame.Host/OneGame.Host/FluidSurfaceStyle.md) | class | `OneGame.Host` | [OneGame.Host](OneGame.Host/index.md) | How a [`FluidSurface2D`](OneGame.Host/OneGame.Host/FluidSurface2D.md) looks. |
 | [`FluidVolumeShape`](OneGame.Physics/OneGame.Physics/FluidVolumeShape.md) | enum | `OneGame.Physics` | [OneGame.Physics](OneGame.Physics/index.md) | The shape of an emitter's nozzle or a drain's volume. |
 | [`FluidWorldSettings`](OneGame.Physics/OneGame.Physics/FluidWorldSettings.md) | class | `OneGame.Physics` | [OneGame.Physics](OneGame.Physics/index.md) | The settings that apply to every particle fluid of a space (see [`PhysicsSpace2D.FluidSettings`](OneGame.Physics/OneGame.Physics/PhysicsSpace2D.md#m-fluidsettings)). |
 | [`FocusHelpers`](OneGame.UI.Kit/OneGame.UI.Kit/FocusHelpers.md) | static class | `OneGame.UI.Kit` | [OneGame.UI.Kit](OneGame.UI.Kit/index.md) | Focus helpers: a focus group that keeps arrow keys inside a set of controls, a default focus target, and a way to give a screen its first focus. |
@@ -808,6 +810,7 @@ Every public type in every package, in alphabetical order.
 | [`Quad.PSAdditive`](OneGame.Render2D/OneGame.Render2D.Shaders/Quad.PSAdditive.md) | static class | `OneGame.Render2D.Shaders` | [OneGame.Render2D](OneGame.Render2D/index.md) |  |
 | [`Quad.PSBlur`](OneGame.Render2D/OneGame.Render2D.Shaders/Quad.PSBlur.md) | static class | `OneGame.Render2D.Shaders` | [OneGame.Render2D](OneGame.Render2D/index.md) |  |
 | [`Quad.PSBright`](OneGame.Render2D/OneGame.Render2D.Shaders/Quad.PSBright.md) | static class | `OneGame.Render2D.Shaders` | [OneGame.Render2D](OneGame.Render2D/index.md) |  |
+| [`Quad.PSFluid`](OneGame.Render2D/OneGame.Render2D.Shaders/Quad.PSFluid.md) | static class | `OneGame.Render2D.Shaders` | [OneGame.Render2D](OneGame.Render2D/index.md) |  |
 | [`Quad.PSGrade`](OneGame.Render2D/OneGame.Render2D.Shaders/Quad.PSGrade.md) | static class | `OneGame.Render2D.Shaders` | [OneGame.Render2D](OneGame.Render2D/index.md) |  |
 | [`Quad.PSSprite`](OneGame.Render2D/OneGame.Render2D.Shaders/Quad.PSSprite.md) | static class | `OneGame.Render2D.Shaders` | [OneGame.Render2D](OneGame.Render2D/index.md) |  |
 | [`Quad.VSMain`](OneGame.Render2D/OneGame.Render2D.Shaders/Quad.VSMain.md) | static class | `OneGame.Render2D.Shaders` | [OneGame.Render2D](OneGame.Render2D/index.md) |  |

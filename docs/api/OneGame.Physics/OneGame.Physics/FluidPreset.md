@@ -24,3 +24,4 @@ The material a particle fluid starts from. Each is a tuned set of viscosity, den
 | <a id="m-mud"></a>`Mud` | `6` | Wet, sticky grains. |
 | <a id="m-clay"></a>`Clay` | `7` | A plastic paste that holds a shape. |
 | <a id="m-dough"></a>`Dough` | `8` | An elastic paste. |
+| <a id="m-liquid"></a>`Liquid` | `9` | Water tuned to pour in a thin stream and pool flat at small spacing: a stiffer density constraint, some viscosity and surface tension so it does not bounce or scatter like balls. The starting point for a few thousand fine particles. |

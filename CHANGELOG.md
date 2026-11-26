@@ -4,6 +4,16 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [2.5.1] - 2026-11-26
+
+### Added
+
+- Pouring liquid at a phone budget. `FluidPreset.Liquid` and the `FluidOptions` overrides `SurfaceTension`, `Softness`, `Vorticity`, `KernelRadiusScale` and `DynamicViscosity` expose the solver settings that make a fluid read as liquid at small spacing; `PhysicsSpace2D.GetFluidPositions` copies float positions for drawing. `OneGame.Host.FluidSurface2D` (with `FluidSurfaceStyle`) draws a fluid as one smooth surface with a rim instead of separate dots: particles are splatted on a layer, blurred and cut by the new `PSFluid` shader, also available as `PostChain.AddFluidSurface`/`UpdateFluidSurface`; it allocates nothing per frame and runs on every backend. The `examples/physics/pour` example pours a jug of 1,000 particles (`--particles N`, `--bench`, `--dots`) and has a scenario with captures. Measured on an x86_64 Android emulator the solver holds 60 fps up to about 3,900 particles (step p50 7.9 ms), and a WebAssembly AOT build in Chrome with a 4x CPU slowdown holds about 1,000 (step p95 8.2 ms); indicative, desktop CPU. `docs/physics.md`.
+
+### Fixed
+
+- The 2.5.0 notes said Android exports need `platforms;android-36`; any installed platform at or above the target SDK works (the export picks the lowest such platform).
+
 ## [2.5.0] - 2026-11-25
 
 ### Added
@@ -17,13 +27,12 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 - `Window.ClaimSystemGestures(regions)` with `GestureRegion`, `ScreenEdges`, `ClaimedGestureRegions`, `ClaimedEdges` and `GestureClaimLimit`: a game keeps drags that start inside its regions from becoming the system's back swipe (Android `setSystemGestureExclusionRects`, capped near 200 dp per edge). iOS already defers all edges; desktop and web record only.
 - Control ops `system_gestures` (read and set the claim) and `input_back`; `InputInjector.Back`.
 - 2D particle fluids through `PhysicsSpace2D` on OnePhysics 1.0.0: `AddFluid(FluidOptions)` (presets `FluidPreset.Water/Oil/Honey/Sand/Gravel/Snow/Mud/Clay/Dough` with optional viscosity, density, friction, gravity scale, speed limit and layer), `FluidWorldSettings` (`SetFluidSettings`/`FluidSettings`), `FillFluidBox`, `FillFluidCircle`, `AddFluidParticle`, `AddEmitter`, `AddDrain` (`SetEnabled`, `Remove`, `Emitted`, `Drained`), count and shape queries (`ParticleCount`, `OverlapFluidCircle`, `OverlapFluidBox`, `FluidDensityAt`), `FluidState` for a body, wet and dry events (`FluidEvents`), and a span-filling `GetFluidParticles` for views that allocates nothing. Inputs and outputs are `Fixed`/`FVec2`; `FluidRef`, `FluidEmitterRef` and `FluidDrainRef` are checked synced values. Fluids are in the space's saves, restores, replays and hash with no format change. `PhysicsDebugShapes` draws particles, emitters and drains (`IncludeFluids`); the `physics` table in `state_query` reports `fluidParticles` and a `fluids` array. `examples/physics/fluid` and `docs/physics.md`.
-- Pouring liquid at a phone budget. `FluidPreset.Liquid` and the `FluidOptions` overrides `SurfaceTension`, `Softness`, `Vorticity`, `KernelRadiusScale` and `DynamicViscosity` expose the solver settings that make a fluid read as liquid at small spacing; `PhysicsSpace2D.GetFluidPositions` copies float positions for drawing. `OneGame.Host.FluidSurface2D` (with `FluidSurfaceStyle`) draws a fluid as one smooth surface with a rim instead of separate dots: particles are splatted on a layer, blurred and cut by the new `PSFluid` shader, also available as `PostChain.AddFluidSurface`/`UpdateFluidSurface`; it allocates nothing per frame and runs on every backend. The `examples/physics/pour` example pours a jug of 1,000 particles (`--particles N`, `--bench`, `--dots`) and has a scenario with captures. Measured on an x86_64 Android emulator the solver holds 60 fps up to about 3,900 particles (step p50 7.9 ms), and a WebAssembly AOT build in Chrome with a 4x CPU slowdown holds about 1,000 (step p95 8.2 ms); indicative, desktop CPU. `docs/physics.md`.
 
 ### Changed
 
 - **A release Android export (no `--dev`) now needs a signing key**: it exits 2 `keystore_required` instead of signing with the debug key. Pass `--keystore` and `--key-alias`, or `--debug-key` for a build that only has to install on a test device. `--keystore` no longer assumes the password `android`; set `ONEGAME_ANDROID_STORE_PASSWORD`. `--dev` exports keep the debug key.
 - Play Billing exports declare the Billing Library's `com.google.android.play.billingclient.version` meta-data, taken from the library's own manifest, so Play can read the bundled version.
-- Android exports target SDK 36 by default (Google Play requires it) and link against platform 36: install `platforms;android-36`. `--target-sdk <level>` or `<AndroidTargetSdk>` sets another level; below 36 the export warns (`target_sdk_low`). Behaviour changes at 36 are predictive back and enforced edge-to-edge.
+- Android exports target SDK 36 by default (Google Play requires it) and compile against the lowest installed Android platform at or above the target (install `platforms;android-36` if none is). `--target-sdk <level>` or `<AndroidTargetSdk>` sets another level; below 36 the export warns (`target_sdk_low`). Behaviour changes at 36 are predictive back and enforced edge-to-edge.
 
 ### Fixed
 

@@ -18,6 +18,7 @@ The programs and entry points the renderer asks an [`IShaderSource`](IShaderSour
 | [`Additive`](#m-additive) | Quad pixel entry point: texture times tint, added to the target instead of blended over it. |
 | [`Blur`](#m-blur) | Quad pixel entry point: separable blur. |
 | [`Bright`](#m-bright) | Quad pixel entry point: bloom's bright pass. |
+| [`Fluid`](#m-fluid) | Quad pixel entry point: liquid surface threshold. |
 | [`Grade`](#m-grade) | Quad pixel entry point: colour grade. |
 | [`Quad`](#m-quad) | Program `Quad` (Quad.hlsl): sprites, composites and post passes. |
 | [`Sprite`](#m-sprite) | Quad pixel entry point: texture times tint. |
@@ -55,6 +56,16 @@ public const string Bright = "PSBright";
 ```
 
 Quad pixel entry point: bloom's bright pass.
+
+**Type:** `string`
+
+### <a id="m-fluid"></a>Fluid
+
+```csharp
+public const string Fluid = "PSFluid";
+```
+
+Quad pixel entry point: liquid surface threshold.
 
 **Type:** `string`
 

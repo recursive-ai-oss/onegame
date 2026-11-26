@@ -18,6 +18,7 @@ public static class Quad
 | [`Quad.PSAdditive`](Quad.PSAdditive.md) |  |
 | [`Quad.PSBlur`](Quad.PSBlur.md) |  |
 | [`Quad.PSBright`](Quad.PSBright.md) |  |
+| [`Quad.PSFluid`](Quad.PSFluid.md) |  |
 | [`Quad.PSGrade`](Quad.PSGrade.md) |  |
 | [`Quad.PSSprite`](Quad.PSSprite.md) |  |
 | [`Quad.Params`](Quad.Params.md) |  |

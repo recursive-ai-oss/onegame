@@ -60,7 +60,7 @@
 
   <!-- The engine (libraries and the onegame command) carries the release version; samples keep their own. -->
   <PropertyGroup Condition="$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)').StartsWith('$(_SrcRoot)'))">
-    <Version>2.5.0</Version>
+    <Version>2.5.1</Version>
     <!-- Pack checks each package against the last release on nuget.org, so a minor cannot break its public API by accident. -->
     <EnablePackageValidation>true</EnablePackageValidation>
     <PackageValidationBaselineVersion>2.4.0</PackageValidationBaselineVersion>

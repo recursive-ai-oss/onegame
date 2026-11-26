@@ -34,9 +34,11 @@ The number of effects added (a blur or a bloom counts as one).
 | --- | --- |
 | [`AddBloom(float, float, float, float, int, int)`](#m-addbloom-float-float-float-float-int-int) | Adds bloom: the parts of the image brighter than a threshold are blurred and added back, so bright things glow. |
 | [`AddBlur(float)`](#m-addblur-float) | Adds a separable Gaussian-like blur (a horizontal and a vertical pass). |
+| [`AddFluidSurface(float, float, Color, Color, float, float)`](#m-addfluidsurface-float-float-color-color-float-float) | Adds a liquid surface: the image's alpha is read as a field (particles drawn as soft discs, then blurred) and cut at a level, so separate discs merge into one smooth body with a lighter or darker rim. |
 | [`AddGrade(float, float, float, float, Color?, float)`](#m-addgrade-float-float-float-float-color-float) | Adds a colour grade. |
 | [`AddMaterial(Material)`](#m-addmaterial-material) | Adds a pass of your own: a pixel shader (HLSL compiled with the game's shaders, made into a [`Material`](Material.md) with [`Renderer2D.CreateMaterial()`](Renderer2D.md#m-creatematerial-shadercode-string)) that runs over the whole image. |
 | [`Dispose()`](#m-dispose) | Releases the effects' GPU objects (not the materials passed to [`PostChain.AddMaterial()`](PostChain.md#m-addmaterial-material)). |
+| [`UpdateFluidSurface(float, float, Color, Color, float, float)`](#m-updatefluidsurface-float-float-color-color-float-float) | Changes the settings of the liquid surface pass added with [`PostChain.AddFluidSurface()`](PostChain.md#m-addfluidsurface-float-float-color-color-float-float); they apply to the next frame drawn. |
 
 ### <a id="m-addbloom-float-float-float-float-int-int"></a>AddBloom(float, float, float, float, int, int)
 
@@ -68,6 +70,25 @@ Adds a separable Gaussian-like blur (a horizontal and a vertical pass).
 **Parameters**
 
 - `radius` (`float`): Spacing of the blur's taps in pixels; the visible softening reaches about three times this far.
+
+**Returns:** [`PostChain`](PostChain.md) — This chain.
+
+### <a id="m-addfluidsurface-float-float-color-color-float-float"></a>AddFluidSurface(float, float, Color, Color, float, float)
+
+```csharp
+public PostChain AddFluidSurface(float threshold, float softness, Color fill, Color rim, float rimWidth = 0.2f, float rimStrength = 1f);
+```
+
+Adds a liquid surface: the image's alpha is read as a field (particles drawn as soft discs, then blurred) and cut at a level, so separate discs merge into one smooth body with a lighter or darker rim. Put it after [`PostChain.AddBlur()`](PostChain.md#m-addblur-float); `OneGame.Host.FluidSurface2D` sets up the whole chain. The pass replaces the image's colour with `fill` and `rim`.
+
+**Parameters**
+
+- `threshold` (`float`): The field level where the surface sits, 0 to 1. Lower grows the body and bridges larger gaps; higher shrinks it.
+- `softness` (`float`): Half width of the outline's blend, in field units (about 0.04 keeps it smooth without blurring).
+- `fill` ([`Color`](../../OneGame.UI/OneGame.UI/Color.md)): The body colour (sRGB, straight alpha).
+- `rim` ([`Color`](../../OneGame.UI/OneGame.UI/Color.md)): The colour of the band just inside the outline (sRGB, straight alpha).
+- `rimWidth` (`float`): How far inside the outline the rim reaches, in field units.
+- `rimStrength` (`float`): 0 for no rim, 1 for the full rim colour at the outline.
 
 **Returns:** [`PostChain`](PostChain.md) — This chain.
 
@@ -111,3 +132,26 @@ public void Dispose();
 ```
 
 Releases the effects' GPU objects (not the materials passed to [`PostChain.AddMaterial()`](PostChain.md#m-addmaterial-material)).
+
+### <a id="m-updatefluidsurface-float-float-color-color-float-float"></a>UpdateFluidSurface(float, float, Color, Color, float, float)
+
+```csharp
+public PostChain UpdateFluidSurface(float threshold, float softness, Color fill, Color rim, float rimWidth = 0.2f, float rimStrength = 1f);
+```
+
+Changes the settings of the liquid surface pass added with [`PostChain.AddFluidSurface()`](PostChain.md#m-addfluidsurface-float-float-color-color-float-float); they apply to the next frame drawn. Allocates nothing.
+
+**Parameters**
+
+- `threshold` (`float`): The field level where the surface sits, 0 to 1.
+- `softness` (`float`): Half width of the outline's blend, in field units.
+- `fill` ([`Color`](../../OneGame.UI/OneGame.UI/Color.md)): The body colour (sRGB, straight alpha).
+- `rim` ([`Color`](../../OneGame.UI/OneGame.UI/Color.md)): The colour of the band just inside the outline (sRGB, straight alpha).
+- `rimWidth` (`float`): How far inside the outline the rim reaches, in field units.
+- `rimStrength` (`float`): 0 for no rim, 1 for the full rim colour at the outline.
+
+**Returns:** [`PostChain`](PostChain.md) — This chain.
+
+**Exceptions**
+
+- [`InvalidOperationException`](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception): The chain has no liquid surface pass.

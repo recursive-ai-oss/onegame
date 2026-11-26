@@ -32,6 +32,8 @@ dotnet add package RecursiveAI.OneGame.Host
 | [`ExitCodes`](OneGame.Host/ExitCodes.md) | static class | Process exit codes shared by games and the `onegame` command. |
 | [`FileAssetSource`](OneGame.Host/FileAssetSource.md) | class | Reads content from folders. |
 | [`FixtureSet`](OneGame.Host/FixtureSet.md) | class | The named fixtures of a game. |
+| [`FluidSurface2D`](OneGame.Host/FluidSurface2D.md) | class | Draws a particle fluid as one smooth body instead of separate dots. |
+| [`FluidSurfaceStyle`](OneGame.Host/FluidSurfaceStyle.md) | class | How a [`FluidSurface2D`](OneGame.Host/FluidSurface2D.md) looks. |
 | [`FollowedScope`](OneGame.Host/FollowedScope.md) | record | One scope a client follows besides its main one (served by its server's relay), for `net_status`. |
 | [`FrameInfo`](OneGame.Host/FrameInfo.md) | struct | What a render stage is given for one frame. |
 | [`FrameTiming`](OneGame.Host/FrameTiming.md) | struct | How long one frame took on the CPU. |

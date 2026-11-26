@@ -237,6 +237,7 @@ Hidden: replicas never receive the space; they get what entities mirror into syn
 | [`FluidDensityAt(FVec2, FluidRef)`](#m-fluiddensityat-fvec2-fluidref) | The fluid's density at a point in kg per cubic metre: about its rest density inside it and half that on a flat free surface. |
 | [`FluidState(BodyRef, FluidRef)`](#m-fluidstate-bodyref-fluidref) | How much of a body a fluid covers after the last step, and the force it puts on it. |
 | [`GetFluidParticles(Span<FluidParticle>, FluidRef)`](#m-getfluidparticles-span-fluidparticle-fluidref) | Copies the particles into a buffer, in the library's storage order (which changes from step to step; use [`FluidParticle.Id`](FluidParticle.md#m-id) to follow one). |
+| [`GetFluidPositions(Span<Vector2>, FluidRef)`](#m-getfluidpositions-span-vector2-fluidref) | Copies just the particle positions, as floats in sim units (y up), for drawing: the cheapest read, and the one `FluidSurface2D` takes. |
 | [`IsAwake(BodyRef)`](#m-isawake-bodyref) | Whether a dynamic body is awake (static bodies report false). |
 | [`IsGrounded(CharacterRef)`](#m-isgrounded-characterref) | Whether the character stood on walkable ground after its last move. |
 | [`Move(CharacterRef, FVec2)`](#m-move-characterref-fvec2) | Moves a character by a displacement this tick with collide-and-slide: it stops at walls, climbs small steps, follows slopes up to its limit and rides moving ground. |
@@ -789,6 +790,25 @@ Copies the particles into a buffer, in the library's storage order (which change
 - `fluid` ([`FluidRef`](FluidRef.md)): Only this fluid's particles; the default value means all fluids.
 
 **Returns:** `int` — How many particles were written.
+
+**Exceptions**
+
+- [`StaleFluidException`](StaleFluidException.md): `fluid` is not null and does not exist.
+
+### <a id="m-getfluidpositions-span-vector2-fluidref"></a>GetFluidPositions(Span&lt;Vector2&gt;, FluidRef)
+
+```csharp
+public int GetFluidPositions(Span<Vector2> into, FluidRef fluid = default);
+```
+
+Copies just the particle positions, as floats in sim units (y up), for drawing: the cheapest read, and the one `FluidSurface2D` takes. For views only; sim code reads [`PhysicsSpace2D.GetFluidParticles()`](PhysicsSpace2D.md#m-getfluidparticles-span-fluidparticle-fluidref). Allocates nothing once the buffer's size has been seen once.
+
+**Parameters**
+
+- `into` ([`Span`](https://learn.microsoft.com/dotnet/api/system.span-1)&lt;[`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2)&gt;): Receives the positions; when it is shorter than the particle count the rest are left out.
+- `fluid` ([`FluidRef`](FluidRef.md)): Only this fluid's particles; the default value means all fluids.
+
+**Returns:** `int` — How many positions were written.
 
 **Exceptions**
 
