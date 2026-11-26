@@ -34,6 +34,7 @@ grep -q 'src="./boot.mjs?v=' "$folder/index.html" && grep -q "onegame-platform.j
 export CHROME_GPU_FLAGS="$hw"
 check "capture after a failing frame" run --root "$folder" --path '/index.html?control=page' --script "$repo/tools/web/capture-test.mjs"
 check "a game's own material as the first draw" run --root "$folder" --path '/index.html?control=page' --script "$repo/tools/web/material-test.mjs"
+check "passes that start with a game material" run --root "$folder" --path "/index.html?control=page" --script "$repo/tools/web/layers-test.mjs"
 check "backdrop blur over a drawn scene" run --root "$folder" --path '/index.html?control=page' --script "$repo/tools/web/blur-test.mjs"
 check "render texture, bloom and a game pass on a layer" run --root "$folder" --path '/index.html?control=page' --script "$repo/tools/web/chain-test.mjs"
 exit $fail
