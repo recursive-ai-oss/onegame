@@ -246,7 +246,7 @@ if (physicsProblem is not null)
     return 1;
 }
 
-Console.WriteLine("ok: physics: a space in a world, a trigger, a character, a ray, restore mid-fall");
+Console.WriteLine("ok: physics: a space in a world, a trigger, a character, a ray, restore mid-fall, a particle fluid with emitter and drain restored mid-flow");
 
 var serverProblem = ServerSmoke.Run();
 if (serverProblem is not null)

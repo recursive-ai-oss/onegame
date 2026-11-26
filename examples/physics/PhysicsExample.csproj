@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <Compile Remove="3d/**/*.cs" />
+    <Compile Remove="fluid/**/*.cs" />
     <!-- Physics is opt in: a game that needs it references it (the RecursiveAI.OneGame.Physics package outside a checkout). -->
     <ProjectReference Include="$(OneGameRoot)src/OneGame.Physics/OneGame.Physics.csproj" />
   </ItemGroup>

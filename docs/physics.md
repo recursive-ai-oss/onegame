@@ -90,6 +90,37 @@ Stepping, the wrapper's calls (`Move`, reads, event walking, ray casts) and the 
 
 While the debug overlay is on (F3, or `overlay: on` in a scenario) `Draw2D.DebugVisible` is true, and a view can collect `PhysicsDebugShapes` with `space.AddDebugShapes(shapes)`: outlines of every shape (static, kinematic, awake, asleep and trigger shapes in different colours) and contact points with normals, as lines in world units (the example draws them in a few lines). Release builds never set the flag. `state_query` with `table: physics` shows the step count, the hash and every body's position, velocity and sleep state (`property: "bodies[9].awake"`).
 
+## Fluids (2D)
+
+A `PhysicsSpace2D` also simulates particle fluids (water, oil, honey, sand and more): thousands of particles that pour, pool, flow around bodies and push them. They are part of the space, so they are stepped by the tick and saved, restored, replayed and hashed with it.
+
+```csharp
+// Setup, the same on every node:
+space.SetFluidSettings(new FluidWorldSettings { MaxParticles = 12000 });          // optional
+FluidRef water = space.AddFluid(new FluidOptions { Spacing = Fixed.FromRatio(1, 10) });   // Water preset; Oil, Honey, Sand ... or tune single values
+space.FillFluidBox(water, new FVec2(-5, 0), new FVec2(0, 2));                    // or FillFluidCircle, AddFluidParticle
+FluidEmitterRef tap = space.AddEmitter(water, new FluidEmitterOptions { Position = new FVec2(0, 6), Direction = new FVec2(0, -1), Speed = 3 });
+FluidDrainRef sink = space.AddDrain(water, new FluidDrainOptions { Position = new FVec2(0, -4), Size = new FVec2(3, Fixed.FromRatio(1, 2)) });
+
+// In OnTick:
+int left = space.ParticleCount(water);                                            // watch it fall to see what a drain removed
+int touching = space.OverlapFluidCircle(cup, Fixed.One, default, water);          // "is liquid touching this?" (a buffer is optional)
+foreach (var e in space.FluidEvents) { /* a body became wet (Entered) or dry (Left) */ }
+BodyFluidState wet = space.FluidState(ball, water);                               // submerged fraction, wetted area, force
+```
+
+Everything takes and returns `Fixed`/`FVec2`, so sim code stays free of floats. `FluidRef`, `FluidEmitterRef` and `FluidDrainRef` are small checked values for synced properties. A fluid cannot be removed once added; all fluids of a space share one particle spacing (a smaller spacing is a finer fluid and many more particles; the example uses 0.15, the default is 0.1).
+
+**Drawing.** `space.GetFluidParticles(span, fluid)` copies particles into a buffer you made once (`FluidParticle` has `Id`, `Fluid`, `Position`, `Velocity`), so a view allocates nothing per frame; the order changes from step to step and `Id` follows a particle. The example draws each one as a small circle. With the debug overlay on, `PhysicsDebugShapes` also draws particles, emitter nozzles and drains (turn it off with `IncludeFluids = false` for very large fluids).
+
+**Limits to know.**
+- Emitters and drains: the library hands out their handles only when they are created, so the space can reach the ones it created in this process (`Remove`, `SetEnabled`, `Emitted`, `Drained`), including after a restore into the same space. A space that was loaded from a save simulates them but cannot reach them: `Exists` is false and the others throw `StaleFluidException`. Code that must work after a load reads the fluid instead (`ParticleCount`, queries): the example computes what the drain took as `Filled - Remaining`.
+- A drain raises no event. Body wet/dry events are the only fluid events.
+- A save of 6,000 particles is about 250 KB (41 bytes per particle). While a fluid exists the library allocates 112 bytes each time the space is hashed or saved; steps, reads, queries and events allocate nothing once the buffers have been sized (`Warmup`, and one read at the size you will use).
+- Fluids add their particle count to every state hash and every save; keep the budget (`MaxParticles`) to what the game needs.
+
+The `examples/physics/fluid` example pulls a pin from under a cup of water: the water falls into a drain, the particle count and a ball's wet and dry events reach sim code, and the view draws every particle. Run `onegame test --no-unit` in that folder.
+
 ## 3D spaces
 
 `PhysicsSpace3D` is the 3D counterpart, using `FVec3`, `FQuat` and `Transform3`:
