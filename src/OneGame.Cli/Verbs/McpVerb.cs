@@ -130,11 +130,26 @@ internal sealed class McpVerb : IVerb
         };
         child.BeginErrorReadLine();
 
-        // The game prints one JSON line when it is listening.
-        var started = Environment.TickCount64;
-        while (Environment.TickCount64 - started < 60_000)
+        if (WaitForListening(child, 60_000))
         {
-            var read = child.StandardOutput.ReadLineAsync();
+            return child;
+        }
+
+        child.Kill(true);
+        throw new CliException(ExitCodes.RuntimeError, "start_failed", "The game did not start listening within 60 seconds. Run 'onegame run --live' to see why.");
+    }
+
+    /// <summary>
+    /// Reads the child's output until the game prints its one JSON line saying it is listening. One read stays pending across the
+    /// polling timeouts: a second read on the same stream while the first is outstanding throws.
+    /// </summary>
+    internal static bool WaitForListening(Process child, int limitMs)
+    {
+        var started = Environment.TickCount64;
+        Task<string?>? read = null;
+        while (Environment.TickCount64 - started < limitMs)
+        {
+            read ??= child.StandardOutput.ReadLineAsync();
             if (!read.Wait(1000))
             {
                 if (child.HasExited)
@@ -146,6 +161,7 @@ internal sealed class McpVerb : IVerb
             }
 
             var line = read.Result;
+            read = null;
             if (line is null)
             {
                 break;
@@ -155,17 +171,16 @@ internal sealed class McpVerb : IVerb
             {
                 _ = Task.Run(async () =>
                 {
-                    // Keep the pipe drained so the game never blocks on its output.
+                    // Keep the pipe drained so the game never blocks on its output. No read is pending here: the last one completed.
                     while (await child.StandardOutput.ReadLineAsync().ConfigureAwait(false) is not null)
                     {
                     }
                 });
-                return child;
+                return true;
             }
         }
 
-        child.Kill(true);
-        throw new CliException(ExitCodes.RuntimeError, "start_failed", "The game did not start listening within 60 seconds. Run 'onegame run --live' to see why.");
+        return false;
     }
 
     private static string Discover()

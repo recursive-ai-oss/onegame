@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Fixed
+
+- `onegame mcp --project` no longer crashes with "The stream is currently in use by a previous operation" when the game takes more than a second to start listening.
+
 ## [2.5.2] - 2026-11-26
 
 ### Added
