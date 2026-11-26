@@ -28,7 +28,13 @@ internal sealed record AndroidLiveResult(bool Ok, string Package, string Serial,
 /// <summary>Installs, starts, drives and inspects a game on an Android device or emulator through <c>adb</c>.</summary>
 internal sealed class AndroidVerb : IVerb
 {
-    private const string Activity = "android.app.NativeActivity";
+    // The package's launcher entry, so a game whose own activity subclass replaces NativeActivity starts the same way; NativeActivity when the device cannot say.
+    private static string LaunchTarget(Adb adb, string package)
+    {
+        var resolved = adb.Shell($"cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER {package}").Output
+            .Split('\n').Select(l => l.Trim()).LastOrDefault(l => l.StartsWith(package + "/", StringComparison.Ordinal) && !l.Contains(' ', StringComparison.Ordinal));
+        return "-n " + (resolved ?? package + "/android.app.NativeActivity");
+    }
 
     public string Name => "android";
 
@@ -230,7 +236,7 @@ internal sealed class AndroidVerb : IVerb
         }
 
         var line = string.Join(' ', gameArgs.Select(g => Quote(g.Replace("@files", files, StringComparison.Ordinal))));
-        var start = adb.Shell($"am start -W -n {package}/{Activity} -e onegame.args {ShellQuote(line)}");
+        var start = adb.Shell($"am start -W {LaunchTarget(adb, package)} -e onegame.args {ShellQuote(line)}");
         if (start.ExitCode != 0 || start.Output.Contains("Error", StringComparison.Ordinal))
         {
             throw new CliException(ExitCodes.RuntimeError, "start_failed", $"The app did not start: {(start.Output + start.Error).Trim()}");
@@ -330,7 +336,7 @@ internal sealed class AndroidVerb : IVerb
         adb.Shell("am force-stop " + package);
         adb.RunAs(package, "mkdir -p files && rm -f files/onegame-exit.txt files/onegame-stdout.txt");
         var args = string.Join(' ', new[] { "--live", $"tcp:{devicePort}", "--realtime", "--json" }.Concat(a.Game).Select(Quote));
-        var start = adb.Shell($"am start -W -n {package}/{Activity} -e onegame.args {ShellQuote(args)}");
+        var start = adb.Shell($"am start -W {LaunchTarget(adb, package)} -e onegame.args {ShellQuote(args)}");
         if (start.ExitCode != 0 || start.Output.Contains("Error", StringComparison.Ordinal))
         {
             throw new CliException(ExitCodes.RuntimeError, "start_failed", $"The app did not start: {(start.Output + start.Error).Trim()}");

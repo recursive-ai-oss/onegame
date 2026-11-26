@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.VIBRATE"/>
+  <application android:supportsRtl="true">
+    <meta-data android:name="example.setting" android:value="on"/>
+  </application>
+</manifest>

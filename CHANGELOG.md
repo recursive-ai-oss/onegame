@@ -4,6 +4,14 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- Android packages a game can shape from its project, in the APK and the bundle alike. Java files in the game's `android/` folder (`AndroidJavaDir`) compile against the platform jar into an extra dex, and a class that extends `android.app.NativeActivity` becomes the manifest's activity (`AndroidActivity` names it when there are several). `AndroidManifestFragment` merges a manifest-shaped file, and `AndroidApplicationAttributes` / `AndroidActivityAttributes` (`android:name=value;...`) add attributes; anything that contradicts what the export writes stops it with `manifest_conflict`. `AndroidIcon` (PNG, JPEG, WebP or SVG, square) and `AndroidIconBackground` (a colour or an image) make an adaptive launcher icon with density PNGs from mdpi to xxxhdpi, wired as `android:icon` and `android:roundIcon`. Mistakes fail before the native build with `java_compile_failed`, `activity_ambiguous`, `activity_not_found`, `manifest_conflict`, `bad_manifest_fragment`, `bad_manifest_attribute` or `bad_icon`. Java only; there is no Kotlin compiler in the SDK. `docs/interfaces/android.md`.
+
+### Changed
+
+- `onegame android run`, `test` and `live` start the package's launcher activity instead of naming `android.app.NativeActivity`, so a game with its own activity subclass starts the same way.
+
 ## [2.5.0] - 2026-11-25
 
 ### Added

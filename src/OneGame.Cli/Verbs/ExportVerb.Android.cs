@@ -173,6 +173,41 @@ internal sealed partial class ExportVerb
 
         Directory.CreateDirectory(work);
 
+        // Everything the game declares about its package is built and checked first, so a mistake in it fails in seconds rather than after the native build.
+        // A game that sells things carries the Billing Library, our Java wrapper for it and the manifest entries it needs.
+        var playBilling = string.Equals(settings.GetValueOrDefault("AndroidPlayBilling"), "true", StringComparison.OrdinalIgnoreCase);
+        string? dex = null;
+        if (playBilling)
+        {
+            var buildWork = Directory.CreateDirectory(Path.Combine(work, "play-billing")).FullName;
+            // The wrapper class travels inside the tool, so this works from packages with no engine checkout.
+            dex = PlayBillingKit.BuildDex(sdk, PlayBillingKit.ExtractBridgeSources(buildWork), buildWork);
+        }
+
+        var versionCode = ResolveVersionCode(a.Get("--version-code") ?? settings.GetValueOrDefault("AndroidVersionCode"), props.Version);
+        var versionName = a.Get("--version-name") ?? settings.GetValueOrDefault("AndroidVersionName") ?? props.Version;
+
+        // The game's own Java (an activity subclass and helpers) becomes one more dex beside the Billing wrapper's.
+        string PathSetting(string key) => Path.GetFullPath(settings[key], project.Directory);
+        var javaFolder = settings.ContainsKey("AndroidJavaDir") ? PathSetting("AndroidJavaDir") : Path.Combine(project.Directory, "android");
+        var gameCode = AndroidJavaBuild.Build(sdk, javaFolder, settings.GetValueOrDefault("AndroidActivity"), Directory.CreateDirectory(Path.Combine(work, "game-java")).FullName);
+        var extraWarnings = new List<ExportWarning>();
+        string? resources = null;
+        if (settings.ContainsKey("AndroidIcon"))
+        {
+            var res = Path.Combine(work, "res");
+            extraWarnings.AddRange(AndroidIconBuild.Write(res, PathSetting("AndroidIcon"), settings.GetValueOrDefault("AndroidIconBackground"), project.Directory));
+            resources = Path.Combine(work, "res.zip");
+            RunTool(sdk.BuildTool("aapt2"), ["compile", "--dir", res, "-o", resources], work, "aapt2_failed");
+        }
+
+        var manifest = Path.Combine(work, "AndroidManifest.xml");
+        var manifestText = AndroidManifest(package, label, versionName, props.AssemblyName, dev, a.Get("--orientation") ?? settings.GetValueOrDefault("AndroidOrientation") ?? "unspecified", playBilling, string.Equals(settings.GetValueOrDefault("AndroidInternet"), "true", StringComparison.OrdinalIgnoreCase), targetSdk, playBilling ? BillingMetaData() : null,
+            gameCode?.Activity, gameCode is not null, resources is not null);
+        manifestText = AndroidManifestMerge.Apply(manifestText, settings.ContainsKey("AndroidManifestFragment") ? PathSetting("AndroidManifestFragment") : null,
+            settings.GetValueOrDefault("AndroidApplicationAttributes"), settings.GetValueOrDefault("AndroidActivityAttributes"));
+        File.WriteAllText(manifest, manifestText, new UTF8Encoding(false));
+
         var libraries = new List<(string Abi, string Path)>();
         foreach (var abi in abis)
         {
@@ -199,25 +234,9 @@ internal sealed partial class ExportVerb
             libraries.Add((abi, so));
         }
 
-        // A game that sells things carries the Billing Library, our Java wrapper for it and the manifest entries it needs.
-        var playBilling = string.Equals(settings.GetValueOrDefault("AndroidPlayBilling"), "true", StringComparison.OrdinalIgnoreCase);
-        string? dex = null;
-        if (playBilling)
-        {
-            var buildWork = Directory.CreateDirectory(Path.Combine(work, "play-billing")).FullName;
-            // The wrapper class travels inside the tool, so this works from packages with no engine checkout.
-            dex = PlayBillingKit.BuildDex(sdk, PlayBillingKit.ExtractBridgeSources(buildWork), buildWork);
-        }
-
-        var versionCode = ResolveVersionCode(a.Get("--version-code") ?? settings.GetValueOrDefault("AndroidVersionCode"), props.Version);
-        var versionName = a.Get("--version-name") ?? settings.GetValueOrDefault("AndroidVersionName") ?? props.Version;
-
-        var manifest = Path.Combine(work, "AndroidManifest.xml");
-        File.WriteAllText(manifest, AndroidManifest(package, label, versionName, props.AssemblyName, dev, a.Get("--orientation") ?? settings.GetValueOrDefault("AndroidOrientation") ?? "unspecified", playBilling, string.Equals(settings.GetValueOrDefault("AndroidInternet"), "true", StringComparison.OrdinalIgnoreCase), targetSdk, playBilling ? BillingMetaData() : null), new UTF8Encoding(false));
-
         var baseApk = Path.Combine(work, "base.apk");
         RunTool(sdk.BuildTool("aapt2"), ["link", "-o", baseApk, "-I", sdk.AndroidJar, "--manifest", manifest, "--min-sdk-version", "26", "--target-sdk-version", targetSdk.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            "--version-code", versionCode.ToString(System.Globalization.CultureInfo.InvariantCulture), "--version-name", versionName], work, "aapt2_failed");
+            "--version-code", versionCode.ToString(System.Globalization.CultureInfo.InvariantCulture), "--version-name", versionName, .. (resources is null ? [] : new[] { resources })], work, "aapt2_failed");
 
         // The game's content folders (art, fonts, data) go in as assets with a list; the app unpacks them into its files folder at start-up.
         var contentRoot = Directory.CreateDirectory(Path.Combine(work, "content")).FullName;
@@ -247,6 +266,11 @@ internal sealed partial class ExportVerb
             if (dex is not null)
             {
                 zip.CreateEntryFromFile(dex, "classes.dex", CompressionLevel.Optimal);
+            }
+
+            if (gameCode is not null)
+            {
+                zip.CreateEntryFromFile(gameCode.Dex, dex is null ? "classes.dex" : "classes2.dex", CompressionLevel.Optimal);
             }
         }
 
@@ -302,6 +326,7 @@ internal sealed partial class ExportVerb
         }
 
         warnings.AddRange(contentWarnings);
+        warnings.AddRange(extraWarnings);
         if (dex is not null)
         {
             warnings.Add(new("play_billing", $"The APK carries Google Play Billing Library {PlayBillingKit.BillingVersion} and the engine's wrapper class as classes.dex ({new FileInfo(dex).Length / 1024} KiB after shrinking), the BILLING permission and Play's purchase activities. Test purchases need the app on a Play track and a licence-tester account."));
@@ -343,7 +368,7 @@ internal sealed partial class ExportVerb
     private static Dictionary<string, string> ReadAndroidSettings(ProjectRef project)
     {
         var settings = new Dictionary<string, string>(StringComparer.Ordinal);
-        var run = Proc.Run(Proc.Dotnet, ["msbuild", project.File, "-getProperty:AndroidPackage", "-getProperty:AndroidLabel", "-getProperty:AndroidOrientation", "-getProperty:AndroidInternet", "-getProperty:AndroidPlayBilling", "-getProperty:AndroidTargetSdk", "-getProperty:AndroidVersionCode", "-getProperty:AndroidVersionName", "-getProperty:OneGameRoot", "-nologo"], project.Directory);
+        var run = Proc.Run(Proc.Dotnet, ["msbuild", project.File, "-getProperty:AndroidPackage", "-getProperty:AndroidLabel", "-getProperty:AndroidOrientation", "-getProperty:AndroidInternet", "-getProperty:AndroidPlayBilling", "-getProperty:AndroidTargetSdk", "-getProperty:AndroidVersionCode", "-getProperty:AndroidVersionName", "-getProperty:AndroidActivity", "-getProperty:AndroidJavaDir", "-getProperty:AndroidManifestFragment", "-getProperty:AndroidApplicationAttributes", "-getProperty:AndroidActivityAttributes", "-getProperty:AndroidIcon", "-getProperty:AndroidIconBackground", "-getProperty:OneGameRoot", "-nologo"], project.Directory);
         if (run.ExitCode == 0)
         {
             using var doc = JsonDocument.Parse(run.Output);
@@ -384,7 +409,7 @@ internal sealed partial class ExportVerb
         }
     }
 
-    internal static string AndroidManifest(string package, string label, string version, string library, bool dev, string orientation, bool playBilling = false, bool internet = false, int targetSdk = DefaultTargetSdk, (string Name, string Value)[]? billingMetaData = null)
+    internal static string AndroidManifest(string package, string label, string version, string library, bool dev, string orientation, bool playBilling = false, bool internet = false, int targetSdk = DefaultTargetSdk, (string Name, string Value)[]? billingMetaData = null, string? activity = null, bool extraCode = false, bool icon = false)
     {
         static string X(string s) => System.Security.SecurityElement.Escape(s) ?? "";
         _ = version;
@@ -419,7 +444,7 @@ internal sealed partial class ExportVerb
 
         // Play reads the Billing Library's version from the meta-data its own manifest declares; without it the upload is refused as too old.
         billingMetaData ??= [(BillingVersionKey, PlayBillingKit.BillingVersion)];
-        lines.Add($"  <application android:label='{X(label)}' android:hasCode='{(playBilling ? "true" : "false")}' android:allowBackup='false' android:debuggable='{debuggable}'>");
+        lines.Add($"  <application android:label='{X(label)}' android:hasCode='{(playBilling || extraCode ? "true" : "false")}' android:allowBackup='false' android:debuggable='{debuggable}'{(icon ? $" android:icon='{AndroidIconBuild.IconResource}' android:roundIcon='{AndroidIconBuild.RoundIconResource}'" : "")}>");
         if (playBilling)
         {
             foreach (var (name, value) in billingMetaData)
@@ -428,7 +453,7 @@ internal sealed partial class ExportVerb
             }
         }
 
-        lines.Add($"    <activity android:name='android.app.NativeActivity' android:exported='true' android:launchMode='singleTask' android:screenOrientation='{X(orientation)}'");
+        lines.Add($"    <activity android:name='{X(activity ?? AndroidJavaBuild.NativeActivity)}' android:exported='true' android:launchMode='singleTask' android:screenOrientation='{X(orientation)}'");
         // Back stays a key the game reads (BackRequested, handled or not by the game). With the default of targetSdk 36 the platform instead
         // registers a callback that finishes the activity itself, in addition to the key.
         lines.Add("        android:enableOnBackInvokedCallback='false'");
