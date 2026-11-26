@@ -44,7 +44,19 @@ public partial class Mover2D : Entity, IView2D
         corner.Viewport = new Rect(60, 4, 30, 20);
         d.Layer = corner;
         d.FillCircle(Vector2.Zero, 6, Color.Rgb(0x00ff00));
+
+        // A liquid surface far off screen: the blur, threshold and splat paths run and nothing visible changes.
+        _fluid ??= new FluidSurface2D("liquid");
+        _fluid.Draw(d, SmokePoints.Far, 1f);
     }
+
+    private FluidSurface2D? _fluid;
+}
+
+/// <summary>Points for the liquid surface smoke, kept out of the entity so sim analysis stays on entity code.</summary>
+internal static class SmokePoints
+{
+    public static readonly Vector2[] Far = [new(5000, 5000), new(5004, 5000)];
 }
 
 /// <summary>The default render stage drawing <see cref="IView2D"/> entities under the native publish, offscreen and read back.</summary>
@@ -110,7 +122,24 @@ internal static class Draw2DSmoke
         device.Submit(enc);
         device.ReadTexture(target, 0, 0, px);
         var centre = ((32 * 96) + 48) * 4;
-        return px[centre] > 200 && px[centre + 1] < 60 && px[centre + 2] > 200 ? null : $"render texture: centre {px[centre]},{px[centre + 1]},{px[centre + 2]}";
+        if (!(px[centre] > 200 && px[centre + 1] < 60 && px[centre + 2] > 200))
+        {
+            return $"render texture: centre {px[centre]},{px[centre + 1]},{px[centre + 2]}";
+        }
+
+        // A liquid surface: a white square on a layer, blurred and cut at a level, becomes one body in the fill colour with the background left alone.
+        using var surface = r2.CreatePostChain().AddBlur(2f).AddFluidSurface(0.4f, 0.05f, Color.Rgb(0x2f86d6), Color.Rgb(0x9fd8ff));
+        surface.UpdateFluidSurface(0.4f, 0.05f, Color.Rgb(0x2f86d6), Color.Rgb(0x9fd8ff), 0.25f, 0f);
+        r2.BeginFrame(target, new FrameOptions { Clear = new Color(0, 0, 0, 0) });
+        r2.BeginTarget(offscreen, new Color(255, 255, 255, 255));
+        r2.EndTarget();
+        r2.DrawScene(scene, new Camera2D { Position = new Vector2(48, 32), Zoom = 1 }, surface);
+        var fluidEnc = device.BeginCommands();
+        r2.EndFrame(fluidEnc);
+        device.Submit(fluidEnc);
+        device.ReadTexture(target, 0, 0, px);
+        var corner = 0;
+        return px[centre] < 100 && px[centre + 2] > 150 && px[corner] == 0 && px[corner + 2] == 0 ? null : $"fluid surface: centre {px[centre]},{px[centre + 1]},{px[centre + 2]} corner {px[corner]},{px[corner + 2]}";
     }
 
     private sealed class SmokeOverlay(Texture2D texture) : IFrameOverlay

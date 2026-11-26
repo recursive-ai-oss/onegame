@@ -1,0 +1,17 @@
+name: pour
+description: A jug holds a thousand small particles of liquid behind a gate. Opening the gate pours it out in a stream that falls into the basin and pools flat; the view draws it as one smooth surface.
+window: 320x180
+steps:
+  - step: 90
+  - expect:
+      state: { entity: Jug, property: InJug, min: 900 }
+  - command: { entity: Jug, name: Pour }
+  - step: 100
+  - expect:
+      capture: { reference: refs/stream.png, tolerance: 8, max-diff: 0.02 }
+  - step: 400
+  - expect:
+      capture: { reference: refs/pooled.png, tolerance: 8, max-diff: 0.02 }
+expect:
+  - state: { entity: Jug, property: Open, equals: true }
+  - state: { entity: Jug, property: InBasin, min: 700 }

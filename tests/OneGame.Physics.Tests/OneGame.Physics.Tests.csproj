@@ -7,6 +7,7 @@
     <ProjectReference Include="../../examples/physics/PhysicsExample.csproj" />
     <ProjectReference Include="../../examples/physics/3d/Physics3DExample.csproj" />
     <ProjectReference Include="../../examples/physics/fluid/PhysicsFluidExample.csproj" />
+    <ProjectReference Include="../../examples/physics/pour/PhysicsPourExample.csproj" />
     <ProjectReference Include="../../src/OneGame.Testing/OneGame.Testing.csproj" />
     <ProjectReference Include="../../src/OneGame.Live/OneGame.Live.csproj" />
   </ItemGroup>

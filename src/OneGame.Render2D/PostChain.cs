@@ -53,6 +53,7 @@ public sealed class PostChain : IDisposable
 
     private readonly Renderer2D _renderer;
     private readonly List<Pass> _passes = [];
+    private Material? _fluidSurface;
 
     internal PostChain(Renderer2D renderer) => _renderer = renderer;
 
@@ -60,6 +61,7 @@ public sealed class PostChain : IDisposable
     public int PassCount => _passes.Count;
 
     internal List<Pass> Passes => _passes;
+
 
     /// <summary>Adds a separable Gaussian-like blur (a horizontal and a vertical pass).</summary>
     /// <param name="radius">Spacing of the blur's taps in pixels; the visible softening reaches about three times this far.</param>
@@ -115,6 +117,46 @@ public sealed class PostChain : IDisposable
         _passes.Add(new Pass(Kind.Single, material, Vector2.Zero, 0, owned: false));
         return this;
     }
+
+    /// <summary>
+    /// Adds a liquid surface: the image's alpha is read as a field (particles drawn as soft discs, then blurred) and cut at a level, so
+    /// separate discs merge into one smooth body with a lighter or darker rim. Put it after <see cref="AddBlur"/>; <c>OneGame.Host.FluidSurface2D</c> sets up the whole
+    /// chain. The pass replaces the image's colour with <paramref name="fill"/> and <paramref name="rim"/>.
+    /// </summary>
+    /// <param name="threshold">The field level where the surface sits, 0 to 1. Lower grows the body and bridges larger gaps; higher shrinks it.</param>
+    /// <param name="softness">Half width of the outline's blend, in field units (about 0.04 keeps it smooth without blurring).</param>
+    /// <param name="fill">The body colour (sRGB, straight alpha).</param>
+    /// <param name="rim">The colour of the band just inside the outline (sRGB, straight alpha).</param>
+    /// <param name="rimWidth">How far inside the outline the rim reaches, in field units.</param>
+    /// <param name="rimStrength">0 for no rim, 1 for the full rim colour at the outline.</param>
+    /// <returns>This chain.</returns>
+    public PostChain AddFluidSurface(float threshold, float softness, Color fill, Color rim, float rimWidth = 0.2f, float rimStrength = 1f)
+    {
+        var m = _renderer.CreateFluidMaterial();
+        _passes.Add(new Pass(Kind.Single, m, Vector2.Zero, 0, owned: true));
+        _fluidSurface = m;
+        return UpdateFluidSurface(threshold, softness, fill, rim, rimWidth, rimStrength);
+    }
+
+    /// <summary>Changes the settings of the liquid surface pass added with <see cref="AddFluidSurface"/>; they apply to the next frame drawn. Allocates nothing.</summary>
+    /// <param name="threshold">The field level where the surface sits, 0 to 1.</param>
+    /// <param name="softness">Half width of the outline's blend, in field units.</param>
+    /// <param name="fill">The body colour (sRGB, straight alpha).</param>
+    /// <param name="rim">The colour of the band just inside the outline (sRGB, straight alpha).</param>
+    /// <param name="rimWidth">How far inside the outline the rim reaches, in field units.</param>
+    /// <param name="rimStrength">0 for no rim, 1 for the full rim colour at the outline.</param>
+    /// <returns>This chain.</returns>
+    /// <exception cref="InvalidOperationException">The chain has no liquid surface pass.</exception>
+    public PostChain UpdateFluidSurface(float threshold, float softness, Color fill, Color rim, float rimWidth = 0.2f, float rimStrength = 1f)
+    {
+        var m = _fluidSurface ?? throw new InvalidOperationException("The chain has no liquid surface pass; add one with AddFluidSurface.");
+        m.SetParameter(0, new Vector4(Math.Clamp(threshold, 0.01f, 0.99f), Math.Max(softness, 0.0001f), Math.Max(rimWidth, 0.0001f), Math.Clamp(rimStrength, 0f, 1f)));
+        m.SetParameter(1, Linear(fill));
+        m.SetParameter(2, Linear(rim));
+        return this;
+    }
+
+    private static Vector4 Linear(Color c) => new(Colors.ToLinear(c.R), Colors.ToLinear(c.G), Colors.ToLinear(c.B), c.A / 255f);
 
     /// <summary>Adds a colour grade.</summary>
     /// <param name="exposure">Brightness change in stops (0 leaves it, +1 doubles the light).</param>
