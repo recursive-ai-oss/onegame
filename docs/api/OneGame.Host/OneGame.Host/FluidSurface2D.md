@@ -10,7 +10,7 @@
 public sealed class FluidSurface2D : IDisposable
 ```
 
-Draws a particle fluid as one smooth body instead of separate dots. Each frame the particles are splatted as discs onto a layer of their own, the layer is blurred, and a threshold turns the blurred field into a filled shape with a rim: neighbouring particles merge, a stream stays one piece, and a pool is a flat sheet. It is view code, fed from a copy of the particle positions (`PhysicsSpace2D.GetFluidPositions`), and allocates nothing per frame once it has been made.
+Draws a particle fluid as one smooth body instead of separate dots. Each frame the particles are splatted as soft round blobs onto a layer of their own, the layer is blurred, and a threshold turns the blurred field into a filled shape with a rim: neighbouring particles merge, a stream stays one piece, and a pool is a flat sheet. It is view code, fed from a copy of the particle positions (`PhysicsSpace2D.GetFluidPositions`), and allocates nothing per frame once it has been made.
 
 Make one and keep it; call [`FluidSurface2D.Draw()`](FluidSurface2D.md#m-draw-draw2d-readonlyspan-vector2-float-bool-float) every frame from a view. The surface lives on a named layer, which draws in the order layers were made, so call [`FluidSurface2D.Draw()`](FluidSurface2D.md#m-draw-draw2d-readonlyspan-vector2-float-bool-float) at the point of the frame where the liquid should sit between the world behind it and what is in front. The cost is three full-layer passes (blur in two, threshold in one) plus one draw per particle, so on small screens it is cheap and on large ones [`FluidSurfaceStyle.Blur`](FluidSurfaceStyle.md#m-blur) and a smaller layer [`Layer2D.Viewport`](../../OneGame.Render2D/OneGame.Render2D/Layer2D.md#m-viewport) are the levers.
 

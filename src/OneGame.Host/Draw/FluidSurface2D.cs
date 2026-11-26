@@ -13,10 +13,10 @@ public sealed class FluidSurfaceStyle
     /// <summary>The colour of the band just inside the outline, which reads as a lit edge or foam. Default a light blue.</summary>
     public Color Rim { get; set; } = Color.Rgb(0x9fd8ff);
 
-    /// <summary>The radius each particle is drawn with before blurring. About 0.7 to 1 times the particle spacing fills the body without lumps; smaller lets a thin stream break into drops. Default 0.12.</summary>
-    public float ParticleRadius { get; set; } = 0.12f;
+    /// <summary>The radius of each particle's soft splat, where its falloff reaches zero. About 1.2 to 1.8 times the particle spacing fills the body without lumps; smaller lets a thin stream break into drops. Default 0.2.</summary>
+    public float ParticleRadius { get; set; } = 0.2f;
 
-    /// <summary>How far the blur softens the splats, in layer units (the visible softening reaches about three times this). Roughly the particle spacing; larger merges more and rounds off detail. Default 0.1.</summary>
+    /// <summary>How far the blur softens the splats, in layer units (the visible softening reaches about twice this). Roughly the particle spacing; larger merges more and rounds off detail. Default 0.1.</summary>
     public float Blur { get; set; } = 0.1f;
 
     /// <summary>The field level (0 to 1) where the surface sits. Lower swells the body and bridges gaps between particles; higher shrinks it and lets thin streams break up. Default 0.45.</summary>
@@ -33,7 +33,7 @@ public sealed class FluidSurfaceStyle
 }
 
 /// <summary>
-/// Draws a particle fluid as one smooth body instead of separate dots. Each frame the particles are splatted as discs onto a layer of their own,
+/// Draws a particle fluid as one smooth body instead of separate dots. Each frame the particles are splatted as soft round blobs onto a layer of their own,
 /// the layer is blurred, and a threshold turns the blurred field into a filled shape with a rim: neighbouring particles merge, a stream
 /// stays one piece, and a pool is a flat sheet. It is view code, fed from a copy of the particle positions
 /// (<c>PhysicsSpace2D.GetFluidPositions</c>), and allocates nothing per frame once it has been made.
@@ -46,8 +46,11 @@ public sealed class FluidSurfaceStyle
 /// </summary>
 public sealed class FluidSurface2D : IDisposable
 {
+    private const int SplatSize = 64;
     private readonly string _layerName;
     private PostChain? _chain;
+    private Renderer2D? _renderer;
+    private Texture2D? _splat;
     private float _builtScale;
     private float _builtBlur;
     private (float, float, float, float, float, float, Color, Color) _applied;
@@ -81,6 +84,14 @@ public sealed class FluidSurface2D : IDisposable
         ArgumentNullException.ThrowIfNull(d);
         ObjectDisposedException.ThrowIf(_disposed, this);
         var renderer = d.Renderer ?? throw new InvalidOperationException("A fluid surface can only be drawn from a view that is being drawn.");
+        if (!ReferenceEquals(renderer, _renderer))
+        {
+            // A new renderer (a new device or window) frees what the old one held; start again on the new one.
+            _renderer = renderer;
+            _chain = null;
+            _splat = renderer.CreateTexture(SplatSize, SplatSize, MakeSplat(), TextureFilter.Linear);
+        }
+
         var layer = d.GetLayer(_layerName);
         Layer = layer;
 
@@ -101,12 +112,37 @@ public sealed class FluidSurface2D : IDisposable
         var radius = Math.Max(Style.ParticleRadius, 0.0001f);
         var white = Color.White;
         var sy = flipY ? -unit : unit;
+        var splat = _splat!;
+        var size = radius * 2f / SplatSize;
         for (var i = 0; i < points.Length; i++)
         {
-            d.FillCircle(new Vector2(points[i].X * unit, points[i].Y * sy), radius, white, z);
+            d.Sprite(splat, new Vector2(points[i].X * unit, points[i].Y * sy), 0, size, white, null, SpriteFlip.None, z);
         }
 
         d.Layer = before;
+    }
+
+    // A round blob with a smooth falloff (1 - t^2)^2, t = distance / radius, which is zero with zero slope at the edge. A hard-edged disc
+    // under a blur whose taps are wider than the disc leaves repeated copies of its edge (a comb), which reads as blocks; a smooth blob does not.
+    private static byte[] MakeSplat()
+    {
+        var px = new byte[SplatSize * SplatSize * 4];
+        const float r = SplatSize / 2f;
+        for (var y = 0; y < SplatSize; y++)
+        {
+            for (var x = 0; x < SplatSize; x++)
+            {
+                var dx = (x + 0.5f - r) / r;
+                var dy = (y + 0.5f - r) / r;
+                var t = Math.Min((dx * dx) + (dy * dy), 1f);
+                var a = (1f - t) * (1f - t);
+                var i = ((y * SplatSize) + x) * 4;
+                px[i] = px[i + 1] = px[i + 2] = 255;
+                px[i + 3] = (byte)((a * 255f) + 0.5f);
+            }
+        }
+
+        return px;
     }
 
     private void Rebuild(Renderer2D renderer, float scale, float blur)
@@ -116,7 +152,8 @@ public sealed class FluidSurface2D : IDisposable
         _builtBlur = blur;
         var s = Style;
         var chain = renderer.CreatePostChain();
-        chain.AddBlur(Math.Max(blur * scale, 0.5f));
+        // The taps sit closer than the blur width so the sparse nine-tap kernel stays smooth over the splats.
+        chain.AddBlur(Math.Max(blur * scale * 0.5f, 0.5f));
         chain.AddFluidSurface(s.Threshold, s.Softness, s.Fill, s.Rim, s.RimWidth, s.RimStrength);
         _chain = chain;
         _applied = default;
@@ -152,5 +189,7 @@ public sealed class FluidSurface2D : IDisposable
 
         _chain?.Dispose();
         _chain = null;
+        _splat?.Dispose();
+        _splat = null;
     }
 }

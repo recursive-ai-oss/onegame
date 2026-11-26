@@ -127,7 +127,7 @@ Everything takes and returns `Fixed`/`FVec2`, so sim code stays free of floats. 
 
 `FluidWorldSettings.Substeps` (default 2) and `Iterations` (default 4) trade stiffness for time; the defaults are what the pour example runs.
 
-**One smooth surface.** `OneGame.Host.FluidSurface2D` draws a fluid as one body instead of separate dots: each frame the particles are splatted as discs on a layer of their own, blurred, and cut at a level with a lit rim, so a stream stays one piece and a pool is a flat sheet. Read the positions with `space.GetFluidPositions(span)` (floats, for views only) and hand them over:
+**One smooth surface.** `OneGame.Host.FluidSurface2D` draws a fluid as one body instead of separate dots: each frame the particles are splatted as soft round blobs on a layer of their own, blurred, and cut at a level with a lit rim, so a stream stays one piece and a pool is a flat sheet. Read the positions with `space.GetFluidPositions(span)` (floats, for views only) and hand them over:
 
 ```csharp
 _points = new Vector2[2048];                       // once
@@ -136,7 +136,7 @@ _surface ??= new FluidSurface2D("liquid", new FluidSurfaceStyle { Fill = Color.R
 _surface.Draw(d, new ReadOnlySpan<Vector2>(_points, 0, n), unit: 16f);   // 16 layer units per metre, y flipped
 ```
 
-Lengths in the style are in layer units. Set `ParticleRadius` to about the particle spacing and `Blur` a little under it; a lower `Threshold` swells the body and bridges gaps, a higher one lets thin streams break into drops. It allocates nothing per frame, works on every backend (it is a post chain: blur, then the `PSFluid` threshold shader, also available as `PostChain.AddFluidSurface` for your own layers), and costs three passes over its layer plus one draw per particle. The `examples/physics/pour` example is the whole thing: `--particles N` sets the count (default 1000), `--bench` pours it and prints step and frame times, `--dots` draws dots for comparison.
+Lengths in the style are in layer units. Each particle is a soft round blob (zero at its edge, so no hard disc edge survives the blur): set `ParticleRadius` to about twice the particle spacing and `Blur` to about the spacing (the pour example uses 2.0 and 1.1); a lower `Threshold` swells the body and bridges gaps, a higher one lets thin streams break into drops. It allocates nothing per frame, works on every backend (it is a post chain: blur, then the `PSFluid` threshold shader, also available as `PostChain.AddFluidSurface` for your own layers), and costs three passes over its layer plus one draw per particle. The `examples/physics/pour` example is the whole thing: `--particles N` sets the count (default 1000), `--bench` pours it and prints step and frame times, `--dots` draws dots for comparison.
 
 **Limits to know.**
 - Emitters and drains: the library hands out their handles only when they are created, so the space can reach the ones it created in this process (`Remove`, `SetEnabled`, `Emitted`, `Drained`), including after a restore into the same space. A space that was loaded from a save simulates them but cannot reach them: `Exists` is false and the others throw `StaleFluidException`. Code that must work after a load reads the fluid instead (`ParticleCount`, queries): the example computes what the drain took as `Filled - Remaining`.

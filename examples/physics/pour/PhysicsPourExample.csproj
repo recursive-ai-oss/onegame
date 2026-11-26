@@ -5,6 +5,8 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="$(OneGameRoot)src/OneGame.Physics/OneGame.Physics.csproj" />
+    <!-- The font travels inside the program so the browser build, which has no fonts folder, draws with the 2D renderer. -->
+    <EmbeddedResource Include="$(OneGameRoot)assets/fonts/NotoSans-Regular.ttf" LogicalName="fonts/NotoSans-Regular.ttf" />
   </ItemGroup>
   <Import Project="$(OneGameRoot)build/Game.targets" />
 </Project>
