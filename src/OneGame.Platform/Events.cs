@@ -231,7 +231,7 @@ public enum PlatformEventKind : byte
     /// <summary>The window has a drawing surface again; <see cref="Window.NativeHandle"/> names the new one. Make a new swapchain.</summary>
     SurfaceCreated,
 
-    /// <summary>The user pressed the system's back gesture or button. If the game leaves it unhandled it should ask to quit.</summary>
+    /// <summary>The user pressed the system's back gesture or button. The host offers it to the game first (<c>GameDefinition.OnBack</c>) and leaves the app only when nothing handled it.</summary>
     BackRequested,
 }
 
@@ -254,6 +254,37 @@ public enum AppLifecycleState : byte
 /// <param name="Right">From the right edge.</param>
 /// <param name="Bottom">From the bottom edge.</param>
 public readonly record struct EdgeInsets(int Left, int Top, int Right, int Bottom);
+
+/// <summary>A rectangle in window pixels, with the origin at the window's top-left corner.</summary>
+/// <param name="X">Left edge.</param>
+/// <param name="Y">Top edge.</param>
+/// <param name="Width">Width.</param>
+/// <param name="Height">Height.</param>
+public readonly record struct GestureRegion(int X, int Y, int Width, int Height)
+{
+    /// <summary>Whether the rectangle covers anything.</summary>
+    public bool IsEmpty => Width <= 0 || Height <= 0;
+}
+
+/// <summary>Screen edges, for the system gestures that start from one.</summary>
+[Flags]
+public enum ScreenEdges : byte
+{
+    /// <summary>No edge.</summary>
+    None = 0,
+
+    /// <summary>The left edge.</summary>
+    Left = 1,
+
+    /// <summary>The top edge.</summary>
+    Top = 2,
+
+    /// <summary>The right edge.</summary>
+    Right = 4,
+
+    /// <summary>The bottom edge.</summary>
+    Bottom = 8,
+}
 
 /// <summary>
 /// One input or lifecycle event. Every source (OS, gamepad devices, synthetic injection) produces the same shape, and only the fields

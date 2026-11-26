@@ -410,6 +410,9 @@ internal sealed partial class ExportVerb
         }
 
         lines.Add($"    <activity android:name='android.app.NativeActivity' android:exported='true' android:launchMode='singleTask' android:screenOrientation='{X(orientation)}'");
+        // Back stays a key the game reads (BackRequested, handled or not by the game). With the default of targetSdk 36 the platform instead
+        // registers a callback that finishes the activity itself, in addition to the key.
+        lines.Add("        android:enableOnBackInvokedCallback='false'");
         lines.Add("        android:theme='@android:style/Theme.Black.NoTitleBar.Fullscreen'");
         lines.Add("        android:configChanges='orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density|uiMode|fontScale|layoutDirection|locale'>");
         lines.Add($"      <meta-data android:name='android.app.lib_name' android:value='{X(library)}'/>");

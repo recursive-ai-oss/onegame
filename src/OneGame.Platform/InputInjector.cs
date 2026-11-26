@@ -123,6 +123,10 @@ public sealed class InputInjector
     public void CloseRequest(int windowId) =>
         _app.Post(new PlatformEvent { Kind = PlatformEventKind.WindowCloseRequested, WindowId = windowId });
 
+    /// <summary>Reports the system's back button or gesture, as Android sends it.</summary>
+    public void Back(int windowId) =>
+        _app.Post(new PlatformEvent { Kind = PlatformEventKind.BackRequested, WindowId = windowId });
+
     /// <summary>Connects a virtual gamepad that already speaks the standard layout, and returns its id.</summary>
     public int GamepadConnect(string name = "Virtual Gamepad")
     {

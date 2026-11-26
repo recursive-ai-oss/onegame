@@ -34,6 +34,9 @@ public sealed unsafe class AndroidActivityHost
     private nint _looper;
     private nint _inputQueue;
     private volatile bool _gameFinished;
+    private int _mainWakeRead = -1;
+    private int _mainWakeWrite = -1;
+    private volatile int[]? _gestureRects;
 
     private AndroidActivityHost(ANativeActivity* activity, Func<string[], int> main)
     {
@@ -88,6 +91,7 @@ public sealed unsafe class AndroidActivityHost
         cb->OnConfigurationChanged = &OnConfigurationChanged;
         cb->OnLowMemory = &OnLowMemory;
 
+        host.WatchMainThreadWake();
         var args = host._mainJni.GetIntentStringExtra(native->Clazz, ArgsExtra) ?? "";
         host._thread = new Thread(() => host.GameThread(args), 16 * 1024 * 1024) { Name = "onegame-game" };
         host._thread.Start();
@@ -298,6 +302,69 @@ public sealed unsafe class AndroidActivityHost
         {
             AndroidNative.ALooper_wake(_looper);
         }
+    }
+
+    /// <summary>
+    /// Hands the system the rectangles (left, top, right, bottom per rectangle, in window pixels) that drags may not be taken from.
+    /// Safe from the game thread: the Java call is made on the main thread, woken through a pipe the main looper watches.
+    /// </summary>
+    internal void SetGestureRects(int[] ltrb)
+    {
+        _gestureRects = ltrb;
+        if (_mainWakeWrite >= 0)
+        {
+            byte b = 1;
+            Libc.Write(_mainWakeWrite, &b, 1);
+        }
+    }
+
+    // The activity's Java view may only be touched on the main thread, which has an ALooper of its own: a descriptor watched there runs
+    // our callback on that thread, so no Java class of ours is needed to post work to it.
+    private void WatchMainThreadWake()
+    {
+        var looper = AndroidNative.ALooper_forThread();
+        if (looper == 0)
+        {
+            return;
+        }
+
+        var fds = stackalloc int[2];
+        if (Libc.Pipe2(fds, 0x800 | 0x80000) != 0) // O_NONBLOCK | O_CLOEXEC
+        {
+            return;
+        }
+
+        if (AndroidNative.ALooper_addFd(looper, fds[0], 0, AndroidNative.LooperEventInput, (nint)(delegate* unmanaged<int, int, nint, int>)&OnMainThreadWake, 0) != 1)
+        {
+            _ = Libc.Close(fds[0]);
+            _ = Libc.Close(fds[1]);
+            return;
+        }
+
+        _mainWakeRead = fds[0];
+        _mainWakeWrite = fds[1];
+    }
+
+    [UnmanagedCallersOnly]
+    private static int OnMainThreadWake(int fd, int events, nint data)
+    {
+        var host = Host;
+        if (host is null)
+        {
+            return 0;
+        }
+
+        var drain = stackalloc byte[64];
+        while (Libc.Read(fd, drain, 64) > 0)
+        {
+        }
+
+        if (host._gestureRects is { } rects)
+        {
+            host._mainJni.SetGestureExclusion(host._activity->Clazz, rects);
+        }
+
+        return 1;
     }
 
     // The keyboard attaches only to a focused view; see AndroidJni.MakeContentFocusable. Main thread only.

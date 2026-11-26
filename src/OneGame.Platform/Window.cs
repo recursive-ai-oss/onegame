@@ -66,6 +66,72 @@ public abstract class Window : IDisposable
     /// </summary>
     public EdgeInsets SafeArea { get; private protected set; }
 
+    /// <summary>
+    /// The regions last passed to <see cref="ClaimSystemGestures"/>, in window pixels. Empty when the game claims nothing.
+    /// </summary>
+    public IReadOnlyList<GestureRegion> ClaimedGestureRegions => _claims;
+
+    /// <summary>
+    /// The screen edges that <see cref="ClaimedGestureRegions"/> touch: a region whose outer side lies on the window's edge claims that edge.
+    /// </summary>
+    public ScreenEdges ClaimedEdges
+    {
+        get
+        {
+            var edges = ScreenEdges.None;
+            foreach (var r in _claims)
+            {
+                edges |= (r.X <= 0 ? ScreenEdges.Left : 0) | (r.Y <= 0 ? ScreenEdges.Top : 0)
+                    | (r.X + r.Width >= Width ? ScreenEdges.Right : 0) | (r.Y + r.Height >= Height ? ScreenEdges.Bottom : 0);
+            }
+
+            return edges;
+        }
+    }
+
+    /// <summary>
+    /// The most height, in window pixels, that the system lets a game claim along one edge (Android: 200 dp). Regions beyond it are ignored
+    /// by the system, so a game that needs more should choose which stretch of the edge it claims. 0 where the system has no such limit.
+    /// </summary>
+    public virtual int GestureClaimLimit => 0;
+
+    /// <summary>
+    /// Asks the system to leave drags that start inside these regions to the game instead of using them for its own gestures (on Android
+    /// the back swipe from the left or right edge, which otherwise closes the app in the middle of a drag). Regions are in window pixels
+    /// and replace any earlier claim; an empty list releases everything. Calling it again with the same regions does nothing, so a game
+    /// may call it every layout. Rotation and resizing change the window pixels, so call it again after <see cref="PlatformEventKind.WindowResized"/>
+    /// (the backend re-applies the last claim as it was, which is right only while the layout is unchanged).
+    /// Android applies <see cref="GestureClaimLimit"/>. iOS defers the system gestures on all four edges at all times, so a claim changes
+    /// nothing there. Desktop and web have no such gestures and only record the claim.
+    /// </summary>
+    /// <param name="regions">The rectangles to keep, in window pixels. Empty ones are dropped.</param>
+    public void ClaimSystemGestures(ReadOnlySpan<GestureRegion> regions)
+    {
+        var next = new List<GestureRegion>(regions.Length);
+        foreach (var r in regions)
+        {
+            if (!r.IsEmpty)
+            {
+                next.Add(r);
+            }
+        }
+
+        if (System.Linq.Enumerable.SequenceEqual(next, _claims) || IsClosed)
+        {
+            return;
+        }
+
+        _claims = next;
+        ApplyGestureClaims();
+    }
+
+    /// <summary>Passes <see cref="ClaimedGestureRegions"/> to the system. Called when the claim changes and by backends that need to repeat it.</summary>
+    private protected virtual void ApplyGestureClaims()
+    {
+    }
+
+    private List<GestureRegion> _claims = [];
+
     /// <summary>The window title as last set by <see cref="SetTitle"/>.</summary>
     public string Title { get; private protected set; } = "";
 

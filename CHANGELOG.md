@@ -10,6 +10,9 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 - Haptics. `Haptics.Tick()`, `Haptics.Buzz()` and `Haptics.Play(HapticKind)` give touch feedback on phones: Android through `View.performHapticFeedback` (no permission needed), iOS through the UIKit feedback generators; desktop and the web do nothing. Every request is recorded on every platform (`Haptics.GetLog`), read by the new `haptics` control operation and the scenario expectation `haptic: {kind, count, min, max, frames}`. `Haptics.Enabled` is the game's own vibration switch. `docs/interfaces/platform.md`.
 - Android release packaging. `onegame export --target android --aab --keystore <file> --key-alias <name>` writes a signed Android App Bundle for Google Play (base module, per-ABI splits, uncompressed 16 KiB-aligned libraries, built with Google's bundletool, fetched once with a pinned SHA-256 or named with `--bundletool`) and an APK signed with the same key. Keystores may be PKCS12 or JKS; the passwords come from `ONEGAME_ANDROID_STORE_PASSWORD` / `ONEGAME_ANDROID_KEY_PASSWORD` and are passed to the signing tools through the environment, never on a command line. `--version-code`, `--version-name` (or `AndroidVersionCode`, `AndroidVersionName`) set the version; `--symbols` with `--aab` also writes `native-debug-symbols.zip`. The export result gains `versionCode`, `versionName`, `targetSdk`, `signingCertSha256`, `bundle`, `bundleSize`, `bundleSha256`, `symbolsArchive`; `signing` is `release-key` for the game's own key. `docs/interfaces/android.md`.
 - The export warns `page_size_4k` when a native library has segments aligned below 16 KiB, and zip-aligns with 16 KiB pages.
+- `GameDefinition.OnBack(game)`: a game sees the system back button or gesture first and returns true when it handled it. Unhandled, the UI gets a `Cancel` and the app quits as before. Android activities opt out of the platform's own back callback (`enableOnBackInvokedCallback=false`), because at target SDK 36 it finished the activity next to the key.
+- `Window.ClaimSystemGestures(regions)` with `GestureRegion`, `ScreenEdges`, `ClaimedGestureRegions`, `ClaimedEdges` and `GestureClaimLimit`: a game keeps drags that start inside its regions from becoming the system's back swipe (Android `setSystemGestureExclusionRects`, capped near 200 dp per edge). iOS already defers all edges; desktop and web record only.
+- Control ops `system_gestures` (read and set the claim) and `input_back`; `InputInjector.Back`.
 
 ### Changed
 
@@ -19,6 +22,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- Android `Window.SafeArea` was zero under the enforced edge-to-edge window of target SDK 36; it now reads `WindowInsets.getInsets` (and includes the display cut-out and the system-gesture bands from API 30).
 - `--live` works in an Android development build. The control server's request-state protector used the platform random and key-derivation provider when it was built, and phones have no OpenSSL, so the app aborted at startup; OneModelContext 1.0.2 builds it on first use instead, and live control answers on the emulator (`onegame android live`, then `onegame mcp --socket`).
 
 ## [2.4.0] - 2026-11-25

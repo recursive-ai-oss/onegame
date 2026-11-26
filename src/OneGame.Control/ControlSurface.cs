@@ -151,6 +151,8 @@ public sealed partial class ControlSurface : IControlEndpoint
         "input_pad" => Json(InputPad(a), ControlJson.Default.InputResult),
         "audio" => Json(AudioReport(a), ControlJson.Default.AudioStatus),
         "window" => Json(WindowOp(a), ControlJson.Default.WindowResult),
+        "system_gestures" => Json(GestureOp(a), ControlJson.Default.GestureClaimResult),
+        "input_back" => Json(InputBack(), ControlJson.Default.InputResult),
         "audio_events" => Json(AudioEvents(a), ControlJson.Default.AudioEventsResult),
         "haptics" => Json(HapticsOp(a), ControlJson.Default.HapticsResult),
         "sim_events" => SimEventsOp(a),
