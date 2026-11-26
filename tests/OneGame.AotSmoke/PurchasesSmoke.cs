@@ -19,6 +19,20 @@ internal static class PurchasesSmoke
             return "the fake store did not describe both products";
         }
 
+        if (service.Products.Single(p => p.Id == "coins").Price != "$0.99")
+        {
+            return "the default price changed";
+        }
+
+        fake.SetPrice("coins", 4_990_000, "EUR");
+        fake.SetPrice("unlock", 1_200_000_000, "JPY");
+        service.LoadProducts();
+        service.Pump();
+        if (service.Products.Single(p => p.Id == "coins").Price != "\u20ac4.99" || service.Products.Single(p => p.Id == "unlock").Price != "\u00a51,200")
+        {
+            return "a set price did not reach the product list";
+        }
+
         fake.Script("coins", FakeOutcome.Cancel);
         service.Buy("coins");
         service.Buy("unlock");

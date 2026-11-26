@@ -52,6 +52,82 @@ public class FakeStoreTests
     }
 
     [Fact]
+    public void ProductsKeepTheirDefaultPricesUntilOneIsSet()
+    {
+        var (service, _, _) = Connected();
+        // Products come back in id order: coins.100, pass.monthly, remove_ads.
+        Assert.Equal([("$0.99", 990_000L, "USD"), ("$2.97", 2_970_000L, "USD"), ("$1.98", 1_980_000L, "USD")], service.Products.Select(p => (p.Price, p.PriceMicros, p.Currency)));
+    }
+
+    [Fact]
+    public void ASetPriceReachesTheGameOnTheNextLoadInEachCurrency()
+    {
+        var (service, store, _) = Connected();
+        Assert.True(store.SetPrice("coins.100", 4_990_000, "eur"));
+        Assert.True(store.SetPrice("remove_ads", 1_200_000_000, "JPY"));
+        Assert.True(store.SetPrice("pass.monthly", 3_000_000, "CHF", display: "3 francs"));
+        Assert.False(store.SetPrice("nope", 1, "USD"));
+        Assert.Equal("$0.99", service.Products.Single(p => p.Id == "coins.100").Price); // not reloaded yet
+        service.LoadProducts();
+        service.Pump();
+        var coins = service.Products.Single(p => p.Id == "coins.100");
+        Assert.Equal(("\u20ac4.99", 4_990_000L, "EUR"), (coins.Price, coins.PriceMicros, coins.Currency));
+        var ads = service.Products.Single(p => p.Id == "remove_ads");
+        Assert.Equal(("\u00a51,200", 1_200_000_000L, "JPY"), (ads.Price, ads.PriceMicros, ads.Currency));
+        Assert.Equal("3 francs", service.Products.Single(p => p.Id == "pass.monthly").Price);
+    }
+
+    // A culture that swaps the separators, as German does; the format must ignore it.
+    private static System.Globalization.CultureInfo SwappedSeparators()
+    {
+        var c = (System.Globalization.CultureInfo)System.Globalization.CultureInfo.InvariantCulture.Clone();
+        c.NumberFormat.NumberDecimalSeparator = ",";
+        c.NumberFormat.NumberGroupSeparator = ".";
+        return c;
+    }
+
+    [Theory]
+    [InlineData(4_990_000L, "USD", "$4.99")]
+    [InlineData(4_990_000L, "EUR", "\u20ac4.99")]
+    [InlineData(1_234_567_890_000L, "USD", "$1,234,567.89")]
+    [InlineData(1_500_000L, "JPY", "\u00a52")]
+    [InlineData(1_499_999L, "JPY", "\u00a51")]
+    [InlineData(999_999_999L, "JPY", "\u00a51,000")]
+    [InlineData(1_234_000L, "KWD", "KWD 1.234")]
+    [InlineData(4_500_000L, "CHF", "CHF 4.50")]
+    [InlineData(0L, "USD", "$0.00")]
+    [InlineData(5_000L, "USD", "$0.01")]
+    [InlineData(4_999L, "USD", "$0.00")]
+    public void PricesFormatTheSameWhateverTheCulture(long micros, string currency, string expected)
+    {
+        var before = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = SwappedSeparators();
+            Assert.Equal(expected, FakePrice.Format(micros, currency));
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = before;
+        }
+    }
+
+    [Theory]
+    [InlineData("4.99", true, 4_990_000L)]
+    [InlineData("1200", true, 1_200_000_000L)]
+    [InlineData("0.000001", true, 1L)]
+    [InlineData("4,99", false, 0L)]
+    [InlineData("-1", false, 0L)]
+    [InlineData("4.", false, 0L)]
+    [InlineData("1.0000001", false, 0L)]
+    [InlineData("", false, 0L)]
+    public void AmountsParseWithADotOnly(string text, bool ok, long micros)
+    {
+        Assert.Equal(ok, FakePrice.TryParseAmount(text, out var got));
+        Assert.Equal(micros, got);
+    }
+
+    [Fact]
     public void ConnectFailureIsAValueAndTheNextAttemptCanSucceed()
     {
         var store = FakeStore.For(Catalog);

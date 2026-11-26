@@ -731,8 +731,37 @@ public sealed class ScenarioRunner
         var owned = List(root.GetProperty("owned"));
         var pending = List(root.GetProperty("pending"));
         var recent = List(root.GetProperty("recent"));
+        JsonElement[]? products = null;
         foreach (var (key, want) in e.StoreChecks)
         {
+            if (key is "price" or "currency" or "micros")
+            {
+                // price: "coins.100=\u20ac4.99" compares what the store reported for that product after its last load.
+                if (products is null)
+                {
+                    using var pdoc = JsonDocument.Parse(_surface.Call("store", Obj(("action", "products"))));
+                    products = [.. pdoc.RootElement.GetProperty("products").EnumerateArray().Select(x => x.Clone())];
+                }
+
+                var eq = want.IndexOf('=', StringComparison.Ordinal);
+                if (eq <= 0)
+                {
+                    throw new ControlException("bad_args", $"store.{key} is written product=value, got '{want}'.");
+                }
+
+                var id = want[..eq];
+                var field = key switch { "price" => "price", "currency" => "currency", _ => "priceMicros" };
+                var found = products.Where(x => x.GetProperty("id").GetString() == id).Select(x => x.GetProperty(field).ToString()).FirstOrDefault();
+                if (found != want[(eq + 1)..])
+                {
+                    var t = "store." + key;
+                    var seen = found ?? "(not loaded)";
+                    return new ExpectationResult(index, "store", e.Line, false, t, want, id + "=" + seen, $"{t} of {id} is {seen}, expected {want[(eq + 1)..]}");
+                }
+
+                continue;
+            }
+
             (bool Ok, string Actual) = key switch
             {
                 "owned" => (owned.Contains(want), string.Join(',', owned)),

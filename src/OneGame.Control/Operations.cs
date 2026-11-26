@@ -269,6 +269,7 @@ public sealed record BusLoudnessStatus(int Index, string? Name, OneGame.Audio.Lo
 [JsonSerializable(typeof(OneGame.UI.Kit.ThemeLintReport))]
 [JsonSerializable(typeof(OneGame.Audio.AudioStatus))]
 [JsonSerializable(typeof(OneGame.Purchases.PurchaseStatus))]
+[JsonSerializable(typeof(StoreProductsStatus))]
 [JsonSerializable(typeof(AudioCaptureResult))]
 [JsonSerializable(typeof(CameraResult))]
 [JsonSerializable(typeof(PickResult))]

@@ -1,0 +1,21 @@
+name: the shop shows the prices the store reports
+description: The fake store sells at its default prices until the scenario gives a product a price and currency, as a store with regional pricing would; the shop's buttons and the purchase service both show it after the products reload.
+window: 360x640
+steps:
+  - step: 3
+  - expect: {ui: {id: buy-coins, text: "Buy 100 coins $0.99"}}
+  - expect: {store: {price: "coins.100=$0.99", currency: "coins.100=USD"}}
+
+  # Euro with minor units, then yen with none; the action reloads the products.
+  - store: {action: price, product: coins.100, amount: "4.99", currency: EUR}
+  - store: {action: price, product: remove_ads, amount: "1200", currency: JPY}
+  - step: 1
+  - expect: {store: {price: "coins.100=€4.99", currency: "coins.100=EUR", micros: "coins.100=4990000"}}
+  - expect: {store: {price: "remove_ads=¥1,200", micros: "remove_ads=1200000000"}}
+  - expect: {ui: {id: buy-coins, text: "Buy 100 coins €4.99"}}
+  - expect: {ui: {id: buy-ads, text: "Remove ads ¥1,200"}}
+
+  # Text the store formats itself can be given outright.
+  - store: {action: price, product: coins.100, amount: "5", currency: CHF, display: "5 francs"}
+  - step: 1
+  - expect: {ui: {id: buy-coins, text: "Buy 100 coins 5 francs"}}

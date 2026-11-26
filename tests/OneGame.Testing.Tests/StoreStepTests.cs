@@ -51,6 +51,37 @@ public class StoreStepTests
     }
 
     [Fact]
+    public void AScenarioSetsPricesAndChecksWhatTheGameReads()
+    {
+        var (cluster, service) = Start();
+        using (cluster)
+        using (service)
+        {
+            var scenario = ScenarioParser.Parse("""
+                steps:
+                  - store: connect
+                  - store: load
+                  - expect: {store: {price: "coins=$0.99", currency: "coins=USD", micros: "unlock=1980000"}}
+                  - store: {action: price, product: coins, amount: "4.99", currency: EUR}
+                  - store: {action: price, product: unlock, amount: "1200", currency: JPY}
+                  - expect: {store: {price: "coins=\u20ac4.99", currency: "coins=EUR", micros: "unlock=1200000000"}}
+                  - expect: {store: {price: "unlock=\u00a51,200"}}
+                """, "inline.yaml", "prices");
+            var result = cluster.Run(scenario);
+            Assert.True(result.Passed, string.Join("; ", result.Expectations.Where(e => !e.Passed).Select(e => e.Message)));
+            Assert.Equal("\u20ac4.99", service.Products.Single(p => p.Id == "coins").Price);
+
+            var wrong = cluster.Run(ScenarioParser.Parse("steps:\n  - expect: {store: {price: \"coins=$9\"}}\n", "inline.yaml", "wrong"));
+            Assert.False(wrong.Passed);
+            Assert.Contains("store.price of coins is \u20ac4.99", wrong.Expectations.Single(e => !e.Passed).Message, StringComparison.Ordinal);
+
+            var bad = cluster.Run(ScenarioParser.Parse("steps:\n  - store: {action: price, product: coins, amount: \"4,99\"}\n", "inline.yaml", "bad"));
+            Assert.False(bad.Passed);
+            Assert.Contains("bad_args", bad.Steps.Single(s => !s.Ok).Error, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void AFailedStoreCheckNamesWhatItSawAndABadStepStopsTheScenario()
     {
         var (cluster, service) = Start();
