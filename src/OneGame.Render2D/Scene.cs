@@ -36,7 +36,7 @@ public struct Sprite
     /// <summary>The pivot as a fraction of the sprite: (0,0) top-left, (0.5,0.5) centre.</summary>
     public Vector2 Pivot { get; set; }
 
-    /// <summary>World units per source pixel, per axis.</summary>
+    /// <summary>World units per source pixel, per axis: a multiplier of the texture's size, not a size. To draw a 64x64 texture 120 units wide, use 120f / 64.</summary>
     public Vector2 Scale { get; set; }
 
     /// <summary>Rotation in radians about the pivot; positive turns clockwise on screen.</summary>
