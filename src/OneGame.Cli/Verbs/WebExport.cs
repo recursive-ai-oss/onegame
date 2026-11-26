@@ -12,7 +12,8 @@ namespace OneGame.Cli.Verbs;
 /// <param name="WireBytes">What a browser downloads from a server that sends the Brotli copies.</param>
 /// <param name="Configuration">Debug (development tools included) or Release.</param>
 /// <param name="Seconds">How long the export took.</param>
-internal sealed record WebExportResult(string Folder, int Files, long Bytes, long WireBytes, string Configuration, double Seconds);
+/// <param name="Aot">Whether the game's code was compiled to WebAssembly ahead of time (otherwise the interpreter runs it).</param>
+internal sealed record WebExportResult(string Folder, int Files, long Bytes, long WireBytes, string Configuration, double Seconds, bool Aot = false);
 
 /// <summary>
 /// Builds a game for the browser. A game's own project is a desktop program; the browser needs the WebAssembly SDK, so the export writes a small
@@ -66,10 +67,32 @@ internal static class WebExport
 
     private static readonly string[] EngineReferences = ["OneGame.Host", "OneGame.Core", "OneGame.UI", "OneGame.Generators", "OneGame.Live"];
 
-    public static WebExportResult Export(ProjectRef project, bool dev, string outFolder)
+    /// <summary>The project property that turns on AOT for the web export, the same as <c>--aot</c>.</summary>
+    public const string AotProperty = "OneGameWebAot";
+
+    /// <summary>
+    /// Fails with the install command when the <c>wasm-tools</c> workload (the WebAssembly AOT compiler) is missing, so the error comes before a
+    /// long build and not after it. <paramref name="workloadList"/> is the text of <c>dotnet workload list</c>.
+    /// </summary>
+    internal static void RequireAotWorkload(string workloadList)
+    {
+        foreach (var line in workloadList.Split('\n'))
+        {
+            if (line.TrimStart().StartsWith("wasm-tools", StringComparison.Ordinal))
+            {
+                return;
+            }
+        }
+
+        throw new CliException(ExitCodes.BuildFailed, "missing_workload", "--aot needs the wasm-tools workload (the WebAssembly AOT compiler). Install it with: dotnet workload install wasm-tools");
+    }
+
+    public static WebExportResult Export(ProjectRef project, bool dev, string outFolder, bool aot = false)
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        var configuration = dev ? "Debug" : "Release";
+        // The WebAssembly AOT compiler refuses a Debug build, so an AOT export is always built as Release; --dev still decides whether the
+        // development tools are in it.
+        var configuration = dev && !aot ? "Debug" : "Release";
         // The shader items come from build files a restore writes (the shader package's targets), so a game that was never built would
         // list none and its wrapper would have no shaders. Restoring first makes the first export of a fresh checkout read what a build would.
         var restore = Proc.Run(Proc.Dotnet, ["restore", project.File, "-nologo", "-v", "quiet", "-clp:NoSummary", $"-p:OneGameDev={(dev ? "true" : "false")}", $"-p:Configuration={configuration}"], project.Directory);
@@ -78,7 +101,7 @@ internal static class WebExport
             throw new CliException(ExitCodes.BuildFailed, "bad_project", $"Could not restore {project.File}: {restore.Output.Trim()} {restore.Error.Trim()}");
         }
 
-        var query = Proc.Run(Proc.Dotnet, ["msbuild", project.File, $"-getItem:Compile,EmbeddedResource,ProjectReference,PackageReference,OneShader,OneShaderVariant,AdditionalFiles,InternalsVisibleTo", $"-getProperty:OneGameRoot,AssemblyName,RootNamespace,OneGameVersion,{string.Join(',', CarriedProperties)}", $"-p:OneGameDev={(dev ? "true" : "false")}", $"-p:Configuration={configuration}", "-nologo"], project.Directory);
+        var query = Proc.Run(Proc.Dotnet, ["msbuild", project.File, $"-getItem:Compile,EmbeddedResource,ProjectReference,PackageReference,OneShader,OneShaderVariant,AdditionalFiles,InternalsVisibleTo", $"-getProperty:OneGameRoot,{AotProperty},AssemblyName,RootNamespace,OneGameVersion,{string.Join(',', CarriedProperties)}", $"-p:OneGameDev={(dev ? "true" : "false")}", $"-p:Configuration={configuration}", "-nologo"], project.Directory);
         if (query.ExitCode != 0)
         {
             throw new CliException(ExitCodes.BuildFailed, "bad_project", $"Could not read {project.File}: {query.Output.Trim()} {query.Error.Trim()}");
@@ -86,6 +109,12 @@ internal static class WebExport
 
         using var doc = JsonDocument.Parse(query.Output);
         var props = doc.RootElement.GetProperty("Properties");
+        aot |= string.Equals(props.GetProperty(AotProperty).GetString(), "true", StringComparison.OrdinalIgnoreCase);
+        if (aot)
+        {
+            configuration = "Release";
+            RequireAotWorkload(Proc.Run(Proc.Dotnet, ["workload", "list"], project.Directory).Output);
+        }
         var root = props.GetProperty("OneGameRoot").GetString();
         var packageMode = string.IsNullOrEmpty(root);
         var version = props.GetProperty("OneGameVersion").GetString();
@@ -134,6 +163,10 @@ internal static class WebExport
         xml.AppendLine("    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>");
         xml.AppendLine("    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>");
         xml.AppendLine("    <WasmEnableWebcil>false</WasmEnableWebcil>");
+        if (aot)
+        {
+            xml.AppendLine("    <RunAOTCompilation>true</RunAOTCompilation>");
+        }
         xml.AppendLine($"    <OneGameDev>{(dev ? "true" : "false")}</OneGameDev>");
         foreach (var name in CarriedProperties)
         {
@@ -338,7 +371,7 @@ internal static class WebExport
         }
 
         Fingerprint(outFolder);
-        return new WebExportResult(outFolder, files, bytes, wire, configuration, clock.Elapsed.TotalSeconds);
+        return new WebExportResult(outFolder, files, bytes, wire, configuration, clock.Elapsed.TotalSeconds, aot);
     }
 
     // The scripts a page loads by a fixed name: a CDN or the browser's cache that kept the old file would pair a new program with an old

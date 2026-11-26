@@ -6,6 +6,7 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `onegame export --target web --aot` (also `onegame web test --aot`, or `OneGameWebAot=true` in the project) compiles the game to WebAssembly ahead of time for compute-heavy games, at the cost of build time and size; the interpreter stays the default. A missing `wasm-tools` workload stops the export first with the install command, and the export JSON has `aot`. Solitaire: export 50 s -> 162 s, `_framework` 17.7 MB -> 48.9 MB (3.4 -> 7.2 MB Brotli), scenario hashes equal; a 475-particle fluid step 11.1 ms -> 2.4 ms in Chrome (indicative). `docs/exporting.md`.
 - Game-defined command-line options. `GameDefinition.OptionNames` declares the names a game takes itself; they work in release and development builds beside the engine's and the development options (and on Android through the `onegame.args` extra), and the game reads them from `GameInstance.Args` (also `GameOptions.Args`, `GameArgs.Empty`). Undeclared options are refused as before, so a misspelt `--scenaro` still fails, and the error lists the game's own options. A non-development run's `--json` summary has a `gameOptions` object. `onegame android live` now forwards the game arguments after `--`. `docs/interfaces/game-options.md`.
 
 ### Fixed

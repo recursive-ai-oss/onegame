@@ -13,7 +13,7 @@ internal sealed partial class ExportVerb : IVerb
 {
     public string Name => "export";
 
-    public string Summary => "Package the game: onegame export --target linux|win|osx|web [--dev] [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins]; or a debug-signed APK: export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id]; or an iOS app bundle (on a Mac): export --target ios-simulator|ios [--dev] [--bundle-id id] [--orientation all|landscape|portrait].";
+    public string Summary => "Package the game: onegame export --target linux|win|osx|web [--dev] [--aot: web only, compile to WebAssembly ahead of time] [--steam] [--out <dir>] [--no-archive] [--no-aot]; or its dedicated server: export --server [--plugins]; or a debug-signed APK: export --target android [--abi arm64-v8a,x86_64] [--dev] [--package id]; or an iOS app bundle (on a Mac): export --target ios-simulator|ios [--dev] [--bundle-id id] [--orientation all|landscape|portrait].";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
@@ -22,8 +22,14 @@ internal sealed partial class ExportVerb : IVerb
         var noArchive = a.Game.Remove("--no-archive");
         var noAot = a.Game.Remove("--no-aot");
         var dev = a.Game.Remove("--dev");
+        var webAot = a.Game.Remove("--aot");
         var hostGlibc = a.Game.Remove("--host-glibc");
         var server = a.Game.Remove("--server");
+        if (webAot && a.Get("--target") != "web")
+        {
+            throw new CliException(ExitCodes.Usage, "bad_args", "--aot is for the web target: onegame export --target web --aot. The other targets are already native.");
+        }
+
         var plugins = a.Game.Remove("--plugins");
         if (plugins && !server)
         {
@@ -57,7 +63,7 @@ internal sealed partial class ExportVerb : IVerb
 
         if (a.Get("--target") == "web")
         {
-            return RunWebExport(a, dev, json, output);
+            return RunWebExport(a, dev, webAot, json, output);
         }
 
         if (a.Game.Count > 0)

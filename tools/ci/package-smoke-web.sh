@@ -48,6 +48,16 @@ TMPDIR="$work/tmp" node "$repo/tools/web/run-page.mjs" --root "$folder" --path '
   | tee "$work/release-start.txt"
 tail -1 "$work/release-start.txt" | grep -qx started || { echo "the release export did not start"; exit 1; }
 
+step "onegame export --target web --aot (the wasm-tools workload, then the game compiled to WebAssembly)"
+dotnet workload install wasm-tools
+"$og" export --target web --aot --out "$work/export-aot" --json | tee "$work/export-aot.json"
+grep -q '"aot":true' "$work/export-aot.json" || { echo "the AOT web export failed"; exit 1; }
+folderAot=$(sed -n 's|.*"folder":"\([^"]*\)".*|\1|p' "$work/export-aot.json")
+TMPDIR="$work/tmp" node "$repo/tools/web/run-page.mjs" --root "$folderAot" --path '/index.html?args=--no-present' --timeout 120 --log 1 \
+  --eval "window.__onegame && (window.__onegame.error ? 'error: ' + window.__onegame.error : (window.__onegame.mainReturnedMs ? 'started' : ''))" \
+  | tee "$work/aot-start.txt"
+tail -1 "$work/aot-start.txt" | grep -qx started || { echo "the AOT export did not start"; exit 1; }
+
 step "onegame web test --json (development export in headless Chrome)"
 "$og" web test --json --tolerance 2 --max-diff 0.001 | tee "$work/web-test.json"
 grep -q '^{"ok":true' "$work/web-test.json" || { echo "the scenarios failed in the browser"; exit 1; }
