@@ -103,6 +103,12 @@ internal static class PhysicsSmoke
 
         var buffer = new FluidParticle[512];
         var n = space.GetFluidParticles(buffer, water);
+        var positions = new System.Numerics.Vector2[buffer.Length];
+        if (space.GetFluidPositions(positions, water) != n)
+        {
+            return "positions and particles disagree";
+        }
+
         if (filled < 50 || n != copySpace.ParticleCount(water) || space.Drained(drain) == 0)
         {
             return $"fluid check failed: filled {filled}, read {n}, drained {space.Drained(drain)}";

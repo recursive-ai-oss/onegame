@@ -121,3 +121,19 @@ float4 PSGrade(QuadOut i) : SV_Target
     rgb *= max(1.0 - P[0].w * dot(d, d), 0.0);
     return float4(rgb * a, a) * i.Color.a;
 }
+
+// Liquid surface: turns a blurred field of splatted particles into one smooth body. The field is the alpha of the image (premultiplied,
+// so a lone particle peaks low and overlapping particles add up). P[0] = (threshold, edge softness, rim width, rim strength);
+// P[1] = fill colour (linear, straight alpha); P[2] = rim colour (linear, straight alpha). Coverage rises smoothly across the threshold so
+// the outline stays steady while particles move; the rim is the band just inside the outline, and depth darkens the body toward the fill.
+[shader("pixel")]
+float4 PSFluid(QuadOut i) : SV_Target
+{
+    float field = Tex.Sample(Samp, i.Uv).a;
+    float soft = max(P[0].y, 0.0001);
+    float cover = smoothstep(P[0].x - soft, P[0].x + soft, field);
+    float rim = (1.0 - smoothstep(P[0].x, P[0].x + max(P[0].z, 0.0001), field)) * P[0].w;
+    float3 rgb = lerp(P[1].rgb, P[2].rgb, saturate(rim));
+    float a = cover * lerp(P[1].a, P[2].a, saturate(rim));
+    return float4(rgb * a, a) * i.Color.a;
+}

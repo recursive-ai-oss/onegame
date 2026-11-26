@@ -1,3 +1,4 @@
+using System.Numerics;
 using RecursiveAI.OneMath;
 using RecursiveAI.OnePhysics;
 using RecursiveAI.OnePhysics.Fluids;
@@ -17,6 +18,15 @@ public sealed partial class PhysicsSpace2D
     private readonly Dictionary<long, (int Serial, FluidEmitter Handle)> _emitters = [];
     private readonly Dictionary<long, (int Serial, FluidDrain Handle)> _drains = [];
     private int _serial;
+
+    private static ParticleFluidDef LiquidDef(float spacing)
+    {
+        var def = ParticleFluidDef.Water(spacing);
+        def.Viscosity = 0.05f;
+        def.TensileCorrection = 0.1f;
+        def.Relaxation = 0.03f;
+        return def;
+    }
 
     /// <summary>The number of particle fluids added with <see cref="AddFluid"/>.</summary>
     public int FluidCount => _world.ParticleFluidCount;
@@ -85,6 +95,7 @@ public sealed partial class PhysicsSpace2D
             FluidPreset.Mud => ParticleFluidDef.Mud(spacing),
             FluidPreset.Clay => ParticleFluidDef.Clay(spacing),
             FluidPreset.Dough => ParticleFluidDef.Dough(spacing),
+            FluidPreset.Liquid => LiquidDef(spacing),
             _ => ParticleFluidDef.Water(spacing),
         };
         if (o.Viscosity is { } viscosity)
@@ -115,6 +126,31 @@ public sealed partial class PhysicsSpace2D
         if (o.Layer is { } layer)
         {
             def.Layer = layer;
+        }
+
+        if (o.SurfaceTension is { } tension)
+        {
+            def.TensileCorrection = PhysicsLimits.ToSingle(tension, "SurfaceTension");
+        }
+
+        if (o.Softness is { } softness)
+        {
+            def.Relaxation = PhysicsLimits.ToSingle(softness, "Softness");
+        }
+
+        if (o.Vorticity is { } vorticity)
+        {
+            def.Vorticity = PhysicsLimits.ToSingle(vorticity, "Vorticity");
+        }
+
+        if (o.KernelRadiusScale is { } kernel)
+        {
+            def.KernelRadiusScale = PhysicsLimits.ToSingle(kernel, "KernelRadiusScale");
+        }
+
+        if (o.DynamicViscosity is { } dynamic)
+        {
+            def.DynamicViscosity = PhysicsLimits.ToSingle(dynamic, "DynamicViscosity");
         }
 
         return new FluidRef(_world.AddParticleFluid(def).Index + 1);
@@ -337,6 +373,42 @@ public sealed partial class PhysicsSpace2D
             if (fluid.IsNull || p.Fluid == fluid.Slot)
             {
                 into[written++] = Convert(in p);
+            }
+        }
+
+        return written;
+    }
+
+    /// <summary>
+    /// Copies just the particle positions, as floats in sim units (y up), for drawing: the cheapest read, and the one <c>FluidSurface2D</c> takes.
+    /// For views only; sim code reads <see cref="GetFluidParticles"/>. Allocates nothing once the buffer's size has been seen once.
+    /// </summary>
+    /// <param name="into">Receives the positions; when it is shorter than the particle count the rest are left out.</param>
+    /// <param name="fluid">Only this fluid's particles; the default value means all fluids.</param>
+    /// <returns>How many positions were written.</returns>
+    /// <exception cref="StaleFluidException"><paramref name="fluid"/> is not null and does not exist.</exception>
+    public int GetFluidPositions(Span<Vector2> into, FluidRef fluid = default)
+    {
+        if (!fluid.IsNull)
+        {
+            Resolve(fluid);
+        }
+
+        if (into.IsEmpty)
+        {
+            return 0;
+        }
+
+        var want = fluid.IsNull ? into.Length : Math.Max(into.Length, _world.FluidParticleCount);
+        var scratch = Scratch(want);
+        var read = _world.GetFluidParticles(scratch.AsSpan(0, want), 0);
+        var written = 0;
+        for (var i = 0; i < read && written < into.Length; i++)
+        {
+            ref readonly var p = ref scratch[i];
+            if (fluid.IsNull || p.Fluid == fluid.Slot)
+            {
+                into[written++] = new Vector2((float)p.Position.X, (float)p.Position.Y);
             }
         }
 

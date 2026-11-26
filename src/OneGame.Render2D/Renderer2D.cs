@@ -110,6 +110,8 @@ public sealed partial class Renderer2D : IDisposable
     private readonly GpuGraphicsPipeline _additivePipeline;
     private Material? _additiveMaterial;
     private readonly GpuShader _brightPixel;
+    private readonly GpuShader _fluidPixel;
+    private readonly GpuGraphicsPipeline _fluidPipeline;
     private readonly GpuGraphicsPipeline _brightPipeline;
     private RenderTexture2D? _activeTarget;
     private bool[] _hasOps = new bool[8];
@@ -169,6 +171,7 @@ public sealed partial class Renderer2D : IDisposable
         _gradePixel = Shader(ShaderNames.Quad, ShaderNames.Grade);
         _additivePixel = Shader(ShaderNames.Quad, ShaderNames.Additive);
         _brightPixel = Shader(ShaderNames.Quad, ShaderNames.Bright);
+        _fluidPixel = Shader(ShaderNames.Quad, ShaderNames.Fluid);
         _tileVertex = Shader(ShaderNames.Tile, ShaderNames.Vertex);
         _tileIdsPixel = Shader(ShaderNames.Tile, ShaderNames.TileIds);
         _tileFlatPixel = Shader(ShaderNames.Tile, ShaderNames.TileFlat);
@@ -180,6 +183,7 @@ public sealed partial class Renderer2D : IDisposable
         _gradePipeline = Pipeline(_layoutParams, _quadVertex, _gradePixel, Layouts.QuadVertex(), "grade");
         _additivePipeline = Pipeline(_layoutParams, _quadVertex, _additivePixel, Layouts.QuadVertex(), "additive");
         _brightPipeline = Pipeline(_layoutParams, _quadVertex, _brightPixel, Layouts.QuadVertex(), "bright");
+        _fluidPipeline = Pipeline(_layoutParams, _quadVertex, _fluidPixel, Layouts.QuadVertex(), "fluid");
         _tileIdsPipeline = Pipeline(_layoutTile, _tileVertex, _tileIdsPixel, Layouts.QuadVertex(true), "tile ids");
         _tileFlatPipeline = Pipeline(_layoutTile, _tileVertex, _tileFlatPixel, Layouts.QuadVertex(true), "tile flat");
         _uiPipeline = Pipeline(_layoutPlain, _uiVertex, _uiPixel, Layouts.UiVertex(), "ui");
@@ -490,6 +494,8 @@ public sealed partial class Renderer2D : IDisposable
     internal Material CreateBlurMaterial() => NewMaterial(_blurPipeline, ownsPipeline: false);
 
     internal Material CreateGradeMaterial() => NewMaterial(_gradePipeline, ownsPipeline: false);
+
+    internal Material CreateFluidMaterial() => NewMaterial(_fluidPipeline, ownsPipeline: false);
 
     internal Material CreateBrightMaterial() => NewMaterial(_brightPipeline, ownsPipeline: false);
 
@@ -1394,7 +1400,7 @@ public sealed partial class Renderer2D : IDisposable
         _uiBuffer?.Dispose();
         _clipBuffer.Dispose();
         _clampLinear.Dispose();
-        foreach (var p in new IDisposable[] { _spritePipeline, _tileIdsPipeline, _tileFlatPipeline, _uiPipeline, _blurPipeline, _gradePipeline, _additivePipeline, _brightPipeline, _quadVertex, _spritePixel, _blurPixel, _additivePixel, _brightPixel, _gradePixel, _tileVertex, _tileIdsPixel, _tileFlatPixel, _uiVertex, _uiPixel, _layoutPlain, _layoutParams, _layoutTile })
+        foreach (var p in new IDisposable[] { _spritePipeline, _tileIdsPipeline, _tileFlatPipeline, _uiPipeline, _blurPipeline, _gradePipeline, _additivePipeline, _brightPipeline, _fluidPipeline, _quadVertex, _spritePixel, _blurPixel, _additivePixel, _brightPixel, _fluidPixel, _gradePixel, _tileVertex, _tileIdsPixel, _tileFlatPixel, _uiVertex, _uiPixel, _layoutPlain, _layoutParams, _layoutTile })
         {
             p.Dispose();
         }

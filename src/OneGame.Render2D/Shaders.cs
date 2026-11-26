@@ -74,6 +74,9 @@ public static class ShaderNames
     /// <summary>Quad pixel entry point: colour grade.</summary>
     public const string Grade = "PSGrade";
 
+    /// <summary>Quad pixel entry point: liquid surface threshold.</summary>
+    public const string Fluid = "PSFluid";
+
     /// <summary>Tile pixel entry point: tile ids from the near-zoom pool.</summary>
     public const string TileIds = "PSIds";
 
@@ -100,7 +103,7 @@ internal static class Layouts
 
     /// <summary>Materials, blur and grade: <see cref="Plain"/> plus a parameter block in set 2.</summary>
     public static ResourceBinding[] WithParams() =>
-        ShaderLayouts.Bindings([.. Shared, Quad.PSBlur.Layout, Quad.PSGrade.Layout, Quad.PSBright.Layout], widenSets: Everywhere);
+        ShaderLayouts.Bindings([.. Shared, Quad.PSBlur.Layout, Quad.PSGrade.Layout, Quad.PSBright.Layout, Quad.PSFluid.Layout], widenSets: Everywhere);
 
     /// <summary>Tile programs: <see cref="Plain"/> plus parameters, the id pool and the colour pool in set 2.</summary>
     public static ResourceBinding[] WithPools() =>

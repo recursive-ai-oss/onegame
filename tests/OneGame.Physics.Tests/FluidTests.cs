@@ -391,4 +391,54 @@ public class FluidTests
         // The library allocates one 112-byte object each time it snapshots or hashes while a particle fluid exists (one call per world hash here).
         Assert.True(worstWorldHash <= 112, $"world hash allocated {worstWorldHash} B");
     }
+
+    [Fact]
+    public void TheLiquidPresetAndItsOverridesAreAcceptedAndOutOfRangeValuesNameTheMember()
+    {
+        var world = NewWorld();
+        var space = PhysicsSpace2D.Of(world)!;
+        space.AddFluid(new FluidOptions
+        {
+            Preset = FluidPreset.Liquid,
+            Spacing = Fixed.FromRatio(1, 20),
+            SurfaceTension = Fixed.FromRatio(2, 10),
+            Softness = Fixed.FromRatio(1, 100),
+            Vorticity = Fixed.One,
+            KernelRadiusScale = Fixed.FromRatio(5, 2),
+            DynamicViscosity = Fixed.FromInt(2),
+        });
+        Assert.Equal(1, space.FluidCount);
+
+        var other = NewWorld();
+        var bad = Assert.Throws<ArgumentOutOfRangeException>(() => PhysicsSpace2D.Of(other)!.AddFluid(new FluidOptions { KernelRadiusScale = Fixed.FromInt(9) }));
+        Assert.Contains("KernelRadiusScale", bad.Message);
+    }
+
+    [Fact]
+    public void PositionsMatchTheParticlesAndAllocateNothingOnceSized()
+    {
+        var world = Tank(out var space, out var water, out _, out _);
+        for (var i = 0; i < 10; i++)
+        {
+            world.Step();
+        }
+
+        var particles = new FluidParticle[2048];
+        var points = new System.Numerics.Vector2[2048];
+        var n = space.GetFluidParticles(particles, water);
+        Assert.Equal(n, space.GetFluidPositions(points, water));
+        for (var i = 0; i < n; i++)
+        {
+            Assert.Equal(particles[i].Position.X.ToSingle(), points[i].X, 0.001f);
+            Assert.Equal(particles[i].Position.Y.ToSingle(), points[i].Y, 0.001f);
+        }
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < 20; i++)
+        {
+            space.GetFluidPositions(points);
+        }
+
+        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+    }
 }

@@ -31,6 +31,9 @@ public enum FluidPreset : byte
 
     /// <summary>An elastic paste.</summary>
     Dough = 8,
+
+    /// <summary>Water tuned to pour in a thin stream and pool flat at small spacing: a stiffer density constraint, some viscosity and surface tension so it does not bounce or scatter like balls. The starting point for a few thousand fine particles.</summary>
+    Liquid = 9,
 }
 
 /// <summary>The shape of an emitter's nozzle or a drain's volume.</summary>
@@ -72,6 +75,21 @@ public sealed class FluidOptions
 
     /// <summary>Overrides the collision layer (0 to 31) the fluid meets bodies on; null keeps the preset's.</summary>
     public int? Layer { get; set; }
+
+    /// <summary>Overrides the pressure against clumping at the free surface, 0 to 10; it also gives a little surface tension that keeps a stream together. Null keeps the preset's.</summary>
+    public Fixed? SurfaceTension { get; set; }
+
+    /// <summary>Overrides how soft the density constraint is, 0.000001 to 100. Lower is stiffer (less squashing, more cost and noise); higher is softer and steadier. Null keeps the preset's.</summary>
+    public Fixed? Softness { get; set; }
+
+    /// <summary>Overrides the swirl put back after damping, 0 to 100 (0 is off); null keeps the preset's.</summary>
+    public Fixed? Vorticity { get; set; }
+
+    /// <summary>Overrides the smoothing radius as a multiple of <see cref="Spacing"/>, 1.2 to 4. Larger is smoother and slower; null keeps the preset's.</summary>
+    public Fixed? KernelRadiusScale { get; set; }
+
+    /// <summary>Overrides the shear viscosity in Pa·s, 0 to 100,000, applied implicitly so a jet coils and a column slumps (honey, lava); null keeps the preset's.</summary>
+    public Fixed? DynamicViscosity { get; set; }
 }
 
 /// <summary>

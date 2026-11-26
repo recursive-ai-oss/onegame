@@ -113,6 +113,31 @@ Everything takes and returns `Fixed`/`FVec2`, so sim code stays free of floats. 
 
 **Drawing.** `space.GetFluidParticles(span, fluid)` copies particles into a buffer you made once (`FluidParticle` has `Id`, `Fluid`, `Position`, `Velocity`), so a view allocates nothing per frame; the order changes from step to step and `Id` follows a particle. The example draws each one as a small circle. With the debug overlay on, `PhysicsDebugShapes` also draws particles, emitter nozzles and drains (turn it off with `IncludeFluids = false` for very large fluids).
 
+**Liquid that reads as liquid.** `FluidPreset.Liquid` is water tuned to pour in a stream and pool flat at small spacing: a little viscosity and surface tension so it does not bounce or scatter like balls. Use a spacing of 0.05 to 0.1 and a thousand or more particles; a coarse fluid (a hundred or two chunky particles) looks like balls whatever it is drawn with. `FluidOptions` can override what matters, all in plain units:
+
+| Option | What it does |
+|---|---|
+| `Spacing` | Particle spacing: smaller is finer and many more particles. The cost is about linear in particles (see below). |
+| `Viscosity` | How fast neighbouring particles even out their speeds (0 to 1). |
+| `DynamicViscosity` | Thick liquids (honey): a jet coils and a column slumps, 0 to 100,000 Pa·s. |
+| `SurfaceTension` | Pressure against clumping at the free surface (0 to 10); it also holds a stream together. |
+| `Softness` | How soft the density constraint is: lower is stiffer (less squashing, more cost). |
+| `Vorticity` | Puts back the swirl that damping removes (0 is off). |
+| `KernelRadiusScale` | Smoothing radius as a multiple of the spacing (1.2 to 4): larger is smoother and slower. |
+
+`FluidWorldSettings.Substeps` (default 2) and `Iterations` (default 4) trade stiffness for time; the defaults are what the pour example runs.
+
+**One smooth surface.** `OneGame.Host.FluidSurface2D` draws a fluid as one body instead of separate dots: each frame the particles are splatted as discs on a layer of their own, blurred, and cut at a level with a lit rim, so a stream stays one piece and a pool is a flat sheet. Read the positions with `space.GetFluidPositions(span)` (floats, for views only) and hand them over:
+
+```csharp
+_points = new Vector2[2048];                       // once
+var n = space.GetFluidPositions(_points);          // in the view
+_surface ??= new FluidSurface2D("liquid", new FluidSurfaceStyle { Fill = Color.Rgb(0x2f86d6), ParticleRadius = 1.5f, Blur = 1.4f });
+_surface.Draw(d, new ReadOnlySpan<Vector2>(_points, 0, n), unit: 16f);   // 16 layer units per metre, y flipped
+```
+
+Lengths in the style are in layer units. Set `ParticleRadius` to about the particle spacing and `Blur` a little under it; a lower `Threshold` swells the body and bridges gaps, a higher one lets thin streams break into drops. It allocates nothing per frame, works on every backend (it is a post chain: blur, then the `PSFluid` threshold shader, also available as `PostChain.AddFluidSurface` for your own layers), and costs three passes over its layer plus one draw per particle. The `examples/physics/pour` example is the whole thing: `--particles N` sets the count (default 1000), `--bench` pours it and prints step and frame times, `--dots` draws dots for comparison.
+
 **Limits to know.**
 - Emitters and drains: the library hands out their handles only when they are created, so the space can reach the ones it created in this process (`Remove`, `SetEnabled`, `Emitted`, `Drained`), including after a restore into the same space. A space that was loaded from a save simulates them but cannot reach them: `Exists` is false and the others throw `StaleFluidException`. Code that must work after a load reads the fluid instead (`ParticleCount`, queries): the example computes what the drain took as `Filled - Remaining`.
 - A drain raises no event. Body wet/dry events are the only fluid events.
