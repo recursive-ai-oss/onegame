@@ -80,4 +80,55 @@ public class RenderTargetTests
         Assert.True(messages.Length == 0, string.Join("\n", messages));
         Assert.True(total == 0, $"60 steady frames allocated {total} bytes");
     }
+
+    // Drawn straight on the renderer from a view: red, then a texture cleared and drawn into, then green and the texture shown. Only the texture may be
+    // cleared; the frame keeps what was drawn before and after.
+    [Fact]
+    public void ABeginTargetInsideAViewClearsOnlyTheTextureAndKeepsTheFrame()
+    {
+        var definition = new Draw2DGameDefinition();
+        var registry = new EntityRegistry();
+        definition.RegisterEntities(registry);
+        var world = new World(1, registry);
+        definition.Setup(world);
+        var fonts = new FontLibrary();
+        definition.DefineFonts(fonts);
+
+        using var device = GpuBackends.CreateDevice(new GpuDeviceOptions { Validation = true, RequireValidation = true });
+        using var stage = new Render2DStage(new HostResources(fonts, new FontTextMeasurer(fonts), new ArtAtlas(), GeneratedShaders.Instance));
+        using var target = device.CreateTexture(new TextureDesc(128, 96, GpuFormat.Rgba8UnormSrgb, TextureUsage.RenderTarget | TextureUsage.CopySource));
+        var list = new DisplayList();
+        Texture2D? white = null;
+        stage.Draw.Describer = (_, d) =>
+        {
+            var r = d.Renderer!;
+            white ??= r.CreateTexture(1, 1, [255, 255, 255, 255], TextureFilter.Nearest);
+            var tex = d.RenderTexture("t", 128, 96);
+            var cam = new Camera2D { Position = new Vector2(64, 48), Zoom = 1 };
+            var a = new Scene2D();
+            a.Draw(a.DefaultLayer, Sprite.Create(white, new Vector2(20, 48)) with { Scale = new Vector2(40, 96), Tint = new Color(255, 0, 0, 255) });
+            r.DrawScene(a, cam);
+            r.BeginTarget(tex, new Color(0, 0, 255, 255));
+            var inner = new Scene2D();
+            inner.Draw(inner.DefaultLayer, Sprite.Create(white, new Vector2(64, 48)) with { Scale = new Vector2(60, 40), Tint = new Color(255, 255, 0, 255) });
+            r.DrawScene(inner, cam);
+            r.EndTarget();
+            var b = new Scene2D();
+            b.Draw(b.DefaultLayer, Sprite.Create(white, new Vector2(108, 48)) with { Scale = new Vector2(40, 96), Tint = new Color(0, 255, 0, 255) });
+            b.Draw(b.DefaultLayer, Sprite.Create(tex.Texture, new Vector2(20, 70)) with { Scale = new Vector2(0.25f, 0.25f) });
+            r.DrawScene(b, cam);
+        };
+
+        world.Step();
+        stage.Render(device, target, new FrameInfo(128, 96, 1, world.Tick, list, world, Fixed.Half));
+        var px = new byte[128 * 96 * 4];
+        device.ReadTexture(target, 0, 0, px);
+        (int, int, int) At(int x, int y) => (px[((y * 128) + x) * 4], px[(((y * 128) + x) * 4) + 1], px[(((y * 128) + x) * 4) + 2]);
+        Assert.Equal((255, 0, 0), At(10, 40));
+        Assert.Equal((0, 255, 0), At(118, 50));
+        Assert.Equal((255, 255, 0), At(20, 70));
+        Assert.Equal((0, 0, 255), At(8, 62));
+        var messages = device.TakeValidationMessages();
+        Assert.True(messages.Length == 0, string.Join("\n", messages));
+    }
 }
