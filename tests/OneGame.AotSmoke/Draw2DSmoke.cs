@@ -84,7 +84,8 @@ internal static class Draw2DSmoke
             white += px[i] > 200 && px[i + 1] > 200 && px[i + 2] > 200 ? 1 : 0;
         }
 
-        if (!(stage.Draw.SpriteCount == 5 && stage.Draw.TextCount == 2 && green > 20 && white > 20))
+        // Five sprites from the entity's own drawing plus one splat per liquid surface point.
+        if (!(stage.Draw.SpriteCount == 5 + SmokePoints.Far.Length && stage.Draw.TextCount == 2 && green > 20 && white > 20))
         {
             return $"sprites {stage.Draw.SpriteCount}, texts {stage.Draw.TextCount}, green px {green}, white px {white}";
         }
