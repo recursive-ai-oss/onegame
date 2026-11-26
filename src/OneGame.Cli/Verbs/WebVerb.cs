@@ -18,7 +18,7 @@ internal sealed class WebVerb : IVerb
 {
     public string Name => "web";
 
-    public string Summary => "Run a game in headless Chrome: web test [--scenario <folder>] [--dir <exported folder>] [--profile <folder> --port N: keep the browser profile, so saved files survive to the next run; the same port keeps the same web origin] [--tolerance N] [--max-diff F] [--timeout S]; needs Chrome (ONEGAME_CHROME).";
+    public string Summary => "Run a game in headless Chrome: web test [--aot] [--scenario <folder>] [--dir <exported folder>] [--profile <folder> --port N: keep the browser profile, so saved files survive to the next run; the same port keeps the same web origin] [--tolerance N] [--max-diff F] [--timeout S]; needs Chrome (ONEGAME_CHROME).";
 
     public int Run(string[] args, bool json, TextWriter output, TextWriter error)
     {
@@ -28,6 +28,7 @@ internal sealed class WebVerb : IVerb
         }
 
         var a = new ProjectArgs(args.Skip(1).ToArray(), "--scenario", "--dir", "--profile", "--port", "--tolerance", "--max-diff", "--timeout");
+        var aot = a.Game.Remove("--aot");
         var project = Projects.Find(a.Get("--project"));
         var timeout = TimeSpan.FromSeconds(double.Parse(a.Get("--timeout") ?? "300", CultureInfo.InvariantCulture));
         var tolerance = int.Parse(a.Get("--tolerance") ?? "0", CultureInfo.InvariantCulture);
@@ -37,7 +38,7 @@ internal sealed class WebVerb : IVerb
         WebExportResult? export = null;
         if (folder is null)
         {
-            export = WebExport.Export(project, dev: true, Path.Combine(project.Directory, "obj", "onegame-web", "site-dev"));
+            export = WebExport.Export(project, dev: true, Path.Combine(project.Directory, "obj", "onegame-web", "site-dev"), aot);
             folder = export.Folder;
         }
 
