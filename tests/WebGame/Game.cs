@@ -25,6 +25,7 @@ public sealed class WebGameDefinition : GameDefinition
     {
         world.Add(new Swatch());
         world.Add(new Glow());
+        world.Add(new Layers());
         world.Add(new TextLoad());
     }
 
