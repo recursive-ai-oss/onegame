@@ -340,9 +340,10 @@ jobs:
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "ANDROID_NDK=${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}" >> "$GITHUB_ENV"
-          # Apps target API 36; the runner image usually has it, and this installs it when it does not.
+          # Apps target API 36. The export compiles against the lowest installed platform at or above the target, so a newer image
+          # is fine; this installs 36 when it is absent, and shows sdkmanager's output so a failed install is visible.
           if [ ! -d "$ANDROID_HOME/platforms/android-36" ]; then
-            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" || echo "::warning::sdkmanager could not install platform 36; the export will use a newer installed platform"
           fi
           ls "$ANDROID_HOME" "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
           java -version

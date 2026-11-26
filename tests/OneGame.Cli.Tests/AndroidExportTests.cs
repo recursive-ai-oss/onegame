@@ -57,6 +57,19 @@ public class AndroidExportTests
         Assert.Contains("android:debuggable='false'", xml, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(36, "android-37.2", new[] { "android-37.2" })]
+    [InlineData(36, "android-36", new[] { "android-37.2", "android-36", "android-35" })]
+    [InlineData(36, "android-36.1", new[] { "android-37.2", "android-36.1", "android-35" })]
+    [InlineData(36, "android-36", new[] { "android-36.1", "android-36" })]
+    [InlineData(0, "android-37.2", new[] { "android-35", "android-37.2", "android-36" })]
+    [InlineData(36, null, new[] { "android-35", "android-34" })]
+    [InlineData(36, null, new[] { "android-Baklava" })]
+    public void PlatformChoiceIsTheLowestAtOrAboveTheTarget(int target, string? expected, string[] installed)
+    {
+        Assert.Equal(expected, AndroidSdk.ChoosePlatform(installed, target));
+    }
+
     [Fact]
     public void TargetSdkDefaultsTo36CanBeSetAndWarnsBelow()
     {
