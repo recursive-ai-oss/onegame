@@ -42,14 +42,18 @@ internal sealed class AndroidSdk
 
         var buildTools = Newest(Path.Combine(home, "build-tools"))
             ?? throw new CliException(ExitCodes.RuntimeError, "android_sdk_incomplete", $"{home} has no build-tools. Install them with: sdkmanager \"build-tools;36.0.0\".");
-        var platform = Newest(Path.Combine(home, "platforms"), "android-")
-            ?? throw new CliException(ExitCodes.RuntimeError, "android_sdk_incomplete", $"{home} has no platform. Install one with: sdkmanager \"platforms;android-36\".");
-        // The platform's android.jar is what the manifest and resources are linked against; a target SDK above it cannot be compiled for.
-        var platformLevel = int.TryParse(Path.GetFileName(platform)["android-".Length..], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var level) ? level : 0;
-        if (platformLevel < minPlatform)
+        var platforms = Path.Combine(home, "platforms");
+        var names = Directory.Exists(platforms) ? Directory.EnumerateDirectories(platforms).Select(d => Path.GetFileName(d)).ToArray() : [];
+        if (names.Length == 0 || Newest(platforms, "android-") is null)
         {
-            throw new CliException(ExitCodes.RuntimeError, "android_sdk_incomplete", $"{home} has platform {Path.GetFileName(platform)} but the target SDK is {minPlatform}. Install one with: sdkmanager \"platforms;android-{minPlatform}\".");
+            throw new CliException(ExitCodes.RuntimeError, "android_sdk_incomplete", $"{home} has no platform. Install one with: sdkmanager \"platforms;android-{Math.Max(minPlatform, 36)}\".");
         }
+
+        // The platform's android.jar is what the manifest and resources are linked against. A newer platform than the target is normal
+        // (compileSdk above targetSdk), so the lowest one at or above the target is used; only a target above every platform cannot be built.
+        var platform = ChoosePlatform(names, minPlatform)
+            ?? throw new CliException(ExitCodes.RuntimeError, "android_sdk_incomplete", $"{home} has platform {Path.GetFileName(Newest(platforms, "android-")!)} but the target SDK is {minPlatform}. Install one with: sdkmanager \"platforms;android-{minPlatform}\".");
+        platform = Path.Combine(platforms, platform);
 
         var ndk = Environment.GetEnvironmentVariable("ANDROID_NDK") ?? Newest(Path.Combine(home, "ndk")) ?? "";
         if (needNdk && !File.Exists(Path.Combine(ndk, "toolchains", "llvm", "prebuilt", "linux-x86_64", "bin", "clang")))
@@ -58,6 +62,21 @@ internal sealed class AndroidSdk
         }
 
         return new AndroidSdk(home, buildTools, Path.Combine(platform, "android.jar"), ndk);
+    }
+
+    /// <summary>
+    /// Picks the platform folder to compile against: the lowest <c>android-N[.M]</c> whose level is at least <paramref name="target"/>, or the newest
+    /// when no target is asked for; null when every platform is below the target.
+    /// </summary>
+    internal static string? ChoosePlatform(IEnumerable<string> names, int target)
+    {
+        var versions = names.Select(n => (Name: n, Version: ParseVersion(n, "android-"))).Where(x => x.Version is not null).ToArray();
+        if (target <= 0)
+        {
+            return versions.OrderByDescending(x => x.Version).Select(x => x.Name).FirstOrDefault();
+        }
+
+        return versions.Where(x => x.Version!.Major >= target).OrderBy(x => x.Version).Select(x => x.Name).FirstOrDefault();
     }
 
     public string BuildTool(string name) => Path.Combine(BuildTools, name);
