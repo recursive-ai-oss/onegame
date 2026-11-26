@@ -4,7 +4,7 @@ Owner: `src/OneGame.Platform/Android` (the backend), `build/Android.targets` and
 
 ## What runs
 
-A game is a NativeAOT **shared library** that the platform's own `android.app.NativeActivity` loads. The app has no Java or Kotlin (`hasCode="false"`) unless the game sells through Google Play (`AndroidPlayBilling`, see `store.md`), and nothing in it but our code, the one* libraries and what NativeAOT emits (the Solitaire dev build is about 12 MB per ABI, 6 MB zipped; no runtime files travel with it).
+A game is a NativeAOT **shared library** that the platform's own `android.app.NativeActivity` loads. The app has no Java or Kotlin (`hasCode="false"`) unless the game sells through Google Play (`AndroidPlayBilling`, see `store.md`) or brings Java of its own (see "The game's own package settings"), and nothing in it but our code, the one* libraries and what NativeAOT emits (the Solitaire dev build is about 12 MB per ABI, 6 MB zipped; no runtime files travel with it).
 
 - The library exports `ANativeActivity_onCreate` (`build/AndroidEntry.cs`, compiled into the game). It calls `AndroidActivityHost.Start(activity, args => Program.Main(args))`. **A game therefore needs a class `Program` with a `Main(string[])` returning `int`** (`onegame new` makes one; top-level statements cannot be called).
 - The activity's callbacks run on the system's main thread and only queue commands. `Main` runs on its own thread, which owns the `PlatformApp`, reads the input queue (`AInputQueue` attached to that thread's `ALooper`) and applies the commands in `PumpEvents`. The one place the main thread waits is `onNativeWindowDestroyed`: it blocks (at most 1 s) until the game thread has handled `SurfaceLost`, so the swapchain is gone before the window is.
@@ -20,6 +20,25 @@ onegame export --target android --abi x86_64 --dev --json   # a build for an emu
 ```
 
 Options: `--abi arm64-v8a,x86_64`, `--dev`, `--package com.example.game` (default `dev.onegame.<assembly>`), `--label`, `--orientation` (an `android:screenOrientation` value, default `unspecified`), `--sdk <dir>`, `--symbols <dir>` (keep the debug files for crash analysis), `--out`, `--project`, and the release options below. The result (`AndroidExportResult`) has the APK path, size, SHA-256, package, ABIs and each library's hash, and for releases the version, target SDK, signing certificate and bundle.
+
+### The game's own package settings
+
+A game shapes its package from the project; nothing is patched after the export. Paths are relative to the project folder. All of it is checked, and the Java compiled, before the native build starts, so a mistake fails in seconds with a JSON error code.
+
+| Property | Meaning |
+|---|---|
+| `AndroidJavaDir` | Java sources (default: the `android` folder, if it holds `*.java`). They are compiled with `javac --release 8` against the platform's `android.jar` and converted by the SDK's `d8` into one dex (`classes.dex`, or `classes2.dex` beside the Play Billing dex). The app then has code (`hasCode=true`). Java only: the SDK has no Kotlin compiler. Libraries other than the platform's are not on the class path |
+| `AndroidActivity` | The activity class. By default the one top-level class that extends `android.app.NativeActivity` (several: `activity_ambiguous`; named but missing: `activity_not_found`). It replaces `android.app.NativeActivity` as the manifest's launcher activity, keeps the `android.app.lib_name` meta-data and loads the game's library as before. Call `super.onCreate` |
+| `AndroidManifestFragment` | A file with a `<manifest>` root. Children (`uses-permission`, `uses-feature`, `queries`, ...) are added; its `<application>` adds attributes and children to the engine's; an `<activity>` there with the main activity's `android:name` adds attributes and children (intent filters, meta-data) to it, and any other component is added |
+| `AndroidApplicationAttributes`, `AndroidActivityAttributes` | `android:name=value;android:name=value` added to `<application>` and to the main activity |
+| `AndroidIcon` | A square PNG, JPEG, WebP or SVG: the adaptive icon's foreground, a 108 dp layer (launchers show the middle 72 dp, so keep the art inside it). 432 px or an SVG is sharp on every screen; smaller raster art warns `icon_low_resolution` |
+| `AndroidIconBackground` | `#RGB`, `#RRGGBB` or a square image; default white |
+
+The icon writes `mipmap-anydpi-v26` adaptive XML for `ic_launcher` and `ic_launcher_round`, and `ic_launcher`, `ic_launcher_round` and the layers as PNGs for mdpi, hdpi, xhdpi, xxhdpi and xxxhdpi (the legacy icon is the middle 72 dp of the composite; the round one is cut to a circle), compiled with `aapt2` and wired as `android:icon` and `android:roundIcon`. Images are read and scaled with OneImage.
+
+Conflicts: a value that differs from what the export writes (`android:debuggable`, `android:icon`, the activity's `android:name`, `screenOrientation`, ...) or an element of the same kind and `android:name` that is not identical is `manifest_conflict` (exit 2) and names the attribute and where it came from; an identical repeat (the same permission, say) is accepted. Use the export options and properties for what they cover (orientation, label, package, internet). Error codes: `java_compile_failed` and `java_dex_failed` (exit 3), `activity_ambiguous`, `activity_not_found`, `manifest_conflict`, `bad_manifest_fragment`, `bad_manifest_attribute`, `bad_icon` (exit 2).
+
+`onegame android run`, `test` and `live` ask the device for the package's launcher activity, so they start a subclass the same way (`cmd package resolve-activity`; NativeActivity when the device cannot answer). `tests/AndroidExtrasGame` is a working example of all of the above.
 
 ### Release: bundle and signing
 
