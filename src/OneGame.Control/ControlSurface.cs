@@ -157,6 +157,7 @@ public sealed partial class ControlSurface : IControlEndpoint
         "haptics" => Json(HapticsOp(a), ControlJson.Default.HapticsResult),
         "sim_events" => SimEventsOp(a),
         "audio_capture" => Json(AudioCapture(a), ControlJson.Default.AudioCaptureResult),
+        "store" when a.Str("action") == "products" => Json(StoreProducts(), ControlJson.Default.StoreProductsStatus),
         "store" => Json(StoreAction(a), ControlJson.Default.PurchaseStatus),
         "saves" => Json(SavesOp(a), ControlJson.Default.SavesResult),
         "capture_frame" => CaptureFrameAsync(a).AsTask().GetAwaiter().GetResult(),

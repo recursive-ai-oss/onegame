@@ -82,6 +82,33 @@ public sealed class FakeStore : IPurchaseBackend
     /// <summary>When set, the next <see cref="Connect"/> fails with this error (and the one after succeeds again unless it is set again).</summary>
     public StoreError? ConnectFailure { get; set; }
 
+    /// <summary>
+    /// Sets what the store reports as a product's price, as a store with a regional price would. A game sees it the next time it loads products.
+    /// The display string is formatted by <see cref="FakePrice.Format"/> unless one is given.
+    /// </summary>
+    /// <param name="productId">A product the store sells.</param>
+    /// <param name="priceMicros">The amount in millionths of the currency (4.99 is 4,990,000).</param>
+    /// <param name="currency">ISO 4217 code, such as <c>USD</c>, <c>EUR</c> or <c>JPY</c>.</param>
+    /// <param name="display">The text to show, or null to format the amount for the currency.</param>
+    /// <returns>False when the store does not sell the product.</returns>
+    public bool SetPrice(string productId, long priceMicros, string currency, string? display = null)
+    {
+        ArgumentNullException.ThrowIfNull(productId);
+        ArgumentException.ThrowIfNullOrEmpty(currency);
+        ArgumentOutOfRangeException.ThrowIfNegative(priceMicros);
+        lock (_lock)
+        {
+            if (!_catalog.TryGetValue(productId, out var p))
+            {
+                return false;
+            }
+
+            var code = currency.ToUpperInvariant();
+            _catalog[productId] = p with { Price = display ?? FakePrice.Format(priceMicros, code), PriceMicros = priceMicros, Currency = code };
+            return true;
+        }
+    }
+
     /// <summary>Queues the outcome of a later purchase of the product. Outcomes are used in order, one per purchase; after the script runs out a purchase succeeds.</summary>
     /// <param name="productId">The product.</param>
     /// <param name="outcome">What happens.</param>

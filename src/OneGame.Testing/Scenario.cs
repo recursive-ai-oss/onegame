@@ -274,7 +274,7 @@ public enum ExpectKind
 /// <summary>A check on the game's state. Unset fields are not checked.</summary>
 public sealed record ScenarioExpectation(ExpectKind Kind, int Line)
 {
-    /// <summary>The checks of a <see cref="ExpectKind.Store"/> expectation: a key (owned, not-owned, pending, connection, unfinished, products, recent) and its value.</summary>
+    /// <summary>The checks of a <see cref="ExpectKind.Store"/> expectation: a key (owned, not-owned, pending, connection, unfinished, products, recent, or price, currency and micros as <c>product=value</c>) and its value.</summary>
     public (string Key, string Value)[] StoreChecks { get; init; } = [];
 
     /// <summary>The checks of an <see cref="ExpectKind.Asset"/> expectation: <c>path</c> first, then <c>state</c>, <c>version</c> or <c>error</c> (a part of the message).</summary>
@@ -883,13 +883,14 @@ public static class ScenarioParser
 
                     return json.Count > 0 ? new ScenarioStep(StepKind.Camera, line) { ControlArgs = "{" + string.Join(",", json) + "}" } : throw Error(v, "camera needs at least one of position, target, fov, near, far, ortho-height");
                 case "store":
-                    var storeKeys = new[] { "action", "product", "outcome", "error", "approve" };
+                    var storeKeys = new[] { "action", "product", "outcome", "error", "approve", "amount", "currency", "display" };
                     var stm = v.Kind == YamlNodeKind.Scalar ? new Dictionary<string, YamlNode>() : Map(v, storeKeys, "store");
-                    var storeAction = v.Kind == YamlNodeKind.Scalar ? Text(v, "store") : stm.TryGetValue("action", out var storeActionNode) ? Text(storeActionNode, "action") : throw Error(v, "store needs an action: describe, connect, load, buy, finish, restore, script, resolve, revoke, disconnect or fail-connect");
+                    var storeAction = v.Kind == YamlNodeKind.Scalar ? Text(v, "store") : stm.TryGetValue("action", out var storeActionNode) ? Text(storeActionNode, "action") : throw Error(v, "store needs an action: describe, connect, load, buy, finish, restore, script, resolve, revoke, price, disconnect or fail-connect");
                     return new ScenarioStep(StepKind.Store, line)
                     {
                         ControlArgs = ScenarioRunner.Obj(("action", storeAction), ("product", stm.TryGetValue("product", out var s_product) ? Text(s_product, "product") : null), ("outcome", stm.TryGetValue("outcome", out var s_outcome) ? Text(s_outcome, "outcome") : null), ("error", stm.TryGetValue("error", out var s_error) ? Text(s_error, "error") : null),
-                            ("approve", stm.TryGetValue("approve", out var storeApprove) ? Bool(storeApprove, "approve") : null)),
+                            ("approve", stm.TryGetValue("approve", out var storeApprove) ? Bool(storeApprove, "approve") : null),
+                            ("amount", stm.TryGetValue("amount", out var s_amount) ? Text(s_amount, "amount") : null), ("currency", stm.TryGetValue("currency", out var s_cur) ? Text(s_cur, "currency") : null), ("display", stm.TryGetValue("display", out var s_disp) ? Text(s_disp, "display") : null)),
                     };
                 case "saves":
                     // saves: quick-save | {action: save, slot: a, label: x} | {action: write-file, name: settings.bin, data: <base64>}
@@ -1047,7 +1048,7 @@ public static class ScenarioParser
                         Pressed = u.TryGetValue("pressed", out var pr) ? Bool(pr, "pressed") : null,
                     };
                 case "store":
-                    var sx = Map(v, ["owned", "not-owned", "pending", "connection", "unfinished", "products", "recent"], "store");
+                    var sx = Map(v, ["owned", "not-owned", "pending", "connection", "unfinished", "products", "recent", "price", "currency", "micros"], "store");
                     return sx.Count > 0
                         ? new ScenarioExpectation(ExpectKind.Store, line) { StoreChecks = [.. sx.Select(kv => (kv.Key, Text(kv.Value, kv.Key)))] }
                         : throw Error(v, "store needs at least one of owned, not-owned, pending, connection, unfinished, products, recent");

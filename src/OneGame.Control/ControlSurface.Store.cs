@@ -13,6 +13,9 @@ public sealed partial class ControlSurface
     private static FakeStore FakeOrThrow(PurchaseService service) =>
         service.Backend as FakeStore ?? throw new ControlException("rejected", $"'{service.Name}' is a real store. The script, resolve, revoke, disconnect and fail-connect actions drive only the fake store (set ONEGAME_STORE=fake).");
 
+    private StoreProductsStatus StoreProducts() =>
+        new([.. PurchasesOrThrow().Products.Select(p => new StoreProductInfo(p.Id, p.Kind.ToString(), p.Title, p.Price, p.PriceMicros, p.Currency))]);
+
     private PurchaseStatus StoreAction(Args a)
     {
         var service = PurchasesOrThrow();
@@ -69,6 +72,30 @@ public sealed partial class ControlSurface
                 }
 
                 break;
+            case "price":
+                // price: product, amount ("4.99"), currency ("EUR"), optional display text. Products are reloaded so the game sees it.
+                if (!FakePrice.TryParseAmount(a.Str("amount"), out var micros))
+                {
+                    throw new ControlException("bad_args", "price needs an amount such as \"4.99\" (digits and at most 6 decimals).");
+                }
+
+                var currency = a.Str("currency") ?? "USD";
+                if (currency.Length != 3 || !currency.All(char.IsAsciiLetter))
+                {
+                    throw new ControlException("bad_args", $"currency is a 3-letter ISO 4217 code, got '{currency}'.");
+                }
+
+                if (!FakeOrThrow(service).SetPrice(Product(), micros, currency, a.Str("display")))
+                {
+                    throw new ControlException("not_found", $"The fake store does not sell '{product}'.");
+                }
+
+                if (service.Connection == StoreConnection.Connected)
+                {
+                    ThrowIf(service.LoadProducts());
+                }
+
+                break;
             case "disconnect":
                 FakeOrThrow(service).Disconnect();
                 break;
@@ -76,7 +103,7 @@ public sealed partial class ControlSurface
                 FakeOrThrow(service).ConnectFailure = ParseFailure(a.Str("error") ?? "unavailable") ?? new StoreError(StoreErrorKind.Unavailable, "scripted");
                 break;
             default:
-                throw new ControlException("bad_args", $"Unknown store action '{action}'. Actions: describe, connect, load, buy, finish, restore, script, resolve, revoke, disconnect, fail-connect.");
+                throw new ControlException("bad_args", $"Unknown store action '{action}'. Actions: describe, connect, load, buy, finish, restore, script, resolve, revoke, price, disconnect, fail-connect, products.");
         }
 
         // The answers to a request are events; delivering them here lets a scenario step see the result of the step before it.
@@ -113,3 +140,16 @@ public sealed partial class ControlSurface
             : throw new ControlException("bad_args", $"error is one of {string.Join(", ", Enum.GetNames<StoreErrorKind>().Where(n => n != nameof(StoreErrorKind.None)))}, got '{text}'.");
     }
 }
+
+/// <summary>One product as the store described it, for the <c>store</c> operation's <c>products</c> action.</summary>
+/// <param name="Id">Product id.</param>
+/// <param name="Kind">Consumable, NonConsumable or Subscription.</param>
+/// <param name="Title">Display title.</param>
+/// <param name="Price">The price as shown to the player.</param>
+/// <param name="PriceMicros">The amount in millionths of <paramref name="Currency"/>.</param>
+/// <param name="Currency">ISO 4217 code, or empty.</param>
+public sealed record StoreProductInfo(string Id, string Kind, string Title, string Price, long PriceMicros, string Currency);
+
+/// <summary>The products a purchase service has loaded, in id order.</summary>
+/// <param name="Products">The products.</param>
+public sealed record StoreProductsStatus(StoreProductInfo[] Products);
