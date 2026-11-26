@@ -44,7 +44,11 @@ internal static class ShowcaseScenes
         d.Layer = back;
         d.FillRect(new Rect(0, 0, d.Width, d.Height), Color.Rgb(0x1b2430));
 
-        if (mode == 1)
+        if (mode == 9)
+        {
+            Fluid(d);
+        }
+        else if (mode == 1)
         {
             Layers(d);
         }
@@ -52,6 +56,25 @@ internal static class ShowcaseScenes
         {
             Order(d);
         }
+    }
+
+    private static readonly Vector2[] FluidPoints = new Vector2[400];
+    private static int _fluidFrame;
+    private static FluidSurface2D? _fluid;
+
+    // A few hundred particles on a drifting lattice, drawn as one liquid surface through its post chain.
+    private static void Fluid(Draw2D d)
+    {
+        _fluid ??= new FluidSurface2D("showcase-fluid");
+        _fluid.Style.ParticleRadius = 6;
+        _fluid.Style.Blur = 4;
+        var t = _fluidFrame++ * 0.05f;
+        for (var i = 0; i < FluidPoints.Length; i++)
+        {
+            FluidPoints[i] = new Vector2(((i % 20) * 5) - 50 + (MathF.Sin(t + i) * 2), ((i / 20) * 3) - 30 + (MathF.Cos(t * 1.3f + i) * 2));
+        }
+
+        _fluid.Draw(d, FluidPoints, 1, false);
     }
 
     private static void World(Draw2D d)

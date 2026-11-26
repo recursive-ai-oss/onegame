@@ -126,9 +126,10 @@ public partial class Jug : Entity, IView2D
         var n = space.GetFluidPositions(_points);
         var spacing = SpacingMilli / 1000f * Level.Scale;
         _surface ??= new FluidSurface2D("liquid");
-        _surface.Style.ParticleRadius = spacing * 1.0f;
-        _surface.Style.Blur = spacing * 0.9f;
+        _surface.Style.ParticleRadius = spacing * 2.0f;
+        _surface.Style.Blur = spacing * 1.1f;
         _surface.Style.Threshold = 0.38f;
+        _surface.Style.RimWidth = 0.15f;
         if (Dots)
         {
             for (var i = 0; i < n; i++)
@@ -183,6 +184,16 @@ public sealed class PourGame(int particles = PourGame.DefaultParticles) : GameDe
         {
             (_bench ??= new Bench()).OnFrame(game);
         }
+    }
+
+    // The font is embedded so the game draws the same in a browser, which has no fonts folder beside the program.
+    public override void DefineFonts(OneGame.Text.FontLibrary fonts)
+    {
+        ArgumentNullException.ThrowIfNull(fonts);
+        using var stream = typeof(PourGame).Assembly.GetManifestResourceStream("fonts/NotoSans-Regular.ttf") ?? throw new InvalidOperationException("The program has no embedded font.");
+        using var copy = new System.IO.MemoryStream();
+        stream.CopyTo(copy);
+        fonts.Add(copy.ToArray());
     }
 
     public override void RegisterEntities(EntityRegistry registry) => OneGame.Generated.PhysicsPourExample.EntityTypes.Register(registry);
