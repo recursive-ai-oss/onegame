@@ -18,8 +18,11 @@ An application window. Sizes are physical pixels (the size of the framebuffer a 
 | --- | --- |
 | [`App`](#m-app) | The owning application. |
 | [`CanPlace`](#m-canplace) | Whether a program can read and choose this window's position on the screen. |
+| [`ClaimedEdges`](#m-claimededges) | The screen edges that [`Window.ClaimedGestureRegions`](Window.md#m-claimedgestureregions) touch: a region whose outer side lies on the window's edge claims that edge. |
+| [`ClaimedGestureRegions`](#m-claimedgestureregions) | The regions last passed to [`Window.ClaimSystemGestures()`](Window.md#m-claimsystemgestures-readonlyspan-gestureregion), in window pixels. |
 | [`CursorHidden`](#m-cursorhidden) | Whether the cursor is hidden while over the window. |
 | [`CursorLocked`](#m-cursorlocked) | Whether the cursor is locked: it stays put and [`PlatformEventKind.PointerRelativeMotion`](PlatformEventKind.md#m-pointerrelativemotion) events report movement. |
+| [`GestureClaimLimit`](#m-gestureclaimlimit) | The most height, in window pixels, that the system lets a game claim along one edge (Android: 200 dp). |
 | [`Height`](#m-height) | Client height in physical pixels: the height a swapchain should have. |
 | [`Id`](#m-id) | The id carried by this window's events. |
 | [`IsClosed`](#m-isclosed) | Whether the window has been closed. |
@@ -59,6 +62,26 @@ Whether a program can read and choose this window's position on the screen. True
 
 **Type:** `bool`
 
+### <a id="m-claimededges"></a>ClaimedEdges
+
+```csharp
+public ScreenEdges ClaimedEdges { get; }
+```
+
+The screen edges that [`Window.ClaimedGestureRegions`](Window.md#m-claimedgestureregions) touch: a region whose outer side lies on the window's edge claims that edge.
+
+**Type:** [`ScreenEdges`](ScreenEdges.md)
+
+### <a id="m-claimedgestureregions"></a>ClaimedGestureRegions
+
+```csharp
+public IReadOnlyList<GestureRegion> ClaimedGestureRegions { get; }
+```
+
+The regions last passed to [`Window.ClaimSystemGestures()`](Window.md#m-claimsystemgestures-readonlyspan-gestureregion), in window pixels. Empty when the game claims nothing.
+
+**Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)&lt;[`GestureRegion`](GestureRegion.md)&gt;
+
 ### <a id="m-cursorhidden"></a>CursorHidden
 
 ```csharp
@@ -78,6 +101,16 @@ public bool CursorLocked { get; }
 Whether the cursor is locked: it stays put and [`PlatformEventKind.PointerRelativeMotion`](PlatformEventKind.md#m-pointerrelativemotion) events report movement.
 
 **Type:** `bool`
+
+### <a id="m-gestureclaimlimit"></a>GestureClaimLimit
+
+```csharp
+public virtual int GestureClaimLimit { get; }
+```
+
+The most height, in window pixels, that the system lets a game claim along one edge (Android: 200 dp). Regions beyond it are ignored by the system, so a game that needs more should choose which stretch of the edge it claims. 0 where the system has no such limit.
+
+**Type:** `int`
 
 ### <a id="m-height"></a>Height
 
@@ -264,6 +297,7 @@ The client area's top edge on the virtual screen, or 0 when [`Window.CanPlace`](
 | Member | Description |
 | --- | --- |
 | [`ApplyPlacement(WindowPlacement)`](#m-applyplacement-windowplacement) | Applies a saved placement to this window: the normal rectangle first (where the system lets a program move windows), then the maximized or fullscreen state. |
+| [`ClaimSystemGestures(ReadOnlySpan<GestureRegion>)`](#m-claimsystemgestures-readonlyspan-gestureregion) | Asks the system to leave drags that start inside these regions to the game instead of using them for its own gestures (on Android the back swipe from the left or right edge, which otherwise closes the app in the middle of a drag). |
 | [`Close()`](#m-close) | Closes the window. |
 | [`Dispose()`](#m-dispose) |  |
 | [`FillSolid(uint)`](#m-fillsolid-uint) | Fills a window made with [`WindowOptions.SoftwareSurface`](WindowOptions.md#m-softwaresurface) with one colour (0xAARRGGBB). |
@@ -291,6 +325,18 @@ Applies a saved placement to this window: the normal rectangle first (where the 
 **Parameters**
 
 - `placement` ([`WindowPlacement`](WindowPlacement.md)): The placement to apply, usually one read earlier with [`Window.Placement`](Window.md#m-placement).
+
+### <a id="m-claimsystemgestures-readonlyspan-gestureregion"></a>ClaimSystemGestures(ReadOnlySpan&lt;GestureRegion&gt;)
+
+```csharp
+public void ClaimSystemGestures(ReadOnlySpan<GestureRegion> regions);
+```
+
+Asks the system to leave drags that start inside these regions to the game instead of using them for its own gestures (on Android the back swipe from the left or right edge, which otherwise closes the app in the middle of a drag). Regions are in window pixels and replace any earlier claim; an empty list releases everything. Calling it again with the same regions does nothing, so a game may call it every layout. Rotation and resizing change the window pixels, so call it again after [`PlatformEventKind.WindowResized`](PlatformEventKind.md#m-windowresized) (the backend re-applies the last claim as it was, which is right only while the layout is unchanged). Android applies [`Window.GestureClaimLimit`](Window.md#m-gestureclaimlimit). iOS defers the system gestures on all four edges at all times, so a claim changes nothing there. Desktop and web have no such gestures and only record the claim.
+
+**Parameters**
+
+- `regions` ([`ReadOnlySpan`](https://learn.microsoft.com/dotnet/api/system.readonlyspan-1)&lt;[`GestureRegion`](GestureRegion.md)&gt;): The rectangles to keep, in window pixels. Empty ones are dropped.
 
 ### <a id="m-close"></a>Close()
 

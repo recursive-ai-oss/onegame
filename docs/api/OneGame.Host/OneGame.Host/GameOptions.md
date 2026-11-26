@@ -28,6 +28,7 @@ public GameOptions();
 
 | Member | Description |
 | --- | --- |
+| [`Args`](#m-args) | The command line the game was started with, for [`GameInstance.Args`](GameInstance.md#m-args). |
 | [`Backend`](#m-backend) | Which windowing system a windowed instance uses. |
 | [`CanvasId`](#m-canvasid) | The id of the canvas element a web page draws to. |
 | [`Connect`](#m-connect) | Connect to a server instead of running a world of its own. |
@@ -46,6 +47,16 @@ public GameOptions();
 | [`Shaders`](#m-shaders) | Where the 2D renderer gets its compiled shaders. |
 | [`Storage`](#m-storage) | Where the game keeps its saves and settings. |
 | [`Width`](#m-width) | Window (or virtual window) width in pixels. |
+
+### <a id="m-args"></a>Args
+
+```csharp
+public GameArgs Args { get; init; }
+```
+
+The command line the game was started with, for [`GameInstance.Args`](GameInstance.md#m-args). [`GameApp.Run()`](GameApp.md#m-run-gamedefinition-string) sets it; a test sets it to try a game's own options.
+
+**Type:** [`GameArgs`](GameArgs.md)
 
 ### <a id="m-backend"></a>Backend
 

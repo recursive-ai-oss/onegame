@@ -41,6 +41,9 @@ public PhysicsDebugShapes();
 | [`AsleepColor`](#m-asleepcolor) | Colour of sleeping dynamic shapes. |
 | [`AwakeColor`](#m-awakecolor) | Colour of awake dynamic shapes. |
 | [`ContactColor`](#m-contactcolor) | Colour of contact points and normals. |
+| [`DrainColor`](#m-draincolor) | Colour of drain volumes. |
+| [`EmitterColor`](#m-emittercolor) | Colour of emitter nozzles. |
+| [`FluidColor`](#m-fluidcolor) | Colour of fluid particles. |
 | [`KinematicColor`](#m-kinematiccolor) | Colour of kinematic shapes (characters, moving platforms). |
 | [`StaticColor`](#m-staticcolor) | Colour of static shapes. |
 | [`TriggerColor`](#m-triggercolor) | Colour of triggers. |
@@ -72,6 +75,36 @@ public const uint ContactColor = 4283453695;
 ```
 
 Colour of contact points and normals.
+
+**Type:** `uint`
+
+### <a id="m-draincolor"></a>DrainColor
+
+```csharp
+public const uint DrainColor = 4287643903;
+```
+
+Colour of drain volumes.
+
+**Type:** `uint`
+
+### <a id="m-emittercolor"></a>EmitterColor
+
+```csharp
+public const uint EmitterColor = 1356886271;
+```
+
+Colour of emitter nozzles.
+
+**Type:** `uint`
+
+### <a id="m-fluidcolor"></a>FluidColor
+
+```csharp
+public const uint FluidColor = 1336475647;
+```
+
+Colour of fluid particles.
 
 **Type:** `uint`
 
@@ -109,7 +142,18 @@ Colour of triggers.
 
 | Member | Description |
 | --- | --- |
+| [`IncludeFluids`](#m-includefluids) | Whether fluid particles (one short dash each) and the outlines of emitters and drains are collected too. |
 | [`Lines`](#m-lines) | The lines collected so far. |
+
+### <a id="m-includefluids"></a>IncludeFluids
+
+```csharp
+public bool IncludeFluids { get; set; }
+```
+
+Whether fluid particles (one short dash each) and the outlines of emitters and drains are collected too. Default true; turn it off for a fluid with many thousands of particles.
+
+**Type:** `bool`
 
 ### <a id="m-lines"></a>Lines
 

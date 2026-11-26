@@ -15,6 +15,7 @@ Makes input events without hardware: for the harness, tests and agents driving a
 
 | Member | Description |
 | --- | --- |
+| [`Back(int)`](#m-back-int) | Reports the system's back button or gesture, as Android sends it. |
 | [`CloseRequest(int)`](#m-closerequest-int) | Reports that the OS asked a window to close. |
 | [`Composition(int, string, int?, int?)`](#m-composition-int-string-int-int) | Reports an input method's pre-edit string, as a real IME would while the user composes. |
 | [`GamepadAxis(int, GamepadAxis, float)`](#m-gamepadaxis-int-gamepadaxis-float) | Moves a gamepad axis. |
@@ -34,6 +35,18 @@ Makes input events without hardware: for the harness, tests and agents driving a
 | [`TouchMove(int, int, float, float)`](#m-touchmove-int-int-float-float) | Moves a finger that is down. |
 | [`TouchUp(int, int, float, float)`](#m-touchup-int-int-float-float) | Lifts a finger. |
 | [`Wheel(int, float, float)`](#m-wheel-int-float-float) | Turns the wheel at the current pointer position (the last injected or real move); amounts are in notches. |
+
+### <a id="m-back-int"></a>Back(int)
+
+```csharp
+public void Back(int windowId);
+```
+
+Reports the system's back button or gesture, as Android sends it.
+
+**Parameters**
+
+- `windowId` (`int`)
 
 ### <a id="m-closerequest-int"></a>CloseRequest(int)
 

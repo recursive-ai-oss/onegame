@@ -32,3 +32,4 @@ What an expectation looks at.
 | <a id="m-particles"></a>`Particles` | `14` | Live particles in the frame just drawn: in total or in the emitter of a given name, exactly, at least or at most. |
 | <a id="m-tweens"></a>`Tweens` | `15` | How many top-level tweens are running (style transitions included). |
 | <a id="m-event"></a>`Event` | `16` | One-shot sim events emitted since the scenario began: how many of a named type, optionally with given payload values. |
+| <a id="m-haptic"></a>`Haptic` | `17` | Haptic requests (`Haptics.Tick`, `Haptics.Buzz`, ...) made since the scenario began: how many, optionally of one kind, optionally within the last few frames. |

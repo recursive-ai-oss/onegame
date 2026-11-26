@@ -49,6 +49,7 @@ Simulation ticks per second of a realtime run.
 | --- | --- |
 | [`Actions`](#m-actions) | The game's input actions, declared in [`GameDefinition.DefineActions()`](GameDefinition.md#m-defineactions-actionmap). |
 | [`AdapterName`](#m-adaptername) | The name of the graphics adapter in use, or null while none has been created. |
+| [`Args`](#m-args) | The command line this game was started with, including the options it declared in [`GameDefinition.OptionNames`](GameDefinition.md#m-optionnames). |
 | [`Art`](#m-art) | The UI's SVG and image atlas. |
 | [`Assets`](#m-assets) | The game's asset service: load textures, data, sounds and models by path. |
 | [`Clipboard`](#m-clipboard) | The system clipboard (a private in-process one when headless). |
@@ -107,6 +108,16 @@ public string? AdapterName { get; }
 The name of the graphics adapter in use, or null while none has been created.
 
 **Type:** `string?`
+
+### <a id="m-args"></a>Args
+
+```csharp
+public GameArgs Args { get; }
+```
+
+The command line this game was started with, including the options it declared in [`GameDefinition.OptionNames`](GameDefinition.md#m-optionnames). It is the same in debug and release builds. Read it from view and host code (screens, `OnEachFrame`, the host); sim code must not, because the command line is not part of the synced state or the recording.
+
+**Type:** [`GameArgs`](GameArgs.md)
 
 ### <a id="m-art"></a>Art
 

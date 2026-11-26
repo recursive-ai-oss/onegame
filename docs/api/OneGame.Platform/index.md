@@ -37,6 +37,10 @@ dotnet add package RecursiveAI.OneGame.Platform
 | [`GamepadMapping`](OneGame.Platform/GamepadMapping.md) | class | One entry of a gamepad mapping database in the community text format: a device GUID, a name, and comma-separated `target:source` pairs such as `a:b0,leftx:a0,dpup:h0.1`. |
 | [`GamepadMappingDatabase`](OneGame.Platform/GamepadMappingDatabase.md) | class | A set of [`GamepadMapping`](OneGame.Platform/GamepadMapping.md) entries looked up by device GUID. |
 | [`GamepadState`](OneGame.Platform/GamepadState.md) | class | Current state of one gamepad on the standard layout. |
+| [`GestureRegion`](OneGame.Platform/GestureRegion.md) | struct | A rectangle in window pixels, with the origin at the window's top-left corner. |
+| [`HapticEvent`](OneGame.Platform/HapticEvent.md) | record | One haptic request, as [`Haptics.GetLog()`](OneGame.Platform/Haptics.md#m-getlog) keeps it. |
+| [`HapticKind`](OneGame.Platform/HapticKind.md) | enum | The kinds of touch feedback a game can ask for. |
+| [`Haptics`](OneGame.Platform/Haptics.md) | static class | Touch feedback for view and host code. |
 | [`InputAction`](OneGame.Platform/InputAction.md) | class | One declared action and its state for the current frame. |
 | [`InputInjector`](OneGame.Platform/InputInjector.md) | class | Makes input events without hardware: for the harness, tests and agents driving a running game. |
 | [`InputSource`](OneGame.Platform/InputSource.md) | struct | One physical control an action can listen to: a key, a mouse button, a pad button or axis, the wheel, or a touch region. |
@@ -62,6 +66,7 @@ dotnet add package RecursiveAI.OneGame.Platform
 | [`RebindRequest`](OneGame.Platform/RebindRequest.md) | record | A rebinding waiting for the player's next input. |
 | [`RebindResult`](OneGame.Platform/RebindResult.md) | record | The outcome of a rebinding capture. |
 | [`RunningOn`](OneGame.Platform/RunningOn.md) | static class | Which kind of system the game is running on. |
+| [`ScreenEdges`](OneGame.Platform/ScreenEdges.md) | enum | Screen edges, for the system gestures that start from one. |
 | [`ScreenRect`](OneGame.Platform/ScreenRect.md) | struct | A rectangle in screen pixels, such as the usable area of a monitor. |
 | [`TouchRegion`](OneGame.Platform/TouchRegion.md) | enum | The part of the window a touch binding listens to. |
 | [`Window`](OneGame.Platform/Window.md) | class | An application window. |

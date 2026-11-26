@@ -80,9 +80,13 @@ Creates a new instance.
 | [`FollowedScope`](#m-followedscope) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`FollowedScopeArray`](#m-followedscopearray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`GeneratedSerializerOptions`](#m-generatedserializeroptions) | The source-generated options associated with this context. |
+| [`GestureClaimResult`](#m-gestureclaimresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`GpuPassReport`](#m-gpupassreport) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`GpuPassReportArray`](#m-gpupassreportarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`GraphStats`](#m-graphstats) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`HapticEventInfo`](#m-hapticeventinfo) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`HapticEventInfoArray`](#m-hapticeventinfoarray) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`HapticsResult`](#m-hapticsresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`HitResult`](#m-hitresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`HotReloadResult`](#m-hotreloadresult) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`IReadOnlyListContrastCheck`](#m-ireadonlylistcontrastcheck) | Defines the source generated JSON serialization contract metadata for a given type. |
@@ -527,6 +531,16 @@ The source-generated options associated with this context.
 
 **Type:** [`JsonSerializerOptions`](https://learn.microsoft.com/dotnet/api/system.text.json.jsonserializeroptions)?
 
+### <a id="m-gestureclaimresult"></a>GestureClaimResult
+
+```csharp
+public JsonTypeInfo<GestureClaimResult> GestureClaimResult { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`GestureClaimResult`](GestureClaimResult.md)&gt;
+
 ### <a id="m-gpupassreport"></a>GpuPassReport
 
 ```csharp
@@ -556,6 +570,36 @@ public JsonTypeInfo<GraphStats> GraphStats { get; }
 Defines the source generated JSON serialization contract metadata for a given type.
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`GraphStats`](../../OneGame.Gpu/OneGame.Gpu.Graph/GraphStats.md)&gt;
+
+### <a id="m-hapticeventinfo"></a>HapticEventInfo
+
+```csharp
+public JsonTypeInfo<HapticEventInfo> HapticEventInfo { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`HapticEventInfo`](HapticEventInfo.md)&gt;
+
+### <a id="m-hapticeventinfoarray"></a>HapticEventInfoArray
+
+```csharp
+public JsonTypeInfo<HapticEventInfo[]> HapticEventInfoArray { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`HapticEventInfo`](HapticEventInfo.md)\[\]&gt;
+
+### <a id="m-hapticsresult"></a>HapticsResult
+
+```csharp
+public JsonTypeInfo<HapticsResult> HapticsResult { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`HapticsResult`](HapticsResult.md)&gt;
 
 ### <a id="m-hitresult"></a>HitResult
 

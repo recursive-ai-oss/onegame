@@ -53,6 +53,7 @@ A check on the game's state. Unset fields are not checked.
 | [`EventName`](#m-eventname) | The event type's name (event). |
 | [`EventWhere`](#m-eventwhere) | Payload fields an event must have to count, as field name and expected text (event). |
 | [`Focused`](#m-focused) | The first match has focus or not (ui). |
+| [`HapticKind`](#m-haptickind) | The haptic kind to count (haptic), such as tick or buzz; null counts every kind. |
 | [`Id`](#m-id) | Element id (ui). |
 | [`Kind`](#m-kind) |  |
 | [`Line`](#m-line) |  |
@@ -262,6 +263,16 @@ public bool? Focused { get; init; }
 The first match has focus or not (ui).
 
 **Type:** `bool?`
+
+### <a id="m-haptickind"></a>HapticKind
+
+```csharp
+public string? HapticKind { get; init; }
+```
+
+The haptic kind to count (haptic), such as tick or buzz; null counts every kind.
+
+**Type:** `string?`
 
 ### <a id="m-id"></a>Id
 

@@ -53,6 +53,7 @@ protected GameDefinition();
 | --- | --- |
 | [`MaxSaveBytes`](#m-maxsavebytes) | The largest save slot file the game reads or writes, in bytes (default 64 MiB). |
 | [`Name`](#m-name) | The game's name, shown in the window title and in harness output. |
+| [`OptionNames`](#m-optionnames) | The names (without dashes) of the command-line options this game takes itself, for example `"level"` for `--level 3` or a bare `--fake-store`. |
 | [`Seed`](#m-seed) | Seed of the world's random streams. |
 | [`Version`](#m-version) | The game's version text, recorded in each save slot's description (for a load screen: "made with 1.2"). |
 
@@ -75,6 +76,16 @@ public abstract string Name { get; }
 The game's name, shown in the window title and in harness output.
 
 **Type:** `string`
+
+### <a id="m-optionnames"></a>OptionNames
+
+```csharp
+public virtual IReadOnlyList<string> OptionNames { get; }
+```
+
+The names (without dashes) of the command-line options this game takes itself, for example `"level"` for `--level 3` or a bare `--fake-store`. They work in every build, beside the engine's and the development options, and the game reads them from [`GameInstance.Args`](GameInstance.md#m-args) (view and host code; sim code must not, so a run stays the same whatever the command line). Declaring them is what lets [`GameApp.Run()`](GameApp.md#m-run-gamedefinition-string) keep refusing misspelt engine and development options. A name that an engine or development option already uses is that option's.
+
+**Type:** [`IReadOnlyList`](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)`<string>`
 
 ### <a id="m-seed"></a>Seed
 
@@ -108,6 +119,7 @@ The game's version text, recorded in each save slot's description (for a load sc
 | [`DefineFixtures(FixtureSet)`](#m-definefixtures-fixtureset) | Declares named fixtures: ready-made worlds that tests and live control can load by name. |
 | [`DefineFonts(FontLibrary)`](#m-definefonts-fontlibrary) | Loads the game's fonts. |
 | [`DefineScreens(ScreenSet)`](#m-definescreens-screenset) | Declares the screens. |
+| [`OnBack(GameInstance)`](#m-onback-gameinstance) | Called when the user presses the system's back button or makes its gesture (Android), before anything else sees it. |
 | [`OnEachFrame(GameInstance)`](#m-oneachframe-gameinstance) | Called at the start of every frame of every game, local or connected, right after pending input was handled. |
 | [`OnFrame(GameInstance)`](#m-onframe-gameinstance) | Called once per frame of a game connected to a server, after the network was pumped and before the UI updates. |
 | [`OnInput(GameInstance, in PlatformEvent)`](#m-oninput-gameinstance-platformevent) | Called for an input event the UI did not consume, such as a click on empty space or a gameplay key. |
@@ -214,6 +226,20 @@ Declares the screens. A screen named `main` is shown at start; others open with 
 **Parameters**
 
 - `screens` ([`ScreenSet`](ScreenSet.md)): Add each screen with [`ScreenSet.Add()`](ScreenSet.md#m-add-string-func-gameinstance-element). A screen builder runs every time the screen opens and returns the root [`Element`](../../OneGame.UI/OneGame.UI/Element.md).
+
+### <a id="m-onback-gameinstance"></a>OnBack(GameInstance)
+
+```csharp
+public virtual bool OnBack(GameInstance game);
+```
+
+Called when the user presses the system's back button or makes its gesture (Android), before anything else sees it. Return true when the game used it (close a panel, open the pause screen): nothing else happens. Return false, which is the default, and the host sends the UI a `Cancel` (so the topmost dialog or page closes) and, when nothing took that either, leaves the app, as the system would. Runs on the game thread as part of input handling, so read state and send commands; do not write synced state.
+
+**Parameters**
+
+- `game` ([`GameInstance`](GameInstance.md)): The running game.
+
+**Returns:** `bool` — True if the game handled back.
 
 ### <a id="m-oneachframe-gameinstance"></a>OnEachFrame(GameInstance)
 

@@ -14,6 +14,7 @@ dotnet add package RecursiveAI.OneGame.Physics
 
 | Type | Kind | Description |
 | --- | --- | --- |
+| [`BodyFluidState`](OneGame.Physics/BodyFluidState.md) | struct | What a fluid does to one body: how much of it is covered and the average force on it. |
 | [`BodyKind`](OneGame.Physics/BodyKind.md) | enum | How a body takes part in the simulation. |
 | [`BodyOptions`](OneGame.Physics/BodyOptions.md) | class | What a new body is made of and how it behaves. |
 | [`BodyOptions3D`](OneGame.Physics/BodyOptions3D.md) | class | What a new body is made of and how it behaves. |
@@ -23,6 +24,21 @@ dotnet add package RecursiveAI.OneGame.Physics
 | [`CharacterOptions`](OneGame.Physics/CharacterOptions.md) | class | The shape and abilities of a character: an upright capsule that is moved by collide-and-slide and not by forces. |
 | [`CharacterOptions3D`](OneGame.Physics/CharacterOptions3D.md) | class | The shape and abilities of a character: an upright capsule that is moved by collide-and-slide and not by forces. |
 | [`CharacterRef`](OneGame.Physics/CharacterRef.md) | struct | Names a character in a [`PhysicsSpace2D`](OneGame.Physics/PhysicsSpace2D.md), like [`BodyRef`](OneGame.Physics/BodyRef.md) names a body. |
+| [`FluidBodyEvent`](OneGame.Physics/FluidBodyEvent.md) | struct | A body becoming wet or dry in a fluid, from [`PhysicsSpace2D.FluidEvents`](OneGame.Physics/PhysicsSpace2D.md#m-fluidevents). |
+| [`FluidBodyEventKind`](OneGame.Physics/FluidBodyEventKind.md) | enum | What happened between a body and a fluid. |
+| [`FluidBodyEvents`](OneGame.Physics/FluidBodyEvents.md) | struct | The wet and dry events of the last step, ordered by body then fluid, the same on every node. |
+| [`FluidBodyEvents.Enumerator`](OneGame.Physics/FluidBodyEvents.Enumerator.md) | struct | Walks the events without allocating. |
+| [`FluidBudgetExceededException`](OneGame.Physics/FluidBudgetExceededException.md) | class | Adding particles would pass [`FluidWorldSettings.MaxParticles`](OneGame.Physics/FluidWorldSettings.md#m-maxparticles). |
+| [`FluidDrainOptions`](OneGame.Physics/FluidDrainOptions.md) | class | A drain: a volume that removes the particles of its fluid at the end of every step. |
+| [`FluidDrainRef`](OneGame.Physics/FluidDrainRef.md) | struct | A reference to a drain of a fluid, checked like [`FluidEmitterRef`](OneGame.Physics/FluidEmitterRef.md). |
+| [`FluidEmitterOptions`](OneGame.Physics/FluidEmitterOptions.md) | class | An emitter: a nozzle that streams new particles into a fluid. |
+| [`FluidEmitterRef`](OneGame.Physics/FluidEmitterRef.md) | struct | A reference to an emitter of a fluid. |
+| [`FluidOptions`](OneGame.Physics/FluidOptions.md) | class | How to make a particle fluid with [`PhysicsSpace2D.AddFluid()`](OneGame.Physics/PhysicsSpace2D.md#m-addfluid-fluidoptions): a preset, the particle spacing, and optional overrides. |
+| [`FluidParticle`](OneGame.Physics/FluidParticle.md) | struct | One particle of a fluid, in game types. |
+| [`FluidPreset`](OneGame.Physics/FluidPreset.md) | enum | The material a particle fluid starts from. |
+| [`FluidRef`](OneGame.Physics/FluidRef.md) | struct | A reference to a fluid, a body-ref-like value that fits a synced property. |
+| [`FluidVolumeShape`](OneGame.Physics/FluidVolumeShape.md) | enum | The shape of an emitter's nozzle or a drain's volume. |
+| [`FluidWorldSettings`](OneGame.Physics/FluidWorldSettings.md) | class | The settings that apply to every particle fluid of a space (see [`PhysicsSpace2D.FluidSettings`](OneGame.Physics/PhysicsSpace2D.md#m-fluidsettings)). |
 | [`PhysicsDebug3D`](OneGame.Physics/PhysicsDebug3D.md) | class | Reusable view-side adapter from 3D physics debug geometry to the render graph's debug primitives. |
 | [`PhysicsDebugLine`](OneGame.Physics/PhysicsDebugLine.md) | struct | A line of debug geometry in world units. |
 | [`PhysicsDebugShapes`](OneGame.Physics/PhysicsDebugShapes.md) | class | Debug geometry for a [`PhysicsSpace2D`](OneGame.Physics/PhysicsSpace2D.md): every shape's outline (colour tells static, kinematic, awake, asleep and trigger apart), contact points with their normals, as plain lines in world units. |
@@ -44,4 +60,5 @@ dotnet add package RecursiveAI.OneGame.Physics
 | [`RayHit`](OneGame.Physics/RayHit.md) | struct | What a ray met. |
 | [`RayHit3D`](OneGame.Physics/RayHit3D.md) | struct | A nearest 3D query hit. |
 | [`StaleBodyException`](OneGame.Physics/StaleBodyException.md) | class | A body or character reference no longer names anything in the space (it was removed, or the space was restored from a save that does not have it). |
+| [`StaleFluidException`](OneGame.Physics/StaleFluidException.md) | class | A fluid, emitter or drain reference no longer names anything in the space. |
 | [`VehicleRef`](OneGame.Physics/VehicleRef.md) | struct | Names a vehicle in a [`PhysicsSpace3D`](OneGame.Physics/PhysicsSpace3D.md), like [`BodyRef`](OneGame.Physics/BodyRef.md) names a body. |

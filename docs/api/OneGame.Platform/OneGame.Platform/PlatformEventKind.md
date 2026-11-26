@@ -44,4 +44,4 @@ What happened. Poll events with [`PlatformApp.TryGetEvent()`](PlatformApp.md#m-t
 | <a id="m-safeareachanged"></a>`SafeAreaChanged` | `26` | The area of the window that is free of cut-outs and system bars changed; see [`PlatformEvent.Insets`](PlatformEvent.md#m-insets). |
 | <a id="m-surfacelost"></a>`SurfaceLost` | `27` | The window's drawing surface is gone (the app went to the background, or the system is rebuilding the window). Release every swapchain made on it before the next frame. |
 | <a id="m-surfacecreated"></a>`SurfaceCreated` | `28` | The window has a drawing surface again; [`Window.NativeHandle`](Window.md#m-nativehandle) names the new one. Make a new swapchain. |
-| <a id="m-backrequested"></a>`BackRequested` | `29` | The user pressed the system's back gesture or button. If the game leaves it unhandled it should ask to quit. |
+| <a id="m-backrequested"></a>`BackRequested` | `29` | The user pressed the system's back gesture or button. The host offers it to the game first (`GameDefinition.OnBack`) and leaves the app only when nothing handled it. |

@@ -33,8 +33,19 @@ Parses arguments. Anything not starting with `--` and not the value of an option
 
 | Member | Description |
 | --- | --- |
+| [`Empty`](#m-empty) | A command line with nothing on it. |
 | [`Names`](#m-names) | The option names given. |
 | [`Positional`](#m-positional) | Arguments that are not options. |
+
+### <a id="m-empty"></a>Empty
+
+```csharp
+public static GameArgs Empty { get; }
+```
+
+A command line with nothing on it.
+
+**Type:** [`GameArgs`](GameArgs.md)
 
 ### <a id="m-names"></a>Names
 

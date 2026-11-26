@@ -38,7 +38,10 @@ dotnet add package RecursiveAI.OneGame.Control
 | [`Draw2DReport`](OneGame.Control/Draw2DReport.md) | record | Result of `draw2d`: what the 2D happy path drew in the last frame and where its camera looks. |
 | [`EnvironmentLoadResult`](OneGame.Control/EnvironmentLoadResult.md) | record | Progress of an asynchronous environment load started with the `environment` operation's `load` or `sky` argument. |
 | [`EnvironmentResult`](OneGame.Control/EnvironmentResult.md) | record | Result of `environment`: the scene's distance fog and environment crossfade. |
+| [`GestureClaimResult`](OneGame.Control/GestureClaimResult.md) | record | Result of `system_gestures`: what the game currently claims from the system's gestures. |
 | [`GpuPassReport`](OneGame.Control/GpuPassReport.md) | record | One pass of the render graph and its GPU time. |
+| [`HapticEventInfo`](OneGame.Control/HapticEventInfo.md) | record | One haptic request in [`HapticsResult`](OneGame.Control/HapticsResult.md). |
+| [`HapticsResult`](OneGame.Control/HapticsResult.md) | record | Result of `haptics`. |
 | [`HitResult`](OneGame.Control/HitResult.md) | record | Result of `ui_hit`: the element a pointer event at a position would reach. |
 | [`HotReloadResult`](OneGame.Control/HotReloadResult.md) | record | What a game's live control reports about development hot reload: the `hot_reload` operation. |
 | [`IControlEndpoint`](OneGame.Control/IControlEndpoint.md) | interface | Anything the MCP face can drive: a list of operations and a way to run one. |
