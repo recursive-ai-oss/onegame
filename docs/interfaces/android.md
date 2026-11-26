@@ -19,13 +19,40 @@ onegame export --target android --json                      # arm64-v8a and x86_
 onegame export --target android --abi x86_64 --dev --json   # a build for an emulator, with live control
 ```
 
-Options: `--abi arm64-v8a,x86_64`, `--dev`, `--package com.example.game` (default `dev.onegame.<assembly>`), `--label`, `--orientation` (an `android:screenOrientation` value, default `unspecified`), `--sdk <dir>`, `--keystore <file>`, `--symbols <dir>` (keep the debug files for crash analysis), `--out`, `--project`. The result (`AndroidExportResult`) has the APK path, size, SHA-256, package, ABIs and each library's hash.
+Options: `--abi arm64-v8a,x86_64`, `--dev`, `--package com.example.game` (default `dev.onegame.<assembly>`), `--label`, `--orientation` (an `android:screenOrientation` value, default `unspecified`), `--sdk <dir>`, `--symbols <dir>` (keep the debug files for crash analysis), `--out`, `--project`, and the release options below. The result (`AndroidExportResult`) has the APK path, size, SHA-256, package, ABIs and each library's hash, and for releases the version, target SDK, signing certificate and bundle.
+
+### Release: bundle and signing
+
+```
+export ONEGAME_ANDROID_STORE_PASSWORD=...                 # and ONEGAME_ANDROID_KEY_PASSWORD if the key has its own
+onegame export --target android --aab --keystore upload.p12 --key-alias upload --version-code 42 --json
+```
+
+This writes `<Game>-<version>-android.aab` (the Android App Bundle Google Play takes) and `<Game>-<version>-android.apk` (the same build signed with the same key, for side-loading and tests).
+
+| Option | Property | Meaning |
+|---|---|---|
+| `--aab` | | also write the bundle |
+| `--keystore <file>` | env `ONEGAME_ANDROID_KEYSTORE` | the game's own keystore, PKCS12 or JKS |
+| `--key-alias <name>` | env `ONEGAME_ANDROID_KEY_ALIAS` | the key inside it |
+| | env `ONEGAME_ANDROID_STORE_PASSWORD`, `ONEGAME_ANDROID_KEY_PASSWORD` | passwords; the key password defaults to the store password. They are never taken from the command line and are handed to `apksigner` and `jarsigner` through the environment, so they appear in no argument list, log or result |
+| `--debug-key` | | sign with the debug key on purpose (the export warns `debug_signed`: Play refuses it) |
+| `--version-code <n>` | `AndroidVersionCode` | 1 to 2100000000; default derived from the version (1.2.3 is 10203). Play refuses a repeated code, so pass a new one for every upload |
+| `--version-name <text>` | `AndroidVersionName` | default: the project's `Version` |
+| `--target-sdk <level>` | `AndroidTargetSdk` | default 36 |
+| `--bundletool <jar>` | env `ONEGAME_BUNDLETOOL` | Google's bundletool; see below |
+
+A release export (no `--dev`) with no keystore and no `--debug-key` exits 2 `keystore_required`. A `--dev` export keeps the debug key unless a keystore is given. Play App Signing re-signs what Play serves, so the game's upload key is all the bundle needs.
+
+The bundle has one base module with protobuf resources, a split per ABI, and native libraries stored uncompressed and 16 KiB aligned. It is built with Google's `bundletool` (what Play itself uses), found as `--bundletool`, `ONEGAME_BUNDLETOOL`, `BUNDLETOOL`, a `bundletool*.jar` in the SDK folder, or the pinned release the tool downloads once into its cache (checked against a SHA-256) and needs a JDK to run. It is a build tool; nothing from it ships. With `--symbols <dir>` and `--aab`, `<dir>/native-debug-symbols.zip` holds `<abi>/lib<name>.so.dbg` for Play's crash reports.
+
+Result fields added for releases: `versionCode`, `versionName`, `targetSdk`, `signing` (`debug-key` or `release-key`), `signingCertSha256`, `bundle`, `bundleSize`, `bundleSha256`, `symbolsArchive`.
 
 - **Needs** a Linux x86-64 host (the NDK's clang links the library), the Android SDK (`ANDROID_HOME`: build-tools, a platform, platform-tools) and an NDK (`ANDROID_NDK` or `$ANDROID_HOME/ndk/<newest>`), plus a JDK for `apksigner` and `keytool`. All of these are build-time tools; none ships.
 - The .NET SDK does not list `linux-bionic` as a NativeAOT target, so `build/Android.targets` (imported by `build/Game.targets`) downloads the host compiler and the `Microsoft.NETCore.App.Runtime.NativeAOT.linux-bionic-*` pack at restore and points the compiler at them and at the NDK's clang and sysroot. A plain `dotnet publish -r linux-bionic-arm64` of a game that imports `Game.targets` does the same.
-- The APK is signed with the Android debug key (`$ANDROID_USER_HOME/debug.keystore` or `~/.android/debug.keystore`, made with `keytool` when missing). Debug-signed means installable on any device with USB debugging and on emulators; it is not a store build. An AAB and release signing are not built (they need Play's bundletool and a key the owner holds).
+- A `--dev` (or `--debug-key`) export is signed with the Android debug key (`$ANDROID_USER_HOME/debug.keystore` or `~/.android/debug.keystore`, made with `keytool` when missing): installable on any device with USB debugging and on emulators, not accepted by a store. A release export is signed with the game's own key (see Release, above).
 - `--dev` adds the INTERNET permission (the live listener is a loopback socket), `android:debuggable` (so `run-as` can read the app's files) and the development tools. Without it the app has neither, and `--live`, `--scenario` and friends exit 5 `no_dev_tools`, like a desktop release.
-- minSdk 26 (Vulkan 1.0 hardware), targetSdk 35, `android.hardware.vulkan.level` required. Libraries are linked with 16 KiB page alignment.
+- minSdk 26 (Vulkan 1.0 hardware), targetSdk 36 (`--target-sdk` or `AndroidTargetSdk` to change; below 36 warns because Play refuses it), `android.hardware.vulkan.level` required. Libraries are linked with 16 KiB page alignment: the export reads each library's loadable segments and warns `page_size_4k` if one is below 16384, and zip-aligns with `-P 16`. A game with `AndroidPlayBilling` also gets the Billing Library's own `com.google.android.play.billingclient.version` meta-data in the manifest, read from the library's manifest at export time (Play reads the library version from it).
 
 ## Device commands
 

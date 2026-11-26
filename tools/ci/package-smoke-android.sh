@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exports an Android APK from packages alone, with and without Google Play Billing. Packs the engine into a local folder that
+# Exports an Android APK and a signed bundle from packages alone, with and without Google Play Billing. Packs the engine into a local folder that
 # stands in for nuget.org, installs the onegame tool from it, creates a game and exports it. Needs a Linux x86-64 host with the
 # Android SDK and NDK (ANDROID_HOME), a JDK and clang. No engine checkout is involved: ONEGAME_ROOT is unset and the work folder
 # is outside the repository. The APKs are left in <work>/plain-export and <work>/billing-export for an emulator run.
@@ -95,6 +95,40 @@ export_apk() {
     unzip -l "$apk" | grep -q 'classes.dex' || { echo "no classes.dex in the Play Billing APK"; exit 1; }
   else
     if unzip -l "$apk" | grep -q 'classes.dex'; then echo "unexpected classes.dex"; exit 1; fi
+  fi
+
+  release_bundle "$variant"
+}
+
+# A release export: the game's own key (a throwaway one made here), a bundle for Play and a release-signed APK. The passwords
+# travel in the environment only.
+release_bundle() {
+  variant=$1
+  step "onegame export --target android --aab ($variant)"
+  keystore="$work/upload.p12"
+  rm -f "$keystore"
+  keytool -genkeypair -keystore "$keystore" -storetype PKCS12 -storepass smoke-secret -keypass smoke-secret -alias upload \
+    -keyalg RSA -keysize 2048 -validity 3650 -dname "CN=Smoke Upload,O=Test" > /dev/null 2>&1
+  # No key: a release export refuses (usage error, exit 2).
+  if "$og" export --target android --abi x86_64 --out "$work/$variant-norelease" --json > "$work/$variant-nokey.json" 2>&1; then echo "a release export without a key succeeded"; exit 1; fi
+  grep -q keystore_required "$work/$variant-nokey.json" || { echo "no keystore_required error"; cat "$work/$variant-nokey.json"; exit 1; }
+  ONEGAME_ANDROID_STORE_PASSWORD=smoke-secret "$og" export --target android --abi x86_64 --aab --keystore "$keystore" --key-alias upload \
+    --version-code 4321 --version-name 9.8.7 --out "$work/$variant-release" --json | tee "$work/$variant-release.json"
+  grep -q '^{"ok":true' "$work/$variant-release.json" || { echo "the release export failed"; exit 1; }
+  if grep -q smoke-secret "$work/$variant-release.json"; then echo "a password is in the export result"; exit 1; fi
+  grep -q '"targetSdk":36' "$work/$variant-release.json" || { echo "target SDK is not 36"; exit 1; }
+  aab=$(ls "$work/$variant-release"/*.aab)
+  apk=$(ls "$work/$variant-release"/*.apk)
+  jarsigner -verify "$aab" | grep -q 'jar verified' || { echo "the bundle is not signed"; exit 1; }
+  unzip -l "$aab" | grep -q 'base/manifest/AndroidManifest.xml' || { echo "no base module in the bundle"; exit 1; }
+  unzip -l "$aab" | grep -q 'base/lib/x86_64/' || { echo "no native library in the bundle"; exit 1; }
+  aapt2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
+  apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
+  "$apksigner" verify --print-certs "$apk" 2>/dev/null | grep -q 'CN=Smoke Upload' || { echo "the release APK is not signed with the game's key"; exit 1; }
+  "$aapt2" dump badging "$apk" | grep -q "versionCode='4321' versionName='9.8.7'" || { echo "version overrides not applied"; exit 1; }
+  if [ "$variant" = billing ]; then
+    "$aapt2" dump xmltree --file AndroidManifest.xml "$apk" | grep -q 'com.google.android.play.billingclient.version' || { echo "no billing library version meta-data"; exit 1; }
+    unzip -l "$aab" | grep -q 'base/dex/classes.dex' || { echo "no classes.dex in the bundle"; exit 1; }
   fi
 }
 
