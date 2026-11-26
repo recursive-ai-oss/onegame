@@ -4,6 +4,8 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+## [2.5.2] - 2026-11-26
+
 ### Added
 
 - Fake-store prices: `FakeStore.SetPrice(product, micros, currency, display?)` sets the price text, amount in millionths and ISO 4217 code a product reports on its next load, so store screenshots and scenarios can show regional prices. `FakePrice.Format` writes the text the same way on every machine (`$4.99`, `€4.99`, `¥1,200` for JPY with no minor units, `CHF 4.50`; no culture involved) and `FakePrice.TryParseAmount` reads `4.99`. The `store` control op and scenario step gain `action: price` (`product`, `amount`, `currency`, optional `display`; products reload) and a `products` action that lists them; scenario expectations check `store: {price: "coins=€4.99", currency: "coins=EUR", micros: "coins=4990000"}`. Products keep the old $0.99-and-up prices until one is set.

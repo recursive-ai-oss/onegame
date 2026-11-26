@@ -11,7 +11,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Atlas](OneGame.Atlas/index.md) | 1 | 14 | 119 | Atlas pages and the SVG and image atlas for the 2D renderer. |
 | [RecursiveAI.OneGame.Audio](OneGame.Audio/index.md) | 1 | 58 | 451 | Audio device output and the audio service that drives a mixer. |
 | [RecursiveAI.OneGame.Cli](OneGame.Cli/index.md) | 0 | 0 | 0 | The onegame command: create, build, run, test, capture and replay games. |
-| [RecursiveAI.OneGame.Control](OneGame.Control/index.md) | 1 | 68 | 589 | The control layer shared by the command line, the test API and live control. |
+| [RecursiveAI.OneGame.Control](OneGame.Control/index.md) | 1 | 70 | 601 | The control layer shared by the command line, the test API and live control. |
 | [RecursiveAI.OneGame.Core](OneGame.Core/index.md) | 2 | 78 | 615 | Entity runtime: fixed-point numbers, random streams and the attributes that declare entities. |
 | [RecursiveAI.OneGame.Gltf](OneGame.Gltf/index.md) | 1 | 62 | 371 | glTF 2.0 import: scenes, meshes, materials, skins and animations, safe on untrusted input. |
 | [RecursiveAI.OneGame.Gpu](OneGame.Gpu/index.md) | 1 | 16 | 117 | Render graph over the GPU layer (RecursiveAI.OneGpu). |
@@ -23,7 +23,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Particles](OneGame.Particles/index.md) | 1 | 8 | 72 | Particle emitters: a seedable, allocation-free simulation for sparks, smoke, dust and trails, drawn by the 2D and 3D renderers. |
 | [RecursiveAI.OneGame.Physics](OneGame.Physics/index.md) | 1 | 48 | 441 | 2D and 3D rigid bodies, characters, vehicles, triggers and queries for deterministic simulations on fixed-point positions, stepped by the sim tick, with state that is saved, restored and hashed with the world. |
 | [RecursiveAI.OneGame.Platform](OneGame.Platform/index.md) | 1 | 59 | 616 | Windows, input, controllers and the app lifecycle per operating system. |
-| [RecursiveAI.OneGame.Purchases](OneGame.Purchases/index.md) | 1 | 21 | 159 | In-app purchases: one store-neutral API over StoreKit, Google Play Billing and a scriptable fake store. |
+| [RecursiveAI.OneGame.Purchases](OneGame.Purchases/index.md) | 1 | 22 | 163 | In-app purchases: one store-neutral API over StoreKit, Google Play Billing and a scriptable fake store. |
 | [RecursiveAI.OneGame.Render2D](OneGame.Render2D/index.md) | 2 | 69 | 444 | Sprite, tilemap and text renderer. |
 | [RecursiveAI.OneGame.Render3D](OneGame.Render3D/index.md) | 2 | 182 | 1297 | Physically based 3D renderer: glTF materials, clustered forward lighting, image-based lighting, bloom and tone mapping on the render graph. |
 | [RecursiveAI.OneGame.Server](OneGame.Server/index.md) | 1 | 36 | 234 | The headless server host: fixed-step scopes, YAML configuration, logging, and the plugin API. |

@@ -15,6 +15,7 @@ dotnet add package RecursiveAI.OneGame.Purchases
 | Type | Kind | Description |
 | --- | --- | --- |
 | [`FakeOutcome`](OneGame.Purchases/FakeOutcome.md) | enum | What the fake store does with the next purchase of a product. |
+| [`FakePrice`](OneGame.Purchases/FakePrice.md) | static class | Formats and parses the prices the fake store reports. |
 | [`FakeStore`](OneGame.Purchases/FakeStore.md) | class | A deterministic, scriptable store that runs in-process on every platform, so a game and its scenarios can test purchase flows with no store account. |
 | [`IPurchaseBackend`](OneGame.Purchases/IPurchaseBackend.md) | interface | What a purchase backend implements. |
 | [`PlayBillingBackend`](OneGame.Purchases/PlayBillingBackend.md) | class | Google Play Billing on Android. |

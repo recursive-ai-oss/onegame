@@ -84,6 +84,7 @@ True when a restore lists every purchase the player still owns (Google Play), so
 | [`Restore()`](#m-restore) | Asks for the player's existing purchases. |
 | [`Revoke(string)`](#m-revoke-string) | Takes a purchase back, as a refund does: the player no longer owns the product and the game is told with a [`TransactionState.Revoked`](TransactionState.md#m-revoked) transaction. |
 | [`Script(string, FakeOutcome, StoreError?)`](#m-script-string-fakeoutcome-storeerror) | Queues the outcome of a later purchase of the product. |
+| [`SetPrice(string, long, string, string?)`](#m-setprice-string-long-string-string) | Sets what the store reports as a product's price, as a store with a regional price would. |
 | [`TryTake(out StoreEvent)`](#m-trytake-storeevent) | Takes the next event the store produced, if any. |
 
 ### <a id="m-buy-productdefinition"></a>Buy(ProductDefinition)
@@ -221,6 +222,23 @@ Queues the outcome of a later purchase of the product. Outcomes are used in orde
 - `productId` (`string`): The product.
 - `outcome` ([`FakeOutcome`](FakeOutcome.md)): What happens.
 - `failure` ([`StoreError`](StoreError.md)?): For [`FakeOutcome.Fail`](FakeOutcome.md#m-fail): the error. Defaults to [`StoreErrorKind.Failed`](StoreErrorKind.md#m-failed).
+
+### <a id="m-setprice-string-long-string-string"></a>SetPrice(string, long, string, string?)
+
+```csharp
+public bool SetPrice(string productId, long priceMicros, string currency, string? display = null);
+```
+
+Sets what the store reports as a product's price, as a store with a regional price would. A game sees it the next time it loads products. The display string is formatted by [`FakePrice.Format()`](FakePrice.md#m-format-long-string) unless one is given.
+
+**Parameters**
+
+- `productId` (`string`): A product the store sells.
+- `priceMicros` (`long`): The amount in millionths of the currency (4.99 is 4,990,000).
+- `currency` (`string`): ISO 4217 code, such as `USD`, `EUR` or `JPY`.
+- `display` (`string?`): The text to show, or null to format the amount for the currency.
+
+**Returns:** `bool` — False when the store does not sell the product.
 
 ### <a id="m-trytake-storeevent"></a>TryTake(out StoreEvent)
 

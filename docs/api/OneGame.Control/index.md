@@ -75,6 +75,8 @@ dotnet add package RecursiveAI.OneGame.Control
 | [`SlotEntry`](OneGame.Control/SlotEntry.md) | record | One save slot in the `saves` report. |
 | [`SnapshotResult`](OneGame.Control/SnapshotResult.md) | record | Result of `snapshot_save`: the world written as a snapshot, which `snapshot_load` (or a scenario's `snapshot` step) restores exactly. |
 | [`StateResult`](OneGame.Control/StateResult.md) | record | Result of `step`, `hash` and the operations that change the world (`screen_open`, `fixture_load`, `reset`, `snapshot_load`). |
+| [`StoreProductInfo`](OneGame.Control/StoreProductInfo.md) | record | One product as the store described it, for the `store` operation's `products` action. |
+| [`StoreProductsStatus`](OneGame.Control/StoreProductsStatus.md) | record | The products a purchase service has loaded, in id order. |
 | [`TimingReport`](OneGame.Control/TimingReport.md) | record | Frame timing over the last [`FrameTimings.Capacity`](../OneGame.Host/OneGame.Host/FrameTimings.md#m-capacity) frames. |
 | [`TweensResult`](OneGame.Control/TweensResult.md) | record | Result of the `tweens` operation. |
 | [`UiScaleResult`](OneGame.Control/UiScaleResult.md) | record | Result of `ui_scale`: the scale in effect, the override (null when following the window) and the window's own scale. |

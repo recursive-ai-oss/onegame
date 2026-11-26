@@ -20,7 +20,7 @@ One sprite to draw this frame. World coordinates have +X right and +Y down, like
 | [`Pivot`](#m-pivot) | The pivot as a fraction of the sprite: (0,0) top-left, (0.5,0.5) centre. |
 | [`Position`](#m-position) | Where the pivot is, in world units. |
 | [`Rotation`](#m-rotation) | Rotation in radians about the pivot; positive turns clockwise on screen. |
-| [`Scale`](#m-scale) | World units per source pixel, per axis. |
+| [`Scale`](#m-scale) | World units per source pixel, per axis: a multiplier of the texture's size, not a size. |
 | [`Source`](#m-source) | The part of the texture to draw, in pixels. |
 | [`Texture`](#m-texture) | The image to draw. |
 | [`Tint`](#m-tint) | Colour multiplied into the texture, sRGB with straight alpha. |
@@ -82,7 +82,7 @@ Rotation in radians about the pivot; positive turns clockwise on screen.
 public Vector2 Scale { get; set; }
 ```
 
-World units per source pixel, per axis.
+World units per source pixel, per axis: a multiplier of the texture's size, not a size. To draw a 64x64 texture 120 units wide, use 120f / 64.
 
 **Type:** [`Vector2`](https://learn.microsoft.com/dotnet/api/system.numerics.vector2)
 

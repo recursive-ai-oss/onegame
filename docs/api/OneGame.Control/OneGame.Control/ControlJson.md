@@ -154,6 +154,9 @@ Creates a new instance.
 | [`SteamInputReport`](#m-steaminputreport) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`SteamInputSetInfo`](#m-steaminputsetinfo) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`SteamKeyboardInfo`](#m-steamkeyboardinfo) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`StoreProductInfo`](#m-storeproductinfo) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`StoreProductInfoArray`](#m-storeproductinfoarray) | Defines the source generated JSON serialization contract metadata for a given type. |
+| [`StoreProductsStatus`](#m-storeproductsstatus) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`String`](#m-string) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`StringArray`](#m-stringarray) | Defines the source generated JSON serialization contract metadata for a given type. |
 | [`ThemeLintReport`](#m-themelintreport) | Defines the source generated JSON serialization contract metadata for a given type. |
@@ -1270,6 +1273,36 @@ public JsonTypeInfo<SteamKeyboardInfo> SteamKeyboardInfo { get; }
 Defines the source generated JSON serialization contract metadata for a given type.
 
 **Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`SteamKeyboardInfo`](../../OneGame.Steam/OneGame.Steam.Input/SteamKeyboardInfo.md)&gt;
+
+### <a id="m-storeproductinfo"></a>StoreProductInfo
+
+```csharp
+public JsonTypeInfo<StoreProductInfo> StoreProductInfo { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`StoreProductInfo`](StoreProductInfo.md)&gt;
+
+### <a id="m-storeproductinfoarray"></a>StoreProductInfoArray
+
+```csharp
+public JsonTypeInfo<StoreProductInfo[]> StoreProductInfoArray { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`StoreProductInfo`](StoreProductInfo.md)\[\]&gt;
+
+### <a id="m-storeproductsstatus"></a>StoreProductsStatus
+
+```csharp
+public JsonTypeInfo<StoreProductsStatus> StoreProductsStatus { get; }
+```
+
+Defines the source generated JSON serialization contract metadata for a given type.
+
+**Type:** [`JsonTypeInfo`](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1)&lt;[`StoreProductsStatus`](StoreProductsStatus.md)&gt;
 
 ### <a id="m-string"></a>String
 

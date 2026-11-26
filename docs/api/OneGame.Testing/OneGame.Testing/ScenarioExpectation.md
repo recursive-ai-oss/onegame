@@ -76,7 +76,7 @@ A check on the game's state. Unset fields are not checked.
 | [`Size`](#m-size) | Capture size. |
 | [`SoundFrames`](#m-soundframes) | Only sounds requested in the last this-many frames count (sound); 0 counts every sound since the scenario began. |
 | [`SoundName`](#m-soundname) | The sound's name (sound): the name the clip was loaded under, with or without its file extension. |
-| [`StoreChecks`](#m-storechecks) | The checks of a [`ExpectKind.Store`](ExpectKind.md#m-store) expectation: a key (owned, not-owned, pending, connection, unfinished, products, recent) and its value. |
+| [`StoreChecks`](#m-storechecks) | The checks of a [`ExpectKind.Store`](ExpectKind.md#m-store) expectation: a key (owned, not-owned, pending, connection, unfinished, products, recent, or price, currency and micros as `product=value`) and its value. |
 | [`Table`](#m-table) | Hot table name (state), instead of [`ScenarioExpectation.Entity`](ScenarioExpectation.md#m-entity). |
 | [`Text`](#m-text) | The first match's text (ui). |
 | [`Tolerance`](#m-tolerance) | Per-channel difference (0-255) a pixel may have and still count as equal. |
@@ -496,7 +496,7 @@ The sound's name (sound): the name the clip was loaded under, with or without it
 public (string Key, string Value)[] StoreChecks { get; init; }
 ```
 
-The checks of a [`ExpectKind.Store`](ExpectKind.md#m-store) expectation: a key (owned, not-owned, pending, connection, unfinished, products, recent) and its value.
+The checks of a [`ExpectKind.Store`](ExpectKind.md#m-store) expectation: a key (owned, not-owned, pending, connection, unfinished, products, recent, or price, currency and micros as `product=value`) and its value.
 
 **Type:** `(string Key, string Value)[]`
 
