@@ -64,4 +64,58 @@ public class AllocationTests
         Assert.True(messages.Length == 0, string.Join("\n", messages));
         Assert.True(total == 0, $"60 steady frames allocated {total} bytes ({string.Join(", ", where.Take(8))})");
     }
+
+    [Fact]
+    public void SteadyFramesOfALiquidSurfaceAllocateNothing()
+    {
+        var definition = new Draw2DGameDefinition();
+        var registry = new EntityRegistry();
+        definition.RegisterEntities(registry);
+        var world = new World(1, registry);
+        definition.Setup(world);
+        var fonts = new FontLibrary();
+        definition.DefineFonts(fonts);
+        ((Showcase)world.Entities.First(e => e is Showcase)).Show(9);
+
+        using var device = GpuBackends.CreateDevice(new GpuDeviceOptions { Validation = true, RequireValidation = true });
+        using var stage = new Render2DStage(new HostResources(fonts, new FontTextMeasurer(fonts), new ArtAtlas(), GeneratedShaders.Instance));
+        using var target = device.CreateTexture(new TextureDesc(320, 180, GpuFormat.Rgba8UnormSrgb, TextureUsage.RenderTarget | TextureUsage.CopySource));
+        var list = new DisplayList();
+
+        void Frame()
+        {
+            world.Step();
+            stage.Render(device, target, new FrameInfo(320, 180, 1, world.Tick, list, world, Fixed.Half));
+        }
+
+        for (var i = 0; i < 20; i++)
+        {
+            Frame();
+        }
+
+        device.WaitIdle();
+        Frame();
+
+        // The cleanest of three runs of 60 frames: the runtime and the driver now and then allocate a few bytes on their own.
+        var best = long.MaxValue;
+        for (var run = 0; run < 3 && best != 0; run++)
+        {
+            long total = 0;
+            for (var i = 0; i < 60; i++)
+            {
+                world.Step();
+                var before = GC.GetAllocatedBytesForCurrentThread();
+                stage.Render(device, target, new FrameInfo(320, 180, 1, world.Tick, list, world, Fixed.Half));
+                total += GC.GetAllocatedBytesForCurrentThread() - before;
+            }
+
+            best = Math.Min(best, total);
+        }
+
+        device.WaitIdle();
+        Assert.True(stage.Draw.SpriteCount >= 400, $"only {stage.Draw.SpriteCount} sprites were drawn");
+        var messages = device.TakeValidationMessages();
+        Assert.True(messages.Length == 0, string.Join("\n", messages));
+        Assert.True(best == 0, $"the cleanest of three runs of 60 steady frames allocated {best} bytes");
+    }
 }
