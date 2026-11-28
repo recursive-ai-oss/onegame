@@ -4,6 +4,10 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Changed
+
+- A pointer press, release, hover or focus change no longer restyles the whole UI tree when the theme has combinator rules (the kit theme does). Only elements that a `:hover`, `:active` or `:focus` rule names on the ancestor side of a combinator restyle their subtree; the rest of the changed chain restyles by itself. On a 2,004-element tree with most elements hidden, a press restyled 2,004 elements and a release 2,003 (about 7 ms together); now 3 and 2 (about 0.24 ms). On a kit screen of 1,225 elements, 1,230 and 1,224 became 5 and 3.
+
 ## [2.5.3] - 2026-11-26
 
 ### Fixed

@@ -253,7 +253,7 @@ public sealed partial class UiTree
             if (!e.Contains(target) && e.HoverChain)
             {
                 e.HoverChain = false;
-                e.MarkStyle(AncestorSelectors);
+                e.MarkStyle(HoverReachesDescendants(e));
                 e.Raise(new UiEvent { Kind = UiEventKind.PointerLeave, X = _pointerX, Y = _pointerY });
             }
         }
@@ -263,7 +263,7 @@ public sealed partial class UiTree
             if (!e.HoverChain)
             {
                 e.HoverChain = true;
-                e.MarkStyle(AncestorSelectors);
+                e.MarkStyle(HoverReachesDescendants(e));
                 e.Raise(new UiEvent { Kind = UiEventKind.PointerEnter, X = _pointerX, Y = _pointerY });
             }
         }
@@ -283,7 +283,7 @@ public sealed partial class UiTree
             if (e.ActiveChain)
             {
                 e.ActiveChain = false;
-                e.MarkStyle(AncestorSelectors);
+                e.MarkStyle(ActiveReachesDescendants(e));
             }
         }
 
@@ -293,7 +293,7 @@ public sealed partial class UiTree
             if (!e.ActiveChain)
             {
                 e.ActiveChain = true;
-                e.MarkStyle(AncestorSelectors);
+                e.MarkStyle(ActiveReachesDescendants(e));
             }
         }
     }
@@ -367,14 +367,14 @@ public sealed partial class UiTree
         if (old is not null)
         {
             old.FocusFlag = false;
-            old.MarkStyle(AncestorSelectors);
+            old.MarkStyle(FocusReachesDescendants(old));
             old.Raise(new UiEvent { Kind = UiEventKind.Blur });
         }
 
         if (element is not null)
         {
             element.FocusFlag = true;
-            element.MarkStyle(AncestorSelectors);
+            element.MarkStyle(FocusReachesDescendants(element));
             element.Raise(new UiEvent { Kind = UiEventKind.Focus });
             ScrollIntoView(element);
         }

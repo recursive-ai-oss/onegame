@@ -27,6 +27,30 @@ internal sealed class Compound
 
     public bool Structural => (Pseudo & (Pseudo.FirstChild | Pseudo.LastChild | Pseudo.NthChild)) != 0;
 
+    /// <summary>True when the element passes the type, id and class tests, ignoring every pseudo-class. Used to decide whether a state change on the element can reach rules that name it on the ancestor side of a combinator.</summary>
+    public bool MatchesIgnoringPseudo(Element el)
+    {
+        if (Type is not null && !string.Equals(Type, el.Kind, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (Id is not null && !string.Equals(Id, el.Id, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        foreach (var c in Classes)
+        {
+            if (!el.HasClass(c))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public bool Matches(Element el)
     {
         if (Type is not null && !string.Equals(Type, el.Kind, StringComparison.Ordinal))
@@ -138,6 +162,12 @@ internal sealed class Selector
     public bool HasCombinator { get; }
 
     public bool HasStructural { get; }
+
+    /// <summary>Number of compounds left of the subject (the part that styles the element itself).</summary>
+    public int AncestorPartCount => _parts.Length - 1;
+
+    /// <summary>A compound left of the subject; index below <see cref="AncestorPartCount"/>.</summary>
+    public Compound AncestorPart(int i) => _parts[i];
 
     public bool Matches(Element el) => Match(el, _parts.Length - 1);
 
