@@ -340,6 +340,61 @@ public static partial class Runner
             return JsonSerializer.Serialize(new Dictionary<string, object?> { ["name"] = "fog", ["ok"] = false, ["error"] = ex.ToString() }, RunnerJson.Options);
         }
     }
+    /// <summary>
+    /// A lit wall seen from close by, so the facing term falls from 1 at the middle to about 0.58 at the corners: the view-angle tint must leave
+    /// the middle alone, turn the corners red past its edge, and leave the picture unchanged while its strength is 0. Returns a JSON result like <see cref="Run"/>.
+    /// </summary>
+    [JSExport]
+    public static async Task<string> RunViewTint()
+    {
+        try
+        {
+            _device ??= await WebGpu.CreateDeviceAsync(new GpuDeviceOptions { ApplicationName = "render3d web runner" }).ConfigureAwait(true);
+            using var renderer = new Renderer3D(_device);
+            using var target = new Offscreen3D(renderer, 64, 64, GpuFormat.Rgba8UnormSrgb);
+            var material = renderer.CreateMaterial("wall", baseColor: new Vector4(0.8f, 0.8f, 0.8f, 1f));
+            var n = Vector3.UnitZ;
+            MeshVertex3D[] quad = [new(new Vector3(-5, -5, 0), n, default), new(new Vector3(5, -5, 0), n, default), new(new Vector3(5, 5, 0), n, default), new(new Vector3(-5, 5, 0), n, default)];
+            using var mesh = renderer.CreateMesh(material, quad, [0, 1, 2, 0, 2, 3], "quad");
+            var camera = Camera3D.LookAt(new Vector3(0, 0, 3), Vector3.Zero, Vector3.UnitY);
+            camera.YFov = MathF.PI / 2f;
+            var scene = new Scene3D { Camera = camera, Samples = 1 };
+            scene.Add(mesh.Model);
+            scene.Environment.Intensity = 0f;
+            scene.Environment.Background = BackgroundMode.Color;
+            scene.Environment.BackgroundColor = Vector3.Zero;
+            scene.Post.Bloom = false;
+            scene.Post.ToneMapper = ToneMapper.None;
+            scene.Lights.Add(Light3D.Directional(new Vector3(0, 0, -1), Vector3.One, 3f));
+            var rows = new List<Dictionary<string, object?>>();
+            var allOk = true;
+
+            async Task<byte[]> Shot() => await target.CaptureAsync(scene).ConfigureAwait(true);
+            static int[] At(byte[] px, int x, int y) { var o = ((y * 64) + x) * 4; return [px[o], px[o + 1], px[o + 2]]; }
+            void Row(string name, bool ok, object got) { allOk &= ok; rows.Add(new() { ["case"] = name, ["got"] = got, ["ok"] = ok }); }
+
+            var plain = await Shot().ConfigureAwait(true);
+            material.ViewTintColor = new Vector3(1, 0, 0);
+            material.ViewTintEdge = 0.66f;
+            material.ViewTintSoftness = 0f;
+            var unused = await Shot().ConfigureAwait(true);
+            Row("strength 0 is identical", plain.AsSpan().SequenceEqual(unused), 0);
+            material.ViewTintStrength = 1f;
+            var tinted = await Shot().ConfigureAwait(true);
+            Row("middle untouched", At(plain, 32, 32).AsSpan().SequenceEqual(At(tinted, 32, 32)), At(tinted, 32, 32));
+            var corner = At(tinted, 4, 4);
+            Row("corner red", corner[0] > 200 && corner[1] < 60 && corner[2] < 60, corner);
+            var soft = At(plain, 4, 4);
+            Row("corner was grey", soft[1] > 20, soft);
+            await WebGpu.SettleAsync(_device).ConfigureAwait(true);
+            var messages = _device.TakeValidationMessages();
+            return JsonSerializer.Serialize(new Dictionary<string, object?> { ["name"] = "viewtint", ["ok"] = allOk && messages.Length == 0, ["rows"] = rows, ["validation"] = messages }, RunnerJson.Options);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return JsonSerializer.Serialize(new Dictionary<string, object?> { ["name"] = "viewtint", ["ok"] = false, ["error"] = ex.ToString() }, RunnerJson.Options);
+        }
+    }
 }
 
 /// <summary>Stands in for the native tests' rig where <see cref="Shapes"/> uploads a model.</summary>

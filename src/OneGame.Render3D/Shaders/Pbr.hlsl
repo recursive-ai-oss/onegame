@@ -52,6 +52,8 @@ struct ShadowData
     float4 StyleB;         // x outline width in pixels
     float4 OutlineColor;
     float4 WaterA;         // x planar reflection strength (0 = off), yz uv scroll in texture units per second
+    float4 TintA;          // rgb view-angle tint colour (linear), w strength (0 = off)
+    float4 TintB;          // x edge (cos), y softness, z power, w 1 = tint inside the cone, 0 = outside
 };
 
 // Fog for a surface drawn with the current material: zero when the material opted out (a sky dome or other backdrop layer).
@@ -482,6 +484,20 @@ float AmbientOcclusion(float4 fragCoord)
     return lerp(1.0, ao, AoInfo.x);
 }
 
+// View-angle tint (Material3D.ViewTintStrength): blends the base colour toward a second colour by the facing term n.v.
+float3 ViewTint(float3 baseRgb, float3 n, float3 v)
+{
+    if (TintA.w <= 0.0)
+    {
+        return baseRgb;
+    }
+
+    float f = saturate(dot(n, v));
+    float k = TintB.y > 0.0 ? smoothstep(TintB.x - TintB.y, TintB.x + TintB.y, f) : (f >= TintB.x ? 1.0 : 0.0);
+    float w = pow(TintB.w > 0.5 ? k : 1.0 - k, TintB.z);
+    return lerp(baseRgb, TintA.rgb, TintA.w * w);
+}
+
 bool AlphaMasked(float4 base)
 {
     return P1.y > 0.5 && P1.y < 1.5 && base.a < P1.x;
@@ -543,6 +559,8 @@ float4 PSMain(VOut i, bool front : SV_IsFrontFace) : SV_Target
         float3 sn = float3(tn.xy * P0.z, tn.z);
         n = normalize(t * sn.x + b * sn.y + n * sn.z);
     }
+
+    base.rgb = ViewTint(base.rgb, n, v);
 
     // Clustered punctual lights: the slice comes from view depth, the tile from the pixel position.
     float viewZ = max(-mul(float4(i.WorldPos, 1.0), View).z, 1e-4);

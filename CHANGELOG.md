@@ -4,9 +4,13 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+- A view-angle tint on `Material3D`: `ViewTintStrength` (0 = off, output identical to a material without it), `ViewTintColor`, `ViewTintEdge`, `ViewTintSoftness`, `ViewTintPower` and `ViewTintZone` (`ViewTintZone3D.OutsideCone` or `InsideCone`) blend the base colour toward a second colour by the facing term n.v: a sharp cone (softness 0, edge 0.66 is the edge of Snell's window seen from under water) or a soft Fresnel-like rim. PBR and toon styles; Vulkan, Metal and WebGPU run the same shader.
+- `Renderer3D.BeginCreateBillboardTexture` returns a `BillboardTextureLoad3D` that premultiplies on pool threads; `Complete()` does only the upload on the renderer's thread. The result is byte-identical to `CreateBillboardTexture`; for a 4 MP image the calling thread pays about 0.1 ms to start and 10 ms to finish, against about 290 ms for `CreateBillboardTexture`.
+
 ### Changed
 
 - A pointer press, release, hover or focus change no longer restyles the whole UI tree when the theme has combinator rules (the kit theme does). Only elements that a `:hover`, `:active` or `:focus` rule names on the ancestor side of a combinator restyle their subtree; the rest of the changed chain restyles by itself. On a 2,004-element tree with most elements hidden, a press restyled 2,004 elements and a release 2,003 (about 7 ms together); now 3 and 2 (about 0.24 ms). On a kit screen of 1,225 elements, 1,230 and 1,224 became 5 and 3.
+- `Renderer3D.CreateBillboardTexture` premultiplies with a decode table (same bytes as before), about 40% faster.
 
 ## [2.5.3] - 2026-11-26
 

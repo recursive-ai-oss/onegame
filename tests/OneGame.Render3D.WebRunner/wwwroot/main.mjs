@@ -14,6 +14,12 @@ try {
   const cases = (await (await fetch('/testdata/render3d/cases.json')).json()).cases;
   const results = [];
   if (new URLSearchParams(location.search).get('layers')) results.push(JSON.parse(await R.RunLayers()));
+  if (new URLSearchParams(location.search).get('tint')) {
+    const r = JSON.parse(await R.RunViewTint());
+    window.__result = JSON.stringify({ adapter: gpu.takeMessages(0), results: [r] });
+    log.textContent = 'tint: ' + (r.ok ? 'ok' : 'FAIL');
+    throw new Error('__done');
+  }
   if (new URLSearchParams(location.search).get('fog')) {
     const r = JSON.parse(await R.RunFog());
     window.__result = JSON.stringify({ adapter: gpu.takeMessages(0), results: [r] });

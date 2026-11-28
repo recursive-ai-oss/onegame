@@ -79,6 +79,8 @@ internal struct MaterialConstants
     public Vector4 StyleB;
     public Vector4 OutlineColor;
     public Vector4 WaterA;
+    public Vector4 TintA;
+    public Vector4 TintB;
 }
 
 [StructLayout(LayoutKind.Sequential, Size = (int)GpuDevice.DynamicOffsetAlignment)]

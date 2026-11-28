@@ -65,6 +65,16 @@ public sealed class Primitive3D
     internal byte[]? BaseVertices { get; set; }
 }
 
+/// <summary>Which side of <see cref="Material3D.ViewTintEdge"/> a view-angle tint colours.</summary>
+public enum ViewTintZone3D
+{
+    /// <summary>Surfaces seen at a grazing angle, where the facing value is below the edge (outside a cone around the normal).</summary>
+    OutsideCone = 0,
+
+    /// <summary>Surfaces seen head on, where the facing value is above the edge (inside the cone).</summary>
+    InsideCone = 1,
+}
+
 /// <summary>The texture slots of a <see cref="Material3D"/> that <see cref="Material3D.SetTexture"/> can replace.</summary>
 public enum MaterialSlot3D
 {
@@ -111,6 +121,12 @@ public sealed class Material3D
     private bool _fogExempt;
     private float _reflectStrength = 1f;
     private Vector2 _scroll;
+    private Vector3 _tintColor = Vector3.One;
+    private float _tintStrength;
+    private float _tintEdge = 0.66f;
+    private float _tintSoftness = 0.02f;
+    private float _tintPower = 1f;
+    private ViewTintZone3D _tintZone;
 
     internal Material3D(Renderer3D renderer, Model3D owner, string name, in MaterialConstants constants, GpuBuffer buffer, GpuBindGroup group, BindGroupEntry[] entries, bool blend, bool doubleSided, bool mask)
     {
@@ -202,6 +218,34 @@ public sealed class Material3D
     public Vector2 UvScroll { get => _scroll; set => Set(ref _scroll, value); }
 
     /// <summary>
+    /// How strongly the base colour is blended toward <see cref="ViewTintColor"/> by the angle between the surface normal and the view
+    /// direction, 0 to 1 (0 by default: off, and the output is identical to a material without a tint). Per pixel, with f the clamped dot
+    /// product of the (normal-mapped) normal and the direction to the camera, k = smoothstep(<see cref="ViewTintEdge"/> - <see cref="ViewTintSoftness"/>,
+    /// <see cref="ViewTintEdge"/> + <see cref="ViewTintSoftness"/>, f) (a hard step at <c>ViewTintEdge</c> when the softness is 0); the weight is k
+    /// for <see cref="ViewTintZone3D.InsideCone"/> and 1 - k for <see cref="ViewTintZone3D.OutsideCone"/>, raised to <see cref="ViewTintPower"/>;
+    /// the colour becomes <c>lerp(base, tint, strength * weight)</c>. For a Snell's window seen from under water, point the surface
+    /// normal at the viewer (back faces are flipped for you), set the edge to cos(48.6 degrees) = 0.66 and tint outside the cone with a small
+    /// softness; for a soft Fresnel-like rim tint use an edge of 0, a softness near 1 and a power of 2 or more. Applies to the PBR and toon
+    /// styles (flat and unlit surfaces have no lit normal and ignore it).
+    /// </summary>
+    public float ViewTintStrength { get => _tintStrength; set => Set(ref _tintStrength, float.IsNaN(value) ? 0f : Math.Clamp(value, 0f, 1f)); }
+
+    /// <summary>The colour the base colour is blended toward by <see cref="ViewTintStrength"/>, linear RGB (white by default).</summary>
+    public Vector3 ViewTintColor { get => _tintColor; set => Set(ref _tintColor, Vector3.Max(value, Vector3.Zero)); }
+
+    /// <summary>The facing value (cosine of the angle between normal and view direction, 0 to 1) at the middle of the tint's edge. Default 0.66 (about 48.6 degrees, the edge of Snell's window).</summary>
+    public float ViewTintEdge { get => _tintEdge; set => Set(ref _tintEdge, float.IsNaN(value) ? 0.66f : Math.Clamp(value, 0f, 1f)); }
+
+    /// <summary>Half the width of the edge's transition, in facing units, 0 to 1. 0 makes a sharp cone; larger values fade it. Default 0.02.</summary>
+    public float ViewTintSoftness { get => _tintSoftness; set => Set(ref _tintSoftness, float.IsNaN(value) ? 0.02f : Math.Clamp(value, 0f, 1f)); }
+
+    /// <summary>An exponent on the tint weight (default 1; at least 0.01). Above 1 pulls the tint toward its extreme, which makes a rim tint fall off like Fresnel.</summary>
+    public float ViewTintPower { get => _tintPower; set => Set(ref _tintPower, float.IsNaN(value) ? 1f : Math.Clamp(value, 0.01f, 32f)); }
+
+    /// <summary>Which side of the edge is tinted (<see cref="ViewTintZone3D.OutsideCone"/> by default).</summary>
+    public ViewTintZone3D ViewTintZone { get => _tintZone; set => Set(ref _tintZone, value); }
+
+    /// <summary>
     /// Leaves the material out of <see cref="Scene3D.Fog"/> (false by default). Use it for a backdrop layer that must keep its own colours: a sky
     /// dome or skybox mesh, distant mountains painted into the sky. The material is still lit, tone mapped and depth tested as usual.
     /// </summary>
@@ -290,6 +334,8 @@ public sealed class Material3D
         c.Emissive = new Vector4(_emissive * _emissiveStrength, 1f - _opacity);
         c.WaterA = new Vector4(_reflect ? _reflectStrength : 0f, _scroll.X, _scroll.Y, 0f);
         c.Flags.Y = _fogExempt ? 1u : 0u;
+        c.TintA = new Vector4(_tintColor, _tintStrength);
+        c.TintB = new Vector4(_tintEdge, _tintSoftness, _tintPower, _tintZone == ViewTintZone3D.InsideCone ? 1f : 0f);
         _device.WriteBuffer(Constants, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(new ReadOnlySpan<MaterialConstants>(in c)));
     }
 }

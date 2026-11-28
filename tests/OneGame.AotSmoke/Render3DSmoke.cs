@@ -297,8 +297,10 @@ internal static class Render3DSmoke
                 var kept = spare.Upload(GltfLoader.Load(foxGlb));
                 var env = spare.CreateEnvironment(HdrImage.CreateSky(32, 16, new Vector3(0.2f, 0.4f, 1f), new Vector3(0.9f, 0.9f, 1f), new Vector3(0.2f)), 32);
                 var billboard = spare.CreateBillboardTexture(8, 8, new byte[8 * 8 * 4]);
+                var pending = spare.BeginCreateBillboardTexture(8, 8, new byte[8 * 8 * 4]).Complete();
+                kept.Materials[0].ViewTintStrength = 0.5f;
                 var offscreen = new Offscreen3D(spare, 32, 32);
-                if (kept is null || env is null || billboard is null || offscreen is null) { return -1; }
+                if (kept is null || env is null || billboard is null || pending is null || offscreen is null) { return -1; }
             }
 
             device.WaitIdle();
