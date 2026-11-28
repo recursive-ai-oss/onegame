@@ -4,6 +4,15 @@ All notable changes to onegame are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- A view-angle tint on `Material3D`: `ViewTintStrength` (0 = off, output identical to a material without it), `ViewTintColor`, `ViewTintEdge`, `ViewTintSoftness`, `ViewTintPower` and `ViewTintZone` (`ViewTintZone3D.OutsideCone` or `InsideCone`) blend the base colour toward a second colour by the facing term n.v: a sharp cone (softness 0, edge 0.66 is the edge of Snell's window seen from under water) or a soft Fresnel-like rim. PBR and toon styles; Vulkan, Metal and WebGPU run the same shader.
+- `Renderer3D.BeginCreateBillboardTexture` returns a `BillboardTextureLoad3D` that premultiplies on pool threads; `Complete()` does only the upload on the renderer's thread. The result is byte-identical to `CreateBillboardTexture`; for a 4 MP image the calling thread pays about 0.1 ms to start and 10 ms to finish, against about 290 ms for `CreateBillboardTexture`.
+
+### Changed
+
+- `Renderer3D.CreateBillboardTexture` premultiplies with a decode table (same bytes as before), about 40% faster.
+
 ## [2.5.3] - 2026-11-26
 
 ### Fixed

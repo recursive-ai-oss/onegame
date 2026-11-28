@@ -60,17 +60,35 @@ public sealed partial class Renderer3D
 
         EnsureBillboards();
         var data = new byte[rgba.Length];
-        for (var i = 0; i < data.Length; i += 4)
-        {
-            var a = rgba[i + 3] / 255f;
-            for (var c = 0; c < 3; c++)
-            {
-                data[i + c] = EncodeSrgb(DecodeSrgb(rgba[i + c]) * a);
-            }
+        PremultiplyRows(rgba, data, 0, rgba.Length);
+        return UploadBillboard(width, height, data, label);
+    }
 
-            data[i + 3] = rgba[i + 3];
+    /// <summary>
+    /// Starts making a billboard texture like <see cref="CreateBillboardTexture"/> but does the premultiplying (about 35 ms per megapixel on
+    /// one thread) on pool threads, split into row bands, so the calling thread only pays for a small upload in <see cref="BillboardTextureLoad3D.Complete"/>.
+    /// The result is byte-identical to <see cref="CreateBillboardTexture"/>. Only the arithmetic runs on pool threads; the
+    /// upload stays on the renderer's thread, so no GPU backend is touched from another thread. In the browser (one thread) the work is done inside this call.
+    /// </summary>
+    /// <param name="width">Width in pixels.</param>
+    /// <param name="height">Height in pixels.</param>
+    /// <param name="rgba">Straight-alpha sRGB bytes (R, G, B, A), top row first. Not copied: leave them unchanged until <see cref="BillboardTextureLoad3D.IsReady"/> is true.</param>
+    /// <param name="label">A name for debugging.</param>
+    /// <returns>A pending load. Call <see cref="BillboardTextureLoad3D.Complete"/> on the thread that owns the renderer.</returns>
+    /// <exception cref="ArgumentException">The sizes are not positive or the data is not <c>width * height * 4</c> bytes.</exception>
+    public BillboardTextureLoad3D BeginCreateBillboardTexture(int width, int height, ReadOnlyMemory<byte> rgba, string? label = null)
+    {
+        if (width < 1 || height < 1 || rgba.Length != checked(width * height * 4))
+        {
+            throw new ArgumentException("the pixel data must be width * height * 4 bytes");
         }
 
+        EnsureBillboards();
+        return new BillboardTextureLoad3D(this, width, height, rgba, label);
+    }
+
+    internal BillboardTexture3D UploadBillboard(int width, int height, byte[] data, string? label)
+    {
         var tex = Device.CreateTexture(new TextureDesc((uint)width, (uint)height, GpuFormat.Rgba8UnormSrgb, TextureUsage.Sampled | TextureUsage.CopyDestination) { Label = label ?? "billboard" });
         Device.WriteTexture(tex, 0, 0, data);
         var group = Device.CreateBindGroup(_bbLayout!, 1, [BindGroupEntry.ForTexture(0, tex), BindGroupEntry.ForSampler(1, _bbSampler!)]);
@@ -96,6 +114,35 @@ public sealed partial class Renderer3D
         }
 
         return CreateBillboardTexture(n, n, px, "soft spot");
+    }
+
+    // Premultiplies the bytes [from, to) (a whole number of pixels) in linear light. The decode table holds exactly what DecodeSrgb returns.
+    internal static void PremultiplyRows(ReadOnlySpan<byte> src, Span<byte> dst, int from, int to)
+    {
+        var lut = DecodeTable;
+        for (var i = from; i < to; i += 4)
+        {
+            var a = src[i + 3] / 255f;
+            for (var c = 0; c < 3; c++)
+            {
+                dst[i + c] = EncodeSrgb(lut[src[i + c]] * a);
+            }
+
+            dst[i + 3] = src[i + 3];
+        }
+    }
+
+    private static readonly float[] DecodeTable = MakeDecodeTable();
+
+    private static float[] MakeDecodeTable()
+    {
+        var t = new float[256];
+        for (var i = 0; i < 256; i++)
+        {
+            t[i] = DecodeSrgb((byte)i);
+        }
+
+        return t;
     }
 
     private static float DecodeSrgb(byte b)
