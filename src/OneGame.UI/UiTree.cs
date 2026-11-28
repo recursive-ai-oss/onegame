@@ -85,6 +85,35 @@ public sealed partial class UiTree
     /// <summary>True when any selector in any sheet uses a combinator, so a class or state change can restyle descendants.</summary>
     internal bool AncestorSelectors { get; private set; }
 
+    /// <summary>Count of element style recomputations since the tree was created; tests and the harness read it to see what an interaction cost.</summary>
+    internal long StyleRecomputes;
+
+    // Compounds that carry a state pseudo-class on the ancestor side of a combinator. A state change on an
+    // element only needs a subtree restyle when the element can be one of these; every other element on the
+    // changed chain restyles by itself, so a press costs the hit path and not the whole tree.
+    private readonly List<Compound> _hoverAncestors = [];
+    private readonly List<Compound> _activeAncestors = [];
+    private readonly List<Compound> _focusAncestors = [];
+
+    private static bool CanReach(List<Compound> parts, Element e)
+    {
+        foreach (var c in parts)
+        {
+            if (c.MatchesIgnoringPseudo(e))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    internal bool HoverReachesDescendants(Element e) => CanReach(_hoverAncestors, e);
+
+    internal bool ActiveReachesDescendants(Element e) => CanReach(_activeAncestors, e);
+
+    internal bool FocusReachesDescendants(Element e) => CanReach(_focusAncestors, e);
+
     /// <summary>True when any selector uses <c>:first-child</c>, <c>:last-child</c> or <c>:nth-child</c>.</summary>
     internal bool StructuralSelectors { get; private set; }
 
@@ -156,12 +185,34 @@ public sealed partial class UiTree
     private void SheetsChanged()
     {
         AncestorSelectors = false;
+        _hoverAncestors.Clear();
+        _activeAncestors.Clear();
+        _focusAncestors.Clear();
         StructuralSelectors = false;
         foreach (var sheet in _sheets)
         {
             foreach (var r in sheet.Rules)
             {
                 AncestorSelectors |= r.Selector.HasCombinator;
+                for (var i = 0; i < r.Selector.AncestorPartCount; i++)
+                {
+                    var part = r.Selector.AncestorPart(i);
+                    if ((part.Pseudo & Pseudo.Hover) != 0)
+                    {
+                        _hoverAncestors.Add(part);
+                    }
+
+                    if ((part.Pseudo & Pseudo.Active) != 0)
+                    {
+                        _activeAncestors.Add(part);
+                    }
+
+                    if ((part.Pseudo & Pseudo.Focus) != 0)
+                    {
+                        _focusAncestors.Add(part);
+                    }
+                }
+
                 StructuralSelectors |= r.Selector.HasStructural;
             }
         }
@@ -307,6 +358,7 @@ public sealed partial class UiTree
     // Returns true when an inherited property changed. CSS Cascade 4 §6.
     private bool Recompute(Element e, out bool tokensChanged)
     {
+        StyleRecomputes++;
         var parent = e.Parent;
         var scratch = _scratch;
         var all = PropertyTable.All;
