@@ -18,6 +18,7 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`Billboard3D`](OneGame.Render3D/Billboard3D.md) | struct | One camera-facing quad of a [`BillboardBatch3D`](OneGame.Render3D/BillboardBatch3D.md). |
 | [`BillboardBatch3D`](OneGame.Render3D/BillboardBatch3D.md) | class | Quads that always face the camera, drawn after the opaque and blended surfaces: particles, glows, lens spots, markers. |
 | [`BillboardTexture3D`](OneGame.Render3D/BillboardTexture3D.md) | class | An image for billboards, uploaded with its colours premultiplied by alpha in linear light. |
+| [`BillboardTextureLoad3D`](OneGame.Render3D/BillboardTextureLoad3D.md) | class | A billboard texture whose pixels are being premultiplied on pool threads (see [`Renderer3D.BeginCreateBillboardTexture()`](OneGame.Render3D/Renderer3D.md#m-begincreatebillboardtexture-int-int-readonlymemory-byte-string)). |
 | [`Camera3D`](OneGame.Render3D/Camera3D.md) | class | A camera. |
 | [`DebugDepth3D`](OneGame.Render3D/DebugDepth3D.md) | enum | Whether scene surfaces hide debug geometry. |
 | [`DebugDraw3D`](OneGame.Render3D/DebugDraw3D.md) | class | Reusable immediate-mode debug primitives. |
@@ -57,6 +58,7 @@ dotnet add package RecursiveAI.OneGame.Render3D
 | [`ShadowSettings`](OneGame.Render3D/ShadowSettings.md) | class | Scene-wide shadow controls. |
 | [`SsaoSettings`](OneGame.Render3D/SsaoSettings.md) | class | Screen-space ambient occlusion, computed from the depth and normals of the scene. |
 | [`ToneMapper`](OneGame.Render3D/ToneMapper.md) | enum | The curve that maps scene-referred HDR light to display values. |
+| [`ViewTintZone3D`](OneGame.Render3D/ViewTintZone3D.md) | enum | Which side of [`Material3D.ViewTintEdge`](OneGame.Render3D/Material3D.md#m-viewtintedge) a view-angle tint colours. |
 | [`VolumetricSettings`](OneGame.Render3D/VolumetricSettings.md) | class | Light shafts (also called god rays or volumetric light): lights scattering through the air, so a sun through a gap in a wall or a flashlight's cone shows as a beam, and objects that block the light leave dark shafts in it. |
 
 ## OneGame.Render3D.Shaders

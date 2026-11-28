@@ -25,7 +25,7 @@ How the pages are laid out, which documentation tags they support and how to reg
 | [RecursiveAI.OneGame.Platform](OneGame.Platform/index.md) | 1 | 59 | 616 | Windows, input, controllers and the app lifecycle per operating system. |
 | [RecursiveAI.OneGame.Purchases](OneGame.Purchases/index.md) | 1 | 22 | 163 | In-app purchases: one store-neutral API over StoreKit, Google Play Billing and a scriptable fake store. |
 | [RecursiveAI.OneGame.Render2D](OneGame.Render2D/index.md) | 2 | 69 | 444 | Sprite, tilemap and text renderer. |
-| [RecursiveAI.OneGame.Render3D](OneGame.Render3D/index.md) | 2 | 182 | 1297 | Physically based 3D renderer: glTF materials, clustered forward lighting, image-based lighting, bloom and tone mapping on the render graph. |
+| [RecursiveAI.OneGame.Render3D](OneGame.Render3D/index.md) | 2 | 184 | 1310 | Physically based 3D renderer: glTF materials, clustered forward lighting, image-based lighting, bloom and tone mapping on the render graph. |
 | [RecursiveAI.OneGame.Server](OneGame.Server/index.md) | 1 | 36 | 234 | The headless server host: fixed-step scopes, YAML configuration, logging, and the plugin API. |
 | [RecursiveAI.OneGame.Server.Live](OneGame.Server.Live/index.md) | 1 | 11 | 100 | Live control of a running game server over the same MCP surface as a development game: plugin and scope operations. |
 | [RecursiveAI.OneGame.Server.Plugins](OneGame.Server.Plugins/index.md) | 1 | 1 | 2 | Loads server plugins into collectible load contexts. CoreCLR only: it uses reflection and assembly loading, so NativeAOT hosts leave it out. |

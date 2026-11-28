@@ -26,6 +26,8 @@ public struct Pbr.Material
 | [`Size`](#m-size) |  |
 | [`StyleA`](#m-stylea) |  |
 | [`StyleB`](#m-styleb) |  |
+| [`TintA`](#m-tinta) |  |
+| [`TintB`](#m-tintb) |  |
 | [`WaterA`](#m-watera) |  |
 | [`Xf_0`](#m-xf-0) |  |
 | [`Xf_1`](#m-xf-1) |  |
@@ -113,7 +115,7 @@ public Vector4 P1;
 ### <a id="m-size"></a>Size
 
 ```csharp
-public const uint Size = 304;
+public const uint Size = 336;
 ```
 
 **Type:** `uint`
@@ -130,6 +132,22 @@ public Vector4 StyleA;
 
 ```csharp
 public Vector4 StyleB;
+```
+
+**Type:** [`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)
+
+### <a id="m-tinta"></a>TintA
+
+```csharp
+public Vector4 TintA;
+```
+
+**Type:** [`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)
+
+### <a id="m-tintb"></a>TintB
+
+```csharp
+public Vector4 TintB;
 ```
 
 **Type:** [`Vector4`](https://learn.microsoft.com/dotnet/api/system.numerics.vector4)

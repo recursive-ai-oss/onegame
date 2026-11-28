@@ -285,6 +285,7 @@ A round white spot that fades smoothly to nothing at its edge: what billboards s
 
 | Member | Description |
 | --- | --- |
+| [`BeginCreateBillboardTexture(int, int, ReadOnlyMemory<byte>, string?)`](#m-begincreatebillboardtexture-int-int-readonlymemory-byte-string) | Starts making a billboard texture like [`Renderer3D.CreateBillboardTexture()`](Renderer3D.md#m-createbillboardtexture-int-int-readonlyspan-byte-string) but does the premultiplying (about 35 ms per megapixel on one thread) on pool threads, split into row bands, so the calling thread only pays for a small upload in [`BillboardTextureLoad3D.Complete()`](BillboardTextureLoad3D.md#m-complete). |
 | [`CreateBillboardTexture(int, int, ReadOnlySpan<byte>, string?)`](#m-createbillboardtexture-int-int-readonlyspan-byte-string) | Uploads an image for billboards. |
 | [`CreateEnvironment(HdrImage, int)`](#m-createenvironment-hdrimage-int) | Makes an environment from an equirectangular panorama (see [`HdrImage`](HdrImage.md) for the orientation). |
 | [`CreateEnvironmentAsync(HdrImage, EnvironmentLoadOptions?)`](#m-createenvironmentasync-hdrimage-environmentloadoptions) | Starts making an environment without a hitch: the panorama is converted on a worker thread (in slices on the render thread in a browser), copied to the GPU in bands, and filtered a few passes per frame, all driven by [`Renderer3D.Render()`](Renderer3D.md#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat). |
@@ -297,6 +298,27 @@ A round white spot that fades smoothly to nothing at its edge: what billboards s
 | [`Render(RenderGraph, Scene3D, GraphTexture, int, int, GpuFormat)`](#m-render-rendergraph-scene3d-graphtexture-int-int-gpuformat) | Adds this frame's passes to a render graph that has begun a frame: shadow maps, the depth prepass and ambient occlusion when the scene asks for them, light clustering, the forward pass, bloom and tone mapping into `target`. |
 | [`RetireEnvironment(EnvironmentMap)`](#m-retireenvironment-environmentmap) | Frees a map that frames already recorded may still draw with, at the start of the next render. |
 | [`Upload(GltfModel, int)`](#m-upload-gltfmodel-int) | Uploads a glTF model: vertex and index buffers, materials, and textures with generated mip levels (colour textures as sRGB). |
+
+### <a id="m-begincreatebillboardtexture-int-int-readonlymemory-byte-string"></a>BeginCreateBillboardTexture(int, int, ReadOnlyMemory&lt;byte&gt;, string?)
+
+```csharp
+public BillboardTextureLoad3D BeginCreateBillboardTexture(int width, int height, ReadOnlyMemory<byte> rgba, string? label = null);
+```
+
+Starts making a billboard texture like [`Renderer3D.CreateBillboardTexture()`](Renderer3D.md#m-createbillboardtexture-int-int-readonlyspan-byte-string) but does the premultiplying (about 35 ms per megapixel on one thread) on pool threads, split into row bands, so the calling thread only pays for a small upload in [`BillboardTextureLoad3D.Complete()`](BillboardTextureLoad3D.md#m-complete). The result is byte-identical to [`Renderer3D.CreateBillboardTexture()`](Renderer3D.md#m-createbillboardtexture-int-int-readonlyspan-byte-string). Only the arithmetic runs on pool threads; the upload stays on the renderer's thread, so no GPU backend is touched from another thread. In the browser (one thread) the work is done inside this call.
+
+**Parameters**
+
+- `width` (`int`): Width in pixels.
+- `height` (`int`): Height in pixels.
+- `rgba` ([`ReadOnlyMemory`](https://learn.microsoft.com/dotnet/api/system.readonlymemory-1)`<byte>`): Straight-alpha sRGB bytes (R, G, B, A), top row first. Not copied: leave them unchanged until [`BillboardTextureLoad3D.IsReady`](BillboardTextureLoad3D.md#m-isready) is true.
+- `label` (`string?`): A name for debugging.
+
+**Returns:** [`BillboardTextureLoad3D`](BillboardTextureLoad3D.md) — A pending load. Call [`BillboardTextureLoad3D.Complete()`](BillboardTextureLoad3D.md#m-complete) on the thread that owns the renderer.
+
+**Exceptions**
+
+- [`ArgumentException`](https://learn.microsoft.com/dotnet/api/system.argumentexception): The sizes are not positive or the data is not `width * height * 4` bytes.
 
 ### <a id="m-createbillboardtexture-int-int-readonlyspan-byte-string"></a>CreateBillboardTexture(int, int, ReadOnlySpan&lt;byte&gt;, string?)
 
